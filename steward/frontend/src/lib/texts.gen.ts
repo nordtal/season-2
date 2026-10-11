@@ -314,6 +314,11 @@ export type TextArgs = {
     label: Arg["text"]
     unlocked: Arg["choice"]
   }
+  "journal.held-key-for": {
+    label: Arg["text"]
+    unlocked: Arg["choice"]
+    hold: Arg["duration"]
+  }
   "journal.link": Record<string, never>
   "journal.minecraft": Record<string, never>
   "journal.person": {
@@ -817,9 +822,7 @@ export type TextArgs = {
   }
   "steward.answer.key-not-accepted": Record<string, never>
   "steward.answer.key-not-held": Record<string, never>
-  "steward.answer.key-not-recent": {
-    within: Arg["duration"]
-  }
+  "steward.answer.key-not-recent": Record<string, never>
   "steward.answer.key-refused": {
     registration: Arg["choice"]
     why: Arg["text"]
@@ -1120,13 +1123,18 @@ export type TextArgs = {
   "steward.keys.cancelled": Record<string, never>
   "steward.keys.closed": Record<string, never>
   "steward.keys.did-not-work": Record<string, never>
+  "steward.keys.end-step-up": Record<string, never>
   "steward.keys.heading": Record<string, never>
+  "steward.keys.hold-for": {
+    length: Arg["duration"]
+  }
   "steward.keys.hold-key": Record<string, never>
   "steward.keys.hold-title": Record<string, never>
   "steward.keys.keep-it": Record<string, never>
   "steward.keys.last-used": {
     at: Arg["instant"]
   }
+  "steward.keys.longer-hold": Record<string, never>
   "steward.keys.my-iphone": Record<string, never>
   "steward.keys.my-key": Record<string, never>
   "steward.keys.my-mac": Record<string, never>
@@ -1178,6 +1186,12 @@ export type TextArgs = {
   "steward.keys.sign-out-instead": Record<string, never>
   "steward.keys.signed-in-as": {
     name: Arg["text"]
+  }
+  "steward.keys.step-up-holds": {
+    until: Arg["instant"]
+  }
+  "steward.keys.step-up-lasts": {
+    length: Arg["duration"]
   }
   "steward.keys.step-up-title": Record<string, never>
   "steward.keys.try-again": Record<string, never>

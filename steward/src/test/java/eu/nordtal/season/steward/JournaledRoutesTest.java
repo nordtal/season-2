@@ -43,6 +43,7 @@ class JournaledRoutesTest {
             Map.entry("POST /api/hunger-games/start", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/announcements", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /auth/logout", Unjournaled.OWN_SESSION),
+            Map.entry("DELETE /api/step-up", Unjournaled.OWN_SESSION),
             Map.entry("POST /auth/webauthn/register/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/webauthn/authenticate/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF));

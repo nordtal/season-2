@@ -142,6 +142,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V38__a_dead_resource_pack_is_an_alert.sql",
                 "0401ccd70fbc8f3aedf111ebf417c11dcaf5caf6a93e3289f23e4e4f38255568");
+        FROZEN.put(
+                "V39__a_step_up_holds_as_long_as_it_was_granted.sql",
+                "2c7f542ec54500ffd1c9bf0b9a14f07bc846fee391eec8aac8ab0b20816d2fc6");
     }
 
     @Test

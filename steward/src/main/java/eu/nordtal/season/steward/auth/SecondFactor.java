@@ -13,6 +13,7 @@ import io.javalin.http.Context;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -20,8 +21,41 @@ import org.jspecify.annotations.Nullable;
 /** The WebAuthn ceremony, the keys it registers, and the checks {@code Gatekeeper#guard} runs. */
 public final class SecondFactor {
 
-    /** How long one touch of the security key covers; deliberately not configurable. */
-    public static final Duration STEP_UP = Duration.ofMinutes(5);
+    /**
+     * How long one step-up holds, chosen on the step-up sheet for that step-up only.
+     *
+     * The server offers these and no other; the first is the default, and none is configurable.
+     */
+    public enum StepUpLength {
+        QUARTER_HOUR(Duration.ofMinutes(15)),
+        ONE_HOUR(Duration.ofHours(1)),
+        SIX_HOURS(Duration.ofHours(6));
+
+        public static final StepUpLength DEFAULT = QUARTER_HOUR;
+
+        private final Duration length;
+
+        StepUpLength(final Duration length) {
+            this.length = length;
+        }
+
+        public Duration length() {
+            return length;
+        }
+
+        /** The hold a finish route asked for: none is the default, and one the server does not offer is refused. */
+        static StepUpLength of(final @Nullable String asked) {
+            if (asked == null) {
+                return DEFAULT;
+            }
+            for (final StepUpLength hold : values()) {
+                if (hold.name().equals(asked)) {
+                    return hold;
+                }
+            }
+            throw new BadRequestResponse("a step-up holds for one of " + Arrays.toString(values()));
+        }
+    }
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
@@ -78,16 +112,16 @@ public final class SecondFactor {
     }
 
     /**
-     * Refuses unless the key was held within the last {@link SecondFactor#STEP_UP}, counted from the ceremony.
+     * Refuses unless this session's step-up still holds, until the end its ceremony set.
      *
      * The window does not slide, or anybody working continuously would never be asked.
      */
     void requireKeyRecently(final Sessions.Session who) {
-        final Instant held = who.verifiedAt();
-        if (held != null && held.isAfter(clock.instant().minus(SecondFactor.STEP_UP))) {
+        final Instant until = who.stepUpUntil();
+        if (until != null && until.isAfter(clock.instant())) {
             return;
         }
-        throw required(ANSWER.keyNotRecent(SecondFactor.STEP_UP));
+        throw required(ANSWER.keyNotRecent());
     }
 
     /**
@@ -102,7 +136,7 @@ public final class SecondFactor {
     /**
      * Hands this browser a registration challenge.
      *
-     * A further key needs the key held within {@link SecondFactor#STEP_UP}: adding one is as powerful as having one.
+     * A further key needs a step-up that still holds: adding one is as powerful as having one.
      */
     public void beginRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
@@ -149,7 +183,7 @@ public final class SecondFactor {
         }
         // Registering the first key is holding it; a further one leaves the window where the held key set it.
         if (!further) {
-            sessions().markVerified(who.id());
+            sessions().markVerified(who.id(), StepUpLength.DEFAULT.length());
         }
         Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().registerKey(key.label()));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
@@ -168,10 +202,11 @@ public final class SecondFactor {
     /** The name of the key removed, and how many the account still holds. */
     public record KeyRemoved(String removed, int left) {}
 
-    /** The body of the WebAuthn finish routes; {@code credential} stays a string. */
+    /** The body of the WebAuthn finish routes: {@code credential} stays a string, {@code hold} names a length. */
     private static final class Answer {
         private @Nullable String label;
         private @Nullable String credential;
+        private @Nullable String hold;
     }
 
     /** Hands this browser a challenge for a key it already has, or refuses if it has none. */
@@ -198,6 +233,7 @@ public final class SecondFactor {
         if (answer == null || answer.credential == null || answer.credential.isBlank()) {
             throw new BadRequestResponse("no credential in that answer");
         }
+        final StepUpLength hold = StepUpLength.of(answer.hold);
         final String parked = sessions()
                 .consumeCeremony(who.id())
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.ceremonyElsewhere(false)));
@@ -207,9 +243,18 @@ public final class SecondFactor {
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(400, refused.why());
         }
-        sessions().markVerified(who.id());
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().heldKey(held.label(), held.userVerified()));
+        sessions().markVerified(who.id(), hold.length());
+        Journaling.line(
+                ctx,
+                who.signedInDiscordId(),
+                TEXTS.journal().heldKeyFor(held.label(), held.userVerified(), hold.length()));
         ctx.json(held);
+    }
+
+    /** {@code DELETE /api/step-up}: ends this session's step-up now; reading goes on, the next change asks again. */
+    public void endStepUp(final Context ctx) {
+        sessions().endStepUp(requireSession.apply(ctx).id());
+        ctx.status(204);
     }
 
     /** The credential id out of the path, base64url as {@code /api/me} lists it. */

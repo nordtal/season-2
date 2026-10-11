@@ -165,8 +165,13 @@ public interface AdminTexts {
         @Name("Security key added")
         MessageRef registerKey(@Arg("label") String label);
 
+        /** The line written before a step-up chose how long it holds; the journal still shows those. */
         @Name("Security key used")
         MessageRef heldKey(@Arg("label") String label, @Arg("unlocked") boolean unlocked);
+
+        @Name("Security key used")
+        MessageRef heldKeyFor(
+                @Arg("label") String label, @Arg("unlocked") boolean unlocked, @Arg("hold") Duration hold);
 
         @Name("Security key renamed")
         MessageRef renameKey(@Arg("label") String label);

@@ -206,7 +206,7 @@ public interface StewardTexts {
             MessageRef keyNotHeld();
 
             @Name("Key not held lately")
-            MessageRef keyNotRecent(@Arg("within") Duration within);
+            MessageRef keyNotRecent();
 
             @Name("No key")
             MessageRef noKey();

@@ -61,7 +61,8 @@ public interface SessionDao {
 
     /** The row stored under {@code id}, answered under the cookie's own id, which the table does not hold. */
     @SqlQuery("""
-            SELECT :cookie AS id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at
+            SELECT :cookie AS id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at,
+                   step_up_until
             FROM steward_session
             WHERE id = :id
               AND expires_at > now()
@@ -97,14 +98,19 @@ public interface SessionDao {
             """)
     Optional<String> consumeCeremony(@Bind("id") String id);
 
-    /** Records that this browser has just held its key, on PostgreSQL's clock. */
+    /** Records that this browser has just held its key, on PostgreSQL's clock, and how long that step-up holds. */
     @SqlUpdate("""
             UPDATE steward_session
-            SET verified_at = now()
+            SET verified_at = now(),
+                step_up_until = now() + make_interval(secs => :seconds)
             WHERE id = :id
               AND expires_at > now()
             """)
-    int markVerified(@Bind("id") String id);
+    int markVerified(@Bind("id") String id, @Bind("seconds") long seconds);
+
+    /** Ends this browser's step-up early; the door, {@code verified_at}, stays open. */
+    @SqlUpdate("UPDATE steward_session SET step_up_until = NULL WHERE id = :id")
+    int endStepUp(@Bind("id") String id);
 
     @SqlUpdate("DELETE FROM steward_session WHERE id = :id")
     void end(@Bind("id") String id);

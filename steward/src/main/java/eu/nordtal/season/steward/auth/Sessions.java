@@ -113,10 +113,17 @@ public final class Sessions {
         return id == null || id.isBlank() ? Optional.empty() : dao.consumeCeremony(stored(id));
     }
 
-    /** Records that this browser has just held its key. */
-    public void markVerified(final @Nullable String id) {
+    /** Records that this browser has just held its key, with a step-up that holds for {@code hold}. */
+    public void markVerified(final @Nullable String id, final Duration hold) {
         if (id != null && !id.isBlank()) {
-            dao.markVerified(stored(id));
+            dao.markVerified(stored(id), hold.toSeconds());
+        }
+    }
+
+    /** Ends this browser's step-up now, so the next change asks for the key again. */
+    public void endStepUp(final @Nullable String id) {
+        if (id != null && !id.isBlank()) {
+            dao.endStepUp(stored(id));
         }
     }
 
@@ -179,7 +186,8 @@ public final class Sessions {
             String csrf,
             @ColumnName("created_at") Instant createdAt,
             @ColumnName("expires_at") Instant expiresAt,
-            @ColumnName("verified_at") @Nullable Instant verifiedAt) {
+            @ColumnName("verified_at") @Nullable Instant verifiedAt,
+            @ColumnName("step_up_until") @Nullable Instant stepUpUntil) {
 
         /** False while the row is between {@code /auth/login} and a completed callback. */
         public boolean signedIn() {

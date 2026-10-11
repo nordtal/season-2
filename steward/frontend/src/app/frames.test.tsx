@@ -20,7 +20,7 @@ const ME: Me = {
   name: "ally",
   csrf: "t",
   relyingPartyId: "nordtal.eu",
-  stepUpMinutes: 15,
+  stepUpHolds: [],
   verified: true,
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }

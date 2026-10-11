@@ -298,8 +298,8 @@ class WebAuthnKeyTest extends WebTestSupport {
         assertTrue(body.get("retryable").getAsBoolean(), refused.body());
         // The sentence is the bundle's, rendered with its typed value, not a literal of the route.
         assertEquals(
-                "This is one of the things Steward asks for the key before doing, and it has not been held in the last"
-                        + " 5 minutes.",
+                "This is one of the things Steward asks for the key before doing, and this session's step-up has"
+                        + " ended.",
                 body.get("error").getAsString());
 
         // Holding it again lets the same request through: "one tap, not two" as the server sees it.

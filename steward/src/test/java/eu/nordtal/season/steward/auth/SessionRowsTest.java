@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.DiscordId;
@@ -120,12 +121,19 @@ class SessionRowsTest {
         final String id = sessions.signIn(DiscordId.of("45"), "Unverified", List.of("4711"));
         assertFalse(sessions.find(id).orElseThrow().verified(), "a session was verified before anybody touched a key");
 
-        sessions.markVerified(id);
+        sessions.markVerified(id, Duration.ofHours(1));
 
         final Sessions.Session after = sessions.find(id).orElseThrow();
         assertTrue(after.verified());
         assertTrue(
                 after.verifiedAt().isAfter(Instant.now().minus(1, ChronoUnit.MINUTES)),
                 "verified_at is not now(): " + after.verifiedAt());
+        assertEquals(Duration.ofHours(1), Duration.between(after.verifiedAt(), after.stepUpUntil()));
+
+        sessions.endStepUp(id);
+
+        final Sessions.Session ended = sessions.find(id).orElseThrow();
+        assertNull(ended.stepUpUntil(), "the step-up outlived its end");
+        assertTrue(ended.verified(), "ending the step-up closed the door as well");
     }
 }

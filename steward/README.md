@@ -25,7 +25,9 @@ flowchart LR
 ## One process
 
 The interface, the stack routes (`stack/Routes`) and the runs' view share one Javalin and one set of
-gates: a read needs a signed-in admin with a key (`KEY_HELD`), a change a fresh one (`KEY_FRESH`).
+gates: a read needs a signed-in admin with a key (`KEY_HELD`), a change a step-up that still holds
+(`KEY_FRESH`). A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that
+(`SecondFactor.StepUpLength`); `steward_session.step_up_until` keeps its end, and `DELETE /api/step-up` ends it early.
 The plugin "added by" comes from the session, and a long log follow re-checks it once a second.
 
 The process on the internet holds no Docker socket and mounts no volume; everything Docker knows

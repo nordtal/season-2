@@ -13,6 +13,7 @@ import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.steward.alert.Thresholds;
 import eu.nordtal.season.steward.auth.DiscordAuth;
+import eu.nordtal.season.steward.auth.SecondFactor;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.TestAuthenticator;
 import eu.nordtal.season.steward.config.WebSpec;
@@ -111,7 +112,10 @@ public final class StewardPreview {
                 final String session = signIn(config.publicUrl());
                 // The key counts as just held for as long as this runs, so no change asks for it again.
                 final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
-                scheduler.every(Duration.ZERO, Duration.ofMinutes(1), () -> sessions.markVerified(session));
+                scheduler.every(
+                        Duration.ZERO,
+                        Duration.ofMinutes(1),
+                        () -> sessions.markVerified(session, SecondFactor.StepUpLength.DEFAULT.length()));
                 writeState(options.state(), session);
                 System.out.println("Steward preview on " + config.publicUrl() + ", signed in as " + ADMIN_NAME
                         + " (" + ADMIN + "). Cookie " + Sessions.COOKIE + "=" + session + ", Playwright state in "

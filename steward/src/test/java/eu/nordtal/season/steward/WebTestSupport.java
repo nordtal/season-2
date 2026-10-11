@@ -69,11 +69,23 @@ abstract class WebTestSupport extends WebFixture {
         return journal.get(0).getAsJsonObject();
     }
 
-    /** The whole authentication, driven the way the browser drives it. */
+    /** The whole authentication, driven the way the browser drives it, for the default hold. */
     static void holdTheKey(final HttpClient browser, final TestAuthenticator key) throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
         final HttpResponse<String> finished = finishAssertion(browser, key.assertion(started.body(), ORIGIN));
+        assertEquals(200, finished.statusCode(), finished.body());
+    }
+
+    /** The same, choosing how long the step-up holds. */
+    static void holdTheKey(final HttpClient browser, final TestAuthenticator key, final String hold) throws Exception {
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+        final JsonObject envelope = new JsonObject();
+        envelope.addProperty("credential", key.assertion(started.body(), ORIGIN));
+        envelope.addProperty("hold", hold);
+        final HttpResponse<String> finished =
+                post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
@@ -83,14 +95,15 @@ abstract class WebTestSupport extends WebFixture {
         return post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
     }
 
-    /** Moves this browser's key ceremony back out of the five-minute window, by the row rather than a clock. */
+    /** Moves this browser's key ceremony back out of its step-up, by the row rather than a clock. */
     static void heldLongAgo(final HttpClient browser) throws Exception {
         final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                 .get("csrf")
                 .getAsString();
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.prepareStatement(
-                        "UPDATE steward_session SET verified_at = now() - interval '1 hour'" + " WHERE csrf = ?")) {
+                        "UPDATE steward_session SET verified_at = now() - interval '1 hour',"
+                                + " step_up_until = now() - interval '1 minute' WHERE csrf = ?")) {
             statement.setString(1, csrf);
             assertEquals(1, statement.executeUpdate(), "no session matched that browser");
         }

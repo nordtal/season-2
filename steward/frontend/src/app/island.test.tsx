@@ -23,7 +23,7 @@ const ME: Me = {
   name: "ally",
   csrf: "t",
   relyingPartyId: "nordtal.eu",
-  stepUpMinutes: 15,
+  stepUpHolds: [],
   verified: true,
   keys: KEYS,
 }

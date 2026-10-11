@@ -22,6 +22,6 @@ public enum Gate implements RouteRole {
     /** The security key has been held at some point in this session: every reading route in {@code /api}. */
     KEY_HELD,
 
-    /** The security key has been held within the last five minutes: every other writing route. */
+    /** A step-up that still holds, for as long as its ceremony chose: every other writing route. */
     KEY_FRESH
 }

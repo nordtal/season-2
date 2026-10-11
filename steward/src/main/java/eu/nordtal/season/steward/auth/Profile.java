@@ -8,6 +8,7 @@ import eu.nordtal.season.steward.data.ExampleValues;
 import io.javalin.http.Context;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -95,8 +96,16 @@ public final class Profile {
             @Nullable Boolean verified,
             @Nullable Instant verifiedAt,
             @Nullable String relyingPartyId,
-            long stepUpMinutes,
+            @Nullable Instant stepUpUntil,
+            List<StepUpHold> stepUpHolds,
             @Nullable String discordAvatarUrl) {}
+
+    /** One length a step-up may hold for, as the step-up sheet offers it; the first is the default. */
+    public record StepUpHold(SecondFactor.StepUpLength hold, long minutes) {}
+
+    private static final List<StepUpHold> HOLDS = Arrays.stream(SecondFactor.StepUpLength.values())
+            .map(hold -> new StepUpHold(hold, hold.length().toMinutes()))
+            .toList();
 
     /** The keys of one account, as {@code /api/me} lists them. */
     private List<SecurityKey> keysOf(final DiscordId discordId) {
@@ -135,20 +144,7 @@ public final class Profile {
         final Optional<Sessions.Session> found = session.apply(ctx);
         final @Nullable String missing = signInMissing.get().orElse(null);
         if (found.isEmpty()) {
-            ctx.json(new Me(
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    missing,
-                    null,
-                    null,
-                    null,
-                    null,
-                    SecondFactor.STEP_UP.toMinutes(),
-                    null));
+            ctx.json(new Me(false, null, null, null, null, null, missing, null, null, null, null, null, HOLDS, null));
             return;
         }
         final Sessions.Session who = found.get();
@@ -165,7 +161,8 @@ public final class Profile {
                 who.verified(),
                 who.verifiedAt(),
                 webauthn().relyingPartyId(),
-                SecondFactor.STEP_UP.toMinutes(),
+                who.stepUpUntil(),
+                HOLDS,
                 avatarOf(who.signedInDiscordId()).orElse(null)));
     }
 }

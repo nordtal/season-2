@@ -127,6 +127,17 @@ export function useHoldKey() {
   })
 }
 
+/** Ends this session's step-up now; `/api/me` then has no `stepUpUntil`, and the next change asks for the key. */
+export function useEndStepUp() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await api<void>("/api/step-up", { method: "DELETE" })
+      await client.invalidateQueries({ queryKey: keys.me })
+    },
+  })
+}
+
 /** Renames one registered key. The list lives in `/api/me`, so that is what is invalidated. */
 export function useRenameKey() {
   const client = useQueryClient()

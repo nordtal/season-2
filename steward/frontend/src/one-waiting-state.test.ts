@@ -34,6 +34,10 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
   ["app/hold-key.tsx", "useHoldKey is a mutation. Nothing here is read."],
   [
+    "app/user-menu.tsx",
+    "useEndStepUp is a mutation. The step-up row reads the /api/me the shell has already waited for.",
+  ],
+  [
     "pages/access-person.tsx",
     "The dialogs' hooks are mutations. usePeople and useMe only decide whether Revoke admin is offered, and the" +
       " pages that draw a person wait for the roster before they do.",

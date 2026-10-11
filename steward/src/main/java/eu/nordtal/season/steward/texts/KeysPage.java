@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import java.time.Duration;
 import java.time.Instant;
 
 /** Signing in, holding a security key, the key list and a page that is not there. */
@@ -95,6 +96,21 @@ public interface KeysPage {
 
     @Name("Hold key")
     MessageRef holdKey();
+
+    @Name("Step-up lasts")
+    MessageRef stepUpLasts(@Arg("length") Duration length);
+
+    @Name("Longer hold")
+    MessageRef longerHold();
+
+    @Name("Hold for")
+    MessageRef holdFor(@Arg("length") Duration length);
+
+    @Name("Step-up holds")
+    MessageRef stepUpHolds(@Arg("until") Instant until);
+
+    @Name("End step-up")
+    MessageRef endStepUp();
 
     @Name("Closed")
     MessageRef closed();

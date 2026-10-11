@@ -1,12 +1,14 @@
-import { FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { CaretDownIcon, FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { onSecondFactorRequired } from "@/lib/api"
+import type { StepUpLength } from "@/lib/api.gen"
 import { holdTheKey } from "@/lib/hold-key"
 import { useMe } from "@/lib/queries"
 import { browserHasSecurityKeys } from "@/lib/webauthn"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -17,7 +19,9 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The key question in front of any write, after which the same request goes again; one touch lasts `stepUpMinutes`.
+ * The key question in front of any write, after which the same request goes again.
+ *
+ * One touch holds for the first of `stepUpHolds`; the split button's menu offers the longer ones for this touch only.
  *
  * Safari opens the key dialog only on a fresh tap; a failed ceremony fails the original request with it.
  */
@@ -54,11 +58,14 @@ export function StepUp() {
     return () => onSecondFactorRequired(null)
   }, [])
 
-  const hold = async () => {
+  const [standard, ...longer] = me.data?.stepUpHolds ?? []
+  const ready = !busy && browserHasSecurityKeys()
+
+  const hold = async (length?: StepUpLength) => {
     setBusy(true)
     setFailure(null)
     try {
-      await holdTheKey()
+      await holdTheKey(length)
       /** Refetched, since the shell is drawn from `verifiedAt`. */
       await me.refetch()
       settle(null)
@@ -97,6 +104,12 @@ export function StepUp() {
           </Alert>
         ) : null}
 
+        {standard ? (
+          <p className="text-sm text-muted-foreground">
+            {t("steward.keys.step-up-lasts", { length: standard.minutes * 60 })}
+          </p>
+        ) : null}
+
         <ResponsiveDialogFooter className="gap-2 sm:gap-2">
           <Button
             type="button"
@@ -106,10 +119,41 @@ export function StepUp() {
           >
             {t("steward.keys.not-now")}
           </Button>
-          <Button type="button" onClick={hold} disabled={busy || !browserHasSecurityKeys()}>
-            <FingerprintIcon aria-hidden />
-            {busy ? t("steward.keys.waiting") : failure ? t("steward.keys.try-again") : t("steward.keys.hold-key")}
-          </Button>
+          {/* A split button: the default hold, and a menu of the longer ones the server offers. */}
+          <div className="flex">
+            <Button
+              type="button"
+              className={longer.length > 0 ? "flex-1 rounded-r-none" : "flex-1"}
+              onClick={() => hold()}
+              disabled={!ready}
+            >
+              <FingerprintIcon aria-hidden />
+              {busy ? t("steward.keys.waiting") : failure ? t("steward.keys.try-again") : t("steward.keys.hold-key")}
+            </Button>
+            {longer.length > 0 ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="rounded-l-none border-l-primary-foreground/25"
+                    aria-label={t("steward.keys.longer-hold")}
+                    disabled={!ready}
+                  >
+                    <CaretDownIcon aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-auto">
+                  {longer.map((offer) => (
+                    <DropdownMenuItem key={offer.hold} onSelect={() => hold(offer.hold)}>
+                      <FingerprintIcon aria-hidden />
+                      {t("steward.keys.hold-for", { length: offer.minutes * 60 })}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

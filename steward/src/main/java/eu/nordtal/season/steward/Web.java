@@ -568,6 +568,7 @@ public final class Web {
                 "/api/keys/{id}", secondFactor::renameKey, Gate.KEY_FRESH, Journaled.as(JournalAction.RENAME_KEY));
         cfg.routes.delete(
                 "/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH, Journaled.as(JournalAction.REMOVE_KEY));
+        cfg.routes.delete("/api/step-up", secondFactor::endStepUp, Gate.KEY_HELD, Unjournaled.OWN_SESSION);
     }
 
     private void registerWebPushRoutes(final JavalinConfig cfg) {

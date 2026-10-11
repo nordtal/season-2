@@ -54,7 +54,7 @@ class GateTest {
     }
 
     /**
-     * Writing is {@link Gate#KEY_FRESH}, with exactly three named exceptions.
+     * Writing is {@link Gate#KEY_FRESH}, with the named exceptions below.
      *
      * The exceptions are written out rather than derived, so adding a fourth means editing a list a person reads.
      */
@@ -63,6 +63,8 @@ class GateTest {
         final Set<String> allowed = Set.of(
                 // Signing out: a person part-way through the key ceremony must still be able to leave.
                 "POST /auth/logout",
+                // Ending one's own step-up early: asking for the key to give it up would be backwards.
+                "DELETE /api/step-up",
                 // The two ceremonies: a door cannot ask for the key it exists to hand out.
                 "POST /auth/webauthn/register/start",
                 "POST /auth/webauthn/register/finish",
@@ -85,8 +87,8 @@ class GateTest {
         }
         assertTrue(
                 loose.isEmpty(),
-                "Every writing route needs the key held in the last five minutes, unless it is one"
-                        + " of the five that hand the key out. These are neither:\n  "
+                "Every writing route needs a step-up that still holds, unless it is one of the few"
+                        + " that hand the key out or give it up. These are neither:\n  "
                         + String.join("\n  ", loose));
     }
 

@@ -28,7 +28,8 @@ export type Me = {
   verified?: boolean
   verifiedAt?: string
   relyingPartyId?: string
-  stepUpMinutes: number
+  stepUpUntil?: string
+  stepUpHolds: StepUpHold[]
   discordAvatarUrl?: string
 }
 
@@ -473,6 +474,11 @@ export type SecurityKey = {
   backedUp?: boolean
 }
 
+export type StepUpHold = {
+  hold: StepUpLength
+  minutes: number
+}
+
 export type AlertLevel = "ok" | "warn" | "down"
 
 export type Alert = {
@@ -720,6 +726,8 @@ export type NetworkBox = {
   reaches: string[]
   storesIn: string[]
 }
+
+export type StepUpLength = "QUARTER_HOUR" | "ONE_HOUR" | "SIX_HOURS"
 
 export type Resolution = "RAW" | "HOUR"
 

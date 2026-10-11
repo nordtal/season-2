@@ -1,7 +1,9 @@
-import { GearIcon, SignOutIcon } from "@phosphor-icons/react"
+import { GearIcon, LockOpenIcon, SignOutIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { api } from "@/lib/api"
+import { useEndStepUp } from "@/lib/queries"
+import { useNow } from "@/lib/use-now"
 import type { Me } from "@/lib/api"
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
 import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/app/security-keys"
@@ -37,6 +39,26 @@ export function initials(name: string | undefined): string {
   if (words.length === 0) return "?"
   if (words.length === 1) return words[0].slice(0, 2)
   return words[0].slice(0, 1) + words[1].slice(0, 1)
+}
+
+/**
+ * While a step-up holds: until when, and a control that ends it at once.
+ *
+ * Gone within one tick of `useNow` once it runs out; the server, not this row, is what refuses a change after.
+ */
+export function StepUpHolding({ until }: { until: string | undefined }) {
+  const end = useEndStepUp()
+  const now = useNow()
+  if (!until || Date.parse(until) <= now) return null
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
+      <LockOpenIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 text-sm">{t("steward.keys.step-up-holds", { until })}</span>
+      <Button type="button" variant="outline" size="sm" disabled={end.isPending} onClick={() => end.mutate()}>
+        {t("steward.keys.end-step-up")}
+      </Button>
+    </div>
+  )
 }
 
 export function UserMenu({
@@ -81,6 +103,8 @@ export function UserMenu({
               </span>
             </div>
           </div>
+
+          <StepUpHolding until={me?.stepUpUntil} />
 
           <SecurityKeyList state={keys} />
 

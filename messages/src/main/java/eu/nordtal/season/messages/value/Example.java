@@ -8,7 +8,8 @@ import java.lang.annotation.Target;
 
 /**
  * What an editor shows for a value before a live one is known, and what a length limit is checked with.
- * It is written as {@link Kind#example} reads it; without one the kind's own example stands in.
+ * It is written as {@link Kind#example} reads it, a choice's as one of its values; without one an enum's first
+ * constant stands in, else the kind's own.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

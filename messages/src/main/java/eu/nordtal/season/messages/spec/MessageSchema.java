@@ -183,7 +183,25 @@ public final class MessageSchema {
                 .orElseThrow(() -> new IllegalStateException(method + ": " + name + " is a " + type.getSimpleName()
                         + ", which is no kind a message can show"));
         final Example example = parameter.getAnnotation(Example.class);
-        return new Arg(name, kind.token(), null, example == null ? kind.defaultExample() : example.value(), false);
+        final List<String> choices = choices(type);
+        if (example != null && !choices.isEmpty() && !choices.contains(example.value())) {
+            throw new IllegalStateException(method + ": the example " + example.value() + " of " + name
+                    + " is none of its values " + String.join(", ", choices));
+        }
+        final String shown =
+                example != null ? example.value() : choices.isEmpty() ? kind.defaultExample() : choices.getFirst();
+        return new Arg(name, kind.token(), null, shown, false);
+    }
+
+    /** The values a {@code select} tells apart: an enum's constants, {@code true} and {@code false}, else none. */
+    private static List<String> choices(final Class<?> type) {
+        if (type == boolean.class || type == Boolean.class) {
+            return List.of("true", "false");
+        }
+        final Object[] constants = type.getEnumConstants();
+        return constants == null
+                ? List.of()
+                : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
     /** Returns the context types a spec's messages name, plus those of the global roles, by key. */

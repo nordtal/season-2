@@ -3,6 +3,9 @@ package eu.nordtal.season.messages.spec;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
+import eu.nordtal.season.messages.text.MessageSyntaxException;
+import eu.nordtal.season.messages.text.MessageText;
+import eu.nordtal.season.messages.text.Node;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,6 +88,43 @@ public final class MessageSpecCheck {
         for (final String text : texts) {
             MessageCheck.errors(text, declaration, MessageCheck.Mode.PACKAGED)
                     .forEach(error -> problems.add(key + " (" + language + "): " + error));
+            for (final String name : unpicked(text, declaration)) {
+                problems.add(String.format(
+                        "%s (%s): the example %s of %s names none of its cases",
+                        key, language, declaration.examples().get(name), name));
+            }
+        }
+    }
+
+    /**
+     * The selects whose example is no case of theirs but other, since an editor previews a select by its example.
+     * A boolean is exempt: the one value its cases leave out is what other stands for.
+     */
+    private static List<String> unpicked(final String text, final Declaration declaration) {
+        final List<String> names = new ArrayList<>();
+        try {
+            unpicked(MessageText.parse(text, declaration.markup()).nodes(), declaration.examples(), names);
+        } catch (final MessageSyntaxException unreadable) {
+            return List.of(); // MessageCheck names it.
+        }
+        return names;
+    }
+
+    private static void unpicked(final List<Node> nodes, final Map<String, String> examples, final List<String> names) {
+        for (final Node node : nodes) {
+            if (node instanceof final Node.Choice choice) {
+                final String example = examples.get(choice.name());
+                final boolean picked = example == null
+                        || "true".equals(example)
+                        || "false".equals(example)
+                        || (!"other".equals(example) && choice.cases().containsKey(example));
+                if (!choice.plural() && !picked) {
+                    names.add(choice.name());
+                }
+                choice.cases().values().forEach(branch -> unpicked(branch, examples, names));
+            } else if (node instanceof final Node.Tag tag) {
+                tag.args().forEach(arg -> unpicked(arg.parts(), examples, names));
+            }
         }
     }
 

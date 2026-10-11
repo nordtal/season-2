@@ -22,6 +22,7 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Duration;
@@ -64,7 +65,7 @@ public interface AdminTexts {
 
         @Name("Who did it, when nobody pressed anything")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef actor(@Arg("kind") Actor.Kind kind);
+        MessageRef actor(@Arg("kind") @Example("steward") Actor.Kind kind);
 
         @Name("Who did it, a person")
         @Shown(Display.DISCORD_EMBED)

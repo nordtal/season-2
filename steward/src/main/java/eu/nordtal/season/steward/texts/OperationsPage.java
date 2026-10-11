@@ -5,6 +5,7 @@ import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 
 /** The words of a run's page and of asking for one; a run's own words are the admin bundle's. */
@@ -42,7 +43,7 @@ public interface OperationsPage {
     MessageRef ask(@Arg("kind") UpdateKind kind);
 
     @Name("What a run costs")
-    MessageRef askWarning(@Arg("kind") UpdateKind kind);
+    MessageRef askWarning(@Arg("kind") @Example("restart") UpdateKind kind);
 
     @Name("Local builds an update replaces")
     MessageRef localBuilds(@Arg("builds") List<String> builds);

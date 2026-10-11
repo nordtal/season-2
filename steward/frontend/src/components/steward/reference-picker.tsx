@@ -391,7 +391,7 @@ function Options({
   const asTree = choices.tree && query.trim() === "" && tag === ALL
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <FilterBar>
         <SearchField value={query} onValueChange={setQuery} label={t("steward.settings.search-in", { what: label })} />
       </FilterBar>
@@ -447,7 +447,7 @@ function Options({
         role="listbox"
         aria-label={label}
         aria-multiselectable={multi}
-        className="-mx-1 max-h-[55svh] overflow-y-auto sm:max-h-96"
+        className="-mx-1 max-h-[55svh] min-h-0 flex-1 overflow-y-auto sm:max-h-96 in-data-[slot=drawer-content]:max-h-none"
       >
         {clearable ? (
           <button

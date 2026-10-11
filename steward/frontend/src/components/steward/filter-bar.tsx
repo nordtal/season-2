@@ -70,7 +70,7 @@ export function SearchField({
         autoComplete="off"
         spellCheck={false}
         onChange={(event) => onValueChange(event.target.value)}
-        className={cn("[&::-webkit-search-cancel-button]:appearance-none", inputClassName)}
+        className={cn("[&::-webkit-search-cancel-button]:hidden", inputClassName)}
       />
       {value !== "" ? (
         <InputGroupAddon align="inline-end">

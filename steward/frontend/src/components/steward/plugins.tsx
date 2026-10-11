@@ -369,7 +369,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
       </FilterBar>
 
       <div
-        className="max-h-[60vh] overflow-y-auto border-t border-border px-(--sheet-gutter,1rem) py-3"
+        className="max-h-[60vh] min-h-0 flex-1 overflow-y-auto border-t border-border px-(--sheet-gutter,1rem) py-3 in-data-[slot=drawer-content]:max-h-none"
         data-testid="add-plugin-results"
       >
         <QueryState

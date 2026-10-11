@@ -67,9 +67,10 @@ function DrawerContent({
            * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome. With the
            * keyboard open it stands on the keyboard and fits what is left visible, both measured by `lib/app-frame.ts`.
            *
-           * `--sheet-gutter` is the sheet's side padding, which a sheet that pads its own rows reads instead of adding to.
+           * A sheet with a search takes that whole height, so its field sits high and never moves under the keyboard,
+           * where iOS would pan the page to show it. `--sheet-gutter` is the side padding a sheet's own rows read.
            */
-          "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex max-h-[min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex [--sheet-height:min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] max-h-(--sheet-height) has-[input[type=search]]:h-(--sheet-height) flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}
         {...props}

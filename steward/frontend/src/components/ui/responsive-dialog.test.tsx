@@ -65,3 +65,14 @@ describe("a sheet and the keyboard", () => {
     expect(classes).not.toMatch(/(^|\s)bottom-0(\s|$)/)
   })
 })
+
+/** A sheet that shrank with its results would move its field under the keyboard, where iOS pans to reveal it. */
+describe("a sheet with a search", () => {
+  it("keeps the height it may take, so its field stays where it was tapped while the results change", () => {
+    window.innerWidth = 390
+    const sheet = draw().closest("[data-slot='drawer-content']")
+    const classes = sheet?.getAttribute("class") ?? ""
+    expect(classes).toContain("max-h-(--sheet-height)")
+    expect(classes).toContain("has-[input[type=search]]:h-(--sheet-height)")
+  })
+})

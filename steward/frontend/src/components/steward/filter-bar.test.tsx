@@ -26,6 +26,7 @@ describe("SearchField", () => {
     const group = field.closest("[data-slot=input-group]")
     expect(group?.querySelector("svg")).not.toBeNull()
     expect(screen.queryByRole("button", { name: "Clear the search" })).toBeNull()
+    expect(field.className).toContain("[&::-webkit-search-cancel-button]:hidden")
 
     fireEvent.change(field, { target: { value: "ally" } })
     fireEvent.click(screen.getByRole("button", { name: "Clear the search" }))

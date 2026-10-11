@@ -26,8 +26,10 @@ export function assertElement(value: Element | null, what: string): HTMLElement 
   return value
 }
 
+/** A row by a name it shows, which a row draws twice: once for a desktop's table and once for a phone's card. */
 export async function rowFor(name: string): Promise<HTMLElement> {
-  return assertElement((await screen.findByText(name)).closest("tr"), `a <tr> for ${name}`)
+  const [first] = await screen.findAllByText(name)
+  return assertElement(first?.closest("tr") ?? null, `a <tr> for ${name}`)
 }
 
 /** Reads a toast's description back as a string, since sonner types it as arbitrary React content. */

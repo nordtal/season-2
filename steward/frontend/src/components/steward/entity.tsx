@@ -43,6 +43,8 @@ export type EntityProps = {
   system?: boolean
   /** `false` draws the closed face with no popover or link, for places that are interactive. */
   interactive?: boolean
+  /** `both` draws a person's Discord and Minecraft accounts side by side, whichever of the two `id` is. */
+  face?: "both"
   className?: string
 }
 
@@ -51,7 +53,7 @@ export type EntityProps = {
  *
  * An unknown one shows a question mark rather than passing for a name; `kind` overrides the detection.
  */
-export function Entity({ id, kind, system, interactive, className }: EntityProps) {
+export function Entity({ id, kind, system, interactive, face, className }: EntityProps) {
   /** Asked only for a name that is neither a Discord id nor a UUID, the one case the shape cannot settle. */
   const byName = !system && kind === undefined && entityKind(id ?? "", []) === "unknown"
   const topology = useTopology(byName)
@@ -83,7 +85,7 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
     const known = findPerson(people.data, resolved, value)
     return (
       <PersonIdentity
-        face={resolved === "minecraft" ? "minecraft" : "discord"}
+        face={face ?? (resolved === "minecraft" ? "minecraft" : "discord")}
         interactive={interactive}
         discordId={resolved === "discord" ? value : known?.discordId}
         discordUsername={known?.discordUsername}
@@ -98,21 +100,21 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   }
 
   if (resolved === "service") {
-    const face = (
+    const closed = (
       <>
         <TERM_ICON.service aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm text-foreground">{value}</span>
       </>
     )
     const box = "inline-flex min-w-0 max-w-full items-center gap-1.5 " + (className ?? "")
-    if (interactive === false) return <span className={box}>{face}</span>
+    if (interactive === false) return <span className={box}>{closed}</span>
     return (
       <Link
         to="/services/$name"
         params={{ name: value }}
         className={box + " underline-offset-4 tap-target hover:text-primary hover:underline"}
       >
-        {face}
+        {closed}
       </Link>
     )
   }

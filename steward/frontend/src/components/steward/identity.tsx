@@ -64,8 +64,8 @@ export type PersonIdentityProps = {
   className?: string
   /** Steward itself did this, not a person: the server's mark and the word "Steward", with no popover. */
   system?: boolean
-  /** Which half is drawn closed: `discord` (default) or `minecraft`; the popover is the same. */
-  face?: "discord" | "minecraft"
+  /** Which half is drawn closed: `discord` (default), `minecraft`, or `both` side by side; the popover is the same. */
+  face?: "discord" | "minecraft" | "both"
   /** `false` draws the closed face alone, for a place that is itself interactive. */
   interactive?: boolean
 }
@@ -92,25 +92,34 @@ export function PersonIdentity(props: PersonIdentityProps) {
   }
 
   const name = displayName(props)
-  const minecraft = props.face === "minecraft"
-  const closed = (
+  const discordFace = (
     <>
-      {minecraft ? (
-        <MinecraftHead mcUuid={props.mcUuid ?? ""} baseUrl={props.avatarBaseUrl} />
-      ) : (
-        <DiscordAvatar url={props.discordAvatarUrl} name={name.text} />
-      )}
-      {minecraft ? (
-        <span className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}>
-          {props.mcName ?? t("steward.identity.no-name")}
-        </span>
-      ) : (
-        <span className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}>
-          {name.text ?? t("steward.identity.no-discord-name")}
-        </span>
-      )}
+      <DiscordAvatar url={props.discordAvatarUrl} name={name.text} />
+      <span className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}>
+        {name.text ?? t("steward.identity.no-discord-name")}
+      </span>
     </>
   )
+  const minecraftFace = (
+    <>
+      <MinecraftHead mcUuid={props.mcUuid ?? ""} baseUrl={props.avatarBaseUrl} />
+      <span className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}>
+        {props.mcName ?? t("steward.identity.no-name")}
+      </span>
+    </>
+  )
+  const closed =
+    props.face === "minecraft" ? (
+      minecraftFace
+    ) : props.face === "both" && props.mcUuid ? (
+      <>
+        <span className="inline-flex min-w-0 items-center gap-2">{discordFace}</span>
+        {/* The account in the game reads as the second of the two, quieter than the person's name. */}
+        <span className="ml-1 inline-flex min-w-0 items-center gap-1.5 opacity-80">{minecraftFace}</span>
+      </>
+    ) : (
+      discordFace
+    )
 
   if (props.interactive === false) {
     return (

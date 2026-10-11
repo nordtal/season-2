@@ -513,9 +513,17 @@ export function LinkBadge({ person }: { person: Person }) {
  *
  * The supporter role is given once and never taken away, so handing it out in Discord is harmless.
  */
-export function RoleBadges({ person, people }: { person: Person; people: readonly Person[] }) {
+export function RoleBadges({
+  person,
+  people,
+  className,
+}: {
+  person: Person
+  people: readonly Person[]
+  className?: string
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className={"flex flex-wrap items-center gap-1 " + (className ?? "")}>
       {person.donor ? <StatusBadge tone="idle">{t("steward.people.supporter")}</StatusBadge> : null}
       {person.admin ? (
         <StatusBadge tone="idle" tipContent={grantedByText(person, people)}>

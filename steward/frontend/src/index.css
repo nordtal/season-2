@@ -301,7 +301,7 @@
    * While its box is narrower than `--container-rows` a table row becomes a card of "name: value" lines, the name from `data-label`.
    *
    * A cell without `data-label` spans the full width, as an action cell wants; one with `data-phone="off"` is left out.
-   * One with `data-phone="inline"` reads on its own: it drops its label and sits beside the next such cell.
+   * A row whose cells name a slot (`top-start`, `top-end`, `bottom-start`, `bottom-end`) is a card of two fixed lines.
    */
 }
 
@@ -382,29 +382,62 @@
     grid-column: 2;
   }
 
-  /* A row with inline cells flows: every other cell keeps a line of its own, the inline ones share theirs. */
-  .steward-table tbody tr:has(> td[data-phone="inline"]) {
+  /* A row of slots: the same two lines on every card, whatever its cells hold, each cell without its label. */
+  .steward-table tbody tr:has(> td[data-phone$="-start"]) {
     display: flex;
     flex-wrap: wrap;
-    column-gap: 1rem;
+    column-gap: 0.75rem;
+    padding-block: 0.5rem;
   }
 
-  .steward-table tbody tr:has(> td[data-phone="inline"]) > td {
-    flex: 1 0 100%;
+  /* Ends the first line, so the second starts on its own whatever the first leaves free. */
+  .steward-table tbody tr:has(> td[data-phone$="-start"])::after {
+    content: "";
+    order: 3;
+    flex-basis: 100%;
   }
 
-  .steward-table tbody tr:has(> td[data-phone="inline"]) > td[data-phone="inline"] {
-    flex: 0 1 auto;
+  .steward-table tbody tr:has(> td[data-phone$="-start"]) > td {
     grid-template-columns: minmax(0, 1fr);
-    min-height: 1.75rem;
-    padding-block: 0.125rem;
+    min-height: 2rem;
+    padding-block: 0;
   }
 
-  .steward-table td[data-phone="inline"]::before {
+  .steward-table td[data-phone$="-start"] {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* An end slot takes what it needs, up to half its line, and wraps inside beyond that. */
+  .steward-table td[data-phone$="-end"] {
+    flex: 0 1 auto;
+    max-width: 50%;
+    justify-items: end;
+  }
+
+  .steward-table td[data-phone="top-start"] {
+    order: 1;
+  }
+
+  .steward-table td[data-phone="top-end"] {
+    order: 2;
+  }
+
+  .steward-table td[data-phone="bottom-start"] {
+    order: 4;
+  }
+
+  .steward-table td[data-phone="bottom-end"] {
+    order: 5;
+  }
+
+  .steward-table td[data-phone$="-start"]::before,
+  .steward-table td[data-phone$="-end"]::before {
     content: none;
   }
 
-  .steward-table td[data-label][data-phone="inline"] > * {
+  .steward-table td[data-label][data-phone$="-start"] > *,
+  .steward-table td[data-label][data-phone$="-end"] > * {
     grid-column: 1;
   }
 }

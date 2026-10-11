@@ -1170,7 +1170,7 @@
     "steward.people.minecraft": [["Minecraft"]],
     "steward.people.minutes": [["Minutes"]],
     "steward.people.most-days": [["At most ",{"v":"most","k":"number"}," ",{"c":"most","plural":true,"cases":{"one":["day"],"other":["days"]}},"."]],
-    "steward.people.never": [["never"]],
+    "steward.people.never": [["never had access"]],
     "steward.people.next": [["Next"]],
     "steward.people.no-access": [["no access"]],
     "steward.people.no-access-tip": [["Latest period ends ",{"v":"until","k":"instant","s":"datetime"},"."]],

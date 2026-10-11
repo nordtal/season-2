@@ -174,9 +174,9 @@ export function AccessPage() {
                 <PeopleTable>
                   {paged.map((person) => (
                     <TableRow key={person.discordId}>
-                      {/* No `data-label`, so on a phone the name heads the card on a line of its own. */}
-                      <TableCell className="font-medium">
-                        <div className="flex flex-wrap items-center gap-2">
+                      {/* No `data-label`, so on a phone the person heads the card, both accounts in one popover. */}
+                      <TableCell className="font-medium" data-phone="top-start">
+                        <div className="hidden flex-wrap items-center gap-2 @rows:flex">
                           {/* The closed face, since the link is the way to everything else about them. */}
                           <Link
                             to="/access/$id"
@@ -188,31 +188,49 @@ export function AccessPage() {
                           {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
                           {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                         </div>
+                        <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
                       </TableCell>
-                      {/* On a phone the badges and the face read on their own, so they share lines without labels. */}
-                      <TableCell data-label={t("steward.people.access")} data-phone="inline">
+                      <TableCell data-label={t("steward.people.access")} data-phone="bottom-start">
                         <AccessBadge person={person} now={now} />
                       </TableCell>
-                      {/* "Not linked" is only worth a place on a phone while it keeps a paying person out. */}
-                      <TableCell
-                        data-label={t("steward.people.minecraft")}
-                        data-phone={person.minecraftUuid || person.accessActive ? "inline" : "off"}
-                      >
+                      {/* On a phone the account is part of the person; a missing link is a badge beside them. */}
+                      <TableCell data-label={t("steward.people.minecraft")} data-phone="off">
                         {person.minecraftUuid ? (
                           <Entity id={person.minecraftUuid} kind="minecraft" />
                         ) : (
                           <LinkBadge person={person} />
                         )}
                       </TableCell>
-                      <TableCell data-label={t("steward.people.roles")} data-phone={hasRole(person) ? "inline" : "off"}>
-                        <RoleBadges person={person} people={list} />
+                      <TableCell data-label={t("steward.people.roles")} data-phone="top-end">
+                        <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
+                          {/* What the desktop shows in the person's and the Minecraft column. */}
+                          {person.memberState !== "MEMBER" ? (
+                            <span className="contents @rows:hidden">
+                              <MemberBadge state={person.memberState} />
+                            </span>
+                          ) : null}
+                          {/* "Not linked" is only worth a place on a phone while it keeps a paying person out. */}
+                          {!person.minecraftUuid && person.accessActive ? (
+                            <span className="contents @rows:hidden">
+                              <LinkBadge person={person} />
+                            </span>
+                          ) : null}
+                          {hasRole(person) ? (
+                            <RoleBadges person={person} people={list} className="justify-end @rows:justify-start" />
+                          ) : null}
+                        </div>
+                        {hasRole(person) ? null : (
+                          <span className="hidden text-xs text-muted-foreground @rows:inline">{"\u2013"}</span>
+                        )}
                       </TableCell>
-                      <TableCell
-                        data-label={t("steward.people.playtime")}
-                        data-phone={person.playtimeSeconds ? "inline" : "off"}
-                      >
+                      <TableCell data-label={t("steward.people.playtime")} data-phone="bottom-end">
                         {/* `playtime` draws the dash for somebody who has never been online. */}
-                        <span className="flex items-center gap-1 text-sm tabular-nums">
+                        <span
+                          className={
+                            "flex items-center gap-1 text-sm tabular-nums" +
+                            (person.playtimeSeconds ? "" : " @max-rows:hidden")
+                          }
+                        >
                           {/* The card's stand-in for the column's heading, which a phone does not draw. */}
                           <TERM_ICON.playtime
                             className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"

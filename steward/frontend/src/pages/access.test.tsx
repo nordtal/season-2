@@ -37,7 +37,7 @@ describe("AccessPage - faces instead of identifiers", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
 
     expect(document.body.textContent).not.toContain("214906139328839681")
     expect(document.body.textContent).not.toContain("11111111-2222-3333-4444-555555555555")
@@ -47,10 +47,10 @@ describe("AccessPage - faces instead of identifiers", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    const name = await screen.findByText("Ally")
-    const link = assertElement(name.closest("a"), "a link around Ally")
+    const [name] = await screen.findAllByText("Ally")
+    const link = assertElement(name?.closest("a") ?? null, "a link around Ally")
     expect(link.getAttribute("href")).toBe("/access/214906139328839681")
-    expect(name.closest("button")).toBeNull()
+    expect(name?.closest("button")).toBeNull()
   })
 })
 
@@ -59,7 +59,7 @@ describe("AccessPage - the guild column", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
     expect(screen.queryByText("Member")).toBeNull()
   })
 
@@ -67,16 +67,16 @@ describe("AccessPage - the guild column", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    await screen.findByText("bob")
-    expect(screen.getByText("left")).toBeTruthy()
+    await screen.findAllByText("bob")
+    expect(screen.getAllByText("left")).not.toHaveLength(0)
   })
 
   it("still marks somebody who was banned", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    await screen.findByText("carol")
-    expect(screen.getByText("banned")).toBeTruthy()
+    await screen.findAllByText("carol")
+    expect(screen.getAllByText("banned")).not.toHaveLength(0)
   })
 })
 
@@ -84,46 +84,46 @@ describe("AccessPage - search over four things", () => {
   it("finds an account by its Minecraft name, which is not what is displayed", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
 
     fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "AliceMC" } })
 
-    expect(await screen.findByText("Ally")).toBeTruthy()
+    expect(await screen.findAllByText("Ally")).toBeTruthy()
     expect(screen.queryByText("bob")).toBeNull()
   })
 
   it("finds an account by its Minecraft uuid, although the uuid is never shown", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
 
     fireEvent.change(screen.getByLabelText(/filter/i), {
       target: { value: "11111111-2222-3333-4444-555555555555" },
     })
 
-    expect(await screen.findByText("Ally")).toBeTruthy()
+    expect(await screen.findAllByText("Ally")).toBeTruthy()
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
   it("finds an account by its Discord id", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
 
     fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "214906139328839681" } })
 
-    expect(await screen.findByText("Ally")).toBeTruthy()
+    expect(await screen.findAllByText("Ally")).toBeTruthy()
     expect(screen.queryByText("bob")).toBeNull()
   })
 
   it("finds an account by its Discord username", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
 
     fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "bob" } })
 
-    expect(await screen.findByText("bob")).toBeTruthy()
+    expect(await screen.findAllByText("bob")).toBeTruthy()
     expect(screen.queryByText("Ally")).toBeNull()
   })
 })
@@ -168,17 +168,17 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
       vi.stubGlobal("fetch", backend({ people: manyMatches }))
       draw(<AccessPage />)
 
-      await screen.findByText("searchable-0")
+      await screen.findAllByText("searchable-0")
 
       fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
 
       // Page 1: twenty rows, and the one count names them against the whole filtered total.
-      await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(20))
+      await waitFor(() => expect(document.querySelectorAll("tbody tr")).toHaveLength(20))
       expect(screen.getByText("1-20 of 21 users")).toBeTruthy()
 
       fireEvent.click(screen.getByRole("button", { name: /next/i }))
 
-      await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(1))
+      await waitFor(() => expect(document.querySelectorAll("tbody tr")).toHaveLength(1))
       expect(screen.getByText("21-21 of 21 users")).toBeTruthy()
     },
   )
@@ -190,8 +190,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }))
     draw(<AccessPage />)
 
-    const cell = await screen.findByText("9h")
-    expect(cell).not.toBeNull()
+    expect(await screen.findAllByText("9h")).not.toHaveLength(0)
     expect(screen.queryByText("32400")).toBeNull()
   })
 
@@ -199,7 +198,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice" })] }))
     draw(<AccessPage />)
 
-    const row = await screen.findByText("alice")
+    const row = await screen.findAllByText("alice")
     expect(row).not.toBeNull()
     expect(screen.queryByText("0m")).toBeNull()
   })
@@ -213,7 +212,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     )
     draw(<AccessPage />)
 
-    expect(await screen.findByText("1d 6h 30m")).not.toBeNull()
+    expect(await screen.findAllByText("1d 6h 30m")).not.toBeNull()
   })
 
   it("asks in days, hours and minutes rather than in decimal hours", async () => {
@@ -320,9 +319,14 @@ describe("AccessPage - unlink as a row action", () => {
 })
 
 /** An action is drawn only when the row's state allows it, so linked Ally and bare bob differ. */
-/** The labels of the cells a phone leaves out of a row's card. */
-function absent(row: HTMLElement): (string | null)[] {
-  return [...row.querySelectorAll('[data-phone="off"][data-label]')].map((cell) => cell.getAttribute("data-label"))
+/** The badges beside the person on a phone's card. */
+function badges(row: HTMLElement): HTMLElement {
+  return assertElement(row.querySelector('td[data-phone="top-end"]'), "the badges")
+}
+
+/** The slot each cell of a row takes in a phone's card, in the order of the cells. */
+function slots(row: HTMLElement): (string | null)[] {
+  return [...row.querySelectorAll(":scope > td")].map((cell) => cell.getAttribute("data-phone"))
 }
 
 describe("AccessPage - the actions of a row depend on that row", () => {
@@ -370,29 +374,14 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
   })
 
-  it("leaves a person's absent values out of the phone card and keeps a paying person's missing link", async () => {
+  it("lays every phone card out in the same four slots, whatever the person holds", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
         people: () => [
           person({ discordUsername: "quiet" }),
-          person({ discordId: "2", discordUsername: "payer", accessActive: true, accessUntil: "2027-01-01T00:00:00Z" }),
-        ],
-      }),
-    )
-    draw(<AccessPage />)
-
-    const quiet = await rowFor("quiet")
-    expect(absent(quiet)).toEqual(["Minecraft", "Roles", "Playtime"])
-    expect(absent(await rowFor("payer"))).toEqual(["Roles", "Playtime"])
-  })
-
-  it("draws a phone's card as a few lines: the name, then access, the Minecraft face, roles and play time side by side", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        people: () => [
           person({
+            discordId: "2",
             discordUsername: "player",
             accessActive: true,
             accessUntil: "2027-01-01T00:00:00Z",
@@ -406,10 +395,63 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     )
     draw(<AccessPage />)
 
-    const row = await rowFor("player")
-    /** Each value reads on its own, so an inline cell draws no label before it. */
-    const inline = [...row.querySelectorAll('td[data-phone="inline"]')].map((cell) => cell.getAttribute("data-label"))
-    expect(inline).toEqual(["Access", "Minecraft", "Roles", "Playtime"])
+    /** The person and their roles, then access and play time; the Minecraft cell is part of the person. */
+    const card = ["top-start", "bottom-start", "off", "top-end", "bottom-end", "off"]
+    expect(slots(await rowFor("quiet"))).toEqual(card)
+    expect(slots(await rowFor("player"))).toEqual(card)
+  })
+
+  it("draws the person and their Minecraft account as one element with one popover on a phone's card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({
+            discordUsername: "player",
+            minecraftUuid: "11111111-2222-3333-4444-555555555555",
+            mcName: "PlayerMC",
+          }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+
+    const title = assertElement((await rowFor("player")).querySelector('td[data-phone="top-start"]'), "the title")
+    const [face, ...more] = within(title).getAllByRole("button")
+    expect(more).toEqual([])
+    expect(face?.textContent).toContain("player")
+    expect(face?.textContent).toContain("PlayerMC")
+  })
+
+  it("names a paying person's missing Minecraft link and a left guild beside the name on a phone's card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({ discordUsername: "quiet" }),
+          person({
+            discordId: "2",
+            discordUsername: "payer",
+            memberState: "LEFT",
+            accessActive: true,
+            accessUntil: "2027-01-01T00:00:00Z",
+          }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+
+    expect(badges(await rowFor("payer")).textContent).toContain("not linked")
+    expect(badges(await rowFor("payer")).textContent).toContain("left")
+    expect(badges(await rowFor("quiet")).textContent).not.toMatch(/not linked|left/)
+  })
+
+  it("says in words that a person never had access", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "quiet" })] }))
+    draw(<AccessPage />)
+
+    const access = assertElement((await rowFor("quiet")).querySelector('td[data-label="Access"]'), "the access")
+    expect(access.textContent).toBe("never had access")
   })
 
   it("leaves the actions off a phone's card, whose name leads to the page that has them", async () => {
@@ -509,7 +551,7 @@ describe("AccessPage - the generic command card is gone", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    await screen.findByText("Ally")
+    await screen.findAllByText("Ally")
     expect(screen.queryByText("Access commands")).toBeNull()
   })
 })
@@ -547,7 +589,7 @@ describe("AccessPage - the admin tree", () => {
   it("never offers Revoke admin on the one signed in", async () => {
     vi.stubGlobal("fetch", backend({ people: () => TREE }))
     draw(<AccessPage />)
-    await screen.findByText("mine")
+    await screen.findAllByText("mine")
     expect(await actionsOf("me")).not.toContain("Revoke admin")
   })
 

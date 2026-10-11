@@ -448,10 +448,12 @@ public final class Resolver {
                             : TEXTS.report().proxyPackWithoutSha1());
         }
 
-        // The hash is the identity, compared case-insensitively since a typed hash may differ in case.
+        // The URL too, since an unchanged pack's older release may be deleted; a typed hash may differ in case.
         final Checksum checksum = wanted.checksum();
         final String wantedSha1 = checksum == null ? null : checksum.hex();
-        if (wantedSha1 != null && wantedSha1.equalsIgnoreCase(state.sha1())) {
+        if (wantedSha1 != null
+                && wantedSha1.equalsIgnoreCase(state.sha1())
+                && wanted.url().toString().equals(state.url())) {
             return new Change(
                     Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, state.sha1(), wanted, null);
         }

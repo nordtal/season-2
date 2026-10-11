@@ -41,6 +41,11 @@ class ResolverTest {
     /** The SHA-1 the release's .zip.sha1 asset is made to contain in these tests. */
     private static final String PACK_SHA1 = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
 
+    private static final String PACK_URL =
+            "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip";
+    private static final String OLD_PACK_URL =
+            "https://github.com/nordtal/season-2/releases/download/v0.0.9/nordtal-resource-pack-0.0.9.zip";
+
     @TempDir
     Path volumes;
 
@@ -407,7 +412,7 @@ class ResolverTest {
     }
 
     @Test
-    void thePackIsComparedOnItsHashNotOnItsUrl() throws IOException {
+    void aPackWithAnotherHashIsOutdated() throws IOException {
         installCurrentEverything();
         storePack("0000000000000000000000000000000000000000");
 
@@ -421,6 +426,20 @@ class ResolverTest {
         // Full hash on both sides: releases sharing a hex prefix must not render as a change from a value to itself.
         assertEquals("0000000000000000000000000000000000000000", change.installed());
         assertTrue(Report.render(plan).contains("sha1 " + PACK_SHA1), Report.render(plan));
+    }
+
+    @Test
+    void aPackWithTheSameHashButAnOlderReleasesUrlIsOutdated() throws IOException {
+        installCurrentEverything();
+        // An unchanged pack still lives in the release that published it, which may be deleted.
+        storePack(OLD_PACK_URL, PACK_SHA1);
+
+        final UpdatePlan plan = resolve();
+
+        final Change change = changeFor(plan, "proxy", "resource-pack");
+        assertEquals(Change.Status.OUTDATED, change.status(), Report.render(plan));
+        assertNotNull(change.wanted());
+        assertEquals(PACK_URL, change.wanted().url().toString());
     }
 
     @Test
@@ -632,12 +651,11 @@ class ResolverTest {
     }
 
     private void storePack(final String sha1) {
-        settings.set(
-                        "proxy",
-                        "pack",
-                        "url",
-                        "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip")
-                .set("proxy", "pack", "sha1", sha1);
+        storePack(PACK_URL, sha1);
+    }
+
+    private void storePack(final String url, final String sha1) {
+        settings.set("proxy", "pack", "url", url).set("proxy", "pack", "sha1", sha1);
     }
 
     private List<String> tree() throws IOException {

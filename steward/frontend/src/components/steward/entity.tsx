@@ -1,4 +1,5 @@
-import { HardDrivesIcon, QuestionIcon } from "@phosphor-icons/react"
+import { QuestionIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 
 import { PersonIdentity } from "@/components/steward/identity"
@@ -99,7 +100,7 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   if (resolved === "service") {
     const face = (
       <>
-        <HardDrivesIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+        <TERM_ICON.service aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm text-foreground">{value}</span>
       </>
     )

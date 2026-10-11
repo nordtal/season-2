@@ -1,4 +1,4 @@
-import { SwordIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -49,7 +49,7 @@ export function HungerGamesActions() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SwordIcon className="size-4 text-muted-foreground" aria-hidden />
+          <TERM_ICON.round className="size-4 text-muted-foreground" aria-hidden />
           {t("steward.game.round")}
         </CardTitle>
       </CardHeader>

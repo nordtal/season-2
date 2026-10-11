@@ -160,6 +160,10 @@ run `git config core.hooksPath .githooks` once per clone.
   values set apart as two lines or two pills, or the second as an icon. A message bundle holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and
   all of it in the bundles checked)_
+- **One icon per domain term.** A term Steward names (aura, spins, a service, a backup, a phase, access, an alert
+  level) is drawn with the icon `steward/frontend/src/components/steward/term-icons.tsx` gives it, wherever it
+  appears: page, pill, form field, table, tooltip, navigation and palette. That icon means nothing else, and a field
+  whose value is a term shows it beside its label. _(checked)_
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a

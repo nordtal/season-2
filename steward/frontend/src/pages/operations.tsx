@@ -1,19 +1,5 @@
-import {
-  ArchiveIcon,
-  ArrowCounterClockwiseIcon,
-  ArrowCircleUpIcon,
-  ArrowRightIcon,
-  ArrowsClockwiseIcon,
-  CheckIcon,
-  CopyIcon,
-  PlayIcon,
-  ProhibitInsetIcon,
-  ShieldWarningIcon,
-  PowerIcon,
-  WarningIcon,
-  WrenchIcon,
-  XCircleIcon,
-} from "@phosphor-icons/react"
+import { ArrowRightIcon, CheckIcon, CopyIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -211,13 +197,13 @@ export function summaryOf(run: Run): string[] {
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
 /** Each kind's symbol; its title, what it does and what it costs are the bundle's. */
-const ASKS: Record<Kind, typeof ArrowsClockwiseIcon> = {
+const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
   /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
-  UPDATE: ArrowCircleUpIcon,
-  BACKUP: ArchiveIcon,
-  RESTART: ArrowCounterClockwiseIcon,
-  DOWN: PowerIcon,
-  START: PlayIcon,
+  UPDATE: TERM_ICON.update,
+  BACKUP: TERM_ICON.backup,
+  RESTART: TERM_ICON.restart,
+  DOWN: TERM_ICON.down,
+  START: TERM_ICON.start,
 }
 
 /**
@@ -301,13 +287,13 @@ export function AskButton({
     >
       {warning ? (
         <p className="flex items-start gap-2 text-sm text-warning">
-          <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
           {warning}
         </p>
       ) : null}
       {localBuilds.length > 0 ? (
         <p className="flex items-start gap-2 text-sm text-warning">
-          <WrenchIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <TERM_ICON.localBuild className="mt-0.5 size-4 shrink-0" aria-hidden />
           {t("steward.operations.local-builds", { builds: localBuilds })}
         </p>
       ) : null}
@@ -342,7 +328,7 @@ export function CancelButton({ run }: { run: Run }) {
         })
       }
     >
-      <XCircleIcon aria-hidden />
+      <TERM_ICON.cancel aria-hidden />
       {t("steward.operations.cancel")}
     </Button>
   )
@@ -436,7 +422,7 @@ function RunDetail({ run }: { run?: Run }) {
 
       {report?.stage === "NOTHING_TO_DO" ? (
         <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
-          <ProhibitInsetIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+          <TERM_ICON.nothingToDo className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
           </div>
@@ -468,7 +454,7 @@ function RunDetail({ run }: { run?: Run }) {
         ) : run.resultText ? (
           <>
             <p className="flex items-start gap-2 text-sm text-warning">
-              <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
               {t("steward.operations.raw-report")}
             </p>
             <pre className="max-h-96 overflow-auto rounded-md border border-border bg-card p-3 text-card-foreground font-mono text-xs leading-5 whitespace-pre-wrap">

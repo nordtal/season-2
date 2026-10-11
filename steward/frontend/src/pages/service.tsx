@@ -1,12 +1,5 @@
-import {
-  ArrowsClockwiseIcon,
-  DotsThreeIcon,
-  PlugIcon,
-  PlayIcon,
-  PowerIcon,
-  TerminalWindowIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react"
+import { DotsThreeIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
@@ -104,18 +97,18 @@ export function ServicePage() {
           tabs.length > 1 ? (
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
-                <TerminalWindowIcon aria-hidden />
+                <TERM_ICON.console aria-hidden />
                 {t("steward.service-page.console")}
               </TabsTrigger>
               {tabs.includes("settings") ? (
                 <TabsTrigger value="settings" className="sm:px-3">
-                  <WrenchIcon aria-hidden />
+                  <TERM_ICON.settings aria-hidden />
                   {t("steward.service-page.settings")}
                 </TabsTrigger>
               ) : null}
               {tabs.includes("plugins") ? (
                 <TabsTrigger value="plugins" className="sm:px-3">
-                  <PlugIcon aria-hidden />
+                  <TERM_ICON.plugins aria-hidden />
                   {t("steward.service-page.plugins")}
                 </TabsTrigger>
               ) : null}
@@ -124,7 +117,7 @@ export function ServicePage() {
             /** One tab is still drawn, so the page says what it shows. */
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
-                <TerminalWindowIcon aria-hidden />
+                <TERM_ICON.console aria-hidden />
                 {t("steward.service-page.console")}
               </TabsTrigger>
             </TabsList>
@@ -184,7 +177,7 @@ function ServiceActions({
   /** Take down and Start are one switch following `hold`; neither is drawn while the row loads. */
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
   const recreatable = name !== "steward-agent"
-  const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
+  const HoldIcon = hold === "START" ? TERM_ICON.start : TERM_ICON.down
   const holdLabel = hold ? t("steward.operations.ask", { kind: choice(hold) }) : ""
 
   /** A one-shot and a standby are started by runs alone, so neither has a button of its own. */
@@ -254,7 +247,7 @@ function ServiceActions({
             ) : null}
             {recreatable ? (
               <DropdownMenuItem disabled={gate.unavailable} onSelect={() => setDialog("recreate")}>
-                <ArrowsClockwiseIcon aria-hidden />
+                <TERM_ICON.recreate aria-hidden />
                 {runKind("RECREATE")}
               </DropdownMenuItem>
             ) : null}

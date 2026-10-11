@@ -1,4 +1,5 @@
-import { CheckIcon, CopyIcon, QuestionIcon, UserIcon } from "@phosphor-icons/react"
+import { CheckIcon, CopyIcon, QuestionIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -188,7 +189,7 @@ function PersonPageLink({ discordId }: { discordId: string }) {
       params={{ id: discordId }}
       className="inline-flex items-center gap-1.5 self-start text-sm underline-offset-4 outline-none tap-target hover:text-primary hover:underline focus-visible:underline"
     >
-      <UserIcon aria-hidden className="size-4" />
+      <TERM_ICON.person aria-hidden className="size-4" />
       {t("steward.identity.open-person")}
     </Link>
   )
@@ -249,7 +250,7 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
       className={`${size} inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground`}
       title={name ? undefined : t("steward.identity.no-avatar")}
     >
-      <UserIcon aria-hidden className="size-3.5" />
+      <TERM_ICON.person aria-hidden className="size-3.5" />
     </span>
   )
 }

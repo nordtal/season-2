@@ -8,7 +8,7 @@ import {
   LightningIcon,
   LinkIcon,
   ShuffleIcon,
-  SlidersHorizontalIcon,
+  TextAaIcon,
   SmileyIcon,
   TextBIcon,
   TextItalicIcon,
@@ -451,7 +451,7 @@ export function ValueStyleMenu({
           pressed={value !== undefined}
           disabled={disabled || styles.length === 0}
         >
-          <SlidersHorizontalIcon aria-hidden />
+          <TextAaIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-[min(14rem,calc(100vw-2rem))] flex-col gap-1 p-1">

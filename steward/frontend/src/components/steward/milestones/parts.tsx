@@ -1,14 +1,4 @@
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CircleDashedIcon,
-  CoinsIcon,
-  PinwheelIcon,
-  TargetIcon,
-  TrashIcon,
-  UserGearIcon,
-} from "@phosphor-icons/react"
-import type { Icon } from "@phosphor-icons/react"
+import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from "@phosphor-icons/react"
 import { type ReactNode, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"
@@ -17,6 +7,7 @@ import { isColour, namesNothing } from "@/lib/references"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ChoiceIcon, ListControl, ScalarControl, choiceName } from "@/components/steward/config-controls"
 import { ReferenceMarks } from "@/components/steward/reference-picker"
+import { FieldLabelIcon, TERM_ICON, fieldIcon } from "@/components/steward/term-icons"
 import { type SectionValues, appliesTo, withValue } from "@/components/steward/repeatable-cards"
 import {
   BUDGETS,
@@ -39,17 +30,6 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
-
-/** The milestone fields drawn as an icon before their value; a choice shows its own icon and name. */
-const MARK_ICON: Partial<Record<(typeof MARKED)[number], Icon>> = {
-  "border-diameter": CircleDashedIcon,
-  "admin-unlocked": UserGearIcon,
-}
-
-const BUDGET_ICON: Record<Budget, Icon> = {
-  "aura-budget": CoinsIcon,
-  "spin-budget": PinwheelIcon,
-}
 
 /** A small rounded mark holding one value, the way a closed row shows its settings. */
 function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
@@ -90,10 +70,10 @@ export function BudgetMarks({
 }) {
   return BUDGETS.filter((key) => sums[key] > 0).map((key) => {
     const label = labelOf(schema.objective, key)
-    const MarkIcon = BUDGET_ICON[key]
+    const icons = { Mark: fieldIcon(key) }
     return (
       <Pill key={key} title={titled ? label : undefined} className={className}>
-        <MarkIcon aria-label={label} className="size-3.5 shrink-0" />
+        {icons.Mark ? <icons.Mark aria-label={label} className="size-3.5 shrink-0" /> : null}
         {sums[key].toLocaleString("en")}
       </Pill>
     )
@@ -188,6 +168,7 @@ export function Fields({
         return (
           <div key={field.key} className={cn("flex min-w-0 flex-col gap-1", isWide(field) && "col-span-2")}>
             <Label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
+              <FieldLabelIcon fieldKey={field.key} />
               {field.label}
             </Label>
             <FieldControl
@@ -232,17 +213,18 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
             </Pill>
           )
         }
-        const MarkIcon = MARK_ICON[key] ?? CircleDashedIcon
+        const icons = { Mark: fieldIcon(key) }
+        const mark = icons.Mark ? <icons.Mark aria-label={field.label} className="size-3.5 shrink-0" /> : field.label
         if (field.type === "BOOLEAN") {
           return (
             <Pill key={key} title={field.label}>
-              <MarkIcon aria-label={field.label} className="size-3.5" />
+              {mark}
             </Pill>
           )
         }
         return (
           <Pill key={key} title={field.label}>
-            <MarkIcon aria-label={field.label} className="size-3.5 shrink-0" />
+            {mark}
             {Number(value).toLocaleString("en")}
           </Pill>
         )
@@ -345,7 +327,7 @@ export function ObjectiveCard({
         </span>
         {Number.isFinite(target) && target > 0 ? (
           <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-            <TargetIcon aria-label={targetLabel} className="size-3.5" />
+            <TERM_ICON.target aria-label={targetLabel} className="size-3.5" />
             {target.toLocaleString("en")}
           </span>
         ) : null}

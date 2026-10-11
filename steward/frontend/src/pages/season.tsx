@@ -1,4 +1,4 @@
-import { CalendarDotIcon, FlagIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -69,7 +69,7 @@ function PhaseCard({ season }: { season?: Season }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FlagIcon className="size-4 text-muted-foreground" aria-hidden />
+          <TERM_ICON.phase className="size-4 text-muted-foreground" aria-hidden />
           {t("steward.season.phase-heading")}
         </CardTitle>
         <CardDescription>
@@ -158,7 +158,7 @@ function DatesCard({ season }: { season?: Season }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarDotIcon className="size-4 text-muted-foreground" aria-hidden />
+          <TERM_ICON.seasonDates className="size-4 text-muted-foreground" aria-hidden />
           {t("steward.season.dates")}
         </CardTitle>
       </CardHeader>

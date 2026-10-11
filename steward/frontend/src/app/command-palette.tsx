@@ -1,4 +1,5 @@
-import { ClockCounterClockwiseIcon, SlidersHorizontalIcon, TranslateIcon } from "@phosphor-icons/react"
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
 
@@ -147,7 +148,7 @@ export function CommandPalette() {
             {index > 0 ? <CommandSeparator /> : null}
             <CommandGroup heading={group.label}>
               {group.entries.map((entry) => {
-                const Icon = entry.icon ?? group.icon
+                const Icon = entry.icon
                 return (
                   <CommandItem
                     key={entry.id}
@@ -246,7 +247,7 @@ export function CommandPalette() {
                       }}
                       className="min-h-control gap-2.5"
                     >
-                      <SlidersHorizontalIcon aria-hidden className="text-muted-foreground" />
+                      <TERM_ICON.settings aria-hidden className="text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
                       <HitDetail where={service} text={hit.entry.value} />
                     </CommandItem>
@@ -266,7 +267,7 @@ export function CommandPalette() {
                     }}
                     className="min-h-control gap-2.5"
                   >
-                    <TranslateIcon aria-hidden className="text-muted-foreground" />
+                    <TERM_ICON.translations aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{messageName(entry)}</span>
                     <HitDetail where={entry.bundle} text={shownOf(entry, hit.language)[0]} />
                   </CommandItem>

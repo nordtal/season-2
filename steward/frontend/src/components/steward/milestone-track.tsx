@@ -1,4 +1,5 @@
-import { CheckIcon, FlagBannerIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { cn } from "cn"
 
@@ -94,7 +95,7 @@ export function SmpActions() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FlagBannerIcon className="size-4 text-muted-foreground" aria-hidden />
+          <TERM_ICON.milestone className="size-4 text-muted-foreground" aria-hidden />
           {t("steward.game.track")}
         </CardTitle>
         {steps ? (

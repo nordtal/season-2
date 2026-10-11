@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ArrowRightIcon, ArrowsClockwiseIcon, ClockIcon, ProhibitInsetIcon, WarningIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "cn"
 import { toast } from "sonner"
 
@@ -58,7 +59,7 @@ export function UpdatesPage() {
                 })
               }
             >
-              <ArrowsClockwiseIcon aria-hidden className={refresh.isPending ? "animate-spin" : undefined} />
+              <TERM_ICON.checkForUpdates aria-hidden className={refresh.isPending ? "animate-spin" : undefined} />
               {t("steward.updates.check-again")}
             </Button>
             <AskButton kind="RESTART" label={t("steward.updates.restart-everything")} size="sm" />
@@ -189,7 +190,7 @@ function Available() {
             <>
               {plan?.hasFailures ? (
                 <p className="flex items-start gap-2 text-xs text-destructive">
-                  <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  <TERM_ICON.warning className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   {t("steward.updates.incomplete")}
                 </p>
               ) : null}
@@ -326,7 +327,7 @@ function Runs() {
                       <SkeletonText width="long" />
                     ) : run.report?.stage === "NOTHING_TO_DO" ? (
                       <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <ProhibitInsetIcon className="size-3.5 shrink-0" aria-hidden />
+                        <TERM_ICON.nothingToDo className="size-3.5 shrink-0" aria-hidden />
                         {t("steward.operations.nothing-to-do")}
                       </span>
                     ) : (
@@ -387,7 +388,7 @@ function ScheduleDialog() {
     <ResponsiveDialog>
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <ClockIcon />
+          <TERM_ICON.schedule />
           {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>

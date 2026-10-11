@@ -1,4 +1,4 @@
-import { WarningIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 
 import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
@@ -17,7 +17,7 @@ export function EnvironmentOverriddenBadge() {
       <TooltipTrigger asChild>
         <span tabIndex={0} className="rounded-full focus-visible:outline-none">
           <Badge variant="outline" className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning">
-            <WarningIcon className="size-3" aria-hidden />
+            <TERM_ICON.warning className="size-3" aria-hidden />
             {t("steward.settings.env-override")}
           </Badge>
         </span>

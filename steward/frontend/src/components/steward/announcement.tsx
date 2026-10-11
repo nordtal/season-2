@@ -1,4 +1,4 @@
-import { HashIcon, MegaphoneIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 
 import type { GuildList } from "@/lib/api"
@@ -46,7 +46,7 @@ export function AnnouncementForm() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MegaphoneIcon className="size-4 text-muted-foreground" aria-hidden />
+          <TERM_ICON.announcement className="size-4 text-muted-foreground" aria-hidden />
           {t("steward.announcements.compose")}
         </CardTitle>
       </CardHeader>
@@ -134,7 +134,7 @@ function Destination({
   const name = channels?.entries.find((entry) => entry.id === channel)?.name
   return (
     <span className="flex min-w-0 items-center gap-0.5 text-xs text-muted-foreground">
-      <HashIcon aria-hidden className="shrink-0" />
+      <TERM_ICON.textChannel aria-hidden className="shrink-0" />
       <span className="truncate">{name ?? channel}</span>
     </span>
   )

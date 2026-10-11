@@ -1,4 +1,5 @@
-import { BellIcon, BellSlashIcon, PaperPlaneTiltIcon, TrashIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react"
+import { BellSlashIcon, PaperPlaneTiltIcon, TrashIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
@@ -155,7 +156,7 @@ function ThisDevice({ state }: { state: NotificationActions }) {
             }
           }}
         >
-          {subscribed ? <BellSlashIcon aria-hidden /> : <BellIcon aria-hidden />}
+          {subscribed ? <BellSlashIcon aria-hidden /> : <TERM_ICON.alert aria-hidden />}
           {subscribed ? t("steward.notifications.turn-off") : t("steward.notifications.turn-on")}
         </Button>
       </div>
@@ -480,9 +481,9 @@ function DeviceRow({
                   }}
                 >
                   {type.tone === "down" ? (
-                    <XCircleIcon aria-hidden className="text-destructive" />
+                    <TERM_ICON.failed aria-hidden className="text-destructive" />
                   ) : (
-                    <WarningIcon aria-hidden className="text-warning" />
+                    <TERM_ICON.warning aria-hidden className="text-warning" />
                   )}
                   <span className="min-w-0 truncate">{t("steward.notifications.sample", { type: type.key })}</span>
                 </Button>

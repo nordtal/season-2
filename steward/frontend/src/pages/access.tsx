@@ -1,4 +1,4 @@
-import { HourglassIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useState } from "react"
@@ -217,7 +217,7 @@ export function AccessPage() {
                         {/* `playtime` draws the dash for somebody who has never been online. */}
                         <span className="flex items-center gap-1 text-sm tabular-nums">
                           {/* The card's stand-in for the column's heading, which a phone does not draw. */}
-                          <HourglassIcon
+                          <TERM_ICON.playtime
                             className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
                             role="img"
                             aria-label={t("steward.people.playtime")}

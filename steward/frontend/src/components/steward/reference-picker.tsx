@@ -1,14 +1,5 @@
-import {
-  ChartBarIcon,
-  CheckIcon,
-  CubeIcon,
-  HashIcon,
-  PlusIcon,
-  SpeakerHighIcon,
-  TrophyIcon,
-  WarningIcon,
-  XIcon,
-} from "@phosphor-icons/react"
+import { CheckIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import type { Icon } from "@phosphor-icons/react"
 import { type ReactNode, useMemo, useState } from "react"
 
@@ -48,8 +39,8 @@ const ALL = "*"
 
 /** What stands for an entry the game draws no item for, by its registry. */
 const GENERIC: Record<string, Icon> = {
-  statistic: ChartBarIcon,
-  advancement: TrophyIcon,
+  statistic: TERM_ICON.statistic,
+  advancement: TERM_ICON.advancement,
 }
 
 /** The choices for one reference, fetched from whichever directory it names, and only that one. */
@@ -83,11 +74,12 @@ function Mark({
   size?: number
 }) {
   if (choice.channel === "voice")
-    return <SpeakerHighIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-  if (choice.channel === "text") return <HashIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+    return <TERM_ICON.voiceChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+  if (choice.channel === "text")
+    return <TERM_ICON.textChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   if (icons === undefined) return null
   if (choice.icon === undefined && registry !== undefined) {
-    const Generic = GENERIC[registry] ?? CubeIcon
+    const Generic = GENERIC[registry] ?? TERM_ICON.item
     return (
       <span aria-hidden className="flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
         <Generic className="size-[70%] text-muted-foreground" />
@@ -124,7 +116,7 @@ function Chip({
       {choice ? (
         <Mark choice={choice} icons={icons} registry={registry} size={20} />
       ) : (
-        <WarningIcon aria-hidden className="size-4 shrink-0" />
+        <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
       )}
       <span className={cn("truncate", !choice && "font-mono text-xs")}>{choice?.name ?? value}</span>
       {onRemove ? (
@@ -200,7 +192,9 @@ export function ReferenceMarks({
         const choice = choiceFor(choices.choices, value)
         const name = choice?.name ?? value
         if (choices.choices.length > 0 && !choice) {
-          return <WarningIcon key={`${value}-${index}`} aria-label={value} className="size-5 shrink-0 text-warning" />
+          return (
+            <TERM_ICON.warning key={`${value}-${index}`} aria-label={value} className="size-5 shrink-0 text-warning" />
+          )
         }
         return icons && choice?.icon ? (
           <span key={`${value}-${index}`} title={name} className="shrink-0">
@@ -349,7 +343,7 @@ export function ReferencePicker({
           </>
         ) : (
           <span className="flex min-w-0 items-center gap-1.5 text-warning">
-            <WarningIcon aria-hidden className="size-4 shrink-0" />
+            <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
             <span className="truncate font-mono text-xs">{value}</span>
           </span>
         )}

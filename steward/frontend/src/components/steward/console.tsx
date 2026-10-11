@@ -3,10 +3,10 @@ import {
   DownloadSimpleIcon,
   KeyReturnIcon,
   ListMagnifyingGlassIcon,
-  PowerIcon,
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -145,7 +145,7 @@ export function ServiceConsole({
           role="status"
           className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
         >
-          <PowerIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <TERM_ICON.down className="mb-1 size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm text-foreground">
             {offline === "going" ? t("steward.service-page.going-offline") : t("steward.service-page.offline")}
           </p>
@@ -162,7 +162,7 @@ export function ServiceConsole({
           role="status"
           className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
         >
-          <PowerIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <TERM_ICON.down className="mb-1 size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm text-foreground">{t("steward.service-page.offline")}</p>
         </div>
       ) : (

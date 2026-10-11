@@ -1,4 +1,5 @@
-import { FingerprintIcon, KeyIcon, PencilIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { FingerprintIcon, PencilIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 
 import type { Me, SecurityKey } from "@/lib/api"
@@ -108,7 +109,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
         <ul className="flex flex-col">
           {keys.map((key) => (
             <li key={key.id} className="flex items-center gap-2 py-1">
-              <KeyIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <TERM_ICON.securityKey className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm">{key.label}</span>
                 <span className="truncate text-xs text-muted-foreground">

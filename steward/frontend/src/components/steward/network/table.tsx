@@ -1,4 +1,4 @@
-import { UsersIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 
 import { dateTime } from "@/lib/format"
@@ -69,7 +69,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                     title={t("steward.network.players")}
                     className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
                   >
-                    <UsersIcon className="size-3" aria-hidden />
+                    <TERM_ICON.people className="size-3" aria-hidden />
                     <span className="tnum">{players}</span>
                   </span>
                 )}

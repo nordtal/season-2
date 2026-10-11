@@ -69,7 +69,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
                     className={`flex min-h-control items-center rounded-lg pr-3 text-sm transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${rowState(isActive)}`}
                   >
                     <span className="flex size-control shrink-0 items-center justify-center">
-                      {entry.icon ? <entry.icon className="size-4" aria-hidden /> : null}
+                      <entry.icon className="size-4" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                     {group.id === "services" ? <HealthDot service={service} /> : null}

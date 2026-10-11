@@ -1,4 +1,4 @@
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -65,7 +65,7 @@ export function RecreateButton({
               aria-label={t("steward.service-page.recreate-service", { service })}
               onClick={() => setOpen(true)}
             >
-              <ArrowsClockwiseIcon aria-hidden />
+              <TERM_ICON.recreate aria-hidden />
             </Button>
           </TooltipTrigger>
           {/* A disabled button shows no `title` on hover, so here the tooltip carries the reason. */}
@@ -81,7 +81,7 @@ export function RecreateButton({
           aria-label={labelClassName ? runKind("RECREATE") : undefined}
           onClick={() => setOpen(true)}
         >
-          <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
+          <TERM_ICON.recreate className="size-3.5" aria-hidden />
           <span className={labelClassName}>{runKind("RECREATE")}</span>
         </Button>
       )}

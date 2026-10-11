@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { ArrowCounterClockwiseIcon, DownloadIcon } from "@phosphor-icons/react"
+import { DownloadIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { toast } from "sonner"
 
 import type { Backup, Run } from "@/lib/api"
@@ -216,7 +217,7 @@ function RestoreDialog() {
       }}
       trigger={
         <Button variant="outline" size="sm">
-          <ArrowCounterClockwiseIcon />
+          <TERM_ICON.restore />
           {t("steward.backups.restore")}
         </Button>
       }

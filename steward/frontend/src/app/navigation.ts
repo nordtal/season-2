@@ -1,17 +1,4 @@
-import {
-  ArchiveIcon,
-  ArrowCircleUpIcon,
-  BellIcon,
-  BookOpenTextIcon,
-  CalendarIcon,
-  CreditCardIcon,
-  HardDrivesIcon,
-  PulseIcon,
-  SlidersHorizontalIcon,
-  TranslateIcon,
-  UsersIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import type { Icon } from "@phosphor-icons/react"
 import type { LinkProps } from "@tanstack/react-router"
 
@@ -27,7 +14,7 @@ export type NavEntry = {
   label: string
   /** One line of what the page is for, shown by the command palette and the placeholder. */
   note: string
-  icon?: Icon
+  icon: Icon
   /** Words an admin might type that are not in the label. */
   keywords?: string[]
 } & (
@@ -39,7 +26,6 @@ export type NavGroup = {
   id: string
   /** The heading over the group, left out where a group's single entry names itself. */
   label?: string
-  icon: Icon
   entries: NavEntry[]
 }
 
@@ -52,14 +38,13 @@ export function navigation(services: readonly string[]): NavGroup[] {
   return [
     {
       id: "overview",
-      icon: PulseIcon,
       entries: [
         {
           id: "overview",
           label: t("steward.shell.page", { page: "overview" }),
           to: "/",
           note: t("steward.shell.note", { page: "overview" }),
-          icon: PulseIcon,
+          icon: TERM_ICON.overview,
           keywords: ["home", "dashboard", "health", "overview", "status"],
         },
       ],
@@ -67,28 +52,26 @@ export function navigation(services: readonly string[]): NavGroup[] {
     {
       id: "services",
       label: t("steward.shell.page", { page: "services" }),
-      icon: HardDrivesIcon,
       entries: services.map((name) => ({
         id: `service-${name}`,
         label: name,
         to: "/services/$name",
         params: { name },
         note: t("steward.shell.service-note", { name }),
-        icon: HardDrivesIcon,
+        icon: TERM_ICON.service,
         keywords: ["container", "log", "console", "restart"],
       })),
     },
     {
       id: "operations",
       label: t("steward.shell.page", { page: "operations" }),
-      icon: WrenchIcon,
       entries: [
         {
           id: "operations-updates",
           label: t("steward.shell.page", { page: "updates" }),
           to: "/operations/updates",
           note: t("steward.shell.note", { page: "updates" }),
-          icon: ArrowCircleUpIcon,
+          icon: TERM_ICON.update,
           keywords: ["update", "drift", "image", "plugin", "restart", "schedule"],
         },
         {
@@ -97,7 +80,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "backups" }),
           to: "/operations/backups",
           note: t("steward.shell.note", { page: "backups" }),
-          icon: ArchiveIcon,
+          icon: TERM_ICON.backup,
           keywords: ["backup", "archive", "snapshot", "retention", "storage box", "offsite", "restore"],
         },
         {
@@ -105,21 +88,20 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "alerts" }),
           to: "/alerts",
           note: t("steward.shell.note", { page: "alerts" }),
-          icon: BellIcon,
+          icon: TERM_ICON.alert,
           keywords: ["alert", "issue", "problem", "warning", "down", "notification"],
         },
       ],
     },
     {
       id: "the-rest",
-      icon: SlidersHorizontalIcon,
       entries: [
         {
           id: "season",
           label: t("steward.shell.page", { page: "season" }),
           to: "/season",
           note: t("steward.shell.note", { page: "season" }),
-          icon: CalendarIcon,
+          icon: TERM_ICON.season,
           keywords: ["season", "phase", "reset", "launch"],
         },
         {
@@ -127,7 +109,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "translations" }),
           to: "/translations",
           note: t("steward.shell.note", { page: "translations" }),
-          icon: TranslateIcon,
+          icon: TERM_ICON.translations,
           keywords: ["translations", "texts", "messages", "language", "wording", "german"],
         },
         {
@@ -135,7 +117,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "access" }),
           to: "/access",
           note: t("steward.shell.note", { page: "access" }),
-          icon: UsersIcon,
+          icon: TERM_ICON.people,
           keywords: ["access", "whitelist", "roles", "accounts", "players", "discord", "link"],
         },
         {
@@ -143,7 +125,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "payments" }),
           to: "/payments",
           note: t("steward.shell.note", { page: "payments" }),
-          icon: CreditCardIcon,
+          icon: TERM_ICON.payments,
           keywords: ["bunq", "contribution", "money", "payments"],
         },
         {
@@ -151,7 +133,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           label: t("steward.shell.page", { page: "journal" }),
           to: "/journal",
           note: t("steward.shell.note", { page: "journal" }),
-          icon: BookOpenTextIcon,
+          icon: TERM_ICON.journal,
           keywords: ["audit", "history", "trail", "log"],
         },
       ],

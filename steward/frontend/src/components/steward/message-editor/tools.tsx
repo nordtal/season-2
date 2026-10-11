@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowElbowDownLeftIcon, HashIcon } from "@phosphor-icons/react"
+import { ArrowElbowDownLeftIcon, HashStraightIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import { t } from "@/lib/texts"
@@ -81,7 +81,7 @@ export function BreakButton({ onPress, disabled }: { onPress: () => void; disabl
 export function NumberButton({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
   return (
     <ToolButton label={t("steward.message-editor.the-number")} onPress={onPress} disabled={disabled}>
-      <HashIcon aria-hidden />
+      <HashStraightIcon aria-hidden />
     </ToolButton>
   )
 }

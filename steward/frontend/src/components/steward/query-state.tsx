@@ -1,4 +1,5 @@
-import { PlugsIcon, TrayIcon, WarningIcon } from "@phosphor-icons/react"
+import { PlugsIcon, TrayIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import type { ReactNode } from "react"
 
 import { ApiError } from "@/lib/api"
@@ -42,7 +43,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
   const api = error instanceof ApiError ? error : null
   const docker = api?.where === "docker"
   const agent = api?.where === "steward-agent"
-  const Icon = docker || agent ? PlugsIcon : WarningIcon
+  const Icon = docker || agent ? PlugsIcon : TERM_ICON.warning
 
   return (
     <div

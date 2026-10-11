@@ -1,4 +1,5 @@
-import { ArrowSquareOutIcon, ArrowsCounterClockwiseIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -58,7 +59,7 @@ export function ServicePlugins({ service }: { service: string }) {
           {refresh.isPending ? (
             <SpinnerIcon className="animate-spin" aria-hidden />
           ) : (
-            <ArrowsCounterClockwiseIcon aria-hidden />
+            <TERM_ICON.checkForUpdates aria-hidden />
           )}
           {t("steward.service-page.check-updates")}
         </Button>

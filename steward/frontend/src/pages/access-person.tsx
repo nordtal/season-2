@@ -1,13 +1,4 @@
-import {
-  CrownCrossIcon,
-  CrownIcon,
-  HourglassIcon,
-  LinkBreakIcon,
-  PackageIcon,
-  ShieldSlashIcon,
-  UserPlusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -98,7 +89,7 @@ export function GrantDialog({
       trigger={
         open === undefined ? (
           <Button type="button">
-            <UserPlusIcon aria-hidden />
+            <TERM_ICON.grantAccess aria-hidden />
             {t("steward.people.grant-access")}
           </Button>
         ) : null
@@ -433,7 +424,7 @@ export function RevokeDialog({
       trigger={
         open === undefined ? (
           <Button type="button" variant="ghost" size="sm" className="text-destructive">
-            <ShieldSlashIcon aria-hidden />
+            <TERM_ICON.revokeAccess aria-hidden />
             {t("steward.people.revoke")}
           </Button>
         ) : null
@@ -462,7 +453,7 @@ export function RevokeDialog({
       }}
     >
       <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-sm text-warning">
-        <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
         {t("steward.people.thrown-out")}
       </p>
     </AskThenAct>
@@ -629,7 +620,7 @@ function rowActions(
     key: "grant",
     node: (
       <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
-        <UserPlusIcon aria-hidden />
+        <TERM_ICON.grantAccess aria-hidden />
         {t("steward.people.grant")}
       </Button>
     ),
@@ -639,7 +630,7 @@ function rowActions(
     key: "playtime",
     node: (
       <Button type="button" variant="ghost" size="sm" onClick={on.onPlaytime}>
-        <HourglassIcon aria-hidden />
+        <TERM_ICON.playtime aria-hidden />
         {t("steward.people.playtime")}
       </Button>
     ),
@@ -650,7 +641,7 @@ function rowActions(
       key: "revoke",
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
-          <ShieldSlashIcon aria-hidden />
+          <TERM_ICON.revokeAccess aria-hidden />
           {t("steward.people.revoke")}
         </Button>
       ),
@@ -662,7 +653,7 @@ function rowActions(
       key: "unlink",
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
-          <LinkBreakIcon aria-hidden />
+          <TERM_ICON.unlink aria-hidden />
           {t("steward.people.unlink")}
         </Button>
       ),
@@ -674,7 +665,7 @@ function rowActions(
       key: "make-admin",
       node: (
         <Button type="button" variant="ghost" size="sm" onClick={on.onMakeAdmin}>
-          <CrownIcon aria-hidden />
+          <TERM_ICON.admin aria-hidden />
           {t("steward.people.make-admin")}
         </Button>
       ),
@@ -686,7 +677,7 @@ function rowActions(
       key: "revoke-admin",
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
-          <CrownCrossIcon aria-hidden />
+          <TERM_ICON.revokeAdmin aria-hidden />
           {t("steward.people.revoke-admin")}
         </Button>
       ),
@@ -699,7 +690,7 @@ function rowActions(
       key: "pack",
       node: (
         <Button type="button" variant="ghost" size="sm" onClick={on.onPack}>
-          <PackageIcon aria-hidden />
+          <TERM_ICON.pack aria-hidden />
           {t("steward.people.pack", { exempted: Boolean(person.packExemptAt) })}
         </Button>
       ),

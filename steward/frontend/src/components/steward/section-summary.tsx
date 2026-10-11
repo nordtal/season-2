@@ -1,6 +1,7 @@
 import type { ConfigEntry } from "@/lib/api"
 import { isColour } from "@/lib/references"
 import { ReferenceValues } from "@/components/steward/reference-picker"
+import { FieldLabelIcon } from "@/components/steward/term-icons"
 
 /** A section's filled settings, read only, each under its schema label; what names a game thing shows it. */
 export function SectionSummary({ fields }: { fields: ConfigEntry[] }) {
@@ -11,7 +12,10 @@ export function SectionSummary({ fields }: { fields: ConfigEntry[] }) {
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-1.5 text-xs">
       {shown.map((field) => (
         <div key={field.key} className="contents">
-          <dt className="pt-0.5 text-muted-foreground">{field.label}</dt>
+          <dt className="flex items-center gap-1 pt-0.5 text-muted-foreground">
+            <FieldLabelIcon fieldKey={field.key} />
+            {field.label}
+          </dt>
           <dd className="min-w-0">
             {field.refers && !isColour(field.refers) ? (
               <ReferenceValues

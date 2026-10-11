@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { BellIcon, CaretDownIcon, HashIcon } from "@phosphor-icons/react"
+import { CaretDownIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "cn"
 
 import type { GlyphInfo, MessageSurface } from "@/lib/api"
@@ -535,7 +536,7 @@ function DiscordPreview({
             className="flex items-center gap-1.5 rounded-[4px] px-2 py-1.5"
             style={{ background: "#404249", color: "#ffffff" }}
           >
-            <HashIcon aria-hidden className="size-5 shrink-0" style={{ color: "#80848e" }} />
+            <TERM_ICON.textChannel aria-hidden className="size-5 shrink-0" style={{ color: "#80848e" }} />
             <span className="truncate">{plainText(runs, fill).toLowerCase().replace(/\s+/g, "-")}</span>
           </div>
         </div>,
@@ -568,7 +569,7 @@ function PagePreview({ runs, fill, push, className }: { runs: Run[]; fill: Fill;
           className="flex size-8 shrink-0 items-center justify-center rounded-md text-white"
           style={{ background: "var(--brand)" }}
         >
-          <BellIcon aria-hidden className="size-4" />
+          <TERM_ICON.alert aria-hidden className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-xs text-muted-foreground">Nordtal Steward</div>

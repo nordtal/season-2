@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ClockIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { toast } from "sonner"
 
 import type { ConfigChanges } from "@/lib/api"
@@ -80,7 +80,7 @@ export function ScheduleDialog() {
     <ResponsiveDialog>
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <ClockIcon />
+          <TERM_ICON.schedule />
           {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>

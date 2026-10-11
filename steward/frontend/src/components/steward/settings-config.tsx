@@ -15,6 +15,7 @@ import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { FieldLabelIcon } from "@/components/steward/term-icons"
 import {
   DraftDot,
   type FileItem,
@@ -136,7 +137,8 @@ function SettingField({
       )}
     >
       <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", layout !== "cell" && "min-h-6")}>
-        <Label htmlFor={entry.path} className={layout === "cell" ? "sr-only" : "min-w-0 text-sm font-normal"}>
+        <Label htmlFor={entry.path} className={layout === "cell" ? "sr-only" : "min-w-0 gap-1.5 text-sm font-normal"}>
+          <FieldLabelIcon fieldKey={entry.key} className="size-4 shrink-0 text-muted-foreground" />
           {entry.label}
         </Label>
         {entry.environmentOverridden ? <EnvironmentOverriddenBadge /> : null}

@@ -1,4 +1,5 @@
-import { ArrowSquareOutIcon, HandCoinsIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -31,7 +32,7 @@ function SettleAction({ reference }: { reference: string }) {
           disabled={settle.isPending}
           title={t("steward.payments.settle")}
         >
-          <HandCoinsIcon aria-hidden />
+          <TERM_ICON.settle aria-hidden />
           {t("steward.payments.settle")}
         </Button>
       }

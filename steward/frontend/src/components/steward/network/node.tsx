@@ -1,4 +1,5 @@
-import { ArrowSquareOutIcon, ArrowUpIcon, QuestionIcon, UsersIcon, WrenchIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, QuestionIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
@@ -40,7 +41,7 @@ export function DriftMark({
   const word = t("steward.image.drift", {
     drift: shown === "OUTDATED" ? "outdated" : shown === "LOCAL" ? "local" : "unknown",
   })
-  const Icon = shown === "OUTDATED" ? ArrowUpIcon : shown === "LOCAL" ? WrenchIcon : QuestionIcon
+  const Icon = shown === "OUTDATED" ? TERM_ICON.update : shown === "LOCAL" ? TERM_ICON.localBuild : QuestionIcon
   return (
     /** Padded out to a finger's size, and pulled back so the line does not move. */
     <Tip content={<DriftTip drift={drift} image={image} localBuild={localBuild} />} className="-m-2 p-2">
@@ -159,7 +160,7 @@ export function ServiceNode({
             title={t("steward.network.players")}
             className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
           >
-            <UsersIcon className="size-3" aria-hidden />
+            <TERM_ICON.people className="size-3" aria-hidden />
             <span className="tnum">{players}</span>
           </span>
         ) : null}
@@ -201,7 +202,7 @@ export function ServiceNode({
                   title={t("steward.network.players")}
                   className="flex shrink-0 items-center gap-1"
                 >
-                  <UsersIcon className="size-3" aria-hidden />
+                  <TERM_ICON.people className="size-3" aria-hidden />
                   <span className="tnum">{players}</span>
                 </span>
               )}

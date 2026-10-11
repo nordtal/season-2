@@ -1,4 +1,5 @@
-import { CaretRightIcon, WarningIcon } from "@phosphor-icons/react"
+import { CaretRightIcon } from "@phosphor-icons/react"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useMemo, useState } from "react"
 import { cn } from "cn"
 
@@ -292,7 +293,10 @@ function TextRow({
           </Badge>
         ) : null}
         {fallbacks.length > 0 ? (
-          <WarningIcon aria-label={t("steward.message-editor.fallen-back")} className="size-4 shrink-0 text-warning" />
+          <TERM_ICON.warning
+            aria-label={t("steward.message-editor.fallen-back")}
+            className="size-4 shrink-0 text-warning"
+          />
         ) : null}
         {draft !== undefined ? <DraftDot /> : null}
         <CaretRightIcon

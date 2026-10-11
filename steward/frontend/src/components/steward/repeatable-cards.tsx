@@ -7,6 +7,7 @@ import { ListControl, ScalarControl, explanationOf, isRequiredChannel } from "@/
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { FieldLabelIcon } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 
@@ -237,7 +238,8 @@ export function RepeatableCards({
                 }
                 return (
                   <div key={field.key} className="flex flex-col gap-1.5">
-                    <Label htmlFor={id} className="text-sm font-medium">
+                    <Label htmlFor={id} className="gap-1.5 text-sm font-medium">
+                      <FieldLabelIcon fieldKey={field.key} className="size-4 shrink-0 text-muted-foreground" />
                       {field.label}
                     </Label>
                     {explanation ? <p className="text-sm text-muted-foreground">{explanation}</p> : null}

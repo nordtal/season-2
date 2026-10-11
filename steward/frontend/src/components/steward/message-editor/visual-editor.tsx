@@ -502,7 +502,7 @@ function RunView({
 function marksOf(style: Style, format: Format): CSSProperties {
   if (format === "DISCORD_MARKDOWN") return style.click ? { color: "#00a8fc" } : {}
   const marks: CSSProperties = {}
-  if (style.hover) Object.assign(marks, { borderBottom: "2px dotted #c9d2ff", background: "rgba(201,210,255,0.08)" })
+  if (style.hover) Object.assign(marks, { borderBottom: "2px dotted var(--mark)", background: "var(--mark-wash)" })
   if (style.click || style.action)
     Object.assign(marks, { outline: "1px dashed var(--primary)", outlineOffset: 1, cursor: "pointer" })
   return marks

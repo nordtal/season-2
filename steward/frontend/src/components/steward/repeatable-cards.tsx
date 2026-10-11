@@ -1,4 +1,4 @@
-import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"
@@ -7,7 +7,7 @@ import { ListControl, ScalarControl, explanationOf, isRequiredChannel } from "@/
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { FieldLabelIcon } from "@/components/steward/term-icons"
+import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 
@@ -179,8 +179,8 @@ export function RepeatableCards({
               </Button>
             </div>
             {missing.length > 0 ? (
-              <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-500">
-                <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <p className="flex items-start gap-1.5 text-sm text-warning">
+                <TERM_ICON.warning aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <span>
                   {t("steward.settings.incomplete", {
                     missing: missing.map((field) => field.label).join(", "),

@@ -64,7 +64,7 @@ export function PlaceholderChip({
     <span
       className={cn(
         "mx-px inline-flex items-center rounded-full border px-1.5 align-baseline font-mono text-[0.75em] leading-[1.5] whitespace-nowrap",
-        global ? "border-border bg-muted text-muted-foreground" : "border-primary/50 bg-primary/20 text-[#c9d2ff]",
+        global ? "border-border bg-muted text-muted-foreground" : "border-primary/50 bg-primary/20 text-mark",
         className,
       )}
       style={{ textShadow: "none" }}

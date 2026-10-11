@@ -52,6 +52,13 @@
   --destructive: #d8534a;
   --destructive-foreground: #fffcf6;
 
+  /* The scrim behind a dialog, sheet or drawer, drawn at a fraction of its strength. */
+  --overlay: #000000;
+
+  /* A placeholder in a text and the mark of hover text: the brand blue lifted so it reads on a dark game surface. */
+  --mark: #c9d2ff;
+  --mark-wash: color-mix(in oklab, var(--mark) 8%, transparent);
+
   --border: #2a2a27;
   --input: #333330;
   /* The focus ring is blue because focus promises an action. */
@@ -123,6 +130,8 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-overlay: var(--overlay);
+  --color-mark: var(--mark);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

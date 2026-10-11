@@ -164,6 +164,10 @@ run `git config core.hooksPath .githooks` once per clone.
   level) is drawn with the icon `steward/frontend/src/components/steward/term-icons.tsx` gives it, wherever it
   appears: page, pill, form field, table, tooltip, navigation and palette. That icon means nothing else, and a field
   whose value is a term shows it beside its label. _(checked)_
+- **Only the theme's colours.** Steward names a colour only in `steward/frontend/src/index.css` (and the
+  generated `brand.gen.css`); everything else uses its variables, and a colour no variable fits becomes a new one
+  there. Content keeps its own colours: Minecraft's chat colours, the game's and Discord's surfaces in a preview and a
+  colour a person picks, each exempt by file in `only-theme-colours.test.ts`. _(checked)_
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a

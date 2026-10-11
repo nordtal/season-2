@@ -111,7 +111,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
       <div
         aria-hidden
         onClick={close}
-        className={`absolute inset-0 z-30 bg-black/50 transition-opacity ${MOTION} ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`absolute inset-0 z-30 bg-overlay/50 transition-opacity ${MOTION} ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
 
       <div className="absolute inset-x-(--gutter) bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-lg backdrop-blur">

@@ -29,7 +29,7 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
   return (
     <DrawerPrimitive.Overlay
       data-slot="drawer-overlay"
-      className={cn("fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs", className)}
+      className={cn("fixed inset-0 z-50 bg-overlay/10 supports-backdrop-filter:backdrop-blur-xs", className)}
       {...props}
     />
   )

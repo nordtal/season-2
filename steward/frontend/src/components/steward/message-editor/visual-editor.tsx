@@ -26,11 +26,12 @@ import type { Fill } from "@/components/steward/message-editor/examples"
 import {
   GlyphMenu,
   PlaceholderChip,
+  rawChip,
   PlaceholderMenu,
   StyleButtons,
   ValueStyleMenu,
 } from "@/components/steward/message-editor/parts"
-import { BreakButton, ToolDivider, Toolbar } from "@/components/steward/message-editor/tools"
+import { BreakButton, NumberButton, ToolDivider, Toolbar } from "@/components/steward/message-editor/tools"
 import { Glyph, MINECRAFT_FONT, type Tones } from "@/components/steward/message-editor/preview"
 
 export type VisualEditorProps = {
@@ -46,6 +47,8 @@ export type VisualEditorProps = {
   label: string
   /** A hover's own text: no hover, click or action inside it. */
   nested?: boolean
+  /** In a plural's case: the number `#` stands for, which the tool row offers. */
+  pound?: string
   disabled?: boolean
 }
 
@@ -68,6 +71,7 @@ export function VisualEditor({
   kinds,
   label,
   nested,
+  pound,
   disabled,
 }: VisualEditorProps) {
   const root = useRef<HTMLDivElement>(null)
@@ -289,6 +293,9 @@ export function VisualEditor({
             onPick={(name) => insertAt([{ kind: "glyph", name, style: {} }])}
           />
         ) : null}
+        {pound === undefined ? null : (
+          <NumberButton disabled={disabled} onPress={() => insertAt([{ kind: "raw", source: "#", style: {} }])} />
+        )}
         {can.breaks && !nested ? (
           <BreakButton disabled={disabled} onPress={() => insertAt([{ kind: "break", style: {} }])} />
         ) : null}
@@ -326,6 +333,7 @@ export function VisualEditor({
         aria-label={label}
         aria-multiline={can.breaks}
         contentEditable={!disabled}
+        aria-disabled={disabled || undefined}
         suppressContentEditableWarning
         spellCheck={false}
         data-slot="input-group-control"
@@ -470,17 +478,19 @@ function RunView({
           <br />
         </span>
       )
-    case "raw":
+    case "raw": {
+      const chip = rawChip(run.source)
       return (
         <span
           data-run={index}
           contentEditable={false}
-          className="rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground"
-          style={{ textShadow: "none" }}
+          className={chip ? undefined : "rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground"}
+          style={chip ? { ...textStyle(run.style, format, tones), ...marks } : { textShadow: "none" }}
         >
-          {run.source}
+          {chip ?? run.source}
         </span>
       )
+    }
     default: {
       const exhaustive: never = run
       throw new Error(`unreachable run kind: ${JSON.stringify(exhaustive)}`)

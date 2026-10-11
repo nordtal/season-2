@@ -105,7 +105,7 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
   icon sheet's index; the sheet is cached per version. The settings form draws one picker per field
   a schema marks with `refers`, from the catalogue, the guild or the people Steward knows, and falls
   back to the typed field where nothing can be listed. A choice's values are named by the plugin's
-  English texts, an admin's override first, so they are edited on the Texts page; a field shows only
+  English texts, an admin's override first, so they are edited on the Translations page; a field shows only
   where it applies, and one that stops applying goes back to its default. The guild's channels are
   the list discord-bot publishes into `guild_channels`, so Steward never holds the bot's token and
   shows the last list while the bot is down.
@@ -117,9 +117,9 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
   `/designs/` until it is built; `/designs/milestones-config` shows the track's three layouts, of
   which Settings draws A.
 
-### The Texts page
+### The Translations page
 
-The Texts page (`/texts`) edits every text of every bundle, Steward's own among them, from
+The Translations page (`/translations`) edits every text of every bundle, Steward's own among them, from
 `GET /api/messages`: each text once, as `<bundle>/<key>`, with the services that show it, the
 places a preview reaches, the network's `languages`, each service's tone `colours` and where each
 place is (`places`). The texts are grouped by where their first place is (in game, Discord, Steward
@@ -130,6 +130,8 @@ surface as one. A service shows a text its jar ships where it draws one of the t
 block stays with every service that ships it. A bundle that ships English only is edited in English only. One key is open at a
 time. Its text is edited as it looks (runs of styled text with values as pills, `lib/rich-text.ts`)
 or as it is written (the source coloured from the marks of the one parser in `lib/message-tree.ts`).
+As it looks, a plural or a choice is a chip in the field, and each of its cases a field of its own below
+it (`message-editor/cases.tsx`), with `#` as a chip; the plural categories the language needs are offered as cases.
 The tools above the field offer what the key's format allows: its values with their examples
 (`GET /api/message-examples`), glyphs, tones, colours, styles, hover, click and actions. Whether a
 text is right is only ever `MessageCheck`: the editor asks `GET /api/message-check` once typing
@@ -167,5 +169,5 @@ them before the web starts. A change to `steward` re-arms both clocks without a 
 `preview` signs in as an invented admin whose key counts as just held, until it is stopped, so a page
 is looked at without a security key. `--args="--dump FILE"` restores a `pg_dump` first, and the
 session cookie is written to `build/preview/state.json` as Playwright's `storageState`. The stand-in
-agent carries no bundle of its own, so the Texts page lists nothing until `--jars DIR` hands it real
+agent carries no bundle of its own, so the Translations page lists nothing until `--jars DIR` hands it real
 jars, one directory per service (`DIR/smp/smp-<version>.jar`, `DIR/discord-bot/discord-bot-<version>.jar`).

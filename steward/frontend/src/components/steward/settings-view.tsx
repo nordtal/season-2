@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { t } from "@/lib/texts"
 
-/** What a group of settings and the Texts page are drawn with alike: the tree, its rows, the jump to a field. */
+/** What a group of settings and the Translations page are drawn with alike: the tree, its rows, the jump to a field. */
 
 export type Target = { file: string; id: string; language?: Language; seq: number }
 

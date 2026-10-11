@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import type { ReactNode } from "react"
 import {
+  ArrowsSplitIcon,
   BracketsCurlyIcon,
   CodeIcon,
   CursorClickIcon,
@@ -33,7 +34,32 @@ import { MenuTrigger, ToolButton } from "@/components/steward/message-editor/too
 /** What both editors share: the placeholder, glyph and colour menus, and the style buttons that use them. */
 
 /** A placeholder as the editors show it: always a pill, one every message has set apart in grey. */
-export function PlaceholderChip({ name, global, className }: { name: string; global?: boolean; className?: string }) {
+/** The start of a plural's or a choice's source, whose cases the fields below the editor edit. */
+const CHOICE_HEAD = /^\{\s*([^\s,{}]+)\s*,\s*(?:plural|select)\s*,/
+
+/** A raw run the editor draws as a chip: `#` in a plural's case, or a plural or a choice by the value it depends on. */
+export function rawChip(source: string): ReactNode {
+  if (source === "#") return <PlaceholderChip name="#" />
+  const choice = CHOICE_HEAD.exec(source)
+  return choice ? (
+    <PlaceholderChip name={choice[1]} className="gap-1">
+      <ArrowsSplitIcon aria-hidden className="size-3" />
+    </PlaceholderChip>
+  ) : null
+}
+
+export function PlaceholderChip({
+  name,
+  global,
+  className,
+  children,
+}: {
+  name: string
+  global?: boolean
+  className?: string
+  /** Drawn before the name, such as the icon of a value whose cases are edited apart. */
+  children?: ReactNode
+}) {
   return (
     <span
       className={cn(
@@ -43,6 +69,7 @@ export function PlaceholderChip({ name, global, className }: { name: string; glo
       )}
       style={{ textShadow: "none" }}
     >
+      {children}
       {name}
     </span>
   )

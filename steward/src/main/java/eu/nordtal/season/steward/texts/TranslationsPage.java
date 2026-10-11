@@ -4,9 +4,9 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The Texts page: every text of every bundle, grouped by where it appears, with its filter and its search. */
-@Name("Texts")
-public interface TextsPage {
+/** The Translations page: every text of every bundle, grouped by where it appears, with its filter and its search. */
+@Name("Translations")
+public interface TranslationsPage {
 
     @Name("Group")
     MessageRef group(@Arg("group") Group group);

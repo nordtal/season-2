@@ -1173,11 +1173,14 @@ export type TextArgs = {
   "steward.keys.with-discord": Record<string, never>
   "steward.keys.wrong-domain": Record<string, never>
   "steward.message-editor.action": Record<string, never>
+  "steward.message-editor.add-case": Record<string, never>
   "steward.message-editor.add-colour": Record<string, never>
   "steward.message-editor.add-variant": Record<string, never>
   "steward.message-editor.apply": Record<string, never>
   "steward.message-editor.as-it-looks": Record<string, never>
   "steward.message-editor.bold": Record<string, never>
+  "steward.message-editor.by-number": Record<string, never>
+  "steward.message-editor.by-value": Record<string, never>
   "steward.message-editor.clear-formatting": Record<string, never>
   "steward.message-editor.click": Record<string, never>
   "steward.message-editor.click-value": Record<string, never>
@@ -1194,6 +1197,7 @@ export type TextArgs = {
   "steward.message-editor.italic": Record<string, never>
   "steward.message-editor.line-break": Record<string, never>
   "steward.message-editor.link": Record<string, never>
+  "steward.message-editor.new-case": Record<string, never>
   "steward.message-editor.no-colour": Record<string, never>
   "steward.message-editor.obfuscated": Record<string, never>
   "steward.message-editor.open-url": Record<string, never>
@@ -1205,6 +1209,7 @@ export type TextArgs = {
   }
   "steward.message-editor.placeholder": Record<string, never>
   "steward.message-editor.remove": Record<string, never>
+  "steward.message-editor.remove-case": Record<string, never>
   "steward.message-editor.remove-colour": Record<string, never>
   "steward.message-editor.remove-variant": Record<string, never>
   "steward.message-editor.run-command": Record<string, never>
@@ -1214,6 +1219,7 @@ export type TextArgs = {
   "steward.message-editor.strikethrough": Record<string, never>
   "steward.message-editor.suggest-command": Record<string, never>
   "steward.message-editor.take-over": Record<string, never>
+  "steward.message-editor.the-number": Record<string, never>
   "steward.message-editor.tone": Record<string, never>
   "steward.message-editor.underlined": Record<string, never>
   "steward.message-editor.value-style": Record<string, never>

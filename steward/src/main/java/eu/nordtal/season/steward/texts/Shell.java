@@ -87,7 +87,7 @@ public interface Shell {
         BACKUPS,
         ALERTS,
         SEASON,
-        TEXTS,
+        TRANSLATIONS,
         ANNOUNCEMENTS,
         ACCESS,
         PAYMENTS,

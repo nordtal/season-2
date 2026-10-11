@@ -16,18 +16,22 @@ export class UnreadableText extends Error {
   }
 }
 
-/** The tree of `text`, or {@link UnreadableText} where it cannot be read; `markup` reads MiniMessage tags too. */
-export function parseText(text: string, markup: boolean): TextNode[] {
+/**
+ * The tree of `text`, or {@link UnreadableText} where it cannot be read; `markup` reads MiniMessage tags too.
+ *
+ * `plural` names the number a `#` stands for, for a text that is a plural's case.
+ */
+export function parseText(text: string, markup: boolean, plural: string | null = null): TextNode[] {
   const reader = new Reader(text, markup)
-  const nodes = reader.sequence(null, false)
+  const nodes = reader.sequence(plural, false)
   if (reader.at < text.length) throw new UnreadableText(reader.at)
   return nodes
 }
 
 /** The tree of `text`, or `null` while it cannot be read. */
-export function readText(text: string, markup: boolean): TextNode[] | null {
+export function readText(text: string, markup: boolean, plural: string | null = null): TextNode[] | null {
   try {
-    return parseText(text, markup)
+    return parseText(text, markup, plural)
   } catch (error) {
     if (error instanceof UnreadableText) return null
     throw error

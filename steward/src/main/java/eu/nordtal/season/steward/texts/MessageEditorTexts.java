@@ -24,6 +24,24 @@ public interface MessageEditorTexts {
     @Name("Remove variant")
     MessageRef removeVariant();
 
+    @Name("A plural's heading")
+    MessageRef byNumber();
+
+    @Name("A choice's heading")
+    MessageRef byValue();
+
+    @Name("Add case")
+    MessageRef addCase();
+
+    @Name("New case")
+    MessageRef newCase();
+
+    @Name("Remove case")
+    MessageRef removeCase();
+
+    @Name("The number")
+    MessageRef theNumber();
+
     @Name("Empty")
     MessageRef empty();
 

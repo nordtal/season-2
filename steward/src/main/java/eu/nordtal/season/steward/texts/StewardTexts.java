@@ -72,7 +72,7 @@ public interface StewardTexts {
 
         SeasonPage season();
 
-        TextsPage texts();
+        TranslationsPage texts();
 
         ServicePage servicePage();
 

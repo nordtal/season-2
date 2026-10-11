@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * Where a closed choice's values are named and what Steward draws before each name.
  *
- * A value's name is the plugin's text {@code <value()>.<value in kebab case>}, edited on the Texts page like any other.
+ * A value's name is the plugin's text {@code <value()>.<value in kebab case>}, translated like any other.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

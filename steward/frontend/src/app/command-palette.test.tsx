@@ -435,7 +435,7 @@ describe("CommandPalette - finding a text", () => {
 
     await search("decayed")
 
-    /** The row is named as the Texts page names the text, with the matched text on the right. */
+    /** The row is named as the Translations page names the text, with the matched text on the right. */
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
   })
@@ -474,13 +474,13 @@ describe("CommandPalette - finding a text", () => {
     expect(screen.queryByText("grave.decay.announce")).toBeNull()
   })
 
-  it("selecting a text hit opens the Texts page and hands it a jump, not the configuration form", async () => {
+  it("selecting a text hit opens the Translations page and hands it a jump, not the configuration form", async () => {
     oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
     fireEvent.click(await screen.findByText("Announce"))
 
-    expect(navigateSpy).toHaveBeenCalledWith({ to: "/texts", search: {} })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: "/translations", search: {} })
     expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
     // And never the config map: a text hit must not be mistaken for a config one downstream.
     expect(takePendingJump("smp")).toBeUndefined()

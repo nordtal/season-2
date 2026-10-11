@@ -123,12 +123,12 @@ export function navigation(services: readonly string[]): NavGroup[] {
           keywords: ["season", "phase", "reset", "launch"],
         },
         {
-          id: "texts",
-          label: t("steward.shell.page", { page: "texts" }),
-          to: "/texts",
-          note: t("steward.shell.note", { page: "texts" }),
+          id: "translations",
+          label: t("steward.shell.page", { page: "translations" }),
+          to: "/translations",
+          note: t("steward.shell.note", { page: "translations" }),
           icon: TranslateIcon,
-          keywords: ["texts", "translations", "messages", "language", "wording", "german"],
+          keywords: ["translations", "texts", "messages", "language", "wording", "german"],
         },
         {
           id: "access",

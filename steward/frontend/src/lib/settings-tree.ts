@@ -177,13 +177,13 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
 
 // Texts
 
-/** Where a text is on the Texts page, `<bundle>/<key>`: a key alone is not unique across bundles. */
+/** Where a text is on the Translations page, `<bundle>/<key>`: a key alone is not unique across bundles. */
 export function textId(entry: MessageEntry): string {
   return `${entry.bundle}/${entry.key}`
 }
 
 /**
- * The Texts page as a tree: a branch per group, then each text's topic, by its section names and its key's segments.
+ * The Translations page as a tree: a branch per group, then each text's topic, by its section names and its key's segments.
  *
  * A topic two bundles share is one branch, and each of their texts is a leaf of its own.
  */

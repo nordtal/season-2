@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
-import { Texts } from "@/pages/texts"
+import { Translations } from "@/pages/translations"
 import type {
   CommandRun,
   MessageEntry,
@@ -16,7 +16,7 @@ import type {
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
 
-/** The fake backend, the texts and the helpers the Texts page tests share. */
+/** The fake backend, the texts and the helpers the Translations page tests share. */
 
 export function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -119,7 +119,7 @@ export function draw(node: ReactNode) {
 /** The page as its route draws it, with `?service=` kept in state instead of the URL. */
 export function Page({ service: first }: { service?: string }) {
   const [service, setService] = useState(first)
-  return <Texts service={service} onService={setService} />
+  return <Translations service={service} onService={setService} />
 }
 
 export async function open(label: string | RegExp) {

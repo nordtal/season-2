@@ -222,7 +222,7 @@ export function CommandPalette() {
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/* Setting and text hits together; a setting opens its group, a text the Texts page. */}
+            {/* Setting and text hits together; a setting opens its group, a text the Translations page. */}
             <CommandGroup heading={t("steward.shell.settings")}>
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 if (hit.kind === "config") {
@@ -262,7 +262,7 @@ export function CommandPalette() {
                     onSelect={() => {
                       setOpen(false)
                       setPendingTextJump({ id, language: hit.language })
-                      void navigate({ to: "/texts", search: {} })
+                      void navigate({ to: "/translations", search: {} })
                     }}
                     className="min-h-control gap-2.5"
                   >

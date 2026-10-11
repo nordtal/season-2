@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetDrafts } from "@/lib/drafts"
 import { words } from "@/lib/query-fixtures"
-import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/texts.fixtures"
+import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
 
 afterEach(() => {
   cleanup()

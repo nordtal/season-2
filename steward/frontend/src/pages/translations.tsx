@@ -12,10 +12,10 @@ import type { Target } from "@/components/steward/settings-view"
 import { TEXTS_FILE, TextsForm } from "@/components/steward/texts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-/** What `/texts` keeps in its URL: the service it is filtered to, if any. */
-export type TextsSearch = { service?: string }
+/** What `/translations` keeps in its URL: the service it is filtered to, if any. */
+export type TranslationsSearch = { service?: string }
 
-export function textsSearch(search: Record<string, unknown>): TextsSearch {
+export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
   return typeof search.service === "string" && search.service !== "" ? { service: search.service } : {}
 }
 
@@ -25,12 +25,12 @@ const EVERY_SERVICE = "ALL"
 /** A counter, not state: the number only has to differ from the last one. */
 let jumps = 0
 
-/** The Texts page, its filter kept in the URL's `?service=`. */
-export function TextsPage() {
-  const search = useSearch({ from: "/texts" })
-  const navigate = useNavigate({ from: "/texts" })
+/** The Translations page, its filter kept in the URL's `?service=`. */
+export function TranslationsPage() {
+  const search = useSearch({ from: "/translations" })
+  const navigate = useNavigate({ from: "/translations" })
   return (
-    <Texts
+    <Translations
       service={search.service}
       onService={(service) => void navigate({ search: service ? { service } : {}, replace: true })}
     />
@@ -42,7 +42,7 @@ export function TextsPage() {
  *
  * A text the command palette found is opened here, in the language it was found in.
  */
-export function Texts({
+export function Translations({
   service,
   onService,
 }: {
@@ -65,7 +65,7 @@ export function Texts({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={t("steward.shell.page", { page: "texts" })}
+        title={t("steward.shell.page", { page: "translations" })}
         actions={<ServiceFilter texts={texts.data} service={service} onService={onService} />}
       />
       <QueryState query={texts} rows={8}>

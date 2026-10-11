@@ -1,11 +1,11 @@
 import type { MessageEntry, MessageSurface } from "@/lib/api"
 
-/** Where the Texts page lists a text, and the pills and previews that say where it appears. */
+/** Where the Translations page lists a text, and the pills and previews that say where it appears. */
 
 /** Every place a text can be shown, in order, with where it is, as `/api/messages` names them. */
 export type Places = Record<string, MessageSurface>
 
-/** A group of the Texts page: where a text appears, or the building blocks every other text is made of. */
+/** A group of the Translations page: where a text appears, or the building blocks every other text is made of. */
 export type TextGroup = MessageSurface | "VALUES"
 
 /** The groups in the order the page lists them. */

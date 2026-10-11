@@ -67,7 +67,7 @@ public final class StewardPreview {
      * {@code [--port N] [--dump FILE] [--state FILE] [--jars DIR]}; runs until it is stopped.
      *
      * @param args the port to serve on, a dump to restore instead of the empty schema, where the cookie goes, and a
-     *     directory of {@code <service>/<jar>} whose bundles the Texts page lists
+     *     directory of {@code <service>/<jar>} whose bundles the Translations page lists
      */
     public static void main(final String[] args) throws Exception {
         final Options options = Options.of(args);

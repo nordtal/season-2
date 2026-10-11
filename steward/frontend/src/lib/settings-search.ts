@@ -198,13 +198,13 @@ export function takePendingJump(service: string): PendingJump | undefined {
   return jump
 }
 
-/** Where a text hit hands its destination to the Texts page: the text and the language tab. */
+/** Where a text hit hands its destination to the Translations page: the text and the language tab. */
 export type PendingTextJump = { id: string; language: Language }
 
-/** One slot, since there is one Texts page; kept apart from {@link PendingJump} so neither is taken as the other. */
+/** One slot, since there is one Translations page; kept apart from {@link PendingJump} so neither is taken as the other. */
 let pendingTextJump: PendingTextJump | undefined
 
-/** Subscribers, since the Texts page may already be open when the palette picks a hit on it. */
+/** Subscribers, since the Translations page may already be open when the palette picks a hit on it. */
 const textJumpSubscribers = new Set<() => void>()
 
 export function setPendingTextJump(jump: PendingTextJump): void {

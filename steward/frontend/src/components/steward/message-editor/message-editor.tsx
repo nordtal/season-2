@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestOutcome } from "@/components/steward/game-actions"
+import { ChoiceFields } from "@/components/steward/message-editor/cases"
 import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
@@ -291,6 +292,16 @@ export function MessageEditor({
           </span>
         </InputGroupAddon>
       </InputGroup>
+      {visual ? (
+        <ChoiceFields
+          key={`${language}/${at}`}
+          {...common}
+          runs={runs}
+          onChange={setRuns}
+          kinds={kinds}
+          language={language}
+        />
+      ) : null}
       {problems.length > 0 ? (
         <ul className="flex flex-col gap-0.5 text-xs">
           {problems.map((problem, index) => (

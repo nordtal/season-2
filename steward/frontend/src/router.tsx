@@ -7,7 +7,7 @@ import { UpdatesPage } from "@/pages/updates"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage, seasonSearch } from "@/pages/season"
-import { TextsPage, textsSearch } from "@/pages/texts"
+import { TranslationsPage, translationsSearch } from "@/pages/translations"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
 import { PaymentsPage } from "@/pages/payments"
@@ -73,9 +73,9 @@ const routes = [
   }),
   createRoute({
     getParentRoute: () => rootRoute,
-    path: "/texts",
-    component: TextsPage,
-    validateSearch: textsSearch,
+    path: "/translations",
+    component: TranslationsPage,
+    validateSearch: translationsSearch,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   /** The id is the person's Discord id, which every surface already carries. */

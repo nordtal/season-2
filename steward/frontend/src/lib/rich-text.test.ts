@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   applyStyle,
   branchesOf,
+  choiceOf,
+  choiceSource,
   commonStyle,
   gradientAt,
   insert,
@@ -135,6 +137,56 @@ describe("a plural or a choice as a preview draws it", () => {
 
   it("keeps a tag no editor offers as its source", () => {
     expect(drawn("<lang:x>", {})).toEqual([{ kind: "raw", source: "<lang:x>", style: {} }])
+  })
+})
+
+const raw = (source: string): Run => ({ kind: "raw", source, style: {} })
+
+describe("a plural or a choice as its cases", () => {
+  const pound: Run = { kind: "raw", source: "#", style: {} }
+
+  it("reads each case into runs of its own, with the number as a unit", () => {
+    expect(choiceOf(raw("{n, plural, one {# day} other {# days}}"), "PLAIN", TONES)).toEqual({
+      name: "n",
+      plural: true,
+      cases: [
+        ["one", [pound, { kind: "text", text: " day", style: {} }]],
+        ["other", [pound, { kind: "text", text: " days", style: {} }]],
+      ],
+    })
+  })
+
+  it("is no choice when the run is a tag or a value", () => {
+    expect(choiceOf(raw("<rainbow>"), "MINIMESSAGE", TONES)).toBeNull()
+    expect(choiceOf({ kind: "placeholder", name: "n", style: {} }, "PLAIN", TONES)).toBeNull()
+  })
+
+  it("writes a changed case back into the syntax, a typed # as a character", () => {
+    const days = choiceOf(raw("{n, plural, one {# day} other {# days}}"), "PLAIN", TONES)!
+    const changed = {
+      ...days,
+      cases: [...days.cases, ["=0", [{ kind: "text", text: "no #days", style: {} }]]] as [string, Run[]][],
+    }
+    expect(choiceSource(changed, "PLAIN")).toBe("{n, plural, one {# day} other {# days} =0 {no \\#days}}")
+  })
+
+  it("writes every case back as it was written", () => {
+    for (const [source, format] of [
+      ["{state, select, running {<good>up</good>} other {{state}}}", "MINIMESSAGE"],
+      ["{n, plural, one {**#** day} other {# days}}", "DISCORD_MARKDOWN"],
+      ["{n, plural, other {{s, select, a {# of a} other {\\#}}}}", "PLAIN"],
+    ] as const) {
+      expect(choiceSource(choiceOf(raw(source), format, TONES)!, format)).toBe(source)
+    }
+  })
+
+  it("keeps a choice inside a case a unit of its case, its # bound to the plural around it", () => {
+    const outer = choiceOf(raw("{n, plural, other {{s, select, a {# of a} other {x}}}}"), "PLAIN", TONES)!
+    const inner = outer.cases[0][1][0]
+    expect(choiceOf(inner, "PLAIN", TONES, "n")?.cases[0]).toEqual([
+      "a",
+      [pound, { kind: "text", text: " of a", style: {} }],
+    ])
   })
 })
 

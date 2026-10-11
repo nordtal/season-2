@@ -98,19 +98,25 @@ export function formatOf(value: string | undefined): Format {
 /**
  * The runs of `source`, or `null` while the one parser cannot read it; `tones` are the palette's tags.
  *
- * Only a Minecraft text reads tags; Discord's and a plain one read `{…}` alone, Discord's markdown on top.
+ * Only a Minecraft text reads tags; Discord's and a plain one read `{…}` alone, Discord's markdown on top. `plural`
+ * names the number a `#` stands for in a plural's case, where each `#` is a run of its own.
  */
-export function parse(source: string, format: Format, tones: readonly string[]): Run[] | null {
+export function parse(
+  source: string,
+  format: Format,
+  tones: readonly string[],
+  plural: string | null = null,
+): Run[] | null {
   const markup = format === "MINIMESSAGE"
-  const nodes = readText(source, markup)
+  const nodes = readText(source, markup, plural)
   if (nodes === null) return null
-  if (format === "MINIMESSAGE") return normalize(fromTags(nodes, new Set(tones)))
+  if (format === "MINIMESSAGE") return normalize(fromTags(nodes, new Set(tones), plural))
   const queue: Run[] = []
   let flat = ""
   for (const node of nodes) {
     if (typeof node === "string") flat += node.replaceAll(HOLE, "")
     else {
-      queue.push(leafOf(node, false, {}))
+      queue.push(leafOf(node, false, {}, plural))
       flat += HOLE
     }
   }
@@ -120,14 +126,14 @@ export function parse(source: string, format: Format, tones: readonly string[]):
 /** Where a value or a choice stands in the text a plain or markdown reading scans: one character, never typed. */
 const HOLE = "￿"
 
-function leafOf(node: Exclude<TextNode, string>, markup: boolean, style: Style): Run {
+function leafOf(node: Exclude<TextNode, string>, markup: boolean, style: Style, plural: string | null): Run {
   if ("v" in node) return { kind: "placeholder", name: node.v, k: node.k, s: node.s, style }
-  return { kind: "raw", source: writeText([node], markup), style }
+  return { kind: "raw", source: writeText([node], markup, plural), style }
 }
 
 type Frame = { name: string; style: Style }
 
-function fromTags(nodes: TextNode[], tones: Set<string>): Run[] {
+function fromTags(nodes: TextNode[], tones: Set<string>, plural: string | null): Run[] {
   const out: Run[] = []
   const stack: Frame[] = []
   const style = (): Style => stack.at(-1)?.style ?? {}
@@ -137,7 +143,7 @@ function fromTags(nodes: TextNode[], tones: Set<string>): Run[] {
       continue
     }
     if (!("tag" in node)) {
-      out.push(leafOf(node, true, style()))
+      out.push(leafOf(node, true, style(), plural))
       continue
     }
     const raw: Run = { kind: "raw", source: writeText([node], true), style: style() }
@@ -225,7 +231,7 @@ function opening(
   if (tag === "hover" && args.length === 2 && words[0] === "show_text") {
     const inner = readText(unquoted(argumentText(args[1])), true)
     if (inner === null) return null
-    const hover = normalize(fromTags(inner, tones))
+    const hover = normalize(fromTags(inner, tones, null))
     return { name: "hover", apply: (style) => ({ ...style, hover }) }
   }
   if (tag === "click" && args.length === 2 && words[0] !== null && words[0] in CLICK_ACTIONS) {
@@ -347,11 +353,11 @@ function fromMarkdown(source: string, queue: Run[], outer: Style): Run[] {
 
 // Serializing
 
-/** The runs as the text the one parser reads back to them. */
-export function serialize(runs: Run[], format: Format): string {
-  if (format === "PLAIN") return runs.map((run) => leaf(run, format)).join("")
-  if (format === "DISCORD_MARKDOWN") return group(runs, MARKDOWN_LEVELS, 0, format)
-  return group(runs, MINI_LEVELS, 0, format)
+/** The runs as the text the one parser reads back to them, as a case of the plural on `plural` if one is named. */
+export function serialize(runs: Run[], format: Format, plural: string | null = null): string {
+  if (format === "PLAIN") return runs.map((run) => leaf(run, format, plural)).join("")
+  if (format === "DISCORD_MARKDOWN") return group(runs, MARKDOWN_LEVELS, 0, format, plural)
+  return group(runs, MINI_LEVELS, 0, format, plural)
 }
 
 type Level = {
@@ -424,8 +430,8 @@ const MARKDOWN_LEVELS: Level[] = [
   markdownLevel("strikethrough", "~~"),
 ]
 
-function group(runs: Run[], levels: Level[], depth: number, format: Format): string {
-  if (depth >= levels.length) return runs.map((run) => leaf(run, format)).join("")
+function group(runs: Run[], levels: Level[], depth: number, format: Format, plural: string | null = null): string {
+  if (depth >= levels.length) return runs.map((run) => leaf(run, format, plural)).join("")
   const level = levels[depth]
   let out = ""
   let start = 0
@@ -433,17 +439,19 @@ function group(runs: Run[], levels: Level[], depth: number, format: Format): str
     const value = level.of(runs[start].style)
     let end = start + 1
     while (end < runs.length && same(level.of(runs[end].style), value)) end += 1
-    const inner = group(runs.slice(start, end), levels, depth + 1, format)
+    const inner = group(runs.slice(start, end), levels, depth + 1, format, plural)
     out += value === undefined ? inner : level.open(value) + inner + level.close(value)
     start = end
   }
   return out
 }
 
-function leaf(run: Run, format: Format): string {
+function leaf(run: Run, format: Format, plural: string | null): string {
   switch (run.kind) {
     case "text":
-      return format === "DISCORD_MARKDOWN" ? markdownText(run.text) : writeText([run.text], format === "MINIMESSAGE")
+      return format === "DISCORD_MARKDOWN"
+        ? markdownText(run.text, plural !== null)
+        : writeText([run.text], format === "MINIMESSAGE", plural)
     case "placeholder":
       return writeText([{ v: run.name, k: run.k, s: run.s }], false)
     case "glyph":
@@ -464,9 +472,10 @@ function leaf(run: Run, format: Format): string {
  *
  * A backslash stays single where the message parser keeps it anyway, so a source's `\*` is written back as it was.
  */
-function markdownText(text: string): string {
+function markdownText(text: string, inPlural: boolean): string {
   const marked = text.replaceAll(/([\\*_~`[\]])/g, "\\$1")
-  return marked.replaceAll(/\\(?=[{}\\]|$)|[{}]/g, (c) => `\\${c}`)
+  const escaped = marked.replaceAll(/\\(?=[{}\\]|$)|[{}]/g, (c) => `\\${c}`)
+  return inPlural ? escaped.replaceAll("#", "\\#") : escaped
 }
 
 // Editing
@@ -616,6 +625,41 @@ export function branchesOf(
       }))
     }),
   )
+}
+
+/** A plural or a select as an editor offers it: the value it depends on, and each case's runs in written order. */
+export type Choice = { name: string; plural: boolean; cases: [string, Run[]][] }
+
+/**
+ * The plural or select a raw run is, or `null` for any other run or a case that cannot be read. `outer` names the
+ * plural a `#` stands for around the run, for a choice inside a plural's case.
+ */
+export function choiceOf(
+  run: Run,
+  format: Format,
+  tones: readonly string[],
+  outer: string | null = null,
+): Choice | null {
+  if (run.kind !== "raw") return null
+  const markup = format === "MINIMESSAGE"
+  const nodes = readText(run.source, markup, outer)
+  const node = nodes?.length === 1 ? nodes[0] : undefined
+  if (node === undefined || typeof node === "string" || !("c" in node)) return null
+  const inner = node.plural ? node.c : outer
+  const cases: [string, Run[]][] = []
+  for (const [key, value] of Object.entries(node.cases)) {
+    const runs = parse(writeText(value, markup, inner), format, tones, inner)
+    if (runs === null) return null
+    cases.push([key, runs])
+  }
+  return { name: node.c, plural: node.plural, cases }
+}
+
+/** A choice written back as the syntax its raw run holds, inside the plural `outer` names if there is one. */
+export function choiceSource(choice: Choice, format: Format, outer: string | null = null): string {
+  const inner = choice.plural ? choice.name : outer
+  const cases = choice.cases.map(([key, runs]) => `${key} {${serialize(runs, format, inner)}}`)
+  return `{${choice.name}, ${choice.plural ? "plural" : "select"}, ${cases.join(" ")}}`
 }
 
 /** An example as the value it stands for: a number where it reads as one, else its words. */

@@ -7,7 +7,7 @@ import { setPendingTextJump } from "@/lib/settings-search"
 import type { MessageFallback } from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { changesOf, words } from "@/lib/query-fixtures"
-import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/texts.fixtures"
+import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
 
 vi.mock("sonner", () => ({
   toast: {
@@ -357,6 +357,20 @@ describe("one key open at a time", () => {
     expect(screen.queryByRole("textbox")).toBeNull()
   })
 
+  it("draws an open key as its name and places alone, with its editor and preview in the same card", async () => {
+    twoKeys()
+    draw(<Page />)
+
+    await openKey("First")
+    const row = screen.getByRole("button", { name: "First" })
+    expect(row.textContent).not.toContain("Hello")
+    expect(row.textContent).toContain("Chat")
+    const card = row.parentElement!
+    expect(card.contains(await screen.findByRole("textbox", { name: "First" }))).toBe(true)
+    expect(card.contains(screen.getByRole("figure"))).toBe(true)
+    expect(screen.getByRole("button", { name: "Second" }).textContent).toContain("two")
+  })
+
   it("closes the open key when another is opened, and keeps its draft", async () => {
     twoKeys()
     draw(<Page />)
@@ -515,5 +529,72 @@ describe("a jump from the command palette", () => {
     await waitFor(() =>
       expect(screen.getByRole("textbox", { name: "Welcome" }).textContent).toBe("packaged-de-welcome"),
     )
+  })
+})
+
+/** Whether the group takes a dimmed look from any disabled element inside it, a tool included. */
+const dimmedByAnyTool = (group: Element) => [...group.classList].some((name) => name.startsWith("has-disabled:"))
+
+describe("the editor's look", () => {
+  it("is not dimmed by a tool that waits for a selection", async () => {
+    vi.stubGlobal("fetch", backend(listing([text({ texts: { en: ["Hello"] }, key: "a", name: "First" })])))
+    draw(<Page />)
+    await openKey("First")
+
+    const group = (await screen.findByRole("textbox", { name: "First" })).closest("[data-slot=input-group]")!
+    expect(group.querySelector("button:disabled")).not.toBeNull()
+    expect(dimmedByAnyTool(group)).toBe(false)
+  })
+
+  it("marks a field that cannot be written as disabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(listing([text({ texts: { en: ["Hello"] }, key: "a", name: "First" })], { writable: false })),
+    )
+    draw(<Page />)
+    await openKey("First")
+
+    expect((await screen.findByRole("textbox", { name: "First" })).getAttribute("aria-disabled")).toBe("true")
+  })
+})
+
+/** One plural text, Days, by the number n. */
+const days = () =>
+  vi.stubGlobal(
+    "fetch",
+    backend(
+      listing([
+        text({
+          texts: { en: ["{n, plural, one {# day} other {# days}}"] },
+          key: "days",
+          name: "Days",
+          args: [{ name: "n", kind: "number", global: false, action: false, exampleWords: {} }],
+        }),
+      ]),
+    ),
+  )
+
+describe("a plural as its cases", () => {
+  it("gives each case a field of its own, its number drawn as a chip", async () => {
+    days()
+    draw(<Page />)
+    await openKey("Days")
+
+    const cases = await screen.findByRole("region", { name: "By the number n" })
+    expect(within(cases).getByRole("textbox", { name: "Days one" }).textContent).toBe("# day")
+    expect(within(cases).getByRole("textbox", { name: "Days other" }).textContent).toBe("# days")
+  })
+
+  it("adds a case before other and removes one, and the source shows the syntax they make", async () => {
+    days()
+    draw(<Page />)
+    await openKey("Days")
+
+    const cases = await screen.findByRole("region", { name: "By the number n" })
+    fireEvent.change(within(cases).getByRole("textbox", { name: "New case" }), { target: { value: "=0" } })
+    fireEvent.click(within(cases).getByRole("button", { name: "Add a case" }))
+    fireEvent.click(within(cases).getByRole("button", { name: "Remove this case one" }))
+
+    expect((await source("Days")).value).toBe("{n, plural, =0 {# days} other {# days}}")
   })
 })

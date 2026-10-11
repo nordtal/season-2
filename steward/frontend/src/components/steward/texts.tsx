@@ -29,9 +29,9 @@ import {
 import { DraftDot, type Target, TreeView } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
-/** The Texts page's form: every text in its group and topic, where it appears, its editor, and the one save. */
+/** The Translations page's form: every text in its group and topic, where it appears, its editor, and the one save. */
 
-/** The one draft of the Texts page, keyed by each text's `<bundle>/<key>`. */
+/** The one draft of the Translations page, keyed by each text's `<bundle>/<key>`. */
 export const TEXTS_FILE = "texts"
 
 /** No palette of a service's own, one object so the editor's memo of its tones holds. */
@@ -236,7 +236,10 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
   )
 }
 
-/** One key: its name, its text on one line and where it appears, and once opened its editor right below it. */
+/**
+ * One key: its name, its text on one line and where it appears. Opened, it is one card of its name, where it appears,
+ * its editor and its previews, the line left out since the editor shows the text.
+ */
 function TextRow({
   open,
   onOpen,
@@ -260,25 +263,27 @@ function TextRow({
   }, [highlight?.seq])
 
   return (
-    <div className="min-w-0">
+    <div className={cn("min-w-0 rounded-md", open && "bg-accent/50")}>
       <button
         type="button"
         aria-label={name}
         aria-expanded={open}
         onClick={() => onOpen(!open)}
         className={cn(
-          "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/50",
-          open && "bg-accent/50",
+          "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left",
+          !open && "hover:bg-accent/50",
         )}
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-sm">{name}</span>
-          <MessagePreview
-            text={text}
-            format={entry.format}
-            colours={colours}
-            className="text-xs text-muted-foreground"
-          />
+          {open ? null : (
+            <MessagePreview
+              text={text}
+              format={entry.format}
+              colours={colours}
+              className="text-xs text-muted-foreground"
+            />
+          )}
           <Pills entry={entry} places={places} />
         </span>
         {!entry.inBundle ? (
@@ -296,7 +301,7 @@ function TextRow({
         />
       </button>
       {open ? (
-        <div className="px-2 pt-1 pb-3">
+        <div className="px-2 pt-1 pb-2">
           <MessageEditor {...editor} colours={colours ?? NETWORK_COLOURS} />
         </div>
       ) : null}

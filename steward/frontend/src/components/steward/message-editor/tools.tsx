@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowElbowDownLeftIcon } from "@phosphor-icons/react"
+import { ArrowElbowDownLeftIcon, HashIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import { t } from "@/lib/texts"
@@ -73,6 +73,15 @@ export function BreakButton({ onPress, disabled }: { onPress: () => void; disabl
   return (
     <ToolButton label={t("steward.message-editor.line-break")} onPress={onPress} disabled={disabled}>
       <ArrowElbowDownLeftIcon aria-hidden />
+    </ToolButton>
+  )
+}
+
+/** In a plural's case: inserts `#`, the number the plural is chosen by. */
+export function NumberButton({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
+  return (
+    <ToolButton label={t("steward.message-editor.the-number")} onPress={onPress} disabled={disabled}>
+      <HashIcon aria-hidden />
     </ToolButton>
   )
 }

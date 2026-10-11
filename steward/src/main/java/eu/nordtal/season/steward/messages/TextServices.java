@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.List;
 
-/** Which services show a text their jar ships, the services the Texts page's filter keeps it for. */
+/** Which services show a text their jar ships, the services the Translations page's filter keeps it for. */
 final class TextServices {
 
     private TextServices() {}

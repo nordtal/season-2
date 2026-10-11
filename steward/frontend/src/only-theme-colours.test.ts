@@ -25,6 +25,7 @@ const EXEMPT = new Map<string, string>([
   ["components/steward/message-editor/visual-editor.tsx", "a text as the game or Discord draws it"],
   ["components/steward/message-editor/colour-menu.tsx", "a colour a person picks for a text"],
   ["components/steward/colour-control.tsx", "a colour a person picks, on Minecraft's chat background"],
+  ["components/steward/qr-code.tsx", "a QR code, black on white in either theme as a scanner needs"],
 ])
 
 function sourceFiles(directory: string): string[] {

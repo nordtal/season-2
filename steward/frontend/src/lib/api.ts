@@ -58,6 +58,16 @@ export function onSecondFactorRequired(handler: StepUp | null): void {
   stepUp = handler
 }
 
+/**
+ * Opens the step-up sheet and resolves once a factor is held, for an `/auth/` route, which `api()` never retries.
+ *
+ * With no sheet installed it rejects, as the refused request would have.
+ */
+export async function stepUpFirst(): Promise<void> {
+  if (!stepUp) throw new Error(t("steward.keys.not-held"))
+  await stepUp()
+}
+
 /** Whether a refusal of this request may be recovered by holding the key; never for the ceremony's own two `POST`s. */
 function mayStepUp(path: string): boolean {
   return stepUp !== null && !path.startsWith("/auth/")

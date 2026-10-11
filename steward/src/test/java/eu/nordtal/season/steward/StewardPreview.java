@@ -62,7 +62,16 @@ public final class StewardPreview {
                        "labels": {"eu.nordtal.standby-of": "proxy"}}}
                     """).getAsJsonObject();
 
+    /** Sealing the authenticator apps of one run, drawn fresh at every start. */
+    private static final String PREVIEW_TOTP_KEY = previewTotpKey();
+
     private StewardPreview() {}
+
+    private static String previewTotpKey() {
+        final byte[] key = new byte[32];
+        new java.security.SecureRandom().nextBytes(key);
+        return java.util.HexFormat.of().formatHex(key);
+    }
 
     /**
      * {@code [--port N] [--dump FILE] [--state FILE] [--jars DIR]}; runs until it is stopped.
@@ -348,6 +357,12 @@ public final class StewardPreview {
             @Override
             public AvatarSpec avatars() {
                 return new AvatarSpec() {};
+            }
+
+            // A key of this run only, so an authenticator app can be added and used here and dies with it.
+            @Override
+            public String totpKey() {
+                return PREVIEW_TOTP_KEY;
             }
 
             @Override

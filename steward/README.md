@@ -7,7 +7,7 @@ is current.
 
 ```bash
 docker compose up -d steward                                           # serve
-docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>   # a lost security key
+docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>   # a lost key or app
 docker run --rm ghcr.io/nordtal/steward generate-vapid-keys            # a Web Push keypair
 ```
 
@@ -25,8 +25,11 @@ flowchart LR
 ## One process
 
 The interface, the stack routes (`stack/Routes`) and the runs' view share one Javalin and one set of
-gates: a read needs a signed-in admin with a key (`KEY_HELD`), a change a step-up that still holds
-(`KEY_FRESH`). A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that
+gates: a read needs a signed-in admin who used a second factor this session (`KEY_HELD`), a change a
+step-up that still holds (`KEY_FRESH`). A factor is a security key (WebAuthn) or an authenticator app
+(`auth/Totp`, RFC 6238: SHA-1, six digits, 30 seconds, one step either side, each step once), whose
+secret is sealed with `web.totp-key`; without that key the app is not offered. Adding a factor beside
+another needs a step-up, and the last one cannot be removed. A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that
 (`SecondFactor.StepUpLength`); `steward_session.step_up_until` keeps its end, and `DELETE /api/step-up` ends it early.
 The plugin "added by" comes from the session, and a long log follow re-checks it once a second.
 
@@ -157,12 +160,12 @@ database, which Steward publishes at start and edits on its settings pages. `Ste
 them before the web starts. A change to `steward` re-arms both clocks without a restart, one to
 `alerts` applies at the next reading. Where a run's versions come from is `steward-agent`'s `runs` group.
 
-| group      | environment                  | holds                                                             |
-| ---------- | ---------------------------- | ----------------------------------------------------------------- |
-| `steward`  | `NORDTAL_STEWARD_*`          | the clocks, the agent's and steward-bunq's addresses              |
-| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, Web Push |
-| `alerts`   | `NORDTAL_STEWARD_ALERTS_*`   | the thresholds steward's measured alerts fire on                  |
-| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                        |
+| group      | environment                  | holds                                                                                          |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `steward`  | `NORDTAL_STEWARD_*`          | the clocks, the agent's and steward-bunq's addresses                                           |
+| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, Web Push, the authenticator app's key |
+| `alerts`   | `NORDTAL_STEWARD_ALERTS_*`   | the thresholds steward's measured alerts fire on                                               |
+| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                                                     |
 
 ## Tests
 

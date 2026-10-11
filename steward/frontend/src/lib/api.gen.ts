@@ -25,6 +25,8 @@ export type Me = {
   expiresAt?: string
   signInUnavailable?: string
   keys?: SecurityKey[]
+  authenticator?: Authenticator
+  authenticatorOffered: boolean
   verified?: boolean
   verifiedAt?: string
   relyingPartyId?: string
@@ -236,6 +238,12 @@ export type KeyRenamed = {
 export type KeyRemoved = {
   removed: string
   left: number
+}
+
+export type AuthenticatorEnrolment = {
+  secret: string
+  uri: string
+  qr: QrCode
 }
 
 export type AdminGranted = {
@@ -474,6 +482,11 @@ export type SecurityKey = {
   backedUp?: boolean
 }
 
+export type Authenticator = {
+  addedAt: string
+  lastUsedAt?: string
+}
+
 export type StepUpHold = {
   hold: StepUpLength
   minutes: number
@@ -551,6 +564,11 @@ export type PaymentMatch = "TAB" | "REFERENCE" | "MANUAL"
 export type Actor = {
   kind: ActorKind
   person?: string
+}
+
+export type QrCode = {
+  size: number
+  path: string
 }
 
 export type GrantOutcome = "GRANTED" | "ACTOR_NOT_ADMIN" | "ALREADY_ADMIN" | "NOT_A_MEMBER" | "RATE_LIMITED"

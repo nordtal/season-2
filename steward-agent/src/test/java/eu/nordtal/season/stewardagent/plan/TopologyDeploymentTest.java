@@ -337,6 +337,7 @@ class TopologyDeploymentTest {
                 "NORDTAL_BOT_TOKEN",
                 "STEWARD_DISCORD_CLIENT_SECRET",
                 "STEWARD_WEB_PUSH_PRIVATE_KEY",
+                "STEWARD_TOTP_KEY",
                 "STEWARD_OFFSITE_PASSWORD");
         final List<String> handed = List.of(
                 "BUNQ_API_KEY",
@@ -344,6 +345,7 @@ class TopologyDeploymentTest {
                 "NORDTAL_BOT_TOKEN",
                 "DISCORD_CLIENT_SECRET",
                 "WEB_PUSH_PRIVATE_KEY",
+                "TOTP_KEY",
                 "OFFSITE_PASSWORD");
         for (final String name : shared) {
             assertFalse(

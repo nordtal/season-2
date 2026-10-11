@@ -24,6 +24,7 @@ const ME: Me = {
   csrf: "t",
   relyingPartyId: "nordtal.eu",
   stepUpHolds: [],
+  authenticatorOffered: false,
   verified: true,
   keys: KEYS,
 }

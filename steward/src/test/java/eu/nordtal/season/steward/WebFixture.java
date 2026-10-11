@@ -114,6 +114,12 @@ abstract class WebFixture {
                 // The defaults: both keys blank, meaning "not configured".
                 return new WebPushSpec() {};
             }
+
+            @Override
+            public String totpKey() {
+                // A fixed key, so the authenticator app is offered; only these tests ever seal with it.
+                return "0123456789abcdef".repeat(4);
+            }
         };
     }
 

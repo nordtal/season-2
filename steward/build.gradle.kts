@@ -274,6 +274,9 @@ dependencies {
     // Web Push, VAPID and aes128gcm; the version catalog says why this library and not the Bouncy Castle fork.
     implementation(libs.webpush)
 
+    // The authenticator app's enrolment QR code, drawn as an SVG path; the codes themselves need only the JDK.
+    implementation(libs.qrcodegen)
+
     // The guarded wire to steward-agent and steward-bunq; the bank SDK and its key stay in steward-bunq.
     implementation(project(":internal-api"))
 

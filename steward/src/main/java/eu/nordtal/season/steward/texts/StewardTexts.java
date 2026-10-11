@@ -211,6 +211,27 @@ public interface StewardTexts {
             @Name("No such key")
             MessageRef noSuchKey();
 
+            @Name("Last factor")
+            MessageRef lastFactor();
+
+            @Name("No authenticator")
+            MessageRef noAuthenticator();
+
+            @Name("Authenticator there")
+            MessageRef authenticatorThere();
+
+            @Name("Authenticator not offered")
+            MessageRef authenticatorNotOffered();
+
+            @Name("Code wrong")
+            MessageRef codeWrong();
+
+            @Name("Code taken")
+            MessageRef codeTaken();
+
+            @Name("Too many codes")
+            MessageRef tooManyCodes(@Arg("until") Instant until);
+
             @Name("Sign-in not configured")
             MessageRef signInUnconfigured(@Arg("missing") String missing);
 

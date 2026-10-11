@@ -22,6 +22,7 @@ import eu.nordtal.season.steward.access.PackExemptionApi;
 import eu.nordtal.season.steward.alert.AlertRoutes;
 import eu.nordtal.season.steward.alert.PushEndpoints;
 import eu.nordtal.season.steward.auth.AdminApi;
+import eu.nordtal.season.steward.auth.AuthenticatorApp;
 import eu.nordtal.season.steward.auth.Profile;
 import eu.nordtal.season.steward.auth.SecondFactor;
 import eu.nordtal.season.steward.auth.WebAuthn;
@@ -77,6 +78,7 @@ public final class StewardWire {
             WebAuthn.Held.class,
             SecondFactor.KeyRenamed.class,
             SecondFactor.KeyRemoved.class,
+            AuthenticatorApp.Enrolment.class,
             AdminApi.Granted.class,
             AdminTree.Revocation.class,
             PackExemptionApi.Exempted.class,
@@ -126,6 +128,8 @@ public final class StewardWire {
             Map.entry(UpdateReport.Step.class, "RunStep"),
             Map.entry(UpdateReport.Outcome.class, "RunOutcome"),
             Map.entry(WebAuthn.Held.class, "KeyHeld"),
+            Map.entry(AuthenticatorApp.Enrolment.class, "AuthenticatorEnrolment"),
+            Map.entry(AuthenticatorApp.Qr.class, "QrCode"),
             Map.entry(AdminApi.Granted.class, "AdminGranted"),
             Map.entry(AdminTree.Grant.class, "GrantOutcome"),
             Map.entry(AdminTree.Revocation.class, "AdminRevoked"),

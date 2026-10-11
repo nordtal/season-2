@@ -26,6 +26,7 @@ public final class Profile {
     private final Function<Context, Sessions.Session> requireSession;
     private final Function<Context, Optional<Sessions.Session>> session;
     private final @Nullable Credentials credentials;
+    private final @Nullable Authenticators authenticators;
     private final @Nullable Data data;
     private final Supplier<Optional<String>> signInMissing;
     private final @Nullable WebAuthn webauthn;
@@ -35,6 +36,7 @@ public final class Profile {
             final Function<Context, Sessions.Session> requireSession,
             final Function<Context, Optional<Sessions.Session>> session,
             final @Nullable Credentials credentials,
+            final @Nullable Authenticators authenticators,
             final @Nullable Data data,
             final Supplier<Optional<String>> signInMissing,
             final @Nullable WebAuthn webauthn,
@@ -42,6 +44,7 @@ public final class Profile {
         this.requireSession = requireSession;
         this.session = session;
         this.credentials = credentials;
+        this.authenticators = authenticators;
         this.data = data;
         this.signInMissing = signInMissing;
         this.webauthn = webauthn;
@@ -93,6 +96,8 @@ public final class Profile {
             @Nullable Instant expiresAt,
             @Nullable String signInUnavailable,
             @Nullable List<SecurityKey> keys,
+            @Nullable Authenticator authenticator,
+            boolean authenticatorOffered,
             @Nullable Boolean verified,
             @Nullable Instant verifiedAt,
             @Nullable String relyingPartyId,
@@ -100,12 +105,29 @@ public final class Profile {
             List<StepUpHold> stepUpHolds,
             @Nullable String discordAvatarUrl) {}
 
+    /** The account's authenticator app, once a code has confirmed it. */
+    public record Authenticator(Instant addedAt, @Nullable Instant lastUsedAt) {}
+
     /** One length a step-up may hold for, as the step-up sheet offers it; the first is the default. */
     public record StepUpHold(SecondFactor.StepUpLength hold, long minutes) {}
 
     private static final List<StepUpHold> HOLDS = Arrays.stream(SecondFactor.StepUpLength.values())
             .map(hold -> new StepUpHold(hold, hold.length().toMinutes()))
             .toList();
+
+    private boolean offered() {
+        return authenticators != null && authenticators.offered();
+    }
+
+    /** The confirmed app of one account, as {@code /api/me} shows it, or null. */
+    private @Nullable Authenticator appOf(final DiscordId discordId) {
+        return authenticators == null
+                ? null
+                : authenticators
+                        .of(discordId)
+                        .map(row -> new Authenticator(Objects.requireNonNull(row.confirmedAt()), row.lastUsedAt()))
+                        .orElse(null);
+    }
 
     /** The keys of one account, as {@code /api/me} lists them. */
     private List<SecurityKey> keysOf(final DiscordId discordId) {
@@ -144,7 +166,9 @@ public final class Profile {
         final Optional<Sessions.Session> found = session.apply(ctx);
         final @Nullable String missing = signInMissing.get().orElse(null);
         if (found.isEmpty()) {
-            ctx.json(new Me(false, null, null, null, null, null, missing, null, null, null, null, null, HOLDS, null));
+            ctx.json(new Me(
+                    false, null, null, null, null, null, missing, null, null, offered(), null, null, null, null, HOLDS,
+                    null));
             return;
         }
         final Sessions.Session who = found.get();
@@ -158,6 +182,8 @@ public final class Profile {
                 who.expiresAt(),
                 missing,
                 keysOf(who.signedInDiscordId()),
+                appOf(who.signedInDiscordId()),
+                offered(),
                 who.verified(),
                 who.verifiedAt(),
                 webauthn().relyingPartyId(),

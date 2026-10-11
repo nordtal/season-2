@@ -5,7 +5,9 @@ import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
 import { useRegisterKey } from "@/lib/queries"
 import { browserHasSecurityKeys } from "@/lib/webauthn"
+import { EnrolDialog, OrDivider, useAuthenticatorActions } from "@/app/authenticator-app"
 import { StewardMark } from "@/app/steward-mark"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,10 +15,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { t } from "@/lib/texts"
 
-/** The one page an account with no security key can reach, the whole window since nothing behind it would load. */
+/**
+ * The one page an account with no second factor can reach, the whole window since nothing behind it would load.
+ *
+ * A key is the first offer; an authenticator app is the other while the installation has a key to keep its secret.
+ */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
   const register = useRegisterKey()
+  const app = useAuthenticatorActions(me)
   const supported = browserHasSecurityKeys()
 
   const submit = (event: React.FormEvent) => {
@@ -70,6 +77,17 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                 {register.isPending ? t("steward.keys.waiting") : t("steward.keys.register-this")}
               </Button>
             </form>
+
+            {app.offered ? (
+              <>
+                <OrDivider />
+                <Button type="button" variant="outline" size="lg" onClick={app.startEnrolling}>
+                  <TERM_ICON.authenticatorApp aria-hidden />
+                  {t("steward.keys.app-instead")}
+                </Button>
+                <EnrolDialog state={app} />
+              </>
+            ) : null}
 
             {register.error ? (
               <Alert variant="destructive">

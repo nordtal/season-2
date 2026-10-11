@@ -48,6 +48,8 @@ export function useSecurityKeyActions(me: Me | undefined) {
     setNewLabel,
     removing,
     relyingPartyId: me?.relyingPartyId ?? "nordtal.eu",
+    /** The last factor cannot be removed; the server refuses it too. */
+    onlyFactor: keys.length === 1 && !me?.authenticator,
     startAdding() {
       add.reset()
       setLabel("")
@@ -132,6 +134,8 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t("steward.keys.remove", { key: key.label })}
+                title={state.onlyFactor ? t("steward.keys.only-factor") : undefined}
+                disabled={state.onlyFactor}
                 onClick={() => state.startRemoving(key)}
               >
                 <TrashIcon aria-hidden />
@@ -260,7 +264,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         open={state.removing !== null}
         onOpenChange={(open) => open || state.closeRemoving()}
         title={t("steward.keys.remove-title", { key: state.removing?.label ?? "" })}
-        description={t("steward.keys.remove-note", { only: state.keys.length === 1 })}
+        description={t("steward.keys.remove-note")}
         cancel={t("steward.keys.keep-it")}
         action={t("steward.keys.remove-it")}
         act={() => {

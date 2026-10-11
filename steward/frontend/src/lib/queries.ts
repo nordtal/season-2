@@ -5,6 +5,9 @@ import {
   api,
   ApiError,
   rememberCsrf,
+  stepUpFirst,
+  type AuthenticatorEnrolment,
+  type StepUpLength,
   type Action,
   type Backup,
   type CommandRun,
@@ -102,17 +105,64 @@ export function useRegisterKey() {
 /** Asks for a registration challenge once. */
 const askForRegistration = () => api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
 
-/** The registration challenge; a further key needs the key held recently, so a refusal holds it once and asks again. */
-async function startRegistration(): Promise<CreationOptionsJson> {
+/** The registration challenge; a further key needs a step-up, so a refusal opens the sheet once and asks again. */
+const startRegistration = () => afterAStepUp(askForRegistration)
+
+/**
+ * An `/auth/` request that adds a further factor, asked again once after the step-up sheet if it was refused for one.
+ *
+ * The sheet offers whichever factor the account has, so an account with only an authenticator app gets past it too.
+ */
+async function afterAStepUp<T>(ask: () => Promise<T>): Promise<T> {
   try {
-    return await askForRegistration()
+    return await ask()
   } catch (refused) {
     if (!(refused instanceof ApiError) || !refused.needsTheKeyAgain) {
       throw refused
     }
-    await holdTheKey()
-    return await askForRegistration()
+    await stepUpFirst()
+    return await ask()
   }
+}
+
+/** Starts enrolling an authenticator app: a fresh secret, its URI and its QR code, none of which counts yet. */
+export function useStartEnrolment() {
+  return useMutation({
+    mutationFn: () => afterAStepUp(() => api<AuthenticatorEnrolment>("/auth/totp/enrol/start", { method: "POST" })),
+  })
+}
+
+/** Confirms the enrolment with one code the app shows, after which `/api/me` lists the app. */
+export function useFinishEnrolment() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (code: string) => {
+      await afterAStepUp(() => api<void>("/auth/totp/enrol/finish", { method: "POST", body: { code } }))
+      await client.invalidateQueries({ queryKey: keys.me })
+    },
+  })
+}
+
+/** A step-up, or the door, with the app's code instead of the key; `length` as the key's split button chooses it. */
+export function useEnterCode() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ code, length }: { code: string; length?: StepUpLength }) => {
+      await api<void>("/auth/totp/verify", { method: "POST", body: length ? { code, hold: length } : { code } })
+      await client.invalidateQueries({ queryKey: keys.me })
+    },
+  })
+}
+
+/** Removes the authenticator app; the server refuses the last factor. */
+export function useRemoveAuthenticator() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await api<void>("/api/authenticator", { method: "DELETE" })
+      await client.invalidateQueries({ queryKey: keys.me })
+    },
+  })
 }
 
 /** Holds the key, then refetches `/api/me`, whose `verifiedAt` the shell and the step-up dialog read. */
@@ -153,7 +203,7 @@ export function useRenameKey() {
   })
 }
 
-/** Removes one registered key. Removing the last one is allowed; the server says why. */
+/** Removes one registered key; the server refuses the account's last factor. */
 export function useRemoveKey() {
   const client = useQueryClient()
   return useMutation({

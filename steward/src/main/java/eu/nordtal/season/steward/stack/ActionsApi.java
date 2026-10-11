@@ -21,7 +21,7 @@ public final class ActionsApi {
     /** What the interface gets when it does not ask for a number. */
     public static final int DEFAULT_LIMIT = 5;
 
-    /** The {@code audit_log.action} values worth a place on this list; {@code HELD_KEY} is left off on purpose. */
+    /** The {@code audit_log.action} values worth a place here; the two step-ups are left off on purpose. */
     private static final Set<JournalAction> DISPLAYED_AUDIT_ACTIONS = Set.of(
             JournalAction.GRANT_ACCESS,
             JournalAction.REVOKE_ACCESS,
@@ -31,6 +31,8 @@ public final class ActionsApi {
             JournalAction.SET_PHASE,
             JournalAction.REGISTER_KEY,
             JournalAction.REMOVE_KEY,
+            JournalAction.ADD_AUTHENTICATOR,
+            JournalAction.REMOVE_AUTHENTICATOR,
             JournalAction.FORGET_FACTORS);
 
     private final UpdateDirectory updates;

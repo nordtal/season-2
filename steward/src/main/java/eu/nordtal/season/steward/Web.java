@@ -30,6 +30,8 @@ import eu.nordtal.season.steward.alert.PushEndpoints;
 import eu.nordtal.season.steward.alert.Thresholds;
 import eu.nordtal.season.steward.auth.AdminApi;
 import eu.nordtal.season.steward.auth.AuthFlow;
+import eu.nordtal.season.steward.auth.AuthenticatorApp;
+import eu.nordtal.season.steward.auth.Authenticators;
 import eu.nordtal.season.steward.auth.Credentials;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.Gate;
@@ -111,6 +113,7 @@ public final class Web {
     private final @Nullable Sessions sessions;
 
     private final SecondFactor secondFactor;
+    private final AuthenticatorApp authenticatorApp;
 
     private final @Nullable ExampleValues exampleValues;
 
@@ -229,8 +232,10 @@ public final class Web {
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
         final @Nullable WebAuthn localWebauthn = webAuthnOver(config, localCredentials);
-        this.secondFactor =
-                new SecondFactor(this::requireSession, localCredentials, this.sessions, localWebauthn, clock);
+        final @Nullable Authenticators localApps = Authenticators.over(data, config.totpKey(), clock);
+        this.secondFactor = new SecondFactor(
+                this::requireSession, localCredentials, this.sessions, localWebauthn, localApps, clock);
+        this.authenticatorApp = new AuthenticatorApp(this::requireSession, secondFactor, localApps, this.sessions);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
         this.journal = new Journaling(
                 data == null ? null : data.audit(), ctx -> account(ctx).map(DiscordAuth.Account::actor));
@@ -254,23 +259,22 @@ public final class Web {
         this.deployments = new AgentApi(agent, agentOffered);
         final @Nullable PushSubscriptions localPushSubscriptions =
                 data == null ? null : new PushSubscriptions(data.dataSource());
-        final @Nullable AlertPreferences localAlertPreferences =
-                data == null ? null : new AlertPreferences(data.dataSource());
         this.exampleValues = data == null ? null : new ExampleValues(data.dataSource());
         this.profile = new Profile(
                 this::requireSession,
                 this::session,
                 localCredentials,
+                localApps,
                 data,
                 authFlow::whatIsMissing,
                 localWebauthn,
                 this.exampleValues);
-        final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
+        final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = WebPushSender.keysOf(config.webPush());
         final AlertWiring wiring =
                 wireAlerts(config, thresholds, stack, data, localPushSubscriptions, localVapidKeys, clock);
         this.alertMonitor = wiring.monitor();
         this.alertRouter = wiring.router();
-        this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, localAlertPreferences);
+        this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, wiring.preferences());
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
@@ -338,7 +342,9 @@ public final class Web {
     }
 
     private record AlertWiring(
-            @Nullable AlertMonitor monitor, @Nullable AlertRouter router) {}
+            @Nullable AlertMonitor monitor,
+            @Nullable AlertRouter router,
+            @Nullable AlertPreferences preferences) {}
 
     /** The one alert path: measured here, raised as rows, routed to push and the admin channel. */
     private AlertWiring wireAlerts(
@@ -350,13 +356,14 @@ public final class Web {
             final com.interaso.webpush.@Nullable VapidKeys localVapidKeys,
             final Clock clock) {
         if (data == null) {
-            return new AlertWiring(null, null);
+            return new AlertWiring(null, null, null);
         }
         final AlertBook book = AlertBook.using(data.dataSource());
         final AdminTree tree = Objects.requireNonNull(admins);
+        final AlertPreferences preferences = new AlertPreferences(data.dataSource());
         final AlertRouter router = new AlertRouter(
                 book,
-                new AlertPreferences(data.dataSource()),
+                preferences,
                 () -> tree.admins().stream().map(AdminTree.Admin::discordId).toList(),
                 data.bot(),
                 localPushSubscriptions,
@@ -366,7 +373,7 @@ public final class Web {
                 config.publicUrl(),
                 texts.messages());
         final AlertMonitor monitor = new AlertMonitor(stack::stackReading, thresholds, book, data.updates(), clock);
-        return new AlertWiring(monitor, router);
+        return new AlertWiring(monitor, router, preferences);
     }
 
     /**
@@ -413,25 +420,6 @@ public final class Web {
     private PackExemptionApi packExemptionApi() {
         return Objects.requireNonNull(
                 packExemptionApi, "this route needs packExemptionApi, which this instance has none of");
-    }
-
-    /**
-     * The VAPID keypair from config, or null when {@code web-push} is not configured.
-     *
-     * Exactly one blank key is refused, since neither alone can sign or serve as an {@code applicationServerKey}.
-     */
-    private static com.interaso.webpush.@Nullable VapidKeys vapidKeysOf(final WebSpec.WebPushSpec webPush) {
-        final String publicKey = webPush.publicKey();
-        final String privateKey = webPush.privateKey();
-        if (publicKey.isBlank() && privateKey.isBlank()) {
-            return null;
-        }
-        if (publicKey.isBlank() || privateKey.isBlank()) {
-            throw new IllegalArgumentException("web-push has only one of public-key/private-key set"
-                    + " - both or neither. Run `steward " + GENERATE_VAPID_KEYS + "` and paste"
-                    + " both lines it prints into the web group.");
-        }
-        return com.interaso.webpush.VapidKeys.create(publicKey, privateKey);
     }
 
     public Javalin start(final int port) {
@@ -569,6 +557,8 @@ public final class Web {
         cfg.routes.delete(
                 "/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH, Journaled.as(JournalAction.REMOVE_KEY));
         cfg.routes.delete("/api/step-up", secondFactor::endStepUp, Gate.KEY_HELD, Unjournaled.OWN_SESSION);
+
+        authenticatorApp.register(cfg);
     }
 
     private void registerWebPushRoutes(final JavalinConfig cfg) {

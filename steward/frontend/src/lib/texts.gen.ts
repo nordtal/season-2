@@ -269,6 +269,7 @@ export type TextArgs = {
   "journal.actor": {
     kind: Arg["choice"]
   }
+  "journal.add-authenticator": Record<string, never>
   "journal.add-plugin": {
     service: Arg["text"]
     artifact: Arg["text"]
@@ -301,6 +302,11 @@ export type TextArgs = {
   }
   "journal.enforce-pack": Record<string, never>
   "journal.exempt-pack": Record<string, never>
+  "journal.forget-every-factor": {
+    keys: Arg["number"]
+    authenticator: Arg["choice"]
+    sessions: Arg["number"]
+  }
   "journal.forget-factors": {
     keys: Arg["number"]
     sessions: Arg["number"]
@@ -326,6 +332,9 @@ export type TextArgs = {
   }
   "journal.register-key": {
     label: Arg["text"]
+  }
+  "journal.remove-authenticator": {
+    keys: Arg["number"]
   }
   "journal.remove-key": {
     label: Arg["text"]
@@ -407,6 +416,9 @@ export type TextArgs = {
   }
   "journal.unlock-milestone": {
     milestone: Arg["text"]
+  }
+  "journal.used-authenticator": {
+    hold: Arg["duration"]
   }
   "journal.web-push-subscribe": Record<string, never>
   "journal.web-push-test": {
@@ -778,6 +790,8 @@ export type TextArgs = {
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.answer-unreadable": Record<string, never>
+  "steward.answer.authenticator-not-offered": Record<string, never>
+  "steward.answer.authenticator-there": Record<string, never>
   "steward.answer.backup-unfinished": {
     backup: Arg["text"]
   }
@@ -790,6 +804,8 @@ export type TextArgs = {
   "steward.answer.ceremony-stale": {
     registration: Arg["choice"]
   }
+  "steward.answer.code-taken": Record<string, never>
+  "steward.answer.code-wrong": Record<string, never>
   "steward.answer.confirm-restore": {
     replaces: Arg["text"]
   }
@@ -827,10 +843,12 @@ export type TextArgs = {
     registration: Arg["choice"]
     why: Arg["text"]
   }
+  "steward.answer.last-factor": Record<string, never>
   "steward.answer.no-access-token": Record<string, never>
   "steward.answer.no-announcement": {
     announcement: Arg["number"]
   }
+  "steward.answer.no-authenticator": Record<string, never>
   "steward.answer.no-backup": {
     backup: Arg["text"]
   }
@@ -915,6 +933,9 @@ export type TextArgs = {
   "steward.answer.too-long": {
     language: Arg["text"]
     most: Arg["number"]
+  }
+  "steward.answer.too-many-codes": {
+    until: Arg["instant"]
   }
   "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {
@@ -1109,14 +1130,24 @@ export type TextArgs = {
   "steward.keys.add-title": Record<string, never>
   "steward.keys.already-registered": Record<string, never>
   "steward.keys.another-first": Record<string, never>
+  "steward.keys.app-heading": Record<string, never>
+  "steward.keys.app-instead": Record<string, never>
+  "steward.keys.app-qr": Record<string, never>
+  "steward.keys.app-scan": Record<string, never>
+  "steward.keys.app-secret": Record<string, never>
+  "steward.keys.app-title": Record<string, never>
   "steward.keys.back-to-status": Record<string, never>
   "steward.keys.brand": Record<string, never>
   "steward.keys.browser-cannot": Record<string, never>
   "steward.keys.call-it": Record<string, never>
   "steward.keys.call-this-one": Record<string, never>
   "steward.keys.cancelled": Record<string, never>
+  "steward.keys.checking": Record<string, never>
   "steward.keys.closed": Record<string, never>
+  "steward.keys.code-label": Record<string, never>
+  "steward.keys.confirm-code": Record<string, never>
   "steward.keys.did-not-work": Record<string, never>
+  "steward.keys.either-factor-title": Record<string, never>
   "steward.keys.end-step-up": Record<string, never>
   "steward.keys.heading": Record<string, never>
   "steward.keys.hold-for": {
@@ -1137,6 +1168,7 @@ export type TextArgs = {
     key: Arg["text"]
   }
   "steward.keys.no-answer": Record<string, never>
+  "steward.keys.no-app": Record<string, never>
   "steward.keys.no-key": Record<string, never>
   "steward.keys.no-key-returned": Record<string, never>
   "steward.keys.no-keys-here": Record<string, never>
@@ -1151,7 +1183,10 @@ export type TextArgs = {
   "steward.keys.not-set": {
     setting: Arg["text"]
   }
+  "steward.keys.only-factor": Record<string, never>
   "steward.keys.open-directly": Record<string, never>
+  "steward.keys.open-in-app": Record<string, never>
+  "steward.keys.or": Record<string, never>
   "steward.keys.register": Record<string, never>
   "steward.keys.register-this": Record<string, never>
   "steward.keys.registered": {
@@ -1161,10 +1196,11 @@ export type TextArgs = {
   "steward.keys.remove": {
     key: Arg["text"]
   }
+  "steward.keys.remove-app": Record<string, never>
+  "steward.keys.remove-app-note": Record<string, never>
+  "steward.keys.remove-app-title": Record<string, never>
   "steward.keys.remove-it": Record<string, never>
-  "steward.keys.remove-note": {
-    only: Arg["choice"]
-  }
+  "steward.keys.remove-note": Record<string, never>
   "steward.keys.remove-title": {
     key: Arg["text"]
   }
@@ -1191,6 +1227,7 @@ export type TextArgs = {
   "steward.keys.try-again": Record<string, never>
   "steward.keys.unexplained": Record<string, never>
   "steward.keys.unsupported": Record<string, never>
+  "steward.keys.use-code": Record<string, never>
   "steward.keys.use-key": Record<string, never>
   "steward.keys.waiting": Record<string, never>
   "steward.keys.with-discord": Record<string, never>

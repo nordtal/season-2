@@ -6,6 +6,7 @@ import { useEndStepUp } from "@/lib/queries"
 import { useNow } from "@/lib/use-now"
 import type { Me } from "@/lib/api"
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
+import { AuthenticatorAppDialogs, AuthenticatorAppRow, useAuthenticatorActions } from "@/app/authenticator-app"
 import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/app/security-keys"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -73,10 +74,11 @@ export function UserMenu({
 }) {
   const [open, setOpen] = useState(false)
   const keys = useSecurityKeyActions(me)
+  const app = useAuthenticatorActions(me)
   const notifications = useNotificationActions()
 
   /** The popover steps aside while a question is asked, and its dialogs mount outside it to outlive it. */
-  const asking = keys.asking || notifications.open
+  const asking = keys.asking || app.asking || notifications.open
   if (asking && open) setOpen(false)
 
   return (
@@ -108,6 +110,8 @@ export function UserMenu({
 
           <SecurityKeyList state={keys} />
 
+          <AuthenticatorAppRow state={app} />
+
           <Button
             type="button"
             variant="ghost"
@@ -136,6 +140,7 @@ export function UserMenu({
       </Popover>
 
       <SecurityKeyDialogs state={keys} />
+      <AuthenticatorAppDialogs state={app} />
       <NotificationsDialog state={notifications} />
     </>
   )

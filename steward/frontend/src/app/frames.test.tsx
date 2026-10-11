@@ -21,6 +21,7 @@ const ME: Me = {
   csrf: "t",
   relyingPartyId: "nordtal.eu",
   stepUpHolds: [],
+  authenticatorOffered: false,
   verified: true,
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }

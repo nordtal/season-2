@@ -696,6 +696,28 @@ AGENT_READS_FILES=true settle_for_agent "$WORK/move/season-2.env" agent
 unset -f docker
 eval "$real_settle"
 ok "copied for an older agent, moved for one that reads each service's file"
+
+case_begin "a generated single-reader secret is made in its service's file and left alone there"
+rm -rf "$WORK/generated"
+mkdir -p "$WORK/generated/secrets/steward"
+printf 'NORDTAL_SECRETS_DIR=%s/generated/secrets\n' "$WORK" > "$WORK/generated/season-2.env"
+printf 'NORDTAL_STEWARD_WEB_TOTP_KEY=kept\n' > "$WORK/generated/secrets/steward/secrets.env"
+(
+    ENV_FILE="$WORK/generated/season-2.env" CHECK_ONLY=false
+    set_secret STEWARD_TOTP_KEY >/dev/null 2>&1
+)
+[[ "$(env_value "$WORK/generated/secrets/steward/secrets.env" NORDTAL_STEWARD_WEB_TOTP_KEY)" == kept ]] \
+    || bad "a key already in steward's file was generated again"
+has_assignment "$WORK/generated/season-2.env" STEWARD_TOTP_KEY && bad "the key was written into the shared file"
+printf '' > "$WORK/generated/secrets/steward/secrets.env"
+(
+    ENV_FILE="$WORK/generated/season-2.env" CHECK_ONLY=false
+    set_secret STEWARD_TOTP_KEY >/dev/null 2>&1
+)
+[[ "$(env_value "$WORK/generated/secrets/steward/secrets.env" NORDTAL_STEWARD_WEB_TOTP_KEY)" =~ ^[0-9a-f]{64}$ ]] \
+    || bad "a missing key was not generated into steward's file as 32 bytes of hex"
+has_assignment "$WORK/generated/season-2.env" STEWARD_TOTP_KEY && bad "the new key was written into the shared file"
+ok "kept where it lives, and a new one made there"
 unset -f chown
 
 case_begin "a copy beside the shared file that still holds a moved secret is named"

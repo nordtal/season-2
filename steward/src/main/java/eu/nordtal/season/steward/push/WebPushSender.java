@@ -3,7 +3,10 @@ package eu.nordtal.season.steward.push;
 import com.interaso.webpush.VapidKeys;
 import com.interaso.webpush.WebPush;
 import com.interaso.webpush.WebPushService;
+import eu.nordtal.season.steward.Web;
+import eu.nordtal.season.steward.config.WebSpec;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +25,25 @@ public final class WebPushSender implements PushSender {
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(keys, "keys");
         this.service = new WebPushService(subject, keys);
+    }
+
+    /**
+     * The VAPID keypair from config, or null when {@code web-push} is not configured.
+     *
+     * Exactly one blank key is refused, since neither alone can sign or serve as an {@code applicationServerKey}.
+     */
+    public static @Nullable VapidKeys keysOf(final WebSpec.WebPushSpec webPush) {
+        final String publicKey = webPush.publicKey();
+        final String privateKey = webPush.privateKey();
+        if (publicKey.isBlank() && privateKey.isBlank()) {
+            return null;
+        }
+        if (publicKey.isBlank() || privateKey.isBlank()) {
+            throw new IllegalArgumentException("web-push has only one of public-key/private-key set"
+                    + " - both or neither. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste"
+                    + " both lines it prints into the web group.");
+        }
+        return VapidKeys.create(publicKey, privateKey);
     }
 
     @Override

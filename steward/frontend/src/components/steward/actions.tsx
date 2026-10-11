@@ -23,6 +23,8 @@ const KIND_ICON: Record<string, Icon> = {
   SET_PHASE: TERM_ICON.phase,
   REGISTER_KEY: TERM_ICON.securityKey,
   REMOVE_KEY: TERM_ICON.securityKey,
+  ADD_AUTHENTICATOR: TERM_ICON.authenticatorApp,
+  REMOVE_AUTHENTICATOR: TERM_ICON.authenticatorApp,
   FORGET_FACTORS: ShieldWarningIcon,
   CANCEL_RUN: TERM_ICON.cancel,
 }

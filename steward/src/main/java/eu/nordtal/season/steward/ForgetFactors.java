@@ -10,6 +10,7 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DatabaseWaiting;
+import eu.nordtal.season.steward.auth.Authenticators;
 import eu.nordtal.season.steward.auth.Credentials;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.data.Data;
@@ -23,15 +24,16 @@ final class ForgetFactors {
     private ForgetFactors() {}
 
     /**
-     * {@code forget-factors <discord-id>}: the way back in after a lost authenticator, run from a host shell.
+     * {@code forget-factors <discord-id>}: the way back in after a lost key or app, run from a host shell.
      *
-     * Removes keys and sessions together, so no signed-in browser stays inside; returns the exit status.
+     * Removes keys, the app and sessions together, so no browser stays inside; returns the exit status.
      */
     static int run(final String[] args, final @Nullable DatabaseSpec databaseConfig, final Clock clock) {
         if (args.length != 2 || args[1].isBlank()) {
             System.err.println("Usage: forget-factors <discord-id>");
-            System.err.println("Clears the security keys and the sessions of one account, so that"
-                    + " its next sign-in starts at the setup page.");
+            System.err.println(
+                    "Clears the security keys, the authenticator app and the sessions of one account, so that"
+                            + " its next sign-in starts at the setup page.");
             return 2;
         }
         final DiscordId discordId = DiscordId.of(args[1].trim());
@@ -52,10 +54,12 @@ final class ForgetFactors {
         try (Database database = opened) {
             final Data data = new Data(database, clock);
             final int keys = new Credentials(data.dataSource()).forget(discordId);
+            // Deleting a row needs no key to its secret.
+            final boolean app = new Authenticators(data.dataSource(), null, clock).forget(discordId) > 0;
             final int signedOut = new Sessions(data.dataSource(), Duration.ofDays(1)).endAllOf(discordId);
-            if (keys == 0 && signedOut == 0) {
-                System.out.println("Nothing to forget: " + discordId + " has no security key and"
-                        + " no session. Its next sign-in already starts at the setup page.");
+            if (keys == 0 && !app && signedOut == 0) {
+                System.out.println("Nothing to forget: " + discordId + " has no security key, no"
+                        + " authenticator app and no session. Its next sign-in already starts at the setup page.");
                 return 0;
             }
             // Written after the deletes, so a row never claims something that did not happen.
@@ -64,10 +68,10 @@ final class ForgetFactors {
                             JournalAction.FORGET_FACTORS,
                             Actor.HOST,
                             discordId,
-                            TEXTS.journal().forgetFactors(keys, signedOut)));
-            System.out.println(
-                    "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
-            System.out.println("Its next sign-in will ask for Discord and then register a new key.");
+                            TEXTS.journal().forgetEveryFactor(keys, app, signedOut)));
+            System.out.println("Cleared " + keys + " security key(s), " + (app ? "the" : "no")
+                    + " authenticator app and " + signedOut + " session(s) of " + discordId + ".");
+            System.out.println("Its next sign-in will ask for Discord and then for a new second factor.");
             return 0;
         }
     }

@@ -82,6 +82,10 @@ public interface KeysPage {
     @Name("Step-up title")
     MessageRef stepUpTitle();
 
+    /** The door's and the step-up's title when the account has an authenticator app, so it names no one factor. */
+    @Name("Either factor title")
+    MessageRef eitherFactorTitle();
+
     @Name("Open directly")
     MessageRef openDirectly();
 
@@ -111,6 +115,57 @@ public interface KeysPage {
 
     @Name("End step-up")
     MessageRef endStepUp();
+
+    @Name("Only factor")
+    MessageRef onlyFactor();
+
+    @Name("App heading")
+    MessageRef appHeading();
+
+    @Name("No app")
+    MessageRef noApp();
+
+    @Name("Remove app")
+    MessageRef removeApp();
+
+    @Name("Remove app title")
+    MessageRef removeAppTitle();
+
+    @Name("Remove app note")
+    MessageRef removeAppNote();
+
+    @Name("App title")
+    MessageRef appTitle();
+
+    @Name("App scan")
+    MessageRef appScan();
+
+    @Name("App QR")
+    MessageRef appQr();
+
+    @Name("App secret")
+    MessageRef appSecret();
+
+    @Name("Open in app")
+    MessageRef openInApp();
+
+    @Name("Code label")
+    MessageRef codeLabel();
+
+    @Name("Confirm code")
+    MessageRef confirmCode();
+
+    @Name("Use code")
+    MessageRef useCode();
+
+    @Name("Checking")
+    MessageRef checking();
+
+    @Name("Or")
+    MessageRef or();
+
+    @Name("App instead")
+    MessageRef appInstead();
 
     @Name("Closed")
     MessageRef closed();
@@ -170,7 +225,7 @@ public interface KeysPage {
     MessageRef removeTitle(@Arg("key") String key);
 
     @Name("Remove note")
-    MessageRef removeNote(@Arg("only") boolean only);
+    MessageRef removeNote();
 
     @Name("Keep it")
     MessageRef keepIt();

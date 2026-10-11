@@ -1,14 +1,15 @@
-import { CaretDownIcon, FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { onSecondFactorRequired } from "@/lib/api"
 import type { StepUpLength } from "@/lib/api.gen"
 import { holdTheKey } from "@/lib/hold-key"
-import { useMe } from "@/lib/queries"
+import { useEnterCode, useMe } from "@/lib/queries"
 import { browserHasSecurityKeys } from "@/lib/webauthn"
+import { CodeInput, HoldSplitButton, looksLikeACode, OrDivider } from "@/app/authenticator-app"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -19,9 +20,9 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The key question in front of any write, after which the same request goes again.
+ * The step-up in front of any write, after which the same request goes again.
  *
- * One touch holds for the first of `stepUpHolds`; the split button's menu offers the longer ones for this touch only.
+ * It offers the factors the account has, the key first and the app's code below it. One step-up holds for the first of `stepUpHolds`; the split button's menu offers the longer ones for this touch only.
  *
  * Safari opens the key dialog only on a fresh tap; a failed ceremony fails the original request with it.
  */
@@ -58,7 +59,12 @@ export function StepUp() {
     return () => onSecondFactorRequired(null)
   }, [])
 
-  const [standard, ...longer] = me.data?.stepUpHolds ?? []
+  const holds = me.data?.stepUpHolds ?? []
+  const standard = holds[0]
+  const hasKeys = (me.data?.keys?.length ?? 0) > 0
+  const hasApp = Boolean(me.data?.authenticator)
+  const enter = useEnterCode()
+  const [code, setCode] = useState("")
   const ready = !busy && browserHasSecurityKeys()
 
   const hold = async (length?: StepUpLength) => {
@@ -68,6 +74,20 @@ export function StepUp() {
       await holdTheKey(length)
       /** Refetched, since the shell is drawn from `verifiedAt`. */
       await me.refetch()
+      settle(null)
+    } catch (refused) {
+      setBusy(false)
+      setFailure(refused instanceof Error ? refused.message : String(refused))
+    }
+  }
+
+  const typed = async (length?: StepUpLength) => {
+    if (!looksLikeACode(code)) return
+    setBusy(true)
+    setFailure(null)
+    try {
+      await enter.mutateAsync({ code, length })
+      setCode("")
       settle(null)
     } catch (refused) {
       setBusy(false)
@@ -85,16 +105,18 @@ export function StepUp() {
     >
       <ResponsiveDialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("steward.keys.step-up-title")}</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>
+            {hasApp ? t("steward.keys.either-factor-title") : t("steward.keys.step-up-title")}
+          </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        {browserHasSecurityKeys() ? null : (
+        {hasKeys && !hasApp && !browserHasSecurityKeys() ? (
           <Alert variant="destructive">
             <ShieldWarningIcon aria-hidden />
             <AlertTitle>{t("steward.keys.no-keys-here")}</AlertTitle>
             <AlertDescription>{t("steward.keys.open-directly")}</AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
         {failure ? (
           <Alert variant="destructive">
@@ -110,6 +132,38 @@ export function StepUp() {
           </p>
         ) : null}
 
+        {/* The key first, as the stronger factor; the app's code below it when the account has one. */}
+        {hasKeys ? (
+          <HoldSplitButton holds={holds} onHold={(length) => void hold(length)} disabled={!ready}>
+            <FingerprintIcon aria-hidden />
+            {busy ? t("steward.keys.waiting") : failure ? t("steward.keys.try-again") : t("steward.keys.hold-key")}
+          </HoldSplitButton>
+        ) : null}
+
+        {hasKeys && hasApp ? <OrDivider /> : null}
+
+        {hasApp ? (
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void typed()
+            }}
+          >
+            <CodeInput id="step-up-code" value={code} onChange={setCode} autoFocus={!hasKeys} />
+            <HoldSplitButton
+              holds={holds}
+              onHold={(length) => void typed(length)}
+              disabled={busy || !looksLikeACode(code)}
+              submit
+              secondary={hasKeys}
+            >
+              <TERM_ICON.authenticatorApp aria-hidden />
+              {enter.isPending ? t("steward.keys.checking") : t("steward.keys.use-code")}
+            </HoldSplitButton>
+          </form>
+        ) : null}
+
         <ResponsiveDialogFooter className="gap-2 sm:gap-2">
           <Button
             type="button"
@@ -119,41 +173,6 @@ export function StepUp() {
           >
             {t("steward.keys.not-now")}
           </Button>
-          {/* A split button: the default hold, and a menu of the longer ones the server offers. */}
-          <div className="flex">
-            <Button
-              type="button"
-              className={longer.length > 0 ? "flex-1 rounded-r-none" : "flex-1"}
-              onClick={() => hold()}
-              disabled={!ready}
-            >
-              <FingerprintIcon aria-hidden />
-              {busy ? t("steward.keys.waiting") : failure ? t("steward.keys.try-again") : t("steward.keys.hold-key")}
-            </Button>
-            {longer.length > 0 ? (
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="rounded-l-none border-l-primary-foreground/25"
-                    aria-label={t("steward.keys.longer-hold")}
-                    disabled={!ready}
-                  >
-                    <CaretDownIcon aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-auto">
-                  {longer.map((offer) => (
-                    <DropdownMenuItem key={offer.hold} onSelect={() => hold(offer.hold)}>
-                      <FingerprintIcon aria-hidden />
-                      {t("steward.keys.hold-for", { length: offer.minutes * 60 })}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </div>
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

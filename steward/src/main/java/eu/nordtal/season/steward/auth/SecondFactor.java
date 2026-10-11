@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -67,6 +68,7 @@ public final class SecondFactor {
     private final @Nullable Credentials credentials;
     private final @Nullable Sessions sessions;
     private final @Nullable WebAuthn webauthn;
+    private final @Nullable Authenticators authenticators;
 
     private final Clock clock;
 
@@ -75,12 +77,14 @@ public final class SecondFactor {
             final @Nullable Credentials credentials,
             final @Nullable Sessions sessions,
             final @Nullable WebAuthn webauthn,
+            final @Nullable Authenticators authenticators,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.requireSession = requireSession;
         this.credentials = credentials;
         this.sessions = sessions;
         this.webauthn = webauthn;
+        this.authenticators = authenticators;
     }
 
     private Credentials credentials() {
@@ -95,12 +99,26 @@ public final class SecondFactor {
         return Objects.requireNonNull(webauthn, "no database - this route is not available without one");
     }
 
-    /** Refuses an account with no registered key, which reaches only {@code /api/me}, with a 403 and a code. */
+    /** Refuses an account with neither a key nor an app, which reaches only {@code /api/me}, with a 403 and a code. */
     void requireAKey(final Sessions.Session who) {
-        if (credentials == null || credentials().any(who.signedInDiscordId())) {
+        if (credentials == null || anyFactor(who)) {
             return;
         }
         throw new RequestRefused(403, ANSWER.noKey(), "SECOND_FACTOR_MISSING", false);
+    }
+
+    /** Whether this account has a second factor, a security key or a confirmed authenticator app. */
+    boolean anyFactor(final Sessions.Session who) {
+        return credentials().any(who.signedInDiscordId()) || hasApp(who);
+    }
+
+    /** How many security keys this account has. */
+    int keysOf(final Sessions.Session who) {
+        return credentials().of(who.signedInDiscordId()).size();
+    }
+
+    private boolean hasApp(final Sessions.Session who) {
+        return authenticators != null && authenticators.confirmed(who.signedInDiscordId());
     }
 
     /** Refuses a session that has not held its key, with the refusal the interface recovers from by holding it. */
@@ -136,12 +154,11 @@ public final class SecondFactor {
     /**
      * Hands this browser a registration challenge.
      *
-     * A further key needs a step-up that still holds: adding one is as powerful as having one.
+     * A further factor needs a step-up that still holds: adding one is as powerful as having one.
      */
     public void beginRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
-        final boolean further = credentials().any(who.signedInDiscordId());
-        if (further) {
+        if (anyFactor(who)) {
             requireKeyRecently(who);
         }
         final WebAuthn.Ceremony ceremony =
@@ -167,7 +184,7 @@ public final class SecondFactor {
             throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
         // Checked again here, since the window may have closed between the two routes.
-        final boolean further = credentials().any(who.signedInDiscordId());
+        final boolean further = anyFactor(who);
         if (further) {
             requireKeyRecently(who);
         }
@@ -282,15 +299,19 @@ public final class SecondFactor {
         ctx.json(new KeyRenamed(label));
     }
 
-    /** {@code DELETE /api/keys/{id}}: removes one key, the last one included. */
+    /** {@code DELETE /api/keys/{id}}: removes one key, unless it is the account's last factor. */
     public void removeKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final ByteArray id = keyIdOf(ctx);
-        final String label = credentials().of(who.signedInDiscordId()).stream()
+        final List<Credentials.Key> keys = credentials().of(who.signedInDiscordId());
+        final String label = keys.stream()
                 .filter(key -> new ByteArray(key.credentialId()).equals(id))
                 .map(Credentials.Key::label)
                 .findFirst()
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noSuchKey()));
+        if (keys.size() == 1 && !hasApp(who)) {
+            throw new RequestRefused(409, ANSWER.lastFactor());
+        }
         if (!credentials().remove(who.signedInDiscordId(), id)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }

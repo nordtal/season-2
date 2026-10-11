@@ -65,11 +65,14 @@ class GateTest {
                 "POST /auth/logout",
                 // Ending one's own step-up early: asking for the key to give it up would be backwards.
                 "DELETE /api/step-up",
-                // The two ceremonies: a door cannot ask for the key it exists to hand out.
+                // The ceremonies of a key and of an authenticator app: a door cannot ask for what it hands out.
                 "POST /auth/webauthn/register/start",
                 "POST /auth/webauthn/register/finish",
                 "POST /auth/webauthn/authenticate/start",
-                "POST /auth/webauthn/authenticate/finish");
+                "POST /auth/webauthn/authenticate/finish",
+                "POST /auth/totp/enrol/start",
+                "POST /auth/totp/enrol/finish",
+                "POST /auth/totp/verify");
 
         final List<String> loose = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {

@@ -435,7 +435,8 @@ services:
       # The one account that may claim an empty admin tree; empty means nobody can.
       NORDTAL_STEWARD_WEB_DISCORD_ROOT_ID: ${STEWARD_ROOT_DISCORD_ID:-}
       # Web Push keys from `steward generate-vapid-keys`; blank keeps what the web group holds. The
-      # private one, NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY, is in steward's own secrets below.
+      # private one, NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY, is in steward's own secrets below, as is
+      # NORDTAL_STEWARD_WEB_TOTP_KEY, which seals the authenticator apps' secrets.
       NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY: ${STEWARD_WEB_PUSH_PUBLIC_KEY:-}
       # A new value whenever deploy/nordtal.sh changes those, so the next run recreates steward.
       SECRETS_REVISION: ${SECRETS_REVISION_STEWARD:-}

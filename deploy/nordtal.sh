@@ -219,6 +219,7 @@ SERVICE_SECRETS=(
     "NORDTAL_BOT_TOKEN discord-bot"
     "STEWARD_DISCORD_CLIENT_SECRET steward NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET"
     "STEWARD_WEB_PUSH_PRIVATE_KEY steward NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY"
+    "STEWARD_TOTP_KEY steward NORDTAL_STEWARD_WEB_TOTP_KEY"
     "STEWARD_OFFSITE_PASSWORD steward-agent NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD"
 )
 
@@ -645,6 +646,7 @@ GENERATED=(
     STEWARD_BUNQ_TOKEN
     STEWARD_WEB_PUSH_PUBLIC_KEY
     STEWARD_WEB_PUSH_PRIVATE_KEY
+    STEWARD_TOTP_KEY
 )
 
 # What the menu prints for a value: three dots for a set secret, the value otherwise, or "not set".
@@ -879,10 +881,11 @@ ask_question() {
         "${QUESTION_PROMPT[$name]}" "${QUESTION_HINT[$name]}" "$again"
 }
 
-# Generates one shared secret if there is none; REPLACE_ME counts as none.
+# Generates one secret if there is none where it lives, a single-reader one in its service's own file;
+# REPLACE_ME counts as none.
 set_secret() {
     local name="$1" bytes="${2:-32}" value
-    value="$(env_value "$ENV_FILE" "$name")"
+    value="$(value_of "$ENV_FILE" "$name")"
     if [[ -n "${value//[[:space:]]/}" && "$value" != *REPLACE_ME* ]]; then
         log "$name is already set (left alone)"
         return
@@ -892,7 +895,7 @@ set_secret() {
         return
     fi
     value="$(openssl rand -hex "$bytes")"
-    set_assignment "$ENV_FILE" "$name" "$value"
+    assign "$ENV_FILE" "$name" "$value"
     log "$name generated ($bytes random bytes, hex)"
 }
 
@@ -1649,6 +1652,9 @@ set_secret POSTGRES_STEWARD_PASSWORD 24
 set_secret VELOCITY_FORWARDING_SECRET 24
 set_secret STEWARD_AGENT_TOKEN
 set_secret STEWARD_BUNQ_TOKEN
+# The key steward seals each authenticator app's secret with. A new one leaves every enrolled app
+# unreadable, so each admin adds theirs again; it is never rotated by this script.
+set_secret STEWARD_TOTP_KEY
 
 # 4b · the Web Push keypair
 # Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half

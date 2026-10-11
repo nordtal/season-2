@@ -71,6 +71,16 @@ public interface WebSpec {
     @NoExplanationNeeded
     WebPushSpec webPush();
 
+    /** Seals every authenticator app's secret in the database; a new key makes every enrolled one unreadable. */
+    @Order(8)
+    @Name("Authenticator app key")
+    @Key("totp-key")
+    @Secret
+    @Explain("64 hex digits; empty offers no authenticator app.")
+    default String totpKey() {
+        return "";
+    }
+
     /** Which domain a security key is registered against; the display name is fixed in code. */
     @ConfigSpec
     interface WebAuthnSpec {

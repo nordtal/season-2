@@ -38,10 +38,10 @@ export function Shell() {
   /** A failed `/api/me` also withholds the shell, since the CSRF token arrives with it. */
   if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
 
-  /** An account without a security key reaches only `/api/me`, so the key page is the only one that answers. */
-  if ((me.data.keys?.length ?? 0) === 0) return <SecurityKeyPage me={me.data} />
+  /** An account without a second factor reaches only `/api/me`, so the setup page is the only one that answers. */
+  if ((me.data.keys?.length ?? 0) === 0 && !me.data.authenticator) return <SecurityKeyPage me={me.data} />
 
-  /** A session that has not held its key here is refused everywhere else; `verified` is per session. */
+  /** A session that has used no factor here is refused everywhere else; `verified` is per session. */
   if (!me.data.verified) return <HoldKeyPage me={me.data} />
 
   return <SignedIn me={me.data} isMobile={isMobile} />

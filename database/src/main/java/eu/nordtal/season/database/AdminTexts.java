@@ -179,8 +179,22 @@ public interface AdminTexts {
         @Name("Security key removed")
         MessageRef removeKey(@Arg("label") String label, @Arg("left") int left);
 
+        @Name("Authenticator app added")
+        MessageRef addAuthenticator();
+
+        @Name("Authenticator app used")
+        MessageRef usedAuthenticator(@Arg("hold") Duration hold);
+
+        @Name("Authenticator app removed")
+        MessageRef removeAuthenticator(@Arg("keys") int keys);
+
+        /** The line written before an authenticator app could be cleared too; the journal still shows those. */
         @Name("Security reset")
         MessageRef forgetFactors(@Arg("keys") int keys, @Arg("sessions") int sessions);
+
+        @Name("Security reset")
+        MessageRef forgetEveryFactor(
+                @Arg("keys") int keys, @Arg("authenticator") boolean authenticator, @Arg("sessions") int sessions);
 
         @Name("Push switched on")
         MessageRef webPushSubscribe();

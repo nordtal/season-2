@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** A small rounded mark holding one value, the way a closed row shows its settings. */
+/** A small rounded mark holding one value, the way the list shows a milestone's settings. */
 function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
     <span
@@ -46,7 +46,7 @@ function Pill({ title, className, children }: { title?: string; className?: stri
   )
 }
 
-/** A label from the schema, for the key the layout places. */
+/** A label from the schema, for the key the editor places. */
 function labelOf(fields: ConfigEntry[], key: string): string {
   return fields.find((field) => field.key === key)?.label ?? key
 }
@@ -191,7 +191,7 @@ export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
 }
 
 /**
- * A collapsed milestone's settings as pills: a choice by its icon and name, a number by its icon, a flag when on,
+ * A milestone's settings as pills, as the list shows them: a choice by its icon and name, a number by its icon, a flag when on,
  * and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is
  * left out.
  */
@@ -283,16 +283,6 @@ export function ObjectiveMarks({
         max={max}
       />
     ) : null,
-  )
-}
-
-/** An objective as one pill, titled by its ID: its type, then what it names. */
-export function ObjectivePill({ objective, schema }: { objective: SectionValues; schema: TrackSchema }) {
-  return (
-    <Pill title={text(objective, KEY.id) || undefined} className="gap-1.5 pl-1">
-      <TypeMark objective={objective} schema={schema} size={18} />
-      <ObjectiveMarks objective={objective} schema={schema} max={2} />
-    </Pill>
   )
 }
 

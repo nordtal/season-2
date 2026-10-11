@@ -291,7 +291,7 @@ describe("customEditor", () => {
 
 // Fifteen seconds: its sheets open selects and save, about half a second here and seven times that on a busy runner.
 describe("MilestonesEditor", { timeout: 15_000 }, () => {
-  it("shows every milestone as one closed line, its settings as marks", () => {
+  it("lists every milestone with its settings as marks, beside the one that is open", () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
@@ -302,7 +302,31 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
         .map((item) => item.getAttribute("aria-label")),
     ).toEqual(["waiting", "foothold", "deep"])
     expect(within(list).getByText("99")).toBeTruthy()
-    expect(screen.queryByRole("textbox")).toBeNull()
+    expect(within(list).queryByRole("textbox")).toBeNull()
+    expect(screen.getByRole("region", { name: "waiting" })).toBeTruthy()
+
+    fireEvent.click(within(list).getByRole("button", { name: /foothold/ }))
+    const open = screen.getByRole("region", { name: "foothold" })
+    expect(within(open).getByRole("textbox", { name: "Border diameter" })).toHaveProperty("value", "99")
+    expect(
+      within(list)
+        .getByRole("button", { name: /foothold/ })
+        .getAttribute("aria-current"),
+    ).toBe("true")
+    expect(screen.queryByRole("region", { name: "waiting" })).toBeNull()
+  })
+
+  it("shows beside an objective's fields the icons its pills use", async () => {
+    backend()
+    draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
+
+    fireEvent.click(within(screen.getByRole("list", { name: "Milestones" })).getByRole("button", { name: /foothold/ }))
+    fireEvent.click(await screen.findByRole("button", { name: /logs/ }))
+    const sheet = await screen.findByRole("dialog")
+    for (const label of ["Aura budget", "Spin budget", "Target"]) {
+      expect(within(sheet).getByText(label).querySelector("svg")).toBeTruthy()
+    }
+    expect(within(sheet).getByText("Items").querySelector("svg")).toBeNull()
   })
 
   it("edits an objective in its sheet and saves the whole track", async () => {
@@ -374,17 +398,16 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     expect(deep.querySelector('[data-icon="minecraft:netherrack"]')).toBeTruthy()
   })
 
-  it("draws each objective of a closed milestone as one pill: its type, then what it names", async () => {
+  it("draws each objective of the open milestone as a card: its type, then what it names", async () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
-    const foothold = within(screen.getByRole("list", { name: "Milestones" })).getByRole("listitem", {
-      name: "foothold",
-    })
-    const logs = within(foothold).getByTitle("logs")
+    fireEvent.click(within(screen.getByRole("list", { name: "Milestones" })).getByRole("button", { name: /foothold/ }))
+    const foothold = screen.getByRole("region", { name: "foothold" })
+    const logs = within(foothold).getByRole("button", { name: /logs/ })
     await waitFor(() => expect(logs.querySelector('[data-icon="minecraft:chest"]')).toBeTruthy())
     expect(logs.querySelector('[data-icon="minecraft:oak_log"]')).toBeTruthy()
-    const kills = within(foothold).getByTitle("kills")
+    const kills = within(foothold).getByRole("button", { name: /kills/ })
     expect(within(kills).getByText("Kill entity")).toBeTruthy()
     expect(kills.querySelector('[data-icon="minecraft:zombie_spawn_egg"]')).toBeTruthy()
   })
@@ -490,8 +513,10 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     const saved = backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
-    fireEvent.click(screen.getByRole("button", { name: /waiting/ }))
-    fireEvent.change(await screen.findByRole("textbox", { name: "Border diameter" }), { target: { value: "30" } })
+    fireEvent.change(
+      within(screen.getByRole("region", { name: "waiting" })).getByRole("textbox", { name: "Border diameter" }),
+      { target: { value: "30" } },
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Save 1" }))
 
     await waitFor(() => expect(saved).toHaveLength(1))

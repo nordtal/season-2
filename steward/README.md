@@ -113,9 +113,8 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
   nothing in it knows what a milestone holds.
 - A plugin's descriptor may name a custom editor per group; the registry draws it only when the editor
   reads the document it got. An editor knows its structure, never a label or a reference. The
-  milestones editor saves every game value in its namespaced form. A design proposal is a page under
-  `/designs/` until it is built; `/designs/milestones-config` shows the track's three layouts, of
-  which Settings draws A.
+  milestones editor lists the track beside the open milestone, edits an objective in a sheet and saves
+  every game value in its namespaced form. A design proposal is a page under `/designs/`, removed once it is built.
 
 ### The Translations page
 

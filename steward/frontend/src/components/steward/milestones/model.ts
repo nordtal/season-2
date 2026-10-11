@@ -4,9 +4,9 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { blankSection, sectionsOf, withValue } from "@/components/steward/repeatable-cards"
 
 /**
- * The milestones group as its editor reads it: the keys this layout places, and nothing it means.
+ * The milestones group as its editor reads it: the keys the editor places, and nothing it means.
  *
- * Labels, controls, choices and references still come from the schema; a key the layout does not place is edited
+ * Labels, controls, choices and references still come from the schema; a key the editor does not place is edited
  * in the objective's sheet or the milestone's fields like any other.
  */
 export const KEY = {
@@ -19,7 +19,7 @@ export const KEY = {
   spinBudget: "spin-budget",
 } as const
 
-/** The milestone fields drawn as small marks in a collapsed row, each by its schema label. */
+/** The milestone fields drawn as small marks in the list, each by its schema label. */
 export const MARKED = ["unlocks", "border-diameter", "admin-unlocked"] as const
 
 /** An objective's budgets, which a milestone and the whole track show as sums. */

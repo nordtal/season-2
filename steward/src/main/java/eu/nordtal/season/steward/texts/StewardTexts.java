@@ -120,9 +120,6 @@ public interface StewardTexts {
 
             @Name("Artifact status")
             MessageRef status(@Arg("status") ArtifactStatus status);
-
-            @Name("Artifact status explained")
-            MessageRef statusTip(@Arg("status") ArtifactStatus status);
         }
 
         @Name("Image")
@@ -131,17 +128,14 @@ public interface StewardTexts {
             @Name("Image drift")
             MessageRef drift(@Arg("drift") ImageResult.State drift);
 
-            @Name("Image drift explained")
-            MessageRef driftTip(@Arg("drift") ImageResult.State drift);
+            @Name("Unchecked image explained")
+            MessageRef uncheckedTip();
 
             @Name("Image")
             MessageRef label();
 
             @Name("Jars built here")
             MessageRef localJars();
-
-            @Name("A local build explained")
-            MessageRef localTip();
         }
 
         /** Why Steward refuses a request a person sent; the error it answers carries the text rendered. */

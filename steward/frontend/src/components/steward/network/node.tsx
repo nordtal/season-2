@@ -5,7 +5,7 @@ import { cn } from "cn"
 
 import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { bytes, percent } from "@/lib/format"
-import { DriftTip, HealthDot, Tip, shownDrift } from "@/components/steward/status"
+import { HealthDot, Tip, driftTip, shownDrift } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
 import { buttonVariants } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -42,14 +42,19 @@ export function DriftMark({
     drift: shown === "OUTDATED" ? "outdated" : shown === "LOCAL" ? "local" : "unknown",
   })
   const Icon = shown === "OUTDATED" ? TERM_ICON.update : shown === "LOCAL" ? TERM_ICON.localBuild : QuestionIcon
+  const mark = (
+    <Icon
+      className={cn("size-3 shrink-0", shown === "OUTDATED" ? "text-warning" : "text-muted-foreground")}
+      role="img"
+      aria-label={shown === "LOCAL" && jars.length > 0 ? `${word}: ${jars.join(", ")}` : word}
+    />
+  )
+  const tip = driftTip(drift, image, localBuild)
+  if (!tip) return mark
   return (
     /** Padded out to a finger's size, and pulled back so the line does not move. */
-    <Tip content={<DriftTip drift={drift} image={image} localBuild={localBuild} />} className="-m-2 p-2">
-      <Icon
-        className={cn("size-3 shrink-0", shown === "OUTDATED" ? "text-warning" : "text-muted-foreground")}
-        role="img"
-        aria-label={shown === "LOCAL" && jars.length > 0 ? `${word}: ${jars.join(", ")}` : word}
-      />
+    <Tip content={tip} className="-m-2 p-2">
+      {mark}
     </Tip>
   )
 }

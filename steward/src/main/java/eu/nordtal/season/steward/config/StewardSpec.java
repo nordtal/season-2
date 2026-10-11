@@ -20,7 +20,7 @@ public interface StewardSpec {
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
-    @Explain("How long any single call to steward-agent or steward-bunq may wait before Steward gives up.")
+    @Explain("For one call to steward-agent or steward-bunq.")
     default int httpTimeoutSeconds() {
         return 30;
     }
@@ -28,27 +28,31 @@ public interface StewardSpec {
     @Order(13)
     @Name("bunq")
     @Key("bunq")
-    @Explain("How payments reach the bank through steward-bunq. Without a token a season sells nothing.")
+    @Explain("Without a token a season sells nothing.")
     BunqSpec bunq();
 
+    /** What the nightly backup saves and stops; its clock only writes a request row, like the Backup button. */
     @Order(14)
     @Name("Backup")
     @Key("backup")
-    @Explain("What the nightly backup saves and stops. Its clock only writes a request row, like the Backup button.")
+    @NoExplanationNeeded
     BackupSpec backup();
 
+    /**
+     * Off unless its time is set.
+     *
+     * When set, a whole-network update is asked for on the chosen days, with the same countdown a manual one gets.
+     */
     @Order(18)
     @Name("Update schedule")
     @Key("update")
-    @Explain(
-            "Off unless update.at is set. When set, a whole-network update is asked for on the chosen days, with the same countdown a manual one gets.")
+    @NoExplanationNeeded
     UpdateSpec update();
 
     @Order(17)
     @Name("Agent")
     @Key("agent")
-    @Explain(
-            "Steward's only way to the containers and the volumes. Without a token below, nothing about a container can be shown or done.")
+    @Explain("Without a token, no container can be shown or changed.")
     AgentSpec agent();
 
     /** Payments: where steward-bunq answers and how often it is asked; purchases are the {@code access} group's. */
@@ -67,31 +71,34 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("The secret steward-bunq expects. Empty turns payments off: nothing here asks the bank anything.")
+        @Explain("Empty turns payments off.")
         default String token() {
             return "";
         }
 
+        /** How often the bank itself is asked; an HTTP call to bunq, separate from the bot's own poll. */
         @Order(3)
         @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
-        @Explain("How often the bank itself is asked. This is an HTTP call to bunq, separate from the bot's own poll.")
+        @NoExplanationNeeded
         default int pollIntervalSeconds() {
             return 30;
         }
 
+        /** The first start stamps it itself. */
         @Order(4)
         @Name("Watermark")
         @Key("watermark")
-        @Explain("Leave empty: the first start stamps this itself. A manual value risks booking historical payments.")
+        @Explain("Leave empty: a manual value risks booking historical payments.")
         default String watermark() {
             return "";
         }
 
+        /** How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path. */
         @Order(5)
         @Name("Recent payment count")
         @Key("recent-payment-count")
-        @Explain("How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path.")
+        @NoExplanationNeeded
         default int recentPaymentCount() {
             return 50;
         }
@@ -113,7 +120,7 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("The secret steward-agent expects. Empty means this container asks it nothing.")
+        @Explain("Empty means Steward asks it nothing.")
         default String token() {
             return "";
         }
@@ -123,10 +130,11 @@ public interface StewardSpec {
     @ConfigSpec
     interface UpdateSpec {
 
+        /** An admin can always start one by hand. */
         @Order(1)
         @Name("At")
         @Key("at")
-        @Explain("Empty means no scheduled update. An admin can always start one by hand.")
+        @Explain("Empty means no scheduled update.")
         default String at() {
             return "";
         }
@@ -134,7 +142,7 @@ public interface StewardSpec {
         @Order(2)
         @Name("Days")
         @Key("days")
-        @Explain("Which weekdays the scheduled update runs on. Ignored while update.at is empty.")
+        @Explain("Ignored while the time is empty.")
         default List<String> days() {
             return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
         }

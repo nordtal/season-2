@@ -23,19 +23,24 @@ public interface AlertsSpec {
         return 85;
     }
 
+    /** No container sets a limit of its own. */
     @Order(2)
     @Name("Memory usage (percent)")
     @Key("memory-percent")
-    @Explain("A share of the whole host's memory, since no container sets a limit of its own.")
+    @Explain("Of the whole host's memory.")
     default int memoryPercent() {
         return 90;
     }
 
+    /**
+     * Counts files actually on disk, not runs that reported success.
+     *
+     * A run can report success having saved nothing.
+     */
     @Order(3)
     @Name("Backup age (hours)")
     @Key("backup-age-hours")
-    @Explain(
-            "Counts files actually on disk, not runs that reported success, since a run once reported success having saved nothing.")
+    @NoExplanationNeeded
     default int backupAgeHours() {
         return 36;
     }

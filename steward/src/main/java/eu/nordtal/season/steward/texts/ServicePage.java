@@ -181,9 +181,6 @@ public interface ServicePage {
     @Name("Given")
     MessageRef given();
 
-    @Name("Given tip")
-    MessageRef givenTip();
-
     @Name("Added")
     MessageRef added();
 

@@ -71,7 +71,7 @@ describe("on a touch screen, where nothing hovers", () => {
 
     tap(screen.getByText("outdated"))
 
-    await screen.findAllByText(/out of date/i)
+    await screen.findAllByText("ghcr.io/nordtal/smp:0.17.0")
     await waitFor(() => expect(screen.queryByText("smp-0.17.0.jar")).toBeNull())
   })
 

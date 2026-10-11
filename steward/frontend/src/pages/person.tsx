@@ -131,27 +131,13 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
 const WAITING_GRANTS = [0, 1, 2]
 
 /** Where a period stands right now, judged from the row itself rather than from the roster. */
-function grantTone(grant: Grant, now: number): { label: string; tone: Tone; title: string } {
-  if (grant.revoked) {
-    return {
-      label: t("steward.people.revoked", { at: grant.revoked }),
-      tone: "down",
-      title: t("steward.people.revoked-tip"),
-    }
+function grantTone(grant: Grant, now: number): { label: string; tone: Tone } {
+  if (grant.revoked) return { label: t("steward.people.revoked", { at: grant.revoked }), tone: "down" }
+  if (new Date(grant.validFrom).getTime() > now) {
+    return { label: t("steward.people.begins", { at: grant.validFrom }), tone: "idle" }
   }
-  const from = new Date(grant.validFrom).getTime()
-  const until = new Date(grant.validUntil).getTime()
-  if (from > now) {
-    return {
-      label: t("steward.people.begins", { at: grant.validFrom }),
-      tone: "idle",
-      title: t("steward.people.begins-tip"),
-    }
-  }
-  if (until > now) {
-    return { label: t("steward.people.running"), tone: "ok", title: t("steward.people.running-tip") }
-  }
-  return { label: t("steward.people.over"), tone: "idle", title: t("steward.people.over-tip") }
+  if (new Date(grant.validUntil).getTime() > now) return { label: t("steward.people.running"), tone: "ok" }
+  return { label: t("steward.people.over"), tone: "idle" }
 }
 
 /** A uuid or a request id, short enough for a cell and complete in the title attribute. */
@@ -211,9 +197,7 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                           {dateTime(row.validUntil)}
                         </TableCell>
                         <TableCell data-label={t("steward.people.state")}>
-                          <StatusBadge tone={state.tone} tipContent={state.title}>
-                            {state.label}
-                          </StatusBadge>
+                          <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
                         </TableCell>
                         <TableCell data-label={t("steward.people.request")}>
                           {row.paymentRequestId ? (

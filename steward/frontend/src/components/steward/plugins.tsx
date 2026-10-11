@@ -422,11 +422,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
 function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<typeof useInstallPlugin> }) {
   /** Already added and given by the network are different reasons, so they get different badges. */
   if (hit.fixed) {
-    return (
-      <StatusBadge tone="ok" tipContent={t("steward.service-page.given-tip")}>
-        {t("steward.service-page.given")}
-      </StatusBadge>
-    )
+    return <StatusBadge tone="ok">{t("steward.service-page.given")}</StatusBadge>
   }
   if (hit.added) {
     return <StatusBadge tone="idle">{t("steward.service-page.added")}</StatusBadge>

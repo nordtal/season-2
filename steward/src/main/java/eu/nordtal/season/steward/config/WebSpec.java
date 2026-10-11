@@ -24,27 +24,31 @@ public interface WebSpec {
         return 8080;
     }
 
+    /** Pins both the Discord redirect URI and the WebAuthn origin; startup checks the constraint. */
     @Order(2)
     @Name("Public URL")
     @Key("public-url")
-    @Explain(
-            "Pins both the Discord redirect URI and the WebAuthn origin, and must lie under webauthn.relying-party-id, which startup checks.")
+    @Explain("Must lie under the relying party ID.")
     default String publicUrl() {
         return "https://steward.dev.nordtal.eu";
     }
 
+    /**
+     * The bot's own Discord application, reused.
+     *
+     * Discord only decides who may register a security key; webauthn is a second, mandatory gate.
+     */
     @Order(3)
     @Name("Discord")
     @Key("discord")
-    @Explain(
-            "The bot's own Discord application, reused. Discord only decides who may register a security key; webauthn below is a second, mandatory gate.")
+    @NoExplanationNeeded
     DiscordSpec discord();
 
+    /** Defensible only because a security key guards every dangerous action. */
     @Order(4)
     @Name("Session length (days)")
     @Key("session-days")
-    @Explain(
-            "Only defensible because a security key guards every dangerous action; without that, a stolen cookie is a month-long back door.")
+    @Explain("A stolen cookie works this long.")
     default int sessionDays() {
         return 30;
     }
@@ -71,11 +75,11 @@ public interface WebSpec {
     @ConfigSpec
     interface WebAuthnSpec {
 
+        /** Every subdomain of it becomes a trusted sign-in surface, so it cannot be taken back. */
         @Order(1)
         @Name("Relying party ID")
         @Key("relying-party-id")
-        @Explain(
-                "Cannot be taken back: changing it invalidates every registered key, and every subdomain of it becomes a trusted sign-in surface.")
+        @Explain("Changing it invalidates every registered key.")
         default String relyingPartyId() {
             return "nordtal.eu";
         }
@@ -115,11 +119,11 @@ public interface WebSpec {
     @ConfigSpec
     interface AvatarSpec {
 
+        /** It is the one piece of player data an admin's page view lets out. */
         @Order(1)
         @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
-        @Explain(
-                "Every render sends this third-party service the mc_uuid being looked at, the one piece of player data an admin's page view lets out.")
+        @Explain("Every render sends the looked-at mc_uuid to this third-party service.")
         default String minecraftHeadBaseUrl() {
             return "https://api.mineatar.io/face?scale=16";
         }
@@ -137,29 +141,29 @@ public interface WebSpec {
             return "";
         }
 
+        /** The sign-in page names the missing value rather than failing at Discord. */
         @Order(2)
         @Name("Client secret")
         @Key("client-secret")
-        @Explain(
-                "Empty means nobody can sign in, and the sign-in page names the missing value rather than failing at Discord.")
+        @Explain("Empty means nobody can sign in.")
         default String clientSecret() {
             return "";
         }
 
+        /** This one decides who reaches the interface, the bot's who reaches the game. */
         @Order(3)
         @Name("Guild ID")
         @Key("guild-id")
-        @Explain(
-                "A second, independent copy of the bot's guild id: this one decides who reaches the interface, the bot's who reaches the game.")
+        @Explain("Independent of the bot's guild id.")
         default String guildId() {
             return "";
         }
 
+        /** As after a fresh install or the restore of an early dump. */
         @Order(4)
         @Name("Root's Discord ID")
         @Key("root-id")
-        @Explain(
-                "The one account that may become root while nobody is an admin, as after a fresh install or the restore of an early dump; empty means nobody can.")
+        @Explain("The account that may become root while nobody is an admin. Empty means nobody.")
         default String rootId() {
             return "";
         }

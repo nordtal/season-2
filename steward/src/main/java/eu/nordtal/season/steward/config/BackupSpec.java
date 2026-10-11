@@ -14,16 +14,16 @@ public interface BackupSpec {
     @Order(7)
     @Name("Time of day")
     @Key("at")
-    @Explain("Empty means no nightly backup at all, and nothing else in the stack makes one.")
+    @Explain("Empty means no nightly backup.")
     default String at() {
         return "04:45";
     }
 
+    /** All seven weekdays by default. */
     @Order(8)
     @Name("Days")
     @Key("days")
-    @Explain(
-            "Which weekdays the nightly backup runs on. All seven by default. An empty list means no nightly backup at all.")
+    @Explain("An empty list means no nightly backup.")
     default List<String> days() {
         return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
     }

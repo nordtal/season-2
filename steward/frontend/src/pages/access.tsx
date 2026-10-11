@@ -13,7 +13,6 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   AccessBadge,
   GrantDialog,
@@ -40,9 +39,7 @@ function PeopleTable({ children }: { children: ReactNode }) {
       <TableHeader>
         <TableRow>
           <TableHead className="w-[16rem]">{t("steward.people.person")}</TableHead>
-          <TableHead className="w-[20rem]">
-            <AccessColumnHead />
-          </TableHead>
+          <TableHead className="w-[20rem]">{t("steward.people.access")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.minecraft")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.roles")}</TableHead>
           {/* The prestige tier is derived from this number, so it is the one lever an admin has. */}
@@ -272,19 +269,5 @@ export function AccessPage() {
         </QueryState>
       </div>
     </div>
-  )
-}
-
-/** The header of the access column, with the reason its two halves disagree. */
-function AccessColumnHead() {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} className="underline decoration-dotted underline-offset-4">
-          {t("steward.people.access")}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{t("steward.people.access-tip")}</TooltipContent>
-    </Tooltip>
   )
 }

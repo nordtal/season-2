@@ -185,17 +185,10 @@ export function PaymentsTable({
                   </TableCell>
                   <TableCell data-label={t("steward.payments.status")}>
                     <div className="flex flex-wrap items-center gap-1">
-                      <StatusBadge
-                        tone={late ? "warn" : (PAYMENT_TONES[payment.status] ?? "idle")}
-                        tipContent={t("steward.payments.state-tip", { status: choice(payment.status) })}
-                      >
+                      <StatusBadge tone={late ? "warn" : (PAYMENT_TONES[payment.status] ?? "idle")}>
                         {t("steward.payments.state", { status: choice(payment.status) })}
                       </StatusBadge>
-                      {late ? (
-                        <StatusBadge tone="warn" tipContent={t("steward.payments.overdue-tip")}>
-                          {t("steward.payments.overdue")}
-                        </StatusBadge>
-                      ) : null}
+                      {late ? <StatusBadge tone="warn">{t("steward.payments.overdue")}</StatusBadge> : null}
                     </div>
                   </TableCell>
                   <TableCell data-label={t("steward.payments.deadline")} className="text-muted-foreground tnum">

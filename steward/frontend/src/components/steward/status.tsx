@@ -225,13 +225,13 @@ const AVAILABLE_TONE: Record<string, Tone> = {
  * One artefact's resolve status, in four answers kept apart.
  *
  * "could not ask" must never look like "up to date", since a silent source looks like one with no change.
+ * "not installed" is normal on a fresh volume and, on a running server, a new file or a renamed jar.
+ * "unsupported" means the source has no build for the network's Minecraft version: nothing failed, and the
+ * artefact stays listed so the next run picks up a build when one appears.
  */
 export function AvailableBadge({ status }: { status: string }) {
   return (
-    <StatusBadge
-      tone={AVAILABLE_TONE[status] ?? "down"}
-      tipContent={t("steward.artifact.status-tip", { status: choice(status) })}
-    >
+    <StatusBadge tone={AVAILABLE_TONE[status] ?? "down"}>
       {t("steward.artifact.status", { status: choice(status) })}
     </StatusBadge>
   )
@@ -256,25 +256,31 @@ export function DriftBadge({
 }) {
   const shown = shownDrift(drift, localBuild)
   return (
-    <StatusBadge
-      tone={DRIFT_TONE[shown] ?? "idle"}
-      tipContent={<DriftTip drift={drift} image={image} localBuild={localBuild} />}
-    >
+    <StatusBadge tone={DRIFT_TONE[shown] ?? "idle"} tipContent={driftTip(drift, image, localBuild)}>
       {t("steward.image.drift", { drift: choice(shown) })}
     </StatusBadge>
   )
 }
 
-/** What a drift badge or mark explains: the image and jars of a local build, or what the drift word means. */
-export function DriftTip({ drift, image, localBuild }: { drift: ImageState; image?: string; localBuild?: LocalBuild }) {
-  if (shownDrift(drift, localBuild) !== "LOCAL") return <>{t("steward.image.drift-tip", { drift: choice(drift) })}</>
+/**
+ * What a drift badge or mark adds: the image, the jars of a local build, and for an unchecked image why it is.
+ *
+ * A local build is one made on this host and in no release; an update that would replace it names it and asks first.
+ * Nothing when the image is not known, since the word on the badge is then all there is.
+ */
+export function driftTip(drift: ImageState, image?: string, localBuild?: LocalBuild): ReactNode {
+  const shown = shownDrift(drift, localBuild)
   const jars = localBuild?.jars ?? []
+  const local = shown === "LOCAL"
+  const name = local ? (drift === "LOCAL" || localBuild?.image ? (localBuild?.image ?? image) : undefined) : image
+  const unchecked = !local && shown !== "UP_TO_DATE" && shown !== "OUTDATED"
+  if (!name && jars.length === 0 && !unchecked) return null
   return (
     <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
-      {drift === "LOCAL" || localBuild?.image ? (
+      {name ? (
         <>
           <span className="text-xs font-medium font-heading text-muted-foreground">{t("steward.image.label")}</span>
-          <span className="truncate text-sm">{localBuild?.image ?? image}</span>
+          <span className="truncate text-sm">{name}</span>
         </>
       ) : null}
       {jars.length > 0 ? (
@@ -289,7 +295,7 @@ export function DriftTip({ drift, image, localBuild }: { drift: ImageState; imag
           ))}
         </>
       ) : null}
-      <span className="text-xs text-muted-foreground">{t("steward.image.local-tip")}</span>
+      {unchecked ? <span className="text-xs text-muted-foreground">{t("steward.image.unchecked-tip")}</span> : null}
     </div>
   )
 }

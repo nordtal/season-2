@@ -37,11 +37,15 @@ export function personName(person: Person): string {
 /** Guild membership; `MEMBER` is the quiet one, so LEFT and BANNED stand out. */
 const MEMBER_TONES: Record<string, Tone> = { LEFT: "warn", BANNED: "down" }
 
+/**
+ * A guild membership as a badge.
+ *
+ * A purchased period keeps running when the member leaves, and a ban refuses the login while the paid period expires.
+ */
 export function MemberBadge({ state }: { state: string }) {
-  const tip = t("steward.people.member-tip", { state: choice(state) })
   /** An unknown value is shown, not swallowed, so a state added later reads as new rather than empty. */
   return (
-    <StatusBadge tone={MEMBER_TONES[state] ?? "idle"} tipContent={tip}>
+    <StatusBadge tone={MEMBER_TONES[state] ?? "idle"}>
       {t("steward.people.member", { state: choice(state) }) || state}
     </StatusBadge>
   )
@@ -461,26 +465,22 @@ export function RevokeDialog({
 }
 
 /**
- * Access, from `accessActive` (the login decision) and `accessUntil` (the latest period on record).
+ * Access from `accessActive` (the login decision) and `accessUntil` (the latest period, revoked ones included).
  *
- * Inactive with a future period is revoked or not yet started; the tooltip names both.
+ * Two readings, so revoked access never looks like none ever bought; the periods tell revoked from not begun.
  */
 export function AccessBadge({ person, now }: { person: Person; now: number }) {
   const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
 
   if (person.accessActive) {
     return (
-      <StatusBadge tone="ok" tipContent={t("steward.people.active-tip", { until: person.accessUntil ?? "" })}>
+      <StatusBadge tone="ok" tipContent={t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
         {t("steward.people.active-until", { until: person.accessUntil ?? "" })}
       </StatusBadge>
     )
   }
   if (until === null) {
-    return (
-      <StatusBadge tone="idle" tipContent={t("steward.people.never-tip")}>
-        {t("steward.people.never")}
-      </StatusBadge>
-    )
+    return <StatusBadge tone="idle">{t("steward.people.never")}</StatusBadge>
   }
   if (until > now) {
     return (
@@ -490,7 +490,7 @@ export function AccessBadge({ person, now }: { person: Person; now: number }) {
     )
   }
   return (
-    <StatusBadge tone="idle" tipContent={t("steward.people.expired-tip")}>
+    <StatusBadge tone="idle" tipContent={t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
       {t("steward.people.expired", { at: person.accessUntil ?? "" })}
     </StatusBadge>
   )
@@ -508,15 +508,15 @@ export function LinkBadge({ person }: { person: Person }) {
   )
 }
 
-/** The roles a person holds, as badges; a dash for none, which a phone's card leaves out with its line. */
+/**
+ * The roles a person holds, as badges; a dash for none, which a phone's card leaves out with its line.
+ *
+ * The supporter role is given once and never taken away, so handing it out in Discord is harmless.
+ */
 export function RoleBadges({ person, people }: { person: Person; people: readonly Person[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {person.donor ? (
-        <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
-          {t("steward.people.supporter")}
-        </StatusBadge>
-      ) : null}
+      {person.donor ? <StatusBadge tone="idle">{t("steward.people.supporter")}</StatusBadge> : null}
       {person.admin ? (
         <StatusBadge tone="idle" tipContent={grantedByText(person, people)}>
           {t("steward.people.admin")}

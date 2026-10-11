@@ -920,9 +920,6 @@ export type TextArgs = {
   "steward.artifact.status": {
     status: Arg["choice"]
   }
-  "steward.artifact.status-tip": {
-    status: Arg["choice"]
-  }
   "steward.backup-settings.no-at": Record<string, never>
   "steward.backup-settings.no-days": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
@@ -1086,12 +1083,9 @@ export type TextArgs = {
   "steward.image.drift": {
     drift: Arg["choice"]
   }
-  "steward.image.drift-tip": {
-    drift: Arg["choice"]
-  }
   "steward.image.label": Record<string, never>
   "steward.image.local-jars": Record<string, never>
-  "steward.image.local-tip": Record<string, never>
+  "steward.image.unchecked-tip": Record<string, never>
   "steward.journal.action": Record<string, never>
   "steward.journal.actor": Record<string, never>
   "steward.journal.all": Record<string, never>
@@ -1445,7 +1439,6 @@ export type TextArgs = {
   "steward.payments.nothing-settled": Record<string, never>
   "steward.payments.open": Record<string, never>
   "steward.payments.overdue": Record<string, never>
-  "steward.payments.overdue-tip": Record<string, never>
   "steward.payments.paid": Record<string, never>
   "steward.payments.past-deadline": {
     count: Arg["number"]
@@ -1469,19 +1462,12 @@ export type TextArgs = {
   "steward.payments.state": {
     status: Arg["choice"]
   }
-  "steward.payments.state-tip": {
-    status: Arg["choice"]
-  }
   "steward.payments.status": Record<string, never>
   "steward.payments.tab": Record<string, never>
   "steward.payments.title": Record<string, never>
   "steward.people.access": Record<string, never>
-  "steward.people.access-tip": Record<string, never>
   "steward.people.actions-for": {
     name: Arg["text"]
-  }
-  "steward.people.active-tip": {
-    until: Arg["instant"]
   }
   "steward.people.active-until": {
     until: Arg["instant"]
@@ -1490,7 +1476,6 @@ export type TextArgs = {
   "steward.people.begins": {
     at: Arg["instant"]
   }
-  "steward.people.begins-tip": Record<string, never>
   "steward.people.below-too": {
     count: Arg["number"]
   }
@@ -1503,10 +1488,12 @@ export type TextArgs = {
     usable: Arg["choice"]
   }
   "steward.people.discord-id": Record<string, never>
+  "steward.people.exact-tip": {
+    at: Arg["instant"]
+  }
   "steward.people.expired": {
     at: Arg["instant"]
   }
-  "steward.people.expired-tip": Record<string, never>
   "steward.people.filter": Record<string, never>
   "steward.people.filter-name": Record<string, never>
   "steward.people.grant": Record<string, never>
@@ -1533,16 +1520,12 @@ export type TextArgs = {
   "steward.people.member": {
     state: Arg["choice"]
   }
-  "steward.people.member-tip": {
-    state: Arg["choice"]
-  }
   "steward.people.minecraft": Record<string, never>
   "steward.people.minutes": Record<string, never>
   "steward.people.most-days": {
     most: Arg["number"]
   }
   "steward.people.never": Record<string, never>
-  "steward.people.never-tip": Record<string, never>
   "steward.people.next": Record<string, never>
   "steward.people.no-access": Record<string, never>
   "steward.people.no-access-tip": {
@@ -1573,7 +1556,6 @@ export type TextArgs = {
   "steward.people.nothing-to-revoke": Record<string, never>
   "steward.people.nothing-to-unlink": Record<string, never>
   "steward.people.over": Record<string, never>
-  "steward.people.over-tip": Record<string, never>
   "steward.people.pack": {
     exempted: Arg["choice"]
   }
@@ -1621,11 +1603,9 @@ export type TextArgs = {
   "steward.people.revoked-for": {
     count: Arg["number"]
   }
-  "steward.people.revoked-tip": Record<string, never>
   "steward.people.roles": Record<string, never>
   "steward.people.root-admin": Record<string, never>
   "steward.people.running": Record<string, never>
-  "steward.people.running-tip": Record<string, never>
   "steward.people.some-admin": Record<string, never>
   "steward.people.source": {
     source: Arg["choice"]
@@ -1633,7 +1613,6 @@ export type TextArgs = {
   "steward.people.source-column": Record<string, never>
   "steward.people.state": Record<string, never>
   "steward.people.supporter": Record<string, never>
-  "steward.people.supporter-tip": Record<string, never>
   "steward.people.thrown-out": Record<string, never>
   "steward.people.title": Record<string, never>
   "steward.people.unknown-person": Record<string, never>
@@ -1719,7 +1698,6 @@ export type TextArgs = {
   "steward.service-page.find": Record<string, never>
   "steward.service-page.find-in": Record<string, never>
   "steward.service-page.given": Record<string, never>
-  "steward.service-page.given-tip": Record<string, never>
   "steward.service-page.going-offline": Record<string, never>
   "steward.service-page.group": {
     group: Arg["choice"]

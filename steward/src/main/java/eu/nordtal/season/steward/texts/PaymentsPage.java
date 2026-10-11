@@ -43,9 +43,6 @@ public interface PaymentsPage {
     @Name("A request's state")
     MessageRef state(@Arg("status") PaymentRequestStatus status);
 
-    @Name("A request's state, said")
-    MessageRef stateTip(@Arg("status") PaymentRequestStatus status);
-
     @Name("Title")
     MessageRef title();
 
@@ -99,9 +96,6 @@ public interface PaymentsPage {
 
     @Name("Overdue")
     MessageRef overdue();
-
-    @Name("Overdue, said")
-    MessageRef overdueTip();
 
     @Name("Tab")
     MessageRef tab();

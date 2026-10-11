@@ -21,9 +21,6 @@ public interface PeoplePage {
     @Name("Access column")
     MessageRef access();
 
-    @Name("Access column tip")
-    MessageRef accessTip();
-
     @Name("Minecraft")
     MessageRef minecraft();
 
@@ -36,14 +33,11 @@ public interface PeoplePage {
     @Name("Active until")
     MessageRef activeUntil(@Arg("until") Instant until);
 
-    @Name("Active tip")
-    MessageRef activeTip(@Arg("until") Instant until);
+    @Name("Exact time tip")
+    MessageRef exactTip(@Arg("at") Instant at);
 
     @Name("Never")
     MessageRef never();
-
-    @Name("Never tip")
-    MessageRef neverTip();
 
     @Name("No access")
     MessageRef noAccess();
@@ -53,9 +47,6 @@ public interface PeoplePage {
 
     @Name("Expired")
     MessageRef expired(@Arg("at") Instant at);
-
-    @Name("Expired tip")
-    MessageRef expiredTip();
 
     @Name("Not linked")
     MessageRef notLinked();
@@ -80,9 +71,6 @@ public interface PeoplePage {
 
     @Name("Supporter")
     MessageRef supporter();
-
-    @Name("Supporter tip")
-    MessageRef supporterTip();
 
     @Name("Admin")
     MessageRef admin();
@@ -141,35 +129,20 @@ public interface PeoplePage {
     @Name("Membership")
     MessageRef member(@Arg("state") MemberState state);
 
-    @Name("Membership tip")
-    MessageRef memberTip(@Arg("state") MemberState state);
-
     @Name("Source")
     MessageRef source(@Arg("source") AccessSource source);
 
     @Name("Revoked")
     MessageRef revoked(@Arg("at") Instant at);
 
-    @Name("Revoked tip")
-    MessageRef revokedTip();
-
     @Name("Begins")
     MessageRef begins(@Arg("at") Instant at);
-
-    @Name("Begins tip")
-    MessageRef beginsTip();
 
     @Name("Running")
     MessageRef running();
 
-    @Name("Running tip")
-    MessageRef runningTip();
-
     @Name("Over")
     MessageRef over();
-
-    @Name("Over tip")
-    MessageRef overTip();
 
     @Name("Grant access")
     MessageRef grantAccess();

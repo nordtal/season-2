@@ -1,9 +1,9 @@
 import {
   ArrowUpIcon,
+  CaretRightIcon,
   DownloadSimpleIcon,
-  KeyReturnIcon,
   ListMagnifyingGlassIcon,
-  WarningCircleIcon,
+  PaperPlaneTiltIcon,
   XIcon,
 } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
 /**
- * The Console tab's window: toolbar, the line into the server, and the log newest on top.
+ * The Console tab's window: its controls and the line into the server, one row on a desktop and two on a phone, then
+ * the log newest on top.
  *
  * The stream reconnects by itself, and scrolling away stops the following until the arrow brings it back.
  */
@@ -63,82 +64,90 @@ export function ServiceConsole({
       aria-label={t("steward.service-page.console")}
       className="relative flex h-[65svh] flex-col overflow-hidden rounded-xl border border-border bg-card font-mono text-[0.6875rem] leading-5 text-card-foreground sm:text-xs lg:h-[36rem]"
     >
-      <div className="flex shrink-0 items-center gap-1 border-b border-border p-1">
-        {finding ? (
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <ListMagnifyingGlassIcon className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <input
-              autoFocus
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") closeFind()
-              }}
-              placeholder={t("steward.service-page.find")}
-              aria-label={t("steward.service-page.find-in")}
-              className="min-w-0 flex-1 self-stretch bg-transparent font-sans text-sm text-foreground outline-none placeholder:text-muted-foreground max-md:text-base"
-              spellCheck={false}
-            />
-            {query.trim() ? (
-              <span className="shrink-0 font-sans text-sm text-muted-foreground tabular-nums">{shown.length}</span>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={closeFind}
-              aria-label={t("steward.service-page.close-find")}
-              className="text-muted-foreground"
-            >
-              <XIcon aria-hidden />
-            </Button>
-          </div>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setFinding(true)}
-              aria-label={t("steward.service-page.find")}
-              title={t("steward.service-page.find")}
-              className="text-muted-foreground"
-            >
-              <ListMagnifyingGlassIcon aria-hidden />
-            </Button>
-            <div className="flex-1" />
-          </>
-        )}
-        <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
-          <SelectTrigger
-            aria-label={t("steward.service-page.lines")}
-            className="border-0 bg-transparent font-sans text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted/50"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="end">
-            {steps.map((step) => (
-              <SelectItem key={step} value={String(step)}>
-                {t("steward.service-page.line-count", { lines: step })}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => download(name, shown)}
-          disabled={!shown.some((entry) => entry.kind === "line")}
-          aria-label={t("steward.service-page.download")}
-          title={t("steward.service-page.download")}
-          className="text-muted-foreground"
+      <div data-slot="console-controls" className="flex shrink-0 flex-col border-b border-border lg:flex-row">
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-1 p-1",
+            hasConsole && "max-lg:border-b max-lg:border-border lg:border-l lg:border-border",
+            hasConsole && finding && "lg:w-80",
+            !hasConsole && "flex-1",
+          )}
         >
-          <DownloadSimpleIcon aria-hidden />
-        </Button>
+          {finding ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <ListMagnifyingGlassIcon className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeFind()
+                }}
+                placeholder={t("steward.service-page.find")}
+                aria-label={t("steward.service-page.find-in")}
+                className="min-w-0 flex-1 self-stretch bg-transparent font-sans text-sm text-foreground outline-none placeholder:text-muted-foreground max-md:text-base"
+                spellCheck={false}
+              />
+              {query.trim() ? (
+                <span className="shrink-0 font-sans text-sm text-muted-foreground tabular-nums">{shown.length}</span>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={closeFind}
+                aria-label={t("steward.service-page.close-find")}
+                className="text-muted-foreground"
+              >
+                <XIcon aria-hidden />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setFinding(true)}
+                aria-label={t("steward.service-page.find")}
+                title={t("steward.service-page.find")}
+                className="text-muted-foreground"
+              >
+                <ListMagnifyingGlassIcon aria-hidden />
+              </Button>
+              <div className="flex-1" />
+            </>
+          )}
+          <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
+            <SelectTrigger
+              aria-label={t("steward.service-page.lines")}
+              className="border-0 bg-transparent font-sans text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted/50"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="end">
+              {steps.map((step) => (
+                <SelectItem key={step} value={String(step)}>
+                  {t("steward.service-page.line-count", { lines: step })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => download(name, shown)}
+            disabled={!shown.some((entry) => entry.kind === "line")}
+            aria-label={t("steward.service-page.download")}
+            title={t("steward.service-page.download")}
+            className="text-muted-foreground"
+          >
+            <DownloadSimpleIcon aria-hidden />
+          </Button>
+        </div>
+        {hasConsole ? <ConsoleLine name={name} /> : null}
       </div>
-
-      {hasConsole ? <ConsoleLine name={name} /> : null}
 
       {stream.failure && offline ? (
         <div
@@ -152,7 +161,7 @@ export function ServiceConsole({
         </div>
       ) : stream.failure ? (
         <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
-          <WarningCircleIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <TERM_ICON.warning className="mb-1 size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm text-foreground">{t("steward.service-page.log-unreachable")}</p>
           <p className="text-xs text-muted-foreground">{stream.failure}</p>
         </div>
@@ -353,7 +362,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
 }
 
 /**
- * One line into the server console, directly above the log its answer comes back in.
+ * One line into the server console, above the log its answer comes back in and first in the controls' row.
  *
  * The up arrow walks a history that is not persisted, so the next person at this browser cannot read it.
  */
@@ -385,7 +394,7 @@ function ConsoleLine({ name }: { name: string }) {
   return (
     <form
       id="console"
-      className="relative flex shrink-0 items-center gap-2 border-b border-border bg-muted/50 py-1 pr-1 pl-3"
+      className="relative flex min-w-0 shrink-0 items-center gap-2 bg-muted/50 py-1 pr-1 pl-3 lg:order-first lg:flex-1 lg:bg-transparent"
       onSubmit={(event) => {
         event.preventDefault()
         const line = command.trim()
@@ -403,9 +412,7 @@ function ConsoleLine({ name }: { name: string }) {
         })
       }}
     >
-      <span className="text-muted-foreground select-none" aria-hidden>
-        ›
-      </span>
+      <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <input
         ref={field}
         id="console-command"
@@ -461,9 +468,9 @@ function ConsoleLine({ name }: { name: string }) {
         disabled={!command.trim() || send.isPending}
         aria-label={t("steward.service-page.send")}
         title={t("steward.service-page.send")}
-        className="text-foreground"
+        className="text-muted-foreground"
       >
-        <KeyReturnIcon aria-hidden />
+        <PaperPlaneTiltIcon aria-hidden />
       </Button>
       {open && offered ? (
         <ConsoleSuggestions words={words} expected={offered.arguments} chosen={chosen} onTake={take} />

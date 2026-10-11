@@ -133,6 +133,28 @@ describe("ServiceConsole", () => {
     expect(buttons.length).toBeGreaterThanOrEqual(3)
   })
 
+  it("draws the prompt and Send from the icon pack, Send as a plain icon button like Find", () => {
+    const input = mountLine(TREE)
+    const line = input.closest("form")
+    if (!line) throw new Error("the command line is drawn without its form")
+    expect(line.textContent).not.toContain("›")
+    expect(line.querySelector(":scope > svg")?.getAttribute("class")).toContain("size-4")
+    const send = screen.getByRole("button", { name: "Send" })
+    expect(send.className).toBe(screen.getByRole("button", { name: "Find" }).className)
+  })
+
+  it("keeps Find, the line count, Download and the command line in one row, the controls first on a phone", () => {
+    const input = mountLine(TREE)
+    const find = screen.getByRole("button", { name: "Find" })
+    const row = find.closest("[data-slot=console-controls]")
+    if (!row) throw new Error("the console's controls are drawn without their row")
+    expect(row.contains(input)).toBe(true)
+    expect(row.contains(screen.getByRole("combobox", { name: "Lines" }))).toBe(true)
+    expect(row.contains(screen.getByRole("button", { name: "Download" }))).toBe(true)
+    expect(row.className).toContain("lg:flex-row")
+    expect(find.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("puts a continuation line under the message column, also when its head fell out of the window", () => {
     mount()
     feed(

@@ -59,10 +59,11 @@ public interface BoardSpec {
         return 0.0f;
     }
 
+    /** The client owns the font's per-character widths. */
     @Order(7)
     @Name("Width")
     @Key("width")
-    @Explain("The client owns the font's per-character widths, so this is picked by looking at the board.")
+    @Explain("Pick it by looking at the board.")
     default int width() {
         return 180;
     }

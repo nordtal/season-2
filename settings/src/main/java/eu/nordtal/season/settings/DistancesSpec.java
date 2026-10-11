@@ -13,7 +13,7 @@ public interface DistancesSpec {
     @Order(1)
     @Name("View distance")
     @Key("view-distance")
-    @Explain("How far a player sees, in chunks. 0 keeps this server's own value.")
+    @Explain("In chunks. 0 keeps this server's own value.")
     default int viewDistance() {
         return 0;
     }
@@ -21,7 +21,7 @@ public interface DistancesSpec {
     @Order(2)
     @Name("Simulation distance")
     @Key("simulation-distance")
-    @Explain("How far around a player the world moves, in chunks. 0 keeps this server's own value.")
+    @Explain("In chunks. 0 keeps this server's own value.")
     default int simulationDistance() {
         return 0;
     }

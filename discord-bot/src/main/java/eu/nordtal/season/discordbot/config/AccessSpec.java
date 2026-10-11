@@ -20,35 +20,36 @@ import java.util.List;
 @ConfigSpec
 public interface AccessSpec {
 
+    /** The guild the bot manages; every other guild it is in is ignored. */
     @Order(1)
     @Name("Guild ID")
     @Key("guild-id")
-    @Explain("The one Discord guild the bot manages; every other guild it is in is ignored.")
+    @NoExplanationNeeded
     default String guildId() {
         return "";
     }
 
+    /** Each role is found by its name, created when missing, and followed through a rename in Discord. */
     @Order(2)
     @Name("Roles")
     @Key("role-names")
-    @Explain(
-            "The bot takes the role of exactly this name, or creates it, and then follows it even when it is renamed in Discord.")
+    @NoExplanationNeeded
     RoleNamesSpec roleNames();
 
+    /** Channel ids that are not specific to a language; a language's own are on its entry under languages. */
     @Order(3)
     @Name("Channels")
     @Key("channels")
-    @Explain(
-            "Channel ids that are not specific to a language; a language's own channels are on its entry under languages.")
+    @NoExplanationNeeded
     ChannelsSpec channels();
 
+    /** A missing translation falls back to the 'en' entry. */
     @Order(4)
     @Name("Languages")
     @Key("languages")
     // BotSettings#validateLanguages and steward's schema reader both read this annotation.
     @Protected(field = "tag", value = Locales.DEFAULT_TAG)
-    @Explain(
-            "One entry for each language the network speaks, by its tag, and no other. The 'en' entry cannot be removed: a missing translation falls back to it.")
+    @Explain("One entry per language, by its tag. The 'en' entry cannot be removed.")
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
     }
@@ -56,7 +57,7 @@ public interface AccessSpec {
     @Order(5)
     @Name("Payment")
     @Key("payment")
-    @Explain("The life cycle of a payment request, and how often the bot re-reads the payment seam.")
+    @NoExplanationNeeded
     PaymentSpec payment();
 
     @Order(6)
@@ -75,11 +76,11 @@ public interface AccessSpec {
         return 10;
     }
 
+    /** The bundle file name in every module's messages directory and the value stored as a player's locale. */
     @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
-    @Explain(
-            "A security limit, not a comfort setting: raising it weakens the four-character link code's brute-force resistance from decades toward weeks.")
+    @Explain("Lower case, such as de.")
     default int linkCodeAttemptsPerHour() {
         return 5;
     }
@@ -94,33 +95,39 @@ public interface AccessSpec {
         @Order(1)
         @Name("Tag")
         @Key("tag")
-        @Explain(
-                "Lower case; the bundle file name in every module's messages/ directory and the value stored for a player's locale.")
+        @Explain("Empty is the language's own name, such as Deutsch.")
         default String tag() {
             return "";
         }
 
+        /** Carries the buy-access message in this language, and its donation thank-yous. */
         @Order(2)
         @Name("Role name")
         @Key("role-name")
-        @Explain("The role that chooses this language. Empty is the language's own name, such as Deutsch.")
+        @NoExplanationNeeded
         default String roleName() {
             return "";
         }
 
+        /** Carries the account-link message in this language. */
         @Order(3)
         @Name("Contribution channel")
         @Key("contribution-channel")
-        @Explain("Carries the buy-access message in this language, and its donation thank-yous.")
+        @NoExplanationNeeded
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String contributionChannel() {
             return "";
         }
 
+        /**
+         * Carries the Hunger Games registration message.
+         *
+         * Separate from the contribution channel, because access is not required to play.
+         */
         @Order(4)
         @Name("Link channel")
         @Key("link-channel")
-        @Explain("Carries the account-link message in this language.")
+        @NoExplanationNeeded
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String linkChannel() {
             return "";
@@ -129,28 +136,27 @@ public interface AccessSpec {
         @Order(5)
         @Name("Hunger Games channel")
         @Key("hunger-games-channel")
-        @Explain(
-                "Carries the hunger games registration message; separate from contribution-channel, since access is not required to play.")
+        @Explain("The bot only renames it and never posts in it. Empty means none.")
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String hungerGamesChannel() {
             return "";
         }
 
+        /** The bot posts milestones and season announcements here for this language. */
         @Order(6)
         @Name("Status channel")
         @Key("status-channel")
-        @Explain(
-                "Optional: a channel the bot renames (never posts in) to show this language's current status. Empty means none.")
+        @Explain("Empty means none.")
         @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String statusChannel() {
             return "";
         }
 
+        /** Managed by the bot: a hand-granted role is undone at the next reconcile, so /grant-access is the way. */
         @Order(7)
         @Name("Announcement channel")
         @Key("announcement-channel")
-        @Explain(
-                "Optional: a channel the bot posts milestones and season announcements into for this language. Empty means none.")
+        @NoExplanationNeeded
         @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String announcementChannel() {
             return "";
@@ -161,27 +167,33 @@ public interface AccessSpec {
     @ConfigSpec
     interface RoleNamesSpec {
 
+        /** Granted on a donation and never revoked, so handing it out in Discord is safe. */
         @Order(1)
         @Name("Access role")
         @Key("access")
-        @Explain("Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.")
+        @NoExplanationNeeded
         default String access() {
             return "Access";
         }
 
+        /** Follows the admins decided in Steward: the bot adds and removes it and never reads it as a permission. */
         @Order(2)
         @Name("Donor role")
         @Key("donor")
-        @Explain("Granted on a donation and never revoked, so it is safe to hand out manually in Discord.")
+        @NoExplanationNeeded
         default String donor() {
             return "Donor";
         }
 
+        /**
+         * Receives everything needing a human.
+         *
+         * That is unmatchable or expired payments, failed DMs, role errors, and every link or unlink.
+         */
         @Order(3)
         @Name("Admin role")
         @Key("admin")
-        @Explain(
-                "Follows the admins decided in Steward: the bot adds and removes it, and never reads it as a permission.")
+        @NoExplanationNeeded
         default String admin() {
             return "Admin";
         }
@@ -191,11 +203,11 @@ public interface AccessSpec {
     @ConfigSpec
     interface ChannelsSpec {
 
+        /** Raising it takes the four-character link code's brute-force resistance from decades toward weeks. */
         @Order(1)
         @Name("Admin channel")
         @Key("admin")
-        @Explain(
-                "Everything needing a human: unmatchable or expired payments, failed DMs, role errors, and every link or unlink.")
+        @Explain("A security limit: raising it weakens the link code's brute-force resistance.")
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String admin() {
             return "";
@@ -206,10 +218,11 @@ public interface AccessSpec {
     @ConfigSpec
     interface PaymentSpec {
 
+        /** A late payment then needs manual handling in the admin channel. */
         @Order(2)
         @Name("Request lifetime (hours)")
         @Key("request-ttl-hours")
-        @Explain("Past this, the bunq tab is cancelled and a late payment needs manual handling in the admin channel.")
+        @Explain("Past this the bunq tab is cancelled.")
         default int requestTtlHours() {
             return 24;
         }

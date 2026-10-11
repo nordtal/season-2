@@ -3,7 +3,6 @@ package eu.nordtal.season.settings.network;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -17,10 +16,11 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface PrestigeSpec {
 
+    /** Overrides every prestige tier below, rather than being a fourteenth tier of its own. */
     @Order(1)
     @Name("Admin")
     @Key("admin")
-    @Explain("Overrides every prestige tier below, rather than being a fourteenth tier of its own.")
+    @NoExplanationNeeded
     @Refers(Refers.To.COLOUR)
     default String admin() {
         return "#ff5555";

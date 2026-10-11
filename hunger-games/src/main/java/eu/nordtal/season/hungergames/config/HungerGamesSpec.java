@@ -17,19 +17,20 @@ public interface HungerGamesSpec {
     /** The floor below which {@code /hg start} refuses, since the border step divides by one less than it. */
     int HARD_MINIMUM_PARTICIPANTS = 2;
 
+    /** How long players are frozen on their spawn towers before release. */
     @Order(1)
     @Name("Countdown (seconds)")
     @Key("countdown-seconds")
-    @Explain("How long players are frozen on their spawn towers before release.")
+    @NoExplanationNeeded
     default int countdownSeconds() {
         return 60;
     }
 
+    /** The hard floor is arithmetic and not configurable. */
     @Order(2)
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
-    @Explain(
-            "Below this, /hg start asks for confirmation instead of refusing outright; the hard floor is arithmetic and not configurable.")
+    @Explain("Below this, /hg start asks for confirmation.")
     default int softMinimumParticipants() {
         return 4;
     }
@@ -53,25 +54,25 @@ public interface HungerGamesSpec {
     @Order(5)
     @Name("Border wall speed (blocks per second)")
     @Key("border-wall-speed-blocks-per-second")
-    @Explain(
-            "Diameter change per second; the wall moves at half this rate. Keep it under walking speed (4.317 blocks/s).")
+    @Explain("Diameter change per second, the wall moving at half. Keep it under walking speed (4.317).")
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
     }
 
+    /** How long without a death before the passive shrink starts. */
     @Order(6)
     @Name("Border quiet period (seconds)")
     @Key("border-quiet-period-seconds")
-    @Explain("How long without a death before the passive shrink starts.")
+    @NoExplanationNeeded
     default int borderQuietPeriodSeconds() {
         return 600;
     }
 
+    /** A much coarser unit than the wall speed, only meant to force a stalemate together. */
     @Order(7)
     @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
-    @Explain(
-            "Blocks of diameter per hour, a much coarser unit than the wall speed above. Only meant to force a stalemate together.")
+    @Explain("Blocks of diameter per hour.")
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
     }
@@ -108,16 +109,18 @@ public interface HungerGamesSpec {
         return "hunger_games";
     }
 
+    /** The lobby box: teleport point, map and rules image grid, and the periodic ready broadcast. */
     @Order(12)
     @Name("Lobby")
     @Key("lobby")
-    @Explain("The lobby box: teleport point, map/rules image grid, and the periodic ready broadcast.")
+    @NoExplanationNeeded
     LobbySpec lobby();
 
+    /** The spawn plus four staggered locations. */
     @Order(13)
     @Name("Loot points")
     @Key("loot-points")
-    @Explain("Exactly five entries, each with a unique label: the spawn plus four staggered locations.")
+    @Explain("Exactly five entries, labels unique.")
     default List<LootPointSpec> lootPoints() {
         return DefaultLootPoints.LIST;
     }
@@ -125,7 +128,7 @@ public interface HungerGamesSpec {
     @Order(14)
     @Name("Refill tiers")
     @Key("refill-tiers")
-    @Explain("A schedule ordered by ascending delay; changing 'delay-minutes' on an existing entry retires that tier.")
+    @Explain("Ordered by ascending delay; changing an entry's delay retires that tier.")
     default List<RefillTierSpec> refillTiers() {
         return DefaultRefillTiers.LIST;
     }
@@ -161,19 +164,20 @@ public interface HungerGamesSpec {
             return 0.0;
         }
 
+        /** How often the ready-check broadcast, with its clickable ready button, repeats. */
         @Order(4)
         @Name("Broadcast interval (seconds)")
         @Key("broadcast-interval-seconds")
-        @Explain("How often the ready-check broadcast, with its clickable ready button, repeats.")
+        @NoExplanationNeeded
         default int broadcastIntervalSeconds() {
             return 300;
         }
 
+        /** The lobby image is sliced from {@code map-<lang>.png} per language; a missing file is no startup failure. */
         @Order(5)
         @Name("Map grid columns")
         @Key("map-grid-columns")
-        @Explain(
-                "How many maps wide the sliced lobby image is, sliced from map-<lang>.png per language; a missing file is skipped, not a startup failure.")
+        @Explain("Maps wide. A missing map-<lang>.png is skipped.")
         default int mapGridColumns() {
             return 3;
         }
@@ -186,26 +190,29 @@ public interface HungerGamesSpec {
             return 3;
         }
 
+        /** This plugin only sets the maps in the frames. */
         @Order(7)
         @Name("Map frame origin X")
         @Key("map-frame-origin-x")
-        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
+        @Explain("Top-left item frame; it must already exist.")
         default int mapFrameOriginX() {
             return 0;
         }
 
+        /** This plugin only sets the maps in the frames. */
         @Order(8)
         @Name("Map frame origin Y")
         @Key("map-frame-origin-y")
-        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
+        @Explain("Top-left item frame; it must already exist.")
         default int mapFrameOriginY() {
             return 196;
         }
 
+        /** This plugin only sets the maps in the frames. */
         @Order(9)
         @Name("Map frame origin Z")
         @Key("map-frame-origin-z")
-        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
+        @Explain("Top-left item frame; it must already exist.")
         default int mapFrameOriginZ() {
             return 0;
         }
@@ -215,10 +222,11 @@ public interface HungerGamesSpec {
     @ConfigSpec
     interface LootPointSpec {
 
+        /** Shown in refill announcements. */
         @Order(1)
         @Name("Label")
         @Key("label")
-        @Explain("Shown in refill announcements. Must be unique across all five loot points.")
+        @Explain("Unique across all five loot points.")
         default String label() {
             return "spawn";
         }
@@ -252,19 +260,20 @@ public interface HungerGamesSpec {
     @ConfigSpec
     interface RefillTierSpec {
 
+        /** Changing it on an existing entry retires that tier rather than rescheduling it. */
         @Order(1)
         @Name("Delay (minutes)")
         @Key("delay-minutes")
-        @Explain(
-                "Minutes after release this refill happens; changing it on an existing entry retires that tier rather than rescheduling it.")
+        @Explain("Minutes after release.")
         default int delayMinutes() {
             return 0;
         }
 
+        /** Every loot chest is cleared first. */
         @Order(2)
         @Name("Items")
         @Key("items")
-        @Explain("Every loot chest is cleared and restocked with one of each. An unknown item fails the load.")
+        @Explain("One of each goes in every chest. An unknown item fails the load.")
         @Refers(Refers.To.ITEM)
         default List<String> items() {
             return List.of("BREAD");

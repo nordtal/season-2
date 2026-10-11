@@ -22,7 +22,7 @@ public interface BalloonSpawnPointsSpec {
     @Order(3)
     @Name("Nether")
     @Key("nether")
-    @Explain("A Y chosen without checking the terrain often lands inside the Nether roof or inside solid rock.")
+    @Explain("Terrain is not checked: a Y can land inside the Nether roof or solid rock.")
     default SpawnPointSpec nether() {
         return DefaultSmp.BALLOON_SPAWN_POINT_NETHER;
     }

@@ -12,10 +12,11 @@ import java.util.List;
 @ConfigSpec
 public interface LanguageAndTimeSpec {
 
+    /** en, because only English is complete. */
     @Order(1)
     @Name("Default language")
     @Key("default-language")
-    @Explain("What a reader with no language of their own is shown; en, since only English is complete.")
+    @Explain("Shown to a reader with no language of their own.")
     default String defaultLanguage() {
         return Locales.DEFAULT_TAG;
     }
@@ -23,7 +24,7 @@ public interface LanguageAndTimeSpec {
     @Order(2)
     @Name("Languages")
     @Key("languages")
-    @Explain("Every language the network speaks, as lower case tags; taken at the next start.")
+    @Explain("Lower case tags. Taken at the next start.")
     default List<String> languages() {
         return List.of(Locales.DEFAULT_TAG, "de");
     }
@@ -31,7 +32,7 @@ public interface LanguageAndTimeSpec {
     @Order(3)
     @Name("Default time zone")
     @Key("default-time-zone")
-    @Explain("The zone dates are shown and typed in, as an IANA name like Europe/Berlin; taken at the next start.")
+    @Explain("An IANA name like Europe/Berlin. Taken at the next start.")
     default String defaultTimeZone() {
         return "Europe/Berlin";
     }

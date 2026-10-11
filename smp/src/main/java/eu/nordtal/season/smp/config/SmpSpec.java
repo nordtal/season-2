@@ -13,10 +13,11 @@ import java.util.List;
 @ConfigSpec
 public interface SmpSpec {
 
+    /** Nothing is pre-generated; a milestone unlock only moves the border. */
     @Order(1)
     @Name("Nordtal world")
     @Key("world-nordtal")
-    @Explain("The permanent world's folder name. Nothing is pre-generated; a milestone unlock only moves the border.")
+    @Explain("The permanent world's folder name.")
     default String worldNordtal() {
         return "nordtal";
     }
@@ -37,10 +38,11 @@ public interface SmpSpec {
         return "nordtal_the_end";
     }
 
+    /** Several times larger than the 1:8 mapping requires, leaving room for a milestone appended later. */
     @Order(6)
     @Name("Nether border diameter")
     @Key("nether-border-diameter")
-    @Explain("Several times larger than the 1:8 mapping requires, leaving room for a milestone appended later.")
+    @NoExplanationNeeded
     default int netherBorderDiameter() {
         return 2000;
     }
@@ -56,7 +58,7 @@ public interface SmpSpec {
     @Order(8)
     @Name("Border centre X")
     @Key("border-centre-x")
-    @Explain("Every radius in this file is measured from this point, so moving it shifts all of them at once.")
+    @Explain("Every radius is measured from here; moving it shifts them all.")
     default int borderCentreX() {
         return 106;
     }
@@ -64,32 +66,34 @@ public interface SmpSpec {
     @Order(9)
     @Name("Border centre Z")
     @Key("border-centre-z")
-    @Explain("Every radius in this file is measured from this point, so moving it shifts all of them at once.")
+    @Explain("Every radius is measured from here; moving it shifts them all.")
     default int borderCentreZ() {
         return 88;
     }
 
+    /** At the default the final edge takes 15 to 30 minutes. */
     @Order(10)
     @Name("Border expansion speed (blocks per second)")
     @Key("border-expansion-blocks-per-second")
-    @Explain("How fast a border expansion travels; at this default the final edge takes 15 to 30 minutes.")
+    @NoExplanationNeeded
     default double borderExpansionBlocksPerSecond() {
         return 1.5;
     }
 
+    /** Checked at enable. */
     @Order(14)
     @Name("Required datapacks")
     @Key("required-datapacks")
-    @Explain("Checked at enable, never installed by this plugin: a world generated without them stays vanilla.")
+    @Explain("Never installed by this plugin: a world generated without them stays vanilla.")
     default List<String> requiredDatapacks() {
         return List.of("Terralith", "Dungeons and Taverns");
     }
 
+    /** Where the balloon boxes stand. */
     @Order(19)
     @Name("Balloons")
     @Key("balloons")
-    @Explain(
-            "Where the balloon boxes stand. Nordtal's must sit outside radius 10 and inside 21.5 of the border centre.")
+    @Explain("Nordtal's must sit between radius 10 and 21.5 of the border centre.")
     default List<BalloonSpec> balloons() {
         return DefaultSmp.BALLOONS;
     }
@@ -97,55 +101,61 @@ public interface SmpSpec {
     @Order(20)
     @Name("Boards")
     @Key("boards")
-    @Explain("Rendered once PER VIEWER, in their own language. This does not scale to a hundred players.")
+    @Explain("Rendered per viewer; does not scale to a hundred players.")
     default List<BoardSpec> boards() {
         return DefaultSmp.BOARDS;
     }
 
+    /** type picks the loadout both fighters get. */
     @Order(21)
     @Name("Duel platforms")
     @Key("duel-platforms")
-    @Explain("type picks the loadout both fighters get. Both platforms belong inside radius 10 of the border centre.")
+    @Explain("Both belong inside radius 10 of the border centre.")
     default List<DuelPlatformSpec> duelPlatforms() {
         return DefaultSmp.DUEL_PLATFORMS;
     }
 
+    /** Height of the lowest stacked arena, well above anything players build. */
     @Order(22)
     @Name("Duel arena base Y")
     @Key("duel-arena-base-y")
-    @Explain("Height of the lowest stacked arena, well above anything players build.")
+    @NoExplanationNeeded
     default int duelArenaBaseY() {
         return 200;
     }
 
+    /** Otherwise stacked arenas overlap. */
     @Order(23)
     @Name("Duel arena spacing")
     @Key("duel-arena-spacing")
-    @Explain("Must exceed the arena's own height, or stacked arenas overlap.")
+    @Explain("Must exceed the arena's own height.")
     default int duelArenaSpacing() {
         return 16;
     }
 
+    /** Half the arena's floor: big enough for a bow duel, small enough that neither fighter can run. */
     @Order(24)
     @Name("Duel arena radius")
     @Key("duel-arena-radius")
-    @Explain("Half the arena's floor: big enough for a bow duel, small enough that neither fighter can run.")
+    @NoExplanationNeeded
     default int duelArenaRadius() {
         return 7;
     }
 
+    /** Boxes that spin the wheel on right-click; spinning never costs aura, it is recognition, not currency. */
     @Order(25)
     @Name("Wheel regions")
     @Key("wheel-regions")
-    @Explain("Boxes that spin the wheel on right-click. Spinning never costs aura: it is recognition, not currency.")
+    @NoExplanationNeeded
     default List<SpawnRegionSpec> wheelRegions() {
         return DefaultSmp.WHEEL_REGIONS;
     }
 
+    /** The clickable figure in the tavern, a Mannequin. */
     @Order(26)
     @Name("NPC")
     @Key("npc")
-    @Explain("The clickable figure in the tavern, a Mannequin. Leave skin-name empty for the default skin.")
+    @Explain("Leave skin-name empty for the default skin.")
     default NpcSpec npc() {
         return DefaultSmp.NPC;
     }
@@ -153,15 +163,16 @@ public interface SmpSpec {
     @Order(27)
     @Name("Spawn regions")
     @Key("spawn-regions")
-    @Explain("Protected boxes, inclusive on both corners, checked in order with the first match winning.")
+    @Explain("Inclusive on both corners; the first match wins.")
     default List<SpawnRegionSpec> spawnRegions() {
         return DefaultSmp.SPAWN_REGIONS;
     }
 
+    /** Subtracted at the point of use. */
     @Order(28)
     @Name("Death penalty")
     @Key("death-penalty")
-    @Explain("What an ordinary death costs, as a positive number subtracted at the point of use.")
+    @Explain("A positive number.")
     default int deathPenalty() {
         return 5;
     }
@@ -177,7 +188,7 @@ public interface SmpSpec {
     @Order(30)
     @Name("Listed death causes")
     @Key("death-causes-listed")
-    @Explain("The self-inflicted deaths that cost the higher penalty above. Mobs, the border and starvation are not.")
+    @Explain("Self-inflicted deaths that cost the higher penalty. Mobs, the border and starvation do not.")
     @Refers(Refers.To.DAMAGE_TYPE)
     default List<String> deathCausesListed() {
         return List.of(
@@ -193,10 +204,11 @@ public interface SmpSpec {
                 "minecraft:stalagmite");
     }
 
+    /** The winner takes exactly what the loser pays. */
     @Order(31)
     @Name("Duel stake")
     @Key("duel-stake")
-    @Explain("What a duel moves: the winner takes exactly what the loser pays.")
+    @NoExplanationNeeded
     default int duelStake() {
         return 10;
     }
@@ -212,57 +224,63 @@ public interface SmpSpec {
     @Order(33)
     @Name("Advancement awards")
     @Key("advancement-awards")
-    @Explain("Which advancements pay aura, once each per player. The loader refuses anything outside 2 to 10.")
+    @Explain("Pays once per player. Anything outside 2 to 10 is refused.")
     default List<AdvancementAwardSpec> advancementAwards() {
         return DefaultSmp.ADVANCEMENT_AWARDS;
     }
 
+    /** The rare band is about one spin in twenty-five. */
     @Order(37)
     @Name("Wheel prizes")
     @Key("wheel-prizes")
-    @Explain("The wheel's pool and relative weights; the rare band is about one spin in twenty-five.")
+    @Explain("Weights are relative.")
     default List<WheelPrizeSpec> wheelPrizes() {
         return DefaultSmp.WHEEL_PRIZES;
     }
 
+    /** What both duelists are given, identical for both; no enchantments and no healing on purpose. */
     @Order(38)
     @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
-    @Explain("What both duelists are given, identical for both. No enchantments and no healing on purpose.")
+    @NoExplanationNeeded
     default List<WheelPrizeSpec> duelLoadoutSword() {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
+    /** The bow duel's loadout; no crossbow on purpose, because its reload time turns the fight into cover. */
     @Order(39)
     @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
-    @Explain("The bow duel's loadout. No crossbow on purpose: its reload time turns the fight into cover.")
+    @NoExplanationNeeded
     default List<WheelPrizeSpec> duelLoadoutBow() {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
 
     // Feedback sounds live in the reloadable the sounds group; see SoundsSpec.
 
+    /** Not the boxes above. */
     @Order(42)
     @Name("Balloon spawn points")
     @Key("balloon-spawn-points")
-    @Explain("Where the balloon sets a player down, one point per destination world. Not the boxes above.")
+    @Explain("One point per destination world.")
     default BalloonSpawnPointsSpec balloonSpawnPoints() {
         return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
 
+    /** Claimed once against smp_player.welcome_shown. */
     @Order(43)
     @Name("First join spawn")
     @Key("first-join-spawn")
-    @Explain("Where a player lands on their very first join only, claimed once against smp_player.welcome_shown.")
+    @Explain("Only for a player's very first join.")
     default FirstJoinSpawnSpec firstJoinSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
 
+    /** How long a grave stands before it and everything in it decays. */
     @Order(44)
     @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")
-    @Explain("How long a grave stands before it and everything in it decays, in hours. 0 never decays.")
+    @Explain("0 never decays.")
     default int graveMaxAgeHours() {
         return 24;
     }

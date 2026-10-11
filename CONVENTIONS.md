@@ -156,6 +156,9 @@ run `git config core.hooksPath .githooks` once per clone.
 - **Steward shows data, not explanatory text.** A sentence stays only when it keeps a state honest
   ("Some of the readings could not be fetched") or reports an error; a confirmation keeps the one
   sentence that names what is lost. Everything else goes, into the doc comment where its meaning matters.
+  That holds for a tooltip, which carries only what its badge or button does not show (a date, a name, who
+  set it), and for a settings field's `@Explain`, which names the unit, the format or what an empty value
+  means in a few words. A field the name and its picker already explain carries `@NoExplanationNeeded`.
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
   values set apart as two lines or two pills, or the second as an icon. A message bundle holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and

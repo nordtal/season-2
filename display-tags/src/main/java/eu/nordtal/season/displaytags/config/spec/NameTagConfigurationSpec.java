@@ -5,6 +5,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
 /** The {@code nametags} group: whether players wear a drawn name tag, and how it looks. */
@@ -19,10 +20,11 @@ public interface NameTagConfigurationSpec {
         return true;
     }
 
+    /** Whether a player sees their own name tag in third person. */
     @Order(2)
     @Name("Own name tag")
     @Key("show-to-self")
-    @Explain("Whether a player sees their own name tag in third person.")
+    @NoExplanationNeeded
     default boolean showToSelf() {
         return true;
     }
@@ -30,7 +32,7 @@ public interface NameTagConfigurationSpec {
     @Order(3)
     @Name("Update interval")
     @Key("update-interval")
-    @Explain("Seconds between two redraws of every name tag.")
+    @Explain("Seconds between redraws.")
     default int updateInterval() {
         return 1;
     }
@@ -38,7 +40,7 @@ public interface NameTagConfigurationSpec {
     @Order(4)
     @Name("Visibility distance")
     @Key("visibility-distance")
-    @Explain("Blocks from which a name tag can be seen.")
+    @Explain("In blocks.")
     default int visibilityDistance() {
         return 32;
     }
@@ -46,7 +48,7 @@ public interface NameTagConfigurationSpec {
     @Order(5)
     @Name("Display")
     @Key("display")
-    @Explain("How the text display above a player looks.")
+    @NoExplanationNeeded
     default NameTagDisplayConfigurationSpec display() {
         return Specs.createDefault(NameTagDisplayConfigurationSpec.class);
     }

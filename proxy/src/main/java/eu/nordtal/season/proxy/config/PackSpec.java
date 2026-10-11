@@ -4,6 +4,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
 /**
@@ -14,10 +15,11 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface PackSpec {
 
+    /** Off keeps the waiting room. */
     @Order(1)
     @Name("Enabled")
     @Key("enabled")
-    @Explain("Off keeps the waiting room and drops only the pack offer; meant for a development proxy.")
+    @Explain("Off drops only the pack offer, for a development proxy.")
     default boolean enabled() {
         return true;
     }
@@ -25,7 +27,7 @@ public interface PackSpec {
     @Order(2)
     @Name("URL")
     @Key("url")
-    @Explain("The github.com/.../releases/download/... URL, never its redirect, which expires within the hour.")
+    @Explain("The releases/download URL, never its redirect, which expires within the hour.")
     default String url() {
         return "";
     }
@@ -33,7 +35,7 @@ public interface PackSpec {
     @Order(3)
     @Name("SHA-1")
     @Key("sha1")
-    @Explain("Copy it from the release's .sha1 file; a mismatch fails every download on the network.")
+    @Explain("From the release's .sha1 file; a mismatch fails every download on the network.")
     default String sha1() {
         return "";
     }
@@ -46,10 +48,11 @@ public interface PackSpec {
         return true;
     }
 
+    /** How long an unanswered pack offer is allowed before the player is disconnected; generous on purpose. */
     @Order(5)
     @Name("Apply timeout (seconds)")
     @Key("apply-timeout-seconds")
-    @Explain("How long an unanswered pack offer is allowed before the player is disconnected; generous on purpose.")
+    @NoExplanationNeeded
     default int applyTimeoutSeconds() {
         return 180;
     }

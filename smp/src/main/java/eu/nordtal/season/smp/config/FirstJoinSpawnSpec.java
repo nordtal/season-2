@@ -11,10 +11,11 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface FirstJoinSpawnSpec {
 
+    /** A rename of the Nordtal world has to be repeated here. */
     @Order(1)
     @Name("World")
     @Key("world")
-    @Explain("Normally the same name as world-nordtal above, so a rename there has to be repeated here.")
+    @Explain("Normally the Nordtal world's name.")
     default String world() {
         return "nordtal";
     }

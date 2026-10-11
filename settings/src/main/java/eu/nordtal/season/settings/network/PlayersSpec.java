@@ -11,18 +11,20 @@ import java.util.List;
 @ConfigSpec
 public interface PlayersSpec {
 
+    /** Only the proxy enforces it. */
     @Order(1)
     @Name("Max players")
     @Key("max-players")
-    @Explain("How many players may be on the network at once; only the proxy enforces it, admins are exempt.")
+    @Explain("Admins are exempt.")
     default int maxPlayers() {
         return 500;
     }
 
+    /** Every command a non-admin may type anywhere on the network. */
     @Order(2)
     @Name("Command allowlist")
     @Key("command-allowlist")
-    @Explain("Every command a non-admin may type anywhere on the network; anything not listed is refused.")
+    @Explain("Anything not listed is refused to a non-admin.")
     default List<String> commandAllowlist() {
         // Ours, and only ours: every vanilla command, including /help, is deliberately absent.
         return List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules");

@@ -38,7 +38,7 @@ public interface NameTagDisplayConfigurationSpec {
     @Order(3)
     @Name("Through blocks")
     @Key("see-through")
-    @Explain("vanilla draws it dimmed through blocks like Minecraft's own, true at full brightness, false not.")
+    @Explain("vanilla dims it like Minecraft's own, true is full brightness, false hides it.")
     @AllowedValues({"vanilla", "true", "false"})
     default String seeThrough() {
         return SeeThroughMode.VANILLA.configValue();
@@ -69,10 +69,11 @@ public interface NameTagDisplayConfigurationSpec {
         return "default";
     }
 
+    /** Which axes the text turns along to face the viewer. */
     @Order(7)
     @Name("Billboard")
     @Key("billboard")
-    @Explain("Which axes the text turns along to face the viewer.")
+    @NoExplanationNeeded
     @AllowedValues({"fixed", "vertical", "horizontal", "center"})
     default String billboard() {
         return Display.Billboard.CENTER.name().toLowerCase(Locale.ROOT);
@@ -81,7 +82,7 @@ public interface NameTagDisplayConfigurationSpec {
     @Order(8)
     @Name("Offset")
     @Key("offset")
-    @Explain("Where the text sits relative to the player, in blocks; y 0.25 is just above the head.")
+    @Explain("In blocks; y 0.25 is just above the head.")
     default VectorSpec offset() {
         return Specs.createUnsafe(VectorSpec.class, Map.of("x", 0.0, "y", 0.25, "z", 0.0));
     }

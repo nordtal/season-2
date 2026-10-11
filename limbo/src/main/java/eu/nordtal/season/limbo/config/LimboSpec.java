@@ -4,6 +4,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
 /**
@@ -14,37 +15,40 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface LimboSpec {
 
+    /**
+     * The empty world this plugin creates and puts everybody in; deleting it is safe, it is rebuilt on the next start.
+     */
     @Order(1)
     @Name("World name")
     @Key("world-name")
-    @Explain(
-            "The empty world this plugin creates and puts everybody in; safe to delete, it is rebuilt on the next start.")
+    @NoExplanationNeeded
     default String worldName() {
         return "limbo";
     }
 
+    /** How far above the void players stand, so a stray fall lands them back rather than into nothing. */
     @Order(2)
     @Name("Spawn Y")
     @Key("spawn-y")
-    @Explain("How far above the void players stand, so a stray fall lands them back rather than into nothing.")
+    @NoExplanationNeeded
     default int spawnY() {
         return 64;
     }
 
+    /** How often the waiting title is re-sent. */
     @Order(3)
     @Name("Title refresh (seconds)")
     @Key("title-refresh-seconds")
-    @Explain(
-            "How often the waiting title is re-sent; too infrequent and the screen goes black between refreshes, looking like a crash.")
+    @Explain("Too long and the screen goes black between refreshes.")
     default int titleRefreshSeconds() {
         return 4;
     }
 
+    /** Turns the empty world's sky into a black screen. */
     @Order(4)
     @Name("Blindness")
     @Key("blindness")
-    @Explain(
-            "Turns the empty world's sky into a black screen. Disable only while working on this plugin, never in production.")
+    @Explain("Disable only while developing, never in production.")
     default boolean blindness() {
         return true;
     }

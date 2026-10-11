@@ -5,6 +5,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
@@ -17,20 +18,21 @@ import java.util.List;
 @ConfigSpec
 public interface OnboardingSpec {
 
+    /** Where a locked member chooses a language and a region; it is all the lock role sees. */
     @Order(1)
     @Name("Onboarding channel")
     @Key("channel")
-    @Explain(
-            "Where a locked member chooses a language and a region; only the lock role sees it, and it is all the lock role sees.")
+    @NoExplanationNeeded
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String channel() {
         return "";
     }
 
+    /** Holds the message to change a language or a region later. */
     @Order(2)
     @Name("Change channel")
     @Key("change-channel")
-    @Explain("Holds the message to change a language or a region later; another channel than the onboarding channel.")
+    @Explain("Not the onboarding channel.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String changeChannel() {
         return "";
@@ -44,18 +46,20 @@ public interface OnboardingSpec {
         return false;
     }
 
+    /** Found by its exact name, created when missing, and followed through a rename. */
     @Order(4)
     @Name("Lock role")
     @Key("lock-role")
-    @Explain("The bot takes the role of exactly this name, or creates it, and then follows it even when it is renamed.")
+    @NoExplanationNeeded
     default String lockRole() {
         return "Onboarding";
     }
 
+    /** Each region is a role of its name; a member who holds it reads times in its zone. */
     @Order(5)
     @Name("Regions")
     @Key("regions")
-    @Explain("Each region is a role of its name; a member who holds it reads times in its zone.")
+    @NoExplanationNeeded
     default List<RegionSpec> regions() {
         return DefaultRegions.LIST;
     }
@@ -70,7 +74,7 @@ public interface OnboardingSpec {
         @Order(1)
         @Name("Name")
         @Key("name")
-        @Explain("The role's name, and what the choice reads.")
+        @NoExplanationNeeded
         default String name() {
             return "";
         }

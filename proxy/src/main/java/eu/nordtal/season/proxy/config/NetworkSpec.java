@@ -4,6 +4,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
 /**
@@ -13,28 +14,29 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface NetworkSpec {
 
+    /** The address a client reaches this network on, as a transfer names it. */
     @Order(2)
     @Name("Public address")
     @Key("public-address")
-    @Explain(
-            "Host and port a client reaches this network on from outside, as a transfer names it. Empty means no transfer is ever offered.")
+    @Explain("As host:port from outside. Empty means no transfer is ever offered.")
     default String publicAddress() {
         return "";
     }
 
+    /** The port the standby proxy is published on, the only thing that distinguishes it from this one. */
     @Order(3)
     @Name("Standby port")
     @Key("standby-port")
-    @Explain("The port the standby proxy is published on, the only thing that distinguishes it from this one.")
+    @NoExplanationNeeded
     default int standbyPort() {
         return 25566;
     }
 
+    /** False for the proxy players connect to, true in exactly one place in compose.yml. */
     @Order(4)
     @Name("Standby")
     @Key("standby")
-    @Explain(
-            "Whether this process is the standby proxy: false for the one players connect to, true in exactly one place in compose.yml.")
+    @NoExplanationNeeded
     default boolean standby() {
         return false;
     }

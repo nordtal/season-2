@@ -44,9 +44,13 @@ never granted fails in `check`.
 - **Metrics.** Every 30 seconds the agent's new sampler rounds are copied into `metric_sample` and
   folded into hourly means after 30 days.
 - **Backups.** The nightly clock writes a request row; steward lists and downloads archives through the agent.
-- **Journal.** Every route that changes something writes a line through `:database`'s `Journal` with
-  the signed-in admin as a structured actor and the line as a message of the admin bundle; the
-  Journal page renders it through the web target.
+- **Journal.** Every changing route carries one journal decision where it is registered, as it carries a
+  `Gate`. `Journaled.as(action)`: once the route has answered below 400, `journal.Journaling` writes the lines
+  its handler named, with the signed-in admin as a structured actor and each line a message of the admin
+  bundle. `Unjournaled` names why a route writes none here, mostly because `:database` writes the line in the
+  transaction of the change itself (a request row, a booking, the phase). `JournaledRoutesTest` fails on a
+  changing route with neither and lists every one left out. The Journal page renders a line through the web
+  target.
 - **Alerts.** A row in `admin_alert`, raised by whoever saw it: steward measures the stack every 30
   seconds against the `web` group's thresholds, downloads the proxy's pack URL every ten minutes, and
   raises failed runs and unbookable payments; the bot

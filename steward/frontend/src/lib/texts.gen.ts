@@ -326,8 +326,23 @@ export type TextArgs = {
     label: Arg["text"]
     left: Arg["number"]
   }
+  "journal.remove-plugin": {
+    run: Arg["number"]
+    service: Arg["text"]
+    artifact: Arg["text"]
+  }
   "journal.rename-key": {
     label: Arg["text"]
+  }
+  "journal.request-restore": {
+    run: Arg["number"]
+    archive: Arg["text"]
+  }
+  "journal.request-run": {
+    run: Arg["number"]
+    kind: Arg["choice"]
+    services: Arg["list"]
+    count: Arg["number"]
   }
   "journal.revoke-access": {
     grants: Arg["number"]

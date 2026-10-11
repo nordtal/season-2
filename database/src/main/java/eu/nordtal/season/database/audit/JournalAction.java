@@ -32,6 +32,8 @@ public enum JournalAction {
     SAVE_SETTINGS,
     SAVE_MESSAGES,
     ADD_PLUGIN,
+    REMOVE_PLUGIN,
+    REQUEST_RUN,
     CANCEL_RUN,
     DOWNLOAD_BACKUP,
     ANNOUNCE,

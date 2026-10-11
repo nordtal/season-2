@@ -2,11 +2,12 @@ package eu.nordtal.season.steward.stack;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
-import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.update.ByteSize;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
+import eu.nordtal.season.steward.journal.Journaled;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
@@ -77,14 +78,12 @@ public final class Routes {
                     }
                     // The agent refuses a service without a console with a 400 that names the ones with one.
                     api.console(ctx.pathParam("name"), body.command.strip(), caller.actor(ctx));
-                    api.journal(AuditLine.of(
-                            JournalAction.CONSOLE,
-                            caller.actor(ctx),
-                            TEXTS.journal().console(ctx.pathParam("name"), body.command.strip())));
+                    Journaling.line(ctx, TEXTS.journal().console(ctx.pathParam("name"), body.command.strip()));
                     ctx.status(202)
                             .json(new ConsoleSent(body.command.strip(), "the answer appears in this service's log"));
                 },
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.CONSOLE));
     }
 
     /** Every process's settings: the groups it published, how each plugin is shown, and a save that writes rows. */
@@ -98,12 +97,10 @@ public final class Routes {
                 "/api/setting-groups/{service}/{name}",
                 ctx -> {
                     api.settings().save(ctx, caller.actor(ctx));
-                    api.journal(AuditLine.of(
-                            JournalAction.SAVE_SETTINGS,
-                            caller.actor(ctx),
-                            TEXTS.journal().saveSettings(ctx.pathParam("service"), ctx.pathParam("name"))));
+                    Journaling.line(ctx, TEXTS.journal().saveSettings(ctx.pathParam("service"), ctx.pathParam("name")));
                 },
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
     /** The message bundles, on their own routes. */
@@ -116,13 +113,11 @@ public final class Routes {
                 "/api/messages",
                 ctx -> {
                     for (final String bundle : api.messages.save(ctx, caller.actor(ctx))) {
-                        api.journal(AuditLine.of(
-                                JournalAction.SAVE_MESSAGES,
-                                caller.actor(ctx),
-                                TEXTS.journal().saveMessages(bundle)));
+                        Journaling.line(ctx, TEXTS.journal().saveMessages(bundle));
                     }
                 },
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
     }
 
     /** The host numbers, the nightly schedule, the backup list, its download and its restore, and the feed. */
@@ -142,19 +137,23 @@ public final class Routes {
                     final String name = ctx.pathParam("name");
                     final Optional<AgentWire.Archive> listed = api.download(ctx, name);
                     // A dump holds every account and payment, so taking one off the host is on the record.
-                    api.journal(AuditLine.of(
-                            JournalAction.DOWNLOAD_BACKUP,
-                            caller.actor(ctx),
+                    Journaling.line(
+                            ctx,
                             listed.map(archive -> TEXTS.journal()
                                             .downloadBackup(
                                                     name,
                                                     ByteSize.of(archive.bytes()).message()))
-                                    .orElseGet(() -> TEXTS.journal().downloadBackupUnsized(name))));
+                                    .orElseGet(() -> TEXTS.journal().downloadBackupUnsized(name)));
                 },
-                Gate.KEY_HELD);
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.DOWNLOAD_BACKUP));
 
         // A run like every other stop: the body names what it replaces, so a wrong click restores nothing.
-        config.routes.post("/api/backups/{name}/restore", ctx -> api.restore(ctx, caller.actor(ctx)), Gate.KEY_FRESH);
+        config.routes.post(
+                "/api/backups/{name}/restore",
+                ctx -> api.restore(ctx, caller.actor(ctx)),
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.REQUEST_RUN));
 
         // The newest rows across the run inbox and audit_log, merged.
         config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);
@@ -174,16 +173,15 @@ public final class Routes {
                 "/api/services/{name}/plugins",
                 ctx -> {
                     final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.actor(ctx));
-                    api.journal(AuditLine.of(
-                            JournalAction.ADD_PLUGIN,
-                            caller.actor(ctx),
-                            TEXTS.journal().addPlugin(ctx.pathParam("name"), added.artifact())));
+                    Journaling.line(ctx, TEXTS.journal().addPlugin(ctx.pathParam("name"), added.artifact()));
                 },
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.ADD_PLUGIN));
         config.routes.delete(
                 "/api/services/{name}/plugins/{artifact}",
                 ctx -> api.plugins().remove(ctx, caller.actor(ctx)),
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.REMOVE_PLUGIN));
     }
 
     /**

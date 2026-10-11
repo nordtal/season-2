@@ -1,9 +1,10 @@
 package eu.nordtal.season.steward.stack;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
+
 import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.audit.AuditDirectory;
-import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -15,6 +16,7 @@ import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.steward.alert.StackReading;
 import eu.nordtal.season.steward.backup.NightlyClock;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.MessagesApi;
@@ -130,7 +132,6 @@ public final class StackApi implements AutoCloseable {
 
     final MessagesApi messages;
     final ActionsApi actions;
-    private final AuditDirectory audit;
     /** The Disk field of one service's page; never part of the service table. */
     private final DiskUsage disk;
     /** How many lines the console can fill per service, Docker plus archive, capped at the top step. */
@@ -189,7 +190,6 @@ public final class StackApi implements AutoCloseable {
         this.messages = new MessagesApi(agent, messageOverrides, settings);
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
-        this.audit = audit;
         // Beside the drift lane, so a du never waits behind a registry call.
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
@@ -473,6 +473,7 @@ public final class StackApi implements AutoCloseable {
         final eu.nordtal.season.database.update.UpdateRequest written = updates.submit(
                 new eu.nordtal.season.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
         log.info("restore of {} asked for as request {}", name, written.id());
+        Journaling.line(ctx, TEXTS.journal().requestRestore(written.id(), name));
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }
 
@@ -541,15 +542,6 @@ public final class StackApi implements AutoCloseable {
     static final class ConsoleLine {
         @Nullable
         String command;
-    }
-
-    /** Writes the journal line of a change a route made; the change has happened, so a failure is only logged. */
-    void journal(final AuditLine line) {
-        try {
-            audit.record(line);
-        } catch (final RuntimeException failed) {
-            log.error("Could not write the journal line {} {}", line.action(), line.line(), failed);
-        }
     }
 
     /** Types one line into a server's console through the agent, which logs who typed it beside the line. */

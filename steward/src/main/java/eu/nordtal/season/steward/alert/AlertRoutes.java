@@ -7,11 +7,10 @@ import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.RaisedAlert;
-import eu.nordtal.season.database.audit.AuditDirectory;
-import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -36,7 +35,6 @@ public final class AlertRoutes {
     private final @Nullable AlertMonitor monitor;
     private final @Nullable AlertBook book;
     private final @Nullable AlertPreferences preferences;
-    private final @Nullable AuditDirectory audit;
 
     public AlertRoutes(
             final Function<Context, Sessions.Session> sessions,
@@ -47,7 +45,6 @@ public final class AlertRoutes {
         this.monitor = monitor;
         this.book = data == null ? null : AlertBook.using(data.dataSource());
         this.preferences = preferences;
-        this.audit = data == null ? null : data.audit();
     }
 
     /** {@code GET /api/alerts}. */
@@ -118,11 +115,7 @@ public final class AlertRoutes {
             throw new BadRequestResponse("a notification preference is a known type, a channel and an enabled flag");
         }
         preferences().set(who.signedInDiscordId(), type, channel, body.enabled);
-        if (audit != null) {
-            audit.record(who.ownLine(
-                    JournalAction.SET_ALERT_PREFERENCE,
-                    TEXTS.journal().setAlertPreference(type, channel, body.enabled)));
-        }
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().setAlertPreference(type, channel, body.enabled));
         ctx.json(new AlertPreference(type, channel, body.enabled));
     }
 

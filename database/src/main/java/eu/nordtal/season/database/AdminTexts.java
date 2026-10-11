@@ -202,6 +202,19 @@ public interface AdminTexts {
         @Name("Plugin added")
         MessageRef addPlugin(@Arg("service") String service, @Arg("artifact") String artifact);
 
+        @Name("Plugin removed")
+        MessageRef removePlugin(@Arg("run") long run, @Arg("service") String service, @Arg("artifact") String artifact);
+
+        @Name("Run asked for")
+        MessageRef requestRun(
+                @Arg("run") long run,
+                @Arg("kind") UpdateKind kind,
+                @Arg("services") List<String> services,
+                @Arg("count") int count);
+
+        @Name("Restore asked for")
+        MessageRef requestRestore(@Arg("run") long run, @Arg("archive") String archive);
+
         @Name("Run cancelled")
         MessageRef cancelRun(@Arg("run") long run, @Arg("kind") UpdateKind kind);
 

@@ -3,9 +3,8 @@ package eu.nordtal.season.steward.alert;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.alert.AlertType;
-import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.steward.auth.Sessions;
-import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -28,26 +27,19 @@ public final class PushEndpoints {
             StewardTexts.TEXTS.steward().answer();
 
     private final Function<Context, Sessions.Session> sessions;
-    private final @Nullable Data data;
     private final @Nullable PushSubscriptions pushSubscriptions;
     private final @Nullable AlertRouter router;
     private final com.interaso.webpush.@Nullable VapidKeys vapidKeys;
 
     public PushEndpoints(
             final Function<Context, Sessions.Session> sessions,
-            final @Nullable Data data,
             final @Nullable PushSubscriptions pushSubscriptions,
             final @Nullable AlertRouter router,
             final com.interaso.webpush.@Nullable VapidKeys vapidKeys) {
         this.sessions = sessions;
-        this.data = data;
         this.pushSubscriptions = pushSubscriptions;
         this.router = router;
         this.vapidKeys = vapidKeys;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     private PushSubscriptions pushSubscriptions() {
@@ -86,9 +78,7 @@ public final class PushEndpoints {
                         body.keys.p256dh,
                         body.keys.auth,
                         ctx.header("User-Agent"));
-        data().audit()
-                .record(who.ownLine(
-                        JournalAction.WEB_PUSH_SUBSCRIBE, TEXTS.journal().webPushSubscribe()));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushSubscribe());
         ctx.status(204);
     }
 
@@ -102,9 +92,7 @@ public final class PushEndpoints {
         if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
             throw new RequestRefused(404, ANSWER.noSubscription());
         }
-        data().audit()
-                .record(who.ownLine(
-                        JournalAction.WEB_PUSH_UNSUBSCRIBE, TEXTS.journal().webPushUnsubscribe()));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushUnsubscribe());
         ctx.status(204);
     }
 
@@ -159,8 +147,7 @@ public final class PushEndpoints {
         if (delivery != AlertRouter.Delivery.SENT) {
             throw new RequestRefused(400, ANSWER.pushNotAccepted());
         }
-        data().audit()
-                .record(who.ownLine(JournalAction.WEB_PUSH_TEST, TEXTS.journal().webPushTest(type)));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushTest(type));
         ctx.status(204);
     }
 

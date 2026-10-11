@@ -4,9 +4,8 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import com.yubico.webauthn.data.ByteArray;
 import com.yubico.webauthn.data.exception.Base64UrlException;
-import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -31,7 +30,6 @@ public final class SecondFactor {
     private static final int MOST_LABEL = 64;
 
     private final Function<Context, Sessions.Session> requireSession;
-    private final @Nullable Data data;
     private final @Nullable Credentials credentials;
     private final @Nullable Sessions sessions;
     private final @Nullable WebAuthn webauthn;
@@ -40,21 +38,15 @@ public final class SecondFactor {
 
     public SecondFactor(
             final Function<Context, Sessions.Session> requireSession,
-            final @Nullable Data data,
             final @Nullable Credentials credentials,
             final @Nullable Sessions sessions,
             final @Nullable WebAuthn webauthn,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.requireSession = requireSession;
-        this.data = data;
         this.credentials = credentials;
         this.sessions = sessions;
         this.webauthn = webauthn;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     private Credentials credentials() {
@@ -159,8 +151,7 @@ public final class SecondFactor {
         if (!further) {
             sessions().markVerified(who.id());
         }
-        data().audit()
-                .record(who.ownLine(JournalAction.REGISTER_KEY, TEXTS.journal().registerKey(key.label())));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().registerKey(key.label()));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
     }
 
@@ -217,9 +208,7 @@ public final class SecondFactor {
             throw new RequestRefused(400, refused.why());
         }
         sessions().markVerified(who.id());
-        data().audit()
-                .record(who.ownLine(
-                        JournalAction.HELD_KEY, TEXTS.journal().heldKey(held.label(), held.userVerified())));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().heldKey(held.label(), held.userVerified()));
         ctx.json(held);
     }
 
@@ -244,8 +233,7 @@ public final class SecondFactor {
         if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
-        data().audit()
-                .record(who.ownLine(JournalAction.RENAME_KEY, TEXTS.journal().renameKey(label)));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().renameKey(label));
         ctx.json(new KeyRenamed(label));
     }
 
@@ -262,8 +250,7 @@ public final class SecondFactor {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
         final int left = credentials().of(who.signedInDiscordId()).size();
-        data().audit()
-                .record(who.ownLine(JournalAction.REMOVE_KEY, TEXTS.journal().removeKey(label, left)));
+        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().removeKey(label, left));
         ctx.json(new KeyRemoved(label, left));
     }
 }

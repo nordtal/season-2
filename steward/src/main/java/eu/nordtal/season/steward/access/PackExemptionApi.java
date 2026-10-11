@@ -6,11 +6,10 @@ import com.google.gson.JsonElement;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.access.PackExemptions;
-import eu.nordtal.season.database.audit.AuditDirectory;
-import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.DiscordAuth;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -32,15 +31,10 @@ public final class PackExemptionApi {
     private static final Logger log = LoggerFactory.getLogger(PackExemptionApi.class);
 
     private final PackExemptions exemptions;
-    private final AuditDirectory audit;
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public PackExemptionApi(
-            final PackExemptions exemptions,
-            final AuditDirectory audit,
-            final Function<Context, DiscordAuth.Account> accounts) {
+    public PackExemptionApi(final PackExemptions exemptions, final Function<Context, DiscordAuth.Account> accounts) {
         this.exemptions = exemptions;
-        this.audit = audit;
         this.accounts = accounts;
     }
 
@@ -79,13 +73,12 @@ public final class PackExemptionApi {
             final MessageRef unchanged) {
         switch (outcome) {
             case CHANGED -> {
-                audit.record(AuditLine.about(
-                        action,
-                        who.actor(),
+                Journaling.line(
+                        ctx,
                         DiscordId.of(target),
                         action == JournalAction.EXEMPT_PACK
                                 ? TEXTS.journal().exemptPack()
-                                : TEXTS.journal().enforcePack()));
+                                : TEXTS.journal().enforcePack());
                 log.info("{} {} for {}", who.name(), action, target);
                 ctx.json(new Exempted(outcome));
             }

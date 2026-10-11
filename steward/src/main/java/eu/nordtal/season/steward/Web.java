@@ -8,6 +8,7 @@ import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.access.PackExemptions;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.game.GameDataStore;
 import eu.nordtal.season.database.guild.GuildChannels;
@@ -46,6 +47,9 @@ import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
 import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.game.GameDataRoutes;
+import eu.nordtal.season.steward.journal.Journaled;
+import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.metric.Metrics;
@@ -151,6 +155,8 @@ public final class Web {
 
     private final Gatekeeper gatekeeper;
 
+    private final Journaling journal;
+
     private final Metrics metrics;
 
     /** What the servers know of the game, which the pickers draw from. */
@@ -224,8 +230,10 @@ public final class Web {
         final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
         final @Nullable WebAuthn localWebauthn = webAuthnOver(config, localCredentials);
         this.secondFactor =
-                new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn, clock);
+                new SecondFactor(this::requireSession, localCredentials, this.sessions, localWebauthn, clock);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
+        this.journal = new Journaling(
+                data == null ? null : data.audit(), ctx -> account(ctx).map(DiscordAuth.Account::actor));
         this.metrics = new Metrics(data, clock);
         this.guild = new DiscordApi(config.discord(), data == null ? null : GuildChannels.using(data.dataSource()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
@@ -263,8 +271,7 @@ public final class Web {
         this.alertMonitor = wiring.monitor();
         this.alertRouter = wiring.router();
         this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, localAlertPreferences);
-        this.push =
-                new PushEndpoints(this::requireSession, data, localPushSubscriptions, wiring.router(), localVapidKeys);
+        this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
     }
@@ -273,9 +280,7 @@ public final class Web {
         return data == null
                 ? null
                 : new AdminApi(
-                        Objects.requireNonNull(localAdmins),
-                        data.audit(),
-                        ctx -> account(ctx).orElseThrow());
+                        Objects.requireNonNull(localAdmins), ctx -> account(ctx).orElseThrow());
     }
 
     private @Nullable PackExemptionApi packExemptionsOf(final @Nullable Data data) {
@@ -283,7 +288,6 @@ public final class Web {
                 ? null
                 : new PackExemptionApi(
                         PackExemptions.using(data.dataSource()),
-                        data.audit(),
                         ctx -> account(ctx).orElseThrow());
     }
 
@@ -504,6 +508,8 @@ public final class Web {
 
         // Runs in front of every matched endpoint and asks it what it requires; see Gate.
         cfg.routes.beforeMatched(gatekeeper::guard);
+        // Behind every matched endpoint: the journal line of a route marked Journaled; see Journaling.
+        cfg.routes.afterMatched(journal::write);
 
         cfg.routes.get("/auth/login", authFlow::login, Gate.ANYONE);
         cfg.routes.get("/auth/callback", authFlow::callback, Gate.ANYONE);
@@ -515,7 +521,8 @@ public final class Web {
                     ctx.removeCookie(Sessions.COOKIE, "/");
                     ctx.status(204);
                 },
-                Gate.SIGNED_IN);
+                Gate.SIGNED_IN,
+                Unjournaled.OWN_SESSION);
     }
 
     /** One stream for every page: a topic and its new version whenever what a route answers has changed. */
@@ -535,29 +542,59 @@ public final class Web {
 
     private void registerSecondFactorAndKeys(final JavalinConfig cfg) {
         // A door cannot ask for the key it exists to hand out.
-        cfg.routes.post("/auth/webauthn/register/start", secondFactor::beginRegistration, Gate.SIGNED_IN);
-        cfg.routes.post("/auth/webauthn/register/finish", secondFactor::finishRegistration, Gate.SIGNED_IN);
-        cfg.routes.post("/auth/webauthn/authenticate/start", secondFactor::beginAssertion, Gate.SIGNED_IN);
-        cfg.routes.post("/auth/webauthn/authenticate/finish", secondFactor::finishAssertion, Gate.SIGNED_IN);
+        cfg.routes.post(
+                "/auth/webauthn/register/start",
+                secondFactor::beginRegistration,
+                Gate.SIGNED_IN,
+                Unjournaled.CEREMONY_START);
+        cfg.routes.post(
+                "/auth/webauthn/register/finish",
+                secondFactor::finishRegistration,
+                Gate.SIGNED_IN,
+                Journaled.as(JournalAction.REGISTER_KEY));
+        cfg.routes.post(
+                "/auth/webauthn/authenticate/start",
+                secondFactor::beginAssertion,
+                Gate.SIGNED_IN,
+                Unjournaled.CEREMONY_START);
+        cfg.routes.post(
+                "/auth/webauthn/authenticate/finish",
+                secondFactor::finishAssertion,
+                Gate.SIGNED_IN,
+                Journaled.as(JournalAction.HELD_KEY));
 
         // The key list itself is part of /api/me, not a route of its own.
-        cfg.routes.put("/api/keys/{id}", secondFactor::renameKey, Gate.KEY_FRESH);
-        cfg.routes.delete("/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH);
+        cfg.routes.put(
+                "/api/keys/{id}", secondFactor::renameKey, Gate.KEY_FRESH, Journaled.as(JournalAction.RENAME_KEY));
+        cfg.routes.delete(
+                "/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH, Journaled.as(JournalAction.REMOVE_KEY));
     }
 
     private void registerWebPushRoutes(final JavalinConfig cfg) {
         cfg.routes.get("/api/web-push/public-key", push::publicKey, Gate.KEY_HELD);
-        cfg.routes.post("/api/web-push/subscribe", push::subscribe, Gate.KEY_FRESH);
-        cfg.routes.delete("/api/web-push/subscribe", push::unsubscribe, Gate.KEY_FRESH);
+        cfg.routes.post(
+                "/api/web-push/subscribe",
+                push::subscribe,
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.WEB_PUSH_SUBSCRIBE));
+        cfg.routes.delete(
+                "/api/web-push/subscribe",
+                push::unsubscribe,
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.WEB_PUSH_UNSUBSCRIBE));
 
         // A test send is a write: it reaches out to a push service in somebody's name.
         cfg.routes.get("/api/web-push/devices", push::devices, Gate.KEY_HELD);
-        cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_FRESH);
+        cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_FRESH, Journaled.as(JournalAction.WEB_PUSH_TEST));
 
         // Choosing a channel for oneself is a write like any other.
         cfg.routes.get("/api/alerts", alerts::current, Gate.KEY_HELD);
         cfg.routes.get("/api/alerts/preferences", alerts::preferences, Gate.KEY_HELD);
-        cfg.routes.put("/api/alerts/preferences", alerts::setPreference, Gate.KEY_FRESH);
+        cfg.routes.put(
+                "/api/alerts/preferences",
+                alerts::setPreference,
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.SET_ALERT_PREFERENCE));
     }
 
     private void registerAgentRoutes(final JavalinConfig cfg) {
@@ -579,11 +616,11 @@ public final class Web {
     }
 
     private void registerUpdateAskRoute(final JavalinConfig cfg) {
-        cfg.routes.post("/api/updates", updates::ask, Gate.KEY_FRESH);
+        cfg.routes.post("/api/updates", updates::ask, Gate.KEY_FRESH, Journaled.as(JournalAction.REQUEST_RUN));
     }
 
     private void registerUpdateCancelRoute(final JavalinConfig cfg) {
-        cfg.routes.post("/api/updates/cancel", updates::cancel, Gate.KEY_FRESH);
+        cfg.routes.post("/api/updates/cancel", updates::cancel, Gate.KEY_FRESH, Journaled.as(JournalAction.CANCEL_RUN));
     }
 
     private void registerCommandAndGameRoutes(final JavalinConfig cfg) {
@@ -592,16 +629,17 @@ public final class Web {
 
         // The same rows as above, asked for by what they act on rather than by command name.
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
-        cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
-        cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
+        cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
-        cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
-        cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
+        cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         // A text an admin is trying, shown to them alone by whichever process shows its key.
         cfg.routes.post(
                 "/api/message-preview",
                 ctx -> GameActions.answer(ctx, commands.preview(ctx, stack.messagePreview(ctx))),
-                Gate.KEY_FRESH);
+                Gate.KEY_FRESH,
+                Unjournaled.SHOWN_TO_ONESELF);
     }
 
     private void registerConfigRoutes(final JavalinConfig cfg) {
@@ -629,27 +667,42 @@ public final class Web {
 
     private void registerAccessRoutes(final JavalinConfig cfg) {
         // Each of these is one request in the bot's inbox, which the bot carries out; see AccessApi.
-        cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
-        cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
-        cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
-        cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
-        cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
+        cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
         // Admin is decided here, not by the bot: AdminApi writes it directly.
-        cfg.routes.post("/api/admins/grant", ctx -> adminApi().grant(ctx), Gate.KEY_FRESH);
-        cfg.routes.post("/api/admins/revoke", ctx -> adminApi().revoke(ctx), Gate.KEY_FRESH);
-        cfg.routes.post("/api/pack-exemptions/exempt", ctx -> packExemptionApi().exempt(ctx), Gate.KEY_FRESH);
         cfg.routes.post(
-                "/api/pack-exemptions/enforce", ctx -> packExemptionApi().enforce(ctx), Gate.KEY_FRESH);
+                "/api/admins/grant",
+                ctx -> adminApi().grant(ctx),
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.GRANT_ADMIN));
+        cfg.routes.post(
+                "/api/admins/revoke",
+                ctx -> adminApi().revoke(ctx),
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.REVOKE_ADMIN));
+        cfg.routes.post(
+                "/api/pack-exemptions/exempt",
+                ctx -> packExemptionApi().exempt(ctx),
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.EXEMPT_PACK));
+        cfg.routes.post(
+                "/api/pack-exemptions/enforce",
+                ctx -> packExemptionApi().enforce(ctx),
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.ENFORCE_PACK));
     }
 
     private void registerSeasonPhaseRoute(final JavalinConfig cfg) {
-        cfg.routes.post("/api/season/phase", season::phase, Gate.KEY_FRESH);
+        cfg.routes.post("/api/season/phase", season::phase, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
     }
 
     private void registerSeasonDateRoute(final JavalinConfig cfg) {
-        cfg.routes.post("/api/season/date", season::date, Gate.KEY_FRESH);
+        cfg.routes.post("/api/season/date", season::date, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
     }
 
     private void registerSeasonSummaryRoute(final JavalinConfig cfg) {

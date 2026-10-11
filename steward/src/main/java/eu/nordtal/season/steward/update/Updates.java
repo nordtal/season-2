@@ -3,8 +3,6 @@ package eu.nordtal.season.steward.update;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.database.audit.AuditLine;
-import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -15,6 +13,7 @@ import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.steward.QueryLimit;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -113,7 +112,9 @@ public final class Updates {
                 kind,
                 written.id(),
                 ask.services == null || ask.services.isEmpty() ? "" : " for " + String.join(", ", ask.services));
-        ctx.status(202).json(describe(written));
+        final List<String> scope = data().updates().scopeOf(written.id());
+        Journaling.line(ctx, TEXTS.journal().requestRun(written.id(), written.kind(), scope, scope.size()));
+        ctx.status(202).json(describe(written, scope));
     }
 
     /** Cancels the earliest run still counting down; an empty answer means its countdown ran out meanwhile. */
@@ -123,12 +124,9 @@ public final class Updates {
         if (cancelled.isEmpty()) {
             throw new RequestRefused(409, ANSWER.tooLate());
         }
-        data().audit()
-                .record(AuditLine.of(
-                        JournalAction.CANCEL_RUN,
-                        who.actor(),
-                        TEXTS.journal()
-                                .cancelRun(cancelled.get().id(), cancelled.get().kind())));
+        Journaling.line(
+                ctx,
+                TEXTS.journal().cancelRun(cancelled.get().id(), cancelled.get().kind()));
         log.info(
                 "{} cancelled {} request {}",
                 who.name(),

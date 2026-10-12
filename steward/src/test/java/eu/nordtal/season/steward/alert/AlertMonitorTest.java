@@ -204,7 +204,7 @@ class AlertMonitorTest {
                         "database",
                         UpdateReport.State.FAILED,
                         List.of(),
-                        TEXTS.report().notSaved()))
+                        UpdateReport.Facts.refused(UpdateReport.Act.BACKUP, "not saved")))
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null))
                 .withNote(UpdateReport.Note.skipped(
                         UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()))

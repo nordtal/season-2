@@ -11,7 +11,7 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * What a run's report says: the message of each note and a line's detail, short, each value typed.
+ * What a run's report says: the message of each note and what a line's facts come to, short, each value typed.
  *
  * A note's service, step and outcome are its record's, never words here; a subsystem's answer stays a text value.
  */
@@ -384,8 +384,8 @@ public interface ReportTexts {
     MessageRef velocityAhead(@Arg("version") String version, @Arg("api") String api);
 
     @Name("An archive taken after an unverified stop")
-    MessageRef unverifiedArchive(@Arg("mark") String mark);
+    MessageRef unverifiedArchive(@Arg("archive") String archive);
 
     @Name("An unverified archive without its mark")
-    MessageRef unmarkedArchive(@Arg("services") List<String> services);
+    MessageRef unmarkedArchive(@Arg("archive") String archive);
 }

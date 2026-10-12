@@ -11,6 +11,7 @@ function row(over: Partial<Run> = {}): Run {
     status: "PENDING",
     actorKind: "HOST",
     actorId: "",
+    said: {},
     requested: "2026-09-20T20:00:00Z",
     scheduledFor: "2026-09-20T20:01:00Z",
     countdownEnd: "2026-09-20T20:01:00Z",

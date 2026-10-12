@@ -138,14 +138,20 @@ final class ForeignImages {
                                             "image", TEXTS.report().imageOutdated())
                                     : UpdateReport.Change.told(
                                             "container", TEXTS.report().madeAgain(false))),
-                    TEXTS.report().recreating(pull)));
+                    UpdateReport.Facts.of(UpdateReport.Act.RECREATE)
+                            .made(pull ? UpdateReport.Image.OUTDATED : UpdateReport.Image.KEPT)));
             progress.accept(report);
             final RedeployResult result = pull ? containers.deploy(service) : containers.recreate(service);
             if (result.triggered()) {
                 asked.add(service);
                 continue;
             }
-            report = report.with(report.line(service).failed(TEXTS.report().foreignNotRecreated(result.message())));
+            report = report.with(report.line(service)
+                    .failed(UpdateReport.Facts.notRecreated(
+                            pull ? UpdateReport.Image.OUTDATED : UpdateReport.Image.KEPT,
+                            result.message(),
+                            UpdateReport.Fallback.RUNNING,
+                            null)));
             progress.accept(report);
         }
         // This process writes the run's final report through postgres after returning from here.

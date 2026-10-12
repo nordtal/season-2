@@ -34,6 +34,7 @@ function run(over: Partial<Run> = {}): Run {
     status: "PENDING",
     actorKind: "HOST",
     actorId: "",
+    said: {},
     scope: [],
     requested: new Date().toISOString(),
     // A minute ahead: the countdown steward has not picked up yet.

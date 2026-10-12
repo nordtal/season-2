@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.common.http.HttpFailure;
+import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.MemorySettingStore;
@@ -562,10 +563,15 @@ class ResolverTest {
 
         final UpdateReport report = PlanReport.of(resolve());
 
-        // Applier skips the whole SMP over the outage; the line stays FAILED and says what it held back.
+        // Applier skips the SMP over the outage: its line stays FAILED, and a sources record says what was held back.
         assertEquals(UpdateReport.State.FAILED, report.line("smp").state(), report.toString());
         assertFalse(report.line("smp").isMoving(), report.toString());
-        assertTrue(Told.detail(report.line("smp")).contains("packetevents"), report.toString());
+        final String held = report.notes().stream()
+                .filter(note -> "smp".equals(note.service()))
+                .map(note -> note.step() + ": " + DatabaseText.english(note.what()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(held.startsWith("SOURCES: ") && held.contains("packetevents"), held);
     }
 
     @Test

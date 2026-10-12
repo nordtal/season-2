@@ -87,6 +87,7 @@ export type Run = {
   started?: string
   finished?: string
   report?: Report
+  said: Record<string, MessageRef>
   savedSomething?: boolean
   resultText?: string
 }
@@ -779,7 +780,7 @@ export type ReportLine = {
   service: string
   state: LineState
   changes: ReportChange[]
-  detail?: MessageRef
+  facts?: LineFacts
 }
 
 export type SmpObjective = {
@@ -886,7 +887,16 @@ export type Gauge =
   | "EXIT_CODE"
   | "OLDER_IMAGE"
 
-export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"
+export type LineState =
+  | "UNCHANGED"
+  | "PLANNED"
+  | "STOPPED"
+  | "INSTALLED"
+  | "SAVED"
+  | "RESTORED"
+  | "STARTING"
+  | "HEALTHY"
+  | "FAILED"
 
 export type ReportChange = {
   artefact: string
@@ -894,6 +904,20 @@ export type ReportChange = {
   to: string
   state: ChangeState
   told?: MessageRef
+}
+
+export type LineFacts = {
+  act?: LineAct
+  image?: LineImage
+  reason?: string
+  artefact?: string
+  fallback?: LineFallback
+  fallbackReason?: string
+  back?: LineBack
+  waited?: number
+  seen?: LineSeen
+  archive?: string
+  mark?: ArchiveMark
 }
 
 export type ReferenceKind =
@@ -923,3 +947,19 @@ export type MessageArg = {
 }
 
 export type ChangeState = "MOVING" | "UNSUPPORTED"
+
+export type LineAct = "STOP" | "BACKUP" | "INSTALL" | "RESTORE" | "RECREATE" | "RENEW" | "START" | "VERIFY"
+
+export type LineImage = "OUTDATED" | "PULLED" | "KEPT"
+
+export type LineFallback = "NONE" | "RUNNING" | "STARTED" | "REFUSED"
+
+export type LineBack = "YES" | "NO" | "INTERRUPTED"
+
+export type LineSeen = {
+  status?: string
+  health?: string
+  unread?: string
+}
+
+export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"

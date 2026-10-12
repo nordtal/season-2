@@ -51,6 +51,7 @@ function backend(report: unknown = REPORT, extra: Record<string, unknown> = {}):
         started: "2026-09-20T18:01:00Z",
         finished: "2026-09-20T18:04:00Z",
         report,
+        said: {},
         ...extra,
       })
     }
@@ -109,28 +110,31 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
     expect(screen.queryByText("c0bac3a03dad681347cbe4a3bc932aff8ffd8203")).toBeNull()
   })
 
-  it("tells the run's notes and a line's detail in the page's words", async () => {
+  it("tells the run's notes and what a line says in the page's words", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({
-        stage: "FAILED",
-        services: [
-          {
-            service: "smp",
-            state: "FAILED",
-            changes: [],
-            detail: { key: "report.stop-failed", args: { reason: { kind: "text", value: "exit 1" } } },
-          },
-        ],
-        notes: [
-          {
-            step: "SCOPE",
-            outcome: "SKIPPED",
-            service: "limbo",
-            what: { key: "report.held-left-out", args: {} },
-          },
-        ],
-      }),
+      backend(
+        {
+          stage: "FAILED",
+          services: [
+            {
+              service: "smp",
+              state: "FAILED",
+              changes: [],
+              facts: { act: "STOP", reason: "exit 1" },
+            },
+          ],
+          notes: [
+            {
+              step: "SCOPE",
+              outcome: "SKIPPED",
+              service: "limbo",
+              what: { key: "report.held-left-out", args: {} },
+            },
+          ],
+        },
+        { said: { smp: { key: "report.stop-failed", args: { reason: { kind: "text", value: "exit 1" } } } } },
+      ),
     )
     draw()
 

@@ -27,7 +27,7 @@ final class Installed {
         }
         for (final String service : services) {
             // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.
-            final MessageRef failure = failureFor(result, service);
+            final UpdateReport.Facts failure = failureFor(result, service);
             report = report.with(
                     failure == null
                             ? report.line(service).at(UpdateReport.State.INSTALLED)
@@ -37,12 +37,12 @@ final class Installed {
     }
 
     /** Why one service's install did not happen, or {@code null} when it did, counting {@code SKIPPED} as failed. */
-    private static @Nullable MessageRef failureFor(final ApplyResult result, final String service) {
+    private static UpdateReport.@Nullable Facts failureFor(final ApplyResult result, final String service) {
         return result.outcomes().stream()
                 .filter(outcome -> service.equals(outcome.service()))
                 .filter(Installed::didNotGoIn)
                 .findFirst()
-                .map(Installed::notInstalled)
+                .map(outcome -> UpdateReport.Facts.notInstalled(outcome.artifact(), whyNotInstalled(outcome)))
                 .orElse(null);
     }
 
@@ -52,9 +52,11 @@ final class Installed {
 
     /** An artefact that did not go in, with the applier's reason or its status word when it gave none. */
     private static MessageRef notInstalled(final ApplyResult.Outcome outcome) {
-        return TEXTS.report()
-                .notInstalled(
-                        outcome.artifact(),
-                        outcome.detail() == null ? outcome.status().name().toLowerCase(Locale.ROOT) : outcome.detail());
+        return TEXTS.report().notInstalled(outcome.artifact(), whyNotInstalled(outcome));
+    }
+
+    private static String whyNotInstalled(final ApplyResult.Outcome outcome) {
+        final String detail = outcome.detail();
+        return detail == null ? outcome.status().name().toLowerCase(Locale.ROOT) : detail;
     }
 }

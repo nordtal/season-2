@@ -712,10 +712,10 @@ export type TextArgs = {
     file: Arg["text"]
   }
   "report.unmarked-archive": {
-    services: Arg["list"]
+    archive: Arg["text"]
   }
   "report.unverified-archive": {
-    mark: Arg["text"]
+    archive: Arg["text"]
   }
   "report.unverified-stop": Record<string, never>
   "report.velocity-ahead": {

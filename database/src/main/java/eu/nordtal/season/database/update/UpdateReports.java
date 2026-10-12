@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.update;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import eu.nordtal.season.common.json.Json;
@@ -17,11 +18,26 @@ import org.jspecify.annotations.Nullable;
  */
 public final class UpdateReports {
 
-    /** The report's own shape with every message in English, for a terminal that reads no message keys. */
+    /** The report's own shape with every message in English, and what each line says, for a terminal. */
     private static final Gson ENGLISH = Json.gson()
             .newBuilder()
             .registerTypeHierarchyAdapter(MessageRef.class, (JsonSerializer<MessageRef>)
                     (message, type, context) -> new JsonPrimitive(DatabaseText.english(message)))
+            .registerTypeAdapter(UpdateReport.ServiceLine.class, (JsonSerializer<UpdateReport.ServiceLine>)
+                    (line, type, context) -> {
+                        final JsonObject shown = new JsonObject();
+                        shown.addProperty("service", line.service());
+                        shown.add("state", context.serialize(line.state()));
+                        shown.add("changes", context.serialize(line.changes()));
+                        final MessageRef said = line.said();
+                        if (said != null) {
+                            shown.add("said", context.serialize(said, MessageRef.class));
+                        }
+                        if (line.facts() != null) {
+                            shown.add("facts", context.serialize(line.facts()));
+                        }
+                        return shown;
+                    })
             .create();
 
     private UpdateReports() {}

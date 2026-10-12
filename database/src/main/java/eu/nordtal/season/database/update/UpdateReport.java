@@ -1,8 +1,12 @@
 package eu.nordtal.season.database.update;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
+
 import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -92,7 +96,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
     }
 
     /**
-     * Returns what explains a failed or stopped run: each failed line's detail, then each failed record, in order.
+     * Returns what explains a failed or stopped run: what each failed line says, then each failed record, in order.
      *
      * A run that went well, or is still going, explains nothing; the bot's card and a failed run's alert say these.
      */
@@ -102,9 +106,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
         }
         final List<Failure> said = new ArrayList<>();
         for (final ServiceLine line : services) {
-            final MessageRef detail = line.detail();
-            if (line.state() == State.FAILED && detail != null) {
-                said.add(new Failure(line.service(), detail));
+            final MessageRef what = line.said();
+            if (line.state() == State.FAILED && what != null) {
+                said.add(new Failure(line.service(), what));
             }
         }
         for (final Note note : notes) {
@@ -113,6 +117,18 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
             }
         }
         return List.copyOf(said);
+    }
+
+    /** Returns what each line says beside its state, by service in reading order, for a surface that draws no facts. */
+    public Map<String, MessageRef> said() {
+        final Map<String, MessageRef> said = new LinkedHashMap<>();
+        for (final ServiceLine line : services) {
+            final MessageRef what = line.said();
+            if (what != null) {
+                said.put(line.service(), what);
+            }
+        }
+        return said;
     }
 
     /** One reason a run failed, about one service or, without one, about the run. */
@@ -126,13 +142,13 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
     /**
      * One service, and what has happened to it so far.
      *
-     * @param detail what a failure or a long step says beside the state, a message of the report section, or none
+     * @param facts what its step came to, or none while there is nothing to say beside the state
      */
     public record ServiceLine(
             String service,
             State state,
             List<Change> changes,
-            @Nullable MessageRef detail) {
+            @Nullable Facts facts) {
 
         public ServiceLine {
             Objects.requireNonNull(service, "service");
@@ -141,33 +157,284 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
         }
 
         public ServiceLine at(final State next) {
-            return new ServiceLine(service, next, changes, detail);
+            return new ServiceLine(service, next, changes, facts);
         }
 
-        public ServiceLine failed(final @Nullable MessageRef why) {
-            return new ServiceLine(service, State.FAILED, changes, why);
+        public ServiceLine failed(final Facts why) {
+            return new ServiceLine(service, State.FAILED, changes, Objects.requireNonNull(why, "why"));
         }
 
         /**
-         * Returns the same line with a message beside it, without touching the state.
+         * Returns the same line with these facts, without touching the state.
          *
          * A long step says what it is doing before it does it, without publishing a failure.
          */
-        public ServiceLine withDetail(final @Nullable MessageRef what) {
-            return new ServiceLine(service, state, changes, what);
+        public ServiceLine with(final Facts what) {
+            return new ServiceLine(service, state, changes, Objects.requireNonNull(what, "what"));
         }
 
         /** Returns the same line with one more change on it, keeping the order they were added in. */
         public ServiceLine with(final Change change) {
             final List<Change> combined = new ArrayList<>(changes);
             combined.add(change);
-            return new ServiceLine(service, state, combined, detail);
+            return new ServiceLine(service, state, combined, facts);
         }
 
         /** Returns whether a run would stop this service and put a file into its volume. */
         public boolean isMoving() {
             return changes.stream().anyMatch(change -> change.state() == Change.State.MOVING);
         }
+
+        /** Returns the short message every surface shows beside the state, drawn from the facts, or none. */
+        public @Nullable MessageRef said() {
+            return facts == null ? null : facts.said(state, service);
+        }
+    }
+
+    /**
+     * What a service line's step came to, as typed values; {@link ServiceLine#said} draws the short message from them.
+     *
+     * @param act the step the line is in, or the one that failed; none for words that name no step
+     * @param image for a recreate, which image the container is made from
+     * @param reason why the step was refused, in the words of what refused it
+     * @param artefact for an install, the artefact that did not go in
+     * @param fallback for a refused recreate, what the service is left running on
+     * @param fallbackReason why starting the old container was refused as well
+     * @param back whether the service came back, or none while that is not known
+     * @param waited the minutes waited for it to come back
+     * @param seen what the runtime last showed of it
+     * @param archive the archive it was saved into
+     * @param mark whether the mark of an unverified stop lies beside that archive
+     */
+    public record Facts(
+            @Nullable Act act,
+            @Nullable Image image,
+            @Nullable String reason,
+            @Nullable String artefact,
+            @Nullable Fallback fallback,
+            @Nullable String fallbackReason,
+            @Nullable Back back,
+            @Nullable Long waited,
+            @Nullable Seen seen,
+            @Nullable String archive,
+            @Nullable Mark mark) {
+
+        /** A step under way, with nothing else known yet. */
+        public static Facts of(final Act act) {
+            return new Facts(act, null, null, null, null, null, null, null, null, null, null);
+        }
+
+        /** A step that was refused, with what refused it, or none when nothing was asked, as without a container. */
+        public static Facts refused(final Act act, final @Nullable String reason) {
+            return new Facts(act, null, reason, null, null, null, null, null, null, null, null);
+        }
+
+        public static Facts notInstalled(final String artefact, final String reason) {
+            return new Facts(Act.INSTALL, null, reason, artefact, null, null, null, null, null, null, null);
+        }
+
+        /** A recreate that was refused, and what the service was left on. */
+        public static Facts notRecreated(
+                final Image image,
+                final String reason,
+                final Fallback fallback,
+                final @Nullable String fallbackReason) {
+            return new Facts(Act.RECREATE, image, reason, null, fallback, fallbackReason, null, null, null, null, null);
+        }
+
+        /** A wait for the service to come back that ended without it. */
+        public static Facts notBack(final Back back, final @Nullable Long waited, final @Nullable Seen seen) {
+            return of(Act.VERIFY).came(back, waited, seen);
+        }
+
+        /** A volume saved into an archive, marked when a stop before it was not verified. */
+        public static Facts saved(final @Nullable String archive, final @Nullable Mark mark) {
+            return new Facts(Act.BACKUP, null, null, null, null, null, null, null, null, archive, mark);
+        }
+
+        /** Returns the same facts about a container made from that image. */
+        public Facts made(final Image from) {
+            return new Facts(act, from, reason, artefact, fallback, fallbackReason, back, waited, seen, archive, mark);
+        }
+
+        /** Returns the same facts with how the wait for the service ended. */
+        public Facts came(final Back now, final @Nullable Long after, final @Nullable Seen last) {
+            return new Facts(act, image, reason, artefact, fallback, fallbackReason, now, after, last, archive, mark);
+        }
+
+        /** The short message for a line in that state, or none when the facts add nothing to the state. */
+        @Nullable
+        MessageRef said(final State state, final String service) {
+            final boolean failed = state == State.FAILED;
+            if (act == null) {
+                return reason == null ? null : TEXTS.report().words(reason);
+            }
+            return switch (act) {
+                case STOP -> stopped(failed);
+                case START ->
+                    !failed
+                            ? null
+                            : reason == null
+                                    ? TEXTS.report().noContainerToStart()
+                                    : TEXTS.report().startFailed(reason);
+                case BACKUP -> failed ? words() : marked(service);
+                case INSTALL ->
+                    failed && artefact != null ? TEXTS.report().notInstalled(artefact, words(reason)) : null;
+                case RESTORE -> failed ? words() : null;
+                case RECREATE -> failed ? fellBack() : state == State.STARTING ? recreating() : null;
+                case RENEW ->
+                    failed
+                            ? TEXTS.report().agentNotRenewed(words(reason))
+                            : state == State.STARTING ? TEXTS.report().renewingAgent() : null;
+                case VERIFY ->
+                    !failed
+                            ? null
+                            : back == Back.INTERRUPTED
+                                    ? TEXTS.report().waitInterrupted()
+                                    : TEXTS.report().notHealthy(minutes(), sight());
+            };
+        }
+
+        private @Nullable MessageRef stopped(final boolean failed) {
+            if (!failed) {
+                // A stop whose ending could not be read back keeps the runtime's answer on a line that did stop.
+                return reason == null ? null : TEXTS.report().words(reason);
+            }
+            return reason == null
+                    ? TEXTS.report().noContainerToStop()
+                    : TEXTS.report().stopFailed(reason);
+        }
+
+        private @Nullable MessageRef marked(final String service) {
+            if (mark == null) {
+                return null;
+            }
+            final String where = archive == null ? service : archive;
+            return mark == Mark.WRITTEN
+                    ? TEXTS.report().unverifiedArchive(where)
+                    : TEXTS.report().unmarkedArchive(where);
+        }
+
+        private MessageRef recreating() {
+            return TEXTS.report().recreating(image != Image.KEPT);
+        }
+
+        private MessageRef fellBack() {
+            final boolean outdated = image == Image.OUTDATED;
+            final String why = words(reason);
+            if (fallback == null) {
+                return TEXTS.report().notRecreated(outdated, why);
+            }
+            return switch (fallback) {
+                case NONE -> TEXTS.report().notRecreated(outdated, why);
+                case RUNNING -> TEXTS.report().foreignNotRecreated(why);
+                case REFUSED -> TEXTS.report().notFellBack(outdated, why, words(fallbackReason));
+                case STARTED ->
+                    back == null
+                            ? TEXTS.report().fellBack(outdated, why)
+                            : switch (back) {
+                                case YES -> TEXTS.report().fellBackHealthy(outdated, why);
+                                case NO -> TEXTS.report().fellBackDown(outdated, why, minutes(), sight());
+                                case INTERRUPTED -> TEXTS.report().fellBackInterrupted(outdated, why);
+                            };
+            };
+        }
+
+        private MessageRef words() {
+            return TEXTS.report().words(words(reason));
+        }
+
+        private static String words(final @Nullable String said) {
+            return said == null ? "" : said;
+        }
+
+        private long minutes() {
+            return waited == null ? 0 : waited;
+        }
+
+        private MessageRef sight() {
+            return seen == null ? TEXTS.report().noContainer() : seen.said();
+        }
+
+        /**
+         * What the runtime showed of a service: Docker's status and health, or why it could not be read.
+         *
+         * @param status Docker's container status, or none when the project has no container for the service
+         * @param health Docker's health state, or none for a service without a healthcheck
+         * @param unread what the runtime answered when it could not be read at all
+         */
+        public record Seen(
+                @Nullable String status,
+                @Nullable String health,
+                @Nullable String unread) {
+
+            /** Returns what was seen in the words every surface shows. */
+            public MessageRef said() {
+                if (unread != null) {
+                    return TEXTS.report().runtimeUnread(unread);
+                }
+                if (status == null) {
+                    return TEXTS.report().noContainer();
+                }
+                return TEXTS.report().words(health == null || health.isBlank() ? status : status + ", " + health);
+            }
+        }
+    }
+
+    /** The step a {@link Facts} is about. */
+    public enum Act {
+        STOP,
+        /** Saving a volume or the database into an archive. */
+        BACKUP,
+        /** Putting the new jars into place. */
+        INSTALL,
+        /** Putting an archive back. */
+        RESTORE,
+        /** Making a container again. */
+        RECREATE,
+        /** Making the long-running steward-agent again at a one-shot's release. */
+        RENEW,
+        START,
+        /** Waiting for a started service to report healthy. */
+        VERIFY
+    }
+
+    /** Which image a container is made again from. */
+    public enum Image {
+        /** A pulled one, since the registry has a newer image than the one it ran. */
+        OUTDATED,
+        /** A pulled one, as the kind of run asks. */
+        PULLED,
+        /** The one it has. */
+        KEPT
+    }
+
+    /** What a service runs on after its recreate was refused. */
+    public enum Fallback {
+        /** Nothing: there was no old container to go back to. */
+        NONE,
+        /** The old container, which was never stopped. */
+        RUNNING,
+        /** The old container, started again. */
+        STARTED,
+        /** Nothing: starting the old container was refused as well. */
+        REFUSED
+    }
+
+    /** How the wait for a service to come back ended. */
+    public enum Back {
+        YES,
+        /** Not within the patience; the facts carry the minutes and what was seen last. */
+        NO,
+        /** steward-agent stopped while it waited. */
+        INTERRUPTED
+    }
+
+    /** Whether the mark of an unverified stop lies beside an archive. */
+    public enum Mark {
+        WRITTEN,
+        /** It could not be written, so nothing beside the archive says it. */
+        NOT_WRITTEN
     }
 
     /**
@@ -361,11 +628,13 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
         INSTALLED,
         /** A volume's snapshot is finished; a {@code BACKUP} report carries one line per volume. */
         SAVED,
+        /** An archive is back in its volume or its database; a {@code RESTORE} report's line for the archive. */
+        RESTORED,
         /** Started, and not yet reporting healthy. */
         STARTING,
         /** Back, and its own healthcheck says so. */
         HEALTHY,
-        /** It did not come back, or its own step failed; the detail says which. */
+        /** It did not come back, or its own step failed; the facts say which. */
         FAILED;
     }
 }

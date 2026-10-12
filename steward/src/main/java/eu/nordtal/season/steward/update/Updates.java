@@ -10,6 +10,7 @@ import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.QueryLimit;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.data.Data;
@@ -21,6 +22,7 @@ import io.javalin.http.Context;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -160,6 +162,7 @@ public final class Updates {
      *
      * @param scope the services this run is for, where empty is the whole network
      * @param moving the services the run stops, written when its countdown starts
+     * @param said what each of the report's lines says, by service, drawn from its facts
      */
     public record Run(
             long id,
@@ -175,6 +178,7 @@ public final class Updates {
             @Nullable Instant started,
             @Nullable Instant finished,
             @Nullable UpdateReport report,
+            Map<String, MessageRef> said,
             @Nullable Boolean savedSomething,
             @Nullable String resultText) {}
 
@@ -205,6 +209,7 @@ public final class Updates {
                 request.started(),
                 request.finished(),
                 report.orElse(null),
+                report.map(UpdateReport::said).orElse(Map.of()),
                 report.map(UpdateReport::savedSomething).orElse(null),
                 report.isPresent() || result == null || result.isBlank() ? null : result);
     }

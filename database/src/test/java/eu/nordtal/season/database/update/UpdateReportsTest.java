@@ -34,7 +34,7 @@ class UpdateReportsTest {
                                 "limbo",
                                 UpdateReport.State.FAILED,
                                 List.of(new UpdateReport.Change("limbo", null, "0.7.0")),
-                                TEXTS.report().words("did not report healthy within 5 minutes"))),
+                                UpdateReport.Facts.notBack(UpdateReport.Back.NO, 5L, null))),
                 List.of(
                         UpdateReport.Note.done(
                                 UpdateReport.Step.MIGRATE, TEXTS.report().words("the schema is current")),
@@ -276,31 +276,22 @@ class UpdateReportsTest {
     }
 
     @Test
-    void whatWasSeenOfAServiceIsAMessageAndARowThatSaidItInWordsStillReads() {
+    void theTerminalReadsWhatALineSaysBesideItsFacts() {
         final String told = UpdateReports.english(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(), null)
-                        .failed(TEXTS.report().notHealthy(5, TEXTS.report().noContainer())))));
-        assertTrue(told.contains("within 5 minutes (no container for it in the project)"), told);
-
-        // The same detail as an earlier release stored it, with what was seen in Docker's words.
-        final String stored = "{\"stage\": \"FAILED\", \"notes\": [], \"services\": [{\"state\": \"FAILED\","
-                + " \"changes\": [], \"service\": \"smp\", \"detail\": {\"key\": \"report.not-healthy\", \"args\":"
-                + " {\"minutes\": {\"kind\": \"number\", \"value\": 5},"
-                + " \"seen\": {\"kind\": \"text\", \"value\": \"running, unhealthy\"}}}}]}";
-        final String english = UpdateReports.english(stored);
-        assertTrue(english.contains("within 5 minutes (running, unhealthy)"), english);
+                        .failed(UpdateReport.Facts.notBack(
+                                UpdateReport.Back.NO, 5L, new UpdateReport.Facts.Seen(null, null, null))))));
+        assertTrue(told.contains("\"said\":\"not back within 5 minutes (no container for it in the project)\""), told);
+        assertTrue(told.contains("\"back\":\"NO\""), told);
     }
 
     @Test
     void aFailureSaysWhichServiceAndWhy() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.PLANNED, List.of(), null)
-                        .failed(TEXTS.report().words("did not report healthy within 5 minutes")));
+                        .failed(UpdateReport.Facts.refused(UpdateReport.Act.START, "refused")));
 
         assertEquals(UpdateReport.State.FAILED, report.line("limbo").state(), report.toString());
-        assertEquals(
-                TEXTS.report().words("did not report healthy within 5 minutes"),
-                report.line("limbo").detail(),
-                report.toString());
+        assertEquals(TEXTS.report().startFailed("refused"), report.line("limbo").said(), report.toString());
     }
 }

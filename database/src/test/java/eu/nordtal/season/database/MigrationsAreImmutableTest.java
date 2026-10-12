@@ -163,6 +163,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V45__a_start_up_install_is_a_run.sql",
                 "c69b0a1749a71a967c5f3e809e62e1c4cfc3f6c86b45ba059647be63194997f2");
+        FROZEN.put(
+                "V46__a_run_s_service_lines_keep_their_facts.sql",
+                "7543db4e0f9ac671f3a836f1926a613fbe2a37e94420439f2a61156e3e97d46f");
     }
 
     @Test

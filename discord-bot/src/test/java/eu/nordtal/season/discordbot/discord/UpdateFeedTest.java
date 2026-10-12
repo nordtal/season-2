@@ -438,7 +438,7 @@ class UpdateFeedTest {
                         "smp",
                         UpdateReport.State.HEALTHY,
                         List.of(),
-                        TEXTS.report().words("came back slowly")))
+                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "came back slowly")))
                 .withNotes(UpdateReport.Note.done(
                                 UpdateReport.Step.STANDBY, TEXTS.report().standbysReady())
                         .each(List.of("limbo-standby")))
@@ -461,12 +461,12 @@ class UpdateFeedTest {
                         "smp",
                         UpdateReport.State.FAILED,
                         List.of(),
-                        TEXTS.report().stopFailed("exit *1*")))
+                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "exit *1*")))
                 .with(new UpdateReport.ServiceLine(
                         "limbo",
                         UpdateReport.State.HEALTHY,
                         List.of(),
-                        TEXTS.report().words("came back slowly")))
+                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "came back slowly")))
                 .withNotes(UpdateReport.Note.done(
                                 UpdateReport.Step.STANDBY, TEXTS.report().standbysReady())
                         .each(List.of("limbo-standby")))
@@ -501,7 +501,7 @@ class UpdateFeedTest {
                         "smp",
                         UpdateReport.State.FAILED,
                         List.of(),
-                        TEXTS.report().stopFailed("exit 1")))
+                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "exit 1")))
                 .withNote(UpdateReport.Note.failed(
                                 UpdateReport.Step.STANDBY, TEXTS.report().standbyNoContainer())
                         .on("limbo-standby"));
@@ -568,6 +568,24 @@ class UpdateFeedTest {
         final MessageEmbed card = UpdateFeed.fields(saved, backup, messages, NOW);
 
         assertEquals("✅ **database** *saved*  *8.8 MiB in 2s*", field(card, "Services"));
+    }
+
+    @Test
+    void anArchivePutBackIsDoneAndSaysItWasRestored() {
+        final UpdateReport restored = UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine(
+                        "smp-1.tar.zst",
+                        UpdateReport.State.RESTORED,
+                        List.of(UpdateReport.Change.told(
+                                "restore",
+                                TEXTS.report().restored(ByteSize.of(1_258_291).message()))),
+                        null));
+        final UpdateRequest restore = new UpdateRequest(
+                1L, UpdateKind.RESTORE, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
+
+        final MessageEmbed card = UpdateFeed.fields(restored, restore, messages, NOW);
+
+        assertEquals("✅ **smp-1.tar.zst** *restored*  *1.2 MiB*", field(card, "Services"));
     }
 
     @Test

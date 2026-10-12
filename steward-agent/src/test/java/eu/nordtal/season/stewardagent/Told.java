@@ -9,7 +9,7 @@ import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-/** What a run told, in English, the way a test reads a report's notes and a line's detail. */
+/** What a run told, in English, the way a test reads a report's notes and what a line says. */
 public final class Told {
 
     private Told() {}
@@ -70,9 +70,9 @@ public final class Told {
                 .toList();
     }
 
-    /** A line's detail, or the empty text when it has none. */
-    public static String detail(final UpdateReport.ServiceLine line) {
-        final MessageRef detail = line.detail();
-        return detail == null ? "" : DatabaseText.english(detail);
+    /** What a line says, in English, or the empty text when it says nothing. */
+    public static String said(final UpdateReport.ServiceLine line) {
+        final MessageRef said = line.said();
+        return said == null ? "" : DatabaseText.english(said);
     }
 }

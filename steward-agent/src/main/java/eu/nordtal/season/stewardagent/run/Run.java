@@ -375,12 +375,12 @@ final class Run {
                 AgentWire.SERVICE,
                 UpdateReport.State.STARTING,
                 List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
-                TEXTS.report().renewingAgent()));
+                UpdateReport.Facts.of(UpdateReport.Act.RENEW)));
         progress.accept(report);
         final RedeployResult result = runner.containers.renewAgent();
         if (!result.triggered()) {
-            report = report.with(
-                    report.line(AgentWire.SERVICE).failed(TEXTS.report().agentNotRenewed(result.message())));
+            report = report.with(report.line(AgentWire.SERVICE)
+                    .failed(UpdateReport.Facts.refused(UpdateReport.Act.RENEW, result.message())));
             progress.accept(report);
             return report;
         }

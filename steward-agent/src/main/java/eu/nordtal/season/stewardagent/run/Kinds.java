@@ -316,11 +316,7 @@ final class Kinds {
 
         // The database first, with everything running: pg_dump's MVCC snapshot needs nothing stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
-        UpdateReport planned = swept.with(new UpdateReport.ServiceLine(
-                Snapshots.DATABASE,
-                dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
-                List.of(UpdateRun.backedUp(dumped)),
-                dumped.ok() ? null : TEXTS.report().words(String.valueOf(dumped.message()))));
+        UpdateReport planned = swept.with(UpdateRun.saved(Snapshots.DATABASE, dumped, null));
         progress.accept(planned);
         // A server that is down already holds a whole world, and one held down stays down.
         for (final String service : running(runner, topology.stoppedForBackup())) {
@@ -348,11 +344,7 @@ final class Kinds {
             return back.withNote(Note.skipped(Step.BACKUP, TEXTS.report().noOffsite()));
         }
         final SnapshotResult result = copied.get();
-        final UpdateReport reported = back.with(new UpdateReport.ServiceLine(
-                Snapshots.OFFSITE,
-                result.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
-                List.of(UpdateRun.backedUp(result)),
-                result.ok() ? null : TEXTS.report().words(String.valueOf(result.message()))));
+        final UpdateReport reported = back.with(UpdateRun.saved(Snapshots.OFFSITE, result, null));
         progress.accept(reported);
         return reported;
     }
@@ -653,7 +645,9 @@ final class Kinds {
             for (final String service : mounting) {
                 runner.directory.hold(service, request.actor(), request.id());
             }
-            final String backup = steps.archiveOf(volume).orElse(volume);
+            final UpdateReport.Facts savedInto = saved.line(volume).facts();
+            final String archived = savedInto == null ? null : savedInto.archive();
+            final String backup = archived == null ? volume : archived;
             final Run.Done failed = putBack(
                     saved,
                     restored.result(),
@@ -680,9 +674,7 @@ final class Kinds {
                             .on(Snapshots.DATABASE)));
         }
         final List<String> users = running(runner, runner.topology().renewed(AgentWire.Renewal.RUN));
-        final UpdateReport planned = stopping(users, dump)
-                .with(new UpdateReport.ServiceLine(
-                        Snapshots.DATABASE, UpdateReport.State.SAVED, List.of(UpdateRun.backedUp(dumped)), null));
+        final UpdateReport planned = stopping(users, dump).with(UpdateRun.saved(Snapshots.DATABASE, dumped, null));
         final Run.Payload replace = (steps, stopped) -> {
             // The dump has this run's row as it was then, or not at all; it is carried across and put back.
             final String row = runner.directory.carry(request.id()).orElse(null);
@@ -710,14 +702,16 @@ final class Kinds {
             final UpdateReport report, final SnapshotResult result, final String archive, final Note failure) {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                 archive,
-                result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
+                result.ok() ? UpdateReport.State.RESTORED : UpdateReport.State.FAILED,
                 List.of(UpdateReport.Change.told(
                         "restore",
                         result.ok()
                                 ? TEXTS.report()
                                         .restored(ByteSize.of(result.bytes()).message())
                                 : TEXTS.report().notRestored())),
-                result.ok() ? null : TEXTS.report().words(String.valueOf(result.message())));
+                result.ok()
+                        ? null
+                        : UpdateReport.Facts.refused(UpdateReport.Act.RESTORE, String.valueOf(result.message())));
         return new Run.Done(result.ok() ? report.with(line) : report.with(line).withNote(failure), !result.ok());
     }
 

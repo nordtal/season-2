@@ -204,6 +204,7 @@ const openRun = (over: Partial<Run> = {}): Run => ({
   status: "PENDING",
   actorKind: "HOST",
   actorId: "",
+  said: {},
   scope: ["smp"],
   requested: "2026-09-24T20:00:00Z",
   scheduledFor: new Date(Date.now() + 60_000).toISOString(),

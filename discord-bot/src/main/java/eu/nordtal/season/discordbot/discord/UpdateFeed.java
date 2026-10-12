@@ -346,8 +346,8 @@ public final class UpdateFeed {
             case UNCHANGED -> Mark.UNCHANGED;
             case PLANNED -> Mark.WAITING;
             case STOPPED, INSTALLED, STARTING -> Mark.WORKING;
-            // A finished snapshot and a service that came back are the same news.
-            case HEALTHY, SAVED -> Mark.DONE;
+            // A finished snapshot, an archive put back and a service that came back are the same news.
+            case HEALTHY, SAVED, RESTORED -> Mark.DONE;
             case FAILED -> Mark.FAILED;
         };
     }

@@ -128,7 +128,8 @@ final class Choreography {
                                         TEXTS.report()
                                                 .standbysUnhealthy(
                                                         STANDBY_HEALTHY_WITHIN.toMinutes(),
-                                                        UpdateRun.seen(seen, standby)))
+                                                        UpdateRun.seen(seen, standby)
+                                                                .said()))
                                 .on(standby))
                         .toList();
             }

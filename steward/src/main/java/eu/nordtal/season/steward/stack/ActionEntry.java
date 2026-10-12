@@ -81,7 +81,9 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
             return TEXTS.run().status(run.status());
         }
         final long successful = report.services().stream()
-                .filter(line -> line.state() == UpdateReport.State.HEALTHY || line.state() == UpdateReport.State.SAVED)
+                .filter(line -> line.state() == UpdateReport.State.HEALTHY
+                        || line.state() == UpdateReport.State.SAVED
+                        || line.state() == UpdateReport.State.RESTORED)
                 .count();
         return TEXTS.run().successful(successful, total);
     }

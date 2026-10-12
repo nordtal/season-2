@@ -261,7 +261,7 @@ function Items({ stage }: { stage: Stage }) {
             <Mark verdict="failed" />
             {item.service}
           </span>
-          {item.detail ? <span className="pl-6 text-sm text-destructive">{message(item.detail)}</span> : null}
+          {item.said ? <span className="pl-6 text-sm text-destructive">{message(item.said)}</span> : null}
         </div>
       ))}
       {fine.length > 0 ? <Names items={fine} /> : null}
@@ -598,8 +598,8 @@ function Matrix({ run }: { run: Run }) {
                               )}
                             </div>
                           ) : null}
-                          {failure?.detail ? (
-                            <span className="text-xs text-destructive">{message(failure.detail)}</span>
+                          {failure?.said ? (
+                            <span className="text-xs text-destructive">{message(failure.said)}</span>
                           ) : null}
                         </div>
                       </td>

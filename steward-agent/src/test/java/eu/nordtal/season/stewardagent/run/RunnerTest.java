@@ -361,13 +361,20 @@ class RunnerTest {
                 containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
         assertTrue(
-                Told.report(outcome.report()).contains("restored 1.2 MiB"),
+                Told.report(outcome.report()).contains("1.2 MiB"),
                 "the line says what was restored: " + outcome.report());
         allTold(outcome);
         assertEquals(
                 List.of("report.restored"),
                 Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst"));
         assertEquals(List.of("report.stopped-for-restore"), Told.toldKeys(outcome.report(), "smp"));
+        assertEquals(
+                UpdateReport.State.RESTORED,
+                UpdateReports.parse(outcome.report())
+                        .orElseThrow()
+                        .line("nordtal-s2_mc-smp-20260913T000000Z.tar.zst")
+                        .state(),
+                "an archive put back is restored, not updated");
     }
 
     @Test

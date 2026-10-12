@@ -26,7 +26,7 @@ export type StageItem = {
   service: string
   state?: LineState
   changes: ReportChange[]
-  detail?: MessageRef
+  said?: MessageRef
   undone?: boolean
 }
 
@@ -96,12 +96,12 @@ export function stagesOf(run: Run): Stage[] {
     if (CAME_BACK.has(line.state)) items.STOP.push({ service: line.service, changes: [] })
     if (installs.length > 0 && line.state !== "SAVED") {
       const planned = line.state === "PLANNED"
-      const detail = line.state === "FAILED" ? undefined : line.detail
-      items.INSTALL.push({ service: line.service, changes: installs, detail, undone: planned || !reached })
+      const said = line.state === "FAILED" ? undefined : run.said[line.service]
+      items.INSTALL.push({ service: line.service, changes: installs, said, undone: planned || !reached })
     }
     if (line.state === "STARTING" || line.state === "HEALTHY" || line.state === "FAILED") {
-      const detail = line.state === "FAILED" ? line.detail : undefined
-      items.START.push({ service: line.service, state: line.state, changes: [], detail })
+      const said = line.state === "FAILED" ? run.said[line.service] : undefined
+      items.START.push({ service: line.service, state: line.state, changes: [], said })
     }
   }
 

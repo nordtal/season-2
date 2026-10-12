@@ -36,7 +36,15 @@ public final class PlanReport {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (final Map.Entry<String, List<UpdateReport.Change>> entry : work.entrySet()) {
             final String service = entry.getKey();
-            report = report.with(serviceLine(service, entry.getValue(), trouble.get(service), plan));
+            final MessageRef why = trouble.get(service);
+            report = report.with(serviceLine(service, entry.getValue(), why, plan));
+            if (why != null) {
+                final List<String> held = plan.blocker(service) == null ? List.of() : held(entry.getValue());
+                notes.add(Note.failed(
+                                Step.SOURCES,
+                                held.isEmpty() ? why : TEXTS.report().heldBack(why, held))
+                        .on(service));
+            }
         }
 
         for (final UpdatePlan.Unclaimed left : plan.unclaimed()) {
@@ -86,7 +94,11 @@ public final class PlanReport {
         return notes;
     }
 
-    /** One service's line: FAILED with rows held back, FAILED with its rows still moving, or PLANNED/UNCHANGED. */
+    /**
+     * One service's line: FAILED with rows held back, FAILED with its rows still moving, or PLANNED/UNCHANGED.
+     *
+     * Why a line failed is a record of the sources, as every other answer of a source is.
+     */
     private static UpdateReport.ServiceLine serviceLine(
             final String service,
             final List<UpdateReport.Change> changes,
@@ -94,26 +106,30 @@ public final class PlanReport {
             final UpdatePlan plan) {
         if (why != null && plan.blocker(service) != null) {
             // The run skips a service it could not trust, so nothing on its line may read as moving.
-            final List<String> held = changes.stream()
-                    .filter(row -> row.state() == UpdateReport.Change.State.MOVING)
-                    .map(row -> row.artefact() + " " + row.from() + " -> " + row.to())
-                    .toList();
             return new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.FAILED,
                     changes.stream()
                             .filter(row -> row.state() != UpdateReport.Change.State.MOVING)
                             .toList(),
-                    held.isEmpty() ? why : TEXTS.report().heldBack(why, held));
+                    null);
         }
         if (why != null) {
             // An unchecked server jar stays in .server/ and the plugins beside it still move.
-            return new UpdateReport.ServiceLine(service, UpdateReport.State.FAILED, changes, why);
+            return new UpdateReport.ServiceLine(service, UpdateReport.State.FAILED, changes, null);
         }
         // PLANNED means stopped and written into; a service with only no-build artefacts is UNCHANGED.
         final boolean moving = changes.stream().anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);
         return new UpdateReport.ServiceLine(
                 service, moving ? UpdateReport.State.PLANNED : UpdateReport.State.UNCHANGED, changes, null);
+    }
+
+    /** The rows a run that skips the service holds back, each as its jump. */
+    private static List<String> held(final List<UpdateReport.Change> changes) {
+        return changes.stream()
+                .filter(row -> row.state() == UpdateReport.Change.State.MOVING)
+                .map(row -> row.artefact() + " " + row.from() + " -> " + row.to())
+                .toList();
     }
 
     /**

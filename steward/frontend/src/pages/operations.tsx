@@ -8,7 +8,7 @@ import type { ReportChange, ReportLine, Run } from "@/lib/api"
 import { dateTime, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
-import { choice, message, span, t } from "@/lib/texts"
+import { type MessageRef, choice, message, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
@@ -65,6 +65,7 @@ const LINE_TONE: Record<string, Tone> = {
   STOPPED: "warn",
   INSTALLED: "warn",
   SAVED: "ok",
+  RESTORED: "ok",
   STARTING: "warn",
   HEALTHY: "ok",
   FAILED: "down",
@@ -464,7 +465,7 @@ function RunDetail({ run }: { run?: Run }) {
         ) : !report ? (
           <Empty title={t("steward.operations.no-report")} />
         ) : (
-          <ReportLines lines={report.services} />
+          <ReportLines lines={report.services} said={run.said} />
         )}
       </Panel>
 
@@ -531,7 +532,8 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   )
 }
 
-function ReportLines({ lines }: { lines: ReportLine[] }) {
+/** The report's lines, each with what it says, which steward draws from the line's facts. */
+function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string, MessageRef> }) {
   if (lines.length === 0) {
     return <Empty title={t("steward.operations.no-line-title")} />
   }
@@ -545,35 +547,40 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {lines.map((line) => (
-          <TableRow key={line.service} className="align-top">
-            <TableCell data-label={t("steward.operations.service")} className="font-medium">
-              {line.service}
-            </TableCell>
-            <TableCell data-label={t("steward.operations.state")}>
-              <LineState state={line.state} />
-            </TableCell>
-            {/* `whitespace-normal`, so a long list of changes wraps instead of widening the table. */}
-            <TableCell data-label={t("steward.operations.changes")} className="whitespace-normal">
-              {line.changes.length === 0 && !line.detail ? (
-                <span className="text-muted-foreground">{"\u2013"}</span>
-              ) : (
-                <div className="flex flex-col gap-1 py-1.5">
-                  {line.changes.map((change) => (
-                    <Change key={`${line.service}-${change.artefact}`} change={change} />
-                  ))}
-                  {line.detail ? (
-                    <span
-                      className={line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
-                    >
-                      {message(line.detail)}
-                    </span>
-                  ) : null}
-                </div>
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
+        {lines.map((line) => {
+          const words = said[line.service]
+          return (
+            <TableRow key={line.service} className="align-top">
+              <TableCell data-label={t("steward.operations.service")} className="font-medium">
+                {line.service}
+              </TableCell>
+              <TableCell data-label={t("steward.operations.state")}>
+                <LineState state={line.state} />
+              </TableCell>
+              {/* `whitespace-normal`, so a long list of changes wraps instead of widening the table. */}
+              <TableCell data-label={t("steward.operations.changes")} className="whitespace-normal">
+                {line.changes.length === 0 && !words ? (
+                  <span className="text-muted-foreground">{"\u2013"}</span>
+                ) : (
+                  <div className="flex flex-col gap-1 py-1.5">
+                    {line.changes.map((change) => (
+                      <Change key={`${line.service}-${change.artefact}`} change={change} />
+                    ))}
+                    {words ? (
+                      <span
+                        className={
+                          line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
+                        }
+                      >
+                        {message(words)}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )

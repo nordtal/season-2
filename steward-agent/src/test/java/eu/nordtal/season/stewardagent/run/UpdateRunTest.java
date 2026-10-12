@@ -147,8 +147,8 @@ class UpdateRunTest {
         assertEquals(
                 UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
         assertTrue(
-                Told.detail(stopped.report().line(Topology.SMP)).contains("no container, so it was not stopped"),
-                Told.detail(stopped.report().line(Topology.SMP)));
+                Told.said(stopped.report().line(Topology.SMP)).contains("no container, so it was not stopped"),
+                Told.said(stopped.report().line(Topology.SMP)));
     }
 
     @Test
@@ -182,8 +182,8 @@ class UpdateRunTest {
                         + " season on it - which is what the first deployment actually did, and is"
                         + " why every process writes a readiness marker");
         assertTrue(
-                Told.detail(verified.line(Topology.SMP)).contains("not back within"),
-                Told.detail(verified.line(Topology.SMP)));
+                Told.said(verified.line(Topology.SMP)).contains("not back within"),
+                Told.said(verified.line(Topology.SMP)));
     }
 
     @Test
@@ -308,8 +308,8 @@ class UpdateRunTest {
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
         assertTrue(
-                Told.detail(saved.line("mc-smp")).contains("not a readable archive"),
-                "what the tar said is what a person reads at 04:45: " + Told.detail(saved.line("mc-smp")));
+                Told.said(saved.line("mc-smp")).contains("not a readable archive"),
+                "what the tar said is what a person reads at 04:45: " + Told.said(saved.line("mc-smp")));
     }
 
     @Test
@@ -322,7 +322,7 @@ class UpdateRunTest {
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(Told.detail(saved.line("mc-smp")).contains("nothing was saved"), Told.detail(saved.line("mc-smp")));
+        assertTrue(Told.said(saved.line("mc-smp")).contains("nothing was saved"), Told.said(saved.line("mc-smp")));
     }
 
     @Test
@@ -457,20 +457,20 @@ class UpdateRunTest {
                 report.line(Topology.SMP).state(),
                 "the update did not happen, and a run is settled FAILED the moment a line is");
         assertTrue(
-                Told.detail(report.line(Topology.SMP)).contains("image out of date"),
-                "the reason has to say which half of the run stopped: " + Told.detail(report.line(Topology.SMP)));
+                Told.said(report.line(Topology.SMP)).contains("image out of date"),
+                "the reason has to say which half of the run stopped: " + Told.said(report.line(Topology.SMP)));
         assertTrue(
-                Told.detail(report.line(Topology.SMP)).contains("started on the old image"),
+                Told.said(report.line(Topology.SMP)).contains("started on the old image"),
                 "and it has to say the old container was put back, or an operator starts by hand"
                         + " one that is already running: "
-                        + Told.detail(report.line(Topology.SMP)));
+                        + Told.said(report.line(Topology.SMP)));
         assertFalse(
-                Told.detail(report.line(Topology.SMP)).contains("the service is back"),
+                Told.said(report.line(Topology.SMP)).contains("the service is back"),
                 "this line ended 'so the service is back' until 2026-09-13, written on the strength"
                         + " of Docker having accepted a start. Docker accepts one just as readily"
                         + " for a container that exits on the first tick. Whether it came back is"
                         + " verify()'s to find out and to finish the sentence with: "
-                        + Told.detail(report.line(Topology.SMP)));
+                        + Told.said(report.line(Topology.SMP)));
     }
 
     @Test
@@ -486,7 +486,7 @@ class UpdateRunTest {
         final UpdateReport verified =
                 run.verify(started, stopped.services(), comesBackOnTheSecondLook(containers, Topology.SMP));
 
-        final String detail = Told.detail(verified.line(Topology.SMP));
+        final String detail = Told.said(verified.line(Topology.SMP));
         assertEquals(
                 UpdateReport.State.FAILED,
                 verified.line(Topology.SMP).state(),
@@ -514,7 +514,7 @@ class UpdateRunTest {
 
         final UpdateReport verified = run.verify(started, stopped.services(), impatient());
 
-        final String detail = Told.detail(verified.line(Topology.SMP));
+        final String detail = Told.said(verified.line(Topology.SMP));
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
         assertTrue(
                 detail.contains("not back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
@@ -538,8 +538,8 @@ class UpdateRunTest {
         run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
         final int announced = progress.stream()
-                .filter(report -> report.line(Topology.SMP).detail() != null
-                        && Told.detail(report.line(Topology.SMP)).contains("recreating"))
+                .filter(report -> report.line(Topology.SMP).said() != null
+                        && Told.said(report.line(Topology.SMP)).contains("recreating"))
                 .findFirst()
                 .map(progress::indexOf)
                 .orElse(-1);

@@ -78,7 +78,7 @@ class EmbedBudgetTest {
                         "smp",
                         UpdateReport.State.FAILED,
                         List.of(),
-                        TEXTS.report().stopFailed("exit *1*")));
+                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "exit *1*")));
         final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Instant.now());
 
         final String notes = embed.getFields().stream()
@@ -149,7 +149,7 @@ class EmbedBudgetTest {
                     "service-" + i,
                     UpdateReport.State.FAILED,
                     changes,
-                    TEXTS.report().words("x".repeat(each))));
+                    UpdateReport.Facts.refused(UpdateReport.Act.BACKUP, "x".repeat(each))));
         }
         for (int i = 0; i < notes; i++) {
             report = report.withNote(UpdateReport.Note.failed(

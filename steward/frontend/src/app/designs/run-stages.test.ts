@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest"
 
 import type { ReportLine, Run, RunNote } from "@/lib/api"
+import type { MessageRef } from "@/lib/texts"
 import { stagesOf } from "@/app/designs/run-stages"
 
 type Stage = NonNullable<Run["report"]>["stage"]
 
-function run(kind: Run["kind"], stage: Stage, services: ReportLine[], notes: RunNote[] = []): Run {
+function run(
+  kind: Run["kind"],
+  stage: Stage,
+  services: ReportLine[],
+  notes: RunNote[] = [],
+  said: Record<string, MessageRef> = {},
+): Run {
   return {
     id: 1,
     kind,
@@ -19,6 +26,7 @@ function run(kind: Run["kind"], stage: Stage, services: ReportLine[], notes: Run
     started: "2026-10-09T01:24:00Z",
     finished: "2026-10-09T01:27:00Z",
     report: { stage, services, notes },
+    said,
   }
 }
 
@@ -60,13 +68,13 @@ describe("stagesOf", () => {
 
   it("puts a failed start under Starting, with its reason, and every saved volume under Backup", () => {
     const failed = stagesOf(
-      run("UPDATE", "FAILED", [
-        { service: "smp", state: "FAILED", changes: [], detail: { key: "report.not-healthy", args: {} } },
-      ]),
+      run("UPDATE", "FAILED", [{ service: "smp", state: "FAILED", changes: [] }], [], {
+        smp: { key: "report.not-healthy", args: {} },
+      }),
     )
     const start = failed.find((stage) => stage.key === "START")
     expect(start?.verdict).toBe("failed")
-    expect(start?.items[0]?.detail?.key).toBe("report.not-healthy")
+    expect(start?.items[0]?.said?.key).toBe("report.not-healthy")
 
     const backup = stagesOf(
       run("BACKUP", "DONE", [

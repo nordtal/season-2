@@ -46,17 +46,18 @@ class ActionEntryTest {
     }
 
     @Test
-    void countsHealthyAndSavedLinesAgainstEverythingTouched() {
-        // One HEALTHY, SAVED, FAILED and UNCHANGED each, plus an untouched PLANNED: total 3, successful 2.
+    void countsHealthySavedAndRestoredLinesAgainstEverythingTouched() {
+        // One HEALTHY, SAVED, RESTORED, FAILED and UNCHANGED each, plus an untouched PLANNED: total 4, successful 3.
         final String report = "{\"stage\":\"DONE\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"HEALTHY\",\"changes\":[]},"
                 + "{\"service\":\"b\",\"state\":\"SAVED\",\"changes\":[]},"
+                + "{\"service\":\"r\",\"state\":\"RESTORED\",\"changes\":[]},"
                 + "{\"service\":\"c\",\"state\":\"FAILED\",\"changes\":[]},"
                 + "{\"service\":\"d\",\"state\":\"UNCHANGED\",\"changes\":[]},"
                 + "{\"service\":\"e\",\"state\":\"PLANNED\",\"changes\":[]}"
                 + "],\"notes\":[]}";
         final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, report));
-        assertEquals("2 of 3 successful", shown(entry.extent()));
+        assertEquals("3 of 4 successful", shown(entry.extent()));
         assertEquals("Update finished", shown(entry.label()), "a run is headed by its kind and stage");
     }
 

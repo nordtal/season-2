@@ -88,7 +88,7 @@ class UnverifiedStopSettlesFailedTest {
                 Snapshots.DATABASE,
                 UpdateReport.State.FAILED,
                 List.of(),
-                TEXTS.report().words("pg_dump exited 1")));
+                UpdateReport.Facts.refused(UpdateReport.Act.BACKUP, "pg_dump exited 1")));
 
         final UpdateReport settled = Runner.settle(report, List.of(), false, FAILS);
 
@@ -129,7 +129,7 @@ class UnverifiedStopSettlesFailedTest {
                 Topology.LIMBO,
                 UpdateReport.State.FAILED,
                 List.of(),
-                TEXTS.report().words("did not come back within 5 minutes")));
+                UpdateReport.Facts.notBack(UpdateReport.Back.NO, 5L, null)));
 
         final UpdateReport settled = Runner.settle(report, List.of(Topology.SMP), false, SAID);
         final UpdateReport failed = Runner.settle(green(), List.of(Topology.SMP), true, SAID);

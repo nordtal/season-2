@@ -70,17 +70,16 @@ class PlatformTest {
     }
 
     @Test
-    void packFormatIsTheNumberTheShippedPackMcmetaCarries() {
-        // A client accepts an older pack format with only a warning, so drift would go unnoticed.
+    void theShippedPackMcmetaDeclaresARangeThatHoldsPackFormat() {
+        // A client accepts a pack outside its format with only a warning, so drift would go unnoticed.
         final String mcmeta = RepositoryRoot.read("resource-pack/src/pack.mcmeta");
-        final Matcher format = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)").matcher(mcmeta);
-        assertTrue(format.find(), "resource-pack/src/pack.mcmeta declares no pack_format");
-        assertEquals(
-                Platform.PACK_FORMAT,
-                Integer.parseInt(format.group(1)),
-                "Platform.PACK_FORMAT and resource-pack/src/pack.mcmeta name different pack"
-                        + " formats. The pack is chosen for a Minecraft version and this is the"
-                        + " number that says which one.");
+        final int min = packMcmetaInt(mcmeta, "min_format");
+        final int max = packMcmetaInt(mcmeta, "max_format");
+        assertTrue(
+                min <= Platform.PACK_FORMAT && Platform.PACK_FORMAT <= max,
+                "resource-pack/src/pack.mcmeta declares formats " + min + " to " + max
+                        + ", which leaves out Platform.PACK_FORMAT " + Platform.PACK_FORMAT
+                        + ". The range says which Minecraft versions read the pack.");
     }
 
     @Test
@@ -102,6 +101,14 @@ class PlatformTest {
                 "API_VERSION and MINECRAFT have parted company. That is allowed - a season may"
                         + " deliberately stay compatible with an older API - but it is a decision,"
                         + " so say so here rather than letting the two drift apart by accident.");
+    }
+
+    /** Reads one whole-number field out of {@code pack.mcmeta}. */
+    private static int packMcmetaInt(final String mcmeta, final String field) {
+        final Matcher matcher =
+                Pattern.compile("\"" + field + "\"\\s*:\\s*(\\d+)").matcher(mcmeta);
+        assertTrue(matcher.find(), "resource-pack/src/pack.mcmeta declares no " + field);
+        return Integer.parseInt(matcher.group(1));
     }
 
     /** Reads one {@code name = "value"} out of the catalog's {@code [versions]} table. */

@@ -1,6 +1,7 @@
 {
   "pack": {
-    "pack_format": 88,
+    "min_format": 88,
+    "max_format": 97,
     "description": "§9Nordtal\n§9season 2"
   }
 }

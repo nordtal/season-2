@@ -16,7 +16,7 @@ public final class Platform {
     /** The Velocity version {@code proxy} is compiled against, mirrored by the {@code velocity} catalog entry. */
     public static final String VELOCITY_API = "4.2.0";
 
-    /** The resource pack format {@link #MINECRAFT} reads, mirrored by {@code resource-pack/src/pack.mcmeta}. */
+    /** The resource pack format {@link #MINECRAFT} reads; {@code resource-pack/src/pack.mcmeta} must cover it. */
     public static final int PACK_FORMAT = 88;
 
     /** The {@code api-version} the three Paper plugins declare: the oldest API they promise to work against. */

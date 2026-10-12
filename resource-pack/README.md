@@ -36,8 +36,8 @@ Users in Steward, and **Enforce resource pack** to undo it.
 ./gradlew :resource-pack:packZip
 ```
 
-writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`; `pack_format` is
-**88** (Minecraft 26.2). The build is reproducible, so a version always has the same hash. Both files
+writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`; `pack.mcmeta` declares
+formats **88** to **97** (Minecraft 26.2 and 26.3). The build is reproducible, so a version always has the same hash. Both files
 are attached to each GitHub release, and the proxy offers the pack while the player waits in `limbo`.
 `dev pack` points a local stack at a fresh build.
 

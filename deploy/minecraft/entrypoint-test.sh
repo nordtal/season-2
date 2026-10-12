@@ -264,6 +264,50 @@ expect_status 0
 ok "idempotent"
 
 
+echo "entrypoint.sh: datapacks"
+
+# Runs fetch_datapacks on $1 with DATAPACK_URLS set to $2.
+datapacks() {
+    local dir="$1" urls="$2"
+    set +e
+    output=$(DATAPACK_URLS="$urls" bash -c 'source "$1"; fetch_datapacks "$2"' datapack-test "$ENTRYPOINT" "$dir" 2>&1)
+    status=$?
+    set -e
+}
+
+case_begin "a pack DATAPACK_URLS no longer names is removed, and every named one stays"
+dir="$(volume datapacks-pin-changed)/nordtal/datapacks"
+mkdir -p "$dir/folder-pack"
+: > "$dir/Terralith_26.2_v2.6.4.zip"
+: > "$dir/Terralith_26.3_v2.6.5.zip"
+: > "$dir/Dungeons and Taverns v6.0.2.zip"
+: > "$dir/notes.txt"
+# Cached packs are not fetched, so these URLs are never asked.
+datapacks "$dir" "abc@https://cdn.invalid/Terralith_26.3_v2.6.5.zip https://cdn.invalid/Dungeons%20and%20Taverns%20v6.0.2.zip"
+expect_status 0
+expect_gone "$dir/Terralith_26.2_v2.6.4.zip"
+expect_present "$dir/Terralith_26.3_v2.6.5.zip"
+expect_present "$dir/Dungeons and Taverns v6.0.2.zip"
+expect_present "$dir/folder-pack"
+expect_present "$dir/notes.txt"
+expect_output "Terralith_26.2_v2.6.4.zip"
+ok "old pin removed, the named packs and everything but zips kept"
+
+case_begin "a pack fetched on this start is kept beside the removal of the old one"
+dir="$(volume datapacks-fetched)/nordtal/datapacks"
+source_dir=$(volume datapacks-source)
+printf 'new pack\n' > "$source_dir/New Pack.zip"
+mkdir -p "$dir"
+: > "$dir/Old Pack.zip"
+sha=$(sha512sum "$source_dir/New Pack.zip" | cut -d' ' -f1)
+datapacks "$dir" "${sha}@file://${source_dir}/New%20Pack.zip"
+expect_status 0
+expect_present "$dir/New Pack.zip"
+expect_gone "$dir/Old Pack.zip"
+expect_gone "$dir/New Pack.zip.partial"
+ok "fetched and swept"
+
+
 echo "entrypoint.sh: the cached server jar"
 
 # A cache directory holding the named files. Returns its path on stdout.

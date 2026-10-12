@@ -108,9 +108,11 @@ Two ways out, and only you can pick:
 # They must be there before the start, since worldgen reads them once and terrain is never re-rolled.
 #
 # DATAPACK_URLS: whitespace-separated entries, each a URL or <sha512>@<url>. Modrinth publishes
-# sha512, so pins can be copied from its API.
+# sha512, so pins can be copied from its API. The folder is this function's alone: every zip there
+# that DATAPACK_URLS does not name is removed, so a changed pin never runs beside the old one.
 fetch_datapacks() {
-    local dir="$1" spec url sha file dest tmp actual
+    local dir="$1" spec url sha file dest tmp actual old
+    local -A named=()
 
     mkdir -p "$dir"
     for spec in $DATAPACK_URLS; do
@@ -127,6 +129,7 @@ fetch_datapacks() {
         file="${file%%\?*}"
         file="$(printf '%b' "${file//%/\\x}")"
         dest="${dir}/${file}"
+        named["$file"]=1
 
         if [[ -f "$dest" ]]; then
             log "datapack cached: ${file}"
@@ -150,6 +153,14 @@ fetch_datapacks() {
 
         mv "$tmp" "$dest"
     done
+
+    shopt -s nullglob
+    for old in "$dir"/*.zip; do
+        [[ -n "${named["${old##*/}"]:-}" ]] && continue
+        rm -f "$old"
+        log "removed datapack ${old##*/}: DATAPACK_URLS does not name it"
+    done
+    shopt -u nullglob
 }
 
 # Configures a Paper backend behind the proxy: offline mode and modern forwarding.

@@ -344,7 +344,8 @@ Simple Voice Chat needs UDP 25565 open next to TCP and no configuration; no serv
 - **PacketEvents** is required on `smp`; steward-agent resolves it.
 - **CoreProtect** is optional, with its own SQLite file.
 - **Terralith and Dungeons and Taverns** are fetched from `SMP_DATAPACK_URLS` before the first start;
-  `smp` refuses to start without them.
+  `smp` refuses to start without them. The world's `datapacks/` folder is the entrypoint's: every zip
+  there that the variable does not name is removed on start.
 
 Each server's plugins are its `eu.nordtal.plugins` label in `compose.yml`, `artifact[=jar prefix][?]`
 per plugin. steward-agent installs them; the entrypoint reads the same string as `SERVER_PLUGINS` and

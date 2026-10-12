@@ -391,7 +391,7 @@ public final class StewardAgent {
         try (api) {
             // Before the marker and before any run is claimed, so nothing races it.
             if (runs.get().bootstrap()) {
-                Bootstrap.installMissing(runs.get(), database, api.topology()::read);
+                Bootstrap.installMissing(runs.get(), database, api.topology()::read, clock);
             }
             if (!Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler)) {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");

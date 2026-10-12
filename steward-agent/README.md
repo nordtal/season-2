@@ -102,7 +102,9 @@ files directly in the backups.
   reads nothing of the volume and a volume that is already the uid's is left as it is. A standby is
   handed its mounts again once a run stops it, since the install mirrors into them while it runs.
 - An update stops the services whose jars or containers change, runs `migrate`, installs, starts
-  them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
+  them and waits for healthy. `bootstrap` fills empty slots and restarts nothing; what it
+  installed, or could not check, is written as a run of kind `INSTALL`, already settled, which Steward
+  shows like any run and the bot posts only when it failed. A report writes nothing.
 - Two steward processes cannot serve or move jars at once (advisory locks).
 - Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
   present; nothing it does not account for is deleted, and only after the new jar is in place.

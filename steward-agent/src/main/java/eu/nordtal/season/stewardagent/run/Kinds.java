@@ -15,7 +15,6 @@ import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.plan.PlanReport;
@@ -247,47 +246,10 @@ final class Kinds {
             }
             final ApplyResult result =
                     Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
-            for (final ApplyResult.Outcome outcome : result.outcomes()) {
-                // A file of no service, the resource pack, has no line to fail on.
-                if (outcome.service() == null && didNotGoIn(outcome)) {
-                    report = report.withNote(Note.failed(Step.INSTALL, notInstalled(outcome)));
-                }
-            }
-            for (final String service : state.services()) {
-                // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.
-                final MessageRef failure = failureFor(result, service);
-                report = report.with(
-                        failure == null
-                                ? report.line(service).at(UpdateReport.State.INSTALLED)
-                                : report.line(service).failed(failure));
-            }
+            report = Installed.into(report, result, state.services());
             progress.accept(report);
             return new Run.Done(report, result.hasFailures());
         };
-    }
-
-    /** Why one service's install did not happen, or {@code null} when it did, counting {@code SKIPPED} as failed. */
-    private static @Nullable MessageRef failureFor(final ApplyResult result, final String service) {
-        return result.outcomes().stream()
-                .filter(outcome -> service.equals(outcome.service()))
-                .filter(Kinds::didNotGoIn)
-                .findFirst()
-                .map(Kinds::notInstalled)
-                .orElse(null);
-    }
-
-    private static boolean didNotGoIn(final ApplyResult.Outcome outcome) {
-        return outcome.status() == ApplyResult.Status.FAILED || outcome.status() == ApplyResult.Status.SKIPPED;
-    }
-
-    /** An artefact that did not go in, with the applier's reason or its status word when it gave none. */
-    private static MessageRef notInstalled(final ApplyResult.Outcome outcome) {
-        return TEXTS.report()
-                .notInstalled(
-                        outcome.artifact(),
-                        outcome.detail() == null
-                                ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
-                                : outcome.detail());
     }
 
     /** Stops the Minecraft services in scope and starts them again, installing nothing. */

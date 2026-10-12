@@ -357,10 +357,6 @@ class ApplierTest {
         assertTrue(result.skippedAnything());
         assertFalse(result.changedAnything());
         assertFalse(result.hasFailures());
-
-        final String rendered = eu.nordtal.season.stewardagent.run.Report.render(result);
-        assertFalse(rendered.contains("Nothing needed doing"), rendered);
-        assertTrue(rendered.contains("not because everything was current"), rendered);
     }
 
     @Test
@@ -394,10 +390,6 @@ class ApplierTest {
         assertFalse(Files.exists(volumes.resolve("smp/plugins/voicechat-bukkit-2.6.23.jar")));
         assertFalse(result.changedAnything());
         assertTrue(result.skippedAnything());
-
-        final String rendered = eu.nordtal.season.stewardagent.run.Report.render(result);
-        assertFalse(rendered.contains("Everything asked for was done"), rendered);
-        assertTrue(rendered.contains("not because everything was current"), rendered);
     }
 
     @Test

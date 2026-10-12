@@ -2,7 +2,6 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.Installation;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
@@ -10,7 +9,6 @@ import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -159,58 +157,6 @@ public final class Report {
     private static String noteText(final String note, final Map<String, Integer> footnotes) {
         final Integer number = footnotes.get(note);
         return number == null ? note : "[" + number + "]";
-    }
-
-    /** What a run did, in the same shape as the plan, printed before anything restarts. */
-    public static String render(final ApplyResult result) {
-        final StringBuilder out = new StringBuilder("what was done\n\n");
-
-        final Map<String, List<ApplyResult.Outcome>> grouped = new LinkedHashMap<>();
-        for (final ApplyResult.Outcome outcome : result.outcomes()) {
-            grouped.computeIfAbsent(
-                            outcome.service() == null ? "(no volume)" : outcome.service(), key -> new ArrayList<>())
-                    .add(outcome);
-        }
-
-        final int width = grouped.values().stream()
-                .flatMap(List::stream)
-                .mapToInt(outcome -> outcome.artifact().length())
-                .max()
-                .orElse(0);
-
-        grouped.forEach((service, outcomes) -> {
-            out.append(service).append('\n');
-            for (final ApplyResult.Outcome outcome : outcomes) {
-                final String detail = outcome.detail() == null ? "" : outcome.detail();
-                out.append(INDENT)
-                        .append(pad(outcome.artifact(), width))
-                        .append("  ")
-                        .append(
-                                detail.isEmpty()
-                                        ? outcome.status().name().toLowerCase(Locale.ROOT)
-                                        : pad(outcome.status().name().toLowerCase(Locale.ROOT), LABEL_WIDTH))
-                        .append(detail)
-                        .append('\n');
-            }
-            out.append('\n');
-        });
-
-        if (result.hasFailures()) {
-            out.append("Something failed. DO NOT RESTART on this run: read the FAILED lines first -")
-                    .append(" a server that was part-updated is the one state worth catching before")
-                    .append(" the network goes down on it.\n");
-        } else if (result.changedAnything()) {
-            out.append("Everything asked for was done. A restart is what puts it into effect -")
-                    .append(" nothing here changed a running server.\n");
-        } else if (result.skippedAnything()) {
-            // Neither a failure nor a no-op; must not read as either.
-            out.append("Nothing was installed, and not because everything was current -")
-                    .append(" every line above says why it was skipped. Read them before assuming")
-                    .append(" the network is up to date.\n");
-        } else {
-            out.append("Nothing needed doing.\n");
-        }
-        return out.toString();
     }
 
     /** The one word in the status column, uppercase for the two that need a person. */

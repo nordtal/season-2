@@ -1,80 +1,124 @@
 package eu.nordtal.season.stewardagent.run;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
+
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
+import eu.nordtal.season.database.update.UpdateReports;
+import eu.nordtal.season.database.update.UpdateRequest;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.plan.Change;
+import eu.nordtal.season.stewardagent.plan.PlanReport;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Installs what has nothing installed, once, before steward-agent reports itself ready.
+ * Installs what has nothing installed, once, before steward-agent reports itself ready, and writes it as a run.
  *
- * A newer version of an installed jar stops a server, so it is a run; a failure here only logs.
+ * A newer version of an installed jar stops a server, so it is an update run; nothing here stops anything.
  */
 @Slf4j
 public final class Bootstrap {
 
     private Bootstrap() {}
 
-    /** Resolves what is missing and installs it; called before the run loop claims anything, so nothing races it. */
+    /** Resolves what is missing, installs it and writes a run of its own kind; called before any run is claimed. */
     public static void installMissing(
-            final RunSpec config, final Database database, final Supplier<AgentWire.Topology> topology) {
+            final RunSpec config,
+            final Database database,
+            final Supplier<AgentWire.Topology> topology,
+            final Clock clock) {
+        final Instant began = clock.instant();
         final SettingStore settings = SettingStore.using(database.dataSource());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
-        final UpdatePlan missing;
-        final AgentWire.Topology read;
+        Optional<UpdateReport> report;
+        List<String> services = List.of();
         try {
-            read = topology.get();
-            missing = Runs.resolve(config, read, plugins, settings).onlyMissing();
+            final AgentWire.Topology read = topology.get();
+            final UpdatePlan missing =
+                    Runs.resolve(config, read, plugins, settings).onlyMissing();
+            services = missing.changes().stream()
+                    .map(Change::service)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            report = report(missing, plan -> Runs.apply(config, read, plan, settings, plugins));
         } catch (final RuntimeException failure) {
-            log.error(
-                    "Bootstrap: nothing could be resolved, so no missing file was installed. Any server whose"
-                            + " plugins folder is empty will refuse to start and say so.",
-                    failure);
+            log.error("Start-up install: nothing could be resolved, so nothing was installed", failure);
+            report = Optional.of(unexpected(UpdateReport.at(UpdateReport.Stage.FAILED), failure));
+        }
+        if (report.isEmpty()) {
+            log.info("Start-up install: every volume already holds what belongs in it, so there is no run to write");
             return;
         }
+        final UpdateReport written = report.get();
+        try {
+            final UpdateRequest run = UpdateDirectory.using(database.dataSource())
+                    .record(
+                            new StewardRequest.Install(services),
+                            Actor.STEWARD,
+                            written.stage() == UpdateReport.Stage.FAILED ? UpdateStatus.FAILED : UpdateStatus.DONE,
+                            UpdateReports.toJson(written),
+                            Duration.between(began, clock.instant()));
+            log.info("Start-up install written as run {}, {}", run.id(), written.stage());
+        } catch (final RuntimeException failure) {
+            log.error("Start-up install ended {}, and its run could not be written", written.stage(), failure);
+        }
+    }
+
+    /**
+     * What the start-up install amounts to, or empty when nothing was missing and everything could be checked.
+     *
+     * @param missing the plan reduced to what has nothing installed, and what could not be checked
+     * @param apply installs a plan; called only when something is missing
+     */
+    static Optional<UpdateReport> report(final UpdatePlan missing, final Function<UpdatePlan, ApplyResult> apply) {
+        if (!missing.hasMissing() && !missing.hasFailures()) {
+            return Optional.empty();
+        }
+        final UpdateReport planned = PlanReport.of(missing);
         if (!missing.hasMissing()) {
-            if (missing.hasFailures()) {
-                log.warn(
-                        "Bootstrap: nothing is missing among the artefacts that could be checked, but {} could not"
-                                + " be checked at all. That is not the same as a full set of volumes. Nothing was"
-                                + " installed:\n{}",
-                        missing.withStatus(Change.Status.UNRESOLVED).size(),
-                        Report.render(missing));
-            } else {
-                log.info("Bootstrap: every volume already holds a jar for everything that belongs in it, so nothing"
-                        + " was installed. This is the normal case on a restart.");
-            }
-            return;
+            return Optional.of(planned.withStage(UpdateReport.Stage.FAILED));
         }
-        log.info(
-                "Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and only those, before"
-                        + " this container reports ready.",
-                missing.withStatus(Change.Status.MISSING).size());
         final ApplyResult result;
         try {
-            result = Runs.apply(config, read, missing, settings, plugins);
+            result = apply.apply(missing);
         } catch (final RuntimeException failure) {
-            log.error(
-                    "Bootstrap: the install failed part way through. Some volumes may still be empty, and a server"
-                            + " whose plugins folder is one of them will refuse to start and say so.",
-                    failure);
-            return;
+            log.error("Start-up install: the install failed part way through", failure);
+            return Optional.of(unexpected(planned.withStage(UpdateReport.Stage.FAILED), failure));
         }
-        if (result.hasFailures()) {
-            log.error("Bootstrap finished with failures:\n{}", Report.render(result));
-        } else if (result.skippedAnything()) {
-            log.warn(
-                    "Bootstrap could not install everything, and what it skipped it skipped entirely. A server whose"
-                            + " plugins folder is still empty will refuse to start and say so:\n{}",
-                    Report.render(result));
-        } else {
-            log.info("Bootstrap finished:\n{}", Report.render(result));
-        }
+        // A line the plan already failed keeps its reason; only a line waiting for its files is written over.
+        final List<String> waiting = planned.services().stream()
+                .filter(line -> line.state() == UpdateReport.State.PLANNED)
+                .map(UpdateReport.ServiceLine::service)
+                .toList();
+        final UpdateReport installed = Installed.into(planned, result, waiting);
+        final boolean failed = missing.hasFailures()
+                || result.hasFailures()
+                || installed.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED)
+                || installed.notes().stream().anyMatch(note -> note.outcome() == UpdateReport.Outcome.FAILED);
+        return Optional.of(installed.withStage(failed ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE));
+    }
+
+    private static UpdateReport unexpected(final UpdateReport report, final RuntimeException failure) {
+        return report.withNote(Note.failed(Step.RUN, TEXTS.report().failedUnexpectedly(failure.toString())));
     }
 }

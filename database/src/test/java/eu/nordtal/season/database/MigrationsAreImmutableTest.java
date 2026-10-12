@@ -157,6 +157,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V43__a_failed_run_s_alert_is_titled_as_its_card_is.sql",
                 "49ba27ce176a9086e1d71b9ed20e4d406763dce961b665006055f267bc919fe7");
+        FROZEN.put(
+                "V44__an_alert_keeps_what_it_measured.sql",
+                "0040a2862118270df0ddb170b73fce9c48a94014f0bb1973c4313333a49be6cf");
     }
 
     @Test

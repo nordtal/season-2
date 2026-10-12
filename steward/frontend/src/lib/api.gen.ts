@@ -500,6 +500,7 @@ export type Alert = {
   subject: string
   title: MessageRef
   detail: MessageRef[]
+  measured: Measure[]
   path: string
 }
 
@@ -512,6 +513,7 @@ export type RecentAlert = {
   subject: string
   title: MessageRef
   detail: MessageRef[]
+  measured: Measure[]
   path: string
 }
 
@@ -747,6 +749,14 @@ export type NetworkBox = {
 
 export type StepUpLength = "QUARTER_HOUR" | "ONE_HOUR" | "SIX_HOURS"
 
+export type Measure = {
+  gauge: Gauge
+  subject: string
+  value?: number
+  limit?: number
+  state?: string
+}
+
 export type Resolution = "RAW" | "HOUR"
 
 export type ReportStage =
@@ -856,6 +866,15 @@ export type MessageEntry = {
 }
 
 export type MessagePreviewTarget = "GAME" | "DISCORD"
+
+export type Gauge =
+  | "DISK_PERCENT"
+  | "MEMORY_PERCENT"
+  | "BACKUP_AGE_HOURS"
+  | "CONTAINER_STATE"
+  | "HEALTH"
+  | "EXIT_CODE"
+  | "OLDER_IMAGE"
 
 export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"
 

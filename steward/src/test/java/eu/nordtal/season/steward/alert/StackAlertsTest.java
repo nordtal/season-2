@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
+import eu.nordtal.season.database.alert.Measure.Gauge;
 import eu.nordtal.season.steward.AdminPlain;
 import java.time.Duration;
 import java.time.Instant;
@@ -316,5 +318,42 @@ class StackAlertsTest {
         assertEquals(
                 List.of(Alert.Level.DOWN, Alert.Level.WARN, Alert.Level.WARN),
                 alerts.stream().map(Alert::level).toList());
+    }
+
+    @Test
+    void everyAlertKeepsWhatItMeasuredAsTypedValues() {
+        final List<Alert> alerts = of(
+                List.of(
+                        service("smp", "exited"),
+                        new StackReading.Service("proxy", "running", "unhealthy", StackReading.Purpose.SERVES, false),
+                        new StackReading.Service("migrate", "exited", null, StackReading.Purpose.ONCE, 3, false),
+                        new StackReading.Service("limbo", "running", null, StackReading.Purpose.SERVES, true)),
+                null,
+                List.of(
+                        archive("db-20260930T110000Z.dump", 40),
+                        archive("nordtal-s2_smp-world-20261002T110000Z.tar.zst", 37)),
+                host(90, 4));
+
+        assertEquals(
+                List.of(
+                        List.of(Measure.state(Gauge.CONTAINER_STATE, "smp", "exited")),
+                        List.of(Measure.state(Gauge.HEALTH, "proxy", "unhealthy")),
+                        List.of(Measure.of(Gauge.EXIT_CODE, "migrate", 3)),
+                        List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, "offsite copy", 37, 36)),
+                        List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, "database dump", 40, 36)),
+                        List.of(Measure.state(Gauge.OLDER_IMAGE, "limbo", null)),
+                        List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, "smp-world", 37, 36)),
+                        List.of(Measure.against(Gauge.DISK_PERCENT, "disk", 90, 85)),
+                        List.of(Measure.against(Gauge.MEMORY_PERCENT, "memory", 96, 90))),
+                alerts.stream().map(Alert::measured).toList());
+    }
+
+    @Test
+    void anAlertAboutSomethingMissingMeasuredNothing() {
+        assertEquals(
+                List.of(List.of(), List.of()),
+                of(List.of(service("smp", "running")), "timed out", List.of(), null).stream()
+                        .map(Alert::measured)
+                        .toList());
     }
 }

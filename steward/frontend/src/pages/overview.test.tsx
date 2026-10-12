@@ -74,6 +74,7 @@ function alert(subject: string, level: "warn" | "down") {
     subject,
     title: { key: "alert.not-running", args: { service: { kind: "text", value: subject } } },
     detail: [],
+    measured: [],
     path: "/",
   }
 }

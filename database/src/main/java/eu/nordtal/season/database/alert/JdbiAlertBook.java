@@ -19,8 +19,9 @@ import org.jspecify.annotations.Nullable;
 final class JdbiAlertBook implements AlertBook {
 
     private static final TypeToken<List<MessageRef>> LINES = new TypeToken<>() {};
+    private static final TypeToken<List<Measure>> MEASURED = new TypeToken<>() {};
 
-    private static final String COLUMNS = "id, raised, raised_by, type, level, subject, title, detail, path";
+    private static final String COLUMNS = "id, raised, raised_by, type, level, subject, title, detail, measured, path";
 
     private final Jdbi jdbi;
 
@@ -46,15 +47,16 @@ final class JdbiAlertBook implements AlertBook {
         Objects.requireNonNull(raisedBy, "raisedBy");
         // Only a raise with a source names the conflict, which would ask the bot's role for more than INSERT.
         final int written = handle.createUpdate("""
-                        INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path, source)
-                        VALUES (:raisedBy, :type, :level, :subject, cast(:title AS jsonb), cast(:detail AS jsonb), :path,
-                                :source)""" + (source == null ? "" : " ON CONFLICT (source) DO NOTHING"))
+                        INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, measured, path, source)
+                        VALUES (:raisedBy, :type, :level, :subject, cast(:title AS jsonb), cast(:detail AS jsonb),
+                                cast(:measured AS jsonb), :path, :source)""" + (source == null ? "" : " ON CONFLICT (source) DO NOTHING"))
                 .bind("raisedBy", raisedBy)
                 .bind("type", alert.type().name())
                 .bind("level", alert.level().name())
                 .bind("subject", alert.subject())
                 .bind("title", DatabaseJson.encode(alert.title()))
                 .bind("detail", DatabaseJson.encode(alert.detail()))
+                .bind("measured", DatabaseJson.encode(alert.measured()))
                 .bind("path", alert.path())
                 .bind("source", source)
                 .execute();
@@ -106,6 +108,7 @@ final class JdbiAlertBook implements AlertBook {
                         rows.getString("subject"),
                         DatabaseJson.decode(rows.getString("title"), MessageRef.class),
                         DatabaseJson.decode(rows.getString("detail"), LINES),
+                        DatabaseJson.decode(rows.getString("measured"), MEASURED),
                         rows.getString("path")));
     }
 }

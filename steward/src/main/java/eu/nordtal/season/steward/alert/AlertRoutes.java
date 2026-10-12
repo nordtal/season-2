@@ -6,6 +6,7 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.Sessions;
@@ -74,6 +75,7 @@ public final class AlertRoutes {
             String subject,
             MessageRef title,
             List<MessageRef> detail,
+            List<Measure> measured,
             String path) {}
 
     /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */
@@ -137,6 +139,7 @@ public final class AlertRoutes {
                 alert.subject(),
                 alert.title(),
                 alert.detail(),
+                alert.measured(),
                 alert.path());
     }
 

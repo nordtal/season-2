@@ -17,7 +17,7 @@ brings the runtime it already has; this module never migrates.
 | Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind is a record of a sealed payload type, stored as JSON |
 | Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                              |
 | Journal        | `Journal.write` is the only writer of `audit_log`; an `AuditLine` is a message of `AdminTexts`                          |
-| Alerts         | a row of `admin_alert`, told in the admin bundle: a title message and a list of messages below it                       |
+| Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s              |
 | Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language         |
 | Season phase   | one row every process follows on its hub                                                                                |
 | Runs           | a request in `steward_inbox`, one open at a time by a unique index; its outcome is an `UpdateReport`, its notes records |

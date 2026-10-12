@@ -11,10 +11,17 @@ import java.util.Objects;
  * @param subject what it is about, such as {@code smp} or {@code disk}: a name, which tells two alerts of a type apart
  * @param title one line, for a lock screen and the admin channel
  * @param detail the lines below it; may be empty
+ * @param measured what it measured, as typed values; empty for an alert that measures nothing, such as an event
  * @param path the page in Steward that can act on it
  */
 public record Alert(
-        AlertType type, Level level, String subject, MessageRef title, List<MessageRef> detail, String path) {
+        AlertType type,
+        Level level,
+        String subject,
+        MessageRef title,
+        List<MessageRef> detail,
+        List<Measure> measured,
+        String path) {
 
     /** How bad it is; {@link #OK} clears what an earlier alert of the same type raised. */
     public enum Level {
@@ -34,10 +41,22 @@ public record Alert(
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(title, "title");
         detail = List.copyOf(detail);
+        measured = List.copyOf(measured);
         Objects.requireNonNull(path, "path");
         if (!path.startsWith("/")) {
             throw new IllegalArgumentException("an alert's path is a page in Steward, got '" + path + "'");
         }
+    }
+
+    /** An alert that measured nothing. */
+    public Alert(
+            final AlertType type,
+            final Level level,
+            final String subject,
+            final MessageRef title,
+            final List<MessageRef> detail,
+            final String path) {
+        this(type, level, subject, title, detail, List.of(), path);
     }
 
     /** An alert whose title says it all. */

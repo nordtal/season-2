@@ -65,6 +65,28 @@ class AlertBookIntegrationTest {
     }
 
     @Test
+    void whatAnAlertMeasuredComesBackAsTheTypedValuesItWasRaisedWith() {
+        final AlertBook steward = AlertBook.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final Alert measured = new Alert(
+                AlertType.SERVICE,
+                Alert.Level.DOWN,
+                "smp, migrate",
+                TEXTS.alert().notRunning("smp"),
+                List.of(),
+                List.of(
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "smp", "exited"),
+                        Measure.of(Measure.Gauge.EXIT_CODE, "migrate", 3),
+                        Measure.against(Measure.Gauge.DISK_PERCENT, "disk", 91.25, 85)),
+                "/services/smp");
+
+        steward.raise(measured, "steward");
+
+        assertEquals(
+                List.of(measured),
+                steward.recent(5).stream().map(RaisedAlert::alert).toList());
+    }
+
+    @Test
     void oneSourceRaisesOneRowHoweverOftenItIsSeen() {
         final AlertBook steward = AlertBook.using(database.dataSourceAs(DatabaseRole.STEWARD));
 

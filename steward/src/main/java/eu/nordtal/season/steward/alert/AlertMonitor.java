@@ -195,6 +195,7 @@ public final class AlertMonitor {
                 String.join(", ", subjects),
                 TEXTS.alert().several(subjects, all.size()),
                 all.stream().map(Alert::title).toList(),
+                all.stream().flatMap(alert -> alert.measured().stream()).toList(),
                 worst.path());
     }
 

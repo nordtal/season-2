@@ -11,6 +11,7 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -146,6 +147,12 @@ class AlertMonitorTest {
         assertEquals(
                 List.of("smp is not running", "proxy is not running"),
                 AdminPlain.of(alerts.getFirst().alert().detail()));
+        assertEquals(
+                List.of(
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "smp", "exited"),
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "proxy", "exited")),
+                alerts.getFirst().alert().measured(),
+                "the one alert keeps what each of its subjects measured");
     }
 
     @Test

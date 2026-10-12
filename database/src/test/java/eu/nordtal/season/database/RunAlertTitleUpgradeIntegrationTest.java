@@ -39,7 +39,7 @@ class RunAlertTitleUpgradeIntegrationTest {
                       "detail": [], "mentions": []}', 'STEWARD');
                 """));
 
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "43");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
 
         assertEquals(
                 List.of("The disk is 91 % full", "The backup failed"),

@@ -38,7 +38,7 @@ class AlertMessageUpgradeIntegrationTest {
                       "mentions": ["100000000000000001"]}', 'STEWARD');
                 """));
 
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "22");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
 
         assertEquals(
                 List.of("All clear: registry", "smp is not running | Docker reports the state exited."),

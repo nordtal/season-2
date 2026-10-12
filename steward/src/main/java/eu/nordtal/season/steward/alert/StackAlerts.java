@@ -4,6 +4,8 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
+import eu.nordtal.season.database.alert.Measure.Gauge;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
@@ -74,18 +76,28 @@ public final class StackAlerts {
             final Integer exitCode = service.exitCode();
             final MessageRef title;
             final MessageRef detail;
+            final Measure measured;
             if (running) {
                 title = TEXTS.alert().unhealthy(service.name());
                 detail = TEXTS.alert().healthFails();
+                measured = Measure.state(Gauge.HEALTH, service.name(), service.health());
             } else if (service.purpose() == StackReading.Purpose.ONCE && exitCode != null) {
                 title = TEXTS.alert().failedOnce(service.name(), exitCode);
                 detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
+                measured = Measure.of(Gauge.EXIT_CODE, service.name(), exitCode);
             } else {
                 title = TEXTS.alert().notRunning(service.name());
                 detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
+                measured = Measure.state(Gauge.CONTAINER_STATE, service.name(), service.state());
             }
-            alerts.add(alert(
-                    AlertType.SERVICE, Alert.Level.DOWN, service.name(), title, detail, "/services/" + service.name()));
+            alerts.add(new Alert(
+                    AlertType.SERVICE,
+                    Alert.Level.DOWN,
+                    service.name(),
+                    title,
+                    List.of(detail),
+                    List.of(measured),
+                    "/services/" + service.name()));
         }
     }
 
@@ -125,6 +137,10 @@ public final class StackAlerts {
                     Alert.Level.WARN,
                     String.join(", ", outdated),
                     TEXTS.alert().olderImage(outdated, outdated.size()),
+                    List.of(),
+                    outdated.stream()
+                            .map(service -> Measure.state(Gauge.OLDER_IMAGE, service, null))
+                            .toList(),
                     UPDATES_PAGE));
         }
         final String problem = reading.registryProblem();
@@ -216,25 +232,17 @@ public final class StackAlerts {
         if (hours <= thresholds.backupAgeHours()) {
             return;
         }
-        final MessageRef permitted = TEXTS.alert().permittedAge(thresholds.backupAgeHours());
         if (DUMP.equals(series)) {
-            alerts.add(alert(
-                    AlertType.BACKUP,
-                    Alert.Level.DOWN,
-                    DUMP,
-                    TEXTS.alert().oldDump((long) hours),
-                    permitted,
-                    BACKUPS_PAGE));
+            alerts.add(old(Alert.Level.DOWN, DUMP, TEXTS.alert().oldDump((long) hours), hours, thresholds));
             return;
         }
         final String volume = volumeName(series);
-        alerts.add(alert(
-                AlertType.BACKUP,
+        alerts.add(old(
                 serviceDown(reading, series) ? Alert.Level.DOWN : Alert.Level.WARN,
                 volume,
                 TEXTS.alert().oldArchive(volume, (long) hours),
-                permitted,
-                BACKUPS_PAGE));
+                hours,
+                thresholds));
     }
 
     /** The newest archive copied off this host must be young enough; none is yellow, since the disk still has them. */
@@ -255,14 +263,25 @@ public final class StackAlerts {
         }
         final double hours = Duration.between(newest, now).toMillis() / MILLIS_PER_HOUR;
         if (hours > thresholds.backupAgeHours()) {
-            alerts.add(alert(
-                    AlertType.BACKUP,
-                    Alert.Level.DOWN,
-                    OFFSITE,
-                    TEXTS.alert().oldOffsite((long) hours),
-                    TEXTS.alert().permittedAge(thresholds.backupAgeHours()),
-                    BACKUPS_PAGE));
+            alerts.add(old(Alert.Level.DOWN, OFFSITE, TEXTS.alert().oldOffsite((long) hours), hours, thresholds));
         }
+    }
+
+    /** A backup series {@code hours} old, past the permitted age. */
+    private static Alert old(
+            final Alert.Level level,
+            final String subject,
+            final MessageRef title,
+            final double hours,
+            final Thresholds thresholds) {
+        return new Alert(
+                AlertType.BACKUP,
+                level,
+                subject,
+                title,
+                List.of(TEXTS.alert().permittedAge(thresholds.backupAgeHours())),
+                List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, subject, hours, thresholds.backupAgeHours())),
+                BACKUPS_PAGE);
     }
 
     /** Disk and memory at or over their thresholds are yellow; numbers that could not be read are never over. */
@@ -273,12 +292,13 @@ public final class StackAlerts {
         }
         final double disk = share(host.diskUsed(), host.diskTotal());
         if (disk >= thresholds.diskPercent()) {
-            alerts.add(alert(
+            alerts.add(new Alert(
                     AlertType.DISK,
                     Alert.Level.WARN,
                     "disk",
                     TEXTS.alert().disk(Math.round(disk)),
-                    TEXTS.alert().threshold(thresholds.diskPercent()),
+                    List.of(TEXTS.alert().threshold(thresholds.diskPercent())),
+                    List.of(Measure.against(Gauge.DISK_PERCENT, "disk", disk, thresholds.diskPercent())),
                     "/"));
         }
         final double memory = share(host.memoryTotal() - host.memoryAvailable(), host.memoryTotal());
@@ -291,6 +311,7 @@ public final class StackAlerts {
                     List.of(
                             TEXTS.alert().threshold(thresholds.memoryPercent()),
                             TEXTS.alert().noLimit()),
+                    List.of(Measure.against(Gauge.MEMORY_PERCENT, "memory", memory, thresholds.memoryPercent())),
                     "/"));
         }
     }

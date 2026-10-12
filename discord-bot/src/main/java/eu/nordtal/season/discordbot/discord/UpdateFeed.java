@@ -8,6 +8,7 @@ import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
@@ -32,7 +33,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws every update run in the admin channel, in English.
+ * Draws every run in the admin channel, in English, but a start-up install that went well.
  *
  * An edit notifies nobody, so a failed run reaches the admins as steward's alert, not from here.
  */
@@ -109,7 +110,7 @@ public final class UpdateFeed {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
                 // A row with id > mark finished between the two reads above; tick() finds it.
-                if (request.id() > mark) {
+                if (request.id() > mark || !shown(request)) {
                     continue;
                 }
                 // Posted and forgotten: it is over.
@@ -188,6 +189,9 @@ public final class UpdateFeed {
 
         for (final UpdateRequest request : fresh) {
             lastSeen = Math.max(lastSeen, request.id());
+            if (!shown(request)) {
+                continue;
+            }
             final boolean over = request.status().isFinished();
             board.post(embed(request), link(request), messageId -> {
                 if (over) {
@@ -198,6 +202,11 @@ public final class UpdateFeed {
             });
         }
         redraw();
+    }
+
+    /** Whether a run is drawn here: every run but a start-up install that went well, which is written settled. */
+    static boolean shown(final UpdateRequest request) {
+        return request.kind() != UpdateKind.INSTALL || request.status() == UpdateStatus.FAILED;
     }
 
     /** Re-reads the runs still moving and rewrites their messages when they have changed. */

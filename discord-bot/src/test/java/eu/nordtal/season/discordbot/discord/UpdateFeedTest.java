@@ -596,6 +596,43 @@ class UpdateFeedTest {
         assertEquals(null, board.posted.getFirst().link());
     }
 
+    // The start-up install, said only when it failed
+
+    @Test
+    void aStartUpInstallThatWentWellIsNotPosted() {
+        feed.start();
+        rows.put(install(1L, UpdateStatus.DONE, UpdateReport.Stage.DONE));
+        feed.tick();
+
+        assertEquals(List.of(), board.posted, "the admins hear of a start-up install only when it failed");
+    }
+
+    @Test
+    void aStartUpInstallThatFailedIsPostedUnderItsOwnTitle() {
+        feed.start();
+        rows.put(install(1L, UpdateStatus.FAILED, UpdateReport.Stage.FAILED));
+        feed.tick();
+
+        assertEquals(1, board.posted.size());
+        assertEquals(
+                "🛑 The start-up install failed",
+                board.posted.getFirst().embed().getTitle());
+    }
+
+    @Test
+    void aStartUpInstallThatWentWellWhileTheBotWasDownIsNotCaughtUp() {
+        rows.put(install(1L, UpdateStatus.DONE, UpdateReport.Stage.DONE));
+        rows.put(install(2L, UpdateStatus.FAILED, UpdateReport.Stage.FAILED));
+        feed.start();
+
+        assertEquals(1, board.posted.size(), "only the failed one is caught up");
+    }
+
+    private static UpdateRequest install(final long id, final UpdateStatus status, final UpdateReport.Stage stage) {
+        return new UpdateRequest(
+                id, UpdateKind.INSTALL, status, Actor.STEWARD, NOW, NOW, null, List.of(), NOW, NOW, reportAt(stage));
+    }
+
     private String title(final UpdateKind kind, final UpdateReport.Stage stage) {
         return UpdateFeed.fields(
                         UpdateReport.at(stage),

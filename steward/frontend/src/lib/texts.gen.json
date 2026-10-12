@@ -946,7 +946,7 @@
     "steward.keys.sign-in-incomplete": [["The sign-in options the server sent are missing a field the browser requires."]],
     "steward.keys.sign-out-instead": [["Sign out instead"]],
     "steward.keys.signed-in-as": [["Signed in as ",{"v":"name"}]],
-    "steward.keys.step-up-holds": [["Changes allowed until ",{"v":"until","k":"instant","s":"time"}]],
+    "steward.keys.step-up-holds": [["Every change allowed until ",{"v":"until","k":"instant","s":"time"}]],
     "steward.keys.step-up-lasts": [["One hold covers every change for ",{"v":"length","k":"duration","s":"long"},"."]],
     "steward.keys.step-up-title": [["Steward needs your security key"]],
     "steward.keys.try-again": [["Try again"]],

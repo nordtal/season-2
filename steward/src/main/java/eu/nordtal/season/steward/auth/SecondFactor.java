@@ -142,6 +142,11 @@ public final class SecondFactor {
         throw required(ANSWER.keyNotRecent());
     }
 
+    /** Refuses unless the step-up behind {@code ctx} still holds, for a route that decides per request. */
+    public void requireStepUp(final Context ctx) {
+        requireKeyRecently(requireSession.apply(ctx));
+    }
+
     /**
      * The refusal the interface recovers from: hold the key, then send the same request again.
      *

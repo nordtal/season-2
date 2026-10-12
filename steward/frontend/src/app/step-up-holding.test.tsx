@@ -32,7 +32,7 @@ describe("StepUpHolding", () => {
     cleanup()
 
     show(inAnHour())
-    expect(screen.getByText(/^Changes allowed until /)).toBeTruthy()
+    expect(screen.getByText(/^Every change allowed until /)).toBeTruthy()
   })
 
   it("ends the step-up with one DELETE", async () => {

@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -38,10 +39,16 @@ public final class Updates {
 
     private final @Nullable Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
+    private final Consumer<Context> stepUp;
 
-    public Updates(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    /** @param stepUp refuses a request whose session's step-up has ended, for the kinds that need one */
+    public Updates(
+            final @Nullable Data data,
+            final Function<Context, DiscordAuth.Account> accounts,
+            final Consumer<Context> stepUp) {
         this.data = data;
         this.accounts = accounts;
+        this.stepUp = stepUp;
     }
 
     private Data data() {
@@ -67,7 +74,7 @@ public final class Updates {
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id)))));
     }
 
-    /** Asks for a run by writing a row; nothing here talks to a container. */
+    /** Asks for a run by writing a row, behind a step-up for a kind that needs one; touches no container. */
     public void ask(final Context ctx) {
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.kind == null) {
@@ -78,6 +85,9 @@ public final class Updates {
             kind = UpdateKind.valueOf(ask.kind.trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new BadRequestResponse(ask.kind + " is not a kind of run");
+        }
+        if (needsStepUp(kind)) {
+            stepUp.accept(ctx);
         }
         // An unnamed scope would put the whole network down, or throw every player out without a countdown.
         if ((kind == UpdateKind.DOWN || kind == UpdateKind.RECREATE)
@@ -115,6 +125,15 @@ public final class Updates {
         final List<String> scope = data().updates().scopeOf(written.id());
         Journaling.line(ctx, TEXTS.journal().requestRun(written.id(), written.kind(), scope, scope.size()));
         ctx.status(202).json(describe(written, scope));
+    }
+
+    /** Whether a run of this kind replaces, stops or destroys something with no undo, so it needs a step-up. */
+    static boolean needsStepUp(final UpdateKind kind) {
+        return switch (kind) {
+            case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN -> true;
+            // Bringing back what is there, or only adding an archive.
+            case RESTART, START, BACKUP -> false;
+        };
     }
 
     /** Cancels the earliest run still counting down; an empty answer means its countdown ran out meanwhile. */

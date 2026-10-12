@@ -12,7 +12,9 @@ import io.javalin.security.RouteRole;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,45 +56,75 @@ class GateTest {
     }
 
     /**
-     * Writing is {@link Gate#KEY_FRESH}, with the named exceptions below.
+     * Every writing route with its gate, {@link Gate#KEY_FRESH} only for a change that needs the step-up.
      *
-     * The exceptions are written out rather than derived, so adding a fourth means editing a list a person reads.
+     * That is one that destroys, cannot be undone, hands out access or money, or changes admins or keys.
+     * Written out rather than derived, so moving a route across that line means editing a list a person reads.
+     * {@code POST /api/updates} is {@link Gate#KEY_HELD} here and asks for the step-up per kind of run.
      */
-    @Test
-    void theOnlyWritesOutsideTheKeyAreTheOnesThatHandItOut() {
-        final Set<String> allowed = Set.of(
-                // Signing out: a person part-way through the key ceremony must still be able to leave.
-                "POST /auth/logout",
-                // Ending one's own step-up early: asking for the key to give it up would be backwards.
-                "DELETE /api/step-up",
-                // The ceremonies of a key and of an authenticator app: a door cannot ask for what it hands out.
-                "POST /auth/webauthn/register/start",
-                "POST /auth/webauthn/register/finish",
-                "POST /auth/webauthn/authenticate/start",
-                "POST /auth/webauthn/authenticate/finish",
-                "POST /auth/totp/enrol/start",
-                "POST /auth/totp/enrol/finish",
-                "POST /auth/totp/verify");
+    private static final Map<String, Gate> WRITES_GATED = Map.ofEntries(
+            // Signing out: a person part-way through the key ceremony must still be able to leave.
+            Map.entry("POST /auth/logout", Gate.SIGNED_IN),
+            // The ceremonies of a key and of an app: a door cannot ask for what it hands out.
+            Map.entry("POST /auth/webauthn/register/start", Gate.SIGNED_IN),
+            Map.entry("POST /auth/webauthn/register/finish", Gate.SIGNED_IN),
+            Map.entry("POST /auth/webauthn/authenticate/start", Gate.SIGNED_IN),
+            Map.entry("POST /auth/webauthn/authenticate/finish", Gate.SIGNED_IN),
+            Map.entry("POST /auth/totp/enrol/start", Gate.SIGNED_IN),
+            Map.entry("POST /auth/totp/enrol/finish", Gate.SIGNED_IN),
+            Map.entry("POST /auth/totp/verify", Gate.SIGNED_IN),
+            // Replaces or stops what runs, overwrites live data, or runs foreign code.
+            Map.entry("POST /api/backups/{name}/restore", Gate.KEY_FRESH),
+            Map.entry("POST /api/services/{name}/plugins", Gate.KEY_FRESH),
+            Map.entry("DELETE /api/services/{name}/plugins/{artifact}", Gate.KEY_FRESH),
+            Map.entry("POST /api/services/{name}/console", Gate.KEY_FRESH),
+            // Changes admins or keys.
+            Map.entry("POST /api/admins/grant", Gate.KEY_FRESH),
+            Map.entry("POST /api/admins/revoke", Gate.KEY_FRESH),
+            Map.entry("DELETE /api/keys/{id}", Gate.KEY_FRESH),
+            Map.entry("DELETE /api/authenticator", Gate.KEY_FRESH),
+            // Hands out access or money, or cuts a link only the player can redo.
+            Map.entry("POST /api/access/grant", Gate.KEY_FRESH),
+            Map.entry("POST /api/access/unlink", Gate.KEY_FRESH),
+            Map.entry("POST /api/access/settle", Gate.KEY_FRESH),
+            // Cannot be taken back: the season moving on, game progress, a public message.
+            Map.entry("POST /api/season/phase", Gate.KEY_FRESH),
+            Map.entry("POST /api/smp/objective", Gate.KEY_FRESH),
+            Map.entry("POST /api/smp/milestone", Gate.KEY_FRESH),
+            Map.entry("POST /api/announcements", Gate.KEY_FRESH),
+            // Easily undone, or touching only one's own session, notifications or preview.
+            Map.entry("POST /api/updates", Gate.KEY_HELD),
+            Map.entry("POST /api/updates/cancel", Gate.KEY_HELD),
+            Map.entry("PUT /api/setting-groups/{service}/{name}", Gate.KEY_HELD),
+            Map.entry("PUT /api/messages", Gate.KEY_HELD),
+            Map.entry("POST /api/access/revoke", Gate.KEY_HELD),
+            Map.entry("POST /api/people/{id}/playtime", Gate.KEY_HELD),
+            Map.entry("POST /api/pack-exemptions/exempt", Gate.KEY_HELD),
+            Map.entry("POST /api/pack-exemptions/enforce", Gate.KEY_HELD),
+            Map.entry("POST /api/season/date", Gate.KEY_HELD),
+            Map.entry("POST /api/hunger-games/start", Gate.KEY_HELD),
+            Map.entry("PUT /api/keys/{id}", Gate.KEY_HELD),
+            Map.entry("DELETE /api/step-up", Gate.KEY_HELD),
+            Map.entry("POST /api/web-push/subscribe", Gate.KEY_HELD),
+            Map.entry("DELETE /api/web-push/subscribe", Gate.KEY_HELD),
+            Map.entry("POST /api/web-push/test", Gate.KEY_HELD),
+            Map.entry("PUT /api/alerts/preferences", Gate.KEY_HELD),
+            Map.entry("POST /api/message-preview", Gate.KEY_HELD));
 
-        final List<String> loose = new ArrayList<>();
+    @Test
+    void everyWriteCarriesTheGateTheAuditGaveIt() {
+        final Map<String, String> gated = new TreeMap<>();
         for (final Endpoint endpoint : endpoints()) {
-            if (!WRITES.contains(endpoint.method)) {
-                continue;
-            }
-            final String named = endpoint.method + " " + endpoint.path;
-            final boolean fresh = rolesOf(endpoint).contains(Gate.KEY_FRESH);
-            if (!fresh && !allowed.contains(named)) {
-                loose.add(named + " is " + gatesOf(endpoint));
-            }
-            if (fresh && allowed.contains(named)) {
-                loose.add(named + " is in the exception list AND behind the key - decide which");
+            if (WRITES.contains(endpoint.method)) {
+                gated.put(endpoint.method + " " + endpoint.path, gatesOf(endpoint));
             }
         }
-        assertTrue(
-                loose.isEmpty(),
-                "Every writing route needs a step-up that still holds, unless it is one of the few"
-                        + " that hand the key out or give it up. These are neither:\n  "
-                        + String.join("\n  ", loose));
+        final Map<String, String> expected = new TreeMap<>();
+        WRITES_GATED.forEach((route, gate) -> expected.put(route, "[" + gate + "]"));
+        assertEquals(
+                expected,
+                gated,
+                "A writing route carries the gate WRITES_GATED names for it, and every writing route is named there.");
     }
 
     /** Reading is at least {@link Gate#KEY_HELD}, with the five routes a signed-out browser needs. */

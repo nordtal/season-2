@@ -25,8 +25,11 @@ flowchart LR
 ## One process
 
 The interface, the stack routes (`stack/Routes`) and the runs' view share one Javalin and one set of
-gates: a read needs a signed-in admin who used a second factor this session (`KEY_HELD`), a change a
-step-up that still holds (`KEY_FRESH`). A factor is a security key (WebAuthn) or an authenticator app
+gates: a read, or a change that is easily undone, needs a signed-in admin who used a second factor this
+session (`KEY_HELD`); a change that destroys, cannot be undone, hands out access or money, or changes
+admins or keys needs a step-up that still holds (`KEY_FRESH`). `GateTest` names the gate of every
+change, and `POST /api/updates` asks for the step-up per kind of run (`Updates.needsStepUp`). A factor
+is a security key (WebAuthn) or an authenticator app
 (`auth/Totp`, RFC 6238: SHA-1, six digits, 30 seconds, one step either side, each step once), whose
 secret is sealed with `web.totp-key`; without that key the app is not offered. Adding a factor beside
 another needs a step-up, and the last one cannot be removed. A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that

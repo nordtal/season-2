@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** How long one step-up holds, chosen per step-up and kept by the server, and ending it early. */
@@ -58,11 +59,11 @@ class StepUpTest extends WebTestSupport {
 
         // Five hours on, a six-hour step-up still holds.
         shiftStepUp(browser, Duration.ofHours(5));
-        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         settleOpenRuns();
 
         shiftStepUp(browser, Duration.ofHours(2));
-        assertEquals(403, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        assertEquals(403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
     }
 
     @Test
@@ -77,11 +78,32 @@ class StepUpTest extends WebTestSupport {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
         assertEquals(false, me.has("stepUpUntil"), me.toString());
         assertEquals(200, get(browser, "/api/services").statusCode(), "reading still needs no new step-up");
-        final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}");
+        final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}");
         assertEquals(403, refused.statusCode(), refused.body());
         assertEquals(
                 "SECOND_FACTOR_REQUIRED",
                 GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString());
+    }
+
+    @Test
+    void onlyARunThatReplacesOrStopsWhatRunsAsksForTheStepUp() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        settleOpenRuns();
+        heldLongAgo(browser);
+
+        for (final String kind : List.of("UPDATE", "DEPLOY", "RECREATE", "DOWN", "RESTORE", "REMOVE_PLUGIN")) {
+            final HttpResponse<String> refused =
+                    post(browser, "/api/updates", "{\"kind\":\"" + kind + "\",\"services\":[\"smp\"]}");
+            assertEquals(403, refused.statusCode(), kind + ": " + refused.body());
+        }
+        for (final String kind : List.of("RESTART", "START", "BACKUP")) {
+            final HttpResponse<String> asked =
+                    post(browser, "/api/updates", "{\"kind\":\"" + kind + "\",\"services\":[\"smp\"]}");
+            assertEquals(202, asked.statusCode(), kind + ": " + asked.body());
+            settleOpenRuns();
+        }
     }
 
     /** How long this browser's step-up was granted for, as the row records it. */

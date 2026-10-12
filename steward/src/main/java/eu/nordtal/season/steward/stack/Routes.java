@@ -17,7 +17,7 @@ import java.util.Optional;
 /**
  * Every route {@link StackApi} serves, each with the {@link Gate} it needs.
  *
- * A read is {@link Gate#KEY_HELD}, anything that changes the stack {@link Gate#KEY_FRESH}.
+ * A read or an easily undone save is {@link Gate#KEY_HELD}; what replaces, removes or runs code {@link Gate#KEY_FRESH}.
  */
 public final class Routes {
 
@@ -99,7 +99,7 @@ public final class Routes {
                     api.settings().save(ctx, caller.actor(ctx));
                     Journaling.line(ctx, TEXTS.journal().saveSettings(ctx.pathParam("service"), ctx.pathParam("name")));
                 },
-                Gate.KEY_FRESH,
+                Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
@@ -116,7 +116,7 @@ public final class Routes {
                         Journaling.line(ctx, TEXTS.journal().saveMessages(bundle));
                     }
                 },
-                Gate.KEY_FRESH,
+                Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
     }
 

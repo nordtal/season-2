@@ -20,7 +20,7 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The step-up in front of any write, after which the same request goes again.
+ * The step-up in front of a change that needs one, after which the same request goes again.
  *
  * It offers the factors the account has, the key first and the app's code below it. One step-up holds for the first of `stepUpHolds`; the split button's menu offers the longer ones for this touch only.
  *

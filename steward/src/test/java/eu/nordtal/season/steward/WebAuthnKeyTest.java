@@ -282,7 +282,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         signIn(browser);
         holdTheKey(browser, authenticator);
         settleOpenRuns();
-        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         settleOpenRuns();
 
         heldLongAgo(browser);
@@ -290,7 +290,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         // Reading is KEY_HELD: the key was held in this session, and that does not expire.
         assertEquals(200, get(browser, "/api/services").statusCode());
 
-        final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}");
+        final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}");
         assertEquals(403, refused.statusCode(), refused.body());
         final JsonObject body = GSON.fromJson(refused.body(), JsonObject.class);
         assertEquals("SECOND_FACTOR_REQUIRED", body.get("code").getAsString(), refused.body());
@@ -304,12 +304,12 @@ class WebAuthnKeyTest extends WebTestSupport {
 
         // Holding it again lets the same request through: "one tap, not two" as the server sees it.
         holdTheKey(browser, authenticator);
-        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         settleOpenRuns();
     }
 
     @Test
-    void everyWriteAsksAgain() throws Exception {
+    void everyWriteThatNeedsTheStepUpAsksAgain() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
         holdTheKey(browser, authenticator);
@@ -380,10 +380,6 @@ class WebAuthnKeyTest extends WebTestSupport {
         assertEquals(
                 403,
                 delete(browser, "/api/keys/" + authenticator.credentialId()).statusCode());
-        assertEquals(
-                403,
-                put(browser, "/api/keys/" + authenticator.credentialId(), "{\"label\":\"mine now\"}")
-                        .statusCode());
         final HttpResponse<String> refused = post(browser, "/auth/webauthn/register/start", "");
         assertEquals(403, refused.statusCode(), refused.body());
         assertEquals(

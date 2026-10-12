@@ -19,9 +19,9 @@ public enum Gate implements RouteRole {
      */
     SIGNED_IN,
 
-    /** The security key has been held at some point in this session: every reading route in {@code /api}. */
+    /** A factor has been used at some point in this session: every read, and every change that is easily undone. */
     KEY_HELD,
 
-    /** A step-up that still holds, for as long as its ceremony chose: every other writing route. */
+    /** A step-up that still holds: a change that destroys, cannot be undone, or hands out access, money or keys. */
     KEY_FRESH
 }

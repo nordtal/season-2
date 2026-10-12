@@ -111,4 +111,16 @@ public sealed interface StewardRequest {
             }
         }
     }
+
+    /**
+     * What steward-agent installed on its start because nothing of it was there, written once it is done.
+     *
+     * @param services the services something was installed into, or meant to be
+     */
+    record Install(List<String> services) implements StewardRequest {
+
+        public Install {
+            services = List.copyOf(services);
+        }
+    }
 }

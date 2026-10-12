@@ -42,17 +42,25 @@ public enum UpdateKind {
     DEPLOY,
 
     /** Counts down, stops one server, takes one jar out of its plugins folder and starts it again. */
-    REMOVE_PLUGIN;
+    REMOVE_PLUGIN,
+
+    /**
+     * Puts what has nothing installed into the volumes when steward-agent starts, before any server runs.
+     *
+     * Nobody asks for it: steward-agent writes the row once it is done, already settled.
+     */
+    INSTALL;
 
     /** Returns whether this kind stops servers, which is what a confirmation is asked for. */
     public boolean stopsServers() {
-        return this != START;
+        return this != START && this != INSTALL;
     }
 
     /**
      * Returns the request of this kind for the services, which the run inbox stores.
      *
-     * @throws IllegalArgumentException for a kind that names more than services: a restore or a plugin removal
+     * @throws IllegalArgumentException for a kind that names more than services, a restore or a plugin removal, and
+     *     for the start-up install, which nobody asks for
      */
     public StewardRequest request(final List<String> services) {
         return switch (this) {
@@ -65,6 +73,8 @@ public enum UpdateKind {
             case DEPLOY -> new StewardRequest.Deploy(services);
             case RESTORE, REMOVE_PLUGIN ->
                 throw new IllegalArgumentException(this + " names more than its services; submit the request itself");
+            case INSTALL ->
+                throw new IllegalArgumentException("steward-agent installs on its start; nobody asks for it");
         };
     }
 

@@ -64,6 +64,23 @@ public interface UpdateDirectory {
     UpdateRequest submit(
             eu.nordtal.season.database.inbox.StewardRequest request, Actor actor, @Nullable Duration delay);
 
+    /**
+     * Writes a run nobody asked for, settled and announced, beside any open one: steward-agent's start-up install.
+     *
+     * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
+     * @param result the report, as JSON
+     * @param took how long it ran, which puts its start that far before now on the database's clock
+     * @throws IllegalArgumentException if {@code status} is not one of those two
+     */
+    default UpdateRequest record(
+            final eu.nordtal.season.database.inbox.StewardRequest request,
+            final Actor actor,
+            final UpdateStatus status,
+            final String result,
+            final Duration took) {
+        throw new UnsupportedOperationException("this directory cannot write a run: " + request);
+    }
+
     /** Returns the request a run was asked as, or empty for an unknown id. */
     default Optional<eu.nordtal.season.database.inbox.StewardRequest> requestOf(final long id) {
         return Optional.empty();

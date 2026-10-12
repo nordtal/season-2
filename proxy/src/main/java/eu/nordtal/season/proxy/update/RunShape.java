@@ -81,8 +81,8 @@ public record RunShape(
             // A container that goes round once, whatever it comes back with.
             case RESTART, RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
-            // START never starts a countdown, and is named anyway.
-            case UPDATE, START -> Occasion.UPDATE;
+            // START and the start-up install never count down, and are named anyway.
+            case UPDATE, START, INSTALL -> Occasion.UPDATE;
         };
     }
 

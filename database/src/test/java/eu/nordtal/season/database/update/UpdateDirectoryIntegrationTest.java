@@ -451,6 +451,7 @@ class UpdateDirectoryIntegrationTest {
             case RESTORE ->
                 new eu.nordtal.season.database.inbox.StewardRequest.Restore(List.of(), "db-20261002T030000Z.dump");
             case REMOVE_PLUGIN -> new eu.nordtal.season.database.inbox.StewardRequest.RemovePlugin(List.of("smp"), "a");
+            case INSTALL -> new eu.nordtal.season.database.inbox.StewardRequest.Install(List.of());
             default -> kind.request(List.of());
         };
     }

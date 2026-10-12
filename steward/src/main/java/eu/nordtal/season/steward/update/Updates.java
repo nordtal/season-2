@@ -130,7 +130,8 @@ public final class Updates {
     /** Whether a run of this kind replaces, stops or destroys something with no undo, so it needs a step-up. */
     static boolean needsStepUp(final UpdateKind kind) {
         return switch (kind) {
-            case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN -> true;
+            // A start-up install is never asked for; were it, it would install like an update.
+            case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN, INSTALL -> true;
             // Bringing back what is there, or only adding an archive.
             case RESTART, START, BACKUP -> false;
         };

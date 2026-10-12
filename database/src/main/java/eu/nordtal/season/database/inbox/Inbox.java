@@ -47,6 +47,19 @@ public final class Inbox<P> {
             SELECT inserted.*, pg_notify(:channel, '') AS notified FROM inserted
             """;
 
+    /** How a row nobody asked for is written already settled, begun {@code took} seconds ago, and announced. */
+    private static final String RECORD = """
+            WITH inserted AS (
+                INSERT INTO <table> (kind, payload, actor_kind, actor_id, status,
+                                     requested, scheduled_for, started, finished, outcome)
+                SELECT :kind, cast(:payload AS jsonb), :actorKind, :actorId, :status,
+                       began, began, began, now(), cast(:outcome AS jsonb)
+                FROM (SELECT now() - make_interval(secs => cast(:took AS double precision)) AS began) AS run
+                RETURNING *
+            )
+            SELECT inserted.*, pg_notify(:channel, '') AS notified FROM inserted
+            """;
+
     /** Takes the oldest due row; {@code SKIP LOCKED} keeps two consumers from ever claiming one row. */
     private static final String CLAIM = """
             WITH claimable AS (
@@ -192,12 +205,44 @@ public final class Inbox<P> {
      * @return the settled row, or empty when it was not running
      */
     public Optional<Request<P>> settle(final long id, final Outcome outcome) {
-        return switch (Objects.requireNonNull(outcome, "outcome")) {
-            case Outcome.Done done -> move(id, InboxStatus.RUNNING, InboxStatus.DONE, done.answer());
-            case Outcome.Failed failed -> move(id, InboxStatus.RUNNING, InboxStatus.FAILED, failed.answer());
-            case Outcome.Refused refused ->
-                move(id, InboxStatus.RUNNING, InboxStatus.REFUSED, Json.tree(StoredRefusal.write(refused.refusal())));
-        };
+        final Settled settled = Settled.of(outcome);
+        return move(id, InboxStatus.RUNNING, settled.status(), settled.answer());
+    }
+
+    /**
+     * Writes a request its consumer carried out without being asked, already settled, and announces it.
+     *
+     * @param took how long it ran, which puts its request and its start that far before now on the database's clock
+     */
+    public Request<P> record(final P payload, final Actor actor, final Outcome outcome, final Duration took) {
+        Objects.requireNonNull(payload, "payload");
+        Objects.requireNonNull(actor, "actor");
+        final Settled settled = Settled.of(outcome);
+        return jdbi.withHandle(handle -> handle.createQuery(RECORD)
+                .define("table", table.name())
+                .bind("kind", table.kindOf(payload))
+                .bind("payload", DatabaseJson.encode(payload))
+                .bind("actorKind", actor.kind().name())
+                .bind("actorId", actor.id())
+                .bind("status", settled.status().name())
+                .bind("outcome", settled.answer() == null ? null : DatabaseJson.encode(settled.answer()))
+                .bind("took", seconds(Objects.requireNonNull(took, "took")))
+                .bind("channel", table.channel().sqlName())
+                .map(this::map)
+                .one());
+    }
+
+    /** The status an outcome settles a row in, and the answer it writes. */
+    private record Settled(InboxStatus status, @Nullable Object answer) {
+
+        static Settled of(final Outcome outcome) {
+            return switch (Objects.requireNonNull(outcome, "outcome")) {
+                case Outcome.Done done -> new Settled(InboxStatus.DONE, done.answer());
+                case Outcome.Failed failed -> new Settled(InboxStatus.FAILED, failed.answer());
+                case Outcome.Refused refused ->
+                    new Settled(InboxStatus.REFUSED, Json.tree(StoredRefusal.write(refused.refusal())));
+            };
+        }
     }
 
     /**

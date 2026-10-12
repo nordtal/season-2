@@ -67,6 +67,21 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         }
     }
 
+    @Override
+    public UpdateRequest record(
+            final StewardRequest request,
+            final Actor actor,
+            final UpdateStatus status,
+            final String result,
+            final Duration took) {
+        if (status != UpdateStatus.DONE && status != UpdateStatus.FAILED) {
+            throw new IllegalArgumentException("A run is written as DONE or FAILED, not as " + status);
+        }
+        final Outcome outcome =
+                status == UpdateStatus.DONE ? Outcome.done(answer(result)) : Outcome.failed(answer(result));
+        return run(inbox.record(request, actor, outcome, took.isNegative() ? Duration.ZERO : took));
+    }
+
     /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
     private UpdateRequest run(final Request<StewardRequest> request) {
         return dao.find(request.id()).orElseThrow(() -> new IllegalStateException("run " + request.id() + " is gone"));

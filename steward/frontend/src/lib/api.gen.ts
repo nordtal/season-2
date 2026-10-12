@@ -533,6 +533,7 @@ export type UpdateKind =
   | "RECREATE"
   | "DEPLOY"
   | "REMOVE_PLUGIN"
+  | "INSTALL"
 
 export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLED"
 

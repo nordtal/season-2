@@ -190,6 +190,7 @@ public final class Runner implements RequestRunner {
             case DEPLOY -> Kinds.remake(this, request, true);
             case REMOVE_PLUGIN -> Kinds.removePlugin(this, request);
             case RESTORE -> Kinds.restore(this, request);
+            case INSTALL -> throw new IllegalStateException("a start-up install is written settled and never claimed");
         };
     }
 

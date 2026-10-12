@@ -1,6 +1,8 @@
 package eu.nordtal.season.database.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.season.database.inbox.StewardRequest;
 import java.util.Arrays;
@@ -19,9 +21,16 @@ class UpdateKindTest {
             final StewardRequest request = switch (kind) {
                 case RESTORE -> new StewardRequest.Restore(List.of(), "db-20261002T030000Z.dump");
                 case REMOVE_PLUGIN -> new StewardRequest.RemovePlugin(List.of("smp"), "chunky");
+                case INSTALL -> new StewardRequest.Install(List.of("smp"));
                 default -> kind.request(List.of("smp"));
             };
             assertEquals(kind, UpdateKind.of(request));
         }
+    }
+
+    @Test
+    void nobodyAsksForAStartUpInstall() {
+        assertThrows(IllegalArgumentException.class, () -> UpdateKind.INSTALL.request(List.of()));
+        assertFalse(UpdateKind.INSTALL.stopsServers(), "it fills volumes before any server runs");
     }
 }

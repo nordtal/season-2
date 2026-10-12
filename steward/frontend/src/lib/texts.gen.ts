@@ -1399,6 +1399,7 @@ export type TextArgs = {
   "steward.operations.not-cancelled": {
     run: Arg["number"]
   }
+  "steward.operations.not-reached": Record<string, never>
   "steward.operations.notes": Record<string, never>
   "steward.operations.nothing-to-do": Record<string, never>
   "steward.operations.nothing-to-do-title": Record<string, never>

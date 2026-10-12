@@ -42,6 +42,7 @@ never granted fails in `check`.
 
 - **Runs.** Every button that stops something, and the two clocks, write a row into `steward_inbox`;
   the agent writes the report back into it and the interface follows it on `nordtal_update`.
+  Layouts for the run page, drawn on real runs, are proposed under `/designs/run-page`.
 - **Containers and images.** State, health and the last sample come from the agent, as does writing
   into a console, naming who typed the line. The console suggests from each server's `command_tree`
   and reads it again as soon as a server publishes a changed one.

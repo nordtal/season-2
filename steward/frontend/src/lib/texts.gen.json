@@ -1073,6 +1073,7 @@
     "steward.operations.no-report": [["No report yet"]],
     "steward.operations.not-a-number": [["Not a run number"]],
     "steward.operations.not-cancelled": [["Run #",{"v":"run","k":"number","s":"plain"}," was not cancelled"]],
+    "steward.operations.not-reached": [["not reached"]],
     "steward.operations.notes": [["Notes"]],
     "steward.operations.nothing-to-do": [["nothing to do"]],
     "steward.operations.nothing-to-do-title": [["Nothing to do."]],

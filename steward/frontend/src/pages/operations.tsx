@@ -122,7 +122,7 @@ const FINGERPRINT = /^[0-9a-f]{32,64}$/i
  *
  * The whole hash is on the title.
  */
-function Was({ value }: { value: string }) {
+export function Was({ value }: { value: string }) {
   if (!FINGERPRINT.test(value)) {
     return <span className="text-muted-foreground tnum">{value}</span>
   }
@@ -194,10 +194,10 @@ export function summaryOf(run: Run): string[] {
   return [report.services.length === 0 ? t("steward.operations.no-line") : t("steward.operations.no-change")]
 }
 
-type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
+export type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
 /** Each kind's symbol; its title, what it does and what it costs are the bundle's. */
-const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
+export const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
   /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
   UPDATE: TERM_ICON.update,
   BACKUP: TERM_ICON.backup,

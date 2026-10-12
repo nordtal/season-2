@@ -99,6 +99,9 @@ public interface OperationsPage {
     @Name("Still running")
     MessageRef stillRunning();
 
+    @Name("A stage a run never reached")
+    MessageRef notReached();
+
     @Name("Nothing to do, as a title")
     MessageRef nothingToDoTitle();
 

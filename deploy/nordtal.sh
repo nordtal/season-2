@@ -900,7 +900,8 @@ set_secret() {
 }
 
 # Generates every secret but POSTGRES_PASSWORD that is missing, on a deploy and on an update alike, so a
-# release that adds one brings it whichever way it is installed.
+# release that adds one brings it whichever way it is installed. SECRETS_MADE says this run did.
+SECRETS_MADE=false
 generate_secrets() {
     # Each service's own database role; steward-agent sets these on the roles at every start, so a new
     # one only needs a restart, unlike POSTGRES_PASSWORD.
@@ -916,6 +917,7 @@ generate_secrets() {
     # The key steward seals each authenticator app's secret with. A new one leaves every enrolled app
     # unreadable, so each admin adds theirs again; it is never rotated by this script.
     set_secret STEWARD_TOTP_KEY
+    SECRETS_MADE=true
 }
 
 # The compose projects that already have a deployment on this host, one per line: each project with a
@@ -1209,11 +1211,8 @@ cmd_update() {
     # the lines while the running agent's compose.yml still reads them there, since compose refuses a
     # file that lacks one it requires; they go once that agent reads the services' files.
     settle_for_agent "$UPDATE_ENV_FILE" "$container"
-    # This copy is the release's, so a secret that release adds is made before the run installs it. A
-    # deploy, which sets ENV_FILE, made them already.
-    if [[ -z "${ENV_FILE:-}" ]]; then
-        ENV_FILE="$UPDATE_ENV_FILE" CHECK_ONLY=false generate_secrets
-    fi
+    # This copy is the release's, so a secret that release adds is made before the run installs it.
+    $SECRETS_MADE || ENV_FILE="$UPDATE_ENV_FILE" CHECK_ONLY=false generate_secrets
 
     local id
     # A subshell, so its die ends only it; the exit here ends the command.

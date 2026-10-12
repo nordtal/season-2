@@ -103,6 +103,83 @@ Two ways out, and only you can pick:
     set_property "$file" level-seed "$LEVEL_SEED"
 }
 
+# world-generation datapacks
+# Pinned packs go into the level-name world's datapacks/, which feeds every world on the server.
+# They must be there before the start, since worldgen reads them once and terrain is never re-rolled.
+#
+# DATAPACK_URLS: whitespace-separated entries, each a URL or <sha512>@<url>. Modrinth publishes
+# sha512, so pins can be copied from its API.
+fetch_datapacks() {
+    local dir="$1" spec url sha file dest tmp actual
+
+    mkdir -p "$dir"
+    for spec in $DATAPACK_URLS; do
+        if [[ "$spec" == *"@"* ]]; then
+            sha="${spec%%@*}"
+            url="${spec#*@}"
+        else
+            sha=""
+            url="$spec"
+        fi
+
+        # Paper reports the name on disk, so percent-escapes are decoded.
+        file="${url##*/}"
+        file="${file%%\?*}"
+        file="$(printf '%b' "${file//%/\\x}")"
+        dest="${dir}/${file}"
+
+        if [[ -f "$dest" ]]; then
+            log "datapack cached: ${file}"
+            continue
+        fi
+
+        log "fetching datapack ${file}"
+        tmp="${dest}.partial"
+        curl -fsSL --max-time 300 -o "$tmp" "$url" \
+            || { rm -f "$tmp"; die "could not fetch datapack ${file} from ${url}. Refusing to start: a world generated without its datapacks is vanilla terrain permanently."; }
+
+        if [[ -n "$sha" ]]; then
+            actual="$(sha512sum "$tmp" | cut -d' ' -f1)"
+            if [[ "$actual" != "$sha" ]]; then
+                rm -f "$tmp"
+                die "datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual}). Refusing to start rather than generating tomorrow's farm world from a different pack version than Nordtal."
+            fi
+        else
+            log "WARNING: ${file} has no pinned checksum - a silent version change would not be noticed"
+        fi
+
+        mv "$tmp" "$dest"
+    done
+}
+
+# Configures a Paper backend behind the proxy: offline mode and modern forwarding.
+prepare_backend() {
+    local global="$DATA/config/paper-global.yml"
+
+    # Enforced on every start: a backend that authenticates refuses every forwarded login.
+    set_property "$DATA/server.properties" online-mode false
+
+    # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml
+    # on first load, so rotating means editing both. Only the enable switch is seeded.
+    if [[ -f "$global" ]]; then
+        log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
+    else
+        mkdir -p "$(dirname "$global")"
+        cat > "$global" <<'YAML'
+# Seeded by the nordtal entrypoint on first start, and not touched again. Paper adds every other
+# setting with its default the first time it loads this file.
+#
+# proxies.velocity.secret arrives as PAPER_VELOCITY_SECRET, and Paper still writes it into this
+# file on first load.
+proxies:
+  velocity:
+    enabled: true
+    online-mode: true
+YAML
+        log "seeded config/paper-global.yml with Velocity modern forwarding enabled"
+    fi
+}
+
 # the cached server jar
 # Picking the wrong jar fails silently, so entrypoint-test.sh drives these against fixtures.
 
@@ -497,84 +574,6 @@ If the plugin IS in the folder under a different filename, its publisher renamed
         log "plugins present: ${#installed[@]} jar(s) - SERVER_PLUGINS is unset, so only 'not empty' was checked"
     fi
 fi
-
-# world-generation datapacks
-# Pinned packs go into the level-name world's datapacks/, which feeds every world on the server.
-# They must be there before the start, since worldgen reads them once and terrain is never re-rolled.
-#
-# DATAPACK_URLS: whitespace-separated entries, each a URL or <sha512>@<url>. Modrinth publishes
-# sha512, so pins can be copied from its API.
-fetch_datapacks() {
-    local dir="$1" spec url sha file dest tmp actual
-
-    mkdir -p "$dir"
-    for spec in $DATAPACK_URLS; do
-        if [[ "$spec" == *"@"* ]]; then
-            sha="${spec%%@*}"
-            url="${spec#*@}"
-        else
-            sha=""
-            url="$spec"
-        fi
-
-        # Paper reports the name on disk, so percent-escapes are decoded.
-        file="${url##*/}"
-        file="${file%%\?*}"
-        file="$(printf '%b' "${file//%/\\x}")"
-        dest="${dir}/${file}"
-
-        if [[ -f "$dest" ]]; then
-            log "datapack cached: ${file}"
-            continue
-        fi
-
-        log "fetching datapack ${file}"
-        tmp="${dest}.partial"
-        curl -fsSL --max-time 300 -o "$tmp" "$url" \
-            || { rm -f "$tmp"; die "could not fetch datapack ${file} from ${url}. Refusing to start: a world generated without its datapacks is vanilla terrain permanently."; }
-
-        if [[ -n "$sha" ]]; then
-            actual="$(sha512sum "$tmp" | cut -d' ' -f1)"
-            if [[ "$actual" != "$sha" ]]; then
-                rm -f "$tmp"
-                die "datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual}). Refusing to start rather than generating tomorrow's farm world from a different pack version than Nordtal."
-            fi
-        else
-            log "WARNING: ${file} has no pinned checksum - a silent version change would not be noticed"
-        fi
-
-        mv "$tmp" "$dest"
-    done
-}
-
-# Configures a Paper backend behind the proxy: offline mode and modern forwarding.
-prepare_backend() {
-    local global="$DATA/config/paper-global.yml"
-
-    # Enforced on every start: a backend that authenticates refuses every forwarded login.
-    set_property "$DATA/server.properties" online-mode false
-
-    # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml
-    # on first load, so rotating means editing both. Only the enable switch is seeded.
-    if [[ -f "$global" ]]; then
-        log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
-    else
-        mkdir -p "$(dirname "$global")"
-        cat > "$global" <<'YAML'
-# Seeded by the nordtal entrypoint on first start, and not touched again. Paper adds every other
-# setting with its default the first time it loads this file.
-#
-# proxies.velocity.secret arrives as PAPER_VELOCITY_SECRET, and Paper still writes it into this
-# file on first load.
-proxies:
-  velocity:
-    enabled: true
-    online-mode: true
-YAML
-        log "seeded config/paper-global.yml with Velocity modern forwarding enabled"
-    fi
-}
-
 
 # per-kind preparation
 JAVA_ARGS=()

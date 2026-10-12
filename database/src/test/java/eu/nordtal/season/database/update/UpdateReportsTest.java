@@ -272,7 +272,7 @@ class UpdateReportsTest {
         assertTrue(json.contains("\"kind\":\"duration\""), json);
         assertFalse(json.contains("MiB"), "the unit is a choice the bundle words: " + json);
         final String english = UpdateReports.english(json);
-        assertTrue(english.contains("\"told\":\"saved 1.2 MiB in 1m 12s\""), english);
+        assertTrue(english.contains("\"told\":\"1.2 MiB in 1m 12s\""), english);
     }
 
     @Test

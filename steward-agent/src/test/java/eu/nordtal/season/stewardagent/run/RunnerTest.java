@@ -159,8 +159,8 @@ class RunnerTest {
                                 && "report.saving".equals(change.told().key())),
                 "a volume being saved says so while it is: " + progress);
         final String english = Told.report(outcome.report());
-        assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
-        assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
+        assertTrue(english.contains("7.3 MiB in 3s"), english);
+        assertTrue(english.contains("1.2 MiB in 12s"), english);
         assertTrue(english.contains("no offsite repository, so the archives stay on this disk"), english);
     }
 

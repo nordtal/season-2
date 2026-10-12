@@ -47,7 +47,7 @@ describe("a change in a run's report", () => {
         }}
       />,
     )
-    expect(container.textContent).toBe("backupsaved 1.2 MiB in 1m 12s")
+    expect(container.textContent).toBe("backup1.2 MiB in 1m 12s")
   })
 
   it("still reads a change stored in words by an earlier release", () => {

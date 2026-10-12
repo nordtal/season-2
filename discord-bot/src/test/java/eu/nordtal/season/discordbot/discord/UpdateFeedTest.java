@@ -422,7 +422,7 @@ class UpdateFeedTest {
         feed.tick();
 
         final String shown = lines(board.posted.getFirst().embed());
-        assertTrue(shown.contains("backup *saved 1.2 MiB in 12s*"), shown);
+        assertTrue(shown.contains("backup *1.2 MiB in 12s*"), shown);
         assertFalse(shown.contains("report."), "no key is ever shown in place of its words: " + shown);
     }
 
@@ -548,6 +548,24 @@ class UpdateFeedTest {
         feed.tick();
 
         assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().embed()));
+    }
+
+    @Test
+    void aBackupsLineSaysOnceThatItSavedAndNotThatItIsABackup() {
+        final UpdateReport saved = UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine(
+                        "database",
+                        UpdateReport.State.SAVED,
+                        List.of(UpdateReport.Change.told(
+                                "backup",
+                                TEXTS.report().saved(ByteSize.of(9_227_468).message(), Duration.ofSeconds(2)))),
+                        null));
+        final UpdateRequest backup = new UpdateRequest(
+                1L, UpdateKind.BACKUP, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
+
+        final MessageEmbed card = UpdateFeed.fields(saved, backup, messages, NOW);
+
+        assertEquals("✅ **database** *saved*  *8.8 MiB in 2s*", field(card, "Services"));
     }
 
     private String title(final UpdateKind kind, final UpdateReport.Stage stage) {

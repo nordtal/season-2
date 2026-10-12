@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -255,7 +257,7 @@ public final class UpdateFeed {
         // The services get the budget first: which server failed matters more than why.
         final List<String> lines = new ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
-            lines.add(line(line, text));
+            lines.add(line(line, request.kind(), text));
         }
         final List<String> why = new ArrayList<>();
         for (final Why said : why(report)) {
@@ -297,18 +299,24 @@ public final class UpdateFeed {
     /** One reason a run failed, about one service or, without one, about the run. */
     record Why(@Nullable String service, MessageRef what) {}
 
-    /** Renders a service line: its mark, the service, its state, then each change as a version or a pair of them. */
-    private static String line(final UpdateReport.ServiceLine line, final Function<MessageRef, String> text) {
+    /**
+     * Renders a service line: its mark, the service, its state, then each change as a version or a pair of them.
+     *
+     * A told change named after the run's own kind leaves its name out, since the title says it.
+     */
+    private static String line(
+            final UpdateReport.ServiceLine line, final UpdateKind kind, final Function<MessageRef, String> text) {
         final StringBuilder shown = new StringBuilder(marker(line.state()).symbol())
                 .append(' ')
                 .append(Card.bold(line.service()))
                 .append(' ')
                 .append(Card.italic(text.apply(TEXTS.run().state(line.state()))));
         for (final UpdateReport.Change change : line.changes()) {
-            shown.append("  ")
-                    .append(Card.escape(change.artefact()))
-                    .append(' ')
-                    .append(
+            shown.append("  ");
+            if (change.told() == null || !change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))) {
+                shown.append(Card.escape(change.artefact())).append(' ');
+            }
+            shown.append(
                             switch (change.state()) {
                                 // No build for this Minecraft version, which stops no server.
                                 case UNSUPPORTED ->

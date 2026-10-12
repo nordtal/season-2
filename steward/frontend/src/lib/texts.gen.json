@@ -609,7 +609,7 @@
     "report.restored": [["restored ",{"v":"size"}]],
     "report.restored-over": [["the database was restored from ",{"v":"dump"}," while this run was open, so it was not carried out"]],
     "report.runtime-unread": [["the container runtime could not be read: ",{"v":"answer"}]],
-    "report.saved": [["saved ",{"v":"size"}," in ",{"v":"took","k":"duration","s":"short"}]],
+    "report.saved": [[{"v":"size"}," in ",{"v":"took","k":"duration","s":"short"}]],
     "report.saving": [["saving"]],
     "report.sha-1-unread": [["could not read ",{"v":"file"},": ",{"v":"error"}]],
     "report.size": [[{"v":"amount","k":"number"}," ",{"c":"unit","plural":false,"cases":{"b":["B"],"kib":["KiB"],"mib":["MiB"],"gib":["GiB"],"other":["TiB"]}}]],

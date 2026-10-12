@@ -3,7 +3,14 @@
  *
  * `public/icon.png` is a copy held by `MarkIsTheServerIconTest`. It is only ever downscaled, so no `image-rendering`.
  */
-export function StewardMark({ className }: { className?: string }) {
+export function StewardMark({
+  className,
+  round = false,
+}: {
+  className?: string
+  /** Drawn as a circle, where it stands for the bot as a Discord avatar. */
+  round?: boolean
+}) {
   return (
     <img
       src="/icon.png"
@@ -13,7 +20,7 @@ export function StewardMark({ className }: { className?: string }) {
       height={128}
       className={className}
       /** The interface's own radius, since an unrounded square beside rounded cards reads as a sticker. */
-      style={{ borderRadius: "var(--radius-sm)" }}
+      style={{ borderRadius: round ? "50%" : "var(--radius-sm)" }}
     />
   )
 }

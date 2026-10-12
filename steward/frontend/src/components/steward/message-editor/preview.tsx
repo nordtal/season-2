@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { CaretDownIcon } from "@phosphor-icons/react"
+import { StewardMark } from "@/app/steward-mark"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "cn"
 
@@ -449,7 +450,7 @@ function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
 function author(children: ReactNode) {
   return (
     <div className="flex gap-3">
-      <div className="size-10 shrink-0 rounded-full" style={{ background: "var(--brand)" }} />
+      <StewardMark round className="size-10 shrink-0" />
       <div className="min-w-0 flex-1">
         <span className="font-medium text-white">Nordtal</span>
         {children}

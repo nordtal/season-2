@@ -83,6 +83,35 @@ describe("the previews", () => {
     ])
   })
 
+  it("draws the bot in every Discord message as Nordtal's mark, round like a Discord avatar", async () => {
+    const discord = ["DISCORD_MESSAGE", "DISCORD_EMBED", "DISCORD_BUTTON", "DISCORD_SELECT", "DISCORD_MODAL"]
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing([
+          text(
+            { texts: { en: ["Moin"] }, key: "moin", name: "Moin", shown: discord },
+            { previews: Object.fromEntries(discord.map((place) => [place, "DISCORD"])) },
+          ),
+        ]),
+      ),
+    )
+    draw(<Page />)
+    await openKey("Moin")
+
+    const avatars = (await screen.findAllByRole("figure")).map((figure) => {
+      const avatar = figure.querySelector("img")
+      return [figure.getAttribute("aria-label"), avatar?.getAttribute("src"), avatar?.style.borderRadius]
+    })
+    expect(avatars).toEqual([
+      ["Discord message", "/icon.png", "50%"],
+      ["Discord embed", "/icon.png", "50%"],
+      ["Discord button", "/icon.png", "50%"],
+      ["Discord menu", "/icon.png", "50%"],
+      ["Discord form", undefined, undefined],
+    ])
+  })
+
   it("asks for the filtered service's palette", async () => {
     const bodies: unknown[] = []
     threePlaces(bodies)

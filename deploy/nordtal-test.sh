@@ -768,6 +768,27 @@ mounted="$(grep -o 'NORDTAL_SECRETS_DIR:?[^}]*}/[a-z-]*' "$HERE/../compose.yml" 
     || bad "compose.yml mounts secrets of $(tr '\n' ' ' <<<"$mounted")but nordtal.sh writes $(secret_services | tr '\n' ' ')"
 ok "every service nordtal.sh writes a file for mounts it, as the uid it is handed to"
 
+case_begin "a deployment is recognised by its containers or its data directory, not only by a volume"
+mkdir -p "$WORK/installed/postgres-data" "$WORK/empty"
+: > "$WORK/installed/postgres-data/PG_VERSION"
+[[ "$(deployed_projects "" "nordtal-s2")" == nordtal-s2 ]] || bad "a running stack without volumes is no deployment"
+[[ "$(deployed_projects $'nordtal-s2_postgres-data\nother_mc-smp' "")" == nordtal-s2 ]] \
+    || bad "an older installation's volume is no deployment"
+[[ "$(deployed_projects $'nordtal-s2_postgres-data' $'nordtal-s2\nnordtal-s2')" == nordtal-s2 ]] \
+    || bad "one project was named twice"
+[[ -z "$(deployed_projects "" "")" ]] || bad "an empty host carries a deployment"
+[[ "$(deployment_kind nordtal-s2 nordtal-s2 "$WORK/empty")" == adopt ]] || bad "the running stack was not adopted"
+[[ "$(deployment_kind nordtal-s2 "" "$WORK/installed")" == adopt ]] \
+    || bad "a data directory that holds a database was not adopted"
+[[ "$(deployment_kind nordtal-s2 "" "$WORK/empty")" == first ]] || bad "an empty host is not a first deployment"
+ok "containers, an older volume and the data directory each count, and an empty host is new"
+
+case_begin "a run under another project name beside a deployment is refused"
+[[ "$(deployment_kind other nordtal-s2 "$WORK/empty")" == second ]] || bad "a second stack beside a running one"
+[[ "$(deployment_kind other nordtal-s2 "$WORK/installed")" == second ]] \
+    || bad "a second stack on the same data directory"
+ok "another project beside a running stack is a second stack"
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

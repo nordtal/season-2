@@ -899,6 +899,26 @@ set_secret() {
     log "$name generated ($bytes random bytes, hex)"
 }
 
+# The compose projects that already have a deployment on this host, one per line: each project with a
+# steward-agent container, running or not, and each `<project>_postgres-data` volume of an older installation.
+deployed_projects() {
+    local volumes="$1" agent_projects="$2"
+    { sed -n 's/_postgres-data$//p' <<<"$volumes"; printf '%s\n' "$agent_projects"; } | sed '/^$/d' | sort -u
+}
+
+# What this run is to the host: `adopt` its project's deployment, which a database in the installation's
+# bind-mounted data directory also is; `first`; or `second`, beside another project's deployment.
+deployment_kind() {
+    local project="$1" projects="$2" install_dir="$3"
+    if [[ -n "$projects" ]] && ! grep -qxF "$project" <<<"$projects"; then
+        printf 'second'
+    elif [[ -n "$projects" || -e "$install_dir/postgres-data/PG_VERSION" ]]; then
+        printf 'adopt'
+    else
+        printf 'first'
+    fi
+}
+
 # An update run requested from the host, which works while the stack itself is broken.
 # These are decisions only; `cmd_update` below the seam reaches for Docker.
 
@@ -1586,20 +1606,24 @@ STEWARD_NAME="$(env_value "$ENV_FILE" STEWARD_HOST)"
 PROJECT="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
 
-existing="$(docker volume ls --format '{{.Name}}' | sed -n 's/_postgres-data$//p' | sort -u || true)"
-if [[ -n "$existing" ]] && ! grep -qxF "$PROJECT" <<<"$existing"; then
-    die "this host already carries a deployment under the project name(s)
+existing="$(deployed_projects "$(docker volume ls --format '{{.Name}}')" \
+    "$(docker ps -a --filter label=com.docker.compose.service=steward-agent --format '{{.Label "com.docker.compose.project"}}')")"
+case "$(deployment_kind "$PROJECT" "$existing" "$INSTALL_DIR")" in
+    second)
+        die "this host already carries a deployment under the project name(s)
        '$(tr '\n' ' ' <<<"$existing")', and this run would deploy '$PROJECT'. That would not fail -
-       it would create a SECOND stack with empty volumes beside the one holding the worlds. Set
-       COMPOSE_PROJECT_NAME in $ENV_FILE to the existing name, or remove the old deployment first."
-fi
-if grep -qxF "$PROJECT" <<<"$existing"; then
-    ADOPTING=true
-    log "adopting the existing deployment '$PROJECT' - its volumes are kept"
-else
-    ADOPTING=false
-    log "this is a first deployment; project '$PROJECT'"
-fi
+       it would start a SECOND stack beside the one holding the worlds. Set COMPOSE_PROJECT_NAME in
+       $ENV_FILE to the existing name, or remove the old deployment first."
+        ;;
+    adopt)
+        ADOPTING=true
+        log "adopting the existing deployment '$PROJECT' - its data is kept"
+        ;;
+    *)
+        ADOPTING=false
+        log "this is a first deployment; project '$PROJECT'"
+        ;;
+esac
 
 # Named volumes of an older installation are no longer mounted, so starting on empty directories
 # needs consent. Nothing is copied or deleted.
@@ -1634,7 +1658,7 @@ command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and the gene
 if [[ -z "$(env_value "$ENV_FILE" POSTGRES_PASSWORD)" ]] && $ADOPTING && ! $CHECK_ONLY; then
     ask_for POSTGRES_PASSWORD secret - \
         "The password of the database that is already on this host." \
-        "'${PROJECT}_postgres-data' exists, so postgres will not take a new password: it reads
+        "'$PROJECT' already has a database here, so postgres will not take a new password: it reads
         POSTGRES_PASSWORD only when it initialises an empty data directory. Generating one here
         would leave every service unable to log in to a database that is working fine."
 else

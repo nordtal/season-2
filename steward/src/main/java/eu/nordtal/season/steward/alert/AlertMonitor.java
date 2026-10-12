@@ -6,8 +6,11 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.messages.MessageRef;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -127,13 +130,7 @@ public final class AlertMonitor {
             if (run.status() != UpdateStatus.FAILED) {
                 continue;
             }
-            final Alert alert = new Alert(
-                    AlertType.RUN,
-                    Alert.Level.DOWN,
-                    run.kind().name().toLowerCase(Locale.ROOT),
-                    TEXTS.alert().runFailed(run.kind()),
-                    List.of(TEXTS.alert().run(run.id())),
-                    run.page());
+            final Alert alert = runFailed(run);
             try {
                 if (book.raiseOnce("run:" + run.id(), alert, RAISED_BY)) {
                     log.info("Run {} failed, so it was raised as an alert.", run.id());
@@ -142,6 +139,24 @@ public final class AlertMonitor {
                 log.warn("Could not raise the failed run {}", run.id(), failure);
             }
         }
+    }
+
+    /** A failed run as its card in the admin channel names it, with the same failed lines and records below. */
+    static Alert runFailed(final UpdateRequest run) {
+        final List<MessageRef> detail = new ArrayList<>();
+        detail.add(TEXTS.alert().run(run.id()));
+        UpdateReports.parse(run.result()).map(UpdateReport::failures).orElse(List.of()).stream()
+                .map(failure -> failure.service() == null
+                        ? failure.what()
+                        : TEXTS.alert().failure(failure.service(), failure.what()))
+                .forEach(detail::add);
+        return new Alert(
+                AlertType.RUN,
+                Alert.Level.DOWN,
+                run.kind().name().toLowerCase(Locale.ROOT),
+                TEXTS.run().title(run.kind(), UpdateReport.Stage.FAILED),
+                detail,
+                run.page());
     }
 
     private void raise(final Alert alert) {

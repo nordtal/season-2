@@ -31,6 +31,10 @@ export type TextArgs = {
     service: Arg["text"]
     code: Arg["number"]
   }
+  "alert.failure": {
+    service: Arg["text"]
+    what: Arg["message"]
+  }
   "alert.health-fails": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
@@ -108,9 +112,6 @@ export type TextArgs = {
   }
   "alert.run": {
     run: Arg["number"]
-  }
-  "alert.run-failed": {
-    kind: Arg["choice"]
   }
   "alert.several": {
     subjects: Arg["list"]

@@ -344,12 +344,13 @@ public interface AdminTexts {
         @Name("Several of one type at once")
         MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);
 
-        @Name("A run failed")
-        MessageRef runFailed(@Arg("kind") UpdateKind kind);
-
         @Name("Which run")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
         MessageRef run(@Arg("run") long run);
+
+        @Name("Why a run failed, about one service")
+        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        MessageRef failure(@Arg("service") String service, @Arg("what") MessageRef what);
 
         @Name("No services")
         MessageRef noServices();

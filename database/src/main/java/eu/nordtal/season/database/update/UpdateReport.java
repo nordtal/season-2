@@ -92,6 +92,38 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
     }
 
     /**
+     * Returns what explains a failed or stopped run: each failed line's detail, then each failed record, in order.
+     *
+     * A run that went well, or is still going, explains nothing; the bot's card and a failed run's alert say these.
+     */
+    public List<Failure> failures() {
+        if (stage != Stage.FAILED && stage != Stage.CANCELLED) {
+            return List.of();
+        }
+        final List<Failure> said = new ArrayList<>();
+        for (final ServiceLine line : services) {
+            final MessageRef detail = line.detail();
+            if (line.state() == State.FAILED && detail != null) {
+                said.add(new Failure(line.service(), detail));
+            }
+        }
+        for (final Note note : notes) {
+            if (note.outcome() == Outcome.FAILED) {
+                said.add(new Failure(note.service(), note.what()));
+            }
+        }
+        return List.copyOf(said);
+    }
+
+    /** One reason a run failed, about one service or, without one, about the run. */
+    public record Failure(@Nullable String service, MessageRef what) {
+
+        public Failure {
+            Objects.requireNonNull(what, "what");
+        }
+    }
+
+    /**
      * One service, and what has happened to it so far.
      *
      * @param detail what a failure or a long step says beside the state, a message of the report section, or none

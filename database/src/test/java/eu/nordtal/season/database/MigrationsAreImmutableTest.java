@@ -154,6 +154,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V42__the_bot_writes_journal_lines_of_its_own.sql",
                 "11e48f2e97f9a46b8489b452e6219f81f71d5d4895cdadfccd686efc549824c8");
+        FROZEN.put(
+                "V43__a_failed_run_s_alert_is_titled_as_its_card_is.sql",
+                "49ba27ce176a9086e1d71b9ed20e4d406763dce961b665006055f267bc919fe7");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.alert;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -13,6 +14,8 @@ import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.steward.AdminPlain;
 import java.time.Clock;
@@ -171,8 +174,8 @@ class AlertMonitorTest {
 
     @Test
     void aFailedRunIsRaisedOnceAndADoneOneNever() {
-        final long failed = finished(UpdateStatus.FAILED);
-        finished(UpdateStatus.DONE);
+        final long failed = finished(UpdateKind.UPDATE, UpdateStatus.FAILED, "{}");
+        finished(UpdateKind.UPDATE, UpdateStatus.DONE, "{}");
 
         monitor.runs();
         monitor.runs();
@@ -181,18 +184,43 @@ class AlertMonitorTest {
         assertEquals(1, alerts.size());
         final Alert alert = alerts.getFirst().alert();
         assertEquals(AlertType.RUN, alert.type());
-        assertEquals("The update run failed", AdminPlain.of(alert.title()));
+        assertEquals("The update failed", AdminPlain.of(alert.title()));
         assertEquals(List.of("Run " + failed + "."), AdminPlain.of(alert.detail()));
         assertEquals("/operations/updates/" + failed, alert.path());
         assertNotNull(alerts.getFirst().raised());
     }
 
-    private long finished(final UpdateStatus status) {
-        final long id = runs.submit(UpdateKind.UPDATE, Actor.STEWARD, null).id();
+    @Test
+    void aFailedRunsAlertNamesItsKindAndSaysWhatTheRunCardSaysWhy() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .with(new UpdateReport.ServiceLine(
+                        "database",
+                        UpdateReport.State.FAILED,
+                        List.of(),
+                        TEXTS.report().notSaved()))
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null))
+                .withNote(UpdateReport.Note.skipped(
+                        UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()))
+                .withNote(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN, TEXTS.report().failedUnexpectedly("boom")));
+        final long failed = finished(UpdateKind.BACKUP, UpdateStatus.FAILED, UpdateReports.toJson(report));
+
+        monitor.runs();
+
+        final Alert alert = book.claimUnrouted().getFirst().alert();
+        assertEquals("The backup failed", AdminPlain.of(alert.title()));
+        assertEquals(
+                List.of("Run " + failed + ".", "database not saved", "failed unexpectedly: boom"),
+                AdminPlain.of(alert.detail()),
+                "the failed lines and records, each led by its service, and nothing that went right");
+    }
+
+    private long finished(final UpdateKind kind, final UpdateStatus status, final String report) {
+        final long id = runs.submit(kind, Actor.STEWARD, null).id();
         // steward-agent's half, as the owner it logs in as.
         final UpdateDirectory agent = UpdateDirectory.using(owner);
         assertEquals(id, agent.claimNext().orElseThrow().id());
-        assertEquals(status, agent.finish(id, status, "{}").orElseThrow().status());
+        assertEquals(status, agent.finish(id, status, report).orElseThrow().status());
         return id;
     }
 }

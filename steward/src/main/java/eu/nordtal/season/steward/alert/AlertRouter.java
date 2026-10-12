@@ -16,6 +16,7 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.steward.push.PushSender;
 import eu.nordtal.season.steward.push.PushSubscriptions;
@@ -203,7 +204,7 @@ public final class AlertRouter {
                         type,
                         Alert.Level.DOWN,
                         "update",
-                        TEXTS.alert().runFailed(UpdateKind.UPDATE),
+                        TEXTS.run().title(UpdateKind.UPDATE, UpdateReport.Stage.FAILED),
                         "/operations/updates");
             case PAYMENT ->
                 new Alert(type, Alert.Level.DOWN, "payment", TEXTS.alert().payment(), "/payments");

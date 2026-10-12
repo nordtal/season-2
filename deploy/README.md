@@ -177,7 +177,7 @@ terminal the command then asks whether to go on, and without one it says to ask 
 The command asks steward-agent through `docker exec`, so it passes the same refusals as a button.
 Each request is a row in `steward_inbox` whose `outcome` is the report; one run is open at a time. Before asking,
 an installed `nordtal.sh` replaces itself with the newest release's copy and runs that, so it knows
-that release's flags; after an update that ends `DONE` it is the copy of the release the run installed,
+that release's flags and generates a secret that release adds; after an update that ends `DONE` it is the copy of the release the run installed,
 whose version it reads from steward-agent's image.
 
 A run downloads everything into a staging directory, stops the affected servers, migrates, moves the

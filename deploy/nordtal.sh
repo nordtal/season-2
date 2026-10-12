@@ -899,6 +899,25 @@ set_secret() {
     log "$name generated ($bytes random bytes, hex)"
 }
 
+# Generates every secret but POSTGRES_PASSWORD that is missing, on a deploy and on an update alike, so a
+# release that adds one brings it whichever way it is installed.
+generate_secrets() {
+    # Each service's own database role; steward-agent sets these on the roles at every start, so a new
+    # one only needs a restart, unlike POSTGRES_PASSWORD.
+    set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
+    set_secret POSTGRES_PROXY_PASSWORD 24
+    set_secret POSTGRES_LIMBO_PASSWORD 24
+    set_secret POSTGRES_HUNGER_GAMES_PASSWORD 24
+    set_secret POSTGRES_SMP_PASSWORD 24
+    set_secret POSTGRES_STEWARD_PASSWORD 24
+    set_secret VELOCITY_FORWARDING_SECRET 24
+    set_secret STEWARD_AGENT_TOKEN
+    set_secret STEWARD_BUNQ_TOKEN
+    # The key steward seals each authenticator app's secret with. A new one leaves every enrolled app
+    # unreadable, so each admin adds theirs again; it is never rotated by this script.
+    set_secret STEWARD_TOTP_KEY
+}
+
 # The compose projects that already have a deployment on this host, one per line: each project with a
 # steward-agent container, running or not, and each `<project>_postgres-data` volume of an older installation.
 deployed_projects() {
@@ -1190,6 +1209,11 @@ cmd_update() {
     # the lines while the running agent's compose.yml still reads them there, since compose refuses a
     # file that lacks one it requires; they go once that agent reads the services' files.
     settle_for_agent "$UPDATE_ENV_FILE" "$container"
+    # This copy is the release's, so a secret that release adds is made before the run installs it. A
+    # deploy, which sets ENV_FILE, made them already.
+    if [[ -z "${ENV_FILE:-}" ]]; then
+        ENV_FILE="$UPDATE_ENV_FILE" CHECK_ONLY=false generate_secrets
+    fi
 
     local id
     # A subshell, so its die ends only it; the exit here ends the command.
@@ -1664,21 +1688,7 @@ if [[ -z "$(env_value "$ENV_FILE" POSTGRES_PASSWORD)" ]] && $ADOPTING && ! $CHEC
 else
     set_secret POSTGRES_PASSWORD 24
 fi
-
-# Each service's own database role; steward-agent sets these on the roles at every start, so a new
-# one only needs a restart, unlike POSTGRES_PASSWORD.
-set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
-set_secret POSTGRES_PROXY_PASSWORD 24
-set_secret POSTGRES_LIMBO_PASSWORD 24
-set_secret POSTGRES_HUNGER_GAMES_PASSWORD 24
-set_secret POSTGRES_SMP_PASSWORD 24
-set_secret POSTGRES_STEWARD_PASSWORD 24
-set_secret VELOCITY_FORWARDING_SECRET 24
-set_secret STEWARD_AGENT_TOKEN
-set_secret STEWARD_BUNQ_TOKEN
-# The key steward seals each authenticator app's secret with. A new one leaves every enrolled app
-# unreadable, so each admin adds theirs again; it is never rotated by this script.
-set_secret STEWARD_TOTP_KEY
+generate_secrets
 
 # 4b · the Web Push keypair
 # Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half

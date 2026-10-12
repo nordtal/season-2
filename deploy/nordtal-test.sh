@@ -789,6 +789,36 @@ case_begin "a run under another project name beside a deployment is refused"
     || bad "a second stack on the same data directory"
 ok "another project beside a running stack is a second stack"
 
+case_begin "an update generates every secret a deploy does, so a release that adds one brings it"
+# Every set_secret but POSTGRES_PASSWORD's, which postgres reads only on an empty data directory, is in
+# generate_secrets, and the update calls it.
+outside="$(awk '/^generate_secrets\(\)/ { inside = 1 } inside && /^}/ { inside = 0; next }
+    !inside && /^[[:space:]]*set_secret / && !/set_secret POSTGRES_PASSWORD / { print NR": "$0 }' "$SETUP")"
+[[ -z "$outside" ]] || bad "a set_secret outside generate_secrets, which an update does not reach: $outside"
+awk '/^cmd_update\(\)/ { inside = 1 } inside && /^}/ { exit } inside && /generate_secrets/ { found = 1 }
+    END { exit !found }' "$SETUP" || bad "cmd_update does not call generate_secrets"
+generated="$(awk '/^generate_secrets\(\)/ { inside = 1 } inside && /^}/ { exit }
+    inside && /^[[:space:]]*set_secret / { print $2 }' "$SETUP" | sort)"
+listed="$(printf '%s\n' "${GENERATED[@]}" \
+    | grep -vxE 'POSTGRES_PASSWORD|STEWARD_WEB_PUSH_PUBLIC_KEY|STEWARD_WEB_PUSH_PRIVATE_KEY' | sort)"
+[[ "$generated" == "$listed" ]] \
+    || bad "generate_secrets makes $(tr '\n' ' ' <<<"$generated")and GENERATED lists $(tr '\n' ' ' <<<"$listed")"
+rm -rf "$WORK/update"
+mkdir -p "$WORK/update/secrets/steward"
+: > "$WORK/update/secrets/steward/secrets.env"
+printf 'NORDTAL_SECRETS_DIR=%s/update/secrets\nSTEWARD_AGENT_TOKEN=kept\n' "$WORK" > "$WORK/update/season-2.env"
+chown() { :; }
+(
+    ENV_FILE="$WORK/update/season-2.env" CHECK_ONLY=false
+    generate_secrets >/dev/null 2>&1
+)
+unset -f chown
+[[ "$(env_value "$WORK/update/secrets/steward/secrets.env" NORDTAL_STEWARD_WEB_TOTP_KEY)" =~ ^[0-9a-f]{64}$ ]] \
+    || bad "a missing key was not generated into steward's file"
+[[ "$(env_value "$WORK/update/season-2.env" STEWARD_AGENT_TOKEN)" == kept ]] || bad "a set secret was generated again"
+has_assignment "$WORK/update/season-2.env" POSTGRES_PASSWORD && bad "an update generated a database password"
+ok "every generated secret but the database's is reached by an update, and a set one is left alone"
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

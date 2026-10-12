@@ -57,15 +57,16 @@ class ActionEntryTest {
                 + "],\"notes\":[]}";
         final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, report));
         assertEquals("2 of 3 successful", shown(entry.extent()));
-        assertEquals("Update", shown(entry.label()));
+        assertEquals("Update finished", shown(entry.label()), "a run is headed by its kind and stage");
     }
 
     @Test
-    void nothingTouchedReadsTheReportsOwnHeadline() {
+    void nothingTouchedIsHeadedByTheReportsStageAndSaysOnlyTheStatus() {
         final String report = "{\"stage\":\"NOTHING_TO_DO\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"UNCHANGED\",\"changes\":[]}],\"notes\":[]}";
-        final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, report));
-        assertEquals("Everything is already current", shown(entry.extent()));
+        final ActionEntry entry = ActionEntry.of(run(UpdateKind.BACKUP, UpdateStatus.DONE, Actor.HOST, report));
+        assertEquals("Nothing to back up", shown(entry.label()));
+        assertEquals("done", shown(entry.extent()));
     }
 
     @Test
@@ -74,6 +75,7 @@ class ActionEntryTest {
         final ActionEntry done = ActionEntry.of(
                 run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, "some plain text a very old steward wrote"));
         assertEquals("done", shown(done.extent()));
+        assertEquals("Update", shown(done.label()), "without a stage, the kind alone heads it");
 
         final ActionEntry failed = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.FAILED, Actor.HOST, null));
         assertEquals("failed", shown(failed.extent()));

@@ -726,7 +726,6 @@ export type TextArgs = {
     text: Arg["text"]
   }
   "run.duration": Record<string, never>
-  "run.heading": Record<string, never>
   "run.kind": {
     kind: Arg["choice"]
   }
@@ -738,9 +737,6 @@ export type TextArgs = {
     outcome: Arg["choice"]
   }
   "run.services": Record<string, never>
-  "run.stage": {
-    stage: Arg["choice"]
-  }
   "run.state": {
     state: Arg["choice"]
   }
@@ -753,6 +749,10 @@ export type TextArgs = {
   "run.successful": {
     successful: Arg["number"]
     total: Arg["number"]
+  }
+  "run.title": {
+    kind: Arg["choice"]
+    stage: Arg["choice"]
   }
   "run.took": {
     took: Arg["duration"]

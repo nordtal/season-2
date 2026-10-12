@@ -511,6 +511,55 @@ class UpdateFeedTest {
         assertFalse(names(running).contains("Why"), "the card is edited once the run settles: " + names(running));
     }
 
+    // The run's kind, said once
+
+    @Test
+    void theTitleNamesTheRunsKindAtEachStage() {
+        assertEquals("✅ Backup finished", title(UpdateKind.BACKUP, UpdateReport.Stage.DONE));
+        assertEquals("🛑 The backup failed", title(UpdateKind.BACKUP, UpdateReport.Stage.FAILED));
+        assertEquals("✅ Update finished", title(UpdateKind.UPDATE, UpdateReport.Stage.DONE));
+        assertEquals("⏳ Restarting shortly", title(UpdateKind.RESTART, UpdateReport.Stage.COUNTDOWN));
+        assertEquals(
+                "🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, UpdateReport.Stage.STOPPING));
+        assertEquals("✅ Nothing to start", title(UpdateKind.START, UpdateReport.Stage.NOTHING_TO_DO));
+        assertEquals("⏹️ Plugin removal stopped", title(UpdateKind.REMOVE_PLUGIN, UpdateReport.Stage.CANCELLED));
+        for (final UpdateKind kind : UpdateKind.values()) {
+            for (final UpdateReport.Stage stage : UpdateReport.Stage.values()) {
+                final String shown = title(kind, stage);
+                assertFalse(shown.contains("{") || shown.contains("run."), "unrendered: " + shown);
+            }
+        }
+    }
+
+    @Test
+    void theKindIsInTheTitleAndNotAgainAsAField() {
+        rows.put(new UpdateRequest(
+                1L,
+                UpdateKind.BACKUP,
+                UpdateStatus.DONE,
+                OWNER,
+                NOW,
+                NOW,
+                null,
+                List.of(),
+                NOW,
+                NOW,
+                reportAt(UpdateReport.Stage.DONE)));
+        feed.tick();
+
+        assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().embed()));
+    }
+
+    private String title(final UpdateKind kind, final UpdateReport.Stage stage) {
+        return UpdateFeed.fields(
+                        UpdateReport.at(stage),
+                        new UpdateRequest(
+                                1L, kind, UpdateStatus.RUNNING, OWNER, NOW, NOW, null, List.of(), NOW, null, null),
+                        messages,
+                        NOW)
+                .getTitle();
+    }
+
     private static List<String> names(final MessageEmbed embed) {
         return embed.getFields().stream().map(MessageEmbed.Field::getName).toList();
     }

@@ -267,16 +267,17 @@ public interface AdminTexts {
     interface Run {
 
         @Name("Run kind")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown(Display.STEWARD)
         MessageRef kind(@Arg("kind") UpdateKind kind);
 
         @Name("Run status")
         @Shown(Display.STEWARD)
         MessageRef status(@Arg("status") UpdateStatus status);
 
-        @Name("Run stage")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED_HEADING})
-        MessageRef stage(@Arg("stage") UpdateReport.Stage stage);
+        /** The one way a run is named in words: its card's title, its failed alert's title and its row in the feed. */
+        @Name("A run's kind and stage, as a title")
+        @Shown({Display.STEWARD, Display.DISCORD_EMBED_HEADING, Display.PUSH})
+        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") UpdateReport.Stage stage);
 
         @Name("Services that came back")
         @Shown(Display.STEWARD)
@@ -285,10 +286,6 @@ public interface AdminTexts {
         @Name("A service's state in a run")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
         MessageRef state(@Arg("state") UpdateReport.State state);
-
-        @Name("Run, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef heading();
 
         @Name("Services, as a heading")
         @Shown(Display.DISCORD_EMBED_HEADING)

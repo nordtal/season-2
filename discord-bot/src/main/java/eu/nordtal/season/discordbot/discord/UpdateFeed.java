@@ -226,7 +226,7 @@ public final class UpdateFeed {
     }
 
     /**
-     * Draws one run as data: the stage as title, the outcome as its emoji, one line per service.
+     * Draws one run as data: its kind and stage as title, the outcome as its emoji, one line per service.
      *
      * @param context whether to say who asked, and from where; only the admin channel's feed does
      */
@@ -238,14 +238,13 @@ public final class UpdateFeed {
             final Instant now) {
         final Function<MessageRef, String> text = message -> messages.format(Locales.DEFAULT, message);
         final Card card = Card.of(
-                        glance(report.stage()).before(text.apply(TEXTS.run().stage(report.stage()))))
+                        glance(report.stage()).before(text.apply(TEXTS.run().title(request.kind(), report.stage()))))
                 .timestamp(request.finished() == null ? now : request.finished());
         final IntFunction<String> more =
                 count -> Card.italic(text.apply(TEXTS.run().more(count)));
 
         if (context) {
-            card.field(text.apply(TEXTS.run().heading()), text.apply(TEXTS.run().kind(request.kind())))
-                    .field(text.apply(TEXTS.journal().by()), asker(request, messages));
+            card.field(text.apply(TEXTS.journal().by()), asker(request, messages));
         }
         if (request.finished() != null && request.requested() != null) {
             card.field(

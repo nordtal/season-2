@@ -13,13 +13,14 @@ import eu.nordtal.season.messages.MessageRef;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One row of the actions feed: a run from the run inbox or a line from {@code audit_log}.
  *
  * @param kind the {@code UpdateKind} name for a run, or the {@code audit_log.action} for a journal line
  * @param occurred when this happened, by the database's clock
- * @param label what happened, as a heading
+ * @param label what happened, as a heading: a run's kind and stage, or a journal line's action
  * @param extent the outcome or its extent, such as "3 of 3 successful", or the journal's line
  * @param actor who asked for the run or did the journalled thing
  */
@@ -42,7 +43,10 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
      */
     static ActionEntry of(final UpdateRequest run) {
         final Instant occurred = run.finished() != null ? run.finished() : run.requested();
-        return new ActionEntry(run.kind().name(), occurred, TEXTS.run().kind(run.kind()), extentOf(run), run.actor());
+        final UpdateReport report = UpdateReports.parse(run.result()).orElse(null);
+        final MessageRef label =
+                report == null ? TEXTS.run().kind(run.kind()) : TEXTS.run().title(run.kind(), report.stage());
+        return new ActionEntry(run.kind().name(), occurred, label, extentOf(run, report), run.actor());
     }
 
     /**
@@ -61,26 +65,22 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
     }
 
     /**
-     * What to say a run amounted to.
+     * What to say a run amounted to, below its title.
      *
      * @param run a finished, running or pending request
-     * @return how many of the touched services came back, else the report's stage, else the row's status
+     * @param report its report, or null when it has none that parses
+     * @return how many of the touched services came back, else the row's status
      */
-    private static MessageRef extentOf(final UpdateRequest run) {
-        if (run.status() == UpdateStatus.PENDING || run.status() == UpdateStatus.RUNNING) {
+    private static MessageRef extentOf(final UpdateRequest run, final @Nullable UpdateReport report) {
+        if (report == null || run.status() == UpdateStatus.PENDING || run.status() == UpdateStatus.RUNNING) {
             return TEXTS.run().status(run.status());
         }
-        final var report = UpdateReports.parse(run.result());
-        if (report.isEmpty()) {
-            return TEXTS.run().status(run.status());
-        }
-        final UpdateReport parsed = report.get();
         final long total =
-                parsed.services().stream().filter(ActionEntry::touched).count();
+                report.services().stream().filter(ActionEntry::touched).count();
         if (total == 0) {
-            return TEXTS.run().stage(parsed.stage());
+            return TEXTS.run().status(run.status());
         }
-        final long successful = parsed.services().stream()
+        final long successful = report.services().stream()
                 .filter(line -> line.state() == UpdateReport.State.HEALTHY || line.state() == UpdateReport.State.SAVED)
                 .count();
         return TEXTS.run().successful(successful, total);

@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
  */
 class UpdateRunTest {
 
+    /** The run these steps belong to, which a mark beside an archive names. */
+    private static final long RUN = 312L;
+
     private final List<UpdateReport> progress = new ArrayList<>();
 
     @Test
@@ -29,7 +32,7 @@ class UpdateRunTest {
                 new FakeContainers().running(Topology.SMP).unreachable();
 
         assertFalse(
-                new UpdateRun(containers, new FakeSnapshots(), progress::add)
+                new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add)
                         .check()
                         .reached(),
                 "the runtime read is the first thing a run does, before a version is resolved or a"
@@ -42,7 +45,7 @@ class UpdateRunTest {
     @Test
     void onlyServicesWithWorkAreStopped() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP, Topology.LIMBO), containers.runtime());
 
@@ -61,7 +64,7 @@ class UpdateRunTest {
     @Test
     void aServiceIsNotStoppedForAnArtefactThatHasNoBuildToInstall() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         // smp's only line has no build for this version: something to say, nothing to do, and not empty.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
@@ -83,7 +86,7 @@ class UpdateRunTest {
     @Test
     void stewardIsStoppedLikeAnyOtherServiceSinceTheRunNoLongerRunsInsideIt() {
         final FakeContainers containers = new FakeContainers().running(Topology.STEWARD, Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped =
                 run.stop(planned(Topology.STEWARD, Topology.SMP).with(work(Topology.STEWARD)), containers.runtime());
@@ -98,7 +101,7 @@ class UpdateRunTest {
     void theDatabaseDumpIsAReportLineAndNotAContainerSoTheStopLeavesItAlone() {
         // The database dump succeeds while a stop finding no matching container must not overwrite a SAVED line.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateReport planned = planned(Topology.SMP)
                 .with(new UpdateReport.ServiceLine(
                         Snapshots.DATABASE,
@@ -123,7 +126,7 @@ class UpdateRunTest {
     void aServiceThatCouldNotBeStoppedIsNotInstalledToAndNotStarted() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopFails();
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
 
@@ -140,7 +143,7 @@ class UpdateRunTest {
     @Test
     void aServiceTheProjectHasNoContainerForFailsByNameRatherThanSilently() {
         final FakeContainers containers = new FakeContainers().running(Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
 
@@ -154,7 +157,7 @@ class UpdateRunTest {
     @Test
     void stopComesBeforeStartAndBothAreRecordedInOrder() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()));
 
@@ -168,7 +171,7 @@ class UpdateRunTest {
     @Test
     void aServiceThatIsRunningButNotHealthyHasNotComeBack() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped);
         containers.sick(Topology.SMP);
@@ -189,7 +192,7 @@ class UpdateRunTest {
     @Test
     void aServiceThatReportsHealthyInsideTheWindowIsTheSuccessCase() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped);
 
@@ -218,7 +221,7 @@ class UpdateRunTest {
     @Test
     void oneServiceFailingDoesNotLoseTheOnesThatCameBack() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped =
                 run.stop(planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), containers.runtime());
         final UpdateReport started = run.start(stopped);
@@ -240,7 +243,7 @@ class UpdateRunTest {
         // Runner reads exactly this to abort: a service with work not in stopped.services() is still RUNNING.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopFails();
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateReport planned = planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO));
         final UpdateRun.Stopped stopped = run.stop(planned, containers.runtime());
@@ -260,7 +263,7 @@ class UpdateRunTest {
         // The whole correctness of a backup run is this ordering: a still-writing snapshot fails at RESTORE, unseen.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"));
@@ -278,7 +281,7 @@ class UpdateRunTest {
         // Reverses the HTTP version: a local tar is this host's one disk, and running them all at once fights over it.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp", "bot-config"));
 
@@ -289,7 +292,7 @@ class UpdateRunTest {
     void oneVolumeThatFailsDoesNotCostTheRunTheVolumesThatWouldHaveWorked() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateReport saved =
                 run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp", "bot-config"));
@@ -302,7 +305,7 @@ class UpdateRunTest {
     void aFailureCarriesItsOwnReasonIntoTheReportNotAGenericSentence() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
@@ -317,7 +320,7 @@ class UpdateRunTest {
         // A run that snapshotted zero volumes must not report success.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).savesNothing("mc-smp");
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
@@ -328,7 +331,7 @@ class UpdateRunTest {
     @Test
     void everyStepReportsItsProgressBecauseTheRowIsTheProgressBar() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()));
 
@@ -401,7 +404,7 @@ class UpdateRunTest {
         // The whole point of the image path: a start hands the container back on exactly the image it was created from.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
@@ -415,7 +418,7 @@ class UpdateRunTest {
     void aCurrentImageIsStartedExactlyAsBeforeAndSoIsAnUncheckedOne() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).imageCurrent(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP, Topology.LIMBO), containers.runtime()), containers.images());
 
@@ -428,7 +431,7 @@ class UpdateRunTest {
         // Every path undoing something calls the one-argument start(); pulling an image there would change a version.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()));
 
@@ -445,7 +448,7 @@ class UpdateRunTest {
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
                 .recreateRefused(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateReport report =
                 run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
@@ -479,7 +482,7 @@ class UpdateRunTest {
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
                 .recreateRefused(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped, containers.images());
 
@@ -508,7 +511,7 @@ class UpdateRunTest {
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
                 .recreateRefused(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped, containers.images());
 
@@ -533,7 +536,7 @@ class UpdateRunTest {
         // A recreate that considered steward a dependency could take down the process making the call.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 

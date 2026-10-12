@@ -59,6 +59,18 @@ kind_is "nordtal-20260913T031500Z.dump.unverified"              mark
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst" volume
 ok "a mark is a mark, and the archive beside it is still restorable"
 
+case_begin "a mark is read as the run and the services whose stop nobody could confirm"
+# steward-agent writes the mark as a record; restore.sh says it in words before the confirmation.
+said="$(mark_words '{"run":312,"services":["smp","limbo"]}')"
+[[ "$said" == "run 312 stopped smp, limbo, and how they ended could not be read back" ]] \
+    || bad "two services read as '$said'"
+said="$(mark_words '{"run":7,"services":["smp"]}')"
+[[ "$said" == "run 7 stopped smp, and how it ended could not be read back" ]] \
+    || bad "one service reads as '$said'"
+said="$(mark_words 'not a record')"
+[[ "$said" == "not a record" ]] || bad "a mark that is no record is shown as it is, not '$said'"
+ok "the run and its services are named, and anything else is shown as it is"
+
 case_begin "anything else is refused rather than guessed at"
 for wrong in \
     "" \

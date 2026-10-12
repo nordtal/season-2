@@ -38,6 +38,9 @@ final class UpdateRun {
     /** How often the runtime is re-read while waiting: one call over the local socket. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
+    /** The run these steps belong to, which a mark beside an archive names. */
+    private final long run;
+
     private final ContainerOps containers;
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
@@ -52,7 +55,12 @@ final class UpdateRun {
      */
     private final Map<String, Facts> fellBack = new LinkedHashMap<>();
 
-    UpdateRun(final ContainerOps containers, final Snapshots snapshots, final Consumer<UpdateReport> progress) {
+    UpdateRun(
+            final long run,
+            final ContainerOps containers,
+            final Snapshots snapshots,
+            final Consumer<UpdateReport> progress) {
+        this.run = run;
         this.containers = containers;
         this.snapshots = snapshots;
         this.progress = progress;
@@ -130,13 +138,10 @@ final class UpdateRun {
             UpdateReport.Mark mark = null;
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
-                final String why = "The servers were stopped for this backup and the end of "
-                        + String.join(", ", unverifiedStops) + " could not be read back, so nothing"
-                        + " here knows whether the world had finished saving. The archive is"
-                        + " readable; what is unverified is the moment it was taken.";
-                mark = snapshots.markUnverified(result.file(), why) == null
-                        ? UpdateReport.Mark.NOT_WRITTEN
-                        : UpdateReport.Mark.WRITTEN;
+                mark = snapshots.markUnverified(
+                                result.file(), new Snapshots.Unverified(run, List.copyOf(unverifiedStops)))
+                        ? UpdateReport.Mark.WRITTEN
+                        : UpdateReport.Mark.NOT_WRITTEN;
             }
             report = report.with(saved(volume, result, mark));
             progress.accept(report);

@@ -265,7 +265,8 @@ Everything that cannot be rebuilt is in PostgreSQL and the two world volumes. Th
 `steward#backup.at`; `/backup now` asks for one. A run counts down, dumps the database with `pg_dump`
 inside the postgres container, stops the configured services, tars each volume through `zstd`,
 applies retention and starts everything again. Each archive is read back before it loses its
-`.partial` suffix; an `<archive>.unverified` file means a service's stop could not be confirmed.
+`.partial` suffix; an `<archive>.unverified` file records the run and the services whose stop could
+not be confirmed.
 
 `compose.yml` is the backup set: every volume mounted under steward-agent's `/backup-sources` is saved
 and every service labelled `eu.nordtal.backup: stop` is stopped meanwhile. It includes `mc-smp` and

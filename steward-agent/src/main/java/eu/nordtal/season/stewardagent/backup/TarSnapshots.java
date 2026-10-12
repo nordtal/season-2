@@ -1,5 +1,6 @@
 package eu.nordtal.season.stewardagent.backup;
 
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.update.ByteSize;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
@@ -387,24 +388,28 @@ public final class TarSnapshots {
         return null;
     }
 
-    /** Marks an archive as saved behind a stop nobody could verify, and answers the mark's name or {@code null}. */
-    public @Nullable String markUnverified(final String archive, final String why) {
+    /** Marks an archive as saved behind a stop nobody could verify, one line of JSON, and answers whether it did. */
+    public boolean markUnverified(final String archive, final Snapshots.Unverified record) {
         final Path mark;
         try {
             mark = Path.of(archive + MARK);
         } catch (final InvalidPathException notAPath) {
             log.warn("cannot mark {}: {}", archive, notAPath.toString());
-            return null;
+            return false;
         }
         try {
-            Files.writeString(mark, why + System.lineSeparator(), StandardCharsets.UTF_8);
+            Files.writeString(mark, Json.encode(record) + System.lineSeparator(), StandardCharsets.UTF_8);
         } catch (final IOException unwritable) {
             // Not a reason to discard a backup that succeeded, but logged loudly.
             log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
-            return null;
+            return false;
         }
-        log.warn("{} was taken after a stop that could not be verified: {}", mark.getFileName(), why);
-        return mark.getFileName().toString();
+        log.warn(
+                "{} was taken by run {} after the stop of {} could not be verified",
+                mark.getFileName(),
+                record.run(),
+                String.join(", ", record.services()));
+        return true;
     }
 
     /**

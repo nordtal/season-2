@@ -11,7 +11,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 /**
  * What a run saves with: the volumes tarred from their mounts, the database dumped inside its own container.
@@ -71,8 +70,8 @@ public final class LocalSnapshots implements Snapshots {
     }
 
     @Override
-    public @Nullable String markUnverified(final String archive, final String why) {
-        return tars.markUnverified(archive, why);
+    public boolean markUnverified(final String archive, final Unverified mark) {
+        return tars.markUnverified(archive, mark);
     }
 
     @Override

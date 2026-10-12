@@ -159,7 +159,7 @@ public final class Runner implements RequestRunner {
     @Override
     public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
         try {
-            final UpdateRun steps = new UpdateRun(containers, backups, progress);
+            final UpdateRun steps = new UpdateRun(request.id(), containers, backups, progress);
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {

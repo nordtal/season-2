@@ -11,12 +11,15 @@ import org.junit.jupiter.api.Test;
 /** An update removes the images nothing uses once everything it stopped is back, and says what that freed. */
 class ImagePruneTest {
 
+    /** The run these steps belong to, which a mark beside an archive names. */
+    private static final long RUN = 312L;
+
     private final FakeContainers containers = new FakeContainers().running("smp");
     private final List<UpdateReport> progress = new ArrayList<>();
 
     @Test
     void theImagesArePrunedOnlyOnceEverythingIsBackAndTheReportSaysWhatWent() {
-        final UpdateRun steps = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun steps = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped =
                 new UpdateRun.Stopped(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of(), containers.runtime());
 

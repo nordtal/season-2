@@ -66,6 +66,24 @@ restore_confirmed() {
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
+# A mark beside an archive in words. steward-agent writes it as one line of JSON, the run and the
+# services whose stop it could not confirm; anything else is shown as it is.
+mark_words() {
+    local mark="$1" run services
+    run="$(sed -n 's/^{"run":\([0-9]*\),"services":\[.*\]}$/\1/p' <<<"$mark")"
+    services="$(sed -n 's/^{"run":[0-9]*,"services":\[\(.*\)\]}$/\1/p' <<<"$mark")"
+    if [[ -z "$run" || -z "$services" ]]; then
+        printf '%s\n' "$mark"
+        return
+    fi
+    services="${services//\"/}"
+    if [[ "$services" == *,* ]]; then
+        printf 'run %s stopped %s, and how they ended could not be read back\n' "$run" "${services//,/, }"
+    else
+        printf 'run %s stopped %s, and how it ended could not be read back\n' "$run" "$services"
+    fi
+}
+
 # What the daemon's volume filter is asked for, one value a line: the volume's name and, when the
 # target is a directory, its path, since a bind-mounted directory is no volume to the daemon.
 holder_filters() {
@@ -156,9 +174,10 @@ if $LIST_ONLY; then
     # Prints every `.unverified` mark, which may be a reason to pick another archive.
     in_backups 'for m in /backups/*.unverified; do
         [ -e "$m" ] || continue
-        printf "\n%s\n" "$(basename "$m")"
-        sed "s/^/    /" "$m"
-    done'
+        printf "%s\t%s\n" "$(basename "$m")" "$(cat "$m")"
+    done' | while IFS=$'\t' read -r name record; do
+        printf '\n%s\n    %s\n' "$name" "$(mark_words "$record")"
+    done
     exit 0
 fi
 
@@ -175,8 +194,8 @@ case "$kind" in
        renames it only after reading it back, so this one is a backup that was interrupted - there
        is nothing complete in it to restore." ;;
     mark)
-        die "'$ARCHIVE' is the mark beside an archive, not the archive. It says why the backup it
-       belongs to was taken after a stop nobody could confirm; read it with \`--list\` and then
+        die "'$ARCHIVE' is the mark beside an archive, not the archive. It names the run that took
+       the backup it belongs to and the services whose stop nobody could confirm; read it with \`--list\` and then
        name '${ARCHIVE%.unverified}' if you still want it." ;;
     unknown)
         die "'$ARCHIVE' is not a name this deployment writes. A volume archive is
@@ -249,7 +268,7 @@ size="$(in_backups "ls -lh '/backups/$ARCHIVE' | awk '{ print \$5 }'")"
 # The `.unverified` mark, if any, shown before the confirmation.
 mark=""
 if in_backups "test -f '/backups/$ARCHIVE.unverified'"; then
-    mark="$(in_backups "cat '/backups/$ARCHIVE.unverified'")"
+    mark="$(mark_words "$(in_backups "cat '/backups/$ARCHIVE.unverified'")")"
 fi
 
 printf '\n'

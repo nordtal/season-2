@@ -4,7 +4,6 @@ import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import java.util.Collection;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Saves the volumes and the database, synchronously, and sweeps old archives.
@@ -37,11 +36,18 @@ public interface Snapshots {
      * Writes a sidecar mark saying the servers behind this archive were stopped unverified.
      *
      * @param archive the path {@link SnapshotResult#file()} came back with
-     * @param why what could not be confirmed, in a sentence somebody reads before restoring
-     * @return the name of the mark, or {@code null} if it could not be written, which is logged and keeps the backup
+     * @param mark the run and the services whose ending could not be read back, which restore.sh shows before a restore
+     * @return whether it was written; one that could not be is logged and keeps the backup
      */
-    @Nullable
-    String markUnverified(String archive, String why);
+    boolean markUnverified(String archive, Unverified mark);
+
+    /**
+     * The mark beside an archive taken after a stop nobody could confirm.
+     *
+     * @param run the run that stopped the services and took the archive
+     * @param services the services whose ending could not be read back
+     */
+    record Unverified(long run, List<String> services) {}
 
     /**
      * What a sweep removed.

@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
  */
 class UnverifiedStopBackupTest {
 
+    /** The run these steps belong to, which a mark beside an archive names. */
+    private static final long RUN = 312L;
+
     private final List<UpdateReport> progress = new ArrayList<>();
 
     @Test
@@ -28,7 +31,7 @@ class UnverifiedStopBackupTest {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp", "bot-config"));
@@ -63,27 +66,24 @@ class UnverifiedStopBackupTest {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopUnverified(Topology.LIMBO);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped =
                 run.stop(planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), containers.runtime());
         run.save(stopped.report(), List.of("mc-limbo"));
 
-        final String why = snapshots.marks().get("/backups/mc-limbo-20260913T000000Z.tar.zst");
-        assertTrue(
-                why != null && why.contains(Topology.LIMBO),
-                "somebody deciding whether to restore this needs to know which server it was, so"
-                        + " they can go and look at that server's own log: " + why);
-        assertFalse(
-                why.contains(Topology.SMP),
-                "and naming a service whose stop WAS confirmed makes the warning worthless: " + why);
+        assertEquals(
+                new Snapshots.Unverified(RUN, List.of(Topology.LIMBO)),
+                snapshots.marks().get("/backups/mc-limbo-20260913T000000Z.tar.zst"),
+                "somebody deciding whether to restore this needs the run and the server, so they can go and"
+                        + " look at that server's own log; a service whose stop WAS confirmed would make it worthless");
     }
 
     @Test
     void theLineForAnUnverifiedStopCarriesTheReasonInsteadOfLookingOrdinary() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
 
@@ -106,7 +106,7 @@ class UnverifiedStopBackupTest {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp", "bot-config"));
@@ -135,7 +135,7 @@ class UnverifiedStopBackupTest {
         // Runner reads exactly this to settle a backup FAILED; the list itself is checked, not only its effects.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopUnverified(Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
 
         run.stop(planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), containers.runtime());
 
@@ -152,7 +152,7 @@ class UnverifiedStopBackupTest {
         // The other half of the claim, easy to lose: a mark on every archive is a mark nobody reads.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"));
@@ -174,7 +174,7 @@ class UnverifiedStopBackupTest {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
-        final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
+        final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"));

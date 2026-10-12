@@ -326,25 +326,22 @@ class TarSnapshotsTest {
     }
 
     @Test
-    void aMarkLandsBesideTheArchiveWithTheReasonInItAndLeavesTheArchiveAlone() throws IOException {
+    void aMarkLandsBesideTheArchiveAsARecordOfItsRunAndLeavesTheArchiveAlone() throws IOException {
         // Beside it, not inside it: a tar of a world directory unpacks whole, so a note inside would land in the world.
         Files.writeString(sourceDir(VOLUME).resolve("a.txt"), "a".repeat(4096));
         final TarSnapshots snapshots = snapshots(NIGHT);
         final SnapshotResult result = snapshots.save(VOLUME, WALL);
         assertTrue(result.ok(), result.message());
 
-        final String mark = snapshots.markUnverified(result.file(), "the end of smp could not be read back");
+        assertTrue(snapshots.markUnverified(result.file(), new Snapshots.Unverified(312L, List.of("smp", "limbo"))));
 
-        assertEquals(
-                "nordtal-s2_mc-smp-20260913T044507Z.tar.zst.unverified",
-                mark,
-                "the name comes back so the report line can point at it by name");
         final Path beside = Path.of(result.file() + ".unverified");
         assertTrue(Files.exists(beside), "no mark was written at all");
-        assertTrue(
-                Files.readString(beside).contains("the end of smp could not be read back"),
-                "the reason has to be in the file - a nameless warning tells nobody which server"
-                        + " to go and look at: " + Files.readString(beside));
+        assertEquals(
+                "{\"run\":312,\"services\":[\"smp\",\"limbo\"]}" + System.lineSeparator(),
+                Files.readString(beside),
+                "the run and its servers have to be in the file - a nameless warning tells nobody which server to"
+                        + " go and look at, and restore.sh reads this one line");
         assertEquals(
                 result.bytes(),
                 Files.size(Path.of(result.file())),
@@ -358,8 +355,10 @@ class TarSnapshotsTest {
     @Test
     void aMarkThatCannotBeWrittenCostsALogLineNotTheBackup() {
         // No archive is worse than an unverified one; UpdateRun reads null, rather than discarding a good snapshot.
-        assertNull(snapshots(NIGHT)
-                .markUnverified(root.resolve("no/such/directory/x.tar.zst").toString(), "smp"));
+        assertFalse(snapshots(NIGHT)
+                .markUnverified(
+                        root.resolve("no/such/directory/x.tar.zst").toString(),
+                        new Snapshots.Unverified(312L, List.of("smp"))));
     }
 
     @Test

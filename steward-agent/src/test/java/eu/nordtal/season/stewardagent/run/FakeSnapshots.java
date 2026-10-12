@@ -17,7 +17,7 @@ final class FakeSnapshots implements Snapshots {
     private final List<String> calls;
     private final Set<String> failing = new HashSet<>();
     private final Set<String> empty = new HashSet<>();
-    private final Map<String, String> marks = new LinkedHashMap<>();
+    private final Map<String, Unverified> marks = new LinkedHashMap<>();
     private @Nullable SnapshotResult offsite;
     private boolean full;
 
@@ -70,14 +70,14 @@ final class FakeSnapshots implements Snapshots {
 
     /** The mark, recorded in the same call list, because when it is written is half the point. */
     @Override
-    public @Nullable String markUnverified(final String archive, final String why) {
+    public boolean markUnverified(final String archive, final Unverified mark) {
         calls.add("mark:" + archive.substring(archive.lastIndexOf('/') + 1));
-        marks.put(archive, why);
-        return archive.substring(archive.lastIndexOf('/') + 1) + ".unverified";
+        marks.put(archive, mark);
+        return true;
     }
 
-    /** What was marked, with which sentence, in the order the marks were made. */
-    Map<String, String> marks() {
+    /** What was marked, with which record, in the order the marks were made. */
+    Map<String, Unverified> marks() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(marks));
     }
 

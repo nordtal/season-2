@@ -338,8 +338,7 @@ export type Available = {
   hasWork: boolean
   hasFailures: boolean
   changes: AvailableChange[]
-  unclaimed: Unclaimed[]
-  notes: MessageRef[]
+  notes: RunNote[]
 }
 
 export type Action = {
@@ -690,9 +689,11 @@ export type AvailableChange = {
   reason?: MessageRef
 }
 
-export type Unclaimed = {
-  service: string
-  fileName: string
+export type RunNote = {
+  step: RunStep
+  outcome: RunOutcome
+  service?: string
+  what: MessageRef
 }
 
 export type ConfigEntry = {
@@ -781,13 +782,6 @@ export type ReportLine = {
   detail?: MessageRef
 }
 
-export type RunNote = {
-  step: RunStep
-  outcome: RunOutcome
-  service?: string
-  what: MessageRef
-}
-
 export type SmpObjective = {
   key: string
   type: string
@@ -820,6 +814,21 @@ export type LastRun = {
 }
 
 export type PluginGroup = "nordtal" | "preinstalled" | "added"
+
+export type RunStep =
+  | "RUN"
+  | "SCOPE"
+  | "SOURCES"
+  | "RELEASE"
+  | "STANDBY"
+  | "PLAYERS"
+  | "STOP"
+  | "BACKUP"
+  | "MIGRATE"
+  | "INSTALL"
+  | "CLEANUP"
+
+export type RunOutcome = "DONE" | "SKIPPED" | "WARNING" | "FAILED"
 
 export type ConfigShape = "SCALAR" | "LIST" | "MAP" | "SECTIONS"
 
@@ -886,21 +895,6 @@ export type ReportChange = {
   state: ChangeState
   told?: MessageRef
 }
-
-export type RunStep =
-  | "RUN"
-  | "SCOPE"
-  | "SOURCES"
-  | "RELEASE"
-  | "STANDBY"
-  | "PLAYERS"
-  | "STOP"
-  | "BACKUP"
-  | "MIGRATE"
-  | "INSTALL"
-  | "CLEANUP"
-
-export type RunOutcome = "DONE" | "SKIPPED" | "WARNING" | "FAILED"
 
 export type ReferenceKind =
   | "ITEM"

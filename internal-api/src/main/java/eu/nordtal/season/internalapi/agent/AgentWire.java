@@ -436,9 +436,10 @@ public final class AgentWire {
             boolean fixed) {}
 
     /**
-     * What a run would do now, without a run: every artefact with its status, and every file nothing claims.
+     * What a run would do now, without a run: every artefact with its status, and what a run would note.
      *
      * @param resolvedAt when the agent asked the sources, which is how old this answer is
+     * @param notes the notes a run writes, a file nothing claims among them
      */
     public record Resolve(
             Instant resolvedAt,
@@ -447,8 +448,15 @@ public final class AgentWire {
             boolean hasWork,
             boolean hasFailures,
             List<ResolvedChange> changes,
-            List<Unclaimed> unclaimed,
-            List<Message> notes) {}
+            List<Note> notes) {}
+
+    /**
+     * One note as a run writes it, by step and outcome, so a plan and a run are drawn by one view.
+     *
+     * @param service absent for a note that belongs to no service
+     */
+    public record Note(
+            String step, String outcome, @Nullable String service, Message what) {}
 
     /**
      * A message as data, its key and each value with its kind, as the message system writes one.
@@ -492,9 +500,6 @@ public final class AgentWire {
 
     /** A plugin to add and who asked, which steward takes from the session and never from the browser. */
     public record AddPlugin(PluginAsk plugin, Actor by) {}
-
-    /** A file in a server's plugins folder that no artefact of the network claims. */
-    public record Unclaimed(String service, String fileName) {}
 
     /** An answer that is not the one asked for, with the sentence to show and where it came from. */
     public record Refusal(String error, String where) {}

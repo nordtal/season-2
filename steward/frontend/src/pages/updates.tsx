@@ -15,6 +15,7 @@ import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
+import { RunNotes } from "@/components/steward/run-notes"
 import { Stat } from "@/components/steward/stat"
 import { AvailableBadge, RunStatus, runKind } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -28,7 +29,7 @@ import {
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { AskButton, CancelButton, ENDINGS, Notes, StageBadge, cancellable, summaryOf } from "@/pages/operations"
+import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable, summaryOf } from "@/pages/operations"
 import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from "@/components/steward/group-form"
 
 /**
@@ -71,6 +72,8 @@ export function UpdatesPage() {
       <Summary />
 
       <Available />
+
+      <PlanNotes />
 
       <Runs />
     </div>
@@ -239,21 +242,18 @@ function Available() {
                   ))}
                 </TableBody>
               </Table>
-
-              {plan && plan.unclaimed.length > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("steward.updates.unclaimed", {
-                    files: plan.unclaimed.map((one) => `${one.service}/${one.fileName}`),
-                  })}
-                </p>
-              ) : null}
-              {plan ? <Notes notes={plan.notes.map(message)} /> : null}
             </>
           )
         }}
       </QueryState>
     </Panel>
   )
+}
+
+/** What a run would note, drawn by the run page's view; its own panel, since panels are not nested. */
+function PlanNotes() {
+  const available = useAvailable()
+  return available.data ? <RunNotes notes={available.data.notes} /> : null
 }
 
 /** The runs that install or restart: updates, restarts and the start-up install. */

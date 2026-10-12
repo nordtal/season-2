@@ -101,7 +101,6 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
         hasWork: false,
         hasFailures: false,
         changes: [],
-        unclaimed: [],
         notes: [],
       })
     }

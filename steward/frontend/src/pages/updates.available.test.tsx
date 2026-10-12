@@ -37,7 +37,6 @@ function available(over: Partial<Available> = {}): Available {
     hasWork: true,
     hasFailures: false,
     changes: [],
-    unclaimed: [],
     notes: [],
     ...over,
   }
@@ -152,6 +151,43 @@ describe("the available card", () => {
     await screen.findByText("chunky")
     expect(screen.queryByText("vulcan")).toBeNull()
     expect(screen.queryByText("viaversion")).toBeNull()
+  })
+
+  it("draws a plan's notes as the run page does, by step with each one's service", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          changes: [
+            change({
+              artifact: "chunky",
+              status: "OUTDATED",
+              installed: "Chunky-Bukkit-1.5.3.jar",
+              version: "1.5.4",
+              fileName: "Chunky-Bukkit-1.5.4.jar",
+            }),
+          ],
+          notes: [
+            {
+              step: "SOURCES",
+              outcome: "WARNING",
+              service: "limbo",
+              what: {
+                key: "report.unclaimed",
+                args: { file: { kind: "text", value: "Somebodys-1.0.jar" } },
+              },
+            },
+          ],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    await screen.findByText("chunky")
+    expect(screen.getByText("Notes")).toBeTruthy()
+    expect(screen.getByText(/Somebodys-1\.0\.jar/)).toBeTruthy()
+    // The filter chip of the outcome, which only the run page's view draws.
+    expect(screen.getByText("all 1")).toBeTruthy()
   })
 
   it("says so plainly when there is nothing rather than drawing an empty table", async () => {

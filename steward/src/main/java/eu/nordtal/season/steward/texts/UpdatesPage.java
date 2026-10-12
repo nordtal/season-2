@@ -1,9 +1,7 @@
 package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
-import java.util.List;
 
 /** The updates page's own words. */
 @Name("Updates page")
@@ -62,9 +60,6 @@ public interface UpdatesPage {
 
     @Name("The resource pack")
     MessageRef resourcePack();
-
-    @Name("Claimed by nothing")
-    MessageRef unclaimed(@Arg("files") List<String> files);
 
     @Name("Runs")
     MessageRef runs();

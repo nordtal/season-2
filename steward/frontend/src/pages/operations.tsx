@@ -579,23 +579,6 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
   )
 }
 
-/** What the report says that belongs to no service: the pack, the migration, the reason. */
-export function Notes({ notes }: { notes: string[] }) {
-  if (notes.length === 0) return null
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.notes")}</span>
-      <ul className="flex flex-col gap-1">
-        {notes.map((note) => (
-          <li key={note} className="text-sm text-muted-foreground">
-            {note}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
 /** Copy to clipboard, with a failure spelled out, since `navigator.clipboard` needs a secure context. */
 export function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
   const [copied, setCopied] = useState(false)

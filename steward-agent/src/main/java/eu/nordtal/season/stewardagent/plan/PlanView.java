@@ -35,10 +35,11 @@ public final class PlanView {
                 plan.hasWork(),
                 plan.hasFailures(),
                 changes,
-                plan.unclaimed().stream()
-                        .map(one -> new AgentWire.Unclaimed(one.service(), one.fileName()))
-                        .toList(),
-                plan.notes().stream().map(PlanView::wire).toList());
+                // The notes a run would write, so the page draws a plan's with the run page's view.
+                PlanReport.of(plan).notes().stream()
+                        .map(note -> new AgentWire.Note(
+                                note.step().name(), note.outcome().name(), note.service(), wire(note.what())))
+                        .toList());
     }
 
     /** A message as the wire carries it: each value typed, as the message system writes it. */

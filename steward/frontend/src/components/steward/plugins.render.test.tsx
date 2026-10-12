@@ -84,7 +84,6 @@ const AVAILABLE = {
   seasonPrerelease: false,
   hasWork: true,
   hasFailures: false,
-  unclaimed: [],
   notes: [],
   changes: [
     {

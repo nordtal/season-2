@@ -1987,9 +1987,6 @@ export type TextArgs = {
   "steward.updates.state": Record<string, never>
   "steward.updates.status": Record<string, never>
   "steward.updates.title": Record<string, never>
-  "steward.updates.unclaimed": {
-    files: Arg["list"]
-  }
   "steward.updates.update-everything": Record<string, never>
   "steward.updates.when": Record<string, never>
 }

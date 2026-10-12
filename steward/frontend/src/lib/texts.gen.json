@@ -377,8 +377,7 @@
     "steward.shell.run-hit": {"run":"number","kind":"text"},
     "steward.shell.run-when": {"status":"text","requested":"instant"},
     "steward.shell.service-note": {"name":"text"},
-    "steward.texts.group": {"group":"choice"},
-    "steward.updates.unclaimed": {"files":"list"}
+    "steward.texts.group": {"group":"choice"}
   },
   "texts": {
     "alert.claimed": [["Payment ",{"v":"payment"}," (",{"v":"amount"},") was matched to ",{"v":"reference"}," but is already claimed by another request. Nothing was granted for it; grant the access by hand if it is genuine."]],
@@ -1443,7 +1442,6 @@
     "steward.updates.state": [["State"]],
     "steward.updates.status": [["Status"]],
     "steward.updates.title": [["Updates"]],
-    "steward.updates.unclaimed": [["Claimed by nothing: ",{"v":"files"}]],
     "steward.updates.update-everything": [["Update everything"]],
     "steward.updates.when": [["When"]],
     "values.choice.no": [["no"]],

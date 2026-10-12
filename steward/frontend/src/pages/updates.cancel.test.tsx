@@ -59,7 +59,6 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
         hasWork: false,
         hasFailures: false,
         changes: [],
-        unclaimed: [],
         notes: [],
       })
     }

@@ -26,7 +26,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** What the admin channel is told about a run nobody in Discord started. */
@@ -37,7 +39,7 @@ class UpdateFeedTest {
     /** What was posted and edited, instead of a guild. */
     private static final class Board implements UpdateFeed.Board {
 
-        record Post(MessageEmbed embed, String messageId) {}
+        record Post(MessageEmbed embed, @Nullable Button link, String messageId) {}
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
@@ -49,20 +51,20 @@ class UpdateFeedTest {
         Runnable duringPost = () -> {};
 
         @Override
-        public void post(final MessageEmbed embed, final Consumer<String> sentId) {
+        public void post(final MessageEmbed embed, final @Nullable Button link, final Consumer<String> sentId) {
             final Runnable during = duringPost;
             duringPost = () -> {};
             during.run();
             final String id = "msg-" + (posted.size() + 1);
-            posted.add(new Post(embed, id));
+            posted.add(new Post(embed, link, id));
             if (acknowledge) {
                 sentId.accept(id);
             }
         }
 
         @Override
-        public void edit(final String messageId, final MessageEmbed embed) {
-            edited.add(new Post(embed, messageId));
+        public void edit(final String messageId, final MessageEmbed embed, final @Nullable Button link) {
+            edited.add(new Post(embed, link, messageId));
         }
     }
 
@@ -174,7 +176,8 @@ class UpdateFeedTest {
     private final Board board = new Board();
     private final DiscordRenderer messages = DiscordRenderer.of(Messages.load(
             UpdateFeedTest.class.getClassLoader(), List.of("messages/access", "messages/admin"), Locale.ENGLISH));
-    private final UpdateFeed feed = new UpdateFeed(rows, board, messages, Clock.systemUTC());
+    private final UpdateFeed feed =
+            new UpdateFeed(rows, board, messages, Clock.systemUTC(), "https://steward.example/");
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {
@@ -519,8 +522,7 @@ class UpdateFeedTest {
         assertEquals("🛑 The backup failed", title(UpdateKind.BACKUP, UpdateReport.Stage.FAILED));
         assertEquals("✅ Update finished", title(UpdateKind.UPDATE, UpdateReport.Stage.DONE));
         assertEquals("⏳ Restarting shortly", title(UpdateKind.RESTART, UpdateReport.Stage.COUNTDOWN));
-        assertEquals(
-                "🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, UpdateReport.Stage.STOPPING));
+        assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, UpdateReport.Stage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, UpdateReport.Stage.NOTHING_TO_DO));
         assertEquals("⏹️ Plugin removal stopped", title(UpdateKind.REMOVE_PLUGIN, UpdateReport.Stage.CANCELLED));
         for (final UpdateKind kind : UpdateKind.values()) {
@@ -566,6 +568,32 @@ class UpdateFeedTest {
         final MessageEmbed card = UpdateFeed.fields(saved, backup, messages, NOW);
 
         assertEquals("✅ **database** *saved*  *8.8 MiB in 2s*", field(card, "Services"));
+    }
+
+    @Test
+    void theCardLinksToTheRunsPageInStewardWhileItMovesAndOnceItIsDone() {
+        rows.put(row(7L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        feed.tick();
+        rows.put(row(7L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        feed.tick();
+
+        final Button posted =
+                java.util.Objects.requireNonNull(board.posted.getFirst().link());
+        assertEquals("https://steward.example/operations/updates/7", posted.getUrl());
+        assertEquals("Open in Steward", posted.getLabel());
+        assertEquals(
+                posted.getUrl(),
+                java.util.Objects.requireNonNull(board.edited.getFirst().link()).getUrl(),
+                "an edit keeps the link");
+    }
+
+    @Test
+    void withoutStewardsAddressTheCardCarriesNoLink() {
+        final UpdateFeed unlinked = new UpdateFeed(rows, board, messages, Clock.systemUTC(), "");
+        rows.put(row(7L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        unlinked.tick();
+
+        assertEquals(null, board.posted.getFirst().link());
     }
 
     private String title(final UpdateKind kind, final UpdateReport.Stage stage) {

@@ -640,6 +640,7 @@
     "run.kind": [[{"c":"kind","plural":false,"cases":{"update":["Update"],"backup":["Backup"],"restart":["Restart"],"down":["Take down"],"start":["Start"],"recreate":["Recreate"],"deploy":["Deploy"],"restore":["Restore"],"remove-plugin":["Remove plugin"],"other":[{"v":"kind"}]}}]],
     "run.more": [["+",{"v":"count","k":"number","s":"plain"}," more"]],
     "run.no-build": [["no build yet"]],
+    "run.open": [["Open in Steward"]],
     "run.outcome": [[{"c":"outcome","plural":false,"cases":{"done":["done"],"skipped":["skipped"],"warning":["warning"],"failed":["failed"],"other":[{"v":"outcome"}]}}]],
     "run.services": [["Services"]],
     "run.state": [[{"c":"state","plural":false,"cases":{"unchanged":["unchanged"],"planned":["waiting"],"stopped":["stopped"],"installed":["updated"],"saved":["saved"],"starting":["starting"],"healthy":["running"],"failed":["failed"],"other":[{"v":"state"}]}}]],

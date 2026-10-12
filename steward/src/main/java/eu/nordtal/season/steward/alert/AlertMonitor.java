@@ -133,7 +133,7 @@ public final class AlertMonitor {
                     run.kind().name().toLowerCase(Locale.ROOT),
                     TEXTS.alert().runFailed(run.kind()),
                     List.of(TEXTS.alert().run(run.id())),
-                    "/operations/updates/" + run.id());
+                    run.page());
             try {
                 if (book.raiseOnce("run:" + run.id(), alert, RAISED_BY)) {
                     log.info("Run {} failed, so it was raised as an alert.", run.id());

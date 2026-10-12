@@ -31,7 +31,8 @@ The languages are the network's (`language-and-time.languages`). The `access` gr
 for each tag, with its role name and channels, and no other: the bot refuses to take a list that differs.
 
 The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only the
-database and `NORDTAL_ACCESS_GUILD_ID`, which wins over what is stored; the startup log lists every
+database, `NORDTAL_ACCESS_GUILD_ID` and Steward's address, `NORDTAL_BOT_STEWARD_URL`, which a run's card links its
+page below; each wins over what is stored; the startup log lists every
 setting the environment overrode. The token, `NORDTAL_BOT_TOKEN`, is the bot's own `secrets.env`, which
 compose mounts into it alone (see `deploy/README.md`).
 

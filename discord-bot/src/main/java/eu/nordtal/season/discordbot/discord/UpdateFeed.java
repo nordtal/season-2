@@ -27,6 +27,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jspecify.annotations.Nullable;
 
@@ -44,20 +45,24 @@ public final class UpdateFeed {
     /** Where a run is drawn; {@link #of(AdminLog)} is the only implementation that ships. */
     public interface Board {
 
-        void post(MessageEmbed embed, java.util.function.Consumer<String> sentId);
+        /** Posts a card with the button below it, if any, and hands over the message id once Discord has it. */
+        void post(MessageEmbed embed, @Nullable Button link, java.util.function.Consumer<String> sentId);
 
-        void edit(String messageId, MessageEmbed embed);
+        void edit(String messageId, MessageEmbed embed, @Nullable Button link);
 
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
-                public void post(final MessageEmbed embed, final java.util.function.Consumer<String> sentId) {
-                    admin.post(embed, sentId);
+                public void post(
+                        final MessageEmbed embed,
+                        final @Nullable Button link,
+                        final java.util.function.Consumer<String> sentId) {
+                    admin.post(embed, link, sentId);
                 }
 
                 @Override
-                public void edit(final String messageId, final MessageEmbed embed) {
-                    admin.edit(messageId, embed);
+                public void edit(final String messageId, final MessageEmbed embed, final @Nullable Button link) {
+                    admin.edit(messageId, embed, link);
                 }
             };
         }
@@ -82,10 +87,17 @@ public final class UpdateFeed {
     private final java.util.concurrent.atomic.AtomicBoolean again = new java.util.concurrent.atomic.AtomicBoolean();
 
     private final Clock clock;
+    private final String stewardUrl;
 
+    /** @param stewardUrl Steward's address, which each card links its run's page below; empty links nothing */
     public UpdateFeed(
-            final UpdateDirectory updates, final Board board, final DiscordRenderer messages, final Clock clock) {
+            final UpdateDirectory updates,
+            final Board board,
+            final DiscordRenderer messages,
+            final Clock clock,
+            final String stewardUrl) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -101,7 +113,7 @@ public final class UpdateFeed {
                     continue;
                 }
                 // Posted and forgotten: it is over.
-                board.post(embed(request), messageId -> {});
+                board.post(embed(request), link(request), messageId -> {});
             }
             // A run still going falls through both loops above; registering it here makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
@@ -109,7 +121,9 @@ public final class UpdateFeed {
                     continue;
                 }
                 board.post(
-                        embed(request), messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
+                        embed(request),
+                        link(request),
+                        messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
@@ -175,7 +189,7 @@ public final class UpdateFeed {
         for (final UpdateRequest request : fresh) {
             lastSeen = Math.max(lastSeen, request.id());
             final boolean over = request.status().isFinished();
-            board.post(embed(request), messageId -> {
+            board.post(embed(request), link(request), messageId -> {
                 if (over) {
                     return;
                 }
@@ -206,7 +220,7 @@ public final class UpdateFeed {
             final Drawn drawn = entry.getValue();
             // Discord rate-limits edits, and this polls every two seconds.
             if (!java.util.Objects.equals(drawn.showing(), request.result())) {
-                board.edit(drawn.messageId(), embed(request));
+                board.edit(drawn.messageId(), embed(request), link(request));
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
             }
             if (request.status().isFinished()) {
@@ -220,6 +234,15 @@ public final class UpdateFeed {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
         return fields(report, request, messages, true, clock.instant());
+    }
+
+    /** The button to the run's page in Steward, or none without Steward's address. */
+    private @Nullable Button link(final UpdateRequest request) {
+        return stewardUrl.isBlank()
+                ? null
+                : Button.link(
+                        stewardUrl + request.page(),
+                        messages.format(Locales.DEFAULT, TEXTS.run().open()));
     }
 
     static MessageEmbed fields(
@@ -317,12 +340,11 @@ public final class UpdateFeed {
                 shown.append(Card.escape(change.artefact())).append(' ');
             }
             shown.append(
-                            switch (change.state()) {
-                                // No build for this Minecraft version, which stops no server.
-                                case UNSUPPORTED ->
-                                    Card.italic(text.apply(TEXTS.run().noBuild()));
-                                case MOVING -> moving(change, text);
-                            });
+                    switch (change.state()) {
+                        // No build for this Minecraft version, which stops no server.
+                        case UNSUPPORTED -> Card.italic(text.apply(TEXTS.run().noBuild()));
+                        case MOVING -> moving(change, text);
+                    });
         }
         return shown.toString();
     }

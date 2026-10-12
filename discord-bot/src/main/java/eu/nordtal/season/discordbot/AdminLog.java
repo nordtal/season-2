@@ -21,6 +21,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.jdbi.v3.core.Jdbi;
@@ -117,32 +119,38 @@ public final class AdminLog {
     }
 
     /**
-     * Posts an embed that a caller can rewrite later.
+     * Posts an embed that a caller can rewrite later, with a link button below it if one is given.
      *
      * @param embed what to draw
      * @param sentId called on a JDA thread with the message id, and not at all when the post fails
      */
-    public void post(final MessageEmbed embed, final Consumer<String> sentId) {
+    public void post(final MessageEmbed embed, final @Nullable Button link, final Consumer<String> sentId) {
         final MessageChannel channel = channel();
         if (channel == null) {
             return;
         }
         channel.sendMessageEmbeds(embed)
+                .setComponents(rows(link))
                 .queue(
                         sent -> sentId.accept(sent.getId()),
                         failure -> log.error("Could not post an embed to the admin channel", failure));
     }
 
     /** Rewrites a message this class posted; a failure is only logged, so it can never stop a run. */
-    public void edit(final String messageId, final MessageEmbed embed) {
+    public void edit(final String messageId, final MessageEmbed embed, final @Nullable Button link) {
         final MessageChannel channel = channel();
         if (channel == null) {
             return;
         }
         channel.editMessageEmbedsById(messageId, embed)
+                .setComponents(rows(link))
                 .queue(
                         success -> {},
                         failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
+    }
+
+    private static List<ActionRow> rows(final @Nullable Button link) {
+        return link == null ? List.of() : List.of(ActionRow.of(link));
     }
 
     /**

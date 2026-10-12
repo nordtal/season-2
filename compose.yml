@@ -101,6 +101,10 @@ x-database:
   smp-password: &db-smp-password ${POSTGRES_SMP_PASSWORD:?set POSTGRES_SMP_PASSWORD in .env}
   steward-password: &db-steward-password ${POSTGRES_STEWARD_PASSWORD:?set POSTGRES_STEWARD_PASSWORD in .env}
 
+# Steward's address: its web group's, the Discord redirect URI and the WebAuthn origin, and where the bot's run cards link.
+x-steward:
+  url: &steward-url ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
+
 services:
   postgres:
     profiles: ["db"]
@@ -174,6 +178,7 @@ services:
       # The bot group: the token, NORDTAL_BOT_TOKEN, is in the bot's own secrets below.
       # A new value whenever deploy/nordtal.sh changes those, so the next run recreates the bot.
       SECRETS_REVISION: ${SECRETS_REVISION_DISCORD_BOT:-}
+      NORDTAL_BOT_STEWARD_URL: *steward-url
 
       # The access group: the guild is required; deploy/nordtal.sh asks for it. Every role is found by its name.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
@@ -423,8 +428,8 @@ services:
       # steward#bunq: payments go through steward-bunq, which alone holds the bank key.
       NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
 
-      # The web group; the address is also the Discord redirect URI and the WebAuthn origin.
-      NORDTAL_STEWARD_WEB_PUBLIC_URL: ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
+      # The web group.
+      NORDTAL_STEWARD_WEB_PUBLIC_URL: *steward-url
       # Must cover the host above, or the container refuses to start; blank keeps the web group.
       NORDTAL_STEWARD_WEB_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
       # Discord sign-in; empty disables it, and the sign-in page says which value is missing.

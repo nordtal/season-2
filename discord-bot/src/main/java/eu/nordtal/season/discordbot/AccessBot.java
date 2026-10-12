@@ -166,7 +166,8 @@ public class AccessBot implements AutoCloseable {
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
 
-            this.signals = finishStartup(databaseConfig, settings, accessConfig, core, wiring, phases, updates);
+            this.signals = finishStartup(
+                    databaseConfig, settings, accessConfig, core, wiring, phases, updates, botConfig.stewardUrl());
 
             started = true;
             log.info("access-bot is up");
@@ -184,7 +185,8 @@ public class AccessBot implements AutoCloseable {
             final CoreServices core,
             final DiscordWiring wiring,
             final PhaseDirectory phases,
-            final UpdateDirectory updates) {
+            final UpdateDirectory updates,
+            final String stewardUrl) {
         // After the guild state reconcile, so the first tick renames against a settled picture.
         final StatusChannels status = new StatusChannels(
                 jda,
@@ -197,7 +199,7 @@ public class AccessBot implements AutoCloseable {
 
         // start() reads the table once so the feed begins at the last run.
         final UpdateFeed updateFeed =
-                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
+                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock, stewardUrl);
         updateFeed.start();
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());

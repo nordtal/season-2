@@ -316,6 +316,10 @@ public interface AdminTexts {
         @Shown(Display.DISCORD_EMBED)
         MessageRef noBuild();
 
+        @Name("The button that opens a run in Steward")
+        @Shown(Display.DISCORD_BUTTON)
+        MessageRef open();
+
         @Name("Lines left out")
         @Shown(Display.DISCORD_EMBED)
         MessageRef more(@Arg("count") int count);

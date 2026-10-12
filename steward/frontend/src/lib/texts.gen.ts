@@ -733,6 +733,7 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "run.no-build": Record<string, never>
+  "run.open": Record<string, never>
   "run.outcome": {
     outcome: Arg["choice"]
   }

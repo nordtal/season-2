@@ -33,6 +33,11 @@ public record UpdateRequest(
         moving = List.copyOf(moving);
     }
 
+    /** Returns this run's page in Steward, a path below its address. */
+    public String page() {
+        return "/operations/updates/" + id;
+    }
+
     /** Returns what this row counts towards: the countdown once one has started, else the scheduled instant. */
     public Instant due() {
         return countdownEnd != null ? countdownEnd : scheduledFor;

@@ -485,6 +485,8 @@ const WALKED: Record<string, ReadonlySet<string>> = {
   // A DOWN ends at STOPPING and never walks the starting half.
   DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
   START: new Set(["STARTING", "VERIFYING"]),
+  // Written once it is done, on a start with no server running yet.
+  INSTALL: new Set(["PLANNED", "INSTALLING"]),
 }
 
 function StageTrail({ stage, kind }: { stage: string; kind: string }) {

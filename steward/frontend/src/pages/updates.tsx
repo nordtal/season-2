@@ -256,9 +256,9 @@ function Available() {
   )
 }
 
-/** Every row of steward's inbox that is not a backup's and not a single service's Down or Start. */
+/** The runs that install or restart: updates, restarts and the start-up install. */
 export function updateRuns(runs: Run[] | undefined): Run[] {
-  return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART")
+  return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART" || run.kind === "INSTALL")
 }
 
 /** Four absent runs; the panel shows eight at most. */

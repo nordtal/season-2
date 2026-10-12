@@ -11,7 +11,7 @@ import { changesOf } from "@/lib/query-fixtures"
 /**
  * The Updates page: built like Backups, but its own.
  *
- * It saves `update.*`, lists only UPDATE and RESTART runs, and "Next" is the update clock's, off unless set.
+ * It saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
  */
 
 function json(status: number, body: unknown): Response {
@@ -224,6 +224,14 @@ describe("UpdatesPage - the runs and the buttons", () => {
     expect(screen.queryByRole("link", { name: "#4" })).toBeNull()
     expect(screen.queryByRole("link", { name: "#2" })).toBeNull()
     expect(screen.queryByRole("link", { name: "#1" })).toBeNull()
+  })
+
+  it("lists the start-up install beside the updates, since it installs jars as they do", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run(6, "INSTALL"), run(4, "BACKUP")] }))
+    draw()
+
+    expect(await screen.findByRole("link", { name: "#6" })).toBeTruthy()
+    expect(screen.getByText("Start-up install")).toBeTruthy()
   })
 
   it("offers updating and restarting everything, and checking again", async () => {

@@ -107,8 +107,10 @@ target of `:messages`; `:architecture` refuses `Messages.format` here.
   member a mention. A text shown without markdown (a button, select, modal or channel name) is
   declared `PLAIN`.
 - The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page
-  renders too. A journal line goes through `AdminLog.record`: the row stores the message and the
-  card is that same message rendered here, so the journal and the card cannot differ. Alerts, notes
-  and the update feed are drawn from the same bundle, in English.
+  renders too. A journal line goes through `AdminLog.record`, a member's action and a note of the bot's own
+  alike, the bot as the note's actor: the row stores the message and the card is that same message rendered
+  here, so the journal and the card cannot differ. A booking's line is steward's, written with the booking,
+  and reaches the bot in the request it reacts to. Alerts and the update feed are drawn from the same bundle,
+  in English.
 - Only what a member reads is in the bot's own bundle, in every language, except an announcement: a
   server or Steward writes it as messages of `:database`'s bundle, which the bot renders in each channel's language.

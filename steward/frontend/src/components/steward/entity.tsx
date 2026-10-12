@@ -129,9 +129,10 @@ export function Entity({ id, kind, system, interactive, face, className }: Entit
   )
 }
 
-/** Who asked for a run or authored an action: a person by their Discord id, Steward itself, or the host. */
+/** Who asked for a run or authored an action: a person by their Discord id, Steward itself, the host or the bot. */
 export function Actor({ kind, id, className }: { kind: ActorKind; id: string; className?: string }) {
   if (kind === "PERSON" && id) return <Entity id={id} kind="discord" className={className} />
   if (kind === "HOST") return <Entity id="host" className={className} />
+  if (kind === "BOT") return <Entity id="discord-bot" kind="service" className={className} />
   return <Entity system className={className} />
 }

@@ -9,6 +9,8 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.alert.Alert;
+import eu.nordtal.season.database.audit.AuditLine;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -17,6 +19,7 @@ import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Display;
+import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,7 +91,12 @@ class BotInboxTest {
             false,
             300,
             Instant.parse("2026-10-02T00:00:00Z"),
-            Instant.parse("2026-11-01T00:00:00Z"));
+            Instant.parse("2026-11-01T00:00:00Z"),
+            AuditLine.about(
+                    JournalAction.SETTLE,
+                    Actor.STEWARD,
+                    DiscordId.of("400000000000000002"),
+                    TEXTS.journal().settleByHand("NT-7", 30, 30, Money.euroCents(0))));
 
     private static Request<BotRequest> row(final BotRequest payload, final Actor actor) {
         return new Request<>(

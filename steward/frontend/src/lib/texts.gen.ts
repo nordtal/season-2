@@ -326,6 +326,7 @@ export type TextArgs = {
     hold: Arg["duration"]
   }
   "journal.link": Record<string, never>
+  "journal.link-codes-exhausted": Record<string, never>
   "journal.minecraft": Record<string, never>
   "journal.person": {
     person: Arg["mention"]
@@ -411,6 +412,9 @@ export type TextArgs = {
     donation: Arg["money"]
   }
   "journal.start-game": Record<string, never>
+  "journal.unanchored-grant": {
+    from: Arg["instant"]
+  }
   "journal.unlink": {
     selfService: Arg["choice"]
   }
@@ -428,22 +432,6 @@ export type TextArgs = {
   "journal.written": {
     detail: Arg["text"]
   }
-  "note.booked": {
-    reference: Arg["text"]
-    payer: Arg["mention"]
-    days: Arg["number"]
-    until: Arg["instant"]
-  }
-  "note.no-season-start": Record<string, never>
-  "note.payment-booked": Record<string, never>
-  "note.refused-for-the-hour": {
-    person: Arg["mention"]
-  }
-  "note.runs-from-the-grant": {
-    person: Arg["mention"]
-    from: Arg["instant"]
-  }
-  "note.too-many-codes": Record<string, never>
   "report.agent-not-renewed": {
     reason: Arg["text"]
   }

@@ -13,7 +13,6 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Writes every admin action to {@code audit_log}, posts notes to the admin channel, and raises what needs a human.
+ * Journals what members do and what the bot notes, posts each line to the admin channel, and raises the rest.
  *
  * An {@link #alert} is a row steward routes, so this class never decides who hears of it; {@link #postAlert} draws one.
  */
@@ -43,7 +42,10 @@ public final class AdminLog {
             JournalAction.REVOKE_ACCESS, Mark.REVOKED,
             JournalAction.LINK, Mark.LINKED,
             JournalAction.UNLINK, Mark.UNLINKED,
-            JournalAction.SET_PLAYTIME, Mark.TIMED);
+            JournalAction.SET_PLAYTIME, Mark.TIMED,
+            JournalAction.SETTLE, Mark.PAID,
+            JournalAction.UNANCHORED_GRANT, Mark.WARNING,
+            JournalAction.LINK_CODES_EXHAUSTED, Mark.LOCKED);
 
     private final JDA jda;
     private final AccessSpec config;
@@ -109,16 +111,6 @@ public final class AdminLog {
         };
     }
 
-    /** Posts a card to be read later, without a mention: the mark, the title, and one line below it. */
-    public void note(final Mark mark, final MessageRef title, final MessageRef line) {
-        send(null, card(texts, mark, title, line));
-    }
-
-    static MessageEmbed card(
-            final DiscordRenderer texts, final Mark mark, final MessageRef title, final MessageRef line) {
-        return card(mark.before(texts.format(Locales.DEFAULT, title)), texts.format(Locales.DEFAULT, line));
-    }
-
     /** Draws one admin-log line; a mention stays outside, since a mention inside an embed pings nobody. */
     static MessageEmbed card(final String title, final String text) {
         return Card.of(title).lead(text).build();
@@ -164,6 +156,11 @@ public final class AdminLog {
         } catch (final RuntimeException exception) {
             log.error("Could not write the audit_log row for {} {}", line.action(), line.line(), exception);
         }
+        send(null, card(texts, line));
+    }
+
+    /** Posts the card of a journal line another service wrote, such as a booking's, without writing it again. */
+    public void show(final AuditLine line) {
         send(null, card(texts, line));
     }
 

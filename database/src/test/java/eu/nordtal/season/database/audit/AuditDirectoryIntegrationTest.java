@@ -263,6 +263,17 @@ class AuditDirectoryIntegrationTest {
     }
 
     @Test
+    void theBotIsAnActorOfItsOwn() {
+        directory.record(AuditLine.about(
+                JournalAction.LINK,
+                Actor.BOT,
+                DiscordId.of(ALICE),
+                TEXTS.journal().link()));
+
+        assertEquals(Actor.BOT, directory.recent(1).getFirst().actor());
+    }
+
+    @Test
     void theTableRefusesAnActorThatIsHalfAPerson() {
         assertThrows(
                 IllegalStateException.class,

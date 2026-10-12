@@ -1,19 +1,16 @@
 package eu.nordtal.season.discordbot.access.payment;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
-import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Locale;
 import java.util.Objects;
@@ -22,7 +19,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
 /**
- * Tells a payer what steward booked: the roles, the direct messages, the public thank-you and the admin note.
+ * Tells a payer what steward booked: the roles, the direct messages, the public thank-you and the admin card.
  * The booking is committed before the bot hears of it; nothing here writes a payment.
  */
 @Slf4j
@@ -79,10 +76,7 @@ public final class BookingReaction {
             announceDonation(payer, booked.donationCents(), locale);
         }
 
-        admin.note(
-                Mark.PAID,
-                TEXTS.note().paymentBooked(),
-                TEXTS.note().booked(booked.reference(), Mention.of(payer), booked.days(), booked.until()));
+        admin.show(booked.journal());
         log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());
     }
 

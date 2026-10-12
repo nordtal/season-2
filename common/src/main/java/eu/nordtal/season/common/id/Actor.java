@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Who asked for something, stored as {@code actor_kind} and {@code actor_id} and carried as this record on the wire.
  *
- * @param kind   a person, Steward on its own, or somebody on the host
+ * @param kind   a person, Steward or the bot on its own, or somebody on the host
  * @param person the Discord id when {@link Kind#PERSON}, {@code null} otherwise
  */
 public record Actor(Kind kind, @Nullable DiscordId person) {
@@ -16,6 +16,9 @@ public record Actor(Kind kind, @Nullable DiscordId person) {
 
     /** Somebody on the host, through the installer. */
     public static final Actor HOST = new Actor(Kind.HOST, null);
+
+    /** The Discord bot on its own, telling the admins what it saw; only the journal records it. */
+    public static final Actor BOT = new Actor(Kind.BOT, null);
 
     /** What kind of actor, stored verbatim in {@code actor_kind}. */
     public enum Kind {
@@ -27,7 +30,10 @@ public record Actor(Kind kind, @Nullable DiscordId person) {
         STEWARD,
 
         /** The installer on the host, which works while the stack itself is broken. */
-        HOST
+        HOST,
+
+        /** The Discord bot itself, noting what it saw; nobody pressed anything. */
+        BOT
     }
 
     public Actor {

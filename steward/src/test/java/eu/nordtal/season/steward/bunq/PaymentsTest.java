@@ -11,6 +11,7 @@ import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.inbox.BankRequest;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -130,6 +131,10 @@ class PaymentsTest {
                 () -> assertEquals(1, count("SELECT count(*) FROM discord_user WHERE donor")),
                 () -> assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'SETTLE'")),
                 () -> assertEquals(1, told.size()),
+                () -> assertEquals(
+                        AuditDirectory.using(owner).recent(1).getFirst().line(),
+                        ((BotRequest.PaymentBooked) told.getFirst()).journal().line(),
+                        "the bot draws its card from the line the booking wrote"),
                 () -> assertTrue(
                         told.getFirst() instanceof BotRequest.PaymentBooked paid
                                 && paid.days() == 30

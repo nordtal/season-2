@@ -151,6 +151,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V41__a_journal_line_keeps_its_reference_and_days.sql",
                 "62fa760cd0dfd61250f62edaca8469f09ee9a12d1a021df6974fc10a9183b216");
+        FROZEN.put(
+                "V42__the_bot_writes_journal_lines_of_its_own.sql",
+                "11e48f2e97f9a46b8489b452e6219f81f71d5d4895cdadfccd686efc549824c8");
     }
 
     @Test

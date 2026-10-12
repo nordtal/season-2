@@ -534,7 +534,7 @@ export type UpdateKind =
 
 export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLED"
 
-export type ActorKind = "PERSON" | "STEWARD" | "HOST"
+export type ActorKind = "PERSON" | "STEWARD" | "HOST" | "BOT"
 
 export type Report = {
   stage: ReportStage

@@ -37,7 +37,7 @@ public record AuditLine(
 
     /** Returns the days the line grants or books, its message's {@code days}, which the journal filters by. */
     public @Nullable Integer days() {
-        return line.args().get("days") instanceof final Integer days ? days : null;
+        return line.args().get("days") instanceof final Number days ? days.intValue() : null;
     }
 
     /** Returns a line about nobody in particular. */

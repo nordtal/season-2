@@ -124,6 +124,7 @@ public final class Bookings {
             if (settlement.donation()) {
                 Grants.markDonor(handle, open.discordId());
             }
+            final AuditLine journal = journalLine(open, arrival, settlement, by);
             final BotRequest.PaymentBooked told = new BotRequest.PaymentBooked(
                     open.id(),
                     open.discordId(),
@@ -133,8 +134,9 @@ public final class Bookings {
                     settlement.downgraded(),
                     arrival.receivedCents(),
                     grant.validFrom(),
-                    grant.validUntil());
-            Journal.write(handle, journalLine(open, arrival, settlement, by));
+                    grant.validUntil(),
+                    journal);
+            Journal.write(handle, journal);
             bot.submitWithin(handle, told, by);
             return new Booking.Booked(told);
         });

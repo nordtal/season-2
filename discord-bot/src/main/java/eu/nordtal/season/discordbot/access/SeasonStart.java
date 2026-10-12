@@ -3,18 +3,19 @@ package eu.nordtal.season.discordbot.access;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.audit.AuditLine;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.Mark;
-import eu.nordtal.season.messages.value.Mention;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Warns when a grant starts now because {@code season_phase.smp_start} is not set yet.
  *
- * A note, not an alert: it mentions no admin, since every test purchase fires it.
+ * A journal line by the bot, not an alert: it mentions no admin, since every test purchase fires it.
  */
 @Slf4j
 public final class SeasonStart {
@@ -50,9 +51,15 @@ public final class SeasonStart {
                 discordId,
                 validFrom);
         // Expected while testing; before the season opens, somebody sets the date in Steward.
-        admin.note(
-                Mark.WARNING,
-                TEXTS.note().noSeasonStart(),
-                TEXTS.note().runsFromTheGrant(Mention.of(discordId), validFrom));
+        admin.record(unanchored(discordId, validFrom));
+    }
+
+    /** Returns the line the bot writes about a person whose access runs from {@code validFrom}, the grant's date. */
+    public static AuditLine unanchored(final DiscordId discordId, final Instant validFrom) {
+        return AuditLine.about(
+                JournalAction.UNANCHORED_GRANT,
+                Actor.BOT,
+                discordId,
+                TEXTS.journal().unanchoredGrant(validFrom));
     }
 }

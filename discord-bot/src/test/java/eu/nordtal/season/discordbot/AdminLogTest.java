@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
@@ -14,8 +15,12 @@ import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.discordbot.access.SeasonStart;
+import eu.nordtal.season.discordbot.access.discord.LinkFlow;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Mention;
+import eu.nordtal.season.messages.value.Money;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -171,19 +176,48 @@ class AdminLogTest {
     }
 
     @Test
-    void aBookedPaymentIsNotedWithItsReferenceEscapedAndItsEndAsADiscordTimestamp() {
+    void aBookedPaymentIsDrawnFromTheLineTheBookingWroteWithItsReferenceEscaped() {
         final MessageEmbed card = AdminLog.card(
                 ADMIN,
-                Mark.PAID,
-                TEXTS.note().paymentBooked(),
-                TEXTS.note()
-                        .booked(
-                                "NT_7Q",
-                                Mention.of(DiscordId.of("400000000000000001")),
-                                30,
-                                Instant.parse("2026-11-02T10:00:00Z")));
+                AuditLine.about(
+                        JournalAction.SETTLE,
+                        Actor.STEWARD,
+                        DiscordId.of("400000000000000001"),
+                        TEXTS.journal()
+                                .settle("NT_7Q", PaymentMatch.TAB, 30, 30, Money.euroCents(500), Money.euroCents(0))));
 
-        assertEquals("💶 Payment booked", card.getTitle());
-        assertEquals("NT\\_7Q for <@400000000000000001>: 30 days, until <t:1793613600:f>", card.getDescription());
+        assertEquals("💶 Payment settled", card.getTitle());
+        assertTrue(card.getDescription().contains("NT\\_7Q"), card.getDescription());
+    }
+
+    @Test
+    void aGrantWithoutASeasonStartIsALineTheBotWritesAboutThePerson() {
+        final AuditLine line =
+                SeasonStart.unanchored(DiscordId.of("400000000000000001"), Instant.parse("2026-11-02T10:00:00Z"));
+        final MessageEmbed card = AdminLog.card(ADMIN, line);
+
+        assertEquals(JournalAction.UNANCHORED_GRANT, line.action());
+        assertEquals("⚠️ No season start", card.getTitle());
+        assertEquals(
+                "Access runs from <t:1793613600:f> instead of the SMP opening. Set the date in Steward under Season.",
+                card.getDescription());
+        assertEquals(List.of("By: the bot", "Concerns: <@400000000000000001>"), fields(card));
+    }
+
+    @Test
+    void aMemberOutOfLinkCodesIsALineTheBotWritesAboutThem() {
+        final AuditLine line = LinkFlow.lockedOut(DiscordId.of("400000000000000001"));
+        final MessageEmbed card = AdminLog.card(ADMIN, line);
+
+        assertEquals(JournalAction.LINK_CODES_EXHAUSTED, line.action());
+        assertEquals("🔒 Too many wrong codes", card.getTitle());
+        assertEquals("Refused linking for the rest of the hour.", card.getDescription());
+        assertEquals(List.of("By: the bot", "Concerns: <@400000000000000001>"), fields(card));
+    }
+
+    private static List<String> fields(final MessageEmbed card) {
+        return card.getFields().stream()
+                .map(field -> field.getName() + ": " + field.getValue())
+                .toList();
     }
 }

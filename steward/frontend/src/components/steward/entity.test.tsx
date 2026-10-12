@@ -137,3 +137,12 @@ describe("Actor - who asked for a run", () => {
     expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
   })
 })
+
+describe("Actor - the bot noting something on its own", () => {
+  it("is the bot's service, linked to its page", async () => {
+    draw(<Actor kind="BOT" id="" />)
+
+    const bot = await screen.findByText("discord-bot")
+    expect(bot.closest("a")?.getAttribute("href")).toBe("/services/discord-bot")
+  })
+})

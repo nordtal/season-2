@@ -2,6 +2,7 @@ package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.Alert;
+import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Instant;
@@ -39,17 +40,18 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Tells a payer what steward booked for them: the roles, the direct messages, the thank-you and the admin note.
+     * Tells a payer what steward booked for them: the roles, the direct messages, the thank-you and the admin card.
      * The booking itself is done and committed with this row; the bot only reacts.
      *
      * @param payment       the request that was booked
-     * @param reference     its {@code NT-XXXXXX}, which the admin note names
+     * @param reference     its {@code NT-XXXXXX}
      * @param days          the days granted
      * @param donationCents what of the payment counts as a donation, zero for none
      * @param downgraded    whether fewer days were granted than ordered, because less money arrived
      * @param receivedCents what arrived, or {@code null} for an admin's booking by hand
      * @param from          when the access period it bought starts
      * @param until         when it ends
+     * @param journal       the journal line the booking wrote, which the admin channel's card draws
      */
     record PaymentBooked(
             UUID payment,
@@ -60,7 +62,8 @@ public sealed interface BotRequest {
             boolean downgraded,
             @Nullable Integer receivedCents,
             Instant from,
-            Instant until)
+            Instant until,
+            AuditLine journal)
             implements BotRequest {
 
         public PaymentBooked {
@@ -69,6 +72,7 @@ public sealed interface BotRequest {
             Objects.requireNonNull(reference, "reference");
             Objects.requireNonNull(from, "from");
             Objects.requireNonNull(until, "until");
+            Objects.requireNonNull(journal, "journal");
             if (days <= 0) {
                 throw new IllegalArgumentException("a booking grants at least one day, got " + days);
             }

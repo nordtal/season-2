@@ -30,7 +30,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * What an admin reads of the network, English only: the journal, the runs and their reports, the alerts and the notes.
+ * What an admin reads of the network, English only: the journal, the runs and their reports and the alerts.
  * Written for Discord, whose target escapes each value; a text here carries no markdown, so the page shows it as is.
  */
 @MessageSpec(value = "admin", format = TextFormat.DISCORD_MARKDOWN)
@@ -44,8 +44,6 @@ public interface AdminTexts {
     Run run();
 
     Alerts alert();
-
-    Notes note();
 
     @Shown({Display.STEWARD, Display.DISCORD_EMBED})
     ReportTexts report();
@@ -254,6 +252,14 @@ public interface AdminTexts {
 
         @Name("Hunger Games started")
         MessageRef startGame();
+
+        @Name("Access anchored to the grant")
+        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        MessageRef unanchoredGrant(@Arg("from") Instant from);
+
+        @Name("Refused linking for the hour")
+        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        MessageRef linkCodesExhausted();
     }
 
     /** A run, as the journal, Steward's feed and the bot's update feed name it. */
@@ -500,36 +506,5 @@ public interface AdminTexts {
         @Name("Which request, and what bunq said")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
         MessageRef refused(@Arg("reference") String reference, @Arg("error") String error);
-    }
-
-    /** A card the bot posts to the admin channel for later, without a mention. */
-    @Name("Notes")
-    @Shown(Display.DISCORD_EMBED_HEADING)
-    interface Notes {
-
-        @Name("Payment booked")
-        MessageRef paymentBooked();
-
-        @Name("What a booked payment bought")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef booked(
-                @Arg("reference") String reference,
-                @Arg("payer") Mention payer,
-                @Arg("days") int days,
-                @Arg("until") Instant until);
-
-        @Name("Too many wrong link codes")
-        MessageRef tooManyCodes();
-
-        @Name("Refused linking for the hour")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef refusedForTheHour(@Arg("person") Mention person);
-
-        @Name("No season start")
-        MessageRef noSeasonStart();
-
-        @Name("Access anchored to the grant")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef runsFromTheGrant(@Arg("person") Mention person, @Arg("from") Instant from);
     }
 }

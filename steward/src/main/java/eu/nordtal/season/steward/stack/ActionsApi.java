@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.stack;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalFilter;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import io.javalin.http.Context;
@@ -64,7 +65,7 @@ public final class ActionsApi {
         }
 
         for (final JournalAction action : DISPLAYED_AUDIT_ACTIONS) {
-            for (final AuditEntry entry : audit.search(action.name(), null, clamped)) {
+            for (final AuditEntry entry : audit.search(JournalFilter.of(action), clamped)) {
                 combined.add(ActionEntry.of(entry));
             }
         }

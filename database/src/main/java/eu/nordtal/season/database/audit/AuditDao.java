@@ -33,6 +33,8 @@ interface AuditDao {
             FROM audit_log
             WHERE (cast(:action AS varchar) IS NULL OR action = cast(:action AS varchar))
               AND (cast(:subject AS varchar) IS NULL OR subject = cast(:subject AS varchar))
+              AND (cast(:reference AS text) IS NULL OR reference = cast(:reference AS text))
+              AND (cast(:minDays AS integer) IS NULL OR days >= cast(:minDays AS integer))
             ORDER BY occurred DESC, id DESC
             LIMIT :limit
             """)
@@ -40,5 +42,7 @@ interface AuditDao {
     List<AuditEntry> search(
             @Bind("action") @Nullable String action,
             @Bind("subject") @Nullable String subject,
+            @Bind("reference") @Nullable String reference,
+            @Bind("minDays") @Nullable Integer minDays,
             @Bind("limit") int limit);
 }

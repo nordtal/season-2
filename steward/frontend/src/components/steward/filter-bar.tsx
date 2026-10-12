@@ -42,10 +42,13 @@ export function SearchField({
   placeholder = t("steward.settings.search"),
   className,
   inputClassName,
+  inputMode,
 }: {
   value: string
   onValueChange: (value: string) => void
   onSubmit?: (value: string) => void
+  /** The keyboard a phone shows, `numeric` for a number. */
+  inputMode?: "numeric"
   /** The field's accessible name, which may say more than the placeholder has room for. */
   label: string
   placeholder?: string
@@ -64,6 +67,7 @@ export function SearchField({
       <InputGroupInput
         type="search"
         enterKeyHint="search"
+        inputMode={inputMode}
         aria-label={label}
         placeholder={placeholder}
         value={value}

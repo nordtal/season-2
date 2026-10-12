@@ -201,3 +201,23 @@ describe("JournalPage - the subject is an exact id, asked for on Enter", () => {
     expect(screen.queryByRole("button", { name: "Clear the search" })).toBeNull()
   })
 })
+
+describe("JournalPage - a payment reference and the least days are asked for on Enter", () => {
+  it("asks for the typed reference and the days at least, each once Enter is pressed", async () => {
+    const fetched = backend({ journal: JOURNAL_ENTRIES })
+    vi.stubGlobal("fetch", fetched)
+    draw(<JournalPage />)
+    const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
+
+    const reference = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Payment reference" })
+    fireEvent.change(reference, { target: { value: " NT-ABCD " } })
+    fireEvent.submit(reference)
+    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&reference=NT-ABCD"))
+
+    const days = screen.getByRole<HTMLInputElement>("searchbox", { name: "Days granted, at least" })
+    fireEvent.change(days, { target: { value: "30" } })
+    expect(asked().some((url) => url.includes("minDays="))).toBe(false)
+    fireEvent.submit(days)
+    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&reference=NT-ABCD&minDays=30"))
+  })
+})

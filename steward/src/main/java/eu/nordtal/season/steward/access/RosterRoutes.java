@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.access;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.audit.JournalFilter;
 import eu.nordtal.season.steward.QueryLimit;
 import eu.nordtal.season.steward.data.Data;
 import io.javalin.http.Context;
@@ -42,8 +43,22 @@ public final class RosterRoutes {
         ctx.json(data().payments().allOpen());
     }
 
+    /** The journal, narrowed by any of {@code action}, {@code subject}, {@code reference} and {@code minDays}. */
     public void journal(final Context ctx) {
         ctx.json(data().audit()
-                .search(ctx.queryParam("action"), ctx.queryParam("subject"), QueryLimit.of(ctx, 200, 1000)));
+                .search(
+                        new JournalFilter(
+                                ctx.queryParam("action"),
+                                ctx.queryParam("subject"),
+                                ctx.queryParam("reference"),
+                                minDays(ctx)),
+                        QueryLimit.of(ctx, 200, 1000)));
+    }
+
+    /** Returns {@code minDays}, or {@code null} when absent; a value that is no number is refused as a bad request. */
+    private static @Nullable Integer minDays(final Context ctx) {
+        return ctx.queryParam("minDays") == null
+                ? null
+                : ctx.queryParamAsClass("minDays", Integer.class).get();
     }
 }

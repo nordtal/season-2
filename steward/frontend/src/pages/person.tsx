@@ -47,7 +47,7 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
   // One clock for the whole page, so that the badges and the tables cannot disagree about "now".
   const now = useNow()
   const payments = usePersonPayments(person.discordId)
-  const journal = useJournal("", person.discordId)
+  const journal = useJournal({ subject: person.discordId })
 
   return (
     <div className="flex flex-col gap-8">

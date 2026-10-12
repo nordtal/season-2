@@ -1115,10 +1115,14 @@ export type TextArgs = {
     count: Arg["number"]
     limit: Arg["number"]
   }
+  "steward.journal.days-at-least": Record<string, never>
   "steward.journal.detail": Record<string, never>
   "steward.journal.entries": Record<string, never>
   "steward.journal.exact-id": Record<string, never>
+  "steward.journal.exact-reference": Record<string, never>
+  "steward.journal.min-days": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
+  "steward.journal.reference": Record<string, never>
   "steward.journal.subject": Record<string, never>
   "steward.journal.title": Record<string, never>
   "steward.journal.when": Record<string, never>

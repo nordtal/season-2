@@ -16,14 +16,16 @@ public final class Journal {
     public static void write(final Handle handle, final AuditLine line) {
         Objects.requireNonNull(line, "line");
         handle.createUpdate("""
-                        INSERT INTO audit_log (action, actor_kind, actor_id, subject, mc_uuid, line)
-                        VALUES (:action, :actorKind, :actorId, :subject, :mcUuid, cast(:line AS jsonb))
+                        INSERT INTO audit_log (action, actor_kind, actor_id, subject, mc_uuid, reference, days, line)
+                        VALUES (:action, :actorKind, :actorId, :subject, :mcUuid, :reference, :days, cast(:line AS jsonb))
                         """)
                 .bind("action", line.action().name())
                 .bind("actorKind", line.actor().kind().name())
                 .bind("actorId", line.actor().id())
                 .bind("subject", line.subject() == null ? null : line.subject().value())
                 .bind("mcUuid", line.mcUuid())
+                .bind("reference", line.reference())
+                .bind("days", line.days())
                 .bind("line", DatabaseJson.encode(line.line()))
                 .execute();
     }

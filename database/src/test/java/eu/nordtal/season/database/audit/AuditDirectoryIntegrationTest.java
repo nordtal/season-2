@@ -11,6 +11,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.value.Money;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -114,21 +115,26 @@ class AuditDirectoryIntegrationTest {
     void searchByActionOnly() {
         seedFourEntries();
 
-        assertEquals(List.of("bob-link", "alice-link"), details(directory.search("LINK", null, 10)));
+        assertEquals(
+                List.of("bob-link", "alice-link"),
+                details(directory.search(new JournalFilter("LINK", null, null, null), 10)));
     }
 
     @Test
     void searchBySubjectOnly() {
         seedFourEntries();
 
-        assertEquals(List.of("alice-revoke", "alice-grant", "alice-link"), details(directory.search(null, ALICE, 10)));
+        assertEquals(
+                List.of("alice-revoke", "alice-grant", "alice-link"),
+                details(directory.search(new JournalFilter(null, ALICE, null, null), 10)));
     }
 
     @Test
     void searchByBoth() {
         seedFourEntries();
 
-        assertEquals(List.of("alice-link"), details(directory.search("LINK", ALICE, 10)));
+        assertEquals(
+                List.of("alice-link"), details(directory.search(new JournalFilter("LINK", ALICE, null, null), 10)));
     }
 
     @Test
@@ -137,7 +143,7 @@ class AuditDirectoryIntegrationTest {
 
         assertEquals(
                 details(directory.recent(10)),
-                details(directory.search(null, null, 10)),
+                details(directory.search(new JournalFilter(null, null, null, null), 10)),
                 "no filter must mean exactly what recent means");
     }
 
@@ -147,26 +153,38 @@ class AuditDirectoryIntegrationTest {
 
         assertEquals(
                 details(directory.recent(10)),
-                details(directory.search("", "   ", 10)),
+                details(directory.search(new JournalFilter("", "   ", null, null), 10)),
                 "an empty search box and an absent one are the same intention");
-        assertEquals(List.of("bob-link", "alice-link"), details(directory.search("LINK", "  ", 10)));
+        assertEquals(
+                List.of("bob-link", "alice-link"),
+                details(directory.search(new JournalFilter("LINK", "  ", null, null), 10)));
     }
 
     @Test
     void searchMatchesExactlyAndNotPartially() {
         seedFourEntries();
 
-        assertTrue(directory.search("LIN", null, 10).isEmpty(), "a prefix is not a match");
-        assertTrue(directory.search("link", null, 10).isEmpty(), "and neither is the wrong case");
-        assertTrue(directory.search(null, ALICE.substring(0, 8), 10).isEmpty());
+        assertTrue(
+                directory.search(new JournalFilter("LIN", null, null, null), 10).isEmpty(), "a prefix is not a match");
+        assertTrue(
+                directory
+                        .search(new JournalFilter("link", null, null, null), 10)
+                        .isEmpty(),
+                "and neither is the wrong case");
+        assertTrue(directory
+                .search(new JournalFilter(null, ALICE.substring(0, 8), null, null), 10)
+                .isEmpty());
     }
 
     @Test
     void theSearchLimitIsHonoured() {
         seedFourEntries();
 
-        assertEquals(List.of("alice-revoke"), details(directory.search(null, ALICE, 1)));
-        assertEquals(1, directory.search(null, null, 0).size(), "clamped, like recent");
+        assertEquals(List.of("alice-revoke"), details(directory.search(new JournalFilter(null, ALICE, null, null), 1)));
+        assertEquals(
+                1,
+                directory.search(new JournalFilter(null, null, null, null), 0).size(),
+                "clamped, like recent");
     }
 
     /** Three entries about Alice, one about Bob, two of which share an action. */
@@ -193,6 +211,55 @@ class AuditDirectoryIntegrationTest {
                 ADMIN_TEXTS.format(Locale.ENGLISH, entry.line()),
                 "every value comes back of its kind, so the line renders as the one written");
         assertEquals(ADMIN_TEXTS.format(Locale.ENGLISH, written), ADMIN_TEXTS.format(Locale.ENGLISH, entry.line()));
+    }
+
+    @Test
+    void aLineKeepsItsPaymentReferenceAndDaysAsFieldsTheJournalFiltersBy() {
+        final Actor admin = Actor.person(DiscordId.of(ADMIN));
+        final Instant until = Instant.parse("2026-11-02T10:00:00Z");
+        directory.record(AuditLine.about(
+                JournalAction.SETTLE,
+                admin,
+                DiscordId.of(ALICE),
+                TEXTS.journal().settleByHand("NT-ABCD", 30, 30, Money.euroCents(0))));
+        directory.record(AuditLine.about(
+                JournalAction.SETTLE,
+                admin,
+                DiscordId.of(BOB),
+                TEXTS.journal().settleByHand("NT-EFGH", 7, 7, Money.euroCents(0))));
+        directory.record(AuditLine.about(
+                JournalAction.GRANT_ACCESS,
+                admin,
+                DiscordId.of(BOB),
+                TEXTS.journal().grantAccess(90, until)));
+        directory.record(AuditLine.about(
+                JournalAction.LINK, admin, DiscordId.of(BOB), TEXTS.journal().link()));
+
+        assertEquals(
+                List.of(DiscordId.of(ALICE)),
+                subjects(directory.search(new JournalFilter(null, null, "NT-ABCD", null), 10)),
+                "the reference matches its one booking");
+        assertTrue(
+                directory
+                        .search(new JournalFilter(null, null, "NT-AB", null), 10)
+                        .isEmpty(),
+                "and exactly");
+        assertEquals(
+                List.of("GRANT_ACCESS", "SETTLE"),
+                actions(directory.search(new JournalFilter(null, null, null, 30), 10)),
+                "at least 30 days: the grant of 90 and the booking of 30, not the one of 7 nor the link");
+        assertEquals(
+                List.of("SETTLE"),
+                actions(directory.search(new JournalFilter("SETTLE", null, null, 8), 10)),
+                "the fields combine with the action");
+    }
+
+    private static List<DiscordId> subjects(final List<AuditEntry> entries) {
+        return entries.stream().map(AuditEntry::subject).toList();
+    }
+
+    private static List<String> actions(final List<AuditEntry> entries) {
+        return entries.stream().map(AuditEntry::action).toList();
     }
 
     @Test

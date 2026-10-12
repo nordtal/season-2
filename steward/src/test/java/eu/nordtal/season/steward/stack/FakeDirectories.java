@@ -5,6 +5,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.audit.AuditLine;
+import eu.nordtal.season.database.audit.JournalFilter;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -143,7 +144,7 @@ public final class FakeDirectories {
         }
     }
 
-    /** Every method throws except {@code recent} and {@code search}, which filters by action as the real one does. */
+    /** Every method throws except {@code recent} and {@code search}, which filters by action and subject. */
     public static AuditDirectory audit(final AuditEntry... rows) {
         final List<AuditEntry> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(AuditEntry::occurred).reversed())
@@ -156,8 +157,10 @@ public final class FakeDirectories {
             }
 
             @Override
-            public List<AuditEntry> search(final String action, final String subject, final int limit) {
+            public List<AuditEntry> search(final JournalFilter filter, final int limit) {
                 final int clamped = Math.max(1, limit);
+                final String action = filter.action();
+                final String subject = filter.subject();
                 final List<AuditEntry> filtered = sorted.stream()
                         .filter(entry -> action == null || action.isBlank() || action.equals(entry.action()))
                         .filter(entry -> subject == null

@@ -141,13 +141,20 @@ export function JournalTable({
   )
 }
 
+/** Every part of the filter, empty; the unfiltered query names each so its key is the filtered one's while none is set. */
+const NO_FILTER = { action: "", subject: "", reference: "", minDays: "" }
+
 export function JournalPage() {
-  /** The unfiltered query, for the options; it shares its key with the filtered one while no filter is set. */
-  const all = useJournal("", "")
+  /** The unfiltered query, for the options. */
+  const all = useJournal(NO_FILTER)
   const [action, setAction] = useState("")
   const [subject, setSubject] = useState("")
   const [typed, setTyped] = useState("")
-  const entries = useJournal(action, subject)
+  const [reference, setReference] = useState("")
+  const [typedReference, setTypedReference] = useState("")
+  const [minDays, setMinDays] = useState("")
+  const [typedDays, setTypedDays] = useState("")
+  const entries = useJournal({ action, subject, reference, minDays })
   const actions = [...new Set((all.data ?? []).map((entry) => entry.action))].toSorted()
 
   return (
@@ -164,6 +171,23 @@ export function JournalPage() {
             label={t("steward.journal.subject")}
             placeholder={t("steward.journal.exact-id")}
             inputClassName="font-mono"
+          />
+          {/* A reference and a number of days are exact values too, so each filters on Enter. */}
+          <SearchField
+            value={typedReference}
+            onValueChange={setTypedReference}
+            onSubmit={setReference}
+            label={t("steward.journal.reference")}
+            placeholder={t("steward.journal.exact-reference")}
+            inputClassName="font-mono"
+          />
+          <SearchField
+            value={typedDays}
+            onValueChange={setTypedDays}
+            onSubmit={(days) => setMinDays(/^\d+$/.test(days) ? days : "")}
+            label={t("steward.journal.min-days")}
+            placeholder={t("steward.journal.days-at-least")}
+            inputMode="numeric"
           />
           <FilterSelect
             value={action}

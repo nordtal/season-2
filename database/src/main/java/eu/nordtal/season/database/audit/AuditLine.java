@@ -30,6 +30,16 @@ public record AuditLine(
         Objects.requireNonNull(line, "line");
     }
 
+    /** Returns the payment reference the line names, its message's {@code reference}, which the journal filters by. */
+    public @Nullable String reference() {
+        return line.args().get("reference") instanceof final String reference ? reference : null;
+    }
+
+    /** Returns the days the line grants or books, its message's {@code days}, which the journal filters by. */
+    public @Nullable Integer days() {
+        return line.args().get("days") instanceof final Integer days ? days : null;
+    }
+
     /** Returns a line about nobody in particular. */
     public static AuditLine of(final JournalAction action, final Actor actor, final MessageRef line) {
         return new AuditLine(action, actor, null, null, line);

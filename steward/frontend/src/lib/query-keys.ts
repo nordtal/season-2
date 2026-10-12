@@ -2,6 +2,17 @@
 
 export const SECOND = 1000
 
+/** What the journal is narrowed to; an absent or empty part matches every entry. */
+export type JournalFilter = {
+  action?: string
+  /** A Discord id, matched exactly. */
+  subject?: string
+  /** A payment reference, matched exactly. */
+  reference?: string
+  /** The least days an entry grants or books, as typed. */
+  minDays?: string
+}
+
 export const keys = {
   me: ["me"] as const,
   services: ["services"] as const,
@@ -26,7 +37,7 @@ export const keys = {
   /** Under `payments`, so whatever moves the payments moves these too. */
   personPayments: (discordId: string) => ["payments", "person", discordId] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
-  journal: (action: string, subject: string) => ["journal", action, subject] as const,
+  journal: (filter: JournalFilter) => ["journal", filter] as const,
   actions: (limit: number) => ["actions", limit] as const,
   settings: ["settings"] as const,
   commandRun: (id: string) => ["command-run", id] as const,

@@ -2,7 +2,6 @@ package eu.nordtal.season.database.audit;
 
 import java.util.List;
 import javax.sql.DataSource;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The journal: {@code audit_log}, newest first, whole or filtered.
@@ -23,12 +22,11 @@ public interface AuditDirectory {
     List<AuditEntry> recent(int limit);
 
     /**
-     * Returns the journal filtered by action, by subject, by both or by neither, newest first.
-     * Both filters are exact matches, and a {@code null} or blank one matches anything.
+     * Returns the journal narrowed by every part of {@code filter} that is set, newest first.
      *
      * @param limit how many at most; a number below 1 is clamped to 1
      */
-    List<AuditEntry> search(@Nullable String action, @Nullable String subject, int limit);
+    List<AuditEntry> search(JournalFilter filter, int limit);
 
     /**
      * Writes one line into the journal.

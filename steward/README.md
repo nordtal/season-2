@@ -59,7 +59,7 @@ never granted fails in `check`.
   bundle. `Unjournaled` names why a route writes none here, mostly because `:database` writes the line in the
   transaction of the change itself (a request row, a booking, the phase). `JournaledRoutesTest` fails on a
   changing route with neither and lists every one left out. The Journal page renders a line through the web
-  target.
+  target and filters by action, the person concerned, a payment reference and the least days granted.
 - **Alerts.** A row in `admin_alert`, raised by whoever saw it: steward measures the stack every 30
   seconds against the `web` group's thresholds, downloads the proxy's pack URL every ten minutes, and
   raises failed runs and unbookable payments; the bot

@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,11 +11,15 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.RoundSeed;
+import eu.nordtal.season.database.audit.AuditDirectory;
+import eu.nordtal.season.database.audit.AuditLine;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.messages.Refusal;
+import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.steward.game.Announcements;
 import eu.nordtal.season.stewardagent.PluginJars;
 import java.net.http.HttpResponse;
@@ -47,6 +52,43 @@ class RosterApiTest extends WebTestSupport {
         } finally {
             sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000001', '700000000000000002')");
         }
+    }
+
+    @Test
+    void theJournalIsFilteredByAPaymentReferenceAndByTheLeastDays() throws Exception {
+        final AuditDirectory journal = AuditDirectory.using(WebFixture.postgres.dataSource());
+        final DiscordId payer = DiscordId.of("700000000000000003");
+        journal.record(AuditLine.about(
+                JournalAction.SETTLE,
+                Actor.STEWARD,
+                payer,
+                TEXTS.journal().settleByHand("NT-ROUTE", 30, 30, Money.euroCents(0))));
+        journal.record(AuditLine.about(
+                JournalAction.SETTLE,
+                Actor.STEWARD,
+                payer,
+                TEXTS.journal().settleByHand("NT-OTHER", 30, 30, Money.euroCents(0))));
+        try {
+            assertEquals(List.of("NT-ROUTE"), references("/api/journal?reference=NT-ROUTE"));
+            assertEquals(List.of("NT-ROUTE"), references("/api/journal?reference=NT-ROUTE&minDays=30"));
+            assertEquals(List.of(), references("/api/journal?reference=NT-ROUTE&minDays=31"));
+        } finally {
+            sql("DELETE FROM audit_log WHERE subject = '" + payer + "'");
+        }
+    }
+
+    /** The reference each journal line a query answers names, as its message carries it. */
+    private static List<String> references(final String query) throws Exception {
+        final HttpResponse<String> answer = get(query);
+        assertEquals(200, answer.statusCode(), answer.body());
+        return GSON.fromJson(answer.body(), JsonArray.class).asList().stream()
+                .map(entry -> entry.getAsJsonObject()
+                        .getAsJsonObject("line")
+                        .getAsJsonObject("args")
+                        .getAsJsonObject("reference")
+                        .get("value")
+                        .getAsString())
+                .toList();
     }
 
     @Test

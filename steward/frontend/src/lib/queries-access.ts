@@ -13,7 +13,7 @@ import {
   type Person,
 } from "@/lib/api"
 import { live, nextChange } from "@/lib/live"
-import { keys } from "@/lib/query-keys"
+import { keys, type JournalFilter } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 
 /** The roster, its payments, periods and journal, and every change an admin makes to somebody's access. */
@@ -95,13 +95,15 @@ export function useGrants(discordId: string | null) {
   })
 }
 
-export function useJournal(action: string, subject: string, enabled = true) {
+export function useJournal(filter: JournalFilter, enabled = true) {
   return useQuery({
-    queryKey: keys.journal(action, subject),
+    queryKey: keys.journal(filter),
     queryFn: () => {
       const query = new URLSearchParams({ limit: "200" })
-      if (action) query.set("action", action)
-      if (subject) query.set("subject", subject)
+      if (filter.action) query.set("action", filter.action)
+      if (filter.subject) query.set("subject", filter.subject)
+      if (filter.reference) query.set("reference", filter.reference)
+      if (filter.minDays) query.set("minDays", filter.minDays)
       return api<JournalEntry[]>(`/api/journal?${query}`)
     },
     ...live("JOURNAL"),

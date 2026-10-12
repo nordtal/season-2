@@ -25,8 +25,9 @@ final class JdbiAuditDirectory implements AuditDirectory {
     }
 
     @Override
-    public List<AuditEntry> search(final @Nullable String action, final @Nullable String subject, final int limit) {
-        return dao.search(any(action), any(subject), clamp(limit));
+    public List<AuditEntry> search(final JournalFilter filter, final int limit) {
+        return dao.search(
+                any(filter.action()), any(filter.subject()), any(filter.reference()), filter.minDays(), clamp(limit));
     }
 
     @Override

@@ -148,6 +148,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V40__an_authenticator_app_is_a_second_factor.sql",
                 "5bdb3dbd19c8b66d9d1f2bbecd018391a860ff3604a75ccf1de1bc37d6b72feb");
+        FROZEN.put(
+                "V41__a_journal_line_keeps_its_reference_and_days.sql",
+                "62fa760cd0dfd61250f62edaca8469f09ee9a12d1a021df6974fc10a9183b216");
     }
 
     @Test

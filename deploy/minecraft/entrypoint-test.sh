@@ -308,6 +308,35 @@ expect_gone "$dir/New Pack.zip.partial"
 ok "fetched and swept"
 
 
+echo "entrypoint.sh: a backend behind the proxy"
+
+# Runs prepare_backend against a volume.
+backend() {
+    local data="$1"
+    set +e
+    output=$(DATA="$data" bash -c 'source "$1"; prepare_backend' backend-test "$ENTRYPOINT" 2>&1)
+    status=$?
+    set -e
+}
+
+case_begin "a fresh volume starts with the white list off"
+data=$(volume backend-fresh)
+backend "$data"
+expect_status 0
+expect_property "$data/server.properties" white-list false
+expect_property "$data/server.properties" online-mode false
+ok "white-list=false written before the server writes its own default"
+
+case_begin "a white list a server switched on is switched off again"
+data=$(volume backend-whitelisted)
+printf 'online-mode=false\nwhite-list=true\nmax-players=20\n' > "$data/server.properties"
+backend "$data"
+expect_status 0
+expect_property "$data/server.properties" white-list false
+expect_property "$data/server.properties" max-players 20
+ok "white-list=true corrected"
+
+
 echo "entrypoint.sh: the cached server jar"
 
 # A cache directory holding the named files. Returns its path on stdout.

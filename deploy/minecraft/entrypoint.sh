@@ -18,8 +18,8 @@ DATA="${DATA:-/data}"
 LEVEL_NAME="${LEVEL_NAME:-world}"
 
 # first-start configuration
-# Seeds files that do not exist yet and leaves existing ones to the operator. Only online-mode is
-# enforced on every start; see prepare_backend.
+# Seeds files that do not exist yet and leaves existing ones to the operator. Only online-mode and
+# white-list are enforced on every start; see prepare_backend.
 
 # Sets key=value in a properties file, creating it if needed, and logs a change.
 set_property() {
@@ -163,12 +163,14 @@ fetch_datapacks() {
     shopt -u nullglob
 }
 
-# Configures a Paper backend behind the proxy: offline mode and modern forwarding.
+# Configures a Paper backend behind the proxy: offline mode, no white list and modern forwarding.
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
 
     # Enforced on every start: a backend that authenticates refuses every forwarded login.
     set_property "$DATA/server.properties" online-mode false
+    # Enforced too, since a fresh server writes white-list=true and nobody here is on a white list.
+    set_property "$DATA/server.properties" white-list false
 
     # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml
     # on first load, so rotating means editing both. Only the enable switch is seeded.

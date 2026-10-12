@@ -116,8 +116,8 @@ The entrypoint writes these only when missing, unless noted:
 - proxy `velocity.toml`: forwarding mode, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]`.
 - proxy `forwarding.secret` and `accepts-transfers = true` under `[advanced]`: every start.
 - each backend's `config/paper-global.yml`: `proxies.velocity.enabled: true`.
-- each backend's `server.properties`: `online-mode=false` every start; `level-name=$LEVEL_NAME` once;
-  `level-seed=$LEVEL_SEED` while the world has no `level.dat`.
+- each backend's `server.properties`: `online-mode=false` and `white-list=false` every start;
+  `level-name=$LEVEL_NAME` once; `level-seed=$LEVEL_SEED` while the world has no `level.dat`.
 
 A `level-name` that disagrees with the volume stops the container, since Paper would start a second,
 empty world. Paper's default `world` is replaced unless somebody has played in it.

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.stewardagent.run.Report;
+import eu.nordtal.season.database.update.UpdateReport;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -87,9 +87,10 @@ class UpdatePlanTest {
                         + " incomplete and installs the two that resolved");
         assertEquals(3, bootstrap.changes().size());
 
-        assertTrue(
-                Report.render(bootstrap).contains("could not be checked"),
-                "a rendered bootstrap plan has to say that part of the picture is missing");
+        assertEquals(
+                UpdateReport.State.FAILED,
+                PlanReport.of(bootstrap).line("smp").state(),
+                "the bootstrap's report has to say that part of the picture is missing");
     }
 
     @Test

@@ -8,12 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.common.http.HttpFailure;
+import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
-import eu.nordtal.season.stewardagent.run.Report;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.FakeHttp;
 import eu.nordtal.season.stewardagent.source.GitHubReleases;
@@ -126,7 +126,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        assertFalse(plan.hasWork(), Report.render(plan));
+        assertFalse(plan.hasWork(), Told.plan(plan));
         assertEquals("v0.1.0", plan.seasonTag());
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
@@ -152,7 +152,7 @@ class ResolverTest {
                 plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
                         .noneMatch(change -> "limbo".equals(change.service()) || "proxy".equals(change.service())),
-                Report.render(plan));
+                Told.plan(plan));
     }
 
     @Test
@@ -163,14 +163,14 @@ class ResolverTest {
 
         // A different loader and jar, from Modrinth.PRE_RELEASE_EXCEPTIONS: asserts the exception is reached.
         final Change change = changeFor(plan, "proxy", "voicechat-velocity");
-        assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
+        assertEquals(Change.Status.UP_TO_DATE, change.status(), Told.plan(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
 
         assertTrue(
                 plan.changes().stream()
                         .filter(row -> "voicechat-velocity".equals(row.artifact()))
                         .allMatch(row -> "proxy".equals(row.service())),
-                "the Velocity build is on a Paper server: " + Report.render(plan));
+                "the Velocity build is on a Paper server: " + Told.plan(plan));
     }
 
     @Test
@@ -186,13 +186,13 @@ class ResolverTest {
         assertNotNull(change.reason());
 
         // Distinct from UNRESOLVED: a failure row skips the whole service, so a missing build must not read as one.
-        assertFalse(change.status().isFailure(), Report.render(plan));
-        assertFalse(change.status().isWork(), Report.render(plan));
+        assertFalse(change.status().isFailure(), Told.plan(plan));
+        assertFalse(change.status().isWork(), Told.plan(plan));
         assertTrue(
                 plan.changes().stream()
                         .filter(row -> "smp".equals(row.service()))
                         .noneMatch(row -> row.status().isFailure()),
-                "one artefact with no build made the whole SMP untrustworthy: " + Report.render(plan));
+                "one artefact with no build made the whole SMP untrustworthy: " + Told.plan(plan));
     }
 
     @Test
@@ -202,27 +202,18 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         // Everything else is current, so CoreProtect alone must not turn the report into a claim of work done.
-        assertFalse(plan.hasWork(), Report.render(plan));
-        assertFalse(plan.hasMissing(), Report.render(plan));
+        assertFalse(plan.hasWork(), Told.plan(plan));
+        assertFalse(plan.hasMissing(), Told.plan(plan));
 
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(plan);
+        final UpdateReport report = PlanReport.of(plan);
         assertFalse(report.isWork(), report.toString());
-        assertEquals(
-                eu.nordtal.season.database.update.UpdateReport.State.UNCHANGED,
-                report.line("smp").state(),
-                report.toString());
+        assertEquals(UpdateReport.State.UNCHANGED, report.line("smp").state(), report.toString());
         assertTrue(
                 report.line("smp").changes().stream()
                         .anyMatch(entry -> entry.artefact().equals("coreprotect")
-                                && entry.state()
-                                        == eu.nordtal.season.database.update.UpdateReport.Change.State.UNSUPPORTED),
+                                && entry.state() == UpdateReport.Change.State.UNSUPPORTED),
                 "the artefact has to stay NAMED while it waits - one dropped from the report is one"
                         + " somebody has to remember: " + report);
-
-        // The text report names it too; its SUMMARY when nothing else is wrong is ReportTest's job, not this one's.
-        final String text = Report.render(plan);
-        assertTrue(text.contains("coreprotect"), text);
-        assertTrue(text.contains("no build yet"), text);
     }
 
     @Test
@@ -236,8 +227,8 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
         final Change change = changeFor(plan, "smp", "coreprotect");
 
-        assertEquals(Change.Status.UNRESOLVED, change.status(), Report.render(plan));
-        assertTrue(plan.hasFailures(), Report.render(plan));
+        assertEquals(Change.Status.UNRESOLVED, change.status(), Told.plan(plan));
+        assertTrue(plan.hasFailures(), Told.plan(plan));
     }
 
     @Test
@@ -252,7 +243,7 @@ class ResolverTest {
                 plan.unclaimed().stream()
                         .anyMatch(jar ->
                                 "limbo".equals(jar.service()) && jar.fileName().equals("voicechat-bukkit-2.6.23.jar")),
-                Report.render(plan));
+                Told.plan(plan));
     }
 
     @Test
@@ -268,7 +259,9 @@ class ResolverTest {
         assertEquals("smp-0.0.9.jar", change.installed());
         assertNotNull(change.wanted());
         assertEquals("smp-0.1.0.jar", change.wanted().fileName());
-        assertTrue(Report.render(plan).contains("smp-0.0.9.jar  ->  smp-0.1.0.jar"), Report.render(plan));
+        assertTrue(
+                PlanReport.of(plan).line("smp").changes().contains(new UpdateReport.Change("smp", "0.0.9", "0.1.0")),
+                "the report tells the jump of the two files: " + Told.plan(plan));
     }
 
     @Test
@@ -298,14 +291,14 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
         final Change smp = changeFor(plan, "smp", "smp");
 
-        assertEquals(Change.Status.UNRESOLVED, smp.status(), Report.render(plan));
-        assertTrue(smp.status().isFailure(), Report.render(plan));
+        assertEquals(Change.Status.UNRESOLVED, smp.status(), Told.plan(plan));
+        assertTrue(smp.status().isFailure(), Told.plan(plan));
         assertNull(smp.wanted());
         assertNotNull(smp.reason());
         assertTrue(
                 Told.english(smp.reason()).contains("smp-0.1.0.jar without a sha256 digest"),
                 Told.english(smp.reason()));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "limbo", "limbo"), Report.render(plan));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "limbo", "limbo"), Told.plan(plan));
     }
 
     @Test
@@ -332,10 +325,7 @@ class ResolverTest {
 
         assertTrue(plan.hasFailures());
         assertEquals(Change.Status.MOUNT_MISSING, statusOf(plan, "smp", "smp"));
-        assertTrue(
-                Report.render(plan).contains("not the whole picture")
-                        || Report.render(plan).contains("not the same as up to date"),
-                Report.render(plan));
+        assertEquals(UpdateReport.State.FAILED, PlanReport.of(plan).line("smp").state(), Told.plan(plan));
     }
 
     @Test
@@ -383,7 +373,11 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "SomeoneElsesPlugin-1.0.0.jar")), plan.unclaimed());
-        assertTrue(Report.render(plan).contains("left alone, never deleted"));
+        assertTrue(
+                Told.notes(PlanReport.of(plan))
+                        .contains("SOURCES WARNING smp: also holds SomeoneElsesPlugin-1.0.0.jar,"
+                                + " which nothing in the plan claims"),
+                Told.plan(plan));
     }
 
     @Test
@@ -406,7 +400,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         final Change change = changeFor(plan, "smp", "packetevents");
-        assertEquals(Change.Status.OUTDATED, change.status(), Report.render(plan));
+        assertEquals(Change.Status.OUTDATED, change.status(), Told.plan(plan));
         assertEquals("packetevents-spigot-2.12.0-paper.jar", change.installed());
         assertEquals(List.of(), plan.unclaimed(), "the old copy is the jar the row replaces, not a stranger");
     }
@@ -423,9 +417,8 @@ class ResolverTest {
         assertNotNull(change.wanted());
         assertNotNull(change.wanted().checksum());
         assertEquals(PACK_SHA1, change.wanted().checksum().hex());
-        // Full hash on both sides: releases sharing a hex prefix must not render as a change from a value to itself.
+        // Full hash on both sides: releases sharing a hex prefix must not read as a change from a value to itself.
         assertEquals("0000000000000000000000000000000000000000", change.installed());
-        assertTrue(Report.render(plan).contains("sha1 " + PACK_SHA1), Report.render(plan));
     }
 
     @Test
@@ -437,7 +430,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         final Change change = changeFor(plan, "proxy", "resource-pack");
-        assertEquals(Change.Status.OUTDATED, change.status(), Report.render(plan));
+        assertEquals(Change.Status.OUTDATED, change.status(), Told.plan(plan));
         assertNotNull(change.wanted());
         assertEquals(PACK_URL, change.wanted().url().toString());
     }
@@ -480,10 +473,10 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
         final Change pack = changeFor(plan, "proxy", "resource-pack");
 
-        assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Report.render(plan));
+        assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Told.plan(plan));
         assertEquals(PACK_SHA1, pack.installed());
-        assertFalse(pack.status().isFailure(), Report.render(plan));
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(plan);
+        assertFalse(pack.status().isFailure(), Told.plan(plan));
+        final UpdateReport report = PlanReport.of(plan);
         assertTrue(
                 Told.notes(report).stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
                 "the missing pack is a note in the report: " + report);
@@ -532,18 +525,15 @@ class ResolverTest {
         final Change smp = changeFor(plan, "smp", "smp");
 
         // The release answered but has no file for this jar: NOT_IN_RELEASE, not a failed lookup.
-        assertEquals(Change.Status.NOT_IN_RELEASE, smp.status(), Report.render(plan));
+        assertEquals(Change.Status.NOT_IN_RELEASE, smp.status(), Told.plan(plan));
         assertEquals("smp-0.1.0.jar", smp.installed());
-        assertFalse(smp.status().isFailure(), Report.render(plan));
-        assertFalse(smp.status().isWork(), Report.render(plan));
+        assertFalse(smp.status().isFailure(), Told.plan(plan));
+        assertFalse(smp.status().isWork(), Told.plan(plan));
         assertEquals(
                 Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
 
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(plan);
-        assertEquals(
-                eu.nordtal.season.database.update.UpdateReport.State.PLANNED,
-                report.line("smp").state(),
-                report.toString());
+        final UpdateReport report = PlanReport.of(plan);
+        assertEquals(UpdateReport.State.PLANNED, report.line("smp").state(), report.toString());
         assertTrue(
                 Told.notes(report).stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
                 "the missing jar is a warning in the report: " + report);
@@ -556,13 +546,10 @@ class ResolverTest {
                 "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "other-0.1.0.jar"));
 
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(resolve());
+        final UpdateReport report = PlanReport.of(resolve());
 
         assertFalse(report.line("smp").isMoving(), report.toString());
-        assertEquals(
-                eu.nordtal.season.database.update.UpdateReport.State.UNCHANGED,
-                report.line("smp").state(),
-                report.toString());
+        assertEquals(UpdateReport.State.UNCHANGED, report.line("smp").state(), report.toString());
     }
 
     @Test
@@ -573,13 +560,10 @@ class ResolverTest {
                 "/project/Lu3KuzdV/version",
                 new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(resolve());
+        final UpdateReport report = PlanReport.of(resolve());
 
         // Applier skips the whole SMP over the outage; the line stays FAILED and says what it held back.
-        assertEquals(
-                eu.nordtal.season.database.update.UpdateReport.State.FAILED,
-                report.line("smp").state(),
-                report.toString());
+        assertEquals(UpdateReport.State.FAILED, report.line("smp").state(), report.toString());
         assertFalse(report.line("smp").isMoving(), report.toString());
         assertTrue(Told.detail(report.line("smp")).contains("packetevents"), report.toString());
     }
@@ -593,14 +577,14 @@ class ResolverTest {
                 new HttpFailure(
                         URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
 
-        final eu.nordtal.season.database.update.UpdateReport report = PlanReport.of(resolve());
+        final UpdateReport report = PlanReport.of(resolve());
 
         // The applier installs plugins beside a paper row it could not check, so the line must say it moves.
         assertTrue(report.line("smp").isMoving(), report.toString());
     }
 
     @Test
-    void aReleasePinnedByTagThatIsAPreReleaseSaysSoOnTheSecondLine() throws IOException {
+    void aReleasePinnedByTagThatIsAPreReleaseIsMarkedSoUpToTheUpdatesPage() throws IOException {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",
@@ -609,7 +593,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertTrue(plan.seasonPrerelease());
-        assertTrue(Report.render(plan).contains("PRE-RELEASE"), Report.render(plan));
+        assertTrue(PlanView.of(plan).seasonPrerelease(), "the wire carries it to the page");
     }
 
     @Test
@@ -706,7 +690,7 @@ class ResolverTest {
                         service == null ? candidate.service() == null : service.equals(candidate.service()))
                 .findFirst();
         return change.orElseThrow(
-                () -> new AssertionError("no row for " + service + "/" + artifact + " in:\n" + Report.render(plan)));
+                () -> new AssertionError("no row for " + service + "/" + artifact + " in:\n" + Told.plan(plan)));
     }
 
     private static Change.Status statusOf(final UpdatePlan plan, final String service, final String artifact) {

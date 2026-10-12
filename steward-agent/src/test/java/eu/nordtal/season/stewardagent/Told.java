@@ -4,6 +4,8 @@ import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.stewardagent.plan.PlanReport;
+import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -38,6 +40,11 @@ public final class Told {
     /** A stored report with its messages in English, as the host's terminal prints it. */
     public static String report(final String stored) {
         return UpdateReports.english(stored);
+    }
+
+    /** A plan as the records a run would write, in English, the way a failed assertion shows it. */
+    public static String plan(final UpdatePlan plan) {
+        return UpdateReports.english(UpdateReports.toJson(PlanReport.of(plan)));
     }
 
     public static List<String> notes(final UpdateReport report) {

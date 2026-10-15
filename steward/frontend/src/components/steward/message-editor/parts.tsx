@@ -33,7 +33,6 @@ import { MenuTrigger, ToolButton } from "@/components/steward/message-editor/too
 
 /** What both editors share: the placeholder, glyph and colour menus, and the style buttons that use them. */
 
-/** A placeholder as the editors show it: always a pill, one every message has set apart in grey. */
 /** The start of a plural's or a choice's source, whose cases the fields below the editor edit. */
 const CHOICE_HEAD = /^\{\s*([^\s,{}]+)\s*,\s*(?:plural|select)\s*,/
 
@@ -48,6 +47,7 @@ export function rawChip(source: string): ReactNode {
   ) : null
 }
 
+/** A placeholder as the editors show it: always a pill, one every message has set apart in grey. */
 export function PlaceholderChip({
   name,
   global,

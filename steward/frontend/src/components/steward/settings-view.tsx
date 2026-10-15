@@ -49,6 +49,7 @@ export function useWide(): boolean {
   return wide
 }
 
+/** Marks an entry with changes that are not saved. */
 export function DraftDot() {
   return <span aria-label={t("steward.settings.changed")} className="size-1.5 shrink-0 rounded-full bg-primary" />
 }

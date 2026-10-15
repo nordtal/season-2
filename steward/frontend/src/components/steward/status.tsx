@@ -22,6 +22,7 @@ const TONES: Record<Tone, string> = {
   idle: "border-border bg-secondary text-muted-foreground",
 }
 
+/** A badge in its tone's colour around the word for the state, with `tipContent` as its tip. */
 export function StatusBadge({
   tone,
   children,

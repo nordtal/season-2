@@ -33,11 +33,6 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 
-/**
- * One dialog, a bottom sheet below the sidebar's 640px breakpoint and a centred dialog above it.
- *
- * The exports mirror `dialog.tsx` one for one, so converting a call site is its import and a rename.
- */
 const ResponsiveContext = React.createContext(false)
 
 /** Whether this subtree is drawn as a sheet; read only by the components in this file. */
@@ -45,8 +40,13 @@ function useSheet(): boolean {
   return React.useContext(ResponsiveContext)
 }
 
+/**
+ * One dialog, a bottom sheet below the sidebar's 640px breakpoint and a centred dialog above it.
+ *
+ * The exports mirror `dialog.tsx` one for one, so converting a call site is its import and a rename.
+ */
 export function ResponsiveDialog({ children, ...props }: React.ComponentProps<typeof Dialog>) {
-  /** `false` on the first render and corrected in an effect, so crossing the breakpoint while open remounts. */
+  /** Crossing the breakpoint while open swaps the root, which remounts the dialog. */
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : Dialog
 

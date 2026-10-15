@@ -5,8 +5,8 @@ import { Drawer as DrawerPrimitive } from "vaul"
 /**
  * A bottom sheet, every dialog's shape on a narrow screen, used only through {@link ResponsiveDialog}.
  *
- * Bottom only, since `sheet.tsx` already covers the sides; `vaul` does the drag. Not the lift above the keyboard:
- * vaul's ignores the pan iOS adds, so the sheet stands on `--keyboard-inset` instead.
+ * `vaul` does the drag. Not the lift above the keyboard: vaul's ignores the pan iOS adds, so the sheet stands on
+ * `--keyboard-inset` instead.
  */
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
   return <DrawerPrimitive.Root data-slot="drawer" repositionInputs={false} {...props} />

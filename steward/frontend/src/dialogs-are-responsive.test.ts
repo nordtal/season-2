@@ -7,19 +7,13 @@ import { assert, describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /** Every dialog goes through `responsive-dialog.tsx`; the import is checked, since a JSX tag can be renamed there. */
-const RAW = /from\s+"@\/components\/ui\/(dialog|alert-dialog|sheet|drawer)"/
+const RAW = /from\s+"@\/components\/ui\/(dialog|alert-dialog|drawer)"/
 
 /** The files allowed to import a raw one, each with its reason; exemption is by file. */
 const ALLOWED = new Map<string, string>([
   [
     path.join("components", "ui", "responsive-dialog.tsx"),
     "the component itself - it is the one place the choice between the two shapes is made",
-  ],
-  [
-    path.join("components", "ui", "sidebar.tsx"),
-    "the navigation on a phone, which is a side sheet and not a dialog: it comes from the edge, it" +
-      " is the app's own chrome rather than something a page opened, and a bottom sheet would" +
-      " land on top of the thing it is navigating away from",
   ],
 ])
 
@@ -38,7 +32,7 @@ function sourceFiles(directory: string): string[] {
 
 /** The primitives themselves, which import nothing of the kind and are not call sites either. */
 const PRIMITIVES = new Set(
-  ["dialog.tsx", "alert-dialog.tsx", "sheet.tsx", "drawer.tsx"].map((name) => path.join("components", "ui", name)),
+  ["dialog.tsx", "alert-dialog.tsx", "drawer.tsx"].map((name) => path.join("components", "ui", name)),
 )
 
 function offenders(): string[] {

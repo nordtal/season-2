@@ -118,8 +118,7 @@ public final class LayoutSchema {
         for (final Element element : layout.elements()) {
             switch (element.kind()) {
                 case LIST -> lines.addAll(element.keys());
-                case SELECT ->
-                    lines.addAll(element.keys().subList(1, element.keys().size()));
+                case SELECT -> element.keys().stream().skip(1).forEach(lines::add);
                 case BUTTON, LANGUAGES -> {}
             }
         }

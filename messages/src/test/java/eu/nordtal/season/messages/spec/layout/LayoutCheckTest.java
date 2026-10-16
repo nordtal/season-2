@@ -54,6 +54,14 @@ class LayoutCheckTest {
                 problems(withParts(List.of(Element.button("buy", "layouts/buy")), Part.text(title("layouts/title")))));
     }
 
+    /** A declaration read from JSON can hold an element of no texts, which is reported and does not stop the check. */
+    @Test
+    void aSelectThatDrawsNoTextIsRefused() {
+        assertEquals(
+                List.of("layouts/broken: its select pick draws 0 texts"),
+                problems(withParts(List.of(new Element("pick", Element.Kind.SELECT, List.of())), row("pick"))));
+    }
+
     @Test
     void anElementPlacedTwiceIsRefused() {
         assertEquals(

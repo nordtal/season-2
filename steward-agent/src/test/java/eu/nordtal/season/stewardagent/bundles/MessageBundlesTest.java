@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
@@ -260,6 +261,40 @@ class MessageBundlesTest {
         assertEquals(List.of(), cheer.packaged("de"));
         assertEquals(List.of("Mühle"), entry(bundle, "mill").packaged("de"));
         assertEquals("paper-common", entry(bundle, "reload.done").bundle());
+    }
+
+    private static final String LAYOUTS = """
+            [{"layout": {"name": "welcome", "bundle": "smp", "area": "Join", "surface": "DISCORD", "elements": [],
+                         "parts": [{"type": "TEXT", "lines": [{"key": "smp/welcome"}]}]},
+              "values": {"values": {}, "roles": [], "actions": [], "markup": false, "limit": 0, "examples": {}},
+              "shows": ["smp/welcome"]}]
+            """;
+
+    @Test
+    void eachLayoutTheJarShipsBesideItsTextsIsCarriedAsItsLayoutsFileHoldsIt() throws IOException {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of("messages/smp/en.properties", "welcome=Welcome\n", "messages/smp/layouts.json", LAYOUTS));
+
+        final MessageBundle bundle =
+                MessageBundles.read(new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar")));
+
+        assertEquals(Json.tree(LAYOUTS).getAsJsonArray().asList(), bundle.layouts());
+    }
+
+    @Test
+    void aLayoutsFileThatHoldsNoLayoutsIsLeftOutAndTheTextsStillShow() throws IOException {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/smp/layouts.json", "[{\"shows\": [\"smp/welcome\"]}]"));
+
+        final MessageBundle bundle =
+                MessageBundles.read(new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar")));
+
+        assertEquals(List.of(), bundle.layouts());
+        assertEquals(List.of("Welcome"), entry(bundle, "welcome").packaged("en"));
     }
 
     // Fixtures

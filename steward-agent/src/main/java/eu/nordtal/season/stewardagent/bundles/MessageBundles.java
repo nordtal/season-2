@@ -1,11 +1,14 @@
 package eu.nordtal.season.stewardagent.bundles;
 
+import com.google.gson.JsonObject;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.spec.MessageSchema;
+import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Kind;
 import java.io.ByteArrayInputStream;
@@ -48,6 +51,9 @@ public final class MessageBundles {
     /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
 
+    /** The layouts a root's module declares, written beside its schema at build time. */
+    private static final Pattern LAYOUTS_ENTRY = Pattern.compile("messages/([^/]+)/layouts\\.json");
+
     private MessageBundles() {}
 
     /**
@@ -84,7 +90,7 @@ public final class MessageBundles {
     /**
      * Opens {@code location}'s jar and reads every bundle it packages into one form.
      *
-     * @return the bundle, each bundle's schema keys in its order, then the rest sorted
+     * @return the bundle, each bundle's schema keys in its order, then the rest sorted, and every layout
      * @throws IOException if the jar cannot be read
      * @throws IllegalStateException if a packaged file numbers its variants with a gap
      */
@@ -122,7 +128,11 @@ public final class MessageBundles {
             });
             entries.add(entryOf(key, bundle, texts, described.get(key), packaged));
         }
-        return new MessageBundle(location.service(), location.module(), entries);
+        return new MessageBundle(
+                location.service(),
+                location.module(),
+                entries,
+                packaged.layouts().values().stream().flatMap(List::stream).toList());
     }
 
     private static MessageEntry entryOf(
@@ -177,23 +187,32 @@ public final class MessageBundles {
      *
      * @param texts bundle to language to key to its variants
      * @param schemas bundle to its described keys, sorted by bundle so the order does not follow the jar's
+     * @param layouts bundle to its layouts, sorted the same way
      */
     private record Packaged(
-            Map<String, Map<String, Map<String, List<String>>>> texts, Map<String, List<SchemaEntry>> schemas) {}
+            Map<String, Map<String, Map<String, List<String>>>> texts,
+            Map<String, List<SchemaEntry>> schemas,
+            Map<String, List<JsonObject>> layouts) {}
 
-    /** Opens the jar once and reads every packaged bundle and schema it carries. */
+    /** Opens the jar once and reads every packaged bundle, schema and layout it carries. */
     private static Packaged readPackaged(final MessageBundleLocation location) throws IOException {
         final Map<String, Map<String, Map<String, List<String>>>> texts = new TreeMap<>();
         final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
+        final Map<String, List<JsonObject>> layouts = new TreeMap<>();
         try (ZipFile jar = new ZipFile(location.jar().toFile())) {
             final Enumeration<? extends ZipEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 final ZipEntry entry = entries.nextElement();
                 final Matcher schema = SCHEMA_ENTRY.matcher(entry.getName());
+                final Matcher layout = LAYOUTS_ENTRY.matcher(entry.getName());
                 final Matcher bundle = BUNDLE_ENTRY.matcher(entry.getName());
                 if (schema.matches()) {
                     try (InputStream in = jar.getInputStream(entry)) {
                         schemas.put(schema.group(1), readSchema(location, entry.getName(), in));
+                    }
+                } else if (layout.matches()) {
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        layouts.put(layout.group(1), readLayouts(location, entry.getName(), in));
                     }
                 } else if (bundle.matches()) {
                     try (InputStream in = jar.getInputStream(entry)) {
@@ -203,7 +222,24 @@ public final class MessageBundles {
                 }
             }
         }
-        return new Packaged(texts, schemas);
+        return new Packaged(texts, schemas, layouts);
+    }
+
+    /** One {@code layouts.json}, each layout as its tree; one that holds no layouts is logged and read as empty. */
+    private static List<JsonObject> readLayouts(
+            final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
+        try {
+            return LayoutSchema.decode(new String(in.readAllBytes(), StandardCharsets.UTF_8)).stream()
+                    .map(entry -> Json.gson().toJsonTree(entry).getAsJsonObject())
+                    .toList();
+        } catch (final RuntimeException e) {
+            LOG.warn(
+                    "{}: {} holds no layouts steward can read, so they are left out: {}",
+                    location.jar(),
+                    name,
+                    e.toString());
+            return List.of();
+        }
     }
 
     private record SchemaEntry(

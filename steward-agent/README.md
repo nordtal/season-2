@@ -132,7 +132,7 @@ files directly in the backups.
 | `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                             |
 | `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                  |
 | `GET /api/bundles`                                | `BundleRef`s: every editable message bundle a jar carries, before it is opened         |
-| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts                                                |
+| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts and layouts                                    |
 | `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                        |
 | `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first                              |
 | `GET /api/backups`                                | `Archive`s, newest first                                                               |

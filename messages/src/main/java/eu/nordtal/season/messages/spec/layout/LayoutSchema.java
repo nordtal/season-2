@@ -1,6 +1,5 @@
 package eu.nordtal.season.messages.spec.layout;
 
-import com.google.gson.reflect.TypeToken;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.MessageSchema;
@@ -252,6 +251,6 @@ public final class LayoutSchema {
 
     /** Reads a {@code layouts.json}. */
     public static List<Entry> decode(final String json) {
-        return List.copyOf(Json.decode(json, new TypeToken<List<Entry>>() {}));
+        return List.of(Json.decode(json, Entry[].class));
     }
 }

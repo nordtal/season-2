@@ -1,0 +1,191 @@
+[
+  {
+    "name": "an accented box with a data list, an image and a button under it",
+    "layout": {
+      "name": "prices",
+      "bundle": "layouts",
+      "area": "Contribution",
+      "surface": "DISCORD",
+      "elements": [
+        { "id": "buy", "kind": "BUTTON", "keys": ["layouts/buy"] },
+        { "id": "tiers", "kind": "LIST", "keys": ["layouts/tier"] }
+      ],
+      "parts": [
+        {
+          "type": "CONTAINER",
+          "accent": "#4a63d8",
+          "parts": [
+            { "type": "TEXT", "lines": [{ "key": "layouts/title", "style": "TITLE" }] },
+            { "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }, { "list": "tiers" }] },
+            { "type": "TEXT", "lines": [{ "key": "layouts/donation" }] },
+            { "type": "SEPARATOR" },
+            { "type": "GALLERY", "media": ["attachment://prices.png"] }
+          ]
+        },
+        { "type": "ROW", "elements": ["buy"] }
+      ]
+    },
+    "language": "en",
+    "texts": {
+      "en": {
+        "layouts/title": "Contribution",
+        "layouts/prices": "Prices",
+        "layouts/donation": "Give {amount} on top",
+        "layouts/buy": "Buy",
+        "layouts/tier": "{days} days for {price}"
+      }
+    },
+    "filling": {
+      "values": { "amount": { "kind": "money", "value": { "minor": 500, "currency": "EUR" } } },
+      "elements": {
+        "buy": { "id": "contribution:buy" },
+        "tiers": {
+          "items": [
+            {
+              "days": { "kind": "number", "value": 30 },
+              "price": { "kind": "money", "value": { "minor": 500, "currency": "EUR" } }
+            },
+            {
+              "days": { "kind": "number", "value": 90 },
+              "price": { "kind": "money", "value": { "minor": 1250, "currency": "EUR" } }
+            }
+          ]
+        }
+      }
+    },
+    "components": [
+      {
+        "type": 17,
+        "accent_color": 4875224,
+        "components": [
+          { "type": 10, "content": "## Contribution" },
+          { "type": 10, "content": "### Prices\n30 days for €5.00\n90 days for €12.50" },
+          { "type": 10, "content": "Give €5.00 on top" },
+          { "type": 14, "divider": true, "spacing": 1 },
+          { "type": 12, "items": [{ "media": { "url": "attachment://prices.png" } }] }
+        ]
+      },
+      { "type": 1, "components": [{ "type": 2, "style": 1, "label": "Buy", "custom_id": "contribution:buy" }] }
+    ]
+  },
+  {
+    "name": "sections with a button and a thumbnail, a message value and a select",
+    "layout": {
+      "name": "link",
+      "bundle": "layouts",
+      "area": "Link",
+      "surface": "DISCORD",
+      "elements": [
+        { "id": "buy", "kind": "BUTTON", "keys": ["layouts/buy"] },
+        { "id": "language", "kind": "SELECT", "keys": ["layouts/choose", "layouts/language"] }
+      ],
+      "parts": [
+        { "type": "SECTION", "parts": [{ "type": "TEXT", "lines": [{ "key": "layouts/steps" }] }], "element": "buy" },
+        {
+          "type": "SECTION",
+          "parts": [{ "type": "TEXT", "lines": [{ "key": "layouts/count" }] }],
+          "media": ["https://nordtal.eu/icon.png"]
+        },
+        { "type": "SEPARATOR" },
+        { "type": "ROW", "elements": ["language"] }
+      ]
+    },
+    "language": "en",
+    "texts": {
+      "en": {
+        "layouts/steps": "Press {button} to begin",
+        "layouts/count": "{amount, plural, one {# player} other {# players}}",
+        "layouts/buy": "Buy",
+        "layouts/choose": "Pick your language",
+        "layouts/language": "Speak {language}"
+      }
+    },
+    "filling": {
+      "values": {
+        "button": { "kind": "message", "value": { "key": "buy", "args": {} } },
+        "amount": { "kind": "number", "value": 1200 }
+      },
+      "elements": {
+        "buy": { "id": "link:buy" },
+        "language": {
+          "id": "link:language",
+          "options": [
+            { "value": "en", "args": { "language": { "kind": "text", "value": "English" } } },
+            { "value": "de", "args": { "language": { "kind": "text", "value": "Deutsch" } } }
+          ]
+        }
+      }
+    },
+    "components": [
+      {
+        "type": 9,
+        "components": [{ "type": 10, "content": "Press Buy to begin" }],
+        "accessory": { "type": 2, "style": 1, "label": "Buy", "custom_id": "link:buy" }
+      },
+      {
+        "type": 9,
+        "components": [{ "type": 10, "content": "1,200 players" }],
+        "accessory": { "type": 11, "media": { "url": "https://nordtal.eu/icon.png" } }
+      },
+      { "type": 14, "divider": true, "spacing": 1 },
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 3,
+            "custom_id": "link:language",
+            "placeholder": "Pick your language",
+            "options": [
+              { "label": "Speak English", "value": "en" },
+              { "label": "Speak Deutsch", "value": "de" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "a block repeated once per language, each in its own",
+    "layout": {
+      "name": "welcome",
+      "bundle": "layouts",
+      "area": "Welcome",
+      "surface": "DISCORD",
+      "elements": [{ "id": "each", "kind": "LANGUAGES", "keys": [] }],
+      "parts": [
+        {
+          "type": "LANGUAGES",
+          "element": "each",
+          "parts": [
+            {
+              "type": "CONTAINER",
+              "accent": "#4a63d8",
+              "parts": [
+                { "type": "TEXT", "lines": [{ "key": "layouts/title", "style": "TITLE" }] },
+                { "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }] }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "language": "en",
+    "texts": {
+      "en": { "layouts/title": "Contribution", "layouts/prices": "Prices" },
+      "de": { "layouts/title": "Beitrag", "layouts/prices": "Preise" }
+    },
+    "filling": { "values": {}, "elements": { "each": { "languages": ["en", "de"] } } },
+    "components": [
+      {
+        "type": 17,
+        "accent_color": 4875224,
+        "components": [{ "type": 10, "content": "## Contribution" }, { "type": 10, "content": "### Prices" }]
+      },
+      {
+        "type": 17,
+        "accent_color": 4875224,
+        "components": [{ "type": 10, "content": "## Beitrag" }, { "type": 10, "content": "### Preise" }]
+      }
+    ]
+  }
+]

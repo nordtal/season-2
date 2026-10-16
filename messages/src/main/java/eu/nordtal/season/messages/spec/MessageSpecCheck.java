@@ -71,6 +71,7 @@ public final class MessageSpecCheck {
             check(problems, key, "de", german.getOrDefault(key, List.of()), declaration);
         }
         problems.addAll(formerNames(spec, entries, declared));
+        problems.addAll(takenKeys(spec, entries, declared));
         for (final String key : new TreeSet<>(english.keySet())) {
             if (!declared.contains(key)) {
                 problems.add(key + ": in en.properties, but no method declares it");
@@ -126,6 +127,26 @@ public final class MessageSpecCheck {
                 tag.args().forEach(arg -> unpicked(arg.parts(), examples, names));
             }
         }
+    }
+
+    /** A key a message value takes is one: in this bundle a key it declares, in another as {@code bundle/key}. */
+    private static List<String> takenKeys(
+            final Class<?> spec, final List<MessageSchema.Entry> entries, final Set<String> declared) {
+        final List<String> problems = new ArrayList<>();
+        final String bundle = MessageSchema.bundle(spec);
+        for (final MessageSchema.Entry entry : entries) {
+            for (final MessageSchema.Arg arg : entry.args()) {
+                for (final String taken : Objects.requireNonNullElse(arg.takes(), List.<String>of())) {
+                    final String own = taken.startsWith(bundle + "/") ? taken.substring(bundle.length() + 1) : taken;
+                    if (!FORMER.matcher(taken).matches()) {
+                        problems.add(entry.key() + ": @Takes names " + taken + ", which is neither key nor bundle/key");
+                    } else if (!own.contains("/") && !declared.contains(own)) {
+                        problems.add(entry.key() + ": @Takes names " + taken + ", which this bundle does not declare");
+                    }
+                }
+            }
+        }
+        return problems;
     }
 
     /** A former name must be one, not a key this bundle still declares. */

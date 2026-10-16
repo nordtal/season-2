@@ -62,7 +62,8 @@ is expanded one level, as `{winner.team.name}`. `Contexts` is the registry. Ever
 - `GameContent` is the game's own line: a translatable component the client reads in its language,
   English elsewhere.
 - A `message` value is a phrase written once and placed in many texts. It is never rendered ahead
-  into a string: only the target knows the reader's language and how to draw the tones.
+  into a string: only the target knows the reader's language and how to draw the tones. `@Takes`
+  names the keys it may take (`key` or `bundle/key`), and without an `@Example` the first is previewed.
 
 ## A message as data
 
@@ -87,6 +88,30 @@ milestone's name on the board, the boss bar, a menu, chat, a title and an announ
 says where it is (`Display.Surface`: the game, Discord or Steward), which groups the key on Steward's
 Translations page and decides how each place is previewed there. The key's length limit is the strictest of
 its places (`Display.strictest`), and `schema.json` lists the places in order.
+
+## Discord layouts
+
+A Discord message is a `Layout` (`spec.layout`), declared once as a `static final` field in the module
+whose code fills it and named in its build with `messageSpec { layoutClasses.add(...) }`. It has a
+name (its identity, in kebab case), the bundle it ships under, an area that groups it, its surface and a
+tree of parts as Components V2 draws them: a container with an accent, a text block, a section with a
+button or a thumbnail beside it, a separator, a gallery, a row of buttons or one select, and a block
+repeated once per language. A text block's lines are keys, each plain, a title or a heading, or a data
+list. What the code fills in is an `Element`, placed once in the tree by its id: a button, a select, a
+data list or the block per language.
+
+The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema: each layout with
+the values its texts may name (theirs and the globals, but not a data list's line or a select's option
+line, which each item fills) and every key it shows, its message values' `@Takes` included. It refuses
+an element missing, placed twice or placed where its kind does not belong, a key placed where its
+`@Shown` does not say it is shown, a value two texts name as different kinds, a message value without
+`@Takes`, and what Discord cannot draw. steward-agent carries the layouts with the bundle
+(`MessageBundle.layouts`). A key shown in two or more layouts is a building block of them
+(`LayoutSchema.buildingBlocks`).
+
+The vectors in `src/test/resources/discord-layouts.json` give a declaration, its texts, what the code
+fills in and the components Discord is sent; `DiscordLayoutVectorsTest` holds the declaration and the
+filling to the specs.
 
 ## The check
 

@@ -3,6 +3,7 @@ package eu.nordtal.season.stewardagent.run;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.DatabaseText;
@@ -13,8 +14,10 @@ import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 /** What steward-agent installed on its start is a run's report, written only when there was something to say. */
@@ -99,6 +102,19 @@ class BootstrapTest {
 
         assertEquals(UpdateReport.Stage.FAILED, report.stage());
         assertEquals(UpdateReport.State.FAILED, report.line("limbo").state());
+    }
+
+    @Test
+    void whatTheInstallWroteIsHandedToItsServicesUsersEvenWhenItFailedPartWay() {
+        final List<List<String>> handed = new ArrayList<>();
+        final Function<UpdatePlan, ApplyResult> apply = Bootstrap.handingOver(
+                missing -> {
+                    throw new IllegalStateException("disk full");
+                },
+                handed::add);
+
+        assertThrows(IllegalStateException.class, () -> apply.apply(plan(PACKETEVENTS)));
+        assertEquals(List.of(List.of("smp")), handed, "a jar written as root stays root's until the next update run");
     }
 
     @Test

@@ -391,7 +391,8 @@ public final class StewardAgent {
         try (api) {
             // Before the marker and before any run is claimed, so nothing races it.
             if (runs.get().bootstrap()) {
-                Bootstrap.installMissing(runs.get(), database, api.topology()::read, clock);
+                Bootstrap.installMissing(
+                        runs.get(), database, api.topology()::read, clock, services -> handOver(compose, services));
             }
             if (!Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler)) {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");
@@ -479,6 +480,15 @@ public final class StewardAgent {
             runs.reload();
         } catch (final SettingsException broken) {
             log.warn("The runs settings were changed but refused, so the last ones stay: {}", broken.getMessage());
+        }
+    }
+
+    /** Hands the services' volumes to their users, saying a failure without stopping anything. */
+    private static void handOver(final Compose compose, final List<String> services) {
+        try {
+            compose.handOver(services, line -> log.info("[hand-over] {}", line));
+        } catch (final java.io.IOException failure) {
+            log.warn("could not hand {}'s volumes to their users: {}", services, failure.getMessage());
         }
     }
 }

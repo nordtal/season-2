@@ -374,7 +374,13 @@ public final class MessageSchema {
                 }
             }
             return new Declaration(
-                    values, roles, actions, entry.format() == TextFormat.MINIMESSAGE, entry.limit(), examples);
+                    values,
+                    roles,
+                    actions,
+                    entry.format() == TextFormat.MINIMESSAGE,
+                    entry.limit(),
+                    examples,
+                    Display.oneLine(entry.shown()));
         }
 
         private void expand(

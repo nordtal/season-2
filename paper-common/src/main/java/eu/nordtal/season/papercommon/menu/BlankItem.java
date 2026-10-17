@@ -1,5 +1,6 @@
 package eu.nordtal.season.papercommon.menu;
 
+import eu.nordtal.season.messagerendering.Lines;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import java.util.List;
@@ -29,10 +30,23 @@ public final class BlankItem {
     public static ItemStack of(final Component name, final List<Component> lore) {
         final ItemStack stack = ItemStack.of(Material.PAPER);
         stack.setData(DataComponentTypes.ITEM_MODEL, MODEL);
-        stack.setData(DataComponentTypes.CUSTOM_NAME, upright(name));
+        return described(stack, name, lore);
+    }
+
+    /**
+     * Gives {@code stack} a tooltip with one line per line of its texts.
+     * The name's first line heads it and its later lines open the lore, since a name and a lore line hold one line.
+     *
+     * @return {@code stack}
+     */
+    public static ItemStack described(final ItemStack stack, final Component name, final List<Component> lore) {
+        final List<Component> tooltip = Lines.tooltip(name, lore);
+        stack.setData(DataComponentTypes.CUSTOM_NAME, upright(tooltip.getFirst()));
         stack.setData(
                 DataComponentTypes.LORE,
-                ItemLore.lore(lore.stream().map(BlankItem::upright).toList()));
+                ItemLore.lore(tooltip.subList(1, tooltip.size()).stream()
+                        .map(BlankItem::upright)
+                        .toList()));
         return stack;
     }
 

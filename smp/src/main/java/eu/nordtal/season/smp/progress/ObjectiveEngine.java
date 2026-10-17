@@ -4,6 +4,7 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.feedback.Feedback;
@@ -382,8 +383,10 @@ public final class ObjectiveEngine implements Contributions {
             player.sendMessage(
                     renderer.format(locale, MESSAGES.smp().milestone().completed(name)));
             player.showTitle(Title.title(
-                    renderer.format(locale, MESSAGES.smp().ceremony().title(name)),
-                    renderer.format(locale, MESSAGES.smp().ceremony().subtitle()),
+                    Lines.joined(
+                            renderer.format(locale, MESSAGES.smp().ceremony().title(name))),
+                    Lines.joined(
+                            renderer.format(locale, MESSAGES.smp().ceremony().subtitle())),
                     CEREMONY));
             sounds.play(
                     player, player.getUniqueId().equals(completedBy) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);

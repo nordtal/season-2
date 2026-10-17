@@ -120,7 +120,9 @@ packaged mode; Steward runs the same `MessageCheck` on an admin's override, wher
 a release is a warning. It refuses an undeclared value, a kind or style a value does not have, an
 unclosed or unknown tag, a colour in a packaged text, a value in a tag argument that takes none and a
 text longer than the strictest of its places allows; a text that never shows a value it is given is
-an error in a bundle and a warning in an override. The build also refuses a key shown nowhere.
+an error in a bundle and a warning in an override. So are a line break in a text shown only where the game draws
+one line (`Display.oneLine`: a title, a subtitle, the action bar, a boss bar) and a link whose visible text is its own
+address, which shows a name instead and may show the address in a hover text. The build also refuses a key shown nowhere.
 
 Each problem is a message of the English-only `check` bundle (`CheckMessages`), never a sentence in
 code, so an admin reads and changes it in the editor, and the build and a log say it in the packaged

@@ -57,6 +57,9 @@ public final class MessageCheck {
     private final List<Problem> problems = new ArrayList<>();
     private final Set<String> used = new LinkedHashSet<>();
 
+    /** The value each open {@code <click:open_url>} leads to, or an empty name for a literal address. */
+    private final Deque<String> links = new ArrayDeque<>();
+
     private MessageCheck(final Declaration declaration, final Mode mode) {
         this.declaration = declaration;
         this.mode = mode;
@@ -108,9 +111,18 @@ public final class MessageCheck {
             switch (node) {
                 case Node.Literal ignored -> {}
                 case Node.Pound ignored -> {}
-                case Node.Value value -> value(value);
+                case Node.Value value -> {
+                    if (links.contains(value.name())) {
+                        problems.add(
+                                new Problem(mode == Mode.PACKAGED, SAYS.tag().linkShowsAddress(value.name())));
+                    }
+                    value(value);
+                }
                 case Node.Choice choice -> choice(choice);
-                case Node.Tag tag -> tag(tag, open);
+                case Node.Tag tag -> {
+                    tag(tag, open);
+                    link(tag);
+                }
             }
         }
         for (final String tag : open) {
@@ -170,6 +182,9 @@ public final class MessageCheck {
                             ? SAYS.tag().packagedColour(name, sorted(Tags.TONES))
                             : SAYS.tag().unknown(name));
         }
+        if (declaration.oneLine() && Tags.isLineBreak(name)) {
+            problems.add(new Problem(mode == Mode.PACKAGED, SAYS.tag().lineBreakOnOneLine(name)));
+        }
         if ("action".equals(name) && tag.shape() != Node.Tag.Shape.CLOSE) {
             final String action =
                     tag.args().isEmpty() ? null : tag.args().getFirst().literal();
@@ -213,6 +228,28 @@ public final class MessageCheck {
                     open.pop();
                 }
             }
+        }
+    }
+
+    /** Notes where an open link leads, so the text it shows can be told from its address. */
+    private void link(final Node.Tag tag) {
+        if (!"click".equals(tag.name())) {
+            return;
+        }
+        if (tag.shape() == Node.Tag.Shape.CLOSE) {
+            links.pollFirst();
+            return;
+        }
+        if (tag.shape() == Node.Tag.Shape.OPEN
+                && tag.args().size() == 2
+                && "open_url".equals(tag.args().getFirst().literal())) {
+            links.push(tag.args().get(1).parts().stream()
+                    .filter(Node.Value.class::isInstance)
+                    .map(part -> ((Node.Value) part).name())
+                    .findFirst()
+                    .orElse(""));
+        } else if (tag.shape() == Node.Tag.Shape.OPEN) {
+            links.push("");
         }
     }
 

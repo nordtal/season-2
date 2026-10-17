@@ -312,4 +312,9 @@ class MenuFontTest {
             throw new UncheckedIOException("cannot read " + textureId, e);
         }
     }
+
+    @Test
+    void aLineBreakInARowIsASpaceSinceARowHoldsOneLine() {
+        assertEquals("HAND IN", MenuFont.fold("Hand\nin"));
+    }
 }

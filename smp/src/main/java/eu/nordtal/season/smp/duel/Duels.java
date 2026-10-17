@@ -4,6 +4,7 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.CountdownPlan;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.feedback.Feedback;
@@ -391,16 +392,16 @@ public final class Duels implements Arenas {
         if (feedback != null) {
             final boolean won = feedback == Feedback.BIG_SUCCESS;
             player.showTitle(Title.title(
-                    renderer.format(
+                    Lines.joined(renderer.format(
                             locale,
                             won
                                     ? lines.wonSection().title()
-                                    : lines.lostSection().title()),
-                    renderer.format(
+                                    : lines.lostSection().title())),
+                    Lines.joined(renderer.format(
                             locale,
                             won
                                     ? lines.wonSection().subtitle(stake)
-                                    : lines.lostSection().subtitle(stake)),
+                                    : lines.lostSection().subtitle(stake))),
                     OUTCOME));
         }
         if (feedback != null) {

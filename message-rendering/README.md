@@ -17,6 +17,10 @@ turns a line the game wrote, such as a death message, into a `GameContent` value
 translatable component the client reads in its own language. `Tones` paints a reply's tone and
 `FeedbackSounds` turns a feedback into a sound.
 
+`Lines` fits a rendered text to a place the game draws line by line. An item's tooltip (`Lines.tooltip`) takes
+one line per line of its texts, the name's later lines opening the lore; a title, a subtitle, the action bar and a
+menu title hold one line, so `Lines.joined` draws each line break there as a space instead of an unknown character.
+
 `<glyph:name>` is resolved through `GlyphNames`, found with `ServiceLoader`, so this module needs no
 resource pack; `:pack-rendering` supplies the one implementation, and without it every name stays
 as written.

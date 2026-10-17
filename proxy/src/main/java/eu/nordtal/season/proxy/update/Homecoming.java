@@ -3,6 +3,7 @@ package eu.nordtal.season.proxy.update;
 import static eu.nordtal.season.proxy.ProxyMessages.MESSAGES;
 
 import com.velocitypowered.api.proxy.Player;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.proxy.PhaseServers;
@@ -162,7 +163,7 @@ public final class Homecoming {
     }
 
     private static void subtitle(final Player player, final Component line) {
-        player.showTitle(Title.title(Component.empty(), line, TIMES));
+        player.showTitle(Title.title(Component.empty(), Lines.joined(line), TIMES));
     }
 
     /** A compose service name as a player would say it, or the compose name itself when there is no line for it. */

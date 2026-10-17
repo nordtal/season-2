@@ -439,17 +439,16 @@ public final class Graves {
             if (meta instanceof SkullMeta skull && owner != null) {
                 skull.setOwningPlayer(Bukkit.getOfflinePlayer(owner));
             }
-            meta.displayName(renderer.format(
-                            locale,
-                            owner == null || name == null
-                                    ? MESSAGES.smp().grave().ownerUnknown()
-                                    : MESSAGES.smp().grave().owner(PlayerContext.of(PlayerId.of(owner), name)))
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            meta.lore(List.of(
-                    renderer.format(locale, MESSAGES.smp().grave().diedAt(row.created(), row.x(), row.y(), row.z()))
-                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
-        return head;
+        return eu.nordtal.season.papercommon.menu.BlankItem.described(
+                head,
+                renderer.format(
+                        locale,
+                        owner == null || name == null
+                                ? MESSAGES.smp().grave().ownerUnknown()
+                                : MESSAGES.smp().grave().owner(PlayerContext.of(PlayerId.of(owner), name))),
+                List.of(renderer.format(
+                        locale, MESSAGES.smp().grave().diedAt(row.created(), row.x(), row.y(), row.z()))));
     }
 
     /** Empties a grave into one player's inventory, dropping what does not fit; the head stays for the close. */

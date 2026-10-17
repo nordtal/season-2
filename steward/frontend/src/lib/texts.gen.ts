@@ -197,6 +197,12 @@ export type TextArgs = {
     tag: Arg["text"]
     open: Arg["text"]
   }
+  "check.tag.line-break-on-one-line": {
+    tag: Arg["text"]
+  }
+  "check.tag.link-shows-address": {
+    name: Arg["text"]
+  }
   "check.tag.never-closed": {
     tag: Arg["text"]
   }

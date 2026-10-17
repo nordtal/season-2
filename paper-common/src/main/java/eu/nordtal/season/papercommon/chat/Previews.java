@@ -6,6 +6,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.Palette;
@@ -53,9 +54,9 @@ public final class Previews {
                 ? renderer.format(viewer, preview.message(), preview.text())
                 : renderer.format(viewer, preview.message(), preview.text(), paletteOf(preview.colours()));
         switch (preview.shown()) {
-            case TITLE -> reader.showTitle(Title.title(text, Component.empty()));
-            case SUBTITLE -> reader.showTitle(Title.title(Component.empty(), text));
-            case ACTION_BAR -> reader.sendActionBar(text);
+            case TITLE -> reader.showTitle(Title.title(Lines.joined(text), Component.empty()));
+            case SUBTITLE -> reader.showTitle(Title.title(Component.empty(), Lines.joined(text)));
+            case ACTION_BAR -> reader.sendActionBar(Lines.joined(text));
             default -> reader.sendMessage(text);
         }
         return Answer.done(MESSAGES.admin().previewShown());

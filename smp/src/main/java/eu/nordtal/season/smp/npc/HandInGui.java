@@ -83,14 +83,10 @@ public final class HandInGui extends Menu {
     }
 
     private ItemStack describe(final MessageRenderer renderer, final Locale locale, final Material material) {
-        final ItemStack stack = new ItemStack(material);
-        stack.editMeta(meta -> {
-            meta.displayName(renderer.format(locale, MESSAGES.smp().handin().wanted())
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            meta.lore(List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
-        });
-        return stack;
+        return BlankItem.described(
+                new ItemStack(material),
+                renderer.format(locale, MESSAGES.smp().handin().wanted()),
+                List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
     }
 
     public Objective objective() {

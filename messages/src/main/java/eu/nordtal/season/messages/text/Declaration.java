@@ -14,6 +14,7 @@ import java.util.Set;
  * @param markup   whether the texts are MiniMessage
  * @param limit    how many characters the strictest place it is shown in takes, {@code 0} for no limit
  * @param examples placeholder to its example, as {@link Kind#example} reads it, for the length check
+ * @param oneLine  whether every place it is shown draws one line, where a line break shows as an unknown character
  */
 public record Declaration(
         Map<String, Kind> values,
@@ -21,7 +22,8 @@ public record Declaration(
         Set<String> actions,
         boolean markup,
         int limit,
-        Map<String, String> examples) {
+        Map<String, String> examples,
+        boolean oneLine) {
 
     public Declaration {
         values = Map.copyOf(values);

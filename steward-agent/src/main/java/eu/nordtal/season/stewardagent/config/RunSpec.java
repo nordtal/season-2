@@ -28,15 +28,16 @@ public interface RunSpec {
     @Order(3)
     @Name("PacketEvents project")
     @Key("packetevents-project")
-    @Explain("The Modrinth project id, not the slug.")
+    @NoExplanationNeeded
     default String packetEventsProject() {
         return "HYKaKraK";
     }
 
+    /** One Modrinth id for both builds; installed from a pre-release. */
     @Order(5)
     @Name("Simple Voice Chat project")
     @Key("voicechat-project")
-    @Explain("One Modrinth id for both builds; installed from a pre-release.")
+    @NoExplanationNeeded
     default String voiceChatProject() {
         return "9eGKb6K1";
     }
@@ -45,15 +46,16 @@ public interface RunSpec {
     @Order(6)
     @Name("CoreProtect project")
     @Key("coreprotect-project")
-    @Explain("Reads UNSUPPORTED while no build fits this version.")
+    @NoExplanationNeeded
     default String coreProtectProject() {
         return "Lu3KuzdV";
     }
 
+    /** A directory that is not mounted is reported missing. */
     @Order(7)
     @Name("Volumes root")
     @Key("volumes-root")
-    @Explain("A directory that is not mounted is reported missing.")
+    @NoExplanationNeeded
     default String volumesRoot() {
         return "/volumes";
     }
@@ -70,7 +72,7 @@ public interface RunSpec {
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
-    @Explain("For one API call.")
+    @NoExplanationNeeded
     default int httpTimeoutSeconds() {
         return 30;
     }
@@ -84,10 +86,11 @@ public interface RunSpec {
         return 600;
     }
 
+    /** Installs missing artefacts before reporting ready; never updates an existing jar. */
     @Order(12)
     @Name("Bootstrap")
     @Key("bootstrap")
-    @Explain("Installs missing artefacts before reporting ready; never updates an existing jar.")
+    @NoExplanationNeeded
     default boolean bootstrap() {
         return true;
     }
@@ -101,10 +104,11 @@ public interface RunSpec {
         return false;
     }
 
+    /** The nightly clock is in the steward group. */
     @Order(14)
     @Name("Backup")
     @Key("backup")
-    @Explain("The nightly clock is in the steward group.")
+    @NoExplanationNeeded
     BackupSpec backup();
 
     /** What a {@code BACKUP} run keeps and how long it waits. */
@@ -122,7 +126,7 @@ public interface RunSpec {
         @Order(6)
         @Name("Database service")
         @Key("database-service")
-        @Explain("Empty turns off just the database dump.")
+        @Explain("Empty turns off the database dump.")
         default String databaseService() {
             return "postgres";
         }
@@ -140,7 +144,7 @@ public interface RunSpec {
         @Order(8)
         @Name("Free space kept (percent)")
         @Key("keep-free-percent")
-        @Explain("A backup leaving less free than this is refused.")
+        @Explain("A backup that would leave less free than this is refused.")
         default int keepFreePercent() {
             return 10;
         }
@@ -162,7 +166,7 @@ public interface RunSpec {
             @Order(1)
             @Name("Daily")
             @Key("daily")
-            @Explain("Days, not files. Below 1 the sweep refuses.")
+            @NoExplanationNeeded
             default int daily() {
                 return 14;
             }
@@ -189,7 +193,7 @@ public interface RunSpec {
             @Order(4)
             @Name("Collapse after (days)")
             @Key("collapse-after-days")
-            @Explain("A backup taken by hand survives the nightly one this long.")
+            @NoExplanationNeeded
             default int collapseAfterDays() {
                 return 3;
             }

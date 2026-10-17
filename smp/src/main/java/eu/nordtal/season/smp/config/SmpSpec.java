@@ -17,7 +17,7 @@ public interface SmpSpec {
     @Order(1)
     @Name("Nordtal world")
     @Key("world-nordtal")
-    @Explain("The permanent world's folder name.")
+    @NoExplanationNeeded
     default String worldNordtal() {
         return "nordtal";
     }
@@ -55,18 +55,20 @@ public interface SmpSpec {
         return 2000;
     }
 
+    /** Every radius is measured from here; moving it shifts them all. */
     @Order(8)
     @Name("Border centre X")
     @Key("border-centre-x")
-    @Explain("Every radius is measured from here; moving it shifts them all.")
+    @NoExplanationNeeded
     default int borderCentreX() {
         return 106;
     }
 
+    /** Every radius is measured from here; moving it shifts them all. */
     @Order(9)
     @Name("Border centre Z")
     @Key("border-centre-z")
-    @Explain("Every radius is measured from here; moving it shifts them all.")
+    @NoExplanationNeeded
     default int borderCentreZ() {
         return 88;
     }
@@ -84,7 +86,7 @@ public interface SmpSpec {
     @Order(14)
     @Name("Required datapacks")
     @Key("required-datapacks")
-    @Explain("Never installed by this plugin: a world generated without them stays vanilla.")
+    @Explain("Start-up fails if these data packs are not installed.")
     default List<String> requiredDatapacks() {
         return List.of("Terralith", "Dungeons and Taverns");
     }
@@ -93,15 +95,16 @@ public interface SmpSpec {
     @Order(19)
     @Name("Balloons")
     @Key("balloons")
-    @Explain("Nordtal's must sit between radius 10 and 21.5 of the border centre.")
+    @NoExplanationNeeded
     default List<BalloonSpec> balloons() {
         return DefaultSmp.BALLOONS;
     }
 
+    /** Rendered per viewer; does not scale to a hundred players. */
     @Order(20)
     @Name("Boards")
     @Key("boards")
-    @Explain("Rendered per viewer; does not scale to a hundred players.")
+    @NoExplanationNeeded
     default List<BoardSpec> boards() {
         return DefaultSmp.BOARDS;
     }
@@ -110,7 +113,7 @@ public interface SmpSpec {
     @Order(21)
     @Name("Duel platforms")
     @Key("duel-platforms")
-    @Explain("Both belong inside radius 10 of the border centre.")
+    @NoExplanationNeeded
     default List<DuelPlatformSpec> duelPlatforms() {
         return DefaultSmp.DUEL_PLATFORMS;
     }
@@ -128,7 +131,7 @@ public interface SmpSpec {
     @Order(23)
     @Name("Duel arena spacing")
     @Key("duel-arena-spacing")
-    @Explain("Must exceed the arena's own height.")
+    @Explain("Must exceed the arena's own height, or stacked arenas overlap.")
     default int duelArenaSpacing() {
         return 16;
     }
@@ -155,15 +158,16 @@ public interface SmpSpec {
     @Order(26)
     @Name("NPC")
     @Key("npc")
-    @Explain("Leave skin-name empty for the default skin.")
+    @NoExplanationNeeded
     default NpcSpec npc() {
         return DefaultSmp.NPC;
     }
 
+    /** Inclusive on both corners; the first match wins. */
     @Order(27)
     @Name("Spawn regions")
     @Key("spawn-regions")
-    @Explain("Inclusive on both corners; the first match wins.")
+    @NoExplanationNeeded
     default List<SpawnRegionSpec> spawnRegions() {
         return DefaultSmp.SPAWN_REGIONS;
     }
@@ -172,7 +176,7 @@ public interface SmpSpec {
     @Order(28)
     @Name("Death penalty")
     @Key("death-penalty")
-    @Explain("A positive number.")
+    @NoExplanationNeeded
     default int deathPenalty() {
         return 5;
     }
@@ -185,10 +189,11 @@ public interface SmpSpec {
         return 20;
     }
 
+    /** Self-inflicted deaths that cost the higher penalty. Mobs, the border and starvation do not. */
     @Order(30)
     @Name("Listed death causes")
     @Key("death-causes-listed")
-    @Explain("Self-inflicted deaths that cost the higher penalty. Mobs, the border and starvation do not.")
+    @NoExplanationNeeded
     @Refers(Refers.To.DAMAGE_TYPE)
     default List<String> deathCausesListed() {
         return List.of(
@@ -221,10 +226,11 @@ public interface SmpSpec {
         return 3;
     }
 
+    /** Pays once per player. Anything outside 2 to 10 is refused. */
     @Order(33)
     @Name("Advancement awards")
     @Key("advancement-awards")
-    @Explain("Pays once per player. Anything outside 2 to 10 is refused.")
+    @NoExplanationNeeded
     default List<AdvancementAwardSpec> advancementAwards() {
         return DefaultSmp.ADVANCEMENT_AWARDS;
     }
@@ -233,7 +239,7 @@ public interface SmpSpec {
     @Order(37)
     @Name("Wheel prizes")
     @Key("wheel-prizes")
-    @Explain("Weights are relative.")
+    @NoExplanationNeeded
     default List<WheelPrizeSpec> wheelPrizes() {
         return DefaultSmp.WHEEL_PRIZES;
     }
@@ -262,7 +268,7 @@ public interface SmpSpec {
     @Order(42)
     @Name("Balloon spawn points")
     @Key("balloon-spawn-points")
-    @Explain("One point per destination world.")
+    @NoExplanationNeeded
     default BalloonSpawnPointsSpec balloonSpawnPoints() {
         return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
@@ -271,7 +277,7 @@ public interface SmpSpec {
     @Order(43)
     @Name("First join spawn")
     @Key("first-join-spawn")
-    @Explain("Only for a player's very first join.")
+    @NoExplanationNeeded
     default FirstJoinSpawnSpec firstJoinSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
@@ -280,7 +286,7 @@ public interface SmpSpec {
     @Order(44)
     @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")
-    @Explain("0 never decays.")
+    @NoExplanationNeeded
     default int graveMaxAgeHours() {
         return 24;
     }

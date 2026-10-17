@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The short sentence a person reads beside a setting in Steward.
+ * The short sentence a person reads between a setting's name and its input in Steward.
  *
  * nordtal.eu's own, not part of Spec.
  */

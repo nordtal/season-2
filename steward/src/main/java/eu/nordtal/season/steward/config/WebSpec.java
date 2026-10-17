@@ -28,7 +28,7 @@ public interface WebSpec {
     @Order(2)
     @Name("Public URL")
     @Key("public-url")
-    @Explain("Must lie under the relying party ID.")
+    @Explain("Start-up fails unless it lies under the relying party ID.")
     default String publicUrl() {
         return "https://steward.dev.nordtal.eu";
     }
@@ -48,7 +48,7 @@ public interface WebSpec {
     @Order(4)
     @Name("Session length (days)")
     @Key("session-days")
-    @Explain("A stolen cookie works this long.")
+    @NoExplanationNeeded
     default int sessionDays() {
         return 30;
     }
@@ -76,7 +76,7 @@ public interface WebSpec {
     @Name("Authenticator app key")
     @Key("totp-key")
     @Secret
-    @Explain("64 hex digits; empty offers no authenticator app.")
+    @Explain("64 hex digits. A new key makes every enrolled authenticator app unreadable.")
     default String totpKey() {
         return "";
     }
@@ -133,7 +133,7 @@ public interface WebSpec {
         @Order(1)
         @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
-        @Explain("Every render sends the looked-at mc_uuid to this third-party service.")
+        @Explain("Every render sends the looked-at player's UUID to this third-party service.")
         default String minecraftHeadBaseUrl() {
             return "https://api.mineatar.io/face?scale=16";
         }
@@ -164,7 +164,7 @@ public interface WebSpec {
         @Order(3)
         @Name("Guild ID")
         @Key("guild-id")
-        @Explain("Independent of the bot's guild id.")
+        @Explain("Decides who may sign in to Steward, apart from the bot's guild.")
         default String guildId() {
             return "";
         }
@@ -173,7 +173,7 @@ public interface WebSpec {
         @Order(4)
         @Name("Root's Discord ID")
         @Key("root-id")
-        @Explain("The account that may become root while nobody is an admin. Empty means nobody.")
+        @Explain("May become root while nobody is an admin. Empty means nobody.")
         default String rootId() {
             return "";
         }

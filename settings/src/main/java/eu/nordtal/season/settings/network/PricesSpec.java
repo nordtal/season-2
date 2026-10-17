@@ -19,7 +19,7 @@ public interface PricesSpec {
     @Order(1)
     @Name("Tiers")
     @Key("tiers")
-    @Explain("Ordered by days ascending, price rising. Changing 'days' on an entry retires that tier.")
+    @Explain("Changing 'days' on an entry retires that tier.")
     default List<TierSpec> tiers() {
         return List.of(tier(30, 300), tier(60, 500), tier(90, 700));
     }
@@ -28,7 +28,7 @@ public interface PricesSpec {
     @Order(2)
     @Name("Donation (cents)")
     @Key("donation-cents")
-    @Explain("A surplus of at least this over the order is a donation.")
+    @NoExplanationNeeded
     default int donationCents() {
         return 500;
     }

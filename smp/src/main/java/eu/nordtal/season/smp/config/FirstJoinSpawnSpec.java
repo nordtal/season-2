@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -15,7 +14,7 @@ public interface FirstJoinSpawnSpec {
     @Order(1)
     @Name("World")
     @Key("world")
-    @Explain("Normally the Nordtal world's name.")
+    @NoExplanationNeeded
     default String world() {
         return "nordtal";
     }

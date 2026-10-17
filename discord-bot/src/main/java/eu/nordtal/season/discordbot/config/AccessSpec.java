@@ -49,7 +49,7 @@ public interface AccessSpec {
     @Key("languages")
     // BotSettings#validateLanguages and steward's schema reader both read this annotation.
     @Protected(field = "tag", value = Locales.DEFAULT_TAG)
-    @Explain("One entry per language, by its tag. The 'en' entry cannot be removed.")
+    @NoExplanationNeeded
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
     }
@@ -80,7 +80,7 @@ public interface AccessSpec {
     @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
-    @Explain("Lower case, such as de.")
+    @Explain("Raising it weakens the link code against guessing.")
     default int linkCodeAttemptsPerHour() {
         return 5;
     }
@@ -92,10 +92,11 @@ public interface AccessSpec {
     @ConfigSpec
     interface LanguageSpec {
 
+        /** Empty is the language's own name, such as Deutsch. */
         @Order(1)
         @Name("Tag")
         @Key("tag")
-        @Explain("Empty is the language's own name, such as Deutsch.")
+        @NoExplanationNeeded
         default String tag() {
             return "";
         }
@@ -133,10 +134,11 @@ public interface AccessSpec {
             return "";
         }
 
+        /** The bot only renames it and never posts in it. Empty means none. */
         @Order(5)
         @Name("Hunger Games channel")
         @Key("hunger-games-channel")
-        @Explain("The bot only renames it and never posts in it. Empty means none.")
+        @NoExplanationNeeded
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String hungerGamesChannel() {
             return "";
@@ -146,7 +148,7 @@ public interface AccessSpec {
         @Order(6)
         @Name("Status channel")
         @Key("status-channel")
-        @Explain("Empty means none.")
+        @NoExplanationNeeded
         @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String statusChannel() {
             return "";
@@ -207,7 +209,7 @@ public interface AccessSpec {
         @Order(1)
         @Name("Admin channel")
         @Key("admin")
-        @Explain("A security limit: raising it weakens the link code's brute-force resistance.")
+        @NoExplanationNeeded
         @Refers(Refers.To.DISCORD_CHANNEL)
         default String admin() {
             return "";
@@ -222,7 +224,7 @@ public interface AccessSpec {
         @Order(2)
         @Name("Request lifetime (hours)")
         @Key("request-ttl-hours")
-        @Explain("Past this the bunq tab is cancelled.")
+        @NoExplanationNeeded
         default int requestTtlHours() {
             return 24;
         }

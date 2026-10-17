@@ -157,8 +157,8 @@ function SettingField({
           </>
         ) : null}
       </div>
-      <Control entry={entry} draft={draft} disabled={!writable || !entry.editable} onChange={onChange} />
       {explanation ? <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p> : null}
+      <Control entry={entry} draft={draft} disabled={!writable || !entry.editable} onChange={onChange} />
     </div>
   )
 }

@@ -30,7 +30,7 @@ public interface HungerGamesSpec {
     @Order(2)
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
-    @Explain("Below this, /hg start asks for confirmation.")
+    @NoExplanationNeeded
     default int softMinimumParticipants() {
         return 4;
     }
@@ -54,7 +54,7 @@ public interface HungerGamesSpec {
     @Order(5)
     @Name("Border wall speed (blocks per second)")
     @Key("border-wall-speed-blocks-per-second")
-    @Explain("Diameter change per second, the wall moving at half. Keep it under walking speed (4.317).")
+    @Explain("Keep it under walking speed (4.317), or players cannot outrun the wall.")
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
     }
@@ -72,7 +72,7 @@ public interface HungerGamesSpec {
     @Order(7)
     @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
-    @Explain("Blocks of diameter per hour.")
+    @NoExplanationNeeded
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
     }
@@ -101,10 +101,11 @@ public interface HungerGamesSpec {
         return 4.0;
     }
 
+    /** A placeholder: set it to the event world's folder name once the world exists. */
     @Order(11)
     @Name("World name")
     @Key("world-name")
-    @Explain("A placeholder: set it to the event world's folder name once the world exists.")
+    @NoExplanationNeeded
     default String worldName() {
         return "hunger_games";
     }
@@ -120,15 +121,16 @@ public interface HungerGamesSpec {
     @Order(13)
     @Name("Loot points")
     @Key("loot-points")
-    @Explain("Exactly five entries, labels unique.")
+    @NoExplanationNeeded
     default List<LootPointSpec> lootPoints() {
         return DefaultLootPoints.LIST;
     }
 
+    /** Ordered by ascending delay; changing an entry's delay retires that tier. */
     @Order(14)
     @Name("Refill tiers")
     @Key("refill-tiers")
-    @Explain("Ordered by ascending delay; changing an entry's delay retires that tier.")
+    @NoExplanationNeeded
     default List<RefillTierSpec> refillTiers() {
         return DefaultRefillTiers.LIST;
     }
@@ -177,7 +179,7 @@ public interface HungerGamesSpec {
         @Order(5)
         @Name("Map grid columns")
         @Key("map-grid-columns")
-        @Explain("Maps wide. A missing map-<lang>.png is skipped.")
+        @NoExplanationNeeded
         default int mapGridColumns() {
             return 3;
         }
@@ -194,7 +196,7 @@ public interface HungerGamesSpec {
         @Order(7)
         @Name("Map frame origin X")
         @Key("map-frame-origin-x")
-        @Explain("Top-left item frame; it must already exist.")
+        @NoExplanationNeeded
         default int mapFrameOriginX() {
             return 0;
         }
@@ -203,7 +205,7 @@ public interface HungerGamesSpec {
         @Order(8)
         @Name("Map frame origin Y")
         @Key("map-frame-origin-y")
-        @Explain("Top-left item frame; it must already exist.")
+        @NoExplanationNeeded
         default int mapFrameOriginY() {
             return 196;
         }
@@ -212,7 +214,7 @@ public interface HungerGamesSpec {
         @Order(9)
         @Name("Map frame origin Z")
         @Key("map-frame-origin-z")
-        @Explain("Top-left item frame; it must already exist.")
+        @NoExplanationNeeded
         default int mapFrameOriginZ() {
             return 0;
         }
@@ -226,7 +228,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Name("Label")
         @Key("label")
-        @Explain("Unique across all five loot points.")
+        @NoExplanationNeeded
         default String label() {
             return "spawn";
         }
@@ -264,7 +266,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Name("Delay (minutes)")
         @Key("delay-minutes")
-        @Explain("Minutes after release.")
+        @Explain("Changing it on an existing entry retires that tier.")
         default int delayMinutes() {
             return 0;
         }
@@ -273,7 +275,7 @@ public interface HungerGamesSpec {
         @Order(2)
         @Name("Items")
         @Key("items")
-        @Explain("One of each goes in every chest. An unknown item fails the load.")
+        @NoExplanationNeeded
         @Refers(Refers.To.ITEM)
         default List<String> items() {
             return List.of("BREAD");

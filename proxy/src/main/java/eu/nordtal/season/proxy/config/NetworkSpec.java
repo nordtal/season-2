@@ -18,7 +18,7 @@ public interface NetworkSpec {
     @Order(2)
     @Name("Public address")
     @Key("public-address")
-    @Explain("As host:port from outside. Empty means no transfer is ever offered.")
+    @Explain("As host:port. Empty means no transfer is ever offered.")
     default String publicAddress() {
         return "";
     }

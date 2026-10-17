@@ -242,7 +242,9 @@ export function RepeatableCards({
                       <FieldLabelIcon fieldKey={field.key} className="size-4 shrink-0 text-muted-foreground" />
                       {field.label}
                     </Label>
-                    {explanation ? <p className="text-sm text-muted-foreground">{explanation}</p> : null}
+                    {explanation ? (
+                      <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p>
+                    ) : null}
                     {control}
                   </div>
                 )

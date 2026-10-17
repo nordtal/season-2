@@ -96,9 +96,9 @@ public final class WinTracker {
             final UUID gameId, final UUID victimMemberId, final @Nullable UUID killerMemberId) {
         aliveSince.remove(victimMemberId);
         if (killerMemberId != null) {
-            dao.recordEvent(gameId, "KILL", killerMemberId, victimMemberId, null);
+            dao.recordEvent(gameId, "KILL", killerMemberId, victimMemberId);
         }
-        dao.recordEvent(gameId, "DEATH", null, victimMemberId, null);
+        dao.recordEvent(gameId, "DEATH", null, victimMemberId);
 
         final Instant now = clock.instant();
         final boolean simultaneous =
@@ -122,8 +122,7 @@ public final class WinTracker {
                 final int firstKills = dao.killCount(gameId, first);
                 final int secondKills = dao.killCount(gameId, second);
                 final Optional<UUID> winner = Tiebreak.resolve(first, firstKills, second, secondKills);
-                dao.recordEvent(
-                        gameId, "TIE", null, null, winner.map(UUID::toString).orElse("no-winner"));
+                dao.recordTie(gameId, winner.orElse(null));
                 // The kill counts travel with the outcome: the ceremony prints "3 kills to 2", not just "won".
                 return Optional.of(winner.map(id -> Outcome.tieBroken(
                                 id, Math.max(firstKills, secondKills), Math.min(firstKills, secondKills)))

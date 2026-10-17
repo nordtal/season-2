@@ -166,6 +166,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.14.0", role, "INSERT", "setting_override", "service", "name", "path", "value");
             listed(unused, "0.14.0", role, "INSERT", "setting_override", "actor_kind", "actor_id", "changed");
         }
+        // A tie's winner as text, which the proxy's snapshot never read: it counts deaths only.
+        listed(unused, "0.26.0", "nordtal_proxy", "SELECT", "hg_event", "detail");
         return Map.copyOf(unused);
     }
 

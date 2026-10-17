@@ -39,7 +39,7 @@ class GameSignalIntegrationTest {
             assertTrue(probe.signalled(), "a start, which closes the round and opens the game");
             dao.release(game);
             assertTrue(probe.signalled(), "the end of the countdown");
-            dao.recordEvent(game, "DEATH", null, member, null);
+            dao.recordEvent(game, "DEATH", null, member);
             assertTrue(probe.signalled(), "a death");
             dao.decideGame(game, member);
             assertTrue(probe.signalled(), "a decided game, which ends its round");

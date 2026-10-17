@@ -34,7 +34,8 @@ steward-agent status ID                   # the run's status, a tab and its repo
 ```mermaid
 flowchart LR
     row["steward_inbox row"] --> plan --> standbys["open standbys"] --> count["count down"] --> evac["evacuate"]
-    evac --> stop --> payload["carry out the payload"] --> start --> verify --> settle["close standbys, settle"]
+    evac --> stop --> payload["carry out the payload"] --> start --> verify --> close["close standbys"]
+    close --> renew["renew caddy, pack-host, postgres"] --> settle
 ```
 
 Every kind is this one sequence, `Run`; `Kinds` holds one planner per kind, and a plan that stops
@@ -50,7 +51,8 @@ nothing counts nobody down. The payload is the request's, typed in `StewardReque
 | `RESTORE`       | put one archive back after a fresh backup; a dump replaces `public` in one transaction, then `migrate` runs; a volume that fails once emptied keeps its servers down and held |
 | `REMOVE_PLUGIN` | stop one server, delete the plugin's jar and data folder, start it                                                                                                            |
 
-Caddy, pack-host and postgres are made again only once the rest is back, in a run that counts down.
+Caddy, pack-host and postgres are made again only once the rest is back, in a run that counts down,
+and only once the standbys have handed their players back and stopped: caddy carries their ports.
 A run's report is messages of the admin bundle (`report.*` in `:database`'s `ReportTexts`): every
 line detail and change but an installed version's is a message reference with typed values, which
 Steward's page and the bot's update feed render for their reader, and `status ID` prints in English.

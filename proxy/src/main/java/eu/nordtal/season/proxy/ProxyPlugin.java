@@ -295,7 +295,12 @@ public final class ProxyPlugin {
                 publicAddress,
                 standbyAddress,
                 new BackendHealth(clock),
-                new Homecoming(logger, renderer, roster, phaseServers),
+                new Homecoming(
+                        logger,
+                        renderer,
+                        roster,
+                        phaseServers,
+                        UpdateDirectory.using(pool).recorder()),
                 routerRef);
     }
 

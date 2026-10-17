@@ -6,8 +6,10 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.proxy.PhaseServers;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -74,17 +76,18 @@ public final class Evacuation {
      * Never throws: Velocity stops running a task that does.
      */
     public synchronized void check() {
-        final Set<String> next;
+        final Optional<UpdateRequest> running;
         try {
             // Read first: a pass with no run to report still needs the holds.
             held = heldServices(updates.holds());
-            next = imminent();
+            running = updates.running();
         } catch (final RuntimeException failure) {
             // The last pass's set stands.
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
 
+        final Set<String> next = imminent(running);
         if (next.isEmpty()) {
             moving = Set.of();
             warnedAboutWaitingRoom = false;
@@ -114,7 +117,7 @@ public final class Evacuation {
         }
 
         moving = next;
-        evacuate(next, room);
+        evacuate(next, room, running.orElseThrow().id());
     }
 
     /**
@@ -132,11 +135,6 @@ public final class Evacuation {
             return standby;
         }
         return null;
-    }
-
-    /** The backends of the run under way; empty during a countdown, which can still be cancelled. */
-    private Set<String> imminent() {
-        return imminent(updates.running());
     }
 
     /**
@@ -158,7 +156,8 @@ public final class Evacuation {
     /**
      * The backends to clear, empty until a run is under way.
      *
-     * @param running the row whose countdown has run out, from {@code UpdateDirectory#running()}
+     * @param running the row whose countdown has run out, from {@code UpdateDirectory#running()}; empty during a
+     *     countdown, which can still be cancelled
      */
     static Set<String> imminent(final Optional<UpdateRequest> running) {
         return running.map(Evacuation::backends).orElseGet(Set::of);
@@ -169,8 +168,17 @@ public final class Evacuation {
         return Set.copyOf(request.moving());
     }
 
+    /** Counts players sent off one backend on the run's move; a write that fails costs the count, never the move. */
+    private void moved(final long run, final String from, final String room, final int players) {
+        try {
+            updates.recorder().moved(run, from, room, players);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not count the {} player(s) moved off '{}'", players, from, failure);
+        }
+    }
+
     /** Moves everybody standing on one of those backends into the waiting room. */
-    private void evacuate(final Set<String> backends, final String waitingRoom) {
+    private void evacuate(final Set<String> backends, final String waitingRoom, final long run) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
             // roomFor checked this server, so it was unregistered between the two calls.
@@ -183,12 +191,14 @@ public final class Evacuation {
         }
 
         final List<Player> leaving = new java.util.ArrayList<>();
+        final Map<String, Integer> off = new HashMap<>();
         for (final Player player : proxy.getAllPlayers()) {
             final String on = player.getCurrentServer()
                     .map(connection -> connection.getServerInfo().getName())
                     .orElse(null);
             if (on != null && backends.contains(on)) {
                 leaving.add(player);
+                off.merge(on, 1, Integer::sum);
             }
         }
         if (leaving.isEmpty()) {
@@ -202,6 +212,7 @@ public final class Evacuation {
                 waitingRoom);
         // Recorded before the move, so the release at the other end has a sentence to say.
         homecoming.movedOut(leaving);
+        off.forEach((from, players) -> moved(run, from, waitingRoom, players));
         for (final Player player : leaving) {
             // fireAndForget: blocking on one slow connection would delay everybody else past the deadline.
             try {

@@ -213,14 +213,17 @@ public final class StandbyReturn {
 
     private void sendHome(final Collection<Player> players) {
         logger.info("Transferring {} player(s) back to {}", players.size(), home);
+        int sent = 0;
         for (final Player player : players) {
             try {
                 player.transferToHost(home);
+                sent++;
             } catch (final RuntimeException failure) {
                 // One client that cannot be transferred must not cost the rest; the next pass tries again.
                 logger.warn("Could not transfer {} back to {}", player.getUsername(), home, failure);
             }
         }
+        voice.returned(ProxySwap.OWN_SERVICE, ProxySwap.STANDBY_SERVICE, sent);
     }
 
     /** Whether an address accepts a TCP connection. */

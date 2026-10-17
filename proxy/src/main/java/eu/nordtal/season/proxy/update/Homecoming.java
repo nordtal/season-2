@@ -3,6 +3,7 @@ package eu.nordtal.season.proxy.update;
 import static eu.nordtal.season.proxy.ProxyMessages.MESSAGES;
 
 import com.velocitypowered.api.proxy.Player;
+import eu.nordtal.season.database.update.RunRecorder;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
@@ -41,13 +42,20 @@ public final class Homecoming {
     private final MessageRenderer renderer;
     private final LoginRoster roster;
     private final PhaseServers servers;
+    private final RunRecorder runs;
 
     /** Players moved out of the way and not yet told they are going back; emptied at the start of every evacuation. */
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
+    /** @param runs where a player's return is counted on the move that took them out */
     public Homecoming(
-            final Logger logger, final MessageRenderer renderer, final LoginRoster roster, final PhaseServers servers) {
+            final Logger logger,
+            final MessageRenderer renderer,
+            final LoginRoster roster,
+            final PhaseServers servers,
+            final RunRecorder runs) {
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.runs = Objects.requireNonNull(runs, "runs");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.servers = Objects.requireNonNull(servers, "servers");
@@ -85,6 +93,9 @@ public final class Homecoming {
         if (!claim(player.getUniqueId())) {
             return;
         }
+        player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .ifPresent(room -> returned(destination, room, 1));
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
             player.sendMessage(renderer.format(locale, MESSAGES.returnSection().waitingRoom(serviceName(destination))));
@@ -94,6 +105,15 @@ public final class Homecoming {
                     player.getUsername(),
                     destination,
                     failure);
+        }
+    }
+
+    /** Counts players back on the latest move from one service to another; a write that fails costs the count. */
+    public void returned(final String from, final String to, final int players) {
+        try {
+            runs.returned(from, to, players);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not count {} player(s) back from '{}' to '{}'", players, to, from, failure);
         }
     }
 

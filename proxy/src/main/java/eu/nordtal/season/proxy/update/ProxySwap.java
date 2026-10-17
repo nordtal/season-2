@@ -28,6 +28,9 @@ public final class ProxySwap {
      */
     static final String OWN_SERVICE = OnlineCounts.PROXY;
 
+    /** The standby's compose service name, where a run moves this proxy's players. */
+    static final String STANDBY_SERVICE = OWN_SERVICE + "-standby";
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final UpdateDirectory updates;
@@ -42,6 +45,9 @@ public final class ProxySwap {
 
     /** Whether this run has parked the network; read from outside, whether the door stays shut until the stop. */
     private volatile boolean parked;
+
+    /** The run under way, whose move each parked player is counted on; zero before one. */
+    private volatile long run;
 
     /**
      * Arms the swap towards the standby.
@@ -126,6 +132,7 @@ public final class ProxySwap {
             return;
         }
         final Set<String> next = Evacuation.imminent(running);
+        run = running.map(eu.nordtal.season.database.update.UpdateRequest::id).orElse(0L);
         final boolean alreadyMoved = running.map(request -> hasBeenThroughMe(startedAt, request.due()))
                 .orElse(false);
 
@@ -232,6 +239,18 @@ public final class ProxySwap {
         }
     }
 
+    /** Counts one parked player on the run's move; a write that fails costs the count, never the transfer. */
+    private void moved() {
+        if (run == 0) {
+            return;
+        }
+        try {
+            updates.recorder().moved(run, OWN_SERVICE, STANDBY_SERVICE, 1);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not count a player parked on the standby", failure);
+        }
+    }
+
     /**
      * Seats one player and hands them the standby's address; {@code RestartGate} uses it for late arrivals.
      *
@@ -255,6 +274,7 @@ public final class ProxySwap {
         }
         try {
             player.transferToHost(standby);
+            moved();
             return true;
         } catch (final RuntimeException failure) {
             // Velocity refuses the transfer outright for a client older than 1.20.5; caught per player for that reason.

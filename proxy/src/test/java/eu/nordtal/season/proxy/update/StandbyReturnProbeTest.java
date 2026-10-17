@@ -99,7 +99,8 @@ class StandbyReturnProbeTest {
                         Locale.ENGLISH,
                         Locale.GERMAN)),
                 new eu.nordtal.season.proxy.gate.LoginRoster(),
-                new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp"));
+                new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp"),
+                eu.nordtal.season.database.update.RunRecorder.NONE);
     }
 
     /** Runs every beat at once, so the ten seconds of notice take none. */

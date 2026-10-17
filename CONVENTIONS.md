@@ -3,6 +3,30 @@
 These rules hold for every contributor, human or agent; the last section lists what is specific to
 this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
 
+## Wording
+
+Every text written for this project is **plain technical prose**, the register of a reference
+manual: Markdown, comments, doc comments, commit messages, pull requests, Plane work items and every
+text a player, a Discord member or an admin reads (message bundles, embeds, Steward's interface).
+Every sentence passes each of these tests, and a sentence that fails one is rewritten until it
+passes all of them:
+
+- **Subject:** it names what it is about by its one name: a component, class, file, setting, table
+  or command as the code names it, a game term as `resource-pack/glyphs.json` and
+  `eu.nordtal.season.common.Platform` name it.
+- **Fact:** its verb states what that subject does, holds, reads, writes, requires or refuses, so a
+  reader can check the sentence against the code or the game.
+- **Literal words:** every word carries its technical meaning. A component is described by its
+  function (`steward-agent` holds the Docker socket), never by an image of it (a door, a gate, a
+  heart).
+- **Simple words:** the shortest common word that is exact, in sentences of one statement each.
+- **Full sentence:** subject, verb and object are written out. A table cell, a diagram label, a
+  commit title, a button and a title in an interface may be a noun phrase; every other line is a
+  complete sentence. An instruction to the
+  reader is an imperative sentence (`Run it on a host with Docker.`).
+- **Label:** a heading or bold label is the subject's name followed by a colon (`**Bank key:**`), and
+  the sentence after it carries the whole fact, so a reader who skips the label loses nothing.
+
 ## Comments
 
 A comment says what the code cannot. It describes the code as it is now.

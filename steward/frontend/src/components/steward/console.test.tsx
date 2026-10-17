@@ -89,6 +89,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Whether an element is drawn in the dimmed text colour. */
+const dimmed = (element: Element) => element.getAttribute("class")?.split(/\s+/).includes("text-muted-foreground")
+
 describe("ServiceConsole", () => {
   it("draws the newest line on top, with the run and end lines in their place", () => {
     mount()
@@ -141,6 +144,16 @@ describe("ServiceConsole", () => {
     expect(line.querySelector(":scope > svg")?.getAttribute("class")).toContain("size-4")
     const send = screen.getByRole("button", { name: "Send" })
     expect(send.className).toBe(screen.getByRole("button", { name: "Find" }).className)
+  })
+
+  it("draws its controls in the text colour, not dimmed, and the command at the prompt's size", () => {
+    const input = mountLine(TREE)
+    const buttons = ["Find", "Download", "Send"].map((name) => screen.getByRole("button", { name }))
+    expect(buttons.filter((button) => dimmed(button) || [...button.querySelectorAll("svg")].some(dimmed))).toEqual([])
+    // The select's own caret is dimmed by the shared component; the trigger lifts it with `[&_svg]:text-foreground`.
+    expect(screen.getByRole("combobox", { name: "Lines" }).className).toContain("[&_svg]:text-foreground")
+    // `text-base` is 16px, the size of the prompt's `size-4` chevron.
+    expect(input.className.split(/\s+/)).toContain("text-base")
   })
 
   it("keeps Find, the line count, Download and the command line in one row, the controls first on a phone", () => {

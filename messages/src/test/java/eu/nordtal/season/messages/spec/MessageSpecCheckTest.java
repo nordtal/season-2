@@ -2,13 +2,15 @@ package eu.nordtal.season.messages.spec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.spec.layout.LayoutTexts;
 import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** A choice's example is previewed as the case it picks, so it has to be a value the choice can take. */
+/** A value's example and the keys a message value takes have to be ones it can take. */
 class MessageSpecCheckTest {
 
     enum Phase {
@@ -72,5 +74,62 @@ class MessageSpecCheckTest {
                 true,
                 refused.getMessage()
                         .endsWith("the example true of state is none of its values running, stopped, paused"));
+    }
+
+    @MessageSpec("taking")
+    @Shown(Display.DISCORD_EMBED)
+    interface Taking {
+
+        @Name("Steps")
+        MessageRef steps(@Arg("button") @Takes({"nowhere", "values/missing.text", "not a key"}) MessageRef button);
+    }
+
+    @Test
+    void aKeyAMessageValueTakesIsOneItsBundleDeclares() {
+        assertEquals(
+                List.of(
+                        "steps: @Takes names nowhere, which this bundle does not declare",
+                        "steps: @Takes names not a key, which is neither key nor bundle/key"),
+                MessageSpecCheck.problems(Taking.class));
+    }
+
+    @Test
+    void aMessageValueWithoutAnExampleIsPreviewedAsTheFirstKeyItTakes() {
+        final MessageSchema.Arg button = MessageSchema.entries(LayoutTexts.class).stream()
+                .filter(entry -> entry.key().equals("steps"))
+                .findFirst()
+                .orElseThrow()
+                .args()
+                .getFirst();
+
+        assertEquals("buy", button.example());
+        assertEquals(List.of("buy"), button.takes());
+        assertEquals(List.of(), MessageSpecCheck.problems(LayoutTexts.class));
+    }
+
+    @MessageSpec("taking")
+    @Shown(Display.DISCORD_EMBED)
+    interface TakingAText {
+
+        @Name("Steps")
+        MessageRef steps(@Arg("button") @Takes("buy") String button);
+    }
+
+    @MessageSpec("taking")
+    @Shown(Display.DISCORD_EMBED)
+    interface ExampleNotTaken {
+
+        @Name("Steps")
+        MessageRef steps(@Arg("button") @Takes("buy") @Example("sell") MessageRef button);
+    }
+
+    @Test
+    void onlyAMessageValueTakesKeysAndItsExampleIsOneOfThem() {
+        assertTrue(assertThrows(IllegalStateException.class, () -> MessageSchema.entries(TakingAText.class))
+                .getMessage()
+                .endsWith("button is a text, and only a message takes keys"));
+        assertTrue(assertThrows(IllegalStateException.class, () -> MessageSchema.entries(ExampleNotTaken.class))
+                .getMessage()
+                .endsWith("the example sell of button is none of its values buy"));
     }
 }

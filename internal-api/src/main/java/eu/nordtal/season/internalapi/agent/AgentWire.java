@@ -59,7 +59,7 @@ public final class AgentWire {
     public static final String BUNDLES = "/api/bundles";
 
     /**
-     * One {@link MessageBundle}, its packaged texts; {@code ?module=} names the plugin, none a standalone jar.
+     * One {@link MessageBundle}, its texts and layouts; {@code ?module=} names the plugin, none a standalone jar.
      */
     public static final String BUNDLE = BUNDLES + "/{service}";
 

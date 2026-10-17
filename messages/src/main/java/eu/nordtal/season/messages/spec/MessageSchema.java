@@ -3,6 +3,8 @@ package eu.nordtal.season.messages.spec;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.Contexts;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Action;
 import eu.nordtal.season.messages.value.Example;
@@ -45,13 +47,27 @@ public final class MessageSchema {
      * @param context the context type of a role, or {@code null}
      * @param example a single value's example, or {@code null}
      * @param action  whether it is an action a text places with {@code <action:name>}
+     * @param takes   for a value that is a message, the keys it may take as {@link Takes} names them; {@code null},
+     *                and absent from the JSON, for any other value and for one that names none
      */
     public record Arg(
             @Nullable String name,
             @Nullable String kind,
             @Nullable String context,
             @Nullable String example,
-            boolean action) {}
+            boolean action,
+            @Nullable List<String> takes) {
+
+        /** An argument that names no keys it may take. */
+        public Arg(
+                final @Nullable String name,
+                final @Nullable String kind,
+                final @Nullable String context,
+                final @Nullable String example,
+                final boolean action) {
+            this(name, kind, context, example, action, null);
+        }
+    }
 
     /**
      * @param key         the bundle key
@@ -183,14 +199,19 @@ public final class MessageSchema {
                 .orElseThrow(() -> new IllegalStateException(method + ": " + name + " is a " + type.getSimpleName()
                         + ", which is no kind a message can show"));
         final Example example = parameter.getAnnotation(Example.class);
-        final List<String> choices = choices(type);
+        final Takes takes = parameter.getAnnotation(Takes.class);
+        if (takes != null && kind != Kind.MESSAGE) {
+            throw new IllegalStateException(
+                    method + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
+        }
+        final List<String> choices = takes == null ? choices(type) : List.of(takes.value());
         if (example != null && !choices.isEmpty() && !choices.contains(example.value())) {
             throw new IllegalStateException(method + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
         final String shown =
                 example != null ? example.value() : choices.isEmpty() ? kind.defaultExample() : choices.getFirst();
-        return new Arg(name, kind.token(), null, shown, false);
+        return new Arg(name, kind.token(), null, shown, false, takes == null ? null : choices);
     }
 
     /** The values a {@code select} tells apart: an enum's constants, {@code true} and {@code false}, else none. */
@@ -401,14 +422,20 @@ public final class MessageSchema {
     public record GlobalJson(String name, String context) {}
 
     /**
-     * Writes {@code <output directory>/messages/<bundle>/schema.json} per spec, refusing a spec the check faults.
+     * Writes {@code <output directory>/messages/<bundle>/schema.json} per spec, and {@code layouts.json} beside it.
+     * A bundle gets the layouts listed under it; a spec or a layout the checks fault is refused.
      */
     public static void main(final String[] args) throws Exception {
         if (args.length < 2) {
-            throw new IllegalArgumentException("usage: MessageSchema <output directory> <spec class>...");
+            throw new IllegalArgumentException(
+                    "usage: MessageSchema <output directory> <spec class>... [--layouts <class>...]");
         }
-        for (final String name : Arrays.asList(args).subList(1, args.length)) {
+        final List<String> names = Arrays.asList(args).subList(1, args.length);
+        final int split = names.contains("--layouts") ? names.indexOf("--layouts") : names.size();
+        final List<Class<?>> specs = new ArrayList<>();
+        for (final String name : names.subList(0, split)) {
             final Class<?> spec = Class.forName(name);
+            specs.add(spec);
             final List<String> problems = MessageSpecCheck.problems(spec);
             if (!problems.isEmpty()) {
                 throw new IllegalStateException(
@@ -418,5 +445,10 @@ public final class MessageSchema {
             Files.createDirectories(file.getParent());
             Files.writeString(file, json(spec), StandardCharsets.UTF_8);
         }
+        final List<Layout> layouts = new ArrayList<>();
+        for (final String holder : names.subList(Math.min(split + 1, names.size()), names.size())) {
+            layouts.addAll(LayoutSchema.declared(Class.forName(holder)));
+        }
+        LayoutSchema.write(Path.of(args[0]), specs, layouts);
     }
 }

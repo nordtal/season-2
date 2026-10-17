@@ -73,7 +73,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         }`}
       >
         <NavToggle shown={shown} onToggle={toggle} glyph="panel" />
-        <Brand />
+        <Brand version={shown} />
         {/* While the column is open the list says where you are, so the path folds away. */}
         <div
           aria-hidden={shown}
@@ -121,12 +121,12 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
           inert={!shown}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="max-h-[calc(var(--app-height)*0.66)] overflow-y-auto px-1 pt-3 pb-2">
+            <div className="max-h-[calc(var(--app-height)*0.66)] overflow-y-auto px-3 pt-3 pb-2">
               <NavList onFollow={follow} marker="surface" />
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 p-1">
+        <div className="flex items-center gap-1 p-2">
           <NavToggle shown={shown} onToggle={toggle} glyph="menu" />
           {/* A larger target for the same toggle, left out of keyboard and screen reader order. */}
           <button
@@ -136,7 +136,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
             aria-hidden
             className="flex h-control min-w-0 flex-1 items-center gap-2 px-1 text-left text-sm font-semibold tracking-tight text-foreground"
           >
-            <BrandFace />
+            <BrandFace version={shown} />
           </button>
           <SearchButton />
           <UserMenu me={me} plain />
@@ -144,7 +144,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.25rem)]" />
+        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.75rem)]" />
       </div>
     </>
   )

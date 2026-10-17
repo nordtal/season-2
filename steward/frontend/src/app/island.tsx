@@ -54,24 +54,41 @@ export function NavToggle({
  *
  * No left padding, so the mark starts on the line where every label starts.
  */
-export function Brand({ onFollow }: { onFollow?: () => void }) {
+export function Brand({ onFollow, version }: { onFollow?: () => void; version: boolean }) {
   return (
     <Link
       to="/"
       onClick={onFollow}
       className="flex h-control min-w-0 shrink-0 items-center gap-2 rounded-md pr-2 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      <BrandFace />
+      <BrandFace version={version} />
     </Link>
   )
 }
 
-/** The mark and the word "Steward", as the column's head and the phone's dock both draw them. */
-export function BrandFace() {
+/**
+ * The mark and the word "Steward", as the column's head and the phone's dock both draw them.
+ *
+ * With `version`, the release folds out beneath the word; a build without one, the dev server's, shows none.
+ */
+export function BrandFace({ version }: { version: boolean }) {
+  const release = import.meta.env.VITE_VERSION
   return (
     <>
       <StewardMark className="size-5 shrink-0" />
-      <span className="truncate">{t("steward.shell.steward")}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{t("steward.shell.steward")}</span>
+        {release ? (
+          <span
+            aria-hidden={!version}
+            className={`grid transition-[grid-template-rows,opacity] ${MOTION} ${version ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+          >
+            <span className="min-h-0 overflow-hidden text-[0.6875rem] leading-3 font-normal tracking-normal text-muted-foreground tabular-nums">
+              {t("steward.shell.version", { version: release })}
+            </span>
+          </span>
+        ) : null}
+      </span>
     </>
   )
 }

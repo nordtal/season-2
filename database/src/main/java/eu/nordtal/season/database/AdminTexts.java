@@ -9,6 +9,7 @@ import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
@@ -505,8 +506,8 @@ public interface AdminTexts {
         @Name("bunq refused a payment link")
         MessageRef linkRefused();
 
-        @Name("Which request, and what bunq said")
+        @Name("Which request, and why bunq refused it")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
-        MessageRef refused(@Arg("reference") String reference, @Arg("error") String error);
+        MessageRef refused(@Arg("reference") String reference, @Arg("refusal") TabRefusal refusal);
     }
 }

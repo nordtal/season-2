@@ -33,7 +33,8 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
                 Objects.requireNonNull(instant(rs, "created"), "created"),
                 Objects.requireNonNull(instant(rs, "expires"), "expires"),
                 instant(rs, "settled"),
-                rs.getString("tab_failed"),
+                refusal(rs),
+                instant(rs, "tab_failed"),
                 instant(rs, "tab_cancelled"),
                 nullableInt(rs, "matched_cents"),
                 match(rs, "matched_by"));
@@ -52,6 +53,11 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
     private static @Nullable PaymentMatch match(final ResultSet rs, final String column) throws SQLException {
         final String value = rs.getString(column);
         return value == null ? null : PaymentMatch.valueOf(value);
+    }
+
+    private static @Nullable TabRefusal refusal(final ResultSet rs) throws SQLException {
+        final String value = rs.getString("tab_refusal");
+        return value == null ? null : TabRefusal.valueOf(value);
     }
 
     private static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {

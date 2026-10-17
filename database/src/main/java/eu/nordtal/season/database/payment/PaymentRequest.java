@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
  * @param shareUrl        the bunq.me share URL, null until the user confirmed
  * @param bunqPaymentId   the payment that settled it, null until it is paid
  * @param settled         when it was booked, null unless {@code status} is {@code PAID}
- * @param tabFailed       bunq's error when the tab could not be made, null otherwise
+ * @param tabRefusal      why bunq made no tab, null unless it refused
+ * @param tabFailed       when it refused, null unless {@code tabRefusal} is set
  * @param tabCancelled    when steward cancelled it at bunq, null while it stands
  * @param matchedCents    what arrived, in cents, null until steward found it
  * @param matchedBy       along which path it was found, null until then
@@ -36,7 +37,8 @@ public record PaymentRequest(
         Instant created,
         Instant expires,
         @Nullable Instant settled,
-        @Nullable String tabFailed,
+        @Nullable TabRefusal tabRefusal,
+        @Nullable Instant tabFailed,
         @Nullable Instant tabCancelled,
         @Nullable Integer matchedCents,
         @Nullable PaymentMatch matchedBy) {

@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.bunq;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +21,7 @@ import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.internalapi.BankWire;
@@ -74,6 +76,9 @@ class PaymentsTest {
                             BankWire.TAB_PAYMENTS,
                             ctx -> ctx.json(TAB_PAYMENTS.getOrDefault(Long.parseLong(ctx.pathParam("id")), List.of())));
                     config.routes.get(BankWire.RECENT, ctx -> ctx.json(RECENT));
+                    config.routes.post(
+                            BankWire.TABS,
+                            ctx -> ctx.status(502).json(new BankWire.Refused(429, "Too many requests.")));
                 });
         bank = new Bank(
                 new InternalClient(BankWire.SERVICE, "http://127.0.0.1:" + bunq.port(), TOKEN, Duration.ofSeconds(5)));
@@ -106,6 +111,20 @@ class PaymentsTest {
                 Inbox.over(steward, BankRequest.TABLE),
                 Instant.EPOCH,
                 20);
+    }
+
+    @Test
+    void aRefusedTabRecordsBunqsRefusalAndWhen() {
+        final PaymentRequest request = requests.open(PAYER, 30, 300, 0, 24);
+        requests.requestTab(request.id(), Actor.person(PAYER));
+
+        payments.pass();
+
+        final PaymentRequest refused = requests.byId(request.id()).orElseThrow();
+        assertAll(
+                () -> assertEquals(TabRefusal.TOO_MANY_REQUESTS, refused.tabRefusal()),
+                () -> assertNotNull(refused.tabFailed()),
+                () -> assertEquals(PaymentRequestStatus.OPEN, refused.status(), "pressing again is the retry"));
     }
 
     @Test

@@ -1,5 +1,7 @@
 package eu.nordtal.season.internalapi;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The routes steward-bunq answers and the shapes on them; the bank SDK's own types never leave steward-bunq.
  *
@@ -45,6 +47,14 @@ public final class BankWire {
 
     /** Whether the bank closed the tab; an already closed or paid one answers {@code false}. */
     public record Cancelled(boolean accepted) {}
+
+    /**
+     * What steward-bunq answers instead, with a 503 when it has no key and a 502 for everything else.
+     *
+     * @param bunqStatus the HTTP status bunq answered, null when bunq was not asked or answered none
+     * @param message    bunq's or steward-bunq's own words, for steward's log
+     */
+    public record Refused(@Nullable Integer bunqStatus, String message) {}
 
     /**
      * One incoming payment in EUR, as the bank recorded it.

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.internalapi.BankWire;
 import eu.nordtal.season.internalapi.InternalClient;
 import eu.nordtal.season.internalapi.InternalServer;
@@ -15,12 +16,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** {@link Bank} against a stand-in for steward-bunq that refuses tabs the way bunq does. */
+/** {@link Bank} against a stand-in for steward-bunq that refuses tabs the way it passes on bunq's refusals. */
 class BankTest {
 
     private static final String TOKEN = "bank-token";
 
-    /** What bunq says when it refuses a tab, which the person waiting is shown unchanged. */
+    /** What bunq says when it refuses a tab, which goes to steward's log. */
     private static final String REFUSAL = "The amount is above the limit for a bunq.me request.";
 
     private static Javalin bunq;
@@ -30,7 +31,7 @@ class BankTest {
     static void startAStandIn() {
         bunq = new InternalServer(BankWire.SERVICE, Map.of("NORDTAL_STEWARD_BUNQ_TOKEN", TOKEN)::get)
                 .start(0, config -> {
-                    config.routes.post(BankWire.TABS, ctx -> ctx.status(502).result(REFUSAL));
+                    config.routes.post(BankWire.TABS, ctx -> ctx.status(502).json(new BankWire.Refused(400, REFUSAL)));
                     config.routes.post(BankWire.CANCEL, ctx -> ctx.status(502).result("already paid"));
                     config.routes.get(
                             BankWire.RECENT,
@@ -47,9 +48,18 @@ class BankTest {
     }
 
     @Test
-    void aRefusedTabCarriesBunqsOwnWords() {
-        final IllegalStateException refused = assertThrows(IllegalStateException.class, () -> bank.createTab(500, "x"));
+    void aRefusedTabNamesBunqsRefusalAndCarriesItsWords() {
+        final Bank.TabRefused refused = assertThrows(Bank.TabRefused.class, () -> bank.createTab(500, "x"));
+        assertEquals(TabRefusal.BAD_REQUEST, refused.refusal());
         assertEquals(REFUSAL, refused.getMessage());
+    }
+
+    @Test
+    void aStewardBunqThatDoesNotAnswerIsUnreachable() {
+        final Bank nobody = new Bank(new InternalClient(BankWire.SERVICE, "http://127.0.0.1:1", TOKEN, Duration.ofSeconds(5)));
+        assertEquals(
+                TabRefusal.UNREACHABLE,
+                assertThrows(Bank.TabRefused.class, () -> nobody.createTab(500, "x")).refusal());
     }
 
     @Test

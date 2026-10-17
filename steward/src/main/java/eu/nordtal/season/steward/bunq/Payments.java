@@ -39,9 +39,6 @@ public final class Payments {
     /** Who raises a payment alert, the same name steward's other alerts carry. */
     private static final String RAISED_BY = "steward";
 
-    /** How much of a failure message is worth putting in front of the person who is waiting. */
-    private static final int REASON_LIMIT = 400;
-
     private final Bank bunq;
     private final PaymentRequests requests;
     private final Bookings bookings;
@@ -135,12 +132,11 @@ public final class Payments {
         final BankWire.Tab tab;
         try {
             tab = bunq.createTab(request.amountCents(), request.reference());
-        } catch (final RuntimeException failure) {
-            // The payer is shown what bunq said, and pressing again is the retry.
-            final String reason = reasonOf(failure);
-            log.warn("bunq refused a tab for {}: {}", request.reference(), reason);
-            requests.failTab(request.id(), reason);
-            return Outcome.failed(Map.of("error", reason));
+        } catch (final Bank.TabRefused refused) {
+            // The payer is shown a text for the code, and pressing again is the retry; bunq's words stay in this log.
+            log.warn("bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
+            requests.failTab(request.id(), refused.refusal());
+            return Outcome.failed(Map.of("refusal", refused.refusal().name()));
         }
 
         if (requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
@@ -283,14 +279,5 @@ public final class Payments {
     /** Returns whether a payment may be considered at all: created after the watermark and not booked already. */
     private boolean eligible(final BankWire.Payment payment) {
         return !Instant.parse(payment.created()).isBefore(watermark) && !requests.alreadyBooked(payment.id());
-    }
-
-    /** Returns what to write into {@code tab_failed}: the message, bounded, since the person waiting sees it. */
-    private static String reasonOf(final RuntimeException failure) {
-        final String message =
-                failure.getMessage() == null || failure.getMessage().isBlank()
-                        ? failure.getClass().getSimpleName()
-                        : failure.getMessage().strip();
-        return message.length() <= REASON_LIMIT ? message : message.substring(0, REASON_LIMIT) + "...";
     }
 }

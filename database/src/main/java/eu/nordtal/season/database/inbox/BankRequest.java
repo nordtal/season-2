@@ -8,7 +8,8 @@ import java.util.UUID;
 public sealed interface BankRequest {
 
     /** The bank's inbox table, announced where every other change of a payment is. */
-    InboxTable<BankRequest> TABLE = InboxTable.of("bank_inbox", Channel.PAYMENT, BankRequest.class);
+    InboxTable<BankRequest> TABLE =
+            InboxTable.of("bank_inbox", Channel.PAYMENT, BankRequest.class).withRows(OpenTab.class, CancelTab.class);
 
     /** Returns the payment request this is about. */
     UUID payment();

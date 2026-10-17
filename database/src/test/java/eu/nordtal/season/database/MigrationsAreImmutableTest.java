@@ -184,6 +184,12 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V53__the_texts_an_override_replaced_are_a_row_each.sql",
                 "8c03319bf7f74799c98d78cd991b58954a83ce77fd264389ee2632b8af1550b4");
+        FROZEN.put(
+                "V54__an_inbox_request_is_a_row_of_its_kind.sql",
+                "25cd6783a521dd3f9394d3676be8a92ffc433ec8f4209e7f5c246e26d6da952c");
+        FROZEN.put(
+                "V55__the_bank_inbox_has_no_payload.sql",
+                "77e74337ab65deed666f6cfb7261f3b2bc793997f12db438d4fff7ccf5d7fe27");
     }
 
     @Test

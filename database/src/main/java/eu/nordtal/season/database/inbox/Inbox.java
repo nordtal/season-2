@@ -7,6 +7,7 @@ import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.notify.SignalHub;
+import java.lang.reflect.RecordComponent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -22,7 +23,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.StatementContext;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.Query;
+import org.jdbi.v3.core.statement.Update;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +41,8 @@ public final class Inbox<P> {
     /** How a request is written and announced in one statement, so a notification only exists for a committed row. */
     private static final String SUBMIT = """
             WITH inserted AS (
-                INSERT INTO <table> (kind, payload, actor_kind, actor_id, scheduled_for, expires)
-                VALUES (:kind, cast(:payload AS jsonb), :actorKind, :actorId,
+                INSERT INTO <table> (kind, <payloadColumn> actor_kind, actor_id, scheduled_for, expires)
+                VALUES (:kind, <payloadValue> :actorKind, :actorId,
                         now() + make_interval(secs => cast(:delay AS double precision)),
                         now() + make_interval(secs => cast(:delay AS double precision) + cast(:patience AS double precision)))
                 RETURNING *
@@ -50,9 +53,9 @@ public final class Inbox<P> {
     /** How a row nobody asked for is written already settled, begun {@code took} seconds ago, and announced. */
     private static final String RECORD = """
             WITH inserted AS (
-                INSERT INTO <table> (kind, payload, actor_kind, actor_id, status,
+                INSERT INTO <table> (kind, <payloadColumn> actor_kind, actor_id, status,
                                      requested, scheduled_for, started, finished, outcome)
-                SELECT :kind, cast(:payload AS jsonb), :actorKind, :actorId, :status,
+                SELECT :kind, <payloadValue> :actorKind, :actorId, :status,
                        began, began, began, now(), cast(:outcome AS jsonb)
                 FROM (SELECT now() - make_interval(secs => cast(:took AS double precision)) AS began) AS run
                 RETURNING *
@@ -95,7 +98,7 @@ public final class Inbox<P> {
 
     /** Every column, with a pending row past its expiry read as expired, so an asker needs no write to see it. */
     private static final String READ = """
-            SELECT id, kind, payload,
+            SELECT id, kind, <payloadColumn>
                    CASE WHEN status = 'PENDING' AND expires <= now() THEN 'EXPIRED' ELSE status END AS status,
                    actor_kind, actor_id, requested, scheduled_for, expires, started, finished, outcome
             FROM <table>
@@ -142,7 +145,7 @@ public final class Inbox<P> {
 
     /** Writes a request for its time and wakes the consumer. */
     public Request<P> submit(final P payload, final Actor actor, final Schedule schedule) {
-        return jdbi.withHandle(handle -> insert(handle, payload, actor, schedule));
+        return jdbi.inTransaction(handle -> insert(handle, payload, actor, schedule));
     }
 
     /** Writes a request and its journal line in one transaction, so neither exists without the other. */
@@ -167,17 +170,84 @@ public final class Inbox<P> {
         Objects.requireNonNull(actor, "actor");
         Objects.requireNonNull(schedule, "schedule");
         final Duration patience = schedule.patience();
-        return handle.createQuery(SUBMIT)
+        final Request<P> request = withPayload(handle.createQuery(SUBMIT), payload)
                 .define("table", table.name())
                 .bind("kind", table.kindOf(payload))
-                .bind("payload", DatabaseJson.encode(payload))
                 .bind("actorKind", actor.kind().name())
                 .bind("actorId", actor.id())
                 .bind("delay", seconds(schedule.delay()))
                 .bind("patience", patience == null ? null : seconds(patience))
                 .bind("channel", table.channel().sqlName())
-                .map(this::map)
+                .map((row, context) -> map(row, handle, payload))
                 .one();
+        insertRow(handle, request.id(), payload);
+        return request;
+    }
+
+    /** Defines the payload column where the table still has one, and binds it as JSON for a kind that is no row. */
+    private Query withPayload(final Query query, final P payload) {
+        if (!table.hasPayload()) {
+            return query.define("payloadColumn", "").define("payloadValue", "");
+        }
+        return query.define("payloadColumn", "payload,")
+                .define("payloadValue", "cast(:payload AS jsonb),")
+                .bind("payload", table.isRow(payload.getClass()) ? null : DatabaseJson.encode(payload));
+    }
+
+    /** Writes a kind's own row, one column per component, for the request it belongs to. */
+    private void insertRow(final Handle handle, final long id, final P payload) {
+        if (!table.isRow(payload.getClass())) {
+            return;
+        }
+        final RecordComponent[] components = payload.getClass().getRecordComponents();
+        final StringBuilder columns = new StringBuilder("request");
+        final StringBuilder values = new StringBuilder(":request");
+        for (final RecordComponent component : components) {
+            columns.append(", ").append(InboxTable.column(component));
+            values.append(", :").append(component.getName());
+        }
+        final Update insert = handle.createUpdate("INSERT INTO <row> (" + columns + ") VALUES (" + values + ")")
+                .define("row", table.rowTable(payload.getClass()))
+                .bind("request", id);
+        for (final RecordComponent component : components) {
+            insert.bindByType(component.getName(), component(component, payload), component.getGenericType());
+        }
+        insert.execute();
+    }
+
+    private static @Nullable Object component(final RecordComponent component, final Object record) {
+        try {
+            return component.getAccessor().invoke(record);
+        } catch (final ReflectiveOperationException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    /** Reads a kind's own row back into its record, each component from the column of its name. */
+    private <T> T readRow(final Handle handle, final long id, final Class<T> type) {
+        return handle.createQuery("SELECT * FROM <row> WHERE request = :id")
+                .define("row", table.rowTable(type))
+                .bind("id", id)
+                .map((row, context) -> {
+                    final RecordComponent[] components = type.getRecordComponents();
+                    final Class<?>[] types = new Class<?>[components.length];
+                    final Object[] values = new Object[components.length];
+                    for (int i = 0; i < components.length; i++) {
+                        final RecordComponent component = components[i];
+                        types[i] = component.getType();
+                        values[i] = context.findColumnMapperFor(component.getGenericType())
+                                .orElseThrow(() -> new IllegalStateException("no column mapper for " + component))
+                                .map(row, InboxTable.column(component), context);
+                    }
+                    try {
+                        return type.getDeclaredConstructor(types).newInstance(values);
+                    } catch (final ReflectiveOperationException failure) {
+                        throw new IllegalStateException(table + " request " + id + " reads as no " + type, failure);
+                    }
+                })
+                .findOne()
+                .orElseThrow(() ->
+                        new IllegalStateException(table + " request " + id + " has no row in " + table.rowTable(type)));
     }
 
     /** Claims the oldest due request and marks it running; call it until empty, since one signal may stand for many. */
@@ -185,7 +255,7 @@ public final class Inbox<P> {
         return jdbi.withHandle(handle -> handle.createQuery(CLAIM)
                 .define("table", table.name())
                 .bind("channel", table.channel().sqlName())
-                .map(this::map)
+                .map(mapper(handle))
                 .findOne());
     }
 
@@ -218,18 +288,21 @@ public final class Inbox<P> {
         Objects.requireNonNull(payload, "payload");
         Objects.requireNonNull(actor, "actor");
         final Settled settled = Settled.of(outcome);
-        return jdbi.withHandle(handle -> handle.createQuery(RECORD)
-                .define("table", table.name())
-                .bind("kind", table.kindOf(payload))
-                .bind("payload", DatabaseJson.encode(payload))
-                .bind("actorKind", actor.kind().name())
-                .bind("actorId", actor.id())
-                .bind("status", settled.status().name())
-                .bind("outcome", settled.answer() == null ? null : DatabaseJson.encode(settled.answer()))
-                .bind("took", seconds(Objects.requireNonNull(took, "took")))
-                .bind("channel", table.channel().sqlName())
-                .map(this::map)
-                .one());
+        return jdbi.inTransaction(handle -> {
+            final Request<P> request = withPayload(handle.createQuery(RECORD), payload)
+                    .define("table", table.name())
+                    .bind("kind", table.kindOf(payload))
+                    .bind("actorKind", actor.kind().name())
+                    .bind("actorId", actor.id())
+                    .bind("status", settled.status().name())
+                    .bind("outcome", settled.answer() == null ? null : DatabaseJson.encode(settled.answer()))
+                    .bind("took", seconds(Objects.requireNonNull(took, "took")))
+                    .bind("channel", table.channel().sqlName())
+                    .map((row, context) -> map(row, handle, payload))
+                    .one();
+            insertRow(handle, request.id(), payload);
+            return request;
+        });
     }
 
     /** The status an outcome settles a row in, and the answer it writes. */
@@ -265,7 +338,7 @@ public final class Inbox<P> {
                 .bind("settles", to.settled())
                 .bind("outcome", answer == null ? null : DatabaseJson.encode(answer))
                 .bind("channel", table.channel().sqlName())
-                .map(this::map)
+                .map(mapper(handle))
                 .findOne());
     }
 
@@ -387,8 +460,9 @@ public final class Inbox<P> {
     public Optional<Request<P>> find(final long id) {
         return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE id = :id")
                 .define("table", table.name())
+                .define("payloadColumn", table.hasPayload() ? "payload," : "")
                 .bind("id", id)
-                .map(this::map)
+                .map(mapper(handle))
                 .findOne());
     }
 
@@ -396,9 +470,10 @@ public final class Inbox<P> {
     public List<Request<P>> recent(final Class<? extends P> kind, final int limit) {
         return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE kind = :kind ORDER BY id DESC LIMIT :limit")
                 .define("table", table.name())
+                .define("payloadColumn", table.hasPayload() ? "payload," : "")
                 .bind("kind", table.kindOf(kind))
                 .bind("limit", Math.max(1, limit))
-                .map(this::map)
+                .map(mapper(handle))
                 .list());
     }
 
@@ -494,15 +569,24 @@ public final class Inbox<P> {
         });
     }
 
-    private Request<P> map(final ResultSet row, final StatementContext context) throws SQLException {
+    private RowMapper<Request<P>> mapper(final Handle handle) {
+        return (row, context) -> map(row, handle, null);
+    }
+
+    /** Reads a row whose payload is {@code known}, or else from its kind's row or its JSON. */
+    private Request<P> map(final ResultSet row, final Handle handle, final @Nullable P known) throws SQLException {
+        final long id = row.getLong("id");
         final String kind = row.getString("kind");
         final Class<? extends P> type = table.typeOf(kind)
                 .orElseThrow(
                         () -> new IllegalStateException(table + " holds a kind this build does not know: " + kind));
+        final Object payload = known != null
+                ? known
+                : table.isRow(type) ? readRow(handle, id, type) : DatabaseJson.decode(row.getString("payload"), type);
         return new Request<>(
-                row.getLong("id"),
+                id,
                 kind,
-                table.payloads().cast(DatabaseJson.decode(row.getString("payload"), type)),
+                table.payloads().cast(payload),
                 InboxStatus.valueOf(row.getString("status")),
                 Actor.of(row.getString("actor_kind"), row.getString("actor_id")),
                 Objects.requireNonNull(instant(row.getTimestamp("requested")), "requested"),

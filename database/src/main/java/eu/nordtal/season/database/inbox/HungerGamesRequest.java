@@ -8,8 +8,8 @@ import java.util.Objects;
 public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame, HungerGamesRequest.PreviewMessage {
 
     /** The Hunger Games server's inbox table. */
-    InboxTable<HungerGamesRequest> TABLE =
-            InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class);
+    InboxTable<HungerGamesRequest> TABLE = InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class)
+            .withRows(StartGame.class);
 
     /**
      * Starts the registered game.

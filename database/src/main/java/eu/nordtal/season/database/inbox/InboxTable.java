@@ -1,18 +1,21 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.database.notify.Channel;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * One consumer's inbox table: its name, the channel every change is announced on, and the kinds it takes.
  * The kinds are the records a sealed payload type permits, each stored under its name in upper snake case.
+ * A kind is either a row of its own table, one column per component, or still JSON in the inbox's payload column.
  */
 public final class InboxTable<P> {
 
@@ -20,8 +23,10 @@ public final class InboxTable<P> {
     private final Channel channel;
     private final Class<P> payloads;
     private final Map<String, Class<? extends P>> kinds;
+    private final Set<Class<? extends P>> rows;
 
-    private InboxTable(final String name, final Channel channel, final Class<P> payloads) {
+    private InboxTable(
+            final String name, final Channel channel, final Class<P> payloads, final Set<Class<? extends P>> rows) {
         // The name goes into SQL as an identifier, which has no placeholder.
         if (!Objects.requireNonNull(name, "name").matches("[a-z][a-z0-9_]*_inbox")) {
             throw new IllegalArgumentException("not an inbox table name: '" + name + "'");
@@ -30,6 +35,10 @@ public final class InboxTable<P> {
         this.channel = Objects.requireNonNull(channel, "channel");
         this.payloads = Objects.requireNonNull(payloads, "payloads");
         this.kinds = kindsOf(payloads);
+        this.rows = Set.copyOf(rows);
+        if (!kinds.values().containsAll(this.rows)) {
+            throw new IllegalArgumentException(this.rows + " are not all kinds of " + payloads.getName());
+        }
     }
 
     /**
@@ -38,7 +47,13 @@ public final class InboxTable<P> {
      * @throws IllegalArgumentException if {@code payloads} is not a sealed interface of records
      */
     public static <P> InboxTable<P> of(final String name, final Channel channel, final Class<P> payloads) {
-        return new InboxTable<>(name, channel, payloads);
+        return new InboxTable<>(name, channel, payloads, Set.of());
+    }
+
+    /** Returns this table with {@code kinds} stored as rows of their own tables instead of JSON in the payload. */
+    @SafeVarargs
+    public final InboxTable<P> withRows(final Class<? extends P>... kinds) {
+        return new InboxTable<>(name, channel, payloads, Set.of(kinds));
     }
 
     /** Returns the table's name, as the SQL spells it. */
@@ -69,6 +84,26 @@ public final class InboxTable<P> {
     /** Returns the payload type stored under a kind, or empty for a kind this build does not know. */
     Optional<Class<? extends P>> typeOf(final String kind) {
         return Optional.ofNullable(kinds.get(kind));
+    }
+
+    /** Returns whether a kind is a row of its own table rather than JSON in the payload column. */
+    boolean isRow(final Class<?> type) {
+        return rows.contains(type);
+    }
+
+    /** Returns whether some kind is still JSON, so the inbox table still has its payload column. */
+    boolean hasPayload() {
+        return rows.size() < kinds.size();
+    }
+
+    /** Returns the table a kind's rows are in: {@code bank_open_tab} for {@code OpenTab} of {@code bank_inbox}. */
+    String rowTable(final Class<?> type) {
+        return name.replaceFirst("_inbox$", "_") + kindName(type).toLowerCase(Locale.ROOT);
+    }
+
+    /** Returns the column a component is stored in: {@code replaces_local} for {@code replacesLocal}. */
+    static String column(final RecordComponent component) {
+        return snake(component.getName()).toLowerCase(Locale.ROOT);
     }
 
     /** Returns the payload type itself, for a cast the compiler cannot prove. */
@@ -105,6 +140,10 @@ public final class InboxTable<P> {
 
     /** {@code SetPlaytime} is {@code SET_PLAYTIME}. */
     private static String kindName(final Class<?> type) {
-        return type.getSimpleName().replaceAll("([a-z0-9])([A-Z])", "$1_$2").toUpperCase(Locale.ROOT);
+        return snake(type.getSimpleName()).toUpperCase(Locale.ROOT);
+    }
+
+    private static String snake(final String camel) {
+        return camel.replaceAll("([a-z0-9])([A-Z])", "$1_$2");
     }
 }

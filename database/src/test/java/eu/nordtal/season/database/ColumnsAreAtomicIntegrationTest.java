@@ -20,7 +20,6 @@ class ColumnsAreAtomicIntegrationTest {
             "admin_alert.title",
             "audit_log.line",
             "bank_inbox.outcome",
-            "bank_inbox.payload",
             "bot_inbox.outcome",
             "bot_inbox.payload",
             "command_tree.tree",

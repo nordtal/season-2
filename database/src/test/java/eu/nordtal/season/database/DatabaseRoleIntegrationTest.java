@@ -89,14 +89,6 @@ class DatabaseRoleIntegrationTest {
                 may(
                         DatabaseRole.SMP,
                         "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('ANNOUNCE', '{}', 'STEWARD')"),
-                may(
-                        DatabaseRole.DISCORD_BOT,
-                        "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
-                mayNot(DatabaseRole.DISCORD_BOT, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
-                may(
-                        DatabaseRole.STEWARD,
-                        "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
-                may(DatabaseRole.STEWARD, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {
@@ -108,6 +100,7 @@ class DatabaseRoleIntegrationTest {
             cases.add(new Case(role, WRITE_SETTING, role == DatabaseRole.STEWARD));
         }
         cases.addAll(serverInboxes());
+        cases.addAll(bankInbox());
         cases.addAll(registration());
         cases.addAll(discordRoles());
         cases.addAll(commandTrees());
@@ -231,29 +224,52 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM registration"));
     }
 
+    /** The bot and steward ask the bank's inbox, a kind's row with its request; only steward claims it. */
+    private static List<Case> bankInbox() {
+        return List.of(
+                may(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO bank_inbox (kind, actor_kind) VALUES ('CANCEL_TAB', 'HOST')"),
+                mayNot(DatabaseRole.DISCORD_BOT, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
+                may(DatabaseRole.STEWARD, "INSERT INTO bank_inbox (kind, actor_kind) VALUES ('CANCEL_TAB', 'HOST')"),
+                may(DatabaseRole.STEWARD, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
+                may(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO bank_open_tab (request, payment) VALUES (0, gen_random_uuid())"),
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO bank_cancel_tab (request, payment) VALUES (0, gen_random_uuid())"),
+                mayNot(DatabaseRole.SMP, "INSERT INTO bank_open_tab (request, payment) VALUES (0, gen_random_uuid())"));
+    }
+
     /** Every server with an inbox claims only its own, and steward writes into each. */
     private static List<Case> serverInboxes() {
         return List.of(
                 mayNot(
                         DatabaseRole.SMP,
-                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
+                        "INSERT INTO hunger_games_inbox (kind, actor_kind) VALUES ('START_GAME', 'HOST')"),
                 may(DatabaseRole.SMP, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.SMP, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
                 may(DatabaseRole.HUNGER_GAMES, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
                 may(
                         DatabaseRole.STEWARD,
-                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
+                        "INSERT INTO hunger_games_inbox (kind, actor_kind) VALUES ('START_GAME', 'HOST')"),
                 may(
                         DatabaseRole.STEWARD,
-                        "INSERT INTO smp_inbox (kind, payload, actor_kind)"
-                                + " VALUES ('UNLOCK_MILESTONE', '{\"key\":\"a\"}', 'HOST')"),
+                        "INSERT INTO smp_inbox (kind, actor_kind) VALUES ('UNLOCK_MILESTONE', 'HOST')"),
+                may(DatabaseRole.STEWARD, "INSERT INTO smp_unlock_milestone (request, key) VALUES (0, 'a')"),
+                may(DatabaseRole.STEWARD, "INSERT INTO smp_complete_objective (request, key) VALUES (0, 'a')"),
+                may(DatabaseRole.STEWARD, "INSERT INTO hunger_games_start_game (request, confirmed) VALUES (0, true)"),
+                may(DatabaseRole.SMP, "SELECT count(*) FROM smp_unlock_milestone"),
+                mayNot(DatabaseRole.SMP, "INSERT INTO smp_unlock_milestone (request, key) VALUES (0, 'a')"),
+                may(DatabaseRole.HUNGER_GAMES, "SELECT count(*) FROM hunger_games_start_game"),
                 mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
                         DatabaseRole.PROXY,
-                        "INSERT INTO smp_inbox (kind, payload, actor_kind) VALUES ('UNLOCK_MILESTONE', '{}', 'HOST')"),
+                        "INSERT INTO smp_inbox (kind, actor_kind) VALUES ('UNLOCK_MILESTONE', 'HOST')"),
                 mayNot(
                         DatabaseRole.LIMBO,
-                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"));
+                        "INSERT INTO hunger_games_inbox (kind, actor_kind) VALUES ('START_GAME', 'HOST')"));
     }
 
     private static Executable check(final Case c) {

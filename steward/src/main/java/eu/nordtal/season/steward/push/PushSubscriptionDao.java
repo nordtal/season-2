@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 @RegisterConstructorMapper(PushSubscriptions.Subscription.class)
 public interface PushSubscriptionDao {
 
-    /** Subscribes a browser, or resubscribes it by endpoint, keeping {@code created_at} and a name it cannot replace. */
+    /** Subscribes a browser, or resubscribes it by endpoint, keeping {@code created_at} and a name it cannot renew. */
     @SqlUpdate("""
             INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, system, browser)
             VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :system, :browser)

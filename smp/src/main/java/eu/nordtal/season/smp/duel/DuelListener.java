@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.duel;
 
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.aura.DuelType;
 import eu.nordtal.season.smp.config.DuelPlatformSpec;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.region.Box;

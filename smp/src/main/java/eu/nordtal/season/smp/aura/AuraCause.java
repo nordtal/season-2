@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.aura;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.smp.duel.DuelType;
 import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

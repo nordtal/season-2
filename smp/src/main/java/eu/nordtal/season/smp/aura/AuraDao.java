@@ -3,7 +3,6 @@ package eu.nordtal.season.smp.aura;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.Notifies;
-import eu.nordtal.season.smp.duel.DuelType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

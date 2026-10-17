@@ -6,7 +6,6 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
-import eu.nordtal.season.smp.duel.DuelType;
 import java.util.List;
 import java.util.UUID;
 import org.jdbi.v3.core.Jdbi;

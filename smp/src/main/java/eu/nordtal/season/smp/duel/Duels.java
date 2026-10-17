@@ -14,6 +14,7 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
+import eu.nordtal.season.smp.aura.DuelType;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;

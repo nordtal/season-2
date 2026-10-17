@@ -421,7 +421,7 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
       )
     case "HOLOGRAM":
       return scene(
-        <div className="flex w-full items-center justify-center p-3 text-center">
+        <div className="flex w-max min-w-full shrink-0 items-center justify-center p-3 text-center">
           <span className="px-1" style={{ background: "rgba(0,0,0,0.25)" }}>
             {text({ wrap: HOLOGRAM_WRAP })}
           </span>
@@ -439,7 +439,7 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
         <div className="flex w-full items-center justify-center p-3">
           <div className="flex w-full max-w-[610px] gap-2 p-1" style={{ boxShadow: "inset 0 0 0 2px #808080" }}>
             <div className="size-16 shrink-0 rounded-[2px]" style={{ background: "var(--brand)" }} />
-            <div className="min-w-0 flex-1 overflow-hidden">{text({ base: "#AAAAAA" })}</div>
+            <div className="min-w-0 flex-1 overflow-x-auto">{text({ base: "#AAAAAA" })}</div>
           </div>
         </div>,
         "#1f1a14",

@@ -266,7 +266,8 @@ class MessageBundlesTest {
     private static final String LAYOUTS = """
             [{"layout": {"name": "welcome", "bundle": "smp", "area": "Join", "surface": "DISCORD", "elements": [],
                          "parts": [{"type": "TEXT", "lines": [{"key": "smp/welcome"}]}]},
-              "values": {"values": {}, "roles": [], "actions": [], "markup": false, "limit": 0, "examples": {}},
+              "values": {"values": {}, "roles": [], "actions": [], "markup": false, "limit": 0, "examples": {},
+                         "oneLine": false},
               "shows": ["smp/welcome"]}]
             """;
 

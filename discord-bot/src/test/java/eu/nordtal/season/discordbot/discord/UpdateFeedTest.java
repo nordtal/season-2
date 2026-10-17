@@ -410,6 +410,34 @@ class UpdateFeedTest {
     }
 
     @Test
+    void eachChangeIsItsOwnIndentedLineBelowItsServiceAndAPacksHashIsShort() {
+        final UpdateReport done = new UpdateReport(
+                UpdateReport.Stage.DONE,
+                List.of(
+                        new UpdateReport.ServiceLine(
+                                "smp",
+                                UpdateReport.State.HEALTHY,
+                                List.of(
+                                        new UpdateReport.Change("paper", "133", "134"),
+                                        UpdateReport.Change.told(
+                                                "image", TEXTS.report().imageRenewed())),
+                                null),
+                        new UpdateReport.ServiceLine(
+                                "proxy",
+                                UpdateReport.State.HEALTHY,
+                                List.of(new UpdateReport.Change(
+                                        "resource-pack", "f8fb6640b394ffeea812d02b8c4b3d4cdfe956a9", "0.24.0")),
+                                null)),
+                List.of());
+        rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(done), NOW));
+        feed.tick();
+
+        final String shown = lines(board.posted.get(0).embed());
+        assertTrue(shown.contains("✅ **smp** *running*\n\u2003paper 133 → **134**\n\u2003image *renewed*\n"), shown);
+        assertTrue(shown.contains("✅ **proxy** *running*\n\u2003resource-pack f8fb664 → **0.24.0**"), shown);
+    }
+
+    @Test
     void aBackupsSizeAndTimeAreRenderedFromTheirValues() {
         final UpdateReport saved = new UpdateReport(
                 UpdateReport.Stage.DONE,
@@ -567,7 +595,7 @@ class UpdateFeedTest {
 
         final MessageEmbed card = UpdateFeed.fields(saved, backup, messages, NOW);
 
-        assertEquals("✅ **database** *saved*  *8.8 MiB in 2s*", field(card, "Services"));
+        assertEquals("✅ **database** *saved*\n\u2003*8.8 MiB in 2s*", field(card, "Services"));
     }
 
     @Test
@@ -585,7 +613,7 @@ class UpdateFeedTest {
 
         final MessageEmbed card = UpdateFeed.fields(restored, restore, messages, NOW);
 
-        assertEquals("✅ **smp-1.tar.zst** *restored*  *1.2 MiB*", field(card, "Services"));
+        assertEquals("✅ **smp-1.tar.zst** *restored*\n\u2003*1.2 MiB*", field(card, "Services"));
     }
 
     @Test

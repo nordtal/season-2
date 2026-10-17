@@ -539,6 +539,7 @@
     "report.held-not-remade": [["held down, left out"]],
     "report.held-not-restarted": [["held down, not restarted"]],
     "report.image-outdated": [["out of date"]],
+    "report.image-renewed": [["renewed"]],
     "report.images-local": [["its image was built on this host"]],
     "report.images-not-pruned": [["unused images not removed: ",{"v":"error"}]],
     "report.images-pruned": [["removed ",{"v":"images","k":"number","s":"plain"}," unused images, freed ",{"v":"freed"}]],

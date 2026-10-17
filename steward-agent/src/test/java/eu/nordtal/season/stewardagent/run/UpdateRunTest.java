@@ -1,10 +1,12 @@
 package eu.nordtal.season.stewardagent.run;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.stewardagent.Told;
@@ -12,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -216,6 +219,52 @@ class UpdateRunTest {
         final UpdateReport verified = run.verify(started, stopped.services(), clock);
 
         assertEquals(UpdateReport.State.HEALTHY, verified.line(Topology.SMP).state());
+    }
+
+    @Test
+    void anImageOutOfDateReadsRenewedOnceItsServiceIsBackOnTheNewOne() {
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(outdated(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped, containers.images());
+        containers.back(Topology.SMP);
+
+        final UpdateReport verified = run.verify(started, stopped.services(), impatient());
+
+        assertEquals(UpdateReport.State.HEALTHY, verified.line(Topology.SMP).state());
+        assertEquals("smp 0.7.0, image renewed", changes(verified.line(Topology.SMP)));
+    }
+
+    @Test
+    void anImageStaysOutOfDateWhenItsServiceIsStartedBackOnTheOldOne() {
+        // An abort starts the old container again, so its image was not renewed however well it came back.
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(outdated(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped);
+        containers.back(Topology.SMP);
+
+        final UpdateReport verified = run.verify(started, stopped.services(), impatient());
+
+        assertEquals(UpdateReport.State.HEALTHY, verified.line(Topology.SMP).state());
+        assertEquals("smp 0.7.0, image out of date", changes(verified.line(Topology.SMP)));
+    }
+
+    /** A plan for one service with work, whose image the registry has a newer one of. */
+    private static UpdateReport outdated(final String service) {
+        final UpdateReport planned = planned(service);
+        return planned.with(planned.line(service)
+                .with(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())));
+    }
+
+    /** A line's changes in English, each its artefact and its version or its words. */
+    private static String changes(final UpdateReport.ServiceLine line) {
+        return line.changes().stream()
+                .map(change -> change.artefact() + " "
+                        + (change.told() == null ? change.to() : DatabaseText.english(change.told())))
+                .collect(Collectors.joining(", "));
     }
 
     @Test

@@ -224,6 +224,9 @@ public interface ReportTexts {
     @Name("An image the registry has a newer one of, as a change")
     MessageRef imageOutdated();
 
+    @Name("An image made again from a pulled one, once its service is back, as a change")
+    MessageRef imageRenewed();
+
     @Name("A container made again, as a change")
     MessageRef madeAgain(@Arg("pull") boolean pull);
 

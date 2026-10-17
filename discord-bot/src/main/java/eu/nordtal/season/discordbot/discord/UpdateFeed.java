@@ -40,6 +40,8 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 public final class UpdateFeed {
 
+    private static final java.util.regex.Pattern SHA1 = java.util.regex.Pattern.compile("[0-9a-f]{40}");
+
     /** How far back a start posts runs that ended while this bot was down. */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
 
@@ -305,7 +307,7 @@ public final class UpdateFeed {
     }
 
     /**
-     * Renders a service line: its mark, the service, its state, then each change as a version or a pair of them.
+     * Renders a service line: its mark, the service and its state, then each change on its own indented line below.
      *
      * A told change named after the run's own kind leaves its name out, since the title says it.
      */
@@ -317,7 +319,8 @@ public final class UpdateFeed {
                 .append(' ')
                 .append(Card.italic(text.apply(TEXTS.run().state(line.state()))));
         for (final UpdateReport.Change change : line.changes()) {
-            shown.append("  ");
+            // An em space, since Discord may drop the plain spaces a line starts with.
+            shown.append("\n\u2003");
             if (change.told() == null || !change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))) {
                 shown.append(Card.escape(change.artefact())).append(' ');
             }
@@ -337,7 +340,12 @@ public final class UpdateFeed {
         if (told != null) {
             return Card.italic(text.apply(told));
         }
-        return change.from() == null ? Card.bold(change.to()) : Card.arrow(change.from(), change.to());
+        return change.from() == null ? Card.bold(change.to()) : Card.arrow(version(change.from()), change.to());
+    }
+
+    /** A version as it reads, but a SHA-1, which only the resource pack is known by, cut to its first seven. */
+    private static String version(final String version) {
+        return SHA1.matcher(version).matches() ? version.substring(0, 7) : version;
     }
 
     /** Returns the mark of one service's state, from the same set as {@link #glance}. */

@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,8 @@ public final class Bootstrap {
             final RunSpec config,
             final Database database,
             final Supplier<AgentWire.Topology> topology,
-            final Clock clock) {
+            final Clock clock,
+            final Consumer<List<String>> handOver) {
         final Instant began = clock.instant();
         final SettingStore settings = SettingStore.using(database.dataSource());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
@@ -55,12 +57,8 @@ public final class Bootstrap {
             final AgentWire.Topology read = topology.get();
             final UpdatePlan missing =
                     Runs.resolve(config, read, plugins, settings).onlyMissing();
-            services = missing.changes().stream()
-                    .map(Change::service)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .toList();
-            report = report(missing, plan -> Runs.apply(config, read, plan, settings, plugins));
+            services = services(missing);
+            report = report(missing, handingOver(plan -> Runs.apply(config, read, plan, settings, plugins), handOver));
         } catch (final RuntimeException failure) {
             log.error("Start-up install: nothing could be resolved, so nothing was installed", failure);
             report = Optional.of(unexpected(UpdateReport.at(UpdateReport.Stage.FAILED), failure));
@@ -82,6 +80,30 @@ public final class Bootstrap {
         } catch (final RuntimeException failure) {
             log.error("Start-up install ended {}, and its run could not be written", written.stage(), failure);
         }
+    }
+
+    /**
+     * Installs a plan, then hands its services' volumes to their users, as every container a compose command makes.
+     *
+     * Also after a failure part way, since what did go in was written as root.
+     */
+    static Function<UpdatePlan, ApplyResult> handingOver(
+            final Function<UpdatePlan, ApplyResult> apply, final Consumer<List<String>> handOver) {
+        return plan -> {
+            try {
+                return apply.apply(plan);
+            } finally {
+                handOver.accept(services(plan));
+            }
+        };
+    }
+
+    private static List<String> services(final UpdatePlan plan) {
+        return plan.changes().stream()
+                .map(Change::service)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     /**

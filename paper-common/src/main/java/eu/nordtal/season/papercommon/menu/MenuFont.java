@@ -40,6 +40,10 @@ public final class MenuFont {
 
     /** Returns the character the row fonts would draw for {@code character}. */
     public static char fold(final char character) {
+        // A row holds one line, so a line break is a space there.
+        if (character == '\n') {
+            return ' ';
+        }
         final char upper = Character.toUpperCase(character);
         return covers(upper) ? upper : UNKNOWN;
     }

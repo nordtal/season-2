@@ -10,6 +10,7 @@ import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.proxy.PhaseServers;
@@ -350,7 +351,8 @@ public final class RestartWatch {
 
     /** The same, as a subtitle with an empty title above it. */
     private void title(final java.util.function.Function<Locale, Component> render) {
-        each((player, locale) -> player.showTitle(Title.title(Component.empty(), render.apply(locale), TIMES)));
+        each((player, locale) ->
+                player.showTitle(Title.title(Component.empty(), Lines.joined(render.apply(locale)), TIMES)));
     }
 
     private void each(final java.util.function.BiConsumer<Player, Locale> what) {

@@ -32,7 +32,8 @@ class MessageCheckTest {
             Set.of("accept"),
             true,
             0,
-            Map.of("winner.name", "Alex", "n", "3", "reason", "Nordtal"));
+            Map.of("winner.name", "Alex", "n", "3", "reason", "Nordtal"),
+            false);
 
     private static List<String> packaged(final String text) {
         return MessageCheck.errors(text, CHAT, Mode.PACKAGED);
@@ -137,8 +138,34 @@ class MessageCheckTest {
     @Test
     void aTextLongerThanItsDisplayWithTheExamplesFilledInIsRefused() {
         final Declaration button =
-                new Declaration(Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"));
+                new Declaration(Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"), false);
         assertEquals(List.of(), MessageCheck.errors("Buy {n} now", button, Mode.OVERRIDE));
         refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters long");
+    }
+
+    @Test
+    void aLineBreakWhereTheGameDrawsOneLineIsRefusedInABundleAndAWarningInAnOverride() {
+        final Declaration title =
+                new Declaration(Map.of("n", Kind.NUMBER), Set.of(), Set.of(), true, 0, Map.of(), true);
+        refused(MessageCheck.errors("first<newline>second", title, Mode.PACKAGED), "one line");
+        assertEquals(
+                List.of(false),
+                MessageCheck.check("first{n, plural, one {<br>} other {}}second", title, Mode.OVERRIDE).stream()
+                        .map(MessageCheck.Problem::error)
+                        .toList());
+        assertEquals(List.of(), packaged("{winner.name}<newline>{n}"));
+    }
+
+    @Test
+    void aLinkShowingItsOwnAddressIsRefusedInABundleAndAWarningInAnOverride() {
+        final String link = "<click:open_url:'{reason}'><u>{reason}</u></click> {winner.name} {n}";
+        refused(packaged(link), "address");
+        assertEquals(
+                List.of(false),
+                MessageCheck.check(link, CHAT, Mode.OVERRIDE).stream()
+                        .map(MessageCheck.Problem::error)
+                        .toList());
+        assertEquals(List.of(), packaged("<click:open_url:'{reason}'><u>Discord</u></click> {winner.name} {n}"));
+        assertEquals(List.of(), packaged("<click:open_url:'{reason}'>Discord</click> {reason} {winner.name} {n}"));
     }
 }

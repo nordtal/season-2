@@ -5,6 +5,7 @@ import eu.nordtal.season.limbo.LimboMessages;
 import eu.nordtal.season.limbo.config.LimboSpec;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.limboprotocol.WaitReason;
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -96,7 +97,9 @@ public final class WaitingRoom {
         final LimboMessages.Limbo.Screen screen =
                 LimboMessages.MESSAGES.limbo().waiting().of(reason);
         player.showTitle(Title.title(
-                renderer.format(locale, screen.title()), renderer.format(locale, screen.subtitle()), times));
+                Lines.joined(renderer.format(locale, screen.title())),
+                Lines.joined(renderer.format(locale, screen.subtitle())),
+                times));
     }
 
     /** Starts the refresh loop, one task for the whole server rather than one per player. */

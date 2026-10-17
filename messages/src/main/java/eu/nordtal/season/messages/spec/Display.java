@@ -8,10 +8,10 @@ import java.util.Collection;
  */
 public enum Display {
     CHAT(Surface.GAME),
-    ACTION_BAR(Surface.GAME),
-    TITLE(Surface.GAME),
-    SUBTITLE(Surface.GAME),
-    BOSS_BAR(Surface.GAME),
+    ACTION_BAR(Surface.GAME, 0, true),
+    TITLE(Surface.GAME, 0, true),
+    SUBTITLE(Surface.GAME, 0, true),
+    BOSS_BAR(Surface.GAME, 0, true),
     TAB_LIST(Surface.GAME),
     /** An inventory menu: its title, an item's name or a line of its tooltip. */
     GUI(Surface.GAME),
@@ -49,14 +49,20 @@ public enum Display {
 
     private final Surface surface;
     private final int limit;
+    private final boolean oneLine;
 
     Display(final Surface surface) {
-        this(surface, 0);
+        this(surface, 0, false);
     }
 
     Display(final Surface surface, final int limit) {
+        this(surface, limit, false);
+    }
+
+    Display(final Surface surface, final int limit, final boolean oneLine) {
         this.surface = surface;
         this.limit = limit;
+        this.oneLine = oneLine;
     }
 
     /** Returns where this place is. */
@@ -67,6 +73,11 @@ public enum Display {
     /** Returns how many characters the platform shows here, {@code 0} where it sets no limit. */
     public int limit() {
         return limit;
+    }
+
+    /** Returns whether every one of the places draws a single line, which none of them breaks. */
+    public static boolean oneLine(final Collection<Display> places) {
+        return !places.isEmpty() && places.stream().allMatch(place -> place.oneLine);
     }
 
     /** Returns the strictest limit of the places, {@code 0} when none of them sets one. */

@@ -141,7 +141,7 @@ public final class LayoutSchema {
             declaration.examples().forEach(examples::putIfAbsent);
             actions.addAll(declaration.actions());
         }
-        return new Declaration(values, Set.of(), actions, layout.surface() == Display.Surface.GAME, 0, examples);
+        return new Declaration(values, Set.of(), actions, layout.surface() == Display.Surface.GAME, 0, examples, false);
     }
 
     private static List<String> shows(

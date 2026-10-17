@@ -340,4 +340,17 @@ class MenuTitleTest {
             throw new UncheckedIOException("cannot read " + file, e);
         }
     }
+
+    @Test
+    void aLineBreakInTheTitleIsDrawnAsASpaceSinceATitleHoldsOneLine() {
+        final Component readable =
+                MenuTitle.of(3, Component.text("Hand\nin")).children().get(1);
+        assertEquals("Hand in", plain(readable));
+        assertEquals(
+                "Hand in",
+                plain(MenuTitle.on(Glyphs.GUI_PANEL_6)
+                        .build(Component.text("Hand\nin"))
+                        .children()
+                        .get(1)));
+    }
 }

@@ -172,4 +172,10 @@ class BossBarLineTest {
     private static int displacement(final String composed) {
         return composed.codePoints().map(ADVANCES::get).sum();
     }
+
+    @Test
+    void aLineBreakInAPillIsASpaceSinceABossBarHoldsOneLine() {
+        assertEquals("Hand in", Pill.of("Hand\nin").text());
+        assertEquals("Hand in", Pill.of(Glyphs.BOSSBAR_ARROW_090_0, "Hand\nin").text());
+    }
 }

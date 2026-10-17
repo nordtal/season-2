@@ -2,9 +2,11 @@ package eu.nordtal.season.steward.messages;
 
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.value.Kind;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +55,18 @@ public final class OverrideCheck {
                                 : arg.name().substring(0, arg.name().indexOf('.')));
             }
         }
-        return new Declaration(values, roles, actions, "MINIMESSAGE".equals(entry.format()), entry.limit(), examples);
+        // A place this release does not know is left out, so it never makes a text one line.
+        final List<Display> shown = entry.shown().stream()
+                .flatMap(name -> Arrays.stream(Display.values())
+                        .filter(place -> place.name().equals(name)))
+                .toList();
+        return new Declaration(
+                values,
+                roles,
+                actions,
+                "MINIMESSAGE".equals(entry.format()),
+                entry.limit(),
+                examples,
+                Display.oneLine(shown));
     }
 }

@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.protect;
 
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -156,9 +157,9 @@ public final class ProtectionListener implements Listener {
                 || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
-        player.sendActionBar(renderer.format(
+        player.sendActionBar(Lines.joined(renderer.format(
                 identities.languageOf(player.getUniqueId()),
-                MESSAGES.smp().protect().denied()));
+                MESSAGES.smp().protect().denied())));
         sounds.play(player, Feedback.REFUSED);
         return true;
     }

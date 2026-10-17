@@ -36,7 +36,8 @@ public final class BossBarLine {
     public record Pill(@Nullable String icon, String text) {
 
         public Pill {
-            Objects.requireNonNull(text, "text");
+            // A boss bar holds one line, and its font draws a line break as an unknown character.
+            text = Objects.requireNonNull(text, "text").replace('\n', ' ');
         }
 
         public static Pill of(final String text) {

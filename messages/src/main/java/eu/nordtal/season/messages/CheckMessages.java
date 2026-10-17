@@ -141,6 +141,12 @@ public interface CheckMessages {
             @Name("A closing tag closes nothing")
             MessageRef closesNothing(@Arg("tag") String tag);
 
+            @Name("A link shows its address")
+            MessageRef linkShowsAddress(@Arg("name") String name);
+
+            @Name("A line break on one line")
+            MessageRef lineBreakOnOneLine(@Arg("tag") String tag);
+
             @Name("A closing tag closes the wrong one")
             MessageRef closesOther(@Arg("tag") String tag, @Arg("open") String open);
         }

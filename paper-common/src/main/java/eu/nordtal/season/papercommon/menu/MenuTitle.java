@@ -1,5 +1,6 @@
 package eu.nordtal.season.papercommon.menu;
 
+import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,7 @@ public final class MenuTitle {
         if (rows < 1 || rows > MAX_ROWS) {
             throw new IllegalArgumentException("a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
         }
-        return Component.empty().append(panel(rows)).append(title);
+        return Component.empty().append(panel(rows)).append(Lines.joined(title));
     }
 
     /** Returns just the panel half, which ends where it started and carries no shadow. */
@@ -248,7 +249,7 @@ public final class MenuTitle {
 
         /** Returns the title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */
         public Component build(final Component title) {
-            return Component.empty().append(panel()).append(title);
+            return Component.empty().append(panel()).append(Lines.joined(title));
         }
     }
 }

@@ -2,7 +2,6 @@ package eu.nordtal.season.displaytags.nametag;
 
 import eu.nordtal.season.displaytags.ComponentUtil;
 import eu.nordtal.season.displaytags.Constants;
-import eu.nordtal.season.displaytags.DependencyUtil;
 import eu.nordtal.season.displaytags.DisplayTags;
 import eu.nordtal.season.displaytags.SeeThroughMode;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
@@ -10,13 +9,11 @@ import eu.nordtal.season.displaytags.wrapper.EntityWrapper;
 import eu.nordtal.season.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.season.displaytags.wrapper.display.TextAlignment;
 import eu.nordtal.season.displaytags.wrapper.display.TextDisplayWrapper;
-import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -24,7 +21,6 @@ import org.bukkit.Location;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
-import org.jspecify.annotations.Nullable;
 
 public class PlayerNameTagImpl extends PlayerNameTag {
     /**
@@ -48,11 +44,6 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     // The name tag text is cached temporarily, and it is only changed when the name tag ticks.
     private Component cachedText;
 
-    // The line list the resolved lines were derived from, kept to detect API-side changes.
-    private @Nullable List<String> sourceLines;
-
-    private @Nullable List<String> resolvedLines;
-
     public PlayerNameTagImpl(final Player player) {
         super(player);
         this.display = new TextDisplayWrapper();
@@ -66,7 +57,6 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
         this.data.setShowToSelf(config.showToSelf());
         this.data.setVisibilityDistance(config.getVisibilityDistance());
-        this.data.setLines(config.getLines());
         this.data.setTextAlignment(alignment);
         this.data.setBillboard(billboard);
         this.data.setTextShadow(config.hasTextShadow());
@@ -300,37 +290,6 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     private Component getText() {
-        final List<String> lines = this.getResolvedLines().stream()
-                .map((line) -> {
-                    String modified = line.replace(
-                            "{health}", String.valueOf(new DecimalFormat("#.##").format(this.player.getHealth())));
-                    if (DependencyUtil.enabledPlaceholderAPI()) {
-                        modified = PlaceholderAPI.setPlaceholders(this.player, modified);
-                    }
-
-                    return modified;
-                })
-                .toList();
-
-        return ComponentUtil.render(lines);
-    }
-
-    /**
-     * The configured lines with {@code {player}} substituted once, since a player's name does not change.
-     *
-     * The raw lines stay in {@link eu.nordtal.season.displaytags.nametag.NameTagData}; replacing them redoes this.
-     */
-    private List<String> getResolvedLines() {
-        final List<String> lines = this.data.getLines();
-        List<String> resolved = this.resolvedLines;
-        if (resolved == null || !lines.equals(this.sourceLines)) {
-            this.sourceLines = lines;
-            resolved = lines.stream()
-                    .map((line) -> line.replace("{player}", this.player.getName()))
-                    .toList();
-            this.resolvedLines = resolved;
-        }
-
-        return resolved;
+        return ComponentUtil.render(this.data.getLines());
     }
 }

@@ -62,10 +62,8 @@ public final class DisplayTags {
         // Drops the old tags instead of only despawning them, clearing entries the new settings might not recreate.
         this.removeAllNameTags();
         this.config.load(settings);
-        if (this.config.isEnabled()) {
-            for (final Player player : Bukkit.getOnlinePlayers()) {
-                this.nameTagManager.createNameTag(player).tick();
-            }
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+            this.nameTagManager.createNameTag(player).tick();
         }
         this.nameTagScheduler.start();
     }

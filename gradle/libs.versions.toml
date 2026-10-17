@@ -6,7 +6,6 @@ paper = "26.2.build.121-stable"
 velocity = "4.2.0"
 # :display-tags compiles against these; the servers install PacketEvents, the other two are optional.
 packetevents = "2.13.0"
-placeholderapi = "2.12.3"
 tab-api = "6.1.2"
 jda = "6.7.0"
 bunq = "1.28.0.6"
@@ -65,7 +64,6 @@ archunit = "1.5.1"
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 packetevents = { module = "com.github.retrooper:packetevents-spigot", version.ref = "packetevents" }
-placeholderapi = { module = "me.clip:placeholderapi", version.ref = "placeholderapi" }
 tab-api = { module = "com.github.NEZNAMY:TAB-API", version.ref = "tab-api" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }

@@ -7,7 +7,6 @@ import eu.nordtal.season.displaytags.config.spec.VectorSpec;
 import eu.nordtal.season.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.season.displaytags.wrapper.display.TextAlignment;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -15,12 +14,10 @@ import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 
 public class NameTagConfiguration {
-    private boolean enabled;
     private boolean showToSelf;
     private int updateInterval;
     private int visibilityDistance;
 
-    private @Nullable List<String> lines;
     private boolean textShadow;
     private @Nullable SeeThroughMode seeThrough;
     private int sneakTextOpacity;
@@ -31,30 +28,22 @@ public class NameTagConfiguration {
     private @Nullable Vector scale;
 
     public void load(final NameTagConfigurationSpec config) {
-        final TextAlignment alignment = parse(
-                TextAlignment.class, "display.text-alignment", config.display().textAlignment());
-        final DisplayBillboard billboard = parse(
-                DisplayBillboard.class, "display.billboard", config.display().billboard());
-        final SeeThroughMode seeThrough = parseSeeThrough(config.display().seeThrough());
-        parseBackground(config.display().background());
+        final TextAlignment alignment = parse(TextAlignment.class, "text-alignment", config.textAlignment());
+        final DisplayBillboard billboard = parse(DisplayBillboard.class, "billboard", config.billboard());
+        final SeeThroughMode seeThrough = parseSeeThrough(config.seeThrough());
+        parseBackground(config.background());
 
-        this.enabled = config.enabled();
         this.showToSelf = config.showToSelf();
         this.updateInterval = config.updateInterval();
         this.visibilityDistance = config.visibilityDistance();
-        this.lines = config.display().lines();
-        this.textShadow = config.display().textShadow();
+        this.textShadow = config.textShadow();
         this.seeThrough = seeThrough;
-        this.sneakTextOpacity = clampOpacity(config.display().sneakTextOpacity());
+        this.sneakTextOpacity = clampOpacity(config.sneakTextOpacity());
         this.textAlignment = alignment;
-        this.background = config.display().background();
+        this.background = config.background();
         this.billboard = billboard;
-        this.offset = vector(config.display().offset());
-        this.scale = vector(config.display().scale());
-    }
-
-    public boolean isEnabled() {
-        return this.enabled;
+        this.offset = vector(config.offset());
+        this.scale = vector(config.scale());
     }
 
     public boolean showToSelf() {
@@ -67,10 +56,6 @@ public class NameTagConfiguration {
 
     public int getVisibilityDistance() {
         return this.visibilityDistance;
-    }
-
-    public List<String> getLines() {
-        return Objects.requireNonNull(this.lines, "load() has not run");
     }
 
     public boolean hasTextShadow() {
@@ -136,7 +121,7 @@ public class NameTagConfiguration {
     }
 
     /**
-     * Reads {@code display.see-through}.
+     * Reads {@code see-through}.
      *
      * Accepts the booleans as {@code "true"} or {@code "false"}.
      */
@@ -146,7 +131,7 @@ public class NameTagConfiguration {
             return mode;
         }
 
-        throw new IllegalArgumentException("display.see-through: '" + value + "' is not a valid value. "
+        throw new IllegalArgumentException("see-through: '" + value + "' is not a valid value. "
                 + "Available values: vanilla (visible through blocks but dimmed, like a "
                 + "vanilla name tag), true (visible through blocks), false (hidden behind "
                 + "blocks).");
@@ -161,7 +146,7 @@ public class NameTagConfiguration {
         try {
             Util.parseDisplayBackground(background);
         } catch (RuntimeException error) {
-            throw new IllegalArgumentException("display.background: '" + background + "' is not a valid value. "
+            throw new IllegalArgumentException("background: '" + background + "' is not a valid value. "
                     + "Available values: 'default', 'transparent', or a hex colour such as '#FFFFFF'.");
         }
     }

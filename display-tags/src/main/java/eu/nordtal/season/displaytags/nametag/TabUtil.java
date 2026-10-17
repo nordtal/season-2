@@ -76,9 +76,7 @@ public final class TabUtil {
                 final NameTagManager manager = TabAPI.getInstance().getNameTagManager();
                 if (manager == null) return;
 
-                if (plugin.config().isEnabled()) {
-                    manager.hideNameTag(event.getPlayer());
-                }
+                manager.hideNameTag(event.getPlayer());
             });
         }
 

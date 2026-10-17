@@ -11,14 +11,13 @@ import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One row of the actions feed: a run from the run inbox or a line from {@code audit_log}.
+ * One row of the actions feed: a run from the run inbox or an entry of the journal.
  *
- * @param kind the {@code UpdateKind} name for a run, or the {@code audit_log.action} for a journal line
+ * @param kind the {@code UpdateKind} name for a run, or the {@link JournalAction} name for a journal entry
  * @param occurred when this happened, by the database's clock
  * @param label what happened, as a heading: a run's kind and stage, or a journal line's action
  * @param extent the outcome or its extent, such as "3 of 3 successful", or the journal's line
@@ -50,18 +49,18 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
     }
 
     /**
-     * A line from {@code audit_log}, headed by its action, or by the action's own name when it is no longer listed.
+     * An entry of the journal, headed by its action.
      *
-     * @param entry the journal line
+     * @param entry the journal entry
      * @return the entry that describes it
      */
     static ActionEntry of(final AuditEntry entry) {
-        final MessageRef label = Arrays.stream(JournalAction.values())
-                .filter(action -> action.name().equals(entry.action()))
-                .findFirst()
-                .map(action -> TEXTS.journal().action(action))
-                .orElseGet(() -> TEXTS.journal().written(entry.action()));
-        return new ActionEntry(entry.action(), entry.occurred(), label, entry.line(), entry.actor());
+        return new ActionEntry(
+                entry.action().name(),
+                entry.occurred(),
+                TEXTS.journal().action(entry.action()),
+                entry.line(),
+                entry.actor());
     }
 
     /**

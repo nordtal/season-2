@@ -1,10 +1,9 @@
 package eu.nordtal.season.steward.stack;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.audit.AuditDirectory;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -158,7 +157,7 @@ public final class StackApi implements AutoCloseable {
      * The whole API.
      *
      * @param updates the run inbox, sharing one directory with the run loop
-     * @param audit {@code audit_log}, for {@link ActionsApi}
+     * @param audit the journal, for {@link ActionsApi}
      * @param online where the player counts and the player list come from, or {@code null} without a database
      * @param resolve steward-agent's resolve, asked again when the cache ages; {@code null} makes the
      *     endpoint answer 503
@@ -473,7 +472,7 @@ public final class StackApi implements AutoCloseable {
         final eu.nordtal.season.database.update.UpdateRequest written = updates.submit(
                 new eu.nordtal.season.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
         log.info("restore of {} asked for as request {}", name, written.id());
-        Journaling.line(ctx, TEXTS.journal().requestRestore(written.id(), name));
+        Journaling.line(ctx, new JournalDetail.RestoreAsked(written.id(), name));
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }
 

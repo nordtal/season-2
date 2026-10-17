@@ -1,8 +1,7 @@
 package eu.nordtal.season.steward.update;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -125,7 +124,7 @@ public final class Updates {
                 written.id(),
                 ask.services == null || ask.services.isEmpty() ? "" : " for " + String.join(", ", ask.services));
         final List<String> scope = data().updates().scopeOf(written.id());
-        Journaling.line(ctx, TEXTS.journal().requestRun(written.id(), written.kind(), scope, scope.size()));
+        Journaling.line(ctx, new JournalDetail.RunAsked(written.id(), written.kind(), scope));
         ctx.status(202).json(describe(written, scope));
     }
 
@@ -148,7 +147,8 @@ public final class Updates {
         }
         Journaling.line(
                 ctx,
-                TEXTS.journal().cancelRun(cancelled.get().id(), cancelled.get().kind()));
+                new JournalDetail.RunCancelled(
+                        cancelled.get().id(), cancelled.get().kind()));
         log.info(
                 "{} cancelled {} request {}",
                 who.name(),

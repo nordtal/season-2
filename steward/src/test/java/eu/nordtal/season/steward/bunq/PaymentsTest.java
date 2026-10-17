@@ -99,7 +99,7 @@ class PaymentsTest {
     void freshTables() {
         TAB_PAYMENTS.clear();
         RECENT.clear();
-        owner().useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, audit_log, bot_inbox,"
+        owner().useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, journal_entry, bot_inbox,"
                 + " bank_inbox, admin_alert, discord_user CASCADE"));
         requests = new PaymentRequests(owner);
         payments = new Payments(
@@ -148,12 +148,12 @@ class PaymentsTest {
                         count("SELECT count(*) FROM access_grant WHERE source = 'PURCHASE'"
                                 + " AND payment_request_id = '" + request.id() + "'")),
                 () -> assertEquals(1, count("SELECT count(*) FROM discord_user WHERE donor")),
-                () -> assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'SETTLE'")),
+                () -> assertEquals(1, count("SELECT count(*) FROM journal_entry WHERE action = 'SETTLE'")),
                 () -> assertEquals(1, told.size()),
                 () -> assertEquals(
-                        AuditDirectory.using(owner).recent(1).getFirst().line(),
-                        ((BotRequest.PaymentBooked) told.getFirst()).journal().line(),
-                        "the bot draws its card from the line the booking wrote"),
+                        AuditDirectory.using(owner).recent(1).getFirst().id(),
+                        ((BotRequest.PaymentBooked) told.getFirst()).entry(),
+                        "the bot draws its card from the entry the booking wrote"),
                 () -> assertTrue(
                         told.getFirst() instanceof BotRequest.PaymentBooked paid
                                 && paid.days() == 30
@@ -226,7 +226,7 @@ class PaymentsTest {
                         PaymentRequestStatus.OPEN,
                         requests.byId(second.id()).orElseThrow().status()),
                 () -> assertEquals(1, count("SELECT count(*) FROM access_grant")),
-                () -> assertEquals(1, count("SELECT count(*) FROM audit_log")),
+                () -> assertEquals(1, count("SELECT count(*) FROM journal_entry")),
                 () -> assertEquals(1, told().size()));
     }
 

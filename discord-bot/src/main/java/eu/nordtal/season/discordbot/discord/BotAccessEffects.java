@@ -1,6 +1,5 @@
 package eu.nordtal.season.discordbot.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.Actor;
@@ -10,6 +9,7 @@ import eu.nordtal.season.database.access.AccessGrant;
 import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.access.SeasonStart;
@@ -59,7 +59,10 @@ public final class BotAccessEffects implements AccessChanges {
                         MESSAGES.dm().grantedSection().admin(days, granted.validUntil())));
 
         admin.record(AuditLine.about(
-                JournalAction.GRANT_ACCESS, by, discordId, TEXTS.journal().grantAccess(days, granted.validUntil())));
+                JournalAction.GRANT_ACCESS,
+                by,
+                discordId,
+                new JournalDetail.AccessGranted(days, granted.validUntil())));
         return granted.validUntil();
     }
 
@@ -74,8 +77,8 @@ public final class BotAccessEffects implements AccessChanges {
                     messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
-        admin.record(AuditLine.about(
-                JournalAction.REVOKE_ACCESS, by, discordId, TEXTS.journal().revokeAccess(revoked)));
+        admin.record(
+                AuditLine.about(JournalAction.REVOKE_ACCESS, by, discordId, new JournalDetail.AccessRevoked(revoked)));
         return revoked;
     }
 
@@ -88,11 +91,7 @@ public final class BotAccessEffects implements AccessChanges {
             return false;
         }
         admin.record(new AuditLine(
-                JournalAction.UNLINK,
-                by,
-                discordId,
-                linked.orElse(null),
-                TEXTS.journal().unlink(false)));
+                JournalAction.UNLINK, by, discordId, linked.orElse(null), new JournalDetail.Unlinked(false)));
         return true;
     }
 
@@ -105,6 +104,6 @@ public final class BotAccessEffects implements AccessChanges {
     public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
         admin.record(AuditLine.about(
-                JournalAction.SET_PLAYTIME, by, discordId, TEXTS.journal().setPlaytime(Duration.ofSeconds(seconds))));
+                JournalAction.SET_PLAYTIME, by, discordId, new JournalDetail.PlaytimeSet(Duration.ofSeconds(seconds))));
     }
 }

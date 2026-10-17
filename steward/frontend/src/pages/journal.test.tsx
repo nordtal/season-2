@@ -24,14 +24,20 @@ describe("JournalPage - Detail is running text, not a field", () => {
             action: "GRANT_ACCESS",
             actor: { kind: "PERSON", person: "214906139328839681" },
             subject: "214906139328839681",
-            line: { key: "journal.written", args: { detail: { kind: "text", value: LONG_DETAIL } } },
+            line: {
+              key: "journal.console",
+              args: { service: { kind: "text", value: "smp" }, command: { kind: "text", value: LONG_DETAIL } },
+            },
           },
         ],
       }),
     )
     draw(<JournalPage />)
 
-    const cell = assertElement((await screen.findByText(LONG_DETAIL)).closest("td"), "a <td> for the detail")
+    const cell = assertElement(
+      (await screen.findByText(`Typed "${LONG_DETAIL}" into the console of smp.`)).closest("td"),
+      "a <td> for the detail",
+    )
     expect(cell.className).not.toMatch(/(^|\s)whitespace-nowrap(\s|$)/)
   })
 })
@@ -87,7 +93,7 @@ describe("JournalPage - profiles, never user ids", () => {
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
-  it("names an action no longer listed in words, never as its key, and the host as the host", async () => {
+  it("names the host as the host", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -95,26 +101,19 @@ describe("JournalPage - profiles, never user ids", () => {
           {
             id: "j3",
             occurred: "2026-09-18T09:00:00Z",
-            action: "RECREATE",
+            action: "CONSOLE",
             actor: { kind: "HOST" },
-            line: { key: "journal.written", args: { detail: { kind: "text", value: "smp: recreated" } } },
-          },
-          {
-            id: "j4",
-            occurred: "2026-09-18T09:01:00Z",
-            action: "RENAME_SERVER",
-            actor: { kind: "HOST" },
-            line: { key: "journal.written", args: { detail: { kind: "text", value: "motd" } } },
+            line: {
+              key: "journal.console",
+              args: { service: { kind: "text", value: "smp" }, command: { kind: "text", value: "list" } },
+            },
           },
         ],
       }),
     )
     draw(<JournalPage />)
 
-    await screen.findByText("smp: recreated")
-    expect(screen.getAllByText("Recreate").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Rename server").length).toBeGreaterThan(0)
-    expect(screen.queryByText("recreate")).toBeNull()
+    await screen.findByText('Typed "list" into the console of smp.')
     expect((await screen.findAllByText("host"))[0].closest("[data-entity='unknown']")).toBeTruthy()
   })
 
@@ -128,7 +127,15 @@ describe("JournalPage - profiles, never user ids", () => {
             occurred: "2026-09-18T09:00:00Z",
             action: "SETTLE",
             actor: { kind: "STEWARD" },
-            line: { key: "journal.written", args: { detail: { kind: "text", value: "settled by the poll loop" } } },
+            line: {
+              key: "journal.settle-by-hand",
+              args: {
+                reference: { kind: "text", value: "NT-7" },
+                days: { kind: "number", value: 30 },
+                ordered: { kind: "number", value: 30 },
+                donation: { kind: "money", value: { minor: 0, currency: "EUR" } },
+              },
+            },
           },
         ],
       }),

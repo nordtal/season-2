@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * {@code GET /api/actions}: the newest runs from the run inbox and lines from {@code audit_log}, merged.
+ * {@code GET /api/actions}: the newest runs from the run inbox and entries of the journal, merged.
  *
  * The audit half is one search per displayed action, since {@code HELD_KEY} rows would crowd out the rest.
  */
@@ -22,7 +22,7 @@ public final class ActionsApi {
     /** What the interface gets when it does not ask for a number. */
     public static final int DEFAULT_LIMIT = 5;
 
-    /** The {@code audit_log.action} values worth a place here; the two step-ups are left off on purpose. */
+    /** The journal actions worth a place here; the two step-ups are left off on purpose. */
     private static final Set<JournalAction> DISPLAYED_AUDIT_ACTIONS = Set.of(
             JournalAction.GRANT_ACCESS,
             JournalAction.REVOKE_ACCESS,

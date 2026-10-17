@@ -1,9 +1,8 @@
 package eu.nordtal.season.steward.game;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import com.google.gson.JsonObject;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
@@ -143,7 +142,7 @@ public final class GameActions {
                         ctx,
                         new SmpRequest.CompleteObjective(key),
                         JournalAction.COMPLETE_OBJECTIVE,
-                        TEXTS.journal().completeObjective(key)));
+                        new JournalDetail.ObjectiveCompleted(key)));
     }
 
     /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone, refused as the SMP refuses it. */
@@ -162,7 +161,7 @@ public final class GameActions {
                         ctx,
                         new SmpRequest.UnlockMilestone(key),
                         JournalAction.UNLOCK_MILESTONE,
-                        TEXTS.journal().unlockMilestone(key)));
+                        new JournalDetail.MilestoneUnlocked(key)));
     }
 
     private static Refused refused(final Refusal refusal) {
@@ -215,13 +214,7 @@ public final class GameActions {
         final boolean confirm = body.has("confirm")
                 && body.get("confirm").isJsonPrimitive()
                 && body.get("confirm").getAsBoolean();
-        answer(
-                ctx,
-                commands.submit(
-                        ctx,
-                        new HungerGamesRequest.StartGame(confirm),
-                        JournalAction.START_GAME,
-                        TEXTS.journal().startGame()));
+        answer(ctx, commands.submit(ctx, new HungerGamesRequest.StartGame(confirm), JournalAction.START_GAME, null));
     }
 
     /** Answers that the request named {@code id} is written, for the browser to follow. */

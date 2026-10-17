@@ -6,6 +6,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -66,14 +67,21 @@ public final class CommandApi {
     }
 
     /** Asks the SMP, journals who asked, and returns the name the browser polls. */
-    String submit(final Context ctx, final SmpRequest request, final JournalAction action, final MessageRef line) {
-        return "smp:" + submit(ctx, data().smp(), request, action, line);
+    String submit(
+            final Context ctx,
+            final SmpRequest request,
+            final JournalAction action,
+            final @Nullable JournalDetail detail) {
+        return "smp:" + submit(ctx, data().smp(), request, action, detail);
     }
 
     /** Asks the Hunger Games server, journals who asked, and returns the name the browser polls. */
     String submit(
-            final Context ctx, final HungerGamesRequest request, final JournalAction action, final MessageRef line) {
-        return "hunger_games:" + submit(ctx, data().hungerGames(), request, action, line);
+            final Context ctx,
+            final HungerGamesRequest request,
+            final JournalAction action,
+            final @Nullable JournalDetail detail) {
+        return "hunger_games:" + submit(ctx, data().hungerGames(), request, action, detail);
     }
 
     private <P> long submit(
@@ -81,11 +89,11 @@ public final class CommandApi {
             final Inbox<P> inbox,
             final P request,
             final JournalAction action,
-            final MessageRef line) {
+            final @Nullable JournalDetail detail) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         // One statement: a committed row with no journal line would run an action silently.
-        final Request<P> asked =
-                inbox.submit(request, who.actor(), Schedule.within(PATIENCE), AuditLine.of(action, who.actor(), line));
+        final Request<P> asked = inbox.submit(
+                request, who.actor(), Schedule.within(PATIENCE), AuditLine.of(action, who.actor(), detail));
         log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
         return asked.id();
     }

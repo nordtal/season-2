@@ -1,6 +1,5 @@
 package eu.nordtal.season.steward;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,7 +13,9 @@ import eu.nordtal.season.database.RoundSeed;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.ServerRefusal;
+import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
@@ -60,23 +61,29 @@ class RosterApiTest extends WebTestSupport {
     @Test
     void theJournalIsFilteredByAPaymentReferenceAndByTheLeastDays() throws Exception {
         final AuditDirectory journal = AuditDirectory.using(WebFixture.postgres.dataSource());
+        final PaymentRequests payments = new PaymentRequests(WebFixture.postgres.dataSource());
         final DiscordId payer = DiscordId.of("700000000000000003");
-        journal.record(AuditLine.about(
-                JournalAction.SETTLE,
-                Actor.STEWARD,
-                payer,
-                TEXTS.journal().settleByHand("NT-ROUTE", 30, 30, Money.euroCents(0))));
-        journal.record(AuditLine.about(
-                JournalAction.SETTLE,
-                Actor.STEWARD,
-                payer,
-                TEXTS.journal().settleByHand("NT-OTHER", 30, 30, Money.euroCents(0))));
+        // One open request per person, so the second payment is someone else's.
+        final PaymentRequest route = payments.open(payer, 30, 500, 0, 24);
+        final PaymentRequest other = payments.open(DiscordId.of("700000000000000004"), 30, 500, 0, 24);
+        for (final PaymentRequest settled : List.of(route, other)) {
+            sql("UPDATE payment_request SET status = 'PAID', settled = now(), matched_by = 'MANUAL' WHERE id = '"
+                    + settled.id() + "'");
+            journal.record(AuditLine.about(
+                    JournalAction.SETTLE,
+                    Actor.STEWARD,
+                    payer,
+                    new JournalDetail.Settled(
+                            settled.id(), settled.reference(), PaymentMatch.MANUAL, 30, 30, null, Money.euroCents(0))));
+        }
+        final String reference = route.reference();
         try {
-            assertEquals(List.of("NT-ROUTE"), references("/api/journal?reference=NT-ROUTE"));
-            assertEquals(List.of("NT-ROUTE"), references("/api/journal?reference=NT-ROUTE&minDays=30"));
-            assertEquals(List.of(), references("/api/journal?reference=NT-ROUTE&minDays=31"));
+            assertEquals(List.of(reference), references("/api/journal?reference=" + reference));
+            assertEquals(List.of(reference), references("/api/journal?reference=" + reference + "&minDays=30"));
+            assertEquals(List.of(), references("/api/journal?reference=" + reference + "&minDays=31"));
         } finally {
-            sql("DELETE FROM audit_log WHERE subject = '" + payer + "'");
+            sql("DELETE FROM journal_entry WHERE subject = '" + payer + "'");
+            sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000003', '700000000000000004')");
         }
     }
 
@@ -145,7 +152,7 @@ class RosterApiTest extends WebTestSupport {
                  "shown": "CHAT", "values": {"player": "Ally"}}
                 """;
         final String player = "00000000-0000-0000-0000-0000000000a1";
-        final long journal = count("SELECT count(*) FROM audit_log");
+        final long journal = count("SELECT count(*) FROM journal_entry");
         try {
             assertEquals(409, post("/api/message-preview", welcome).statusCode(), "no player is linked");
             sql("INSERT INTO discord_user (discord_id) VALUES ('1') ON CONFLICT DO NOTHING");
@@ -176,7 +183,7 @@ class RosterApiTest extends WebTestSupport {
                     GSON.fromJson(get("/api/commands/" + dm).body(), JsonObject.class)
                             .get("status")
                             .getAsString());
-            assertEquals(journal, count("SELECT count(*) FROM audit_log"), "a preview changes nothing");
+            assertEquals(journal, count("SELECT count(*) FROM journal_entry"), "a preview changes nothing");
         } finally {
             sql("DELETE FROM online_player WHERE mc_uuid = '" + player + "'");
             sql("DELETE FROM account_link WHERE discord_id = '1'");

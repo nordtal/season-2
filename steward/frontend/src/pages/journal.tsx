@@ -1,9 +1,8 @@
 import { useState } from "react"
 
-import type { JournalEntry } from "@/lib/api"
+import type { JournalAction, JournalEntry } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
-import { humanise } from "@/lib/settings-tree"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
 import { FilterBar, FilterSelect, SearchField } from "@/components/steward/filter-bar"
@@ -23,11 +22,9 @@ const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
  *
  * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
-/** An action as the admin bundle names it; one it does not list, from an older row, reads as its words. */
-function actionLabel(action: string): string {
-  const key = choice(action)
-  const named = t("journal.action", { action: key })
-  return named === key ? humanise(key) : named
+/** An action as the admin bundle names it. */
+function actionLabel(action: JournalAction): string {
+  return t("journal.action", { action: choice(action) })
 }
 
 /** A line with no values says nothing its action does not, so the phone card leaves it out. */

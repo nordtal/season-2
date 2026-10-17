@@ -216,7 +216,7 @@ export type Payment = {
 export type JournalEntry = {
   id: string
   occurred: string
-  action: string
+  action: JournalAction
   actor: Actor
   subject?: string
   mcUuid?: string
@@ -576,6 +576,48 @@ export type TabRefusal =
   | "UNKNOWN"
 
 export type PaymentMatch = "TAB" | "REFERENCE" | "MANUAL"
+
+export type JournalAction =
+  | "ADMIN_ROOT"
+  | "GRANT_ADMIN"
+  | "REVOKE_ADMIN"
+  | "ENFORCE_PACK"
+  | "EXEMPT_PACK"
+  | "GRANT_ACCESS"
+  | "REVOKE_ACCESS"
+  | "SET_PLAYTIME"
+  | "LINK"
+  | "UNLINK"
+  | "SETTLE"
+  | "SET_PHASE"
+  | "SET_LAUNCH"
+  | "SET_SMP_START"
+  | "REGISTER_KEY"
+  | "HELD_KEY"
+  | "RENAME_KEY"
+  | "REMOVE_KEY"
+  | "ADD_AUTHENTICATOR"
+  | "USED_AUTHENTICATOR"
+  | "REMOVE_AUTHENTICATOR"
+  | "FORGET_FACTORS"
+  | "WEB_PUSH_SUBSCRIBE"
+  | "WEB_PUSH_UNSUBSCRIBE"
+  | "WEB_PUSH_TEST"
+  | "SET_ALERT_PREFERENCE"
+  | "CONSOLE"
+  | "SAVE_SETTINGS"
+  | "SAVE_MESSAGES"
+  | "ADD_PLUGIN"
+  | "REMOVE_PLUGIN"
+  | "REQUEST_RUN"
+  | "CANCEL_RUN"
+  | "DOWNLOAD_BACKUP"
+  | "ANNOUNCE"
+  | "COMPLETE_OBJECTIVE"
+  | "UNLOCK_MILESTONE"
+  | "START_GAME"
+  | "UNANCHORED_GRANT"
+  | "LINK_CODES_EXHAUSTED"
 
 export type Actor = {
   kind: ActorKind

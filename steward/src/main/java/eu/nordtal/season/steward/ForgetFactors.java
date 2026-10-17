@@ -1,12 +1,11 @@
 package eu.nordtal.season.steward;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DatabaseWaiting;
@@ -68,7 +67,7 @@ final class ForgetFactors {
                             JournalAction.FORGET_FACTORS,
                             Actor.HOST,
                             discordId,
-                            TEXTS.journal().forgetEveryFactor(keys, app, signedOut)));
+                            new JournalDetail.FactorsForgotten(keys, app, signedOut)));
             System.out.println("Cleared " + keys + " security key(s), " + (app ? "the" : "no")
                     + " authenticator app and " + signedOut + " session(s) of " + discordId + ".");
             System.out.println("Its next sign-in will ask for Discord and then for a new second factor.");

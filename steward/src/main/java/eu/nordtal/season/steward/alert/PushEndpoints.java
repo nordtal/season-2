@@ -1,8 +1,7 @@
 package eu.nordtal.season.steward.alert;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.push.PushSubscriptions;
@@ -78,7 +77,7 @@ public final class PushEndpoints {
                         body.keys.p256dh,
                         body.keys.auth,
                         ctx.header("User-Agent"));
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushSubscribe());
+        Journaling.line(ctx, who.signedInDiscordId(), null);
         ctx.status(204);
     }
 
@@ -92,7 +91,7 @@ public final class PushEndpoints {
         if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
             throw new RequestRefused(404, ANSWER.noSubscription());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushUnsubscribe());
+        Journaling.line(ctx, who.signedInDiscordId(), null);
         ctx.status(204);
     }
 
@@ -149,7 +148,7 @@ public final class PushEndpoints {
         if (delivery != AlertRouter.Delivery.SENT) {
             throw new RequestRefused(400, ANSWER.pushNotAccepted());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().webPushTest(type));
+        Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.PushTested(type));
         ctx.status(204);
     }
 

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * {@link UpdateDirectory} and {@link AuditDirectory} over fixed rows, for a {@link StackApi} without PostgreSQL.
@@ -144,7 +145,7 @@ public final class FakeDirectories {
         }
     }
 
-    /** Every method throws except {@code recent} and {@code search}, which filters by action and subject. */
+    /** Every method throws but {@code recent}, {@code entry} and {@code search}, by action and subject. */
     public static AuditDirectory audit(final AuditEntry... rows) {
         final List<AuditEntry> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(AuditEntry::occurred).reversed())
@@ -162,12 +163,19 @@ public final class FakeDirectories {
                 final String action = filter.action();
                 final String subject = filter.subject();
                 final List<AuditEntry> filtered = sorted.stream()
-                        .filter(entry -> action == null || action.isBlank() || action.equals(entry.action()))
+                        .filter(entry -> action == null
+                                || action.isBlank()
+                                || action.equals(entry.action().name()))
                         .filter(entry -> subject == null
                                 || subject.isBlank()
                                 || DiscordId.of(subject).equals(entry.subject()))
                         .toList();
                 return filtered.size() > clamped ? filtered.subList(0, clamped) : filtered;
+            }
+
+            @Override
+            public Optional<AuditEntry> entry(final UUID id) {
+                return sorted.stream().filter(entry -> entry.id().equals(id)).findFirst();
             }
 
             @Override

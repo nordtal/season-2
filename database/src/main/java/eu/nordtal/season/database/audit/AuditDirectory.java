@@ -1,10 +1,12 @@
 package eu.nordtal.season.database.audit;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import javax.sql.DataSource;
 
 /**
- * The journal: {@code audit_log}, newest first, whole or filtered.
+ * The journal: {@code journal_entry} with the values of each entry, newest first, whole or filtered.
  * It borrows the pool it is given, and every method is a database round trip.
  */
 public interface AuditDirectory {
@@ -28,8 +30,11 @@ public interface AuditDirectory {
      */
     List<AuditEntry> search(JournalFilter filter, int limit);
 
+    /** Returns one entry, or empty when there is none with that id. */
+    Optional<AuditEntry> entry(UUID id);
+
     /**
-     * Writes one line into the journal.
+     * Writes one entry into the journal.
      * It is a separate statement from the action it describes, so failed bookkeeping never locks a member out.
      */
     void record(AuditLine line);

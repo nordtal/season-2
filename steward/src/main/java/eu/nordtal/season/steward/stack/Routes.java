@@ -1,9 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.update.ByteSize;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.journal.Journaled;
@@ -78,7 +76,7 @@ public final class Routes {
                     }
                     // The agent refuses a service without a console with a 400 that names the ones with one.
                     api.console(ctx.pathParam("name"), body.command.strip(), caller.actor(ctx));
-                    Journaling.line(ctx, TEXTS.journal().console(ctx.pathParam("name"), body.command.strip()));
+                    Journaling.line(ctx, new JournalDetail.ConsoleTyped(ctx.pathParam("name"), body.command.strip()));
                     ctx.status(202)
                             .json(new ConsoleSent(body.command.strip(), "the answer appears in this service's log"));
                 },
@@ -97,7 +95,8 @@ public final class Routes {
                 "/api/setting-groups/{service}/{name}",
                 ctx -> {
                     api.settings().save(ctx, caller.actor(ctx));
-                    Journaling.line(ctx, TEXTS.journal().saveSettings(ctx.pathParam("service"), ctx.pathParam("name")));
+                    Journaling.line(
+                            ctx, new JournalDetail.SettingsSaved(ctx.pathParam("service"), ctx.pathParam("name")));
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_SETTINGS));
@@ -113,7 +112,7 @@ public final class Routes {
                 "/api/messages",
                 ctx -> {
                     for (final String bundle : api.messages.save(ctx, caller.actor(ctx))) {
-                        Journaling.line(ctx, TEXTS.journal().saveMessages(bundle));
+                        Journaling.line(ctx, new JournalDetail.MessagesSaved(bundle));
                     }
                 },
                 Gate.KEY_HELD,
@@ -139,11 +138,8 @@ public final class Routes {
                     // A dump holds every account and payment, so taking one off the host is on the record.
                     Journaling.line(
                             ctx,
-                            listed.map(archive -> TEXTS.journal()
-                                            .downloadBackup(
-                                                    name,
-                                                    ByteSize.of(archive.bytes()).message()))
-                                    .orElseGet(() -> TEXTS.journal().downloadBackupUnsized(name)));
+                            new JournalDetail.BackupDownloaded(
+                                    name, listed.map(AgentWire.Archive::bytes).orElse(null)));
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.DOWNLOAD_BACKUP));
@@ -155,7 +151,7 @@ public final class Routes {
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.REQUEST_RUN));
 
-        // The newest rows across the run inbox and audit_log, merged.
+        // The newest rows across the run inbox and the journal, merged.
         config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);
     }
 
@@ -173,7 +169,7 @@ public final class Routes {
                 "/api/services/{name}/plugins",
                 ctx -> {
                     final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.actor(ctx));
-                    Journaling.line(ctx, TEXTS.journal().addPlugin(ctx.pathParam("name"), added.artifact()));
+                    Journaling.line(ctx, new JournalDetail.PluginAdded(ctx.pathParam("name"), added.artifact()));
                 },
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.ADD_PLUGIN));

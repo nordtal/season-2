@@ -18,7 +18,6 @@ class ColumnsAreAtomicIntegrationTest {
             "admin_alert.detail",
             "admin_alert.measured",
             "admin_alert.title",
-            "audit_log.line",
             "bank_inbox.outcome",
             "bot_inbox.outcome",
             "bot_inbox.payload",

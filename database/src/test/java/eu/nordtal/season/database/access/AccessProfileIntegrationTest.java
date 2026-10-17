@@ -49,7 +49,7 @@ class AccessProfileIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
                 + "player_playtime, admin_grant, discord_user CASCADE");
         directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }

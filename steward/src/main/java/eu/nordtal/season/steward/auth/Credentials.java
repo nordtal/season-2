@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The registered security keys, and the library's view of them.
  *
- * The user handle is the Discord id in bytes: not personal, never changing, and already the actor in {@code audit_log}.
+ * The user handle is the Discord id in bytes: not personal, never changing, and already a journal entry's actor.
  */
 public final class Credentials implements CredentialRepositoryV2<Credentials.Key> {
 

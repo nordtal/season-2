@@ -45,7 +45,7 @@ class UpdateDirectoryIntegrationTest {
     }
 
     /** Both tables, since {@code service_hold} references {@code steward_inbox}; {@code CASCADE} would take more. */
-    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY";
+    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE";
 
     @BeforeEach
     void freshInbox() {

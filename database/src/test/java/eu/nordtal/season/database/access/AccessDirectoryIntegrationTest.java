@@ -49,7 +49,7 @@ class AccessDirectoryIntegrationTest {
     @BeforeEach
     void freshDirectory() {
         // Truncating rather than dropping the schema keeps the migration applied once per class.
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
                 + "player_playtime, admin_grant, discord_user CASCADE");
 
         // season_phase is a seeded singleton and is not truncated; SMP is the phase in which access decides.

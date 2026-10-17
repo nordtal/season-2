@@ -7,12 +7,13 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditLine;
-import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
+import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,6 @@ import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -51,19 +51,19 @@ public final class AdminLog {
 
     private final JDA jda;
     private final AccessSpec config;
-    private final Jdbi jdbi;
+    private final AuditDirectory journal;
     private final AlertBook alerts;
     private final DiscordRenderer texts;
 
     public AdminLog(
             final JDA jda,
             final AccessSpec config,
-            final Jdbi jdbi,
+            final AuditDirectory journal,
             final AlertBook alerts,
             final DiscordRenderer texts) {
         this.jda = jda;
         this.config = config;
-        this.jdbi = jdbi;
+        this.journal = journal;
         this.alerts = alerts;
         this.texts = texts;
     }
@@ -154,39 +154,51 @@ public final class AdminLog {
     }
 
     /**
-     * Writes one journal line and posts it to the admin channel, and never throws.
+     * Writes one journal entry and posts it to the admin channel, and never throws.
      *
-     * The action it records has already happened. The card renders the message the journal stores, so both agree.
+     * The action it records has already happened. The card renders the same values the entry stores, so both agree.
      */
     public void record(final AuditLine line) {
         try {
-            jdbi.useHandle(handle -> Journal.write(handle, line));
+            journal.record(line);
         } catch (final RuntimeException exception) {
-            log.error("Could not write the audit_log row for {} {}", line.action(), line.line(), exception);
+            log.error("Could not write the journal entry for {} {}", line.action(), line.detail(), exception);
         }
         send(null, card(texts, line));
     }
 
-    /** Posts the card of a journal line another service wrote, such as a booking's, without writing it again. */
-    public void show(final AuditLine line) {
-        send(null, card(texts, line));
+    /** Posts the card of a journal entry another service wrote, such as a booking's, drawn from its row. */
+    public void show(final UUID entry) {
+        journal.entry(entry)
+                .ifPresentOrElse(
+                        row -> send(
+                                null, card(texts, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line())),
+                        () -> log.error("Journal entry {} is gone, so its card was not posted", entry));
     }
 
-    /** Draws a journal line: its action as the title, the line, who did it and whom it concerns. */
     static MessageEmbed card(final DiscordRenderer texts, final AuditLine line) {
-        final Card card = Card.of(MARKS.getOrDefault(line.action(), Mark.NOTED)
-                        .before(texts.format(Locales.DEFAULT, TEXTS.journal().action(line.action()))))
-                .lead(texts.format(Locales.DEFAULT, line.line()))
+        return card(texts, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line());
+    }
+
+    /** Draws a journal entry: its action as the title, its line, who did it and whom it concerns. */
+    static MessageEmbed card(
+            final DiscordRenderer texts,
+            final JournalAction action,
+            final Actor actor,
+            final @Nullable DiscordId subject,
+            final @Nullable UUID account,
+            final MessageRef line) {
+        final Card card = Card.of(MARKS.getOrDefault(action, Mark.NOTED)
+                        .before(texts.format(Locales.DEFAULT, TEXTS.journal().action(action))))
+                .lead(texts.format(Locales.DEFAULT, line))
                 .field(
                         texts.format(Locales.DEFAULT, TEXTS.journal().by()),
-                        texts.format(Locales.DEFAULT, TEXTS.journal().who(line.actor())));
-        final DiscordId subject = line.subject();
+                        texts.format(Locales.DEFAULT, TEXTS.journal().who(actor)));
         if (subject != null) {
             card.field(
                     texts.format(Locales.DEFAULT, TEXTS.journal().concerns()),
                     texts.format(Locales.DEFAULT, TEXTS.journal().who(Actor.person(subject))));
         }
-        final UUID account = line.mcUuid();
         if (account != null) {
             card.field(texts.format(Locales.DEFAULT, TEXTS.journal().minecraft()), "`" + account + "`");
         }

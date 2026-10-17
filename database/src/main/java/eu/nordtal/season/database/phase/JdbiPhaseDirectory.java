@@ -1,6 +1,5 @@
 package eu.nordtal.season.database.phase;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static eu.nordtal.season.database.DatabaseMessages.MESSAGES;
 
 import eu.nordtal.season.common.SeasonPhase;
@@ -9,7 +8,7 @@ import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.messages.Refused;
 import java.time.Clock;
 import java.time.Instant;
@@ -68,9 +67,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                     AuditLine.of(
                             JournalAction.SET_PHASE,
                             actor,
-                            reason == null || reason.isBlank()
-                                    ? TEXTS.journal().setPhase(change.previous(), change.current())
-                                    : TEXTS.journal().setPhaseBecause(change.previous(), change.current(), reason)));
+                            new JournalDetail.PhaseSet(change.previous(), change.current(), reason)));
             return change;
         });
     }
@@ -88,9 +85,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                 phases -> phases.setLaunch(at),
                 JournalAction.SET_LAUNCH,
                 actor,
-                change -> change.current() == null
-                        ? TEXTS.journal().clearLaunch()
-                        : TEXTS.journal().setLaunch(change.current()));
+                change -> new JournalDetail.LaunchSet(change.current()));
     }
 
     @Override
@@ -111,9 +106,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                 phases -> phases.setSmpStart(at),
                 JournalAction.SET_SMP_START,
                 actor,
-                change -> change.current() == null
-                        ? TEXTS.journal().clearSmpStart()
-                        : TEXTS.journal().setSmpStart(change.current(), change.grants()));
+                change -> new JournalDetail.SmpStartSet(change.current(), change.grants()));
     }
 
     /** Writes a date and its journal line in one transaction, with the missing-row check {@link #switchPhase} makes. */
@@ -121,7 +114,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
             final Function<PhaseDao, @Nullable DateChange> write,
             final JournalAction action,
             final Actor actor,
-            final Function<DateChange, MessageRef> line) {
+            final Function<DateChange, JournalDetail> line) {
         return jdbi.inTransaction(handle -> {
             final @Nullable DateChange change = write.apply(handle.attach(PhaseDao.class));
             if (change == null) {

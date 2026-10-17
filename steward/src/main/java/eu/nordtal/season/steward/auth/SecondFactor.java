@@ -1,9 +1,8 @@
 package eu.nordtal.season.steward.auth;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import com.yubico.webauthn.data.ByteArray;
 import com.yubico.webauthn.data.exception.Base64UrlException;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -207,7 +206,7 @@ public final class SecondFactor {
         if (!further) {
             sessions().markVerified(who.id(), StepUpLength.DEFAULT.length());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().registerKey(key.label()));
+        Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRegistered(key.label()));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
     }
 
@@ -269,7 +268,7 @@ public final class SecondFactor {
         Journaling.line(
                 ctx,
                 who.signedInDiscordId(),
-                TEXTS.journal().heldKeyFor(held.label(), held.userVerified(), hold.length()));
+                new JournalDetail.KeyHeld(held.label(), held.userVerified(), hold.length()));
         ctx.json(held);
     }
 
@@ -300,7 +299,7 @@ public final class SecondFactor {
         if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().renameKey(label));
+        Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRenamed(label));
         ctx.json(new KeyRenamed(label));
     }
 
@@ -321,7 +320,7 @@ public final class SecondFactor {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
         final int left = credentials().of(who.signedInDiscordId()).size();
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().removeKey(label, left));
+        Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRemoved(label, left));
         ctx.json(new KeyRemoved(label, left));
     }
 }

@@ -1,7 +1,5 @@
 package eu.nordtal.season.database.payment;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.access.AccessGrant;
@@ -10,6 +8,7 @@ import eu.nordtal.season.database.access.Grants;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messages.value.Money;
@@ -124,7 +123,7 @@ public final class Bookings {
             if (settlement.donation()) {
                 Grants.markDonor(handle, open.discordId());
             }
-            final AuditLine journal = journalLine(open, arrival, settlement, by);
+            final UUID entry = Journal.write(handle, journalLine(open, arrival, settlement, by));
             final BotRequest.PaymentBooked told = new BotRequest.PaymentBooked(
                     open.id(),
                     open.discordId(),
@@ -135,8 +134,7 @@ public final class Bookings {
                     arrival.receivedCents(),
                     grant.validFrom(),
                     grant.validUntil(),
-                    journal);
-            Journal.write(handle, journal);
+                    entry);
             bot.submitWithin(handle, told, by);
             return new Booking.Booked(told);
         });
@@ -144,20 +142,18 @@ public final class Bookings {
 
     private static AuditLine journalLine(
             final PaymentRequest request, final Arrival arrival, final Tiers.Settlement settlement, final Actor by) {
-        final Money donation = Money.euroCents(settlement.donationCents());
+        final Integer received = arrival.receivedCents();
         return AuditLine.about(
                 JournalAction.SETTLE,
                 by,
                 request.discordId(),
-                arrival.receivedCents() == null
-                        ? TEXTS.journal().settleByHand(request.reference(), settlement.days(), request.days(), donation)
-                        : TEXTS.journal()
-                                .settle(
-                                        request.reference(),
-                                        arrival.matchedBy(),
-                                        settlement.days(),
-                                        request.days(),
-                                        Money.euroCents(arrival.receivedCents()),
-                                        donation));
+                new JournalDetail.Settled(
+                        request.id(),
+                        request.reference(),
+                        arrival.matchedBy(),
+                        settlement.days(),
+                        request.days(),
+                        received == null ? null : Money.euroCents(received),
+                        Money.euroCents(settlement.donationCents())));
     }
 }

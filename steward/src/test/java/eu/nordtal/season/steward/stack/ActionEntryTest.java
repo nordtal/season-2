@@ -8,6 +8,8 @@ import com.google.gson.JsonElement;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.audit.AuditEntry;
+import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -148,28 +150,16 @@ class ActionEntryTest {
         final ActionEntry entry = ActionEntry.of(new AuditEntry(
                 UUID.randomUUID(),
                 FINISHED,
-                "GRANT_ACCESS",
+                JournalAction.GRANT_ACCESS,
                 Actor.person(DiscordId.of("300000000000000077")),
                 DiscordId.of("300000000000000077"),
                 null,
-                TEXTS.journal().grantAccess(30, Instant.parse("2026-11-02T10:00:00Z"))));
+                JournalDetail.line(
+                        JournalAction.GRANT_ACCESS,
+                        new JournalDetail.AccessGranted(30, Instant.parse("2026-11-02T10:00:00Z")))));
         assertEquals(Actor.person(DiscordId.of("300000000000000077")), entry.actor());
         assertEquals("Access granted", shown(entry.label()));
         assertEquals("30 days of access, until Nov 2, 2026.", shown(entry.extent()));
-    }
-
-    @Test
-    void aLineUnderAnActionNoLongerListedIsHeadedByTheActionsName() {
-        final ActionEntry entry = ActionEntry.of(new AuditEntry(
-                UUID.randomUUID(),
-                FINISHED,
-                "RECREATE",
-                Actor.STEWARD,
-                null,
-                null,
-                TEXTS.journal().written("smp: recreated from the current image")));
-        assertEquals("RECREATE", shown(entry.label()));
-        assertEquals("smp: recreated from the current image", shown(entry.extent()));
     }
 
     @Test

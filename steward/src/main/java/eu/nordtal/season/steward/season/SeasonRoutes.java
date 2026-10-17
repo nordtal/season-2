@@ -32,7 +32,7 @@ public final class SeasonRoutes {
         return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
-    /** Switches the season phase; {@code PhaseDirectory} writes the {@code audit_log} row itself. */
+    /** Switches the season phase; {@code PhaseDirectory} writes the journal entry itself. */
     public void phase(final Context ctx) {
         final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
         if (ask == null || ask.phase == null) {

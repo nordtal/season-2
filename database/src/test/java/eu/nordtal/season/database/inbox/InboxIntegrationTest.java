@@ -12,15 +12,14 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.value.DisplayName;
 import eu.nordtal.season.messages.value.Mention;
-import eu.nordtal.season.messages.value.Money;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -31,7 +30,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,9 +47,6 @@ import org.slf4j.LoggerFactory;
 
 /** The one inbox implementation against PostgreSQL, on the bot's table, which every other table shares columns with. */
 class InboxIntegrationTest {
-
-    private static final Messages ADMIN_TEXTS =
-            Messages.load(InboxIntegrationTest.class.getClassLoader(), "messages/admin");
 
     private static final DiscordId SOMEONE = DiscordId.of("400000000000000002");
     private static final Actor ADMIN = Actor.person(DiscordId.of("400000000000000001"));
@@ -204,39 +199,13 @@ class InboxIntegrationTest {
                 900,
                 Instant.parse("2026-10-01T00:00:00Z"),
                 Instant.parse("2026-11-30T00:00:00Z"),
-                AuditLine.about(
-                        JournalAction.SETTLE,
-                        Actor.STEWARD,
-                        SOMEONE,
-                        TEXTS.journal().settleByHand("NT-ABC123", 60, 60, Money.euroCents(500))));
+                UUID.fromString("00000000-0000-0000-0000-000000000043"));
         inbox.submit(booked, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
 
         final Request<BotRequest> claimed = inbox.claim().orElseThrow();
         assertEquals("PAYMENT_BOOKED", claimed.kind());
-        final BotRequest.PaymentBooked arrived = (BotRequest.PaymentBooked) claimed.payload();
-        assertEquals(booked.journal().line().key(), arrived.journal().line().key());
         assertEquals(
-                ADMIN_TEXTS.format(Locale.ENGLISH, booked.journal().line()),
-                ADMIN_TEXTS.format(Locale.ENGLISH, arrived.journal().line()),
-                "the journal line arrives as a message whose values render as they did");
-        assertEquals(
-                booked,
-                new BotRequest.PaymentBooked(
-                        arrived.payment(),
-                        arrived.person(),
-                        arrived.reference(),
-                        arrived.days(),
-                        arrived.donationCents(),
-                        arrived.downgraded(),
-                        arrived.receivedCents(),
-                        arrived.from(),
-                        arrived.until(),
-                        new AuditLine(
-                                arrived.journal().action(),
-                                arrived.journal().actor(),
-                                arrived.journal().subject(),
-                                arrived.journal().mcUuid(),
-                                booked.journal().line())));
+                booked, claimed.payload(), "the booking arrives with every value and the entry it was journalled as");
     }
 
     @Test
@@ -390,7 +359,7 @@ class InboxIntegrationTest {
 
     @Test
     void aJournalledRequestIsWrittenTogetherWithItsLine() throws SQLException {
-        final int before = count("SELECT count(*) FROM audit_log WHERE action = 'REVOKE_ACCESS'");
+        final int before = count("SELECT count(*) FROM journal_entry WHERE action = 'REVOKE_ACCESS'");
 
         inbox.submit(
                 new BotRequest.Revoke(SOMEONE),
@@ -400,9 +369,9 @@ class InboxIntegrationTest {
                         JournalAction.REVOKE_ACCESS,
                         Actor.person(DiscordId.of("400000000000000001")),
                         DiscordId.of("400000000000000002"),
-                        TEXTS.journal().revokeAccess(1)));
+                        new JournalDetail.AccessRevoked(1)));
 
-        assertEquals(before + 1, count("SELECT count(*) FROM audit_log WHERE action = 'REVOKE_ACCESS'"));
+        assertEquals(before + 1, count("SELECT count(*) FROM journal_entry WHERE action = 'REVOKE_ACCESS'"));
         assertEquals(1, count("SELECT count(*) FROM bot_inbox"));
     }
 

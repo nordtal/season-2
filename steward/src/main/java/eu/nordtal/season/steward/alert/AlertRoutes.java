@@ -1,13 +1,12 @@
 package eu.nordtal.season.steward.alert;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
+import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.data.Data;
@@ -117,7 +116,8 @@ public final class AlertRoutes {
             throw new BadRequestResponse("a notification preference is a known type, a channel and an enabled flag");
         }
         preferences().set(who.signedInDiscordId(), type, channel, body.enabled);
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().setAlertPreference(type, channel, body.enabled));
+        Journaling.line(
+                ctx, who.signedInDiscordId(), new JournalDetail.AlertPreferenceSet(type, channel, body.enabled));
         ctx.json(new AlertPreference(type, channel, body.enabled));
     }
 

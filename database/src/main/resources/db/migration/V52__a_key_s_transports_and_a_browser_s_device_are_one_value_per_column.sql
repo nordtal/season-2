@@ -5,9 +5,8 @@ CREATE TABLE steward_credential_transport
     credential_id bytea NOT NULL
         CONSTRAINT steward_credential_transport_credential_fkey
             REFERENCES steward_credential (credential_id) ON DELETE CASCADE,
-    -- The WebAuthn transport's own name, such as usb, nfc or internal.
-    transport     text  NOT NULL
-        CONSTRAINT steward_credential_transport_transport_check CHECK (transport ~ '^[a-z][a-z0-9-]*$'),
+    -- The WebAuthn transport's own name, such as usb, nfc or internal, kept as the browser said it.
+    transport     text  NOT NULL CONSTRAINT steward_credential_transport_transport_check CHECK (transport <> ''),
     CONSTRAINT steward_credential_transport_pkey PRIMARY KEY (credential_id, transport)
 );
 COMMENT ON TABLE steward_credential_transport IS 'Owned by steward-ui: one way a registered security key said it can be reached, handed back to the browser at sign-in.';

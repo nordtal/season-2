@@ -1,7 +1,6 @@
 package eu.nordtal.season.steward.auth;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
@@ -112,7 +111,7 @@ public final class AuthenticatorApp {
         if (!further) {
             sessions().markVerified(who.id(), SecondFactor.StepUpLength.DEFAULT.length());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().addAuthenticator());
+        Journaling.line(ctx, who.signedInDiscordId(), null);
         ctx.status(204);
     }
 
@@ -126,7 +125,7 @@ public final class AuthenticatorApp {
         Journaling.line(
                 ctx,
                 who.signedInDiscordId(),
-                TEXTS.journal().usedAuthenticator(typed.hold().length()));
+                new JournalDetail.AuthenticatorUsed(typed.hold().length()));
         ctx.status(204);
     }
 
@@ -140,7 +139,7 @@ public final class AuthenticatorApp {
         if (!Objects.requireNonNull(authenticators, "no database").remove(who.signedInDiscordId())) {
             throw new RequestRefused(404, ANSWER.noAuthenticator());
         }
-        Journaling.line(ctx, who.signedInDiscordId(), TEXTS.journal().removeAuthenticator(keys));
+        Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.AuthenticatorRemoved(keys));
         ctx.status(204);
     }
 

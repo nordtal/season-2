@@ -49,7 +49,7 @@ class AuthenticatorAppTest extends WebTestSupport {
             assertTrue(me.get("verified").getAsBoolean(), "the first factor is held as it is added, as a key is");
             assertEquals(
                     1,
-                    count("SELECT count(*) FROM audit_log WHERE action = 'ADD_AUTHENTICATOR'"
+                    count("SELECT count(*) FROM journal_entry WHERE action = 'ADD_AUTHENTICATOR'"
                             + " AND actor_id = '770000000000000201'"));
             settleOpenRuns();
             assertEquals(
@@ -85,7 +85,7 @@ class AuthenticatorAppTest extends WebTestSupport {
                             + " ORDER BY verified_at DESC LIMIT 1"));
             assertEquals(
                     1,
-                    count("SELECT count(*) FROM audit_log WHERE action = 'USED_AUTHENTICATOR'"
+                    count("SELECT count(*) FROM journal_entry WHERE action = 'USED_AUTHENTICATOR'"
                             + " AND actor_id = '770000000000000202'"));
 
             assertEquals(400, post(later, "/auth/totp/verify", codeBody(next)).statusCode(), "taken twice");
@@ -160,7 +160,7 @@ class AuthenticatorAppTest extends WebTestSupport {
             assertFalse(me(browser).has("authenticator"));
             assertEquals(
                     1,
-                    count("SELECT count(*) FROM audit_log WHERE action = 'REMOVE_AUTHENTICATOR'"
+                    count("SELECT count(*) FROM journal_entry WHERE action = 'REMOVE_AUTHENTICATOR'"
                             + " AND actor_id = '770000000000000205'"));
 
             final HttpResponse<String> lastKey = delete(browser, "/api/keys/" + key.credentialId());

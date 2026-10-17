@@ -76,7 +76,7 @@ public final class BookingReaction {
             announceDonation(payer, booked.donationCents(), locale);
         }
 
-        admin.show(booked.journal());
+        admin.show(booked.entry());
         log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());
     }
 

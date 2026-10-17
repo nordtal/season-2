@@ -1,10 +1,9 @@
 package eu.nordtal.season.discordbot.access;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.phase.PhaseDirectory;
@@ -57,9 +56,6 @@ public final class SeasonStart {
     /** Returns the line the bot writes about a person whose access runs from {@code validFrom}, the grant's date. */
     public static AuditLine unanchored(final DiscordId discordId, final Instant validFrom) {
         return AuditLine.about(
-                JournalAction.UNANCHORED_GRANT,
-                Actor.BOT,
-                discordId,
-                TEXTS.journal().unanchoredGrant(validFrom));
+                JournalAction.UNANCHORED_GRANT, Actor.BOT, discordId, new JournalDetail.GrantUnanchored(validFrom));
     }
 }

@@ -1,11 +1,10 @@
 package eu.nordtal.season.steward.game;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
@@ -79,7 +78,7 @@ public final class Announcements {
                         AuditLine.of(
                                 JournalAction.ANNOUNCE,
                                 who.actor(),
-                                TEXTS.journal().announce(List.copyOf(checked.keySet()))));
+                                new JournalDetail.Announced(List.copyOf(checked.keySet()))));
         final Map<String, String> ids = new LinkedHashMap<>();
         checked.keySet().forEach(tag -> ids.put(tag, "announce:" + asked.id() + ":" + tag));
         ctx.status(202).json(new AnnouncementsAsked(ids));

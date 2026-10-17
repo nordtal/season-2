@@ -90,7 +90,7 @@ public final class Data {
         return audit;
     }
 
-    /** Granting and revoking access, each writing an {@code audit_log} row naming the admin who clicked. */
+    /** Granting and revoking access, each writing a journal entry naming the admin who clicked. */
     public AccessDirectory access() {
         return access;
     }

@@ -173,6 +173,11 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.26.0", role, "SELECT", "message_override", "original");
         }
+        // The old journal, which every role could append to and no proxy or limbo code ever wrote.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.27.0", role, "INSERT", "audit_log", "id", "occurred", "action", "actor_kind", "actor_id");
+            listed(unused, "0.27.0", role, "INSERT", "audit_log", "subject", "mc_uuid", "line", "reference", "days");
+        }
         return Map.copyOf(unused);
     }
 

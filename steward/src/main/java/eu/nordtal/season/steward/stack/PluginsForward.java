@@ -1,8 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -65,7 +64,7 @@ public final class PluginsForward {
         } catch (final IllegalArgumentException malformed) {
             throw new BadRequestResponse(malformed.getMessage());
         }
-        Journaling.line(ctx, TEXTS.journal().removePlugin(written.id(), service(ctx), artifact));
+        Journaling.line(ctx, new JournalDetail.PluginRemoved(written.id(), service(ctx), artifact));
         ctx.status(202).json(new RemovalAsked(written.id(), written.kind(), artifact));
     }
 

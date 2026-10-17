@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
@@ -128,7 +129,7 @@ class AdminLogTest {
                         Actor.STEWARD,
                         DiscordId.of("400000000000000002"),
                         UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                        TEXTS.journal().grantAccess(30, Instant.parse("2026-11-02T10:00:00Z"))));
+                        new JournalDetail.AccessGranted(30, Instant.parse("2026-11-02T10:00:00Z"))));
 
         assertEquals("🎟️ Access granted", card.getTitle());
         assertEquals("30 days of access, until <t:1793613600:D>.", card.getDescription());
@@ -149,7 +150,7 @@ class AdminLogTest {
                 AuditLine.of(
                         JournalAction.REGISTER_KEY,
                         Actor.person(DiscordId.of("400000000000000001")),
-                        TEXTS.journal().registerKey("*bold*")));
+                        new JournalDetail.KeyRegistered("*bold*")));
 
         assertEquals("📝 Security key added", card.getTitle());
         assertEquals("Added the security key \"\\*bold\\*\".", card.getDescription());
@@ -183,8 +184,14 @@ class AdminLogTest {
                         JournalAction.SETTLE,
                         Actor.STEWARD,
                         DiscordId.of("400000000000000001"),
-                        TEXTS.journal()
-                                .settle("NT_7Q", PaymentMatch.TAB, 30, 30, Money.euroCents(500), Money.euroCents(0))));
+                        new JournalDetail.Settled(
+                                UUID.randomUUID(),
+                                "NT_7Q",
+                                PaymentMatch.TAB,
+                                30,
+                                30,
+                                Money.euroCents(500),
+                                Money.euroCents(0))));
 
         assertEquals("💶 Payment settled", card.getTitle());
         assertTrue(card.getDescription().contains("NT\\_7Q"), card.getDescription());

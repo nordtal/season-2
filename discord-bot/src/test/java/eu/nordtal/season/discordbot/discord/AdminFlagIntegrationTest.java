@@ -56,7 +56,7 @@ class AdminFlagIntegrationTest {
         assumeTrue(database != null);
         database.jdbi()
                 .useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, "
-                        + "account_link, link_code, audit_log, admin_grant, discord_user CASCADE"));
+                        + "account_link, link_code, journal_entry, admin_grant, discord_user CASCADE"));
         access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
         tree = AdminTree.using(database.dataSource());
         dao = database.jdbi().onDemand(AdminFlagDao.class);

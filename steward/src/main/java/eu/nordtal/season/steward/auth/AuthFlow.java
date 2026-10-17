@@ -1,7 +1,5 @@
 package eu.nordtal.season.steward.auth;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -133,12 +131,7 @@ public final class AuthFlow {
                 "{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
                 who.name(),
                 who.id());
-        data().audit()
-                .record(AuditLine.about(
-                        JournalAction.ADMIN_ROOT,
-                        who.actor(),
-                        DiscordId.of(who.id()),
-                        TEXTS.journal().adminRoot()));
+        data().audit().record(AuditLine.about(JournalAction.ADMIN_ROOT, who.actor(), DiscordId.of(who.id()), null));
         return true;
     }
 

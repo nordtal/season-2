@@ -27,7 +27,7 @@ import {
   type MessageDraft,
   type MessageEditorProps,
 } from "@/components/steward/message-editor/message-editor"
-import { DraftDot, type Target, TreeView } from "@/components/steward/settings-view"
+import { DraftDot, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
 /** The Translations page's form: every text in its group and topic, where it appears, its editor, and the one save. */
@@ -70,11 +70,14 @@ export function TextsForm({
   texts,
   service,
   target,
+  search,
 }: {
   texts: MessageTexts
   /** The service the page is filtered to: only its texts, in its palette. */
   service: string | undefined
   target: Target | null
+  /** The search in the page's title row. */
+  search: OutsideSearch
 }) {
   const draft = useDraft<MessageDraft>(TEXTS_FILE, isMessageDraftRecord)
   const save = useSaveMessageTexts()
@@ -162,7 +165,7 @@ export function TextsForm({
       matches={(text, query) => messageLeafMatches(text.entry, query)}
       notice={texts.writable ? null : t("steward.settings.read-only")}
       target={target}
-      searchLabel={t("steward.texts.search")}
+      search={search}
       empty={t("steward.texts.none")}
       above={
         <>
@@ -238,8 +241,8 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
 }
 
 /**
- * One key: its name, its text on one line and where it appears. Opened, it is one card of its name, where it appears,
- * its editor and its previews, the line left out since the editor shows the text.
+ * One key: its name with where it appears, and its text on the line below. Opened, it is one card of its name, where it
+ * appears, its editor and its previews, the text's line left out since the editor shows the text.
  */
 function TextRow({
   open,
@@ -275,8 +278,11 @@ function TextRow({
           !open && "hover:bg-accent/50",
         )}
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm">{name}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="truncate text-sm">{name}</span>
+            <Pills entry={entry} places={places} />
+          </span>
           {open ? null : (
             <MessagePreview
               text={text}
@@ -285,7 +291,6 @@ function TextRow({
               className="text-xs text-muted-foreground"
             />
           )}
-          <Pills entry={entry} places={places} />
         </span>
         {!entry.inBundle ? (
           <Badge variant="outline" className="shrink-0 text-muted-foreground">

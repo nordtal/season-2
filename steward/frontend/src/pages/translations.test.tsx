@@ -60,6 +60,17 @@ describe("the groups", () => {
     expect(screen.queryByRole("button", { name: "Granted" })).toBeNull()
   })
 
+  it("puts the search in the title row, after the service filter", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page />)
+
+    const search = await screen.findByRole("searchbox", { name: "Search the texts" })
+    const row = screen.getByRole("heading", { level: 1 }).closest("header")!
+    const filter = within(row).getByRole("combobox", { name: "Service" })
+    expect(row.contains(search)).toBe(true)
+    expect(filter.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("says so when no jar ships a text", async () => {
     vi.stubGlobal("fetch", backend(listing([])))
     draw(<Page />)
@@ -140,6 +151,16 @@ describe("the pills", () => {
     expect(within(first).getByLabelText("Shown in").textContent).toBe("MenuDiscord messageSteward")
     const second = screen.getByRole("button", { name: "Second" })
     expect(within(second).getByLabelText("Shown in").textContent).toBe("In gameNotification")
+  })
+
+  it("sit on a closed text's name line, above its value", async () => {
+    twoKeys()
+    draw(<Page />)
+
+    const row = await screen.findByRole("button", { name: "First" })
+    const line = within(row).getByLabelText("Shown in").parentElement!
+    expect(line.textContent).toContain("First")
+    expect(line.textContent).not.toContain("Hello")
   })
 })
 

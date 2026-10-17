@@ -1,6 +1,6 @@
 import { ArrowUpIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import { cn } from "cn"
 
 import type { ConfigLocation } from "@/lib/api"
@@ -56,6 +56,9 @@ export function DraftDot() {
 
 export type Highlight = { id: string; seq: number; language?: Language }
 
+/** A search the page draws itself, such as in its title row, and the element that holds it. */
+export type OutsideSearch = { query: string; onQuery: (query: string) => void; at: RefObject<HTMLElement | null> }
+
 /** The part both share: search box, description, tree with counts, and the pinned save row. */
 export function TreeView<L>({
   file,
@@ -69,6 +72,7 @@ export function TreeView<L>({
   above,
   collapsed,
   list,
+  search: outside,
   searchLabel = t("steward.settings.search-file"),
   empty = t("steward.settings.empty-file"),
 }: {
@@ -86,16 +90,21 @@ export function TreeView<L>({
   collapsed?: boolean
   /** Leaves are full-width rows under each other rather than a grid of fields. */
   list?: boolean
+  /** The page's own search, in place of the search box above the tree; the page clears it for a jump. */
+  search?: OutsideSearch
   /** What the search box searches, for a screen reader. */
   searchLabel?: string
   /** What is said when there is nothing to draw and nothing was searched. */
   empty?: string
 }) {
-  const [query, setQuery] = useState("")
+  const [ownQuery, setOwnQuery] = useState("")
+  const query = outside?.query ?? ownQuery
+  const setQuery = outside?.onQuery ?? setOwnQuery
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const opened = useOpened(file)
   const top = useRef<HTMLDivElement>(null)
-  const search = useRef<HTMLDivElement>(null)
+  const ownSearch = useRef<HTMLDivElement>(null)
+  const search = outside?.at ?? ownSearch
   const [appliedSeq, setAppliedSeq] = useState(-1)
   /** The branches the last jump opens; kept as state, since the render that finds them is redone before it commits. */
   const [jumpChain, setJumpChain] = useState<string[] | null>(null)
@@ -107,7 +116,7 @@ export function TreeView<L>({
     const observer = new IntersectionObserver(([entry]) => setScrolledAway(!entry.isIntersecting))
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
+  }, [search])
   const closedByDefault = useMemo(() => collapsed === true || leafCount(nodes) > 12, [nodes, collapsed])
 
   const shown = useMemo(
@@ -122,7 +131,7 @@ export function TreeView<L>({
   if (chainForTarget && target) {
     setAppliedSeq(target.seq)
     setJumpChain(chainForTarget)
-    setQuery("")
+    if (!outside) setOwnQuery("")
     setHighlight({ id: target.id, seq: target.seq, language: target.language })
   }
 
@@ -142,9 +151,11 @@ export function TreeView<L>({
 
   return (
     <div ref={top} className="flex scroll-mt-4 flex-col gap-3">
-      <FilterBar ref={search}>
-        <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
-      </FilterBar>
+      {outside ? null : (
+        <FilterBar ref={ownSearch}>
+          <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
+        </FilterBar>
+      )}
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {above}
       {shown.length === 0 ? (
@@ -168,7 +179,7 @@ export function TreeView<L>({
             size="icon"
             aria-label={t("steward.settings.back-to-top")}
             className="pointer-events-auto rounded-full bg-background/90 backdrop-blur"
-            onClick={() => top.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={() => (outside?.at ?? top).current?.scrollIntoView({ behavior: "smooth", block: "start" })}
           >
             <ArrowUpIcon aria-hidden />
           </Button>

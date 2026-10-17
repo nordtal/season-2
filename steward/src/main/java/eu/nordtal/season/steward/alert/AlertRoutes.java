@@ -1,12 +1,12 @@
 package eu.nordtal.season.steward.alert;
 
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.data.Data;

@@ -1,7 +1,7 @@
 package eu.nordtal.season.steward.auth;
 
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;

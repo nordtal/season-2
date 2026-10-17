@@ -2,13 +2,13 @@ package eu.nordtal.season.database.payment;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.Jdbis;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessGrant;
 import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.access.Grants;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messages.value.Money;

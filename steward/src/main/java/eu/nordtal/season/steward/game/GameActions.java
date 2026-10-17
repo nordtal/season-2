@@ -1,8 +1,8 @@
 package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;

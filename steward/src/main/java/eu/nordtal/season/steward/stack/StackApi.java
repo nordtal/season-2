@@ -2,8 +2,8 @@ package eu.nordtal.season.steward.stack;
 
 import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditDirectory;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;

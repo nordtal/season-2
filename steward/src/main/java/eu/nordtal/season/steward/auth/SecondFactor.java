@@ -2,7 +2,7 @@ package eu.nordtal.season.steward.auth;
 
 import com.yubico.webauthn.data.ByteArray;
 import com.yubico.webauthn.data.exception.Base64UrlException;
-import eu.nordtal.season.database.audit.JournalDetail;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;

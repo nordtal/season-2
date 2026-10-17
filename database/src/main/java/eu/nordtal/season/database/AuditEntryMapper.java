@@ -1,41 +1,43 @@
-package eu.nordtal.season.database.audit;
+package eu.nordtal.season.database;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail.AccessGranted;
+import eu.nordtal.season.database.JournalDetail.AccessRevoked;
+import eu.nordtal.season.database.JournalDetail.AdminRevoked;
+import eu.nordtal.season.database.JournalDetail.AlertPreferenceSet;
+import eu.nordtal.season.database.JournalDetail.Announced;
+import eu.nordtal.season.database.JournalDetail.AuthenticatorRemoved;
+import eu.nordtal.season.database.JournalDetail.AuthenticatorUsed;
+import eu.nordtal.season.database.JournalDetail.BackupDownloaded;
+import eu.nordtal.season.database.JournalDetail.ConsoleTyped;
+import eu.nordtal.season.database.JournalDetail.FactorsForgotten;
+import eu.nordtal.season.database.JournalDetail.GrantUnanchored;
+import eu.nordtal.season.database.JournalDetail.KeyHeld;
+import eu.nordtal.season.database.JournalDetail.KeyRegistered;
+import eu.nordtal.season.database.JournalDetail.KeyRemoved;
+import eu.nordtal.season.database.JournalDetail.KeyRenamed;
+import eu.nordtal.season.database.JournalDetail.LaunchSet;
+import eu.nordtal.season.database.JournalDetail.MessagesSaved;
+import eu.nordtal.season.database.JournalDetail.MilestoneUnlocked;
+import eu.nordtal.season.database.JournalDetail.ObjectiveCompleted;
+import eu.nordtal.season.database.JournalDetail.PhaseSet;
+import eu.nordtal.season.database.JournalDetail.PlaytimeSet;
+import eu.nordtal.season.database.JournalDetail.PluginAdded;
+import eu.nordtal.season.database.JournalDetail.PluginRemoved;
+import eu.nordtal.season.database.JournalDetail.PushTested;
+import eu.nordtal.season.database.JournalDetail.RestoreAsked;
+import eu.nordtal.season.database.JournalDetail.RunAsked;
+import eu.nordtal.season.database.JournalDetail.RunCancelled;
+import eu.nordtal.season.database.JournalDetail.SettingsSaved;
+import eu.nordtal.season.database.JournalDetail.Settled;
+import eu.nordtal.season.database.JournalDetail.SmpStartSet;
+import eu.nordtal.season.database.JournalDetail.Unlinked;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
-import eu.nordtal.season.database.audit.JournalDetail.AccessGranted;
-import eu.nordtal.season.database.audit.JournalDetail.AccessRevoked;
-import eu.nordtal.season.database.audit.JournalDetail.AdminRevoked;
-import eu.nordtal.season.database.audit.JournalDetail.AlertPreferenceSet;
-import eu.nordtal.season.database.audit.JournalDetail.Announced;
-import eu.nordtal.season.database.audit.JournalDetail.AuthenticatorRemoved;
-import eu.nordtal.season.database.audit.JournalDetail.AuthenticatorUsed;
-import eu.nordtal.season.database.audit.JournalDetail.BackupDownloaded;
-import eu.nordtal.season.database.audit.JournalDetail.ConsoleTyped;
-import eu.nordtal.season.database.audit.JournalDetail.FactorsForgotten;
-import eu.nordtal.season.database.audit.JournalDetail.GrantUnanchored;
-import eu.nordtal.season.database.audit.JournalDetail.KeyHeld;
-import eu.nordtal.season.database.audit.JournalDetail.KeyRegistered;
-import eu.nordtal.season.database.audit.JournalDetail.KeyRemoved;
-import eu.nordtal.season.database.audit.JournalDetail.KeyRenamed;
-import eu.nordtal.season.database.audit.JournalDetail.LaunchSet;
-import eu.nordtal.season.database.audit.JournalDetail.MessagesSaved;
-import eu.nordtal.season.database.audit.JournalDetail.MilestoneUnlocked;
-import eu.nordtal.season.database.audit.JournalDetail.ObjectiveCompleted;
-import eu.nordtal.season.database.audit.JournalDetail.PhaseSet;
-import eu.nordtal.season.database.audit.JournalDetail.PlaytimeSet;
-import eu.nordtal.season.database.audit.JournalDetail.PluginAdded;
-import eu.nordtal.season.database.audit.JournalDetail.PluginRemoved;
-import eu.nordtal.season.database.audit.JournalDetail.PushTested;
-import eu.nordtal.season.database.audit.JournalDetail.RestoreAsked;
-import eu.nordtal.season.database.audit.JournalDetail.RunAsked;
-import eu.nordtal.season.database.audit.JournalDetail.RunCancelled;
-import eu.nordtal.season.database.audit.JournalDetail.SettingsSaved;
-import eu.nordtal.season.database.audit.JournalDetail.Settled;
-import eu.nordtal.season.database.audit.JournalDetail.SmpStartSet;
-import eu.nordtal.season.database.audit.JournalDetail.Unlinked;
+import eu.nordtal.season.database.audit.AuditEntry;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.value.Money;
@@ -53,7 +55,7 @@ import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Maps a row of {@link AuditDao#ENTRIES}: the entry, and the detail its action reads from its family's columns.
+ * Maps a row of the journal's read query: the entry, and the detail its action reads from its family's columns.
  *
  * A missing detail row is {@code null}, and the entry reads as its action; times go through {@link OffsetDateTime}.
  */

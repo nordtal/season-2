@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.audit;
 
+import eu.nordtal.season.database.AuditEntryMapper;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

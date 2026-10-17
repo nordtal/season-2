@@ -2,9 +2,9 @@ package eu.nordtal.season.steward.journal;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditLine;
-import eu.nordtal.season.database.audit.JournalDetail;
 import io.javalin.http.Context;
 import java.util.ArrayList;
 import java.util.List;

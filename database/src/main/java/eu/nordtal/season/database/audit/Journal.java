@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.audit;
 
+import eu.nordtal.season.database.JournalDetail;
 import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.Handle;

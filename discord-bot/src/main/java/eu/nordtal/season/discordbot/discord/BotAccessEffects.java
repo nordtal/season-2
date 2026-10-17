@@ -4,12 +4,12 @@ import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AccessGrant;
 import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.access.SeasonStart;

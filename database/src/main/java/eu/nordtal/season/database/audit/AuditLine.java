@@ -2,6 +2,7 @@ package eu.nordtal.season.database.audit;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.Objects;
 import java.util.UUID;

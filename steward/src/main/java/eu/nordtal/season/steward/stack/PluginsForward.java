@@ -1,7 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.database.audit.JournalDetail;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;

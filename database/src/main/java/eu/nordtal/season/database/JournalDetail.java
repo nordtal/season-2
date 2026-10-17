@@ -1,10 +1,11 @@
-package eu.nordtal.season.database.audit;
+package eu.nordtal.season.database;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.update.ByteSize;
 import eu.nordtal.season.database.update.UpdateKind;

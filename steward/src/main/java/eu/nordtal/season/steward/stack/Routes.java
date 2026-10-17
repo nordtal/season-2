@@ -1,7 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.journal.Journaled;

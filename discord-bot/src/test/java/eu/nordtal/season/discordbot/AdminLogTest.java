@@ -8,13 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalDetail;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.discordbot.access.SeasonStart;

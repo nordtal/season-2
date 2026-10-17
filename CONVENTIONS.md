@@ -115,6 +115,9 @@ run `git config core.hooksPath .githooks` once per clone.
   (oxlint-tsgolint), warnings as errors. `src/components/ui` is ours once generated and follows every
   rule. TSDoc follows the comment rules above. _(checked)_
 - **YAML, Markdown and JSON** are formatted by oxfmt. _(checked)_
+- **Data is in third normal form.** Every column holds one atomic value: no stored note, composed text or
+  message document (`{key, args}`). Steward, the bot and the terminal render text when they show a value.
+  A jsonb or array column exists only on the shrinking list of `ColumnsAreAtomicIntegrationTest`. _(checked)_
 - **SQL migrations** are never reformatted: an applied migration whose checksum changes is refused
   by Flyway `validate()`.
 - The one file under `steward-bunq/src/main/java/com/bunq/sdk` keeps the vendor's package.

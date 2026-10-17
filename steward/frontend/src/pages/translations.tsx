@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 import type { MessageTexts } from "@/lib/api"
@@ -6,6 +6,7 @@ import { useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
 import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
+import { SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { QueryState } from "@/components/steward/query-state"
 import type { Target } from "@/components/steward/settings-view"
@@ -21,6 +22,9 @@ export function translationsSearch(search: Record<string, unknown>): Translation
 
 /** The value of the filter's first choice; a service is named in lowercase, so none is called this. */
 const EVERY_SERVICE = "ALL"
+
+/** The service filter and the search share a width, and halve the row on a phone. */
+const CONTROL_WIDTH = "min-w-0 flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto"
 
 /** A counter, not state: the number only has to differ from the last one. */
 let jumps = 0
@@ -51,25 +55,43 @@ export function Translations({
 }) {
   const texts = useMessageTexts()
   const [target, setTarget] = useState<Target | null>(null)
+  const [query, setQuery] = useState("")
+  const header = useRef<HTMLElement>(null)
 
   /** A jump from the command palette; each gets a new number, so the same hit twice lands twice. */
   useEffect(() => {
     const land = () => {
       const jump = takePendingTextJump()
-      if (jump) setTarget({ file: TEXTS_FILE, id: jump.id, language: jump.language, seq: ++jumps })
+      if (!jump) return
+      setQuery("")
+      setTarget({ file: TEXTS_FILE, id: jump.id, language: jump.language, seq: ++jumps })
     }
     land()
     return onPendingTextJump(land)
   }, [])
 
   return (
-    <div className="flex flex-col gap-6">
+    // The editors and previews read best at a bounded width, which the title row keeps too.
+    <div className="flex max-w-5xl flex-col gap-6">
       <PageHeader
+        ref={header}
         title={t("steward.shell.page", { page: "translations" })}
-        actions={<ServiceFilter texts={texts.data} service={service} onService={onService} />}
+        actions={
+          <>
+            <ServiceFilter texts={texts.data} service={service} onService={onService} />
+            <SearchField
+              value={query}
+              onValueChange={setQuery}
+              label={t("steward.texts.search")}
+              className={CONTROL_WIDTH}
+            />
+          </>
+        }
       />
       <QueryState query={texts} rows={8}>
-        {(read) => <TextsForm texts={read} service={service} target={target} />}
+        {(read) => (
+          <TextsForm texts={read} service={service} target={target} search={{ query, onQuery: setQuery, at: header }} />
+        )}
       </QueryState>
     </div>
   )
@@ -94,7 +116,7 @@ function ServiceFilter({
       value={service ?? EVERY_SERVICE}
       onValueChange={(value) => onService(value === EVERY_SERVICE ? undefined : value)}
     >
-      <SelectTrigger aria-label={t("steward.texts.service")} className="w-full sm:w-52">
+      <SelectTrigger aria-label={t("steward.texts.service")} className={CONTROL_WIDTH}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

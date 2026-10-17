@@ -13,7 +13,7 @@ public final class SwapAddresses {
     private SwapAddresses() {}
 
     /**
-     * Parses {@code network#public-address}.
+     * Parses {@code network#public-address}, or {@code network#live-address}.
      *
      * @param address {@code host:port}, or {@code [::1]:port}, or blank
      * @return the address, or empty when it is blank or has no usable port, meaning this deployment does not swap

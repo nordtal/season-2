@@ -529,6 +529,8 @@ public final class ProxyPlugin {
                 shared.swaps(),
                 shared.role(),
                 shared.publicAddress(),
+                SwapAddresses.publicAddress(shared.loaded().network().liveAddress())
+                        .orElse(null),
                 clock,
                 shared.homecoming());
         final var _ = scheduler.every(StandbyReturn.INTERVAL, StandbyReturn.INTERVAL, standbyReturn::check);
@@ -543,12 +545,13 @@ public final class ProxyPlugin {
         if (shared.role().isStandby()) {
             logger.info(
                     "THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
-                            + "to {} as soon as it answers again; no player counts are written "
+                            + "to {} as soon as {} answers again; no player counts are written "
                             + "from here.",
                     shared.phaseServers().limboStandby(),
                     publicAddress == null
                             ? "nowhere - network#public-address is empty"
-                            : publicAddress.getHostString() + ":" + publicAddress.getPort());
+                            : publicAddress.getHostString() + ":" + publicAddress.getPort(),
+                    shared.loaded().network().liveAddress());
         } else if (swap.isArmed() && standbyAddress != null) {
             logger.info(
                     "An update that moves this proxy will park everybody on {}:{} instead of " + "disconnecting them",

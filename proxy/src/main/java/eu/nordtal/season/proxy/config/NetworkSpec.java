@@ -32,6 +32,15 @@ public interface NetworkSpec {
         return 25566;
     }
 
+    /** Where the live proxy itself listens, which the standby knocks on to know when to send players back. */
+    @Order(5)
+    @Name("Live proxy address")
+    @Key("live-address")
+    @Explain("As host:port, inside the network. The public address cannot tell: Caddy answers it for the standby.")
+    default String liveAddress() {
+        return "proxy:25565";
+    }
+
     /** False for the proxy players connect to, true in exactly one place in compose.yml. */
     @Order(4)
     @Name("Standby")

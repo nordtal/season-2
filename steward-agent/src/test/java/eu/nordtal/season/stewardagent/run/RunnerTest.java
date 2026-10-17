@@ -310,6 +310,26 @@ class RunnerTest {
                 directory.find(request.id()).orElseThrow().moving());
     }
 
+    /** Caddy carries the standby's port too, so it goes only once the standby has handed its players back. */
+    @Test
+    void aRunRenewsCaddyOnlyOnceTheProxysStandbyIsClosed() {
+        containers.running("proxy", "caddy");
+        final UpdateRequest request = claimed(UpdateKind.RECREATE, List.of("caddy", "proxy"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        final List<String> calls = containers.calls;
+        final int standbyStopped = calls.stream()
+                .filter(call -> call.startsWith("stop:proxy-standby-container"))
+                .findFirst()
+                .map(calls::indexOf)
+                .orElseThrow(() -> new AssertionError("the standby was never stopped: " + calls));
+        assertTrue(
+                standbyStopped < calls.indexOf("recreate-local:caddy"),
+                "caddy went while players were parked behind it: " + calls);
+    }
+
     @Test
     void aRecreateOfTheAgentItselfIsRefusedAndStopsNothing() {
         final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);

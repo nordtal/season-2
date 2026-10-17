@@ -352,6 +352,8 @@ final class Run {
             report = steps.verify(started, starting, runner.waiting);
         }
 
+        // The standbys hand their players back first: caddy carries their ports, so it must not go before them.
+        final List<Note> closed = choreography.close();
         // Last, once the Minecraft services are healthy again, and postgres last of all.
         final UpdateReport renewedForeign = ForeignImages.renewForeign(
                 runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
@@ -360,7 +362,7 @@ final class Run {
         final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
 
         final UpdateReport finished = Runner.settle(
-                renewed.withNotes(choreography.close()),
+                renewed.withNotes(closed),
                 steps.unverifiedStops(),
                 plan.alreadyFailed() || done.failed(),
                 plan.doubt());

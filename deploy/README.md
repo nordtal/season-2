@@ -252,7 +252,9 @@ docker compose down              # the whole stack; volumes survive
 
 `proxy-standby` and `limbo-standby` hold the network while a proxy or limbo is replaced. They are in
 the `standby` profile only, never in `COMPOSE_PROFILES`; steward-agent copies the live service's
-`plugins/` to them after every update, and `caddy` carries voice chat's UDP to whichever proxy answers:
+`plugins/` to them after every update, and `caddy` carries voice chat's UDP to whichever proxy answers.
+The standby sends its players back once the live proxy itself answers on `network#live-address`
+(`proxy:25565`); the public address cannot tell, since Caddy hands it to the standby meanwhile:
 
 ```bash
 docker compose --profile standby up -d proxy-standby

@@ -17,18 +17,20 @@ import java.util.List;
 @ConfigSpec
 public interface StewardSpec {
 
+    /** For one call to steward-agent or steward-bunq. */
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
-    @Explain("For one call to steward-agent or steward-bunq.")
+    @NoExplanationNeeded
     default int httpTimeoutSeconds() {
         return 30;
     }
 
+    /** Without a token a season sells nothing. */
     @Order(13)
     @Name("bunq")
     @Key("bunq")
-    @Explain("Without a token a season sells nothing.")
+    @NoExplanationNeeded
     BunqSpec bunq();
 
     /** What the nightly backup saves and stops; its clock only writes a request row, like the Backup button. */
@@ -49,10 +51,11 @@ public interface StewardSpec {
     @NoExplanationNeeded
     UpdateSpec update();
 
+    /** Without a token, no container can be shown or changed. */
     @Order(17)
     @Name("Agent")
     @Key("agent")
-    @Explain("Without a token, no container can be shown or changed.")
+    @NoExplanationNeeded
     AgentSpec agent();
 
     /** Payments: where steward-bunq answers and how often it is asked; purchases are the {@code access} group's. */
@@ -120,7 +123,7 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("Empty means Steward asks it nothing.")
+        @Explain("Empty, no container can be shown or changed.")
         default String token() {
             return "";
         }
@@ -134,15 +137,16 @@ public interface StewardSpec {
         @Order(1)
         @Name("At")
         @Key("at")
-        @Explain("Empty means no scheduled update.")
+        @NoExplanationNeeded
         default String at() {
             return "";
         }
 
+        /** Ignored while the time is empty. */
         @Order(2)
         @Name("Days")
         @Key("days")
-        @Explain("Ignored while the time is empty.")
+        @NoExplanationNeeded
         default List<String> days() {
             return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
         }

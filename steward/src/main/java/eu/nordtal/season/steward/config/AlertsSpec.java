@@ -1,7 +1,6 @@
 package eu.nordtal.season.steward.config;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -27,7 +26,7 @@ public interface AlertsSpec {
     @Order(2)
     @Name("Memory usage (percent)")
     @Key("memory-percent")
-    @Explain("Of the whole host's memory.")
+    @NoExplanationNeeded
     default int memoryPercent() {
         return 90;
     }

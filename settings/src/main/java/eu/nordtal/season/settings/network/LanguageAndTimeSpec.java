@@ -2,9 +2,9 @@ package eu.nordtal.season.settings.network;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
@@ -16,23 +16,25 @@ public interface LanguageAndTimeSpec {
     @Order(1)
     @Name("Default language")
     @Key("default-language")
-    @Explain("Shown to a reader with no language of their own.")
+    @NoExplanationNeeded
     default String defaultLanguage() {
         return Locales.DEFAULT_TAG;
     }
 
+    /** Lower case tags. Taken at the next start. */
     @Order(2)
     @Name("Languages")
     @Key("languages")
-    @Explain("Lower case tags. Taken at the next start.")
+    @NoExplanationNeeded
     default List<String> languages() {
         return List.of(Locales.DEFAULT_TAG, "de");
     }
 
+    /** An IANA name like Europe/Berlin. Taken at the next start. */
     @Order(3)
     @Name("Default time zone")
     @Key("default-time-zone")
-    @Explain("An IANA name like Europe/Berlin. Taken at the next start.")
+    @NoExplanationNeeded
     default String defaultTimeZone() {
         return "Europe/Berlin";
     }

@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -63,7 +62,7 @@ public interface BoardSpec {
     @Order(7)
     @Name("Width")
     @Key("width")
-    @Explain("Pick it by looking at the board.")
+    @NoExplanationNeeded
     default int width() {
         return 180;
     }

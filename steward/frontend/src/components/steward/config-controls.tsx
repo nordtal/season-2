@@ -25,7 +25,7 @@ export function humanFileName(name: string): string {
   return fileTitle(name)
 }
 
-/** The short text under a label: the schema's words. */
+/** The short text between a label and its input: the schema's words. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null
   if (entry.explanation) return entry.explanation

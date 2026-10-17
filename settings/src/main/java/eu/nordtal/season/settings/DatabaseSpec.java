@@ -1,7 +1,6 @@
 package eu.nordtal.season.settings;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -12,10 +11,11 @@ import eu.nordtal.season.spec.annotation.Secret;
 @ConfigSpec
 public interface DatabaseSpec {
 
+    /** The full JDBC connection string, including the database name. */
     @Order(1)
     @Name("JDBC URL")
     @Key("jdbc-url")
-    @Explain("The full JDBC connection string, including the database name.")
+    @NoExplanationNeeded
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -45,10 +45,11 @@ public interface DatabaseSpec {
         return 5;
     }
 
+    /** Limits both waiting for a free connection and a query already running. */
     @Order(5)
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
-    @Explain("Limits both waiting for a free connection and a query already running.")
+    @NoExplanationNeeded
     default int queryTimeoutSeconds() {
         return 3;
     }

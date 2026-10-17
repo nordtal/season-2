@@ -5,7 +5,6 @@ import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -24,7 +23,7 @@ public interface MilestonesSpec {
     @Order(1)
     @Name("Milestones")
     @Key("milestones")
-    @Explain("In season order. Renaming one with progress is refused.")
+    @NoExplanationNeeded
     default List<MilestoneEntry> milestones() {
         return DefaultTrack.LIST;
     }
@@ -37,7 +36,7 @@ public interface MilestonesSpec {
         @Order(1)
         @Name("ID")
         @Key("key")
-        @Explain("Renaming one with progress is refused.")
+        @NoExplanationNeeded
         default String key() {
             return "";
         }
@@ -57,7 +56,7 @@ public interface MilestonesSpec {
         @Order(3)
         @Name("Border diameter")
         @Key("border-diameter")
-        @Explain("In blocks.")
+        @NoExplanationNeeded
         @AppliesWhen(key = "unlocks", values = "BORDER")
         default int borderDiameter() {
             return 0;
@@ -67,15 +66,16 @@ public interface MilestonesSpec {
         @Order(4)
         @Name("Unlocked by admin")
         @Key("admin-unlocked")
-        @Explain("True only for the opening milestone.")
+        @NoExplanationNeeded
         default boolean adminUnlocked() {
             return false;
         }
 
+        /** All must finish. Exactly one is an ADVANCEMENT, the gate. */
         @Order(5)
         @Name("Objectives")
         @Key("objectives")
-        @Explain("All must finish. Exactly one is an ADVANCEMENT, the gate.")
+        @NoExplanationNeeded
         default List<ObjectiveEntry> objectives() {
             return List.of();
         }
@@ -85,10 +85,11 @@ public interface MilestonesSpec {
     @ConfigSpec
     interface ObjectiveEntry {
 
+        /** Unique within its milestone. Never rename one with progress. */
         @Order(1)
         @Name("ID")
         @Key("key")
-        @Explain("Unique within its milestone. Never rename one with progress.")
+        @NoExplanationNeeded
         default String key() {
             return "";
         }
@@ -114,11 +115,13 @@ public interface MilestonesSpec {
             return "";
         }
 
+        /**
+         * Lowering this on a live objective is always allowed; changing it on one that already completed is refused.
+         */
         @Order(4)
         @Name("Target")
         @Key("target")
-        @Explain(
-                "Lowering this on a live objective is always allowed; changing it on one that already completed is refused.")
+        @NoExplanationNeeded
         default long target() {
             return 1L;
         }
@@ -127,7 +130,7 @@ public interface MilestonesSpec {
         @Order(5)
         @Name("Aura budget")
         @Key("aura-budget")
-        @Explain("Paid out exactly among its contributors on completion.")
+        @NoExplanationNeeded
         default int auraBudget() {
             return 0;
         }
@@ -141,10 +144,11 @@ public interface MilestonesSpec {
             return 0;
         }
 
+        /** Any one counts. An unknown item stops the plugin. */
         @Order(7)
         @Name("Items")
         @Key("items")
-        @Explain("Any one counts. An unknown item stops the plugin.")
+        @NoExplanationNeeded
         @Refers(Refers.To.ITEM)
         @AppliesWhen(key = "type", values = "HAND_IN")
         default List<String> items() {
@@ -174,7 +178,7 @@ public interface MilestonesSpec {
         @Order(9)
         @Name("Subjects")
         @Key("subjects")
-        @Explain("May be empty.")
+        @NoExplanationNeeded
         @Refers(value = Refers.To.SUBJECT, dependsOn = "statistic")
         @AppliesWhen(key = "type", values = "STATISTIC")
         default List<String> subjects() {

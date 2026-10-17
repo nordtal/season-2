@@ -258,11 +258,15 @@ describe("headings and explanations", () => {
     await waitFor(() => expect(screen.queryByText("Max attempts")).toBeNull())
   })
 
-  it("shows the schema's explanation under a label", async () => {
+  it("shows the schema's explanation between the label and the input, so it is read before the value", async () => {
     draw(<Settings service="steward" />)
     await open("Steward")
 
-    expect(await screen.findByText("How many times a failed job is retried before it is given up on.")).not.toBeNull()
+    const explanation = await screen.findByText("How many times a failed job is retried before it is given up on.")
+    const label = screen.getByText("Max attempts")
+    const input = screen.getByLabelText("Max attempts")
+    expect(label.compareDocumentPosition(explanation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(explanation.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("draws literally no text when the schema says no explanation is needed", async () => {

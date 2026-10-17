@@ -15,7 +15,7 @@ public interface GateSpec {
     @Order(1)
     @Name("Discord invite URL")
     @Key("discord-invite-url")
-    @Explain("The website's address, not an invite link.")
+    @Explain("The website's address: an invite link expires.")
     default String discordInviteUrl() {
         return "https://nordtal.eu";
     }

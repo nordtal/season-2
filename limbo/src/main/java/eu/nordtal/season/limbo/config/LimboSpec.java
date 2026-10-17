@@ -39,7 +39,7 @@ public interface LimboSpec {
     @Order(3)
     @Name("Title refresh (seconds)")
     @Key("title-refresh-seconds")
-    @Explain("Too long and the screen goes black between refreshes.")
+    @Explain("Too long and the screen goes black between refreshes, which looks like a crash.")
     default int titleRefreshSeconds() {
         return 4;
     }
@@ -48,7 +48,7 @@ public interface LimboSpec {
     @Order(4)
     @Name("Blindness")
     @Key("blindness")
-    @Explain("Disable only while developing, never in production.")
+    @Explain("Off only while developing, never in production.")
     default boolean blindness() {
         return true;
     }

@@ -32,7 +32,7 @@ public interface OnboardingSpec {
     @Order(2)
     @Name("Change channel")
     @Key("change-channel")
-    @Explain("Not the onboarding channel.")
+    @NoExplanationNeeded
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String changeChannel() {
         return "";
@@ -41,7 +41,7 @@ public interface OnboardingSpec {
     @Order(3)
     @Name("Lock")
     @Key("lock")
-    @Explain("While on, a member who has not chosen a language and a region sees only the onboarding channel.")
+    @Explain("On, a member without a language and a region sees only the onboarding channel.")
     default boolean lock() {
         return false;
     }
@@ -79,10 +79,11 @@ public interface OnboardingSpec {
             return "";
         }
 
+        /** An IANA time zone, such as Europe/Berlin. */
         @Order(2)
         @Name("Time zone")
         @Key("zone")
-        @Explain("An IANA time zone, such as Europe/Berlin.")
+        @NoExplanationNeeded
         default String zone() {
             return "";
         }

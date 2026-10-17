@@ -19,7 +19,7 @@ public interface PackSpec {
     @Order(1)
     @Name("Enabled")
     @Key("enabled")
-    @Explain("Off drops only the pack offer, for a development proxy.")
+    @NoExplanationNeeded
     default boolean enabled() {
         return true;
     }
@@ -35,7 +35,7 @@ public interface PackSpec {
     @Order(3)
     @Name("SHA-1")
     @Key("sha1")
-    @Explain("From the release's .sha1 file; a mismatch fails every download on the network.")
+    @Explain("A mismatch fails every download on the network.")
     default String sha1() {
         return "";
     }
@@ -43,7 +43,7 @@ public interface PackSpec {
     @Order(4)
     @Name("Force")
     @Key("force")
-    @Explain("Keep it true: without it, a player who declined a pack before is disconnected unasked.")
+    @Explain("Off, a player who declined a pack before is disconnected unasked.")
     default boolean force() {
         return true;
     }

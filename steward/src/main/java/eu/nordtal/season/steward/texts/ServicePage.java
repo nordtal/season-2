@@ -22,6 +22,9 @@ public interface ServicePage {
     @Name("More actions")
     MessageRef moreActions();
 
+    @Name("Stats")
+    MessageRef stats();
+
     @Name("CPU")
     MessageRef cpu();
 

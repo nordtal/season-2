@@ -1320,6 +1320,7 @@
     "steward.service-page.send": [["Send"]],
     "steward.service-page.send-line": [["Send a line to the server console"]],
     "steward.service-page.settings": [["Settings"]],
+    "steward.service-page.stats": [["Stats"]],
     "steward.service-page.the-jar": [["The jar"]],
     "steward.service-page.uncheckable": [["Updates can't be checked right now."]],
     "steward.service-page.up-to-date": [["up to date"]],

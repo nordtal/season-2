@@ -302,9 +302,9 @@ export function ServiceHead({
   const memory = useMetrics(name, "memory_bytes", minutes)
   if (service && resting(service)) return <RestingHead service={service} />
   return (
-    /* On a phone the state is one compact row, the curves side by side under it; from `lg` one flat row. */
-    <section className="grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-y-5 lg:flex lg:items-start lg:gap-x-10">
-      <div className="col-span-2 flex flex-col gap-2 max-sm:flex-row max-sm:flex-wrap max-sm:items-center">
+    /* On a phone the state is one compact row, the stats under it with the curves side by side; from `lg` one flat row. */
+    <section className="flex flex-col gap-y-3 sm:gap-y-5 lg:flex-row lg:items-start lg:gap-x-10">
+      <div className="flex flex-col gap-2 max-sm:flex-row max-sm:flex-wrap max-sm:items-center">
         <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
           {t("steward.operations.state")}
         </span>
@@ -324,39 +324,47 @@ export function ServiceHead({
             <SkeletonText width="short" className="h-[1lh]" />
           )}
         </span>
-        <div className="max-sm:ml-auto">
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        {/* The range is the stats', so it sits in their header; as tall as the State label, so both start on one line. */}
+        <div className="flex h-4 items-center gap-3">
+          <span className="text-xs font-medium font-heading text-muted-foreground">
+            {t("steward.service-page.stats")}
+          </span>
           <RangeSelect minutes={minutes} onChange={setMinutes} />
         </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 lg:flex lg:items-start lg:gap-x-10">
+          <MetricChart
+            label={t("steward.service-page.cpu")}
+            value={service ? percent(service.cpuPercent) : undefined}
+            points={cpu.data?.points}
+            format={percent}
+            colour="var(--chart-1)"
+            className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+            statClassName={INLINE.className}
+            valueClassName={INLINE.valueClassName}
+          />
+          <MetricChart
+            label={t("steward.service-page.ram")}
+            value={service ? bytes(service.memoryBytes) : undefined}
+            points={memory.data?.points}
+            format={bytes}
+            colour="var(--chart-2)"
+            className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+            statClassName={INLINE.className}
+            valueClassName={INLINE.valueClassName}
+          />
+          {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
+          {service?.diskBytes === undefined ? null : (
+            <Stat
+              label={t("steward.service-page.disk")}
+              value={bytes(service.diskBytes)}
+              hint={diskAge(service.diskMeasuredAt)}
+              {...INLINE}
+            />
+          )}
+        </div>
       </div>
-      <MetricChart
-        label={t("steward.service-page.cpu")}
-        value={service ? percent(service.cpuPercent) : undefined}
-        points={cpu.data?.points}
-        format={percent}
-        colour="var(--chart-1)"
-        className="flex min-w-0 flex-col gap-1.5 lg:w-48"
-        statClassName={PHONE_INLINE.className}
-        valueClassName={PHONE_INLINE.valueClassName}
-      />
-      <MetricChart
-        label={t("steward.service-page.ram")}
-        value={service ? bytes(service.memoryBytes) : undefined}
-        points={memory.data?.points}
-        format={bytes}
-        colour="var(--chart-2)"
-        className="flex min-w-0 flex-col gap-1.5 lg:w-48"
-        statClassName={PHONE_INLINE.className}
-        valueClassName={PHONE_INLINE.valueClassName}
-      />
-      {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
-      {service?.diskBytes === undefined ? null : (
-        <Stat
-          label={t("steward.service-page.disk")}
-          value={bytes(service.diskBytes)}
-          hint={diskAge(service.diskMeasuredAt)}
-          {...PHONE_INLINE}
-        />
-      )}
     </section>
   )
 }
@@ -381,18 +389,18 @@ function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useSe
             label={t("steward.service-page.last-run")}
             value={relative(lastRun.finishedAt)}
             hint={dateTime(lastRun.finishedAt)}
-            {...PHONE_INLINE}
+            {...INLINE}
           />
-          <Stat label={t("steward.service-page.exit-code")} value={String(lastRun.exitCode)} {...PHONE_INLINE} />
+          <Stat label={t("steward.service-page.exit-code")} value={String(lastRun.exitCode)} {...INLINE} />
         </>
       ) : null}
     </section>
   )
 }
 
-/** A `Stat` in the phone row: label, value and hint on one line, the value no larger than the text. */
-const PHONE_INLINE = {
-  className: "max-sm:flex-row max-sm:items-baseline max-sm:gap-1.5",
+/** A `Stat` on a service page: label, value and hint on one line, the value no larger than the text on a phone. */
+const INLINE = {
+  className: "flex-row items-baseline gap-1.5",
   valueClassName: "max-sm:text-sm",
 }
 

@@ -1808,6 +1808,7 @@ export type TextArgs = {
   "steward.service-page.send": Record<string, never>
   "steward.service-page.send-line": Record<string, never>
   "steward.service-page.settings": Record<string, never>
+  "steward.service-page.stats": Record<string, never>
   "steward.service-page.the-jar": Record<string, never>
   "steward.service-page.uncheckable": Record<string, never>
   "steward.service-page.up-to-date": Record<string, never>

@@ -57,7 +57,7 @@ class RecreateRunTest extends WebTestSupport {
     }
 
     /**
-     * Every path into {@code audit_log.actor_id}, a {@code varchar(32)}, signed in with a 32-character nickname.
+     * Every path into {@code journal_entry.actor_id}, a {@code varchar(32)}, signed in with a 32-character nickname.
      *
      * {@code PhaseDao}'s explicit cast truncates rather than refusing, so that path asserts the value, not the status.
      */
@@ -191,6 +191,8 @@ class RecreateRunTest extends WebTestSupport {
     private static void forgetRuns() throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
+            statement.execute(
+                    "delete from journal_entry where run in (select id from steward_inbox where kind in ('RECREATE', 'UPDATE'))");
             statement.execute("delete from steward_inbox where kind in ('RECREATE', 'UPDATE')");
         }
     }

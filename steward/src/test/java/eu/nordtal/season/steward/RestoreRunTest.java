@@ -28,6 +28,8 @@ class RestoreRunTest extends WebTestSupport {
         Files.deleteIfExists(agent.backups.resolve(DUMP));
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
+            statement.execute(
+                    "delete from journal_entry where run in (select id from steward_inbox where kind = 'RESTORE')");
             statement.execute("delete from steward_inbox where kind = 'RESTORE'");
         }
     }

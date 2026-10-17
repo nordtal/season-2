@@ -42,13 +42,15 @@ class PhaseDirectoryIntegrationTest {
     private static final String ADMIN_ID = "300000000000000001";
     private static final Actor ADMIN = Actor.person(DiscordId.of(ADMIN_ID));
 
-    /** A phase line's change, its choices read back as the constants they name. */
-    private static final String CHANGE = "upper(replace(line -> 'args' -> 'from' ->> 'value', '-', '_')) || ' -> '"
-            + " || upper(replace(line -> 'args' -> 'to' ->> 'value', '-', '_'))"
-            + " || coalesce(' (' || (line -> 'args' -> 'reason' ->> 'value') || ')', '')";
+    /** Every entry with the phases it moved between, where it has them. */
+    private static final String JOURNAL = " FROM journal_entry e LEFT JOIN journal_phase p ON p.entry = e.id";
+
+    /** A phase entry's change, as the constants it names. */
+    private static final String CHANGE =
+            "p.from_phase || ' -> ' || p.to_phase || coalesce(' (' || p.reason || ')', '')";
 
     private static final String LINE =
-            "action || '|' || actor_kind || '|' || coalesce(actor_id, '-') || '|' || " + CHANGE;
+            "e.action || '|' || e.actor_kind || '|' || coalesce(e.actor_id, '-') || '|' || " + CHANGE;
     private static DataSource dataSource;
 
     private PhaseDirectory phases;
@@ -61,7 +63,7 @@ class PhaseDirectoryIntegrationTest {
     @BeforeEach
     void freshPhase() {
         // Restores the seeded singleton; DELETE + INSERT because one test removes the row.
-        execute("TRUNCATE TABLE audit_log");
+        execute("TRUNCATE TABLE journal_entry CASCADE");
         // Grants cascade off the user; without this the date tests move each other's rows.
         execute("TRUNCATE TABLE discord_user CASCADE");
         execute("DELETE FROM season_phase");
@@ -169,7 +171,7 @@ class PhaseDirectoryIntegrationTest {
     void switchingWritesExactlyOneAuditRowAndCannotBeMadeToSkipIt() {
         phases.switchPhase(SeasonPhase.SMP, ADMIN, "the winner is crowned");
 
-        final List<String> rows = query("SELECT " + LINE + " FROM audit_log");
+        final List<String> rows = query("SELECT " + LINE + JOURNAL);
 
         assertEquals(
                 List.of("SET_PHASE|PERSON|" + ADMIN_ID + "|PRE_EVENT -> SMP (the winner is crowned)"),
@@ -182,8 +184,7 @@ class PhaseDirectoryIntegrationTest {
     void theReasonIsOptionalAndStewardIsAnActorOfItsOwn() {
         phases.switchPhase(SeasonPhase.MAINTENANCE, Actor.STEWARD, null);
 
-        assertEquals(
-                List.of("SET_PHASE|STEWARD|-|PRE_EVENT -> MAINTENANCE"), query("SELECT " + LINE + " FROM audit_log"));
+        assertEquals(List.of("SET_PHASE|STEWARD|-|PRE_EVENT -> MAINTENANCE"), query("SELECT " + LINE + JOURNAL));
     }
 
     @Test
@@ -194,7 +195,7 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(SeasonPhase.PRE_EVENT, change.current());
         assertEquals(
                 List.of("PRE_EVENT -> PRE_EVENT"),
-                query("SELECT " + CHANGE + " FROM audit_log"),
+                query("SELECT " + CHANGE + JOURNAL),
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
@@ -244,8 +245,8 @@ class PhaseDirectoryIntegrationTest {
         // Compared as a set: the three rows share a transaction timestamp, so their order is arbitrary.
         assertEquals(
                 Set.of("PRE_EVENT -> START_EVENT", "START_EVENT -> SMP", "SMP -> MAINTENANCE (database maintenance)"),
-                Set.copyOf(query("SELECT " + CHANGE + " FROM audit_log")));
-        assertEquals(3, count("SELECT count(*) FROM audit_log"));
+                Set.copyOf(query("SELECT " + CHANGE + JOURNAL)));
+        assertEquals(3, count("SELECT count(*) FROM journal_entry"));
         assertEquals(SeasonPhase.MAINTENANCE, phases.currentPhase());
     }
 
@@ -257,7 +258,7 @@ class PhaseDirectoryIntegrationTest {
 
         assertEquals(
                 0,
-                count("SELECT count(*) FROM audit_log"),
+                count("SELECT count(*) FROM journal_entry"),
                 "no update means no audit entry - the two are one statement, so a failed switch "
                         + "cannot leave a record of something that did not happen");
         assertEquals(
@@ -311,7 +312,7 @@ class PhaseDirectoryIntegrationTest {
         assertWithinSeconds(when, change.current(), 1);
         assertWithinSeconds(when, phases.launch().orElseThrow(), 1);
         assertEquals(0, change.grants(), "launch owns no access_grant rows");
-        assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'SET_LAUNCH'"));
+        assertEquals(1, count("SELECT count(*) FROM journal_entry WHERE action = 'SET_LAUNCH'"));
     }
 
     @Test
@@ -332,7 +333,7 @@ class PhaseDirectoryIntegrationTest {
         assertThrows(Refused.class, () -> phases.setLaunch(past, ADMIN));
 
         assertTrue(phases.launch().isEmpty());
-        assertEquals(0, count("SELECT count(*) FROM audit_log"), "a refusal writes no audit entry");
+        assertEquals(0, count("SELECT count(*) FROM journal_entry"), "a refusal writes no audit entry");
     }
 
     @Test
@@ -359,10 +360,9 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(1, change.accounts());
         assertEquals(
                 List.of("SET_SMP_START|1|true"),
-                query("SELECT action || '|' || (line -> 'args' -> 'movedGrants' ->> 'value') || '|'"
-                        + " || (line -> 'args' -> 'from' IS NULL AND line -> 'args' -> 'to' IS NOT NULL)"
-                        + " FROM audit_log"),
-                "the journal keeps the moved grants as a number and leaves out the date that was not set");
+                query("SELECT e.action || '|' || s.moved_grants || '|' || (s.starts IS NOT NULL)"
+                        + " FROM journal_entry e JOIN journal_smp_start s ON s.entry = e.id"),
+                "the journal keeps the moved grants as a number beside the start that was set");
         assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000001")), 2);
         assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000001")), 2);
     }

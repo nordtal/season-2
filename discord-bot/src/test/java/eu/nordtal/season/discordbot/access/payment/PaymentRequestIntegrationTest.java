@@ -74,7 +74,7 @@ class PaymentRequestIntegrationTest {
         assumeTrue(database != null);
         database.jdbi()
                 .useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, "
-                        + "account_link, link_code, audit_log, discord_user, payment_gateway, bank_inbox CASCADE"));
+                        + "account_link, link_code, journal_entry, discord_user, payment_gateway, bank_inbox CASCADE"));
         requests = new PaymentRequests(database.dataSource());
         access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
     }
@@ -91,7 +91,7 @@ class PaymentRequestIntegrationTest {
                 tables.containsAll(List.of(
                         "access_grant",
                         "account_link",
-                        "audit_log",
+                        "journal_entry",
                         "discord_user",
                         "expiry_notice",
                         "link_code",

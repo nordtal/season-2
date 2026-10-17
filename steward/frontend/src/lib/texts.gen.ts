@@ -314,19 +314,11 @@ export type TextArgs = {
     authenticator: Arg["choice"]
     sessions: Arg["number"]
   }
-  "journal.forget-factors": {
-    keys: Arg["number"]
-    sessions: Arg["number"]
-  }
   "journal.grant-access": {
     days: Arg["number"]
     until: Arg["instant"]
   }
   "journal.grant-admin": Record<string, never>
-  "journal.held-key": {
-    label: Arg["text"]
-    unlocked: Arg["choice"]
-  }
   "journal.held-key-for": {
     label: Arg["text"]
     unlocked: Arg["choice"]
@@ -436,9 +428,6 @@ export type TextArgs = {
     alert: Arg["choice"]
   }
   "journal.web-push-unsubscribe": Record<string, never>
-  "journal.written": {
-    detail: Arg["text"]
-  }
   "report.agent-not-renewed": {
     reason: Arg["text"]
   }

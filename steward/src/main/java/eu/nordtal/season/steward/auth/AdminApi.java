@@ -1,10 +1,9 @@
 package eu.nordtal.season.steward.auth;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import com.google.gson.JsonElement;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -43,7 +42,7 @@ public final class AdminApi {
         final AdminTree.Grant outcome = tree.grant(who.id(), target);
         switch (outcome) {
             case GRANTED -> {
-                Journaling.line(ctx, DiscordId.of(target), TEXTS.journal().grantAdmin());
+                Journaling.line(ctx, DiscordId.of(target), null);
                 log.info("{} made {} an admin", who.name(), target);
                 ctx.json(new Granted(outcome));
             }
@@ -63,7 +62,7 @@ public final class AdminApi {
             case REVOKED -> {
                 final List<String> below =
                         revocation.removed().subList(1, revocation.removed().size());
-                Journaling.line(ctx, DiscordId.of(target), TEXTS.journal().revokeAdmin(below, below.size()));
+                Journaling.line(ctx, DiscordId.of(target), new JournalDetail.AdminRevoked(below));
                 log.info("{} revoked admin from {}", who.name(), revocation.removed());
                 ctx.json(revocation);
             }

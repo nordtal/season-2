@@ -351,7 +351,7 @@ export function useSeason(enabled = true) {
   })
 }
 
-/** The newest actions across steward's inbox and `audit_log`, merged and sorted by steward. */
+/** The newest actions across steward's inbox and the journal, merged and sorted by steward. */
 export function useActions(limit = 5, enabled = true) {
   return useQuery({
     queryKey: keys.actions(limit),

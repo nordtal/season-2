@@ -5,6 +5,7 @@ import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.LinkRedemption;
 import eu.nordtal.season.database.alert.Alert;
@@ -147,12 +148,7 @@ public final class LinkFlow extends ListenerAdapter {
                     // LINKED guarantees mcUuid, per LinkRedemption's contract.
                     final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
-                    admin.record(new AuditLine(
-                            JournalAction.LINK,
-                            Actor.person(discordId),
-                            discordId,
-                            linked,
-                            TEXTS.journal().link()));
+                    admin.record(new AuditLine(JournalAction.LINK, Actor.person(discordId), discordId, linked, null));
                     event.getHook()
                             .editOriginal(
                                     messages.format(locale, MESSAGES.link().success()))
@@ -205,7 +201,7 @@ public final class LinkFlow extends ListenerAdapter {
                     Actor.person(discordId),
                     discordId,
                     mcUuid.orElse(null),
-                    TEXTS.journal().unlink(true)));
+                    new JournalDetail.Unlinked(true)));
             event.getHook()
                     .editOriginal(messages.format(locale, MESSAGES.unlink().success()))
                     .queue();
@@ -225,10 +221,6 @@ public final class LinkFlow extends ListenerAdapter {
 
     /** Returns the line the bot writes about a member it refuses more link codes for the hour. */
     public static AuditLine lockedOut(final DiscordId member) {
-        return AuditLine.about(
-                JournalAction.LINK_CODES_EXHAUSTED,
-                Actor.BOT,
-                member,
-                TEXTS.journal().linkCodesExhausted());
+        return AuditLine.about(JournalAction.LINK_CODES_EXHAUSTED, Actor.BOT, member, null);
     }
 }

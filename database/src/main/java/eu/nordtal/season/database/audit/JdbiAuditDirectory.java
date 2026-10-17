@@ -3,6 +3,8 @@ package eu.nordtal.season.database.audit;
 import eu.nordtal.season.database.Jdbis;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
@@ -28,6 +30,11 @@ final class JdbiAuditDirectory implements AuditDirectory {
     public List<AuditEntry> search(final JournalFilter filter, final int limit) {
         return dao.search(
                 any(filter.action()), any(filter.subject()), any(filter.reference()), filter.minDays(), clamp(limit));
+    }
+
+    @Override
+    public Optional<AuditEntry> entry(final UUID id) {
+        return dao.entry(Objects.requireNonNull(id, "id"));
     }
 
     @Override

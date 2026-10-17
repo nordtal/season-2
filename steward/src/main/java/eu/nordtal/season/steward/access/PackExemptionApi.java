@@ -1,7 +1,5 @@
 package eu.nordtal.season.steward.access;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import com.google.gson.JsonElement;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
@@ -73,12 +71,7 @@ public final class PackExemptionApi {
             final MessageRef unchanged) {
         switch (outcome) {
             case CHANGED -> {
-                Journaling.line(
-                        ctx,
-                        DiscordId.of(target),
-                        action == JournalAction.EXEMPT_PACK
-                                ? TEXTS.journal().exemptPack()
-                                : TEXTS.journal().enforcePack());
+                Journaling.line(ctx, DiscordId.of(target), null);
                 log.info("{} {} for {}", who.name(), action, target);
                 ctx.json(new Exempted(outcome));
             }

@@ -5,10 +5,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * What the journal is narrowed to; every part is optional, and a {@code null} or blank one matches anything.
  *
- * @param action    the exact {@code audit_log.action}
- * @param subject   the exact Discord id of the person a line concerns
- * @param reference the exact payment reference a line names
- * @param minDays   the least number of days a line grants or books
+ * @param action    the exact {@link JournalAction}'s name
+ * @param subject   the exact Discord id of the person an entry concerns
+ * @param reference the exact payment reference the booking of an entry names
+ * @param minDays   the least number of days an entry grants or books
  */
 public record JournalFilter(
         @Nullable String action,

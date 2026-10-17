@@ -205,7 +205,7 @@ class WebRoutesTest extends WebTestSupport {
      */
     @Test
     void accessChangesAskTheBot() throws Exception {
-        final long journalBefore = count("select count(*) from audit_log");
+        final long journalBefore = count("select count(*) from journal_entry");
         final String[][] asks = {
             {
                 "/api/access/grant",
@@ -247,7 +247,7 @@ class WebRoutesTest extends WebTestSupport {
         }
         assertEquals(
                 journalBefore,
-                count("select count(*) from audit_log"),
+                count("select count(*) from journal_entry"),
                 "steward journalled an access change the bot will journal itself");
 
         try (var connection = WebFixture.postgres.dataSource().getConnection();

@@ -50,7 +50,7 @@ class RosterIntegrationTest {
     @BeforeEach
     void freshDirectory() {
         // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
                 + "player_playtime, discord_user CASCADE");
         directory = AccessReader.using(dataSource, Clock.systemUTC());
         payments = new PaymentRequests(dataSource);

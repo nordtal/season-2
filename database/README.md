@@ -16,7 +16,7 @@ brings the runtime it already has; this module never migrates.
 | Registration   | discord-bot's: a round per `Game` with its teams; the game server moves the round's `RegistrationState`                 |
 | Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind's record is a row of its own table or JSON           |
 | Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                              |
-| Journal        | `Journal.write` is the only writer of `audit_log`; an `AuditLine` is a message of `AdminTexts`                          |
+| Journal        | `Journal.write` is the only writer of `journal_entry`; a `JournalDetail` writes its family's table and renders its line |
 | Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s              |
 | Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language         |
 | Season phase   | one row every process follows on its hub                                                                                |
@@ -38,8 +38,9 @@ brings the runtime it already has; this module never migrates.
   to that admin alone and writes no journal line; a server refuses with `NOT_HERE` once the player
   left, the bot with `NOT_DELIVERED`.
 - **Messages in rows.** A row stores a message in `MessageJson`'s shape, never a sentence, written by
-  `DatabaseJson`; the journal, alerts and run reports each render through the reader's own target.
-  A value without typed words keeps them as `journal.written`, `alert.words`, `report.words` or `announcement.words`.
+  `DatabaseJson`; alerts and run reports each render through the reader's own target.
+  A value without typed words keeps them as `alert.words`, `report.words` or `announcement.words`. The journal
+  stores no message: a `JournalDetail` keeps its values in columns and renders its line when it is read.
 - **Who asked** is `:common`'s `Actor` (a person by Discord id, Steward, or the host's installer),
   stored as `actor_kind` and `actor_id` and never as a name.
 - **Bookings.** Paid, the access appended through `Grants`, the donor flag, the journal line and the

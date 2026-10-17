@@ -1,25 +1,38 @@
 package eu.nordtal.season.database.audit;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
+import eu.nordtal.season.database.JournalDetail.AccessGranted;
+import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.alert.AlertChannel;
+import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Money;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +42,8 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * Exercises {@link AuditDirectory} against a real PostgreSQL running the real migrations.
  *
- * Only PostgreSQL can say whether it accepts the null-switched predicates; the tests skip themselves without Docker.
+ * Only PostgreSQL can say whether every detail comes back from its family's table and whether it accepts the
+ * null-switched predicates; the tests skip themselves without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuditDirectoryIntegrationTest {
@@ -39,10 +53,9 @@ class AuditDirectoryIntegrationTest {
     private static final String ADMIN = "100000000000000009";
 
     private static final UUID ALICE_MC = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final Instant UNTIL = Instant.parse("2026-11-02T10:00:00Z");
     private static final Messages ADMIN_TEXTS =
             Messages.load(AuditDirectoryIntegrationTest.class.getClassLoader(), "messages/admin");
-    /** A line that is a message and says nothing, for rows that test something else. */
-    private static final String LINE = "'{\"key\": \"x\", \"args\": {}}'";
 
     private static DataSource dataSource;
 
@@ -55,29 +68,90 @@ class AuditDirectoryIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, steward_inbox, "
                 + "player_playtime, discord_user CASCADE");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + ALICE + "'), ('" + BOB + "')");
         directory = AuditDirectory.using(dataSource);
     }
 
     @Test
+    void everyDetailComesBackFromItsRowsAndReadsAsTheLineWritten() {
+        final UUID tab = payment("NT-TABTAB", ALICE, 30, 300, "TAB");
+        final UUID byHand = payment("NT-HANDHA", BOB, 7, null, "MANUAL");
+        final long update = run("UPDATE", "{\"services\": [\"smp\", \"proxy\"]}");
+        final long restore = run("RESTORE", "{\"services\": [], \"archive\": \"nordtal-1.dump\"}");
+        final long removal = run("REMOVE_PLUGIN", "{\"services\": [\"smp\"], \"artifact\": \"chunky\"}");
+        final Map<JournalDetail, JournalAction> written = everyDetail(tab, byHand, update, restore, removal);
+
+        final Set<Class<?>> covered =
+                written.keySet().stream().map(Object::getClass).collect(Collectors.toSet());
+        assertEquals(
+                Set.of(),
+                Arrays.stream(JournalDetail.class.getPermittedSubclasses())
+                        .filter(kind -> !covered.contains(kind))
+                        .collect(Collectors.toSet()),
+                "every detail is written and read back here");
+
+        written.forEach((detail, action) -> directory.record(
+                new AuditLine(action, Actor.person(DiscordId.of(ADMIN)), DiscordId.of(ALICE), null, detail)));
+
+        final List<String> expected = written.entrySet().stream()
+                .map(each -> each.getValue() + ": "
+                        + ADMIN_TEXTS.format(Locale.ENGLISH, each.getKey().line()))
+                .toList();
+        final List<String> read = directory.recent(100).reversed().stream()
+                .map(entry -> entry.action() + ": " + ADMIN_TEXTS.format(Locale.ENGLISH, entry.line()))
+                .toList();
+        assertEquals(expected, read);
+    }
+
+    @Test
+    void anEntryKeepsTheServiceRunAndPaymentItConcernsInColumns() {
+        final long update = run("UPDATE", "{\"services\": [\"smp\"]}");
+        directory.record(AuditLine.of(
+                JournalAction.REQUEST_RUN,
+                Actor.STEWARD,
+                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("smp"))));
+        directory.record(
+                AuditLine.of(JournalAction.CONSOLE, Actor.STEWARD, new JournalDetail.ConsoleTyped("smp", "list")));
+
+        assertEquals(
+                List.of("CONSOLE|smp|-", "REQUEST_RUN|-|" + update),
+                strings("SELECT action || '|' || coalesce(service, '-') || '|' || coalesce(run::text, '-')"
+                        + " FROM journal_entry ORDER BY action"));
+    }
+
+    @Test
+    void everyActionIsAcceptedWithoutValuesAndReadsAsAtLeastItsName() {
+        for (final JournalAction action : JournalAction.values()) {
+            if (action != JournalAction.SETTLE) {
+                directory.record(AuditLine.of(action, Actor.STEWARD, null));
+            }
+        }
+
+        assertEquals(JournalAction.values().length - 1, directory.recent(100).size());
+    }
+
+    @Test
     void everyColumnSurvivesTheRoundTrip() {
-        entry("-1 minutes", "LINK", ADMIN, ALICE, "'" + ALICE_MC + "'", "'linked by hand'");
+        directory.record(new AuditLine(
+                JournalAction.LINK, Actor.person(DiscordId.of(ADMIN)), DiscordId.of(ALICE), ALICE_MC, null));
 
         final AuditEntry entry = directory.recent(10).getFirst();
 
         assertNotNull(entry.id());
         assertNotNull(entry.occurred());
-        assertEquals("LINK", entry.action());
+        assertEquals(JournalAction.LINK, entry.action());
         assertEquals(Actor.person(DiscordId.of(ADMIN)), entry.actor());
         assertEquals(DiscordId.of(ALICE), entry.subject());
         assertEquals(ALICE_MC, entry.mcUuid());
-        assertEquals("linked by hand", note(entry));
+        assertEquals(directory.entry(entry.id()).orElseThrow(), entry, "one entry reads as the list reads it");
+        assertTrue(directory.entry(UUID.randomUUID()).isEmpty());
     }
 
     @Test
     void theNullableColumnsComeBackNull() {
-        entry("-1 minutes", "PHASE", null, null, "NULL", "NULL");
+        directory.record(AuditLine.of(JournalAction.START_GAME, Actor.STEWARD, null));
 
         final AuditEntry entry = directory.recent(10).getFirst();
 
@@ -89,21 +163,19 @@ class AuditDirectoryIntegrationTest {
 
     @Test
     void theJournalIsNewestFirstAndTheLimitIsHonoured() {
-        entry("-3 minutes", "LINK", null, ALICE, "NULL", "'oldest'");
-        entry("-2 minutes", "GRANT_ACCESS", null, ALICE, "NULL", "'middle'");
-        entry("-1 minutes", "REVOKE_ACCESS", null, ALICE, "NULL", "'newest'");
+        seedFourEntries();
 
-        assertEquals(List.of("newest", "middle", "oldest"), details(directory.recent(10)));
-        assertEquals(List.of("newest"), details(directory.recent(1)));
-        assertEquals(List.of("newest", "middle"), details(directory.recent(2)));
+        assertEquals(List.of("alice-revoke", "alice-grant", "bob-link", "alice-link"), labels(directory.recent(10)));
+        assertEquals(List.of("alice-revoke"), labels(directory.recent(1)));
+        assertEquals(List.of("alice-revoke", "alice-grant"), labels(directory.recent(2)));
     }
 
     @Test
     void aLimitBelowOneIsClampedRatherThanRejected() {
-        entry("-1 minutes", "LINK", null, ALICE, "NULL", "'only'");
+        seedFourEntries();
 
-        assertEquals(List.of("only"), details(directory.recent(0)));
-        assertEquals(List.of("only"), details(directory.recent(-5)));
+        assertEquals(List.of("alice-revoke"), labels(directory.recent(0)));
+        assertEquals(List.of("alice-revoke"), labels(directory.recent(-5)));
     }
 
     @Test
@@ -117,7 +189,7 @@ class AuditDirectoryIntegrationTest {
 
         assertEquals(
                 List.of("bob-link", "alice-link"),
-                details(directory.search(new JournalFilter("LINK", null, null, null), 10)));
+                labels(directory.search(new JournalFilter("LINK", null, null, null), 10)));
     }
 
     @Test
@@ -126,15 +198,14 @@ class AuditDirectoryIntegrationTest {
 
         assertEquals(
                 List.of("alice-revoke", "alice-grant", "alice-link"),
-                details(directory.search(new JournalFilter(null, ALICE, null, null), 10)));
+                labels(directory.search(new JournalFilter(null, ALICE, null, null), 10)));
     }
 
     @Test
     void searchByBoth() {
         seedFourEntries();
 
-        assertEquals(
-                List.of("alice-link"), details(directory.search(new JournalFilter("LINK", ALICE, null, null), 10)));
+        assertEquals(List.of("alice-link"), labels(directory.search(new JournalFilter("LINK", ALICE, null, null), 10)));
     }
 
     @Test
@@ -142,8 +213,8 @@ class AuditDirectoryIntegrationTest {
         seedFourEntries();
 
         assertEquals(
-                details(directory.recent(10)),
-                details(directory.search(new JournalFilter(null, null, null, null), 10)),
+                labels(directory.recent(10)),
+                labels(directory.search(JournalFilter.ANY, 10)),
                 "no filter must mean exactly what recent means");
     }
 
@@ -152,12 +223,12 @@ class AuditDirectoryIntegrationTest {
         seedFourEntries();
 
         assertEquals(
-                details(directory.recent(10)),
-                details(directory.search(new JournalFilter("", "   ", null, null), 10)),
+                labels(directory.recent(10)),
+                labels(directory.search(new JournalFilter("", "   ", null, null), 10)),
                 "an empty search box and an absent one are the same intention");
         assertEquals(
                 List.of("bob-link", "alice-link"),
-                details(directory.search(new JournalFilter("LINK", "  ", null, null), 10)));
+                labels(directory.search(new JournalFilter("LINK", "  ", null, null), 10)));
     }
 
     @Test
@@ -180,64 +251,34 @@ class AuditDirectoryIntegrationTest {
     void theSearchLimitIsHonoured() {
         seedFourEntries();
 
-        assertEquals(List.of("alice-revoke"), details(directory.search(new JournalFilter(null, ALICE, null, null), 1)));
-        assertEquals(
-                1,
-                directory.search(new JournalFilter(null, null, null, null), 0).size(),
-                "clamped, like recent");
-    }
-
-    /** Three entries about Alice, one about Bob, two of which share an action. */
-    private static void seedFourEntries() {
-        entry("-4 minutes", "LINK", null, ALICE, "'" + ALICE_MC + "'", "'alice-link'");
-        entry("-3 minutes", "LINK", null, BOB, "NULL", "'bob-link'");
-        entry("-2 minutes", "GRANT_ACCESS", ADMIN, ALICE, "NULL", "'alice-grant'");
-        entry("-1 minutes", "REVOKE_ACCESS", ADMIN, ALICE, "NULL", "'alice-revoke'");
+        assertEquals(List.of("alice-revoke"), labels(directory.search(new JournalFilter(null, ALICE, null, null), 1)));
+        assertEquals(1, directory.search(JournalFilter.ANY, 0).size(), "clamped, like recent");
     }
 
     @Test
-    void aWrittenLineComesBackAsTheMessageItWas() {
-        final var written = TEXTS.journal().grantAccess(30, Instant.parse("2026-11-02T10:00:00Z"));
-        directory.record(new AuditLine(
-                JournalAction.GRANT_ACCESS, Actor.person(DiscordId.of(ADMIN)), DiscordId.of(ALICE), ALICE_MC, written));
-
-        final AuditEntry entry = directory.recent(1).getFirst();
-
-        assertEquals(Actor.person(DiscordId.of(ADMIN)), entry.actor());
-        assertEquals("GRANT_ACCESS", entry.action());
-        assertEquals("journal.grant-access", entry.line().key());
-        assertEquals(
-                "30 days of access, until Nov 2, 2026.",
-                ADMIN_TEXTS.format(Locale.ENGLISH, entry.line()),
-                "every value comes back of its kind, so the line renders as the one written");
-        assertEquals(ADMIN_TEXTS.format(Locale.ENGLISH, written), ADMIN_TEXTS.format(Locale.ENGLISH, entry.line()));
-    }
-
-    @Test
-    void aLineKeepsItsPaymentReferenceAndDaysAsFieldsTheJournalFiltersBy() {
+    void theJournalFiltersByThePaymentReferenceAndTheDaysOfAGrantOrABooking() {
         final Actor admin = Actor.person(DiscordId.of(ADMIN));
-        final Instant until = Instant.parse("2026-11-02T10:00:00Z");
+        final UUID abcd = payment("NT-ABCDEF", ALICE, 30, null, "MANUAL");
+        final UUID efgh = payment("NT-EFGHIJ", BOB, 7, null, "MANUAL");
         directory.record(AuditLine.about(
                 JournalAction.SETTLE,
                 admin,
                 DiscordId.of(ALICE),
-                TEXTS.journal().settleByHand("NT-ABCD", 30, 30, Money.euroCents(0))));
+                new Settled(abcd, "NT-ABCDEF", PaymentMatch.MANUAL, 30, 30, null, Money.euroCents(0))));
         directory.record(AuditLine.about(
                 JournalAction.SETTLE,
                 admin,
                 DiscordId.of(BOB),
-                TEXTS.journal().settleByHand("NT-EFGH", 7, 7, Money.euroCents(0))));
-        directory.record(AuditLine.about(
-                JournalAction.GRANT_ACCESS,
-                admin,
-                DiscordId.of(BOB),
-                TEXTS.journal().grantAccess(90, until)));
-        directory.record(AuditLine.about(
-                JournalAction.LINK, admin, DiscordId.of(BOB), TEXTS.journal().link()));
+                new Settled(efgh, "NT-EFGHIJ", PaymentMatch.MANUAL, 7, 7, null, Money.euroCents(0))));
+        directory.record(
+                AuditLine.about(JournalAction.GRANT_ACCESS, admin, DiscordId.of(BOB), new AccessGranted(90, UNTIL)));
+        directory.record(AuditLine.about(JournalAction.LINK, admin, DiscordId.of(BOB), null));
 
         assertEquals(
                 List.of(DiscordId.of(ALICE)),
-                subjects(directory.search(new JournalFilter(null, null, "NT-ABCD", null), 10)),
+                directory.search(new JournalFilter(null, null, "NT-ABCDEF", null), 10).stream()
+                        .map(AuditEntry::subject)
+                        .toList(),
                 "the reference matches its one booking");
         assertTrue(
                 directory
@@ -245,95 +286,160 @@ class AuditDirectoryIntegrationTest {
                         .isEmpty(),
                 "and exactly");
         assertEquals(
-                List.of("GRANT_ACCESS", "SETTLE"),
+                List.of(JournalAction.GRANT_ACCESS, JournalAction.SETTLE),
                 actions(directory.search(new JournalFilter(null, null, null, 30), 10)),
                 "at least 30 days: the grant of 90 and the booking of 30, not the one of 7 nor the link");
         assertEquals(
-                List.of("SETTLE"),
+                List.of(JournalAction.SETTLE),
                 actions(directory.search(new JournalFilter("SETTLE", null, null, 8), 10)),
                 "the fields combine with the action");
     }
 
-    private static List<DiscordId> subjects(final List<AuditEntry> entries) {
-        return entries.stream().map(AuditEntry::subject).toList();
-    }
-
-    private static List<String> actions(final List<AuditEntry> entries) {
-        return entries.stream().map(AuditEntry::action).toList();
-    }
-
     @Test
     void theBotIsAnActorOfItsOwn() {
-        directory.record(AuditLine.about(
-                JournalAction.LINK,
-                Actor.BOT,
-                DiscordId.of(ALICE),
-                TEXTS.journal().link()));
+        directory.record(AuditLine.about(JournalAction.LINK, Actor.BOT, DiscordId.of(ALICE), null));
 
         assertEquals(Actor.BOT, directory.recent(1).getFirst().actor());
     }
 
     @Test
-    void theTableRefusesAnActorThatIsHalfAPerson() {
+    void theTableRefusesAnActorThatIsHalfAPersonAnActionNotListedAndABookingWithoutItsPayment() {
         assertThrows(
                 IllegalStateException.class,
-                () -> execute("INSERT INTO audit_log (action, actor_kind, actor_id, line) VALUES ('X', 'STEWARD', '"
-                        + ADMIN + "', " + LINE + ")"));
+                () -> execute("INSERT INTO journal_entry (action, actor_kind, actor_id) VALUES ('LINK', 'STEWARD', '"
+                        + ADMIN + "')"));
         assertThrows(
                 IllegalStateException.class,
-                () -> execute("INSERT INTO audit_log (action, actor_kind, line) VALUES ('X', 'PERSON', " + LINE + ")"));
-    }
-
-    @Test
-    void theTableRefusesALineThatIsNoMessage() {
-        execute("INSERT INTO audit_log (action, actor_kind, line) VALUES ('X', 'STEWARD', " + LINE + ")");
+                () -> execute("INSERT INTO journal_entry (action, actor_kind) VALUES ('LINK', 'PERSON')"));
         assertThrows(
                 IllegalStateException.class,
-                () -> execute(
-                        "INSERT INTO audit_log (action, actor_kind, line) VALUES ('X', 'STEWARD', '\"a sentence\"')"));
+                () -> execute("INSERT INTO journal_entry (action, actor_kind) VALUES ('X', 'STEWARD')"));
         assertThrows(
                 IllegalStateException.class,
-                () -> execute(
-                        "INSERT INTO audit_log (action, actor_kind, line) VALUES ('X', 'STEWARD', '{\"key\": \"x\"}')"));
-        assertThrows(
-                IllegalStateException.class,
-                () -> execute("INSERT INTO audit_log (action, actor_kind) VALUES ('X', 'STEWARD')"));
+                () -> execute("INSERT INTO journal_entry (action, actor_kind) VALUES ('SETTLE', 'STEWARD')"));
     }
 
-    private static List<String> details(final List<AuditEntry> entries) {
-        return entries.stream().map(AuditDirectoryIntegrationTest::note).toList();
+    /** One detail of every kind, both sides of each that may leave a value out, with the action it is under. */
+    private static Map<JournalDetail, JournalAction> everyDetail(
+            final UUID tab, final UUID byHand, final long update, final long restore, final long removal) {
+        final Map<JournalDetail, JournalAction> written = new LinkedHashMap<>();
+        written.put(new AccessGranted(30, UNTIL), JournalAction.GRANT_ACCESS);
+        written.put(new JournalDetail.AccessRevoked(2), JournalAction.REVOKE_ACCESS);
+        written.put(new JournalDetail.PlaytimeSet(Duration.ofMinutes(90)), JournalAction.SET_PLAYTIME);
+        written.put(new JournalDetail.Unlinked(true), JournalAction.UNLINK);
+        written.put(
+                new Settled(tab, "NT-TABTAB", PaymentMatch.TAB, 30, 30, Money.euroCents(300), Money.euroCents(50)),
+                JournalAction.SETTLE);
+        written.put(
+                new Settled(byHand, "NT-HANDHA", PaymentMatch.MANUAL, 7, 7, null, Money.euroCents(0)),
+                JournalAction.SETTLE);
+        written.put(
+                new JournalDetail.PhaseSet(SeasonPhase.PRE_EVENT, SeasonPhase.SMP, "the opening"),
+                JournalAction.SET_PHASE);
+        written.put(
+                new JournalDetail.PhaseSet(SeasonPhase.SMP, SeasonPhase.MAINTENANCE, null), JournalAction.SET_PHASE);
+        written.put(new JournalDetail.LaunchSet(UNTIL), JournalAction.SET_LAUNCH);
+        written.put(new JournalDetail.LaunchSet(null), JournalAction.SET_LAUNCH);
+        written.put(new JournalDetail.SmpStartSet(UNTIL, 3), JournalAction.SET_SMP_START);
+        written.put(new JournalDetail.SmpStartSet(null, 0), JournalAction.SET_SMP_START);
+        written.put(new JournalDetail.KeyRegistered("YubiKey"), JournalAction.REGISTER_KEY);
+        written.put(new JournalDetail.KeyHeld("YubiKey", true, Duration.ofMinutes(15)), JournalAction.HELD_KEY);
+        written.put(new JournalDetail.KeyRenamed("Laptop"), JournalAction.RENAME_KEY);
+        written.put(new JournalDetail.KeyRemoved("Laptop", 1), JournalAction.REMOVE_KEY);
+        written.put(new JournalDetail.AuthenticatorUsed(Duration.ofHours(1)), JournalAction.USED_AUTHENTICATOR);
+        written.put(new JournalDetail.AuthenticatorRemoved(2), JournalAction.REMOVE_AUTHENTICATOR);
+        written.put(new JournalDetail.FactorsForgotten(2, true, 3), JournalAction.FORGET_FACTORS);
+        written.put(new JournalDetail.PushTested(AlertType.DISK), JournalAction.WEB_PUSH_TEST);
+        written.put(
+                new JournalDetail.AlertPreferenceSet(AlertType.RUN, AlertChannel.DISCORD, false),
+                JournalAction.SET_ALERT_PREFERENCE);
+        written.put(new JournalDetail.ConsoleTyped("smp", "chunky start"), JournalAction.CONSOLE);
+        written.put(new JournalDetail.SettingsSaved("smp", "motd"), JournalAction.SAVE_SETTINGS);
+        written.put(new JournalDetail.MessagesSaved("player"), JournalAction.SAVE_MESSAGES);
+        written.put(new JournalDetail.PluginAdded("smp", "chunky"), JournalAction.ADD_PLUGIN);
+        written.put(new JournalDetail.PluginRemoved(removal, "smp", "chunky"), JournalAction.REMOVE_PLUGIN);
+        written.put(
+                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("smp", "proxy")),
+                JournalAction.REQUEST_RUN);
+        written.put(new JournalDetail.RestoreAsked(restore, "nordtal-1.dump"), JournalAction.REQUEST_RUN);
+        written.put(new JournalDetail.RunCancelled(update, UpdateKind.UPDATE), JournalAction.CANCEL_RUN);
+        written.put(new JournalDetail.BackupDownloaded("nordtal-1.dump", 3_500_000L), JournalAction.DOWNLOAD_BACKUP);
+        written.put(new JournalDetail.BackupDownloaded("nordtal-2.dump", null), JournalAction.DOWNLOAD_BACKUP);
+        written.put(new JournalDetail.Announced(List.of("en", "de")), JournalAction.ANNOUNCE);
+        written.put(new JournalDetail.ObjectiveCompleted("first-diamond"), JournalAction.COMPLETE_OBJECTIVE);
+        written.put(new JournalDetail.MilestoneUnlocked("nether"), JournalAction.UNLOCK_MILESTONE);
+        written.put(new JournalDetail.AdminRevoked(List.of(BOB, ALICE)), JournalAction.REVOKE_ADMIN);
+        written.put(new JournalDetail.GrantUnanchored(UNTIL), JournalAction.UNANCHORED_GRANT);
+
+        return written;
     }
 
-    private static String note(final AuditEntry entry) {
-        return (String) entry.line().args().get("detail");
+    /** Three entries about Alice, one about Bob, two of which share an action. */
+    private void seedFourEntries() {
+        final Actor admin = Actor.person(DiscordId.of(ADMIN));
+        entry(JournalAction.LINK, Actor.STEWARD, ALICE, "-4 minutes");
+        entry(JournalAction.LINK, Actor.STEWARD, BOB, "-3 minutes");
+        entry(JournalAction.GRANT_ACCESS, admin, ALICE, "-2 minutes");
+        entry(JournalAction.REVOKE_ACCESS, admin, ALICE, "-1 minutes");
     }
 
-    /** Writes one {@code audit_log} row of written words; {@code mcUuid} and {@code note} are quoted or NULL. */
-    private static void entry(
-            final String occurred,
-            final String action,
-            final String actor,
-            final String subject,
-            final String mcUuid,
-            final String note) {
-        execute("""
-                INSERT INTO audit_log (occurred, action, actor_kind, actor_id, subject, mc_uuid, line)
-                VALUES (now() + interval '%s', '%s', '%s', %s, %s, %s, jsonb_build_object('key', 'journal.written',
-                        'args', %s))
-                """.formatted(
-                occurred,
-                action,
-                actor == null ? "STEWARD" : "PERSON",
-                quoted(actor),
-                quoted(subject),
-                mcUuid,
-                "NULL".equals(note)
-                        ? "'{}'::jsonb"
-                        : "jsonb_build_object('detail', jsonb_build_object('kind', 'text', 'value', " + note + "))"));
+    /** Writes an entry without values and moves it back in time, so the order does not hang on the clock's grain. */
+    private void entry(final JournalAction action, final Actor actor, final String subject, final String ago) {
+        directory.record(AuditLine.about(action, actor, DiscordId.of(subject), null));
+        execute("UPDATE journal_entry SET occurred = now() + interval '" + ago + "' WHERE occurred = now()"
+                + " OR occurred > now() - interval '1 minute' AND action = '" + action + "' AND subject = '" + subject
+                + "'");
     }
 
-    private static String quoted(final String value) {
-        return value == null ? "NULL" : "'" + value + "'";
+    /** Names an entry by whom it concerns and the last word of its action, such as {@code alice-grant}. */
+    private static List<String> labels(final List<AuditEntry> entries) {
+        return entries.stream()
+                .map(entry -> (ALICE.equals(entry.subject().value()) ? "alice" : "bob") + "-"
+                        + entry.action().name().toLowerCase(Locale.ROOT).replaceAll("_.*", ""))
+                .toList();
+    }
+
+    private static List<JournalAction> actions(final List<AuditEntry> entries) {
+        return entries.stream().map(AuditEntry::action).toList();
+    }
+
+    /** Writes a paid payment request and returns its id; {@code matchedCents} is null for a booking by hand. */
+    private static UUID payment(
+            final String reference,
+            final String person,
+            final int days,
+            final Integer matchedCents,
+            final String matchedBy) {
+        return UUID.fromString(strings("""
+                        INSERT INTO payment_request (reference, discord_id, days, amount_cents, status, expires, settled,
+                                                     matched_cents, matched_by)
+                        VALUES ('%s', '%s', %d, 300, 'PAID', now() + interval '1 day', now(), %s, '%s')
+                        RETURNING id
+                        """.formatted(reference, person, days, matchedCents, matchedBy))
+                .getFirst());
+    }
+
+    /** Writes a finished run and returns its id. */
+    private static long run(final String kind, final String payload) {
+        return Long.parseLong(strings("""
+                        INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)
+                        VALUES ('%s', '%s', 'HOST', 'DONE', now())
+                        RETURNING id
+                        """.formatted(kind, payload)).getFirst());
+    }
+
+    private static List<String> strings(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(sql)) {
+            final List<String> values = new java.util.ArrayList<>();
+            while (rows.next()) {
+                values.add(rows.getString(1));
+            }
+            return values;
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test statement failed: " + sql, exception);
+        }
     }
 
     private static void execute(final String sql) {

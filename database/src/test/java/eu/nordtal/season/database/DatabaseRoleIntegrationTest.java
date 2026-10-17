@@ -48,6 +48,26 @@ class DatabaseRoleIntegrationTest {
         return new Case(role, sql, true);
     }
 
+    /** Steward and the bot append to the journal and read it back; no one changes or removes an entry. */
+    private static List<Case> journal() {
+        final List<Case> cases = new ArrayList<>();
+        for (final DatabaseRole role : LOGINS) {
+            final boolean journals = role == DatabaseRole.STEWARD || role == DatabaseRole.DISCORD_BOT;
+            cases.add(new Case(
+                    role, "INSERT INTO journal_entry (action, actor_kind) VALUES ('LINK', 'STEWARD')", journals));
+            // The bot draws the card of an entry steward wrote, with the run and the payment it names.
+            cases.add(new Case(
+                    role,
+                    "SELECT e.id, b.days, r.payload, p.reference FROM journal_entry e"
+                            + " LEFT JOIN journal_booking b ON b.entry = e.id LEFT JOIN steward_inbox r ON r.id = e.run"
+                            + " LEFT JOIN payment_request p ON p.id = e.payment WHERE false",
+                    journals));
+            cases.add(mayNot(role, "UPDATE journal_entry SET subject = subject WHERE false"));
+            cases.add(mayNot(role, "DELETE FROM journal_entry WHERE false"));
+        }
+        return cases;
+    }
+
     private static Case mayNot(final DatabaseRole role, final String sql) {
         return new Case(role, sql, false);
     }
@@ -92,13 +112,11 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {
-            cases.add(may(role, "INSERT INTO audit_log (action, actor_kind) VALUES ('X', 'STEWARD')"));
-            cases.add(mayNot(role, "UPDATE audit_log SET line = line WHERE false"));
-            cases.add(mayNot(role, "DELETE FROM audit_log WHERE false"));
             cases.add(mayNot(role, "SELECT count(*) FROM service_plugin"));
             cases.add(mayNot(role, "SELECT count(*) FROM plugin_file"));
             cases.add(new Case(role, WRITE_SETTING, role == DatabaseRole.STEWARD));
         }
+        cases.addAll(journal());
         cases.addAll(serverInboxes());
         cases.addAll(bankInbox());
         cases.addAll(registration());

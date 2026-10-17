@@ -9,6 +9,7 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -275,7 +276,11 @@ public class AccessBot implements AutoCloseable {
     private DiscordWiring wireDiscord(
             final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
         final AdminLog admin = new AdminLog(
-                jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()), core.messages());
+                jda,
+                accessConfig,
+                AuditDirectory.using(database.dataSource()),
+                AlertBook.using(database.dataSource()),
+                core.messages());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);
@@ -308,7 +313,6 @@ public class AccessBot implements AutoCloseable {
                 core.networkZone(),
                 admin::alert,
                 onboardingLane);
-        final Teams teams = new Teams(database.jdbi(), Game.HUNGER_GAMES);
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
@@ -324,7 +328,7 @@ public class AccessBot implements AutoCloseable {
                 bookings,
                 guildState,
                 adminRole,
-                teams,
+                new Teams(database.jdbi(), Game.HUNGER_GAMES),
                 purchaseFlow,
                 onboarding,
                 onboardingFlow,

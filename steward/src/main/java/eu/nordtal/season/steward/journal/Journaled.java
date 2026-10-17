@@ -7,7 +7,7 @@ import java.util.Objects;
 /**
  * The journal line a route writes once it has answered with success, declared where the route is registered.
  *
- * The handler names the line's values through {@link Journaling#line}; {@link Journaling#write} writes it.
+ * The handler names the entry's values through {@link Journaling#line}; {@link Journaling#write} writes it.
  */
 public record Journaled(JournalAction action) implements RouteRole {
 

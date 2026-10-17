@@ -50,7 +50,7 @@ public interface AdminTexts {
     ReportTexts report();
 
     /**
-     * One line per action, its values typed; the row stores the message, and each reader's target renders it.
+     * One line per action, rendered from the values of its journal entry when it is shown, by each reader's target.
      *
      * A value is named after the fact it states.
      */
@@ -87,9 +87,6 @@ public interface AdminTexts {
         @Name("Concerns, as a heading")
         @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef concerns();
-
-        @Name("A line from before typed values")
-        MessageRef written(@Arg("detail") String detail);
 
         @Name("First admin")
         MessageRef adminRoot();
@@ -164,10 +161,6 @@ public interface AdminTexts {
         @Name("Security key added")
         MessageRef registerKey(@Arg("label") String label);
 
-        /** The line written before a step-up chose how long it holds; the journal still shows those. */
-        @Name("Security key used")
-        MessageRef heldKey(@Arg("label") String label, @Arg("unlocked") boolean unlocked);
-
         @Name("Security key used")
         MessageRef heldKeyFor(
                 @Arg("label") String label, @Arg("unlocked") boolean unlocked, @Arg("hold") Duration hold);
@@ -186,10 +179,6 @@ public interface AdminTexts {
 
         @Name("Authenticator app removed")
         MessageRef removeAuthenticator(@Arg("keys") int keys);
-
-        /** The line written before an authenticator app could be cleared too; the journal still shows those. */
-        @Name("Security reset")
-        MessageRef forgetFactors(@Arg("keys") int keys, @Arg("sessions") int sessions);
 
         @Name("Security reset")
         MessageRef forgetEveryFactor(

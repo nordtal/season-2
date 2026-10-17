@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.audit.AuditEntry;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -31,7 +32,7 @@ class ActionsApiTest {
                 "{\"stage\":\"DONE\",\"services\":[],\"notes\":[]}");
     }
 
-    private static AuditEntry audit(final Instant occurred, final String action) {
+    private static AuditEntry audit(final Instant occurred, final JournalAction action) {
         return new AuditEntry(
                 UUID.randomUUID(), occurred, action, Actor.STEWARD, null, null, MessageRef.of("journal.link"));
     }
@@ -44,7 +45,7 @@ class ActionsApiTest {
 
         final ActionsApi api = new ActionsApi(
                 FakeDirectories.updates(run(1, t1, UpdateKind.UPDATE), run(2, t3, UpdateKind.BACKUP)),
-                FakeDirectories.audit(audit(t2, "GRANT_ACCESS")));
+                FakeDirectories.audit(audit(t2, JournalAction.GRANT_ACCESS)));
 
         final List<ActionEntry> entries = api.recent(5);
         assertEquals(3, entries.size());
@@ -84,7 +85,8 @@ class ActionsApiTest {
         final Instant now = Instant.parse("2026-09-16T12:00:00Z");
         final ActionsApi api = new ActionsApi(
                 FakeDirectories.updates(),
-                FakeDirectories.audit(audit(now, "HELD_KEY"), audit(now.minusSeconds(60), "GRANT_ACCESS")));
+                FakeDirectories.audit(
+                        audit(now, JournalAction.HELD_KEY), audit(now.minusSeconds(60), JournalAction.GRANT_ACCESS)));
 
         final List<ActionEntry> entries = api.recent(5);
         assertEquals(1, entries.size());

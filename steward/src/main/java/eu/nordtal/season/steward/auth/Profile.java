@@ -133,13 +133,12 @@ public final class Profile {
     private List<SecurityKey> keysOf(final DiscordId discordId) {
         final List<SecurityKey> listed = new ArrayList<>();
         for (final Credentials.Key key : credentials().of(discordId)) {
-            final String transports = key.transports();
             listed.add(new SecurityKey(
                     new ByteArray(key.credentialId()).getBase64Url(),
                     key.label(),
                     key.createdAt(),
                     key.lastUsedAt(),
-                    transports == null || transports.isBlank() ? null : List.of(transports.split(",")),
+                    key.transports().isEmpty() ? null : key.transports(),
                     key.backedUp()));
         }
         return listed;

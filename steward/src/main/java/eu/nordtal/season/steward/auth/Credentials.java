@@ -9,7 +9,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -76,9 +75,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
                 publicKey.getBytes(),
                 signatureCount,
                 label.trim(),
-                transports.isEmpty()
-                        ? null
-                        : transports.stream().map(AuthenticatorTransport::getId).collect(Collectors.joining(",")),
+                transports.stream().map(AuthenticatorTransport::getId).toList(),
                 backupEligible,
                 backedUp);
         log.info(
@@ -160,7 +157,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
             @ColumnName("public_key") byte[] publicKey,
             @ColumnName("signature_count") long signatureCount,
             String label,
-            @Nullable String transports,
+            List<String> transports,
             @ColumnName("backup_eligible") @Nullable Boolean backupEligible,
             @ColumnName("backed_up") @Nullable Boolean backedUp,
             @ColumnName("created_at") Instant createdAt,
@@ -189,13 +186,11 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
 
         @Override
         public Optional<Set<AuthenticatorTransport>> getTransports() {
-            if (transports == null || transports.isBlank()) {
+            if (transports.isEmpty()) {
                 return Optional.empty();
             }
             // `of` accepts a transport newer than this jar; it only goes back to a browser.
-            return Optional.of(Arrays.stream(transports.split(","))
-                    .map(String::trim)
-                    .filter(part -> !part.isEmpty())
+            return Optional.of(transports.stream()
                     .map(AuthenticatorTransport::of)
                     .collect(Collectors.toCollection(LinkedHashSet::new)));
         }

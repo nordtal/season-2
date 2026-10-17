@@ -47,21 +47,20 @@ public interface SessionDao {
     /** A fresh, signed-in row under a new id; see {@link Sessions#signIn}. */
     @SqlUpdate("""
             INSERT INTO steward_session
-                (id, discord_id, display_name, roles, csrf, created_at, expires_at)
-            VALUES (:id, :discordId, :displayName, :roles, :csrf, now(),
+                (id, discord_id, display_name, csrf, created_at, expires_at)
+            VALUES (:id, :discordId, :displayName, :csrf, now(),
                     now() + make_interval(secs => :seconds))
             """)
     void signIn(
             @Bind("id") String id,
             @Bind("discordId") DiscordId discordId,
             @Bind("displayName") String displayName,
-            @Bind("roles") String roles,
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
     /** The row stored under {@code id}, answered under the cookie's own id, which the table does not hold. */
     @SqlQuery("""
-            SELECT :cookie AS id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at,
+            SELECT :cookie AS id, discord_id, display_name, csrf, created_at, expires_at, verified_at,
                    step_up_until
             FROM steward_session
             WHERE id = :id

@@ -1,12 +1,14 @@
 package eu.nordtal.season.steward.auth;
 
 import eu.nordtal.season.common.id.DiscordId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,37 +19,59 @@ import org.jspecify.annotations.Nullable;
 @RegisterConstructorMapper(Credentials.Key.class)
 public interface CredentialDao {
 
+    /** Records a key and the transports it named, together. */
+    @Transaction
+    default void add(
+            final byte[] credentialId,
+            final DiscordId discordId,
+            final byte[] publicKey,
+            final long signatureCount,
+            final String label,
+            final Collection<String> transports,
+            final @Nullable Boolean backupEligible,
+            final @Nullable Boolean backedUp) {
+        addKey(credentialId, discordId, publicKey, signatureCount, label, backupEligible, backedUp);
+        addTransports(credentialId, transports.toArray(String[]::new));
+    }
+
     @SqlUpdate("""
             INSERT INTO steward_credential
-                (credential_id, discord_id, public_key, signature_count, label, transports,
-                 backup_eligible, backed_up, created_at)
-            VALUES (:credentialId, :discordId, :publicKey, :signatureCount, :label, :transports,
-                    :backupEligible, :backedUp, now())
+                (credential_id, discord_id, public_key, signature_count, label, backup_eligible, backed_up, created_at)
+            VALUES (:credentialId, :discordId, :publicKey, :signatureCount, :label, :backupEligible, :backedUp, now())
             """)
-    void add(
+    void addKey(
             @Bind("credentialId") byte[] credentialId,
             @Bind("discordId") DiscordId discordId,
             @Bind("publicKey") byte[] publicKey,
             @Bind("signatureCount") long signatureCount,
             @Bind("label") String label,
-            @Bind("transports") @Nullable String transports,
             @Bind("backupEligible") @Nullable Boolean backupEligible,
             @Bind("backedUp") @Nullable Boolean backedUp);
 
+    @SqlUpdate("""
+            INSERT INTO steward_credential_transport (credential_id, transport)
+            SELECT :credentialId, transport FROM unnest(:transports) AS transport
+            """)
+    void addTransports(@Bind("credentialId") byte[] credentialId, @Bind("transports") String[] transports);
+
     /** Every key of one account, in the order they were registered. */
     @SqlQuery("""
-            SELECT credential_id, discord_id, public_key, signature_count, label, transports,
+            SELECT credential_id, discord_id, public_key, signature_count, label,
+                   ARRAY(SELECT transport FROM steward_credential_transport t
+                         WHERE t.credential_id = c.credential_id ORDER BY transport) AS transports,
                    backup_eligible, backed_up, created_at, last_used_at
-            FROM steward_credential
+            FROM steward_credential c
             WHERE discord_id = :discordId
             ORDER BY created_at
             """)
     List<Credentials.Key> forAccount(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("""
-            SELECT credential_id, discord_id, public_key, signature_count, label, transports,
+            SELECT credential_id, discord_id, public_key, signature_count, label,
+                   ARRAY(SELECT transport FROM steward_credential_transport t
+                         WHERE t.credential_id = c.credential_id ORDER BY transport) AS transports,
                    backup_eligible, backed_up, created_at, last_used_at
-            FROM steward_credential
+            FROM steward_credential c
             WHERE credential_id = :credentialId
             """)
     Optional<Credentials.Key> byId(@Bind("credentialId") byte[] credentialId);

@@ -10,23 +10,18 @@ public final class Devices {
 
     private Devices() {}
 
-    /** A short name for the browser, or null; the interface draws its own words for that. */
-    static @Nullable String nameOf(final @Nullable String userAgent) {
+    /** The system and the browser, each null where it was not recognised; the interface draws its own words then. */
+    static Device of(final @Nullable String userAgent) {
         if (userAgent == null || userAgent.isBlank() || userAgent.length() > LONGEST) {
-            return null;
+            return new Device(null, null);
         }
-        final String platform = platformOf(userAgent);
-        final String browser = browserOf(userAgent);
-        if (platform == null && browser == null) {
-            return null;
-        }
-        if (platform == null) {
-            return browser;
-        }
-        return browser == null ? platform : platform + ", " + browser;
+        return new Device(systemOf(userAgent), browserOf(userAgent));
     }
 
-    private static @Nullable String platformOf(final String userAgent) {
+    /** A browser on a system, as far as its User-Agent tells. */
+    record Device(@Nullable String system, @Nullable String browser) {}
+
+    private static @Nullable String systemOf(final String userAgent) {
         if (userAgent.contains("iPhone")) {
             return "iPhone";
         }

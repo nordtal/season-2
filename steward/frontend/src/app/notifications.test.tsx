@@ -109,10 +109,11 @@ function backend(
         return json(
           200,
           over.devices ?? [
-            { endpoint: PHONE, device: "iPhone, Safari", subscribedAt: "2026-09-18T10:00:00Z" },
+            { endpoint: PHONE, system: "iPhone", browser: "Safari", subscribedAt: "2026-09-18T10:00:00Z" },
             {
               endpoint: LAPTOP,
-              device: "Linux, Chrome",
+              system: "Linux",
+              browser: "Chrome",
               subscribedAt: "2026-09-17T10:00:00Z",
               lastSentAt: "2026-09-19T08:00:00Z",
             },

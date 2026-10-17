@@ -11,7 +11,6 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -79,13 +78,12 @@ public final class Sessions {
      *
      * The caller {@link #end}s the row the sign-in started in and replaces the cookie.
      */
-    public String signIn(final DiscordId discordId, final String name, final List<String> roles) {
+    public String signIn(final DiscordId discordId, final String name) {
         final String id = random();
         dao.signIn(
                 stored(id),
                 Objects.requireNonNull(discordId, "discordId"),
                 Objects.requireNonNull(name, "name"),
-                String.join(",", roles),
                 random(),
                 seconds);
         log.info("signed in {} ({}) - session valid for {} days", name, discordId, seconds / 86400);
@@ -176,13 +174,12 @@ public final class Sessions {
     /**
      * One row of {@code steward_session}, as everything above the sign-in sees it.
      *
-     * {@code id} is the cookie's, not the stored hash; {@code roles} is a snapshot of the role ids held at sign-in.
+     * {@code id} is the cookie's, not the stored hash.
      */
     public record Session(
             String id,
             @ColumnName("discord_id") @Nullable DiscordId discordId,
             @ColumnName("display_name") @Nullable String displayName,
-            @Nullable String roles,
             String csrf,
             @ColumnName("created_at") Instant createdAt,
             @ColumnName("expires_at") Instant expiresAt,
@@ -209,16 +206,12 @@ public final class Sessions {
 
         public DiscordAuth.Account account() {
             return new DiscordAuth.Account(
-                    Objects.requireNonNull(discordId).value(), Objects.requireNonNull(displayName), roleList());
+                    Objects.requireNonNull(discordId).value(), Objects.requireNonNull(displayName));
         }
 
         /** Whether a security key has been held in this session at all, which is the door rather than the step-up. */
         public boolean verified() {
             return verifiedAt != null;
-        }
-
-        public List<String> roleList() {
-            return roles == null || roles.isBlank() ? List.of() : List.of(roles.split(","));
         }
     }
 }

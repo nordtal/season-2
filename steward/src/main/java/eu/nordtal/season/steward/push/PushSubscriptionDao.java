@@ -14,31 +14,33 @@ public interface PushSubscriptionDao {
 
     /** Subscribes a browser, or resubscribes it by endpoint and leaves {@code created_at} alone. */
     @SqlUpdate("""
-            INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, device)
-            VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :device)
+            INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, system, browser)
+            VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :system, :browser)
             ON CONFLICT (endpoint) DO UPDATE SET
                 discord_id = excluded.discord_id,
                 p256dh = excluded.p256dh,
                 auth = excluded.auth,
-                device = coalesce(excluded.device, steward_push_subscription.device)
+                system = coalesce(excluded.system, steward_push_subscription.system),
+                browser = coalesce(excluded.browser, steward_push_subscription.browser)
             """)
     void add(
             @Bind("endpoint") String endpoint,
             @Bind("discordId") DiscordId discordId,
             @Bind("p256dh") String p256dh,
             @Bind("auth") String auth,
-            @Bind("device") @Nullable String device);
+            @Bind("system") @Nullable String system,
+            @Bind("browser") @Nullable String browser);
 
     /** Every subscription, for {@code AlertRouter}. */
     @SqlQuery("""
-            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, system, browser
             FROM steward_push_subscription
             """)
     List<PushSubscriptions.Subscription> all();
 
     /** One account's own subscriptions, oldest first. */
     @SqlQuery("""
-            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, system, browser
             FROM steward_push_subscription
             WHERE discord_id = :discordId
             ORDER BY created_at
@@ -47,7 +49,7 @@ public interface PushSubscriptionDao {
 
     /** One subscription of one account, by endpoint; the account is checked since an endpoint is not a secret. */
     @SqlQuery("""
-            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, system, browser
             FROM steward_push_subscription
             WHERE endpoint = :endpoint AND discord_id = :discordId
             """)

@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.AuraDao;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraReason;
 import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -103,7 +104,7 @@ public final class GraveListener implements Listener {
         final Locale locale = identities.languageOf(player.getUniqueId());
 
         PaperScheduler.of(plugin).execute(() -> {
-            aura.addAura(discordId, delta, reason.stored(), cause);
+            aura.addAura(discordId, delta, new AuraCause.Death(reason, cause));
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
                     player.sendMessage(

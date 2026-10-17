@@ -13,7 +13,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.AuraReason;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -422,11 +422,11 @@ public final class Duels implements Arenas {
             return;
         }
         final int stake = config.duelStake();
-        final String type = duel.type().name();
+        final DuelType type = duel.type();
 
         PaperScheduler.of(plugin).execute(() -> {
-            aura.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
-            aura.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
+            aura.addAura(DiscordId.of(winner), stake, new AuraCause.Duel(true, type));
+            aura.addAura(DiscordId.of(loser), -stake, new AuraCause.Duel(false, type));
         });
     }
 

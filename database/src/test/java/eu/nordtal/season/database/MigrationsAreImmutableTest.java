@@ -169,6 +169,15 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V47__steward_s_old_role_is_gone.sql",
                 "95df58f668b5d3ee9aaae0efaf7e3257e26a90d604cf655591f88c9738713639");
+        FROZEN.put(
+                "V48__a_tie_names_its_winner_as_a_member.sql",
+                "b2739256a4b836d4f8d35900e5bb9705a35f3f5f8641eede9c009847d48c59ee");
+        FROZEN.put(
+                "V49__a_refused_tab_records_a_code_and_its_time.sql",
+                "9934a646695d8b6dea8b98c374beedf3c94203aa2f50bc5f6d204b51738b71ca");
+        FROZEN.put(
+                "V50__an_aura_change_records_its_cause_as_typed_values.sql",
+                "f23364d82220505b131983c64f4fcb63492ac5d79cd3d7b6ccc8bdb7ee571085");
     }
 
     @Test

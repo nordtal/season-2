@@ -209,8 +209,8 @@ describe("a file of colours, side by side", () => {
     const swatches = await screen.findAllByLabelText("Pick a colour")
     expect(swatches).toHaveLength(5)
 
-    /** Every swatch shares one row ancestor, the container `EntryList` builds for a run. */
-    const rows = new Set(swatches.map((swatch) => swatch.closest(".flex-wrap")))
+    /** Every swatch shares one row ancestor, the grid `EntryList` builds for a run. */
+    const rows = new Set(swatches.map((swatch) => swatch.closest(".grid")))
     expect(rows.size).toBe(1)
     expect(rows.has(null)).toBe(false)
   })

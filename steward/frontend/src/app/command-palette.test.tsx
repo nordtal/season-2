@@ -274,6 +274,11 @@ describe("CommandPalette - finding a run", () => {
     expect(screen.queryByText("Backups")).not.toBeNull()
   })
 
+  it("names a service once, not again as its route's parameter", async () => {
+    await search("smp")
+    expect(paletteItems()).toContain("smp")
+  })
+
   it('finds the failed backup run on "report"', async () => {
     vi.mocked(useRuns).mockReturnValue(queryResult([run()]))
     await search("report")

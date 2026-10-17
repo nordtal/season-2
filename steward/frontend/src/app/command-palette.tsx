@@ -168,9 +168,6 @@ export function CommandPalette() {
                   >
                     <Icon aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-                    <CommandShortcut className="truncate text-muted-foreground/70">
-                      {entry.params ? Object.values(entry.params).join(" ") : null}
-                    </CommandShortcut>
                   </CommandItem>
                 )
               })}

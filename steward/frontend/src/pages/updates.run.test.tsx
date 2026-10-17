@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdateRunPage } from "@/pages/operations"
@@ -173,6 +173,15 @@ describe("a run's figures wrap on a phone", () => {
     const figures = (await screen.findByText("Requested by")).closest("div")?.parentElement
     expect(figures?.textContent).toContain("Status")
     expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
+  })
+
+  it("names the run's outcome once, as its report's stage", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+
+    await screen.findByText("0.9.3")
+    const status = screen.getByText("Status").parentElement!
+    expect(within(status).getAllByText(/^done$/i)).toHaveLength(1)
   })
 })
 

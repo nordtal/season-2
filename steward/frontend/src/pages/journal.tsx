@@ -58,13 +58,13 @@ export function JournalTable({
     detail: t("steward.journal.detail"),
   }
   return (
-    <Table className="steward-table">
+    <Table className="steward-table table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[13rem]">{columns.when}</TableHead>
-          <TableHead className="w-[12rem]">{columns.action}</TableHead>
-          <TableHead className="w-[16rem]">{columns.actor}</TableHead>
-          {concerns ? <TableHead className="w-[14rem]">{columns.concerns}</TableHead> : null}
+          <TableHead className="w-[10.5rem]">{columns.when}</TableHead>
+          <TableHead className="w-[11rem]">{columns.action}</TableHead>
+          <TableHead className="w-[12rem]">{columns.actor}</TableHead>
+          {concerns ? <TableHead className="w-[12rem]">{columns.concerns}</TableHead> : null}
           <TableHead>{columns.detail}</TableHead>
         </TableRow>
       </TableHeader>

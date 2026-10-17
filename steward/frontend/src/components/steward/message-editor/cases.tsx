@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { PlusIcon, XIcon } from "@phosphor-icons/react"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
-import { choiceOf, choiceSource, type Choice, type Format, type Run } from "@/lib/rich-text"
+import { choiceOf, choiceSource, inside, type Choice, type Format, type Run, type Style } from "@/lib/rich-text"
 import { t } from "@/lib/texts"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,8 @@ export type CaseContext = {
   label: string
   /** The language edited, whose plural categories a plural offers. */
   language: string
+  /** The style the runs sit in, which each case field draws its own text inside. */
+  around?: Style
   disabled?: boolean
 }
 
@@ -51,6 +53,8 @@ export function ChoiceFields({
       {choices.map(({ index, choice }) => (
         <ChoiceCases
           key={index}
+          {...context}
+          around={inside(context.around ?? {}, runs[index].style)}
           choice={choice}
           outer={outer}
           onChange={(next) =>
@@ -62,7 +66,6 @@ export function ChoiceFields({
               }),
             )
           }
-          {...context}
         />
       ))}
     </div>

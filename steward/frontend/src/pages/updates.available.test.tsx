@@ -231,6 +231,24 @@ describe("the available card", () => {
     expect(screen.getByText(/incomplete/)).toBeTruthy()
   })
 
+  it("does not call a status it does not know a source it could not ask", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          hasWork: false,
+          hasFailures: true,
+          changes: [change({ artifact: "packetevents", status: "SOMETHING_NEW", failure: true })],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    await screen.findByText("packetevents")
+    expect(screen.getByText("unknown")).toBeTruthy()
+    expect(screen.queryByText("could not ask")).toBeNull()
+  })
+
   it("says what a run would install when nothing is installed yet", async () => {
     vi.stubGlobal(
       "fetch",

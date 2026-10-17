@@ -374,7 +374,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
   })
 
-  it("lays every phone card out in the same four slots, whatever the person holds", async () => {
+  it("lays every phone card out in the same five slots, whatever the person holds", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -395,8 +395,8 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     )
     draw(<AccessPage />)
 
-    /** The person and their roles, then access and play time; the Minecraft cell is part of the person. */
-    const card = ["top-start", "bottom-start", "off", "top-end", "bottom-end", "off"]
+    /** The person and their roles, then access and play time, the actions beside both; Minecraft is part of the person. */
+    const card = ["top-start", "bottom-start", "off", "top-end", "bottom-end", "action"]
     expect(slots(await rowFor("quiet"))).toEqual(card)
     expect(slots(await rowFor("player"))).toEqual(card)
   })
@@ -454,7 +454,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(access.textContent).toBe("never had access")
   })
 
-  it("leaves the actions off a phone's card, whose name leads to the page that has them", async () => {
+  it("keeps every action of the row on a phone's card, behind its one button", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
@@ -464,7 +464,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
         .closest("td"),
       "the actions cell",
     )
-    expect(actions.getAttribute("data-phone")).toBe("off")
+    expect(actions.getAttribute("data-phone")).toBe("action")
   })
 })
 

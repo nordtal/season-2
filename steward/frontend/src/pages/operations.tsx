@@ -384,21 +384,18 @@ function RunDetail({ run }: { run?: Run }) {
           <span className="font-heading text-xs font-medium text-muted-foreground">
             {t("steward.operations.status")}
           </span>
+          {/* A report's stage says what the run's status says, and more precisely. */}
           <div className="flex items-center gap-2">
-            {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
-            {report ? <StageBadge stage={report.stage} /> : null}
-          </div>
-          <span className="flex flex-col text-xs text-muted-foreground">
-            {run ? (
-              <>
-                <span>{runKind(run.kind)}</span>
-              </>
+            {report ? (
+              <StageBadge stage={report.stage} />
+            ) : run ? (
+              <RunStatus status={run.status} />
             ) : (
-              <>
-                <SkeletonText className="text-xs" width="medium" />
-                <SkeletonText className="text-xs" width="short" />
-              </>
+              <Skeleton className="h-5 w-20 rounded-full" />
             )}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {run ? runKind(run.kind) : <SkeletonText className="text-xs" width="medium" />}
           </span>
         </div>
 

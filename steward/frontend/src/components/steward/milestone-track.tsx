@@ -248,7 +248,7 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
               onUnlock()
             }}
           >
-            Unlock
+            {t("steward.game.unlock")}
           </Button>
         ) : null}
       </PopoverContent>

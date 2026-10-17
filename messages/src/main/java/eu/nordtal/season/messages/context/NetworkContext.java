@@ -8,8 +8,8 @@ import eu.nordtal.season.messages.value.Example;
  * @param name what a player reads for it
  */
 @ContextType(value = "network", name = "Network")
-public record NetworkContext(@Example("nordtal") String name) implements MessageContext {
+public record NetworkContext(@Example("Nordtal") String name) implements MessageContext {
 
     /** The network this code runs. */
-    public static final NetworkContext NORDTAL = new NetworkContext("nordtal");
+    public static final NetworkContext NORDTAL = new NetworkContext("Nordtal");
 }

@@ -52,7 +52,7 @@ export function StepUpHolding({ until }: { until: string | undefined }) {
   const now = useNow()
   if (!until || Date.parse(until) <= now) return null
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
+    <div className="flex items-center gap-2">
       <LockOpenIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 text-sm">{t("steward.keys.step-up-holds", { until })}</span>
       <Button type="button" variant="outline" size="sm" disabled={end.isPending} onClick={() => end.mutate()}>

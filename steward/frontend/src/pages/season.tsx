@@ -93,8 +93,8 @@ function PhaseCard({ season }: { season?: Season }) {
           return (
             <div
               key={phase.name}
-              className={`flex flex-wrap items-start justify-between gap-3 rounded-md border px-3 py-3 ${
-                active ? "border-primary/40 bg-primary/5" : "border-border"
+              className={`flex flex-wrap items-start justify-between gap-3 rounded-md px-3 py-3 ${
+                active ? "bg-primary/5" : ""
               }`}
             >
               <div className="flex min-w-0 flex-col gap-1">

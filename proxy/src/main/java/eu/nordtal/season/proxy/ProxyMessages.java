@@ -26,7 +26,7 @@ public interface ProxyMessages {
     interface Gate {
 
         @Name("Not linked")
-        MessageRef notLinked(@Arg("code") String code);
+        MessageRef notLinked(@Arg("code") @Example("K7QX") String code);
 
         @Name("Not member")
         MessageRef notMember();

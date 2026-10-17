@@ -350,16 +350,16 @@ public interface AdminTexts {
 
         @Name("Why a run failed, about one service")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
-        MessageRef failure(@Arg("service") String service, @Arg("what") MessageRef what);
+        MessageRef failure(@Arg("service") @Example("smp") String service, @Arg("what") MessageRef what);
 
         @Name("No services")
         MessageRef noServices();
 
         @Name("A service is not running")
-        MessageRef notRunning(@Arg("service") String service);
+        MessageRef notRunning(@Arg("service") @Example("smp") String service);
 
         @Name("A service is unhealthy")
-        MessageRef unhealthy(@Arg("service") String service);
+        MessageRef unhealthy(@Arg("service") @Example("smp") String service);
 
         @Name("Failing healthcheck")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED})
@@ -370,7 +370,7 @@ public interface AdminTexts {
         MessageRef dockerState(@Arg("state") String state);
 
         @Name("A one-shot service failed")
-        MessageRef failedOnce(@Arg("service") String service, @Arg("code") int code);
+        MessageRef failedOnce(@Arg("service") @Example("smp") String service, @Arg("code") int code);
 
         @Name("Older images")
         MessageRef olderImage(@Arg("services") List<String> services, @Arg("count") int count);

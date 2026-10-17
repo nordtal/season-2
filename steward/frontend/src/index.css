@@ -289,7 +289,8 @@
    * While its box is narrower than `--container-rows` a table row becomes a card of "name: value" lines, the name from `data-label`.
    *
    * A cell without `data-label` spans the full width, as an action cell wants; one with `data-phone="off"` is left out.
-   * A row whose cells name a slot (`top-start`, `top-end`, `bottom-start`, `bottom-end`) is a card of two fixed lines.
+   * A row whose cells name a slot (`top-start`, `top-end`, `bottom-start`, `bottom-end`) is a card of two fixed lines,
+   * with an `action` cell beside both.
    */
 }
 
@@ -355,7 +356,7 @@
     line-height: 1.25rem;
   }
 
-  /* `text-right` aligns against a column that no longer exists. */
+  /* `text-right` aligns against a column that no longer exists, and so does the `ml-auto` of a waiting value. */
   .steward-table td {
     justify-items: start;
   }
@@ -363,6 +364,7 @@
   /* Bounds a child to its grid area, since `justify-items: start` sizes it to content. */
   .steward-table td > * {
     max-width: 100%;
+    margin-inline-start: 0;
   }
 
   /* Puts every child in column 2, beside the label, however many there are. */
@@ -372,17 +374,13 @@
 
   /* A row of slots: the same two lines on every card, whatever its cells hold, each cell without its label. */
   .steward-table tbody tr:has(> td[data-phone$="-start"]) {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) fit-content(50%) auto;
+    grid-template-areas:
+      "top-start top-end action"
+      "bottom-start bottom-end action";
     column-gap: 0.75rem;
     padding-block: 0.5rem;
-  }
-
-  /* Ends the first line, so the second starts on its own whatever the first leaves free. */
-  .steward-table tbody tr:has(> td[data-phone$="-start"])::after {
-    content: "";
-    order: 3;
-    flex-basis: 100%;
   }
 
   .steward-table tbody tr:has(> td[data-phone$="-start"]) > td {
@@ -391,32 +389,39 @@
     padding-block: 0;
   }
 
-  .steward-table td[data-phone$="-start"] {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  /* An end slot takes what it needs, up to half its line, and wraps inside beyond that. */
+  /* An end slot takes what it needs, up to half the card, and wraps inside beyond that. */
   .steward-table td[data-phone$="-end"] {
-    flex: 0 1 auto;
-    max-width: 50%;
     justify-items: end;
   }
 
   .steward-table td[data-phone="top-start"] {
-    order: 1;
+    grid-area: top-start;
   }
 
   .steward-table td[data-phone="top-end"] {
-    order: 2;
+    grid-area: top-end;
   }
 
   .steward-table td[data-phone="bottom-start"] {
-    order: 4;
+    grid-area: bottom-start;
   }
 
   .steward-table td[data-phone="bottom-end"] {
-    order: 5;
+    grid-area: bottom-end;
+  }
+
+  /* The row's actions beside both lines, as one trigger without a border of its own inside the card's. */
+  .steward-table td[data-phone="action"] {
+    grid-area: action;
+    align-self: center;
+  }
+
+  .steward-table td[data-phone="action"] button {
+    border-color: transparent;
+  }
+
+  .steward-table td[data-phone="action"] button:not(:hover) {
+    background: transparent;
   }
 
   .steward-table td[data-phone$="-start"]::before,

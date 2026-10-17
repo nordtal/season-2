@@ -597,4 +597,29 @@ describe("a plural as its cases", () => {
 
     expect((await source("Days")).value).toBe("{n, plural, =0 {# days} other {# days}}")
   })
+
+  it("draws its cases in the tone around the plural", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing(
+          [
+            text({
+              texts: { en: ["<good>{n, plural, one {# day} other {# days}}</good>"] },
+              key: "days",
+              name: "Days",
+              format: "MINIMESSAGE",
+              args: [{ name: "n", kind: "number", global: false, action: false, exampleWords: {} }],
+            }),
+          ],
+          { colours: { smp: { good: "#123456" } } },
+        ),
+      ),
+    )
+    draw(<Page service="smp" />)
+    await openKey("Days")
+
+    const one = await screen.findByRole("textbox", { name: "Days one" })
+    expect(within(one).getByText("day").style.color).toBe("rgb(18, 52, 86)")
+  })
 })

@@ -2,11 +2,15 @@ package eu.nordtal.season.stewardagent.schema;
 
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.settings.Database;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.EnumMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one place in this deployment that applies the schema, from {@code classpath:db/migration}.
@@ -54,6 +58,20 @@ public final class Schema {
     /** Returns the variable a role's password is read from. */
     public static String passwordVariable(final DatabaseRole role) {
         return "NORDTAL_STEWARD_AGENT_DATABASE_" + role.name() + "_PASSWORD";
+    }
+
+    /** The version the database's schema is at, or none when it could not be read or has no history yet. */
+    public static @Nullable String version(final Database database) {
+        try (Connection connection = database.dataSource().getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet row = statement.executeQuery(
+                        "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL"
+                                + " ORDER BY installed_rank DESC LIMIT 1")) {
+            return row.next() ? row.getString(1) : null;
+        } catch (final SQLException unread) {
+            log.warn("Could not read the schema's version: {}", unread.getMessage());
+            return null;
+        }
     }
 
     /**

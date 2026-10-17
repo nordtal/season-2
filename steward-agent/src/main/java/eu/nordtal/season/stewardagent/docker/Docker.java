@@ -8,7 +8,10 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -401,28 +404,43 @@ public final class Docker {
     /**
      * Removes every image no container uses, then the build cache nothing references.
      *
-     * @return how many images went and how many bytes both freed
+     * @return how many images went, each one listed before by its id and size, and how many bytes both freed
      */
     public Pruned prune() {
+        final Map<String, Long> sizes = new HashMap<>();
+        for (final JsonElement listed : Json.decode(socket.send("GET", "/images/json", null), JsonArray.class)) {
+            final JsonObject image = listed.getAsJsonObject();
+            sizes.put(image.get("Id").getAsString(), image.get("Size").getAsLong());
+        }
         final JsonObject images = Json.decode(
                 socket.send("POST", "/images/prune?filters=" + PRUNE_ALL_UNUSED, null, PRUNE_DEADLINE),
                 JsonObject.class);
         final JsonObject cache =
                 Json.decode(socket.send("POST", "/build/prune", null, PRUNE_DEADLINE), JsonObject.class);
         int deleted = 0;
+        final Map<String, Long> removed = new LinkedHashMap<>();
         final JsonArray gone = images.getAsJsonArray("ImagesDeleted");
         if (gone != null) {
             for (final JsonElement entry : gone) {
                 if (entry.isJsonObject() && entry.getAsJsonObject().has("Deleted")) {
                     deleted++;
+                    final String id = entry.getAsJsonObject().get("Deleted").getAsString();
+                    // A layer of an image is deleted too, but only an image the list showed has a size of its own.
+                    if (sizes.containsKey(id)) {
+                        removed.put(id, sizes.get(id));
+                    }
                 }
             }
         }
-        return new Pruned(deleted, reclaimed(images) + reclaimed(cache));
+        return new Pruned(deleted, removed, reclaimed(images) + reclaimed(cache));
     }
 
-    /** What {@link #prune} removed. */
-    public record Pruned(int images, long freedBytes) {}
+    /**
+     * What {@link #prune} removed.
+     *
+     * @param removed the images among them that were listed, by id, with their size
+     */
+    public record Pruned(int images, Map<String, Long> removed, long freedBytes) {}
 
     private static long reclaimed(final JsonObject answer) {
         final JsonElement bytes = answer.get("SpaceReclaimed");

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,10 +144,10 @@ final class LocalStack implements ContainerOps {
                     "pruned {} unused images and the build cache, freeing {} bytes",
                     pruned.images(),
                     pruned.freedBytes());
-            return new Pruned(pruned.images(), pruned.freedBytes(), null);
+            return new Pruned(pruned.images(), pruned.removed(), pruned.freedBytes(), null);
         } catch (final DockerException refused) {
             log.warn("pruning the unused images failed: {}", refused.getMessage());
-            return new Pruned(0, 0, String.valueOf(refused.getMessage()));
+            return new Pruned(0, Map.of(), 0, String.valueOf(refused.getMessage()));
         }
     }
 

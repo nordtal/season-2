@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.time.Duration;
@@ -125,7 +126,7 @@ class ChoreographyTest {
         final Counts counts = new Counts().on("smp", 0);
         final Choreography choreography = new Choreography(new FakeContainers(), counts, driven());
 
-        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")));
+        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")).notes());
     }
 
     @Test
@@ -135,7 +136,7 @@ class ChoreographyTest {
         clock.onSleep(() -> counts.on("smp", 0));
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
-        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")));
+        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")).notes());
         assertEquals(
                 Duration.ofSeconds(1),
                 clock.slept(),
@@ -148,8 +149,10 @@ class ChoreographyTest {
         final Driven clock = driven();
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
-        final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
+        final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
+        final String said = Told.joined(left.notes());
 
+        assertEquals(RunStep.Reason.PLAYERS_STAYED, left.reason());
         assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
         assertEquals("PLAYERS WARNING smp: stopped with 1 player still on after 10s", said);
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
@@ -160,8 +163,10 @@ class ChoreographyTest {
         // The failure this Optional exists for: a proxy that stopped writing must never be read as "zero players".
         final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
-        final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
+        final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
+        final String said = Told.joined(left.notes());
 
+        assertEquals(RunStep.Reason.PLAYERS_UNKNOWN, left.reason(), "unknown is not the same as somebody stayed");
         assertFalse(said.isEmpty());
         assertEquals("PLAYERS WARNING smp: no recent player count, stopped after 10s", said);
     }

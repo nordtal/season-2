@@ -5,22 +5,22 @@ audit log, payments, update runs, the inboxes, the signal hub and the migrations
 `src/main/resources/db/migration`. JDBI, HikariCP and the driver are `compileOnly`, so a consumer
 brings the runtime it already has; this module never migrates.
 
-| piece          | what it is                                                                                                              |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Access         | read through `AccessReader`, written through `AccessDirectory`; plugins and the proxy only read                         |
-| Player card    | `PlayerCard` builds the hover every name carries (role, `Prestige` crest, play time) from a process's `PlayerIdentity`  |
-| Refused writes | `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`) and a message of the `messages/database` bundle    |
-| Signals        | one `SignalHub` per process, the only `LISTEN` connection, one refresh per `Channel`                                    |
-| Game data      | `GameDataStore`: each server's `GameCatalogue` and the icons drawn per Minecraft version; `GameCatalogue.union` merges  |
-| Command trees  | `CommandTreeStore`: each server's `CommandTree` flattened into indexed nodes; `CommandTree.of` is the one walk          |
-| Registration   | discord-bot's: a round per `Game` with its teams; the game server moves the round's `RegistrationState`                 |
-| Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind's record is a row of its own table or JSON           |
-| Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                              |
-| Journal        | `Journal.write` is the only writer of `journal_entry`; a `JournalDetail` writes its family's table and renders its line |
-| Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s              |
-| Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language         |
-| Season phase   | one row every process follows on its hub                                                                                |
-| Runs           | a request in `steward_inbox`, one open at a time by a unique index; its outcome is an `UpdateReport`, its notes records |
+| piece          | what it is                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access         | read through `AccessReader`, written through `AccessDirectory`; plugins and the proxy only read                                                                                       |
+| Player card    | `PlayerCard` builds the hover every name carries (role, `Prestige` crest, play time) from a process's `PlayerIdentity`                                                                |
+| Refused writes | `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`) and a message of the `messages/database` bundle                                                                  |
+| Signals        | one `SignalHub` per process, the only `LISTEN` connection, one refresh per `Channel`                                                                                                  |
+| Game data      | `GameDataStore`: each server's `GameCatalogue` and the icons drawn per Minecraft version; `GameCatalogue.union` merges                                                                |
+| Command trees  | `CommandTreeStore`: each server's `CommandTree` flattened into indexed nodes; `CommandTree.of` is the one walk                                                                        |
+| Registration   | discord-bot's: a round per `Game` with its teams; the game server moves the round's `RegistrationState`                                                                               |
+| Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind's record is a row of its own table or JSON                                                                         |
+| Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                                                                                            |
+| Journal        | `Journal.write` is the only writer of `journal_entry`; a `JournalDetail` writes its family's table and renders its line                                                               |
+| Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s                                                                            |
+| Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language                                                                       |
+| Season phase   | one row every process follows on its hub                                                                                                                                              |
+| Runs           | a request in `steward_inbox`, one open at a time by a unique index; its steps and their facts are rows a `RunRecorder` writes, beside the `UpdateReport` still written as its outcome |
 
 ## Conventions
 

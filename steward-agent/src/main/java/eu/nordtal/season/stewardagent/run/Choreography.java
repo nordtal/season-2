@@ -3,6 +3,7 @@ package eu.nordtal.season.stewardagent.run;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -49,14 +50,23 @@ final class Choreography {
     private final ContainerOps containers;
     private final Occupancy occupancy;
     private final Waiting clock;
+    private final Steps record;
 
     /** What this run has started and not yet stopped, so {@link #close} can be called twice. */
     private final Set<String> standing = new LinkedHashSet<>();
 
+    /** The step each standby is coming up in, until it is healthy or the window is refused. */
+    private final Map<String, Steps.Step> comingUp = new LinkedHashMap<>();
+
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
+        this(containers, occupancy, clock, Steps.NONE);
+    }
+
+    Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock, final Steps record) {
         this.containers = containers;
         this.occupancy = occupancy;
         this.clock = clock;
+        this.record = record;
     }
 
     /**
@@ -86,12 +96,15 @@ final class Choreography {
 
         for (final String standby : wanted) {
             // Never a pull over an image that is here: the standby must run its live service's, often one built here.
+            final Steps.Step up = record.begin(RunStep.Kind.STANDBY_UP, standby);
             final RedeployResult made = containers.standby(standby);
             if (!made.triggered()) {
+                up.failed(RunStep.Reason.REFUSED);
                 return refuse(List.of(Note.failed(Step.STANDBY, TEXTS.report().standbyNotStarted(made.message()))
                         .on(standby)));
             }
             standing.add(standby);
+            comingUp.put(standby, up);
         }
 
         final List<Note> late = waitHealthy(wanted);
@@ -115,13 +128,18 @@ final class Choreography {
             // One snapshot per iteration, asked about every pending service.
             final RuntimeResult seen = containers.runtime();
             if (seen.reached()) {
-                pending.removeIf(standby ->
-                        seen.service(standby).map(ServiceRuntime::isBack).orElse(false));
+                for (final String standby : List.copyOf(pending)) {
+                    if (seen.service(standby).map(ServiceRuntime::isBack).orElse(false)) {
+                        pending.remove(standby);
+                        cameUp(standby, RunStep.Outcome.DONE, null);
+                    }
+                }
             }
             if (pending.isEmpty()) {
                 return List.of();
             }
             if (!clock.now().isBefore(deadline)) {
+                pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY));
                 return pending.stream()
                         .map(standby -> Note.failed(
                                         Step.STANDBY,
@@ -134,9 +152,18 @@ final class Choreography {
                         .toList();
             }
             if (!clock.sleep(STANDBY_HEALTH_POLL)) {
+                pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.INTERRUPTED));
                 return Note.failed(Step.STANDBY, TEXTS.report().standbysInterrupted())
                         .each(List.copyOf(pending));
             }
+        }
+    }
+
+    /** Ends the step a standby came up in, once. */
+    private void cameUp(final String standby, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {
+        final Steps.Step up = comingUp.remove(standby);
+        if (up != null) {
+            up.end(outcome, reason);
         }
     }
 
@@ -144,13 +171,13 @@ final class Choreography {
      * Waits until nobody is on the services about to stop, and gives up after {@link #EMPTY_CAP}.
      *
      * @param moving the services this run is going to stop
-     * @return nothing when the run may stop them silently, or the notes for the report
+     * @return how the wait ended, with the notes for the report when the run may not stop them silently
      */
-    List<Note> waitUntilEmpty(final Collection<String> moving) {
+    Left waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
                 moving.stream().filter(this::canCarryPlayers).toList();
         if (watched.isEmpty()) {
-            return List.of();
+            return Left.EMPTY;
         }
 
         final Instant deadline = clock.now().plus(EMPTY_CAP);
@@ -167,14 +194,18 @@ final class Choreography {
                 }
             }
             if (occupied.isEmpty() && unknown.isEmpty()) {
-                return List.of();
+                return Left.EMPTY;
             }
             if (!now.isBefore(deadline)) {
-                return stoppedAnyway(occupied, unknown);
+                return new Left(
+                        stoppedAnyway(occupied, unknown),
+                        occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
             }
             if (!clock.sleep(EMPTY_POLL)) {
-                return Note.warning(Step.PLAYERS, TEXTS.report().evacuationInterrupted())
-                        .each(watched);
+                return new Left(
+                        Note.warning(Step.PLAYERS, TEXTS.report().evacuationInterrupted())
+                                .each(watched),
+                        RunStep.Reason.INTERRUPTED);
             }
         }
     }
@@ -207,12 +238,14 @@ final class Choreography {
         }
         final List<Note> said = new ArrayList<>();
         for (final String standby : List.copyOf(standing)) {
+            final Steps.Step down = record.begin(RunStep.Kind.STANDBY_DOWN, standby);
             final Drained waited = waitDrained(standby);
             final RuntimeResult runtime = containers.runtime();
             final String id = runtime.reached()
                     ? runtime.service(standby).map(ServiceRuntime::containerId).orElse(null)
                     : null;
             if (id == null) {
+                down.failed(RunStep.Reason.NO_CONTAINER);
                 said.add(Note.failed(Step.STANDBY, TEXTS.report().standbyNoContainer())
                         .on(standby));
                 standing.remove(standby);
@@ -224,12 +257,16 @@ final class Choreography {
             containers.handOverMounts(standby);
             final Note note;
             if (!stopped.triggered()) {
+                down.failed(RunStep.Reason.REFUSED);
                 note = Note.failed(Step.STANDBY, TEXTS.report().standbyNotStopped(stopped.message()));
             } else if (waited == null) {
+                down.done();
                 note = Note.done(Step.STANDBY, TEXTS.report().standbyStopped());
             } else if (waited.interrupted()) {
+                down.warned(RunStep.Reason.INTERRUPTED);
                 note = Note.warning(Step.STANDBY, TEXTS.report().standbyStoppedInterrupted(waited.players()));
             } else {
+                down.warned(RunStep.Reason.PLAYERS_STAYED);
                 note = Note.warning(
                         Step.STANDBY,
                         TEXTS.report().standbyStoppedWithPlayers(waited.players(), STANDBY_DRAINS_WITHIN.toSeconds()));
@@ -282,6 +319,25 @@ final class Choreography {
 
         boolean isEmpty() {
             return standbys.isEmpty();
+        }
+    }
+
+    /**
+     * How the wait for the players ended.
+     *
+     * @param notes what the report says, empty when everybody left in time
+     * @param reason why the run stopped them anyway, or none when they were empty
+     */
+    record Left(List<Note> notes, RunStep.@Nullable Reason reason) {
+
+        static final Left EMPTY = new Left(List.of(), null);
+
+        Left {
+            notes = List.copyOf(notes);
+        }
+
+        RunStep.Outcome outcome() {
+            return reason == null ? RunStep.Outcome.DONE : RunStep.Outcome.WARNING;
         }
     }
 

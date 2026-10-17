@@ -25,7 +25,8 @@ class HomecomingTest {
                     java.util.Locale.ENGLISH,
                     java.util.Locale.GERMAN)),
             new eu.nordtal.season.proxy.gate.LoginRoster(),
-            SERVERS);
+            SERVERS,
+            eu.nordtal.season.database.update.RunRecorder.NONE);
 
     // who is owed a sentence
 

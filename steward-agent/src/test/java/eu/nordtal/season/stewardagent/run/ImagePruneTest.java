@@ -23,7 +23,8 @@ class ImagePruneTest {
         final UpdateRun.Stopped stopped =
                 new UpdateRun.Stopped(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of(), containers.runtime());
 
-        final Run.Done done = Kinds.pruningImages(containers, Run.Payload.NONE).carryOut(steps, stopped);
+        final Run.Done done =
+                Kinds.pruningImages(containers, Run.Payload.NONE, Steps.NONE).carryOut(steps, stopped);
 
         assertEquals(List.of(), containers.calls, "nothing is pruned while the servers are down");
 

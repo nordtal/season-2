@@ -88,4 +88,19 @@ class OffsiteCopyTest {
         assertTrue(target.toString().contains("sftp://box/x"));
         assertFalse(target.toString().contains("hunter2"));
     }
+
+    @Test
+    void theSummaryNamesTheSnapshotAndWhatTheRepositoryGrewBy() {
+        final List<String> said = List.of(
+                "{\"message_type\":\"status\",\"percent_done\":1}",
+                "{\"message_type\":\"summary\",\"data_added\":900,\"data_added_packed\":400,"
+                        + "\"snapshot_id\":\"4f1c2d\"}");
+
+        assertEquals(Optional.of(new OffsiteCopy.Summary("4f1c2d", 400)), OffsiteCopy.summary(said));
+        assertEquals(
+                Optional.of(new OffsiteCopy.Summary("4f1c2d", 900)),
+                OffsiteCopy.summary(
+                        List.of("{\"message_type\":\"summary\",\"data_added\":900,\"snapshot_id\":\"4f1c2d\"}")));
+        assertEquals(Optional.empty(), OffsiteCopy.summary(List.of("{\"message_type\":\"summary\",\"data_added\":0}")));
+    }
 }

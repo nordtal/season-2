@@ -193,6 +193,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V60__the_journal_is_entries_with_typed_detail_rows.sql",
                 "a884647a284a6b27c393eeb583966557097e1db7d178a443bb7db283e4332343");
+        FROZEN.put(
+                "V70__a_run_s_steps_and_facts_are_rows.sql",
+                "d9b616c9b269fe9dce81d54e86fa9f6d5fca70459a4d3dedeba7394e374f90e0");
     }
 
     @Test

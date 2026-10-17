@@ -2,13 +2,18 @@ package eu.nordtal.season.stewardagent.run;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /** How an apply went, written into a report; an update run and the start-up install both write theirs this way. */
@@ -34,6 +39,52 @@ final class Installed {
                             : report.line(service).failed(failure));
         }
         return report;
+    }
+
+    /**
+     * Writes one install step per service the apply touched, and one of no service for the pack.
+     *
+     * Each names the artefacts it put in, with the versions the plan moved them from and to.
+     */
+    static void record(
+            final Steps record,
+            final UpdateReport planned,
+            final ApplyResult result,
+            final Collection<String> services) {
+        final Map<@Nullable String, List<ApplyResult.Outcome>> bySource = new LinkedHashMap<>();
+        for (final ApplyResult.Outcome outcome : result.outcomes()) {
+            if (outcome.service() == null || services.contains(outcome.service())) {
+                bySource.computeIfAbsent(outcome.service(), service -> new ArrayList<>())
+                        .add(outcome);
+            }
+        }
+        bySource.forEach((service, outcomes) -> {
+            final Steps.Step step = record.begin(RunStep.Kind.INSTALL, service);
+            for (final ApplyResult.Outcome outcome : outcomes) {
+                final UpdateReport.Change moved = service == null ? null : moving(planned, service, outcome.artifact());
+                step.change(
+                        outcome.artifact(),
+                        moved == null ? null : moved.from(),
+                        moved == null || UpdateReport.Change.NONE.equals(moved.to()) ? null : moved.to(),
+                        null);
+            }
+            if (outcomes.stream().anyMatch(Installed::didNotGoIn)) {
+                step.failed(RunStep.Reason.TOOL_FAILED);
+            } else {
+                step.done();
+            }
+        });
+    }
+
+    private static UpdateReport.@Nullable Change moving(
+            final UpdateReport planned, final String service, final String artefact) {
+        return planned.services().stream()
+                .filter(line -> line.service().equals(service))
+                .flatMap(line -> line.changes().stream())
+                .filter(change -> change.state() == UpdateReport.Change.State.MOVING)
+                .filter(change -> change.artefact().equals(artefact))
+                .findFirst()
+                .orElse(null);
     }
 
     /** Why one service's install did not happen, or {@code null} when it did, counting {@code SKIPPED} as failed. */

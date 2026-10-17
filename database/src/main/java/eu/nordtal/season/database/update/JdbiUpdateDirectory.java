@@ -28,11 +28,15 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     private static final String ONE_OPEN = "steward_inbox_one_open";
 
     private final UpdateDao dao;
+    private final RunStepDao steps;
+    private final RunRecorder recorder;
     private final Inbox<StewardRequest> inbox;
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.dao = Jdbis.over(dataSource).onDemand(UpdateDao.class);
+        this.steps = Jdbis.over(dataSource).onDemand(RunStepDao.class);
+        this.recorder = new JdbiRunRecorder(dataSource);
         this.inbox = Inbox.over(dataSource, StewardRequest.TABLE);
     }
 
@@ -57,7 +61,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
         final Duration wait = delay == null || delay.isNegative() ? Duration.ZERO : delay;
         try {
-            return run(inbox.submit(request, actor, Schedule.after(wait)));
+            return named(inbox.submit(request, actor, Schedule.after(wait)));
         } catch (final RuntimeException refused) {
             if (!String.valueOf(refused.getMessage()).contains(ONE_OPEN)) {
                 throw refused;
@@ -79,7 +83,22 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         }
         final Outcome outcome =
                 status == UpdateStatus.DONE ? Outcome.done(answer(result)) : Outcome.failed(answer(result));
-        return run(inbox.record(request, actor, outcome, took.isNegative() ? Duration.ZERO : took));
+        final UpdateRequest recorded =
+                named(inbox.record(request, actor, outcome, took.isNegative() ? Duration.ZERO : took));
+        staged(recorded.id(), result);
+        return recorded;
+    }
+
+    /** Returns the run with the services its request names written beside it. */
+    private UpdateRequest named(final Request<StewardRequest> request) {
+        steps.named(request.id(), request.payload().services().toArray(String[]::new));
+        return run(request);
+    }
+
+    /** Writes the stage of the report on the run's row, which a reader of the row needs no report for. */
+    private void staged(final long id, final String result) {
+        UpdateReports.parse(result)
+                .ifPresent(report -> steps.stage(id, report.stage().name()));
     }
 
     /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
@@ -186,19 +205,28 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         }
         final Outcome outcome =
                 status == UpdateStatus.DONE ? Outcome.done(answer(result)) : Outcome.failed(answer(result));
-        return inbox.settle(id, outcome).map(this::run);
+        final Optional<UpdateRequest> settled = inbox.settle(id, outcome).map(this::run);
+        settled.ifPresent(row -> staged(id, result));
+        return settled;
     }
 
     @Override
     public boolean progress(final long id, final String result) {
-        return inbox.progress(id, answer(result));
+        final boolean written = inbox.progress(id, answer(result));
+        if (written) {
+            staged(id, result);
+        }
+        return written;
     }
 
     @Override
     public Optional<UpdateRequest> startCountdown(
             final long id, final Duration length, final java.util.Collection<String> moving) {
         Objects.requireNonNull(length, "length");
-        return dao.startCountdown(id, Math.max(0L, length.toSeconds()), moving.toArray(String[]::new));
+        final Optional<UpdateRequest> counting =
+                dao.startCountdown(id, Math.max(0L, length.toSeconds()), moving.toArray(String[]::new));
+        counting.ifPresent(row -> steps.moving(id, moving.toArray(String[]::new)));
+        return counting;
     }
 
     @Override
@@ -238,7 +266,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                 .filter(handed -> stillRunning.test(handed.runner()))
                 .map(UpdateDao.Handed::id)
                 .toList();
-        return inbox.settleOrphans(failedFor(why), spared);
+        final int settled = inbox.settleOrphans(failedFor(why), spared);
+        steps.failedStages();
+        return settled;
     }
 
     @Override
@@ -264,6 +294,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public void putBack(final String row, final MessageRef why) {
         inbox.putBack(row, failedFor(why));
+        steps.failedStages();
+    }
+
+    @Override
+    public RunRecorder recorder() {
+        return recorder;
     }
 
     /** A failed report whose one note says why, which every reader of a run draws like any other. */

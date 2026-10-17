@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.update.ByteSize;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Act;
 import eu.nordtal.season.database.update.UpdateReport.Facts;
@@ -36,6 +37,9 @@ final class UpdateRun {
     /** How long a service may take to come back before the run calls it a failure: a cold start plus a heartbeat. */
     static final Duration HEALTH_PATIENCE = Duration.ofMinutes(5);
 
+    /** The artefact a container made again changes, as its run_change row names it. */
+    static final String IMAGE = "image";
+
     /** How often the runtime is re-read while waiting: one call over the local socket. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
@@ -45,6 +49,9 @@ final class UpdateRun {
     private final ContainerOps containers;
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
+
+    /** Where each step is written as a row. */
+    final Steps record;
 
     /** Stops this run made whose ending nobody could read, in order; see {@link Snapshots#markUnverified}. */
     private final List<String> unverifiedStops = new ArrayList<>();
@@ -61,10 +68,20 @@ final class UpdateRun {
             final ContainerOps containers,
             final Snapshots snapshots,
             final Consumer<UpdateReport> progress) {
+        this(run, containers, snapshots, progress, Steps.NONE);
+    }
+
+    UpdateRun(
+            final long run,
+            final ContainerOps containers,
+            final Snapshots snapshots,
+            final Consumer<UpdateReport> progress,
+            final Steps record) {
         this.run = run;
         this.containers = containers;
         this.snapshots = snapshots;
         this.progress = progress;
+        this.record = record;
     }
 
     /** Reads the project's runtime, or hands back the reason the run must not start, before anything moves. */
@@ -91,22 +108,27 @@ final class UpdateRun {
                 // Not a service: `database` is not the compose service (`postgres`), so looking it up finds nothing.
                 continue;
             }
+            final Steps.Step step = record.begin(RunStep.Kind.STOP, line.service());
             final ServiceRuntime service = runtime.service(line.service()).orElse(null);
             if (service == null || service.containerId() == null) {
+                step.failed(RunStep.Reason.NO_CONTAINER);
                 report = report.with(line.failed(Facts.refused(Act.STOP, null)));
                 progress.accept(report);
                 continue;
             }
             final RedeployResult result = containers.stop(service.containerId());
             if (!result.triggered()) {
+                step.failed(RunStep.Reason.REFUSED);
                 report = report.with(line.failed(Facts.refused(Act.STOP, result.message())));
                 progress.accept(report);
                 continue;
             }
             stopped.add(line.service());
             if (result.verified()) {
+                step.done();
                 report = report.with(line.at(UpdateReport.State.STOPPED));
             } else {
+                step.warned(RunStep.Reason.UNVERIFIED_STOP);
                 unverifiedStops.add(line.service());
                 // It did stop; what the runtime answered about its ending stays on the line.
                 report = report.with(
@@ -135,7 +157,13 @@ final class UpdateRun {
                     null));
             progress.accept(report);
 
+            final Steps.Step step = record.begin(RunStep.Kind.SAVE_VOLUME, volume);
             final SnapshotResult result = snapshots.save(volume);
+            if (result.ok()) {
+                step.done();
+            } else {
+                step.failed(RunStep.Reason.TOOL_FAILED);
+            }
             UpdateReport.Mark mark = null;
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
@@ -212,13 +240,16 @@ final class UpdateRun {
                 continue;
             }
 
+            final Steps.Step step = record.begin(RunStep.Kind.START, service);
             final ServiceRuntime entry = state.runtime().service(service).orElse(null);
             if (entry == null || entry.containerId() == null) {
+                step.failed(RunStep.Reason.NO_CONTAINER);
                 report = report.with(line.failed(Facts.refused(Act.START, null)));
                 progress.accept(report);
                 continue;
             }
             final RedeployResult result = containers.start(entry.containerId());
+            endBy(step, result);
             report = report.with(
                     result.triggered()
                             ? line.at(UpdateReport.State.STARTING)
@@ -243,19 +274,30 @@ final class UpdateRun {
                 .at(UpdateReport.State.STARTING)
                 .with(Facts.of(Act.RECREATE).made(image)));
         progress.accept(report);
+        final Steps.Step install = record.begin(RunStep.Kind.INSTALL, service)
+                .change(
+                        IMAGE,
+                        null,
+                        null,
+                        image == UpdateReport.Image.KEPT ? RunStep.Image.KEPT : RunStep.Image.PULLED);
         final RedeployResult recreated =
                 image == UpdateReport.Image.KEPT ? containers.recreate(service) : containers.deploy(service);
         if (recreated.triggered()) {
+            install.done();
             return report;
         }
+        install.failed(RunStep.Reason.REFUSED);
 
         final String why = recreated.message();
+        final Steps.Step fallback = record.begin(RunStep.Kind.START, service);
         final ServiceRuntime old = state.runtime().service(service).orElse(null);
         if (old == null || old.containerId() == null) {
+            fallback.failed(RunStep.Reason.NO_CONTAINER);
             return report.with(
                     report.line(service).failed(Facts.notRecreated(image, why, UpdateReport.Fallback.NONE, null)));
         }
         final RedeployResult back = containers.start(old.containerId());
+        endBy(fallback, back);
         if (back.triggered()) {
             // Docker accepting a start is not a service coming back; verify() finishes this with what it saw.
             final Facts started = Facts.notRecreated(image, why, UpdateReport.Fallback.STARTED, null);
@@ -264,6 +306,15 @@ final class UpdateRun {
         }
         return report.with(report.line(service)
                 .failed(Facts.notRecreated(image, why, UpdateReport.Fallback.REFUSED, back.message())));
+    }
+
+    /** Ends a step by whether Docker took what it asked; a start's coming back is the verify step's. */
+    static void endBy(final Steps.Step step, final RedeployResult result) {
+        if (result.triggered()) {
+            step.done();
+        } else {
+            step.failed(RunStep.Reason.REFUSED);
+        }
     }
 
     /** A service back on the container made again from a newer image: that image is renewed, no longer out of date. */
@@ -300,6 +351,8 @@ final class UpdateRun {
                 .filter(service ->
                         starting.line(service).state() == UpdateReport.State.STARTING || fellBack.containsKey(service))
                 .toList());
+        final Map<String, Steps.Step> verifying = new LinkedHashMap<>();
+        pending.forEach(service -> verifying.put(service, record.begin(RunStep.Kind.VERIFY, service)));
         final Instant deadline = clock.now().plus(HEALTH_PATIENCE);
 
         while (!pending.isEmpty()) {
@@ -309,6 +362,7 @@ final class UpdateRun {
                 for (final String service : pending) {
                     if (now.service(service).map(ServiceRuntime::isBack).orElse(false)) {
                         back.add(service);
+                        Objects.requireNonNull(verifying.get(service)).done();
                         // A fallback line stays FAILED, its facts now saying that the service is back.
                         report = report.with(
                                 fellBack.containsKey(service)
@@ -327,11 +381,15 @@ final class UpdateRun {
                 break;
             }
             if (!clock.now().isBefore(deadline)) {
+                pending.forEach(service ->
+                        Objects.requireNonNull(verifying.get(service)).failed(RunStep.Reason.NOT_HEALTHY));
                 report = timedOut(report, pending, now);
                 progress.accept(report);
                 break;
             }
             if (!clock.sleep(HEALTH_POLL)) {
+                pending.forEach(service ->
+                        Objects.requireNonNull(verifying.get(service)).failed(RunStep.Reason.INTERRUPTED));
                 report = interrupted(report, pending);
                 progress.accept(report);
                 break;

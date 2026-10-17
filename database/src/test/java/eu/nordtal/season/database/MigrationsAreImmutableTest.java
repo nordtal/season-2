@@ -166,6 +166,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V46__a_run_s_service_lines_keep_their_facts.sql",
                 "7543db4e0f9ac671f3a836f1926a613fbe2a37e94420439f2a61156e3e97d46f");
+        FROZEN.put(
+                "V47__steward_s_old_role_is_gone.sql",
+                "95df58f668b5d3ee9aaae0efaf7e3257e26a90d604cf655591f88c9738713639");
     }
 
     @Test

@@ -1,18 +1,17 @@
 # season-2
 
-The code and deployment of nordtal.eu season 2: four Minecraft plugins, a Discord bot, the three
-Steward services and the resource pack. It is built with one Gradle build, versioned in
-`gradle.properties` and run as one `docker compose` stack. [`CONVENTIONS.md`](CONVENTIONS.md) holds
-the rules every change follows.
+Code and deployment of nordtal.eu season 2: four Minecraft plugins, a Discord bot, three Steward
+services and the resource pack. One Gradle build, versioned in `gradle.properties`, deployed as one
+`docker compose` stack. [`CONVENTIONS.md`](CONVENTIONS.md) contains the rules for every change.
 
-## What it is
+## Overview
 
-A Velocity proxy fronts three Paper backends. Every player first lands in `limbo`, receives the
-resource pack and is then sent on to the backend that the current season phase names. Access,
-language, phase and event state live in one PostgreSQL database, and Discord roles follow it.
-Steward is the admins' web interface and carries out every update, restart and backup.
+A Velocity proxy forwards players to three Paper servers. Every player joins `limbo` first,
+receives the resource pack and is then moved to the server set by the current season phase. Access,
+language, phase and event state are stored in one PostgreSQL database; Discord roles are derived
+from it. Steward is the admin web interface and runs every update, restart and backup.
 
-## How it is built
+## Architecture
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '16px'}, 'flowchart': {'wrappingWidth': 240, 'diagramPadding': 8}}}%%
@@ -28,7 +27,7 @@ flowchart TB
 
         subgraph ppr["Paper servers"]
             HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
-            SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
+            SMP["<b>smp</b><br/><i>:smp</i><br/>survival server"]:::paper
             LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
             LIMBOS["<b>limbo-standby</b><br/>during limbo updates"]:::standby
         end
@@ -42,7 +41,7 @@ flowchart TB
     end
 
     BOT["<b>discord-bot</b><br/><i>:discord-bot</i><br/>access, payments"]:::app
-    PG[("<b>postgres</b><br/>source of truth")]:::db
+    PG[("<b>postgres</b><br/>all state")]:::db
 
     bunq(["bunq"]):::ext
     discord(["Discord"]):::ext
@@ -85,50 +84,50 @@ flowchart TB
     style st fill:#e08c3410,stroke:#e08c34,stroke-width:1px
 ```
 
-`compose.yml` ships inside the `steward-agent` image. The libraries below are compiled into the jars
-above.
+`compose.yml` is part of the `steward-agent` image. The libraries listed below are compiled into the
+jars of the services.
 
-- **Networks.** The Minecraft servers share none with Steward, so no plugin reaches the agent.
-  `steward-agent` and `steward-bunq` each share an internal network with `steward` and nobody else.
-- **One door to Docker.** `steward` faces the internet and holds no Docker socket. `steward-agent`
-  does, and carries out every run a row in `steward_inbox` asks for.
-- **One holder of the bank key.** `steward-bunq` alone, and it decides nothing.
-- **Standbys.** `proxy-standby` and `limbo-standby` hold the network while an update replaces the real
-  service; Caddy hands port 25565 to whichever proxy is live.
-- **Commands** are Brigadier per plugin. An admin command is typed on that server's console, and what
-  Steward asks for is a typed request in that server's inbox, answered by the same action.
-- **Text** a player reads is German or English, looked up once per join off the main thread.
-- **Glyphs** are allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json); the build writes
-  the fonts, `Glyphs` and the advance tables from it.
+- **Networks:** the Minecraft servers share no network with Steward. `steward-agent` and
+  `steward-bunq` each share an internal network with `steward` only.
+- **Docker:** `steward` is reachable from the internet and has no Docker socket. `steward-agent` has
+  the socket and executes every run requested by a row in `steward_inbox`.
+- **Bank key:** only `steward-bunq` holds the bunq API key. It makes no decisions.
+- **Standby services:** `proxy-standby` and `limbo-standby` take over while an update replaces
+  `proxy` or `limbo`. Caddy routes port 25565 to the active proxy.
+- **Commands:** each plugin registers Brigadier commands. Admins enter them on the server console;
+  Steward sends a typed request to the server's inbox, which runs the same action.
+- **Text:** player-facing text is German or English, loaded once per join off the main thread.
+- **Glyphs:** allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json). The build
+  generates the fonts, `Glyphs` and the advance tables from it.
 
 ### Modules
 
-| module              | platform        | what it owns                                                                               |
-| ------------------- | --------------- | ------------------------------------------------------------------------------------------ |
-| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                   |
-| `limbo`             | Paper           | The waiting room that applies the resource pack.                                           |
-| `hunger-games`      | Paper           | The start event: the bot's teams, border, loot, HUD, winning.                              |
-| `smp`               | Paper           | Nordtal, the farm world, Nether and End, milestones, aura, prestige, wheel, duels, graves. |
-| `discord-bot`       | JVM app         | Access sales and grants, linking, roles, game registration, the admin log. Books nothing.  |
-| `steward`           | JVM app + React | The web interface and its API; books payments, raises alerts, its clocks ask for runs.     |
-| `steward-agent`     | JVM app         | The schema, the jar versions, every run. The only one that creates containers.             |
-| `steward-bunq`      | JVM app         | The only holder of the bank key: tabs and the payment list. Decides nothing.               |
-| `common`            | library         | The shared kernel: platform constants, the phase, languages, readiness. JDK and Gson only. |
-| `database`          | library         | Everything in PostgreSQL: access, phase, payments, inboxes, signal hub, migration SQL.     |
-| `messages`          | library         | The message system without Adventure, for the bot and Steward.                             |
-| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity.                                  |
-| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list.                            |
-| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                             |
-| `internal-api`      | library         | The token-guarded HTTP wire from `steward` to `steward-agent` and `steward-bunq`.          |
-| `paper-common`      | library         | What the Paper plugins share.                                                              |
-| `display-tags`      | library         | Name tags as packet-only text displays, hosted by smp.                                     |
-| `settings`          | library         | Where every process's settings come from.                                                  |
-| `spec`              | library         | Settings groups as spec interfaces, and the schema of Steward's forms.                     |
-| `resource-pack`     | assets          | The pack, its glyph allocation, and the zip + SHA-1 a release ships.                       |
-| `architecture`      | tests           | The ArchUnit rules over every module: dependencies and wiring.                             |
-| `shipped-jars`      | tests           | Every shipped jar loaded as its host loads it.                                             |
+| module              | platform        | contents                                                                                  |
+| ------------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `proxy`             | Velocity        | Login check, season phase, backend selection.                                             |
+| `limbo`             | Paper           | Holding server that applies the resource pack.                                            |
+| `hunger-games`      | Paper           | Start event: teams registered via the bot, border, loot, HUD, winner.                     |
+| `smp`               | Paper           | Nordtal, farm world, Nether, End, milestones, aura, prestige, wheel, duels, graves.       |
+| `discord-bot`       | JVM app         | Access sales and grants, linking, roles, game registration, admin log. Books no payments. |
+| `steward`           | JVM app + React | Web interface and API; books payments, sends alerts, schedules runs.                      |
+| `steward-agent`     | JVM app         | Schema, jar versions, all runs. The only service that creates containers.                 |
+| `steward-bunq`      | JVM app         | Holds the bunq API key; creates and cancels tabs, lists payments. Makes no decisions.     |
+| `common`            | library         | Platform constants, phase enum, languages, readiness. Depends only on the JDK and Gson.   |
+| `database`          | library         | All PostgreSQL access: access, phase, payments, inboxes, signal hub, migration SQL.       |
+| `messages`          | library         | Message system without Adventure, used by the bot and Steward.                            |
+| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity.                                 |
+| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list.                           |
+| `limbo-protocol`    | library         | Protocol between the proxy and limbo.                                                     |
+| `internal-api`      | library         | Token-authenticated HTTP between `steward`, `steward-agent` and `steward-bunq`.           |
+| `paper-common`      | library         | Code shared by the Paper plugins.                                                         |
+| `display-tags`      | library         | Name tags as packet-only text displays, started by smp.                                   |
+| `settings`          | library         | Loading of every process's settings.                                                      |
+| `spec`              | library         | Settings groups as spec interfaces, and the schema of Steward's forms.                    |
+| `resource-pack`     | assets          | The pack, its glyph allocation, and the zip + SHA-1 of a release.                         |
+| `architecture`      | tests           | ArchUnit rules over every module: dependencies and wiring.                                |
+| `shipped-jars`      | tests           | Loads each shipped jar the way its host does.                                             |
 
-## Operating it
+## Operation
 
 On a host with Docker, in the directory the installation should live in:
 
@@ -136,9 +135,9 @@ On a host with Docker, in the directory the installation should live in:
 curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 ```
 
-The installation is that directory: worlds, database, plugin configuration and backups are folders
-in it. Secrets go to `/etc/nordtal/season-2.env`, mode 600, and one only a single service reads to
-that service's own file under `/etc/nordtal-secrets/season-2/`. The script stays behind as `./nordtal.sh`:
+Worlds, database, plugin configuration and backups are stored in folders of that directory. Secrets
+are stored in `/etc/nordtal/season-2.env` (mode 600); a secret used by a single service is stored in
+that service's file under `/etc/nordtal-secrets/season-2/`. The script remains as `./nordtal.sh`:
 
 ```bash
 ./nordtal.sh                 # the menu: what is set, change one, then deploy
@@ -146,10 +145,10 @@ that service's own file under `/etc/nordtal-secrets/season-2/`. The script stays
 ./nordtal.sh update --backup # one backup run
 ```
 
-[`deploy/README.md`](deploy/README.md) is the runbook: first deployment, updates, backups, restore,
-firewall, troubleshooting.
+[`deploy/README.md`](deploy/README.md) covers first deployment, updates, backups, restore, firewall
+and troubleshooting.
 
-## Working on it
+## Development
 
 Requires JDK 25. Build only the modules you touched.
 
@@ -157,7 +156,7 @@ Requires JDK 25. Build only the modules you touched.
 ./gradlew :smp:check                 # one module, with its tests and the convention checks
 ./gradlew releaseArtifacts           # exactly what a release ships
 ./gradlew :hunger-games:runServer    # a local Paper test server
-./gradlew -q :dev:run --args="init"  # then --args="up": the whole network here
+./gradlew -q :dev:run --args="init"  # then --args="up": runs the network locally
 ```
 
 `dev deploy smp` rebuilds one module and restarts its container. `dev` is a Java program in `:dev`,
@@ -173,9 +172,9 @@ git tag v0.1.0 && git push origin v0.1.0
 The `release` workflow refuses a tag whose commit has no successful build on `main` or that is already
 a release, and checks it against `gradle.properties`. It pushes every image tagged with the version
 alone and publishes the GitHub release last, with the four plugin jars and the pack, so a failed run
-publishes nothing. Run it again with `gh workflow run release.yml -f tag=v0.1.0`.
+publishes nothing. To rerun it: `gh workflow run release.yml -f tag=v0.1.0`.
 
-Every config file is commented YAML described by a `@ConfigSpec` interface, and credentials arrive as
-environment variables; this public repository holds none. The one outbound call that sends player data to a third party is
-Steward drawing player heads from [mineatar](https://mineatar.io), sending it the `mc_uuid` (the `web`
-group, `avatars.minecraft-head-base-url`; empty disables it).
+Every config file is commented YAML described by a `@ConfigSpec` interface. Credentials are passed
+as environment variables; this public repository contains none. The only outbound call that sends
+player data to a third party: Steward loads player heads from [mineatar](https://mineatar.io) and
+sends it the `mc_uuid` (group `web`, setting `avatars.minecraft-head-base-url`; empty disables it).

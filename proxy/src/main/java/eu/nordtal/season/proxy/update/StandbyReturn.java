@@ -30,7 +30,7 @@ public final class StandbyReturn {
     /** How long to wait for the handshake; short, since it is a port on the same machine. */
     static final Duration PROBE_TIMEOUT = Duration.ofSeconds(1);
 
-    /** How long the public address must have answered before players are sent home without an outage seen. */
+    /** How long the live proxy must have answered before players are sent home without an outage seen. */
     static final Duration RESCUE_AFTER = Duration.ofMinutes(1);
 
     /** How long it must have answered after an outage; longer than one tick, so a release takes two passes. */
@@ -42,6 +42,7 @@ public final class StandbyReturn {
     private final SwapStore seats;
     private final ProxyRole role;
     private final @Nullable InetSocketAddress home;
+    private final @Nullable InetSocketAddress live;
     private final Clock clock;
     private final Probe probe;
 
@@ -56,7 +57,7 @@ public final class StandbyReturn {
     /** Whether a return is promised; once set, a flickering probe cannot start a second countdown. */
     private boolean returning;
 
-    /** Whether the public address has refused a connection since this proxy last had players. */
+    /** Whether the live proxy has refused a connection since this proxy last had players. */
     private boolean outageSeen;
 
     /** When it started answering again, or {@code null} while it is not. */
@@ -69,14 +70,17 @@ public final class StandbyReturn {
             final SwapStore seats,
             final ProxyRole role,
             final @Nullable InetSocketAddress home,
+            final @Nullable InetSocketAddress live,
             final Clock clock,
             final Homecoming voice) {
-        this(scheduler, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
+        this(scheduler, proxy, logger, seats, role, home, live, clock, voice, StandbyReturn::connects);
     }
 
     /**
      * Takes the probe as a seam, so the decision is testable without binding a port.
      *
+     * @param live where the live proxy itself listens; the public address cannot tell, since Caddy answers it
+     *     and hands it to this standby while the live proxy is down
      * @param probe how to ask whether an address answers
      */
     StandbyReturn(
@@ -86,6 +90,7 @@ public final class StandbyReturn {
             final SwapStore seats,
             final ProxyRole role,
             final @Nullable InetSocketAddress home,
+            final @Nullable InetSocketAddress live,
             final Clock clock,
             final Homecoming voice,
             final Probe probe) {
@@ -96,18 +101,19 @@ public final class StandbyReturn {
         this.seats = Objects.requireNonNull(seats, "seats");
         this.role = Objects.requireNonNull(role, "role");
         this.home = home;
+        this.live = live;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.probe = Objects.requireNonNull(probe, "probe");
     }
 
     /** Returns whether this process will do anything at all, for the startup log line. */
     public boolean isArmed() {
-        return home != null && role.isStandby();
+        return home != null && live != null && role.isStandby();
     }
 
     /** One pass: reports how many players are here and sends them home if it is time; never throws. */
     public void check() {
-        final InetSocketAddress target = home;
+        final InetSocketAddress target = live;
         if (target == null || !isArmed()) {
             return;
         }
@@ -136,7 +142,7 @@ public final class StandbyReturn {
         try {
             answers = probe.answers(target, PROBE_TIMEOUT);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not probe {}; holding the players here this pass", home, failure);
+            logger.warn("Could not probe {}; holding the players here this pass", live, failure);
             return;
         }
 
@@ -144,7 +150,7 @@ public final class StandbyReturn {
             if (!outageSeen) {
                 logger.info(
                         "{} has stopped answering - this is the swap. {} player(s) stay here" + " until it is back",
-                        home,
+                        live,
                         players.size());
             }
             outageSeen = true;
@@ -167,9 +173,10 @@ public final class StandbyReturn {
         final List<CountdownPlan.Beat<Announcement>> beats =
                 notice.beats(++notices, Homecoming.NOTICE).orElseGet(List::of);
         logger.info(
-                "{} is answering again: telling {} player(s) and handing them back in {}s",
-                home,
+                "{} is answering again: telling {} player(s) and handing them back to {} in {}s",
+                live,
                 players.size(),
+                home,
                 Homecoming.NOTICE.toSeconds());
 
         for (final CountdownPlan.Beat<Announcement> beat : beats) {
@@ -192,7 +199,7 @@ public final class StandbyReturn {
     /**
      * The decision, without a socket and without Velocity.
      *
-     * @param outageSeen whether the public address has refused a connection since these players arrived
+     * @param outageSeen whether the live proxy has refused a connection since these players arrived
      * @param answering how long it has been answering without interruption
      * @return whether to send the players home now
      */

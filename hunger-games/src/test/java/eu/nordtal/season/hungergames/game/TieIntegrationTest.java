@@ -57,9 +57,8 @@ class TieIntegrationTest {
 
     @Test
     void anEventHasNoDetailText() {
-        assertEquals(
-                0L,
-                (long) jdbi.withHandle(handle -> handle.createQuery("SELECT count(*) FROM information_schema.columns"
+        assertEquals(0L, (long)
+                jdbi.withHandle(handle -> handle.createQuery("SELECT count(*) FROM information_schema.columns"
                                 + " WHERE table_name = 'hg_event' AND column_name = 'detail'")
                         .mapTo(Long.class)
                         .one()));

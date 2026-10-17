@@ -36,7 +36,8 @@ class PaymentWaitTest {
     void aRefusedTabEndsTheWaitWithTheRefusal() {
         assertEquals(
                 PaymentWait.REFUSED,
-                PaymentWait.of(request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofSeconds(3)));
+                PaymentWait.of(
+                        request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofSeconds(3)));
     }
 
     @Test
@@ -59,7 +60,8 @@ class PaymentWaitTest {
                 PaymentWait.of(request(PaymentRequestStatus.OPEN, "https://bunq.me/x", null), Duration.ofMinutes(11)));
         assertEquals(
                 PaymentWait.REFUSED,
-                PaymentWait.of(request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofMinutes(11)));
+                PaymentWait.of(
+                        request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofMinutes(11)));
     }
 
     @Test

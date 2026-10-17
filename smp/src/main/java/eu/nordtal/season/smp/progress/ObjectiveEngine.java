@@ -11,8 +11,8 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
-import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.aura.AuraCause;
+import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.milestone.Milestone;
@@ -296,8 +296,8 @@ public final class ObjectiveEngine implements Contributions {
             prizes.grant(DiscordId.of(share.contributorId()), share.total());
         }
         plugin.getLogger()
-                .info("objective " + milestoneKey + "/" + objective.key() + " paid " + contributions.size() + " contributor(s) out of " + auraBudget
-                        + " aura and " + spinBudget + " spins");
+                .info("objective " + milestoneKey + "/" + objective.key() + " paid " + contributions.size()
+                        + " contributor(s) out of " + auraBudget + " aura and " + spinBudget + " spins");
     }
 
     /** Returns the shares worth paying, by player id. */

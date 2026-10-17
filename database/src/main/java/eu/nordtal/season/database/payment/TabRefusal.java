@@ -34,7 +34,7 @@ public enum TabRefusal {
     /** Anything else bunq or steward-bunq answered. */
     UNKNOWN;
 
-    /** Returns whether it likely passes by itself, so the payer is told to try again soon rather than wait for an admin. */
+    /** Returns whether it likely passes by itself, so the payer is told to try again soon, not to wait for an admin. */
     public boolean passes() {
         return this == UNREACHABLE || this == TOO_MANY_REQUESTS || this == BUNQ_ERROR;
     }

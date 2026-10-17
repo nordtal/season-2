@@ -43,8 +43,10 @@ class AuraCausesIntegrationTest {
     void aDuelRecordsItsType() {
         aura.addAura(PLAYER, 10, new AuraCause.Duel(true, DuelType.BOW));
 
-        assertEquals(List.of("DUEL_WIN BOW"), rows("SELECT e.reason || ' ' || d.duel_type FROM smp_aura_event e"
-                + " JOIN smp_aura_duel d ON d.event_id = e.id"));
+        assertEquals(
+                List.of("DUEL_WIN BOW"),
+                rows("SELECT e.reason || ' ' || d.duel_type FROM smp_aura_event e"
+                        + " JOIN smp_aura_duel d ON d.event_id = e.id"));
     }
 
     @Test
@@ -63,8 +65,10 @@ class AuraCausesIntegrationTest {
         aura.addAura(PLAYER, -20, new AuraCause.Death(AuraReason.DEATH_LISTED, "minecraft:lava"));
         aura.addAura(PLAYER, -5, new AuraCause.Death(AuraReason.DEATH, null));
 
-        assertEquals(List.of("DEATH_LISTED minecraft:lava"), rows("SELECT e.reason || ' ' || d.damage_type"
-                + " FROM smp_aura_event e JOIN smp_aura_death d ON d.event_id = e.id"));
+        assertEquals(
+                List.of("DEATH_LISTED minecraft:lava"),
+                rows("SELECT e.reason || ' ' || d.damage_type"
+                        + " FROM smp_aura_event e JOIN smp_aura_death d ON d.event_id = e.id"));
         assertEquals(List.of("2"), rows("SELECT count(*) FROM smp_aura_event"));
     }
 
@@ -72,8 +76,10 @@ class AuraCausesIntegrationTest {
     void anAdvancementRecordsItsKey() {
         aura.addAura(PLAYER, 15, new AuraCause.Advancement("minecraft:story/mine_diamond"));
 
-        assertEquals(List.of("ADVANCEMENT minecraft:story/mine_diamond"), rows("SELECT e.reason || ' ' || a.advancement"
-                + " FROM smp_aura_event e JOIN smp_aura_advancement a ON a.event_id = e.id"));
+        assertEquals(
+                List.of("ADVANCEMENT minecraft:story/mine_diamond"),
+                rows("SELECT e.reason || ' ' || a.advancement"
+                        + " FROM smp_aura_event e JOIN smp_aura_advancement a ON a.event_id = e.id"));
     }
 
     @Test
@@ -88,12 +94,15 @@ class AuraCausesIntegrationTest {
 
         aura.addAura(PLAYER, 30, new AuraCause.Contribution(objective));
 
-        assertEquals(List.of("CONTRIBUTION foothold iron"), rows("SELECT e.reason || ' ' || o.milestone_key || ' ' || o.key"
-                + " FROM smp_aura_event e JOIN smp_aura_contribution c ON c.event_id = e.id"
-                + " JOIN smp_objective o ON o.id = c.objective_id"));
+        assertEquals(
+                List.of("CONTRIBUTION foothold iron"),
+                rows("SELECT e.reason || ' ' || o.milestone_key || ' ' || o.key"
+                        + " FROM smp_aura_event e JOIN smp_aura_contribution c ON c.event_id = e.id"
+                        + " JOIN smp_objective o ON o.id = c.objective_id"));
     }
 
     private static List<String> rows(final String sql) {
-        return jdbi.withHandle(handle -> handle.createQuery(sql).mapTo(String.class).list());
+        return jdbi.withHandle(
+                handle -> handle.createQuery(sql).mapTo(String.class).list());
     }
 }

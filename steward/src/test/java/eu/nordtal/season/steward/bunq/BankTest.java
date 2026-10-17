@@ -56,10 +56,12 @@ class BankTest {
 
     @Test
     void aStewardBunqThatDoesNotAnswerIsUnreachable() {
-        final Bank nobody = new Bank(new InternalClient(BankWire.SERVICE, "http://127.0.0.1:1", TOKEN, Duration.ofSeconds(5)));
+        final Bank nobody =
+                new Bank(new InternalClient(BankWire.SERVICE, "http://127.0.0.1:1", TOKEN, Duration.ofSeconds(5)));
         assertEquals(
                 TabRefusal.UNREACHABLE,
-                assertThrows(Bank.TabRefused.class, () -> nobody.createTab(500, "x")).refusal());
+                assertThrows(Bank.TabRefused.class, () -> nobody.createTab(500, "x"))
+                        .refusal());
     }
 
     @Test

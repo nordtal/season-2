@@ -134,7 +134,8 @@ public final class Payments {
             tab = bunq.createTab(request.amountCents(), request.reference());
         } catch (final Bank.TabRefused refused) {
             // The payer is shown a text for the code, and pressing again is the retry; bunq's words stay in this log.
-            log.warn("bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
+            log.warn(
+                    "bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
             requests.failTab(request.id(), refused.refusal());
             return Outcome.failed(Map.of("refusal", refused.refusal().name()));
         }

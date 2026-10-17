@@ -492,6 +492,7 @@ export type TextArgs = {
   "report.held-not-remade": Record<string, never>
   "report.held-not-restarted": Record<string, never>
   "report.image-outdated": Record<string, never>
+  "report.image-renewed": Record<string, never>
   "report.images-local": Record<string, never>
   "report.images-not-pruned": {
     error: Arg["text"]

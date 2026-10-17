@@ -12,6 +12,7 @@ import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import eu.nordtal.season.messages.MessageRef;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -265,6 +266,26 @@ final class UpdateRun {
                 .failed(Facts.notRecreated(image, why, UpdateReport.Fallback.REFUSED, back.message())));
     }
 
+    /** A service back on the container made again from a newer image: that image is renewed, no longer out of date. */
+    private static UpdateReport.ServiceLine renewed(final UpdateReport.ServiceLine back) {
+        final Act act = back.facts() == null ? null : back.facts().act();
+        // An abort starts the old container again, which renews nothing.
+        if (act != Act.RECREATE && act != Act.RENEW) {
+            return back;
+        }
+        final MessageRef outdated = TEXTS.report().imageOutdated();
+        return new UpdateReport.ServiceLine(
+                back.service(),
+                back.state(),
+                back.changes().stream()
+                        .map(change -> outdated.equals(change.told())
+                                ? UpdateReport.Change.told(
+                                        change.artefact(), TEXTS.report().imageRenewed())
+                                : change)
+                        .toList(),
+                back.facts());
+    }
+
     /**
      * Waits until every started service passes its healthcheck, or says which one did not.
      *
@@ -294,7 +315,7 @@ final class UpdateRun {
                                         ? report.line(service)
                                                 .failed(Objects.requireNonNull(fellBack.get(service))
                                                         .came(UpdateReport.Back.YES, null, null))
-                                        : report.line(service).at(UpdateReport.State.HEALTHY));
+                                        : renewed(report.line(service).at(UpdateReport.State.HEALTHY)));
                     }
                 }
                 if (!back.isEmpty()) {

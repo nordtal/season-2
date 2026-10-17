@@ -47,6 +47,9 @@ class MessageOverrideStoreIntegrationTest {
                 Map.of("smp/tab.footer/de", List.of("Hallo", "Hi {name}")),
                 steward.originals(Set.of("smp", "proxy")),
                 "one entry per key and language, not per variant, and none where nothing was replaced");
+
+        steward.change("smp", "tab.footer", "de", List.of(), List.of(), ADMIN);
+        assertEquals(Map.of(), steward.originals(Set.of("smp")), "a removed override kept what it had replaced");
     }
 
     @Test

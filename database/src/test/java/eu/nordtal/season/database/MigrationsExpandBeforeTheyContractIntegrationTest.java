@@ -168,6 +168,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         }
         // A tie's winner as text, which the proxy's snapshot never read: it counts deaths only.
         listed(unused, "0.26.0", "nordtal_proxy", "SELECT", "hg_event", "detail");
+        // The texts an override replaced, which only steward ever read; the standbys hold them through the read role.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.26.0", role, "SELECT", "message_override", "original");
+        }
         return Map.copyOf(unused);
     }
 

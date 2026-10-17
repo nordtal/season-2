@@ -87,6 +87,16 @@ class PushSubscriptionsTest {
                 "iPhone Safari",
                 again.system() + " " + again.browser(),
                 "a resubscription without a User-Agent erased the name");
+
+        // A User-Agent that names only a system replaces the whole name, never half of it.
+        subscriptions.subscribe(
+                DiscordId.of("46"), "https://push.example/ep-5", "p", "a", "Mozilla/5.0 (X11; Linux x86_64)");
+        final PushSubscriptions.Subscription renamed =
+                subscriptions.of(DiscordId.of("46")).get(0);
+        assertEquals(
+                "Linux null",
+                renamed.system() + " " + renamed.browser(),
+                "the name mixes the new system with the old browser");
     }
 
     @Test

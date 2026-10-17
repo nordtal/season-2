@@ -35,6 +35,13 @@ export type Style = {
   action?: string
 }
 
+/** `style` written inside `around`: what it leaves undefined it inherits, and a colour of its own replaces the outer one. */
+export function inside(around: Style, style: Style): Style {
+  const own = Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined))
+  const coloured = style.tone !== undefined || style.colour !== undefined || style.gradient !== undefined
+  return { ...around, ...(coloured ? { tone: undefined, colour: undefined, gradient: undefined } : {}), ...own }
+}
+
 /**
  * One piece of the text. A value keeps the kind and style it was written with; a plural, a select or a tag no editor
  * offers (`<rainbow>`, `<lang:…>`) is kept as its source and moves as one character.
@@ -692,6 +699,17 @@ function within(around: Style, own: Style): Style {
 }
 
 /** The plain characters of the runs, with placeholders filled, for counting and search. */
+/** Pasted or typed text as runs: a line break stays one where the format has them, else it becomes a space. */
+export function textRuns(text: string, breaks: boolean): Run[] {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n")
+  const out: Run[] = []
+  lines.forEach((line, index) => {
+    if (index > 0) out.push(breaks ? { kind: "break", style: {} } : { kind: "text", text: " ", style: {} })
+    if (line) out.push({ kind: "text", text: line, style: {} })
+  })
+  return out
+}
+
 export function plainText(runs: Run[], fill: (name: string) => string = (name) => `{${name}}`): string {
   return runs
     .map((run) =>

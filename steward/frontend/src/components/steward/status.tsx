@@ -214,12 +214,15 @@ export function HealthDot({
   )
 }
 
-/** The tone of each resolve status; anything else could not be asked, which is never green. */
+/** The tone of each resolve status; one Steward does not know yet is neutral, never green. */
 const AVAILABLE_TONE: Record<string, Tone> = {
   UP_TO_DATE: "ok",
   OUTDATED: "warn",
   MISSING: "warn",
   UNSUPPORTED: "idle",
+  NOT_IN_RELEASE: "idle",
+  UNRESOLVED: "down",
+  MOUNT_MISSING: "down",
 }
 
 /**
@@ -232,7 +235,7 @@ const AVAILABLE_TONE: Record<string, Tone> = {
  */
 export function AvailableBadge({ status }: { status: string }) {
   return (
-    <StatusBadge tone={AVAILABLE_TONE[status] ?? "down"}>
+    <StatusBadge tone={AVAILABLE_TONE[status] ?? "idle"}>
       {t("steward.artifact.status", { status: choice(status) })}
     </StatusBadge>
   )

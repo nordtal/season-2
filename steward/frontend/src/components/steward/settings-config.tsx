@@ -82,11 +82,9 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
         leaf.value.kind === "entry" ? (
           field(leaf.value.entry, highlight)
         ) : leaf.value.kind === "run" ? (
-          <div className="flex flex-wrap gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">
             {leaf.value.entries.map((entry) => (
-              <div key={entry.path} className="min-w-28 flex-1">
-                {field(entry, highlight, "compact")}
-              </div>
+              <div key={entry.path}>{field(entry, highlight, "compact")}</div>
             ))}
           </div>
         ) : (

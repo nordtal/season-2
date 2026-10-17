@@ -426,6 +426,7 @@ public interface StewardTexts {
         MISSING,
         UNSUPPORTED,
         MOUNT_MISSING,
-        UNRESOLVED
+        UNRESOLVED,
+        NOT_IN_RELEASE
     }
 }

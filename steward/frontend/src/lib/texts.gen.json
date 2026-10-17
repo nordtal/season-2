@@ -738,7 +738,7 @@
     "steward.answer.too-long": [["The ",{"v":"language"}," text is longer than Discord takes (",{"v":"most","k":"number","s":"plain"}," characters)."]],
     "steward.answer.too-many-codes": [["Too many wrong codes. Try again after ",{"v":"until","k":"instant","s":"time"},"."]],
     "steward.answer.unknown-person": [["Nobody by that Discord id is known."]],
-    "steward.artifact.status": [[{"c":"status","plural":false,"cases":{"up-to-date":["up to date"],"outdated":["outdated"],"missing":["not installed"],"unsupported":["unsupported"],"mount-missing":["no volume"],"other":["could not ask"]}}]],
+    "steward.artifact.status": [[{"c":"status","plural":false,"cases":{"up-to-date":["up to date"],"outdated":["outdated"],"missing":["not installed"],"unsupported":["unsupported"],"mount-missing":["no volume"],"unresolved":["could not ask"],"not-in-release":["not in the release"],"other":["unknown"]}}]],
     "steward.backup-settings.no-at": [["Steward's settings have no backup.at"]],
     "steward.backup-settings.no-days": [["Steward's config has no backup.days yet."]],
     "steward.backup-settings.no-night": [["No night is picked, so no backup runs."]],

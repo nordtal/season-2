@@ -50,8 +50,8 @@ export function RowActions({
             <DotsThreeIcon aria-hidden />
           </Button>
         </PopoverTrigger>
-        {/* `align="start"`, since the trigger sits at the card's left edge and an end aligned panel is cut off. */}
-        <PopoverContent align="start" collisionPadding={8} className="w-52 p-1">
+        {/* The trigger ends its row on a desktop and its card on a phone, so the panel opens towards the content. */}
+        <PopoverContent align="end" collisionPadding={8} className="w-52 p-1">
           <div className="flex flex-col items-stretch gap-0.5 [&_[data-slot=button]]:w-full [&_[data-slot=button]]:justify-start">
             {actions.map((action) => (
               <span key={action.key} className="contents">

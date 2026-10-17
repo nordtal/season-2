@@ -240,8 +240,7 @@ export function AccessPage() {
                           {span(person.playtimeSeconds, "minutes")}
                         </span>
                       </TableCell>
-                      {/* Off on a phone, where the card is a link's worth and the page has the actions as buttons. */}
-                      <TableCell data-phone="off">
+                      <TableCell data-phone="action">
                         <PersonActions person={person} menu />
                       </TableCell>
                     </TableRow>

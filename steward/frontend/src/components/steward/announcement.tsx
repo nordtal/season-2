@@ -54,13 +54,14 @@ export function AnnouncementForm() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {tags.map((tag) => (
             <div key={tag} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* As high as the badge, so a row with plain text keeps the two fields level. */}
+              <div className="flex min-h-5 flex-wrap items-center justify-between gap-2">
                 <Label htmlFor={`announcement-${tag}`}>{languageName(tag)}</Label>
                 <Destination tag={tag} targets={targets} channels={channels.data} />
               </div>
               <Textarea
                 id={`announcement-${tag}`}
-                rows={5}
+                className="min-h-30"
                 value={text(tag)}
                 aria-invalid={text(tag).trim().length > MAX_LENGTH || undefined}
                 onChange={(event) => {

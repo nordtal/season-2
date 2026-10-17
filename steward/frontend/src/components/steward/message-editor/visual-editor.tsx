@@ -11,9 +11,11 @@ import {
   commonStyle,
   gradientAt,
   insert,
+  inside,
   lengthOf,
   normalize,
   plainText,
+  textRuns,
   remove,
   shadowOf,
   totalLength,
@@ -49,6 +51,8 @@ export type VisualEditorProps = {
   nested?: boolean
   /** In a plural's case: the number `#` stands for, which the tool row offers. */
   pound?: string
+  /** In a plural's case: the style around the plural, drawn under each run's own and never written. */
+  around?: Style
   disabled?: boolean
 }
 
@@ -72,6 +76,7 @@ export function VisualEditor({
   label,
   nested,
   pound,
+  around,
   disabled,
 }: VisualEditorProps) {
   const root = useRef<HTMLDivElement>(null)
@@ -82,6 +87,7 @@ export function VisualEditor({
   const history = useRef<{ past: Run[][]; future: Run[][] }>({ past: [], future: [] })
   const composing = useRef(false)
   const can = capabilities(format)
+  const shown = around ? runs.map((run) => ({ ...run, style: inside(around, run.style) })) : runs
 
   const commit = useCallback(
     (next: Run[], at: Range) => {
@@ -348,12 +354,12 @@ export function VisualEditor({
         )}
         style={surfaceStyle(format)}
       >
-        {runs.map((run, index) => (
+        {shown.map((run, index) => (
           <RunView
             key={index}
             index={index}
             run={run}
-            runs={runs}
+            runs={shown}
             format={format}
             args={args}
             glyphs={glyphs}
@@ -646,16 +652,6 @@ function HoverMenu({
 }
 
 // The DOM and the model
-
-function textRuns(text: string, breaks: boolean): Run[] {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n")
-  const out: Run[] = []
-  lines.forEach((line, index) => {
-    if (index > 0) out.push(breaks ? { kind: "break", style: {} } : { kind: "text", text: " ", style: {} })
-    if (line) out.push({ kind: "text", text: line, style: {} })
-  })
-  return out
-}
 
 function backward(runs: Run[], offset: number, type: string): number {
   if (offset === 0) return 0

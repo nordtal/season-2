@@ -262,6 +262,71 @@ class InboxIntegrationTest {
     }
 
     @Test
+    void aKindWithItsOwnTableIsWrittenAsTypedColumnsAndReadBackFromThem() throws SQLException {
+        execute("DELETE FROM smp_inbox");
+        execute("DELETE FROM hunger_games_inbox");
+        execute("INSERT INTO smp_milestone (key) VALUES ('typed-rows') ON CONFLICT DO NOTHING");
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+
+        final long unlock =
+                smp.submit(new SmpRequest.UnlockMilestone("typed-rows"), ADMIN).id();
+        smp.submit(new SmpRequest.CompleteObjective("wood"), ADMIN);
+        games.submit(new HungerGamesRequest.StartGame(true), ADMIN);
+
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM smp_unlock_milestone WHERE request = " + unlock
+                        + " AND key = 'typed-rows'"));
+        assertEquals(0, count("SELECT count(*) FROM smp_inbox WHERE payload IS NOT NULL"));
+        assertEquals(1, count("SELECT count(*) FROM hunger_games_start_game WHERE confirmed"));
+        assertEquals(
+                new SmpRequest.UnlockMilestone("typed-rows"),
+                smp.claim().orElseThrow().payload());
+        assertEquals(
+                new SmpRequest.CompleteObjective("wood"),
+                smp.claim().orElseThrow().payload());
+        assertEquals(
+                new HungerGamesRequest.StartGame(true),
+                games.claim().orElseThrow().payload());
+        assertEquals(
+                List.of(new SmpRequest.UnlockMilestone("typed-rows")),
+                smp.recent(SmpRequest.UnlockMilestone.class, 5).stream()
+                        .map(Request::payload)
+                        .toList());
+
+        execute("UPDATE smp_inbox SET status = 'DONE', finished = now() - interval '1 minute'");
+        smp.purge(Duration.ZERO);
+        assertEquals(0, count("SELECT count(*) FROM smp_unlock_milestone"));
+    }
+
+    @Test
+    void everyKindWithItsOwnTableHasAColumnPerComponent() throws SQLException {
+        for (final InboxTable<?> table : Inboxes.ALL) {
+            for (final String kind : table.kinds()) {
+                final Class<?> type = table.typeOf(kind).orElseThrow();
+                if (!table.isRow(type)) {
+                    continue;
+                }
+                final Set<String> expected = new HashSet<>(Set.of("request"));
+                for (final var component : type.getRecordComponents()) {
+                    expected.add(InboxTable.column(component));
+                }
+                final Set<String> columns = new HashSet<>();
+                try (Connection connection = database.dataSource().getConnection();
+                        Statement statement = connection.createStatement();
+                        ResultSet rows = statement.executeQuery("SELECT column_name FROM information_schema.columns"
+                                + " WHERE table_name = '" + table.rowTable(type) + "'")) {
+                    while (rows.next()) {
+                        columns.add(rows.getString(1));
+                    }
+                }
+                assertEquals(expected, columns, table.rowTable(type));
+            }
+        }
+    }
+
+    @Test
     void aRefusalReadsBackWithItsReasonAndMessage() {
         final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());

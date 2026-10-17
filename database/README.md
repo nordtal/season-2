@@ -14,7 +14,7 @@ brings the runtime it already has; this module never migrates.
 | Game data      | `GameDataStore`: each server's `GameCatalogue` and the icons drawn per Minecraft version; `GameCatalogue.union` merges  |
 | Command trees  | `CommandTreeStore`: each server's `CommandTree` flattened into indexed nodes; `CommandTree.of` is the one walk          |
 | Registration   | discord-bot's: a round per `Game` with its teams; the game server moves the round's `RegistrationState`                 |
-| Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind is a record of a sealed payload type, stored as JSON |
+| Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind's record is a row of its own table or JSON           |
 | Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                              |
 | Journal        | `Journal.write` is the only writer of `audit_log`; an `AuditLine` is a message of `AdminTexts`                          |
 | Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s              |

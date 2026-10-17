@@ -50,6 +50,9 @@ class RosterApiTest extends WebTestSupport {
                     .toList();
             assertEquals(List.of(newer.reference(), older.reference()), references, "not " + bobs.reference());
         } finally {
+            sql("DELETE FROM bank_inbox WHERE id IN (SELECT request FROM bank_cancel_tab"
+                    + " JOIN payment_request ON payment_request.id = bank_cancel_tab.payment"
+                    + " WHERE discord_id IN ('700000000000000001', '700000000000000002'))");
             sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000001', '700000000000000002')");
         }
     }
@@ -97,30 +100,26 @@ class RosterApiTest extends WebTestSupport {
                 var statement = connection.createStatement()) {
             statement.execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('r-open', 'ACTIVE', NULL)");
         }
-        final HttpResponse<String> asked;
         try {
-            asked = post("/api/smp/milestone", "{\"key\": \"r-open\"}");
+            final HttpResponse<String> asked = post("/api/smp/milestone", "{\"key\": \"r-open\"}");
+            assertEquals(202, asked.statusCode(), asked.body());
+            final String id =
+                    GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString();
+
+            // Reading the row back through the endpoint the browser polls proves the round trip.
+            final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
+            assertEquals("PENDING", outcome.get("status").getAsString());
+
+            // A web request is a person's, by Discord id, and carries its typed parameters and nothing else.
+            final java.util.Map<String, String> row = row(id);
+            assertEquals("UNLOCK_MILESTONE", row.get("kind"));
+            assertEquals("PERSON", row.get("actor_kind"));
+            assertEquals("1", row.get("actor_id"));
+            assertEquals(GSON.fromJson("{\"key\": \"r-open\"}", JsonObject.class), payload(row));
         } finally {
-            try (var connection = WebFixture.postgres.dataSource().getConnection();
-                    var statement = connection.createStatement()) {
-                statement.execute("DELETE FROM smp_milestone WHERE key = 'r-open'");
-            }
+            sql("DELETE FROM smp_inbox WHERE id IN (SELECT request FROM smp_unlock_milestone WHERE key = 'r-open')");
+            sql("DELETE FROM smp_milestone WHERE key = 'r-open'");
         }
-
-        assertEquals(202, asked.statusCode(), asked.body());
-        final String id =
-                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString();
-
-        // Reading the row back through the endpoint the browser polls proves the round trip.
-        final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
-        assertEquals("PENDING", outcome.get("status").getAsString());
-
-        // A web request is a person's, by Discord id, and carries its typed parameters and nothing else.
-        final java.util.Map<String, String> row = row(id);
-        assertEquals("UNLOCK_MILESTONE", row.get("kind"));
-        assertEquals("PERSON", row.get("actor_kind"));
-        assertEquals("1", row.get("actor_id"));
-        assertEquals(GSON.fromJson("{\"key\": \"r-open\"}", JsonObject.class), payload(row));
     }
 
     @Test
@@ -192,7 +191,7 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** Returns the request a web action wrote, named as the browser was told. */
+    /** Returns the request a web action wrote, named as the browser was told, with its kind's row as its payload. */
     private static java.util.Map<String, String> row(final String id) throws Exception {
         final String[] name = id.split(":", -1);
         final java.util.Map<String, String> row = new java.util.HashMap<>();
@@ -208,6 +207,17 @@ class RosterApiTest extends WebTestSupport {
                 row.put("actor_kind", rows.getString("actor_kind"));
                 row.put("actor_id", rows.getString("actor_id"));
                 row.put("payload", rows.getString("payload"));
+            }
+            if (row.get("payload") == null) {
+                try (var kind = connection.prepareStatement("SELECT cast(to_jsonb(k) - 'request' AS text) FROM "
+                        + name[0] + "_" + row.get("kind").toLowerCase(java.util.Locale.ROOT)
+                        + " k WHERE request = ?")) {
+                    kind.setLong(1, Long.parseLong(name[1]));
+                    try (var rows = kind.executeQuery()) {
+                        assertTrue(rows.next(), "the kind's row is not there: " + id);
+                        row.put("payload", rows.getString(1));
+                    }
+                }
             }
         }
         return row;
@@ -273,6 +283,8 @@ class RosterApiTest extends WebTestSupport {
         } finally {
             try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
+                statement.execute("DELETE FROM smp_inbox"
+                        + " WHERE id IN (SELECT request FROM smp_unlock_milestone WHERE key LIKE 't-%')");
                 statement.execute("DELETE FROM smp_milestone WHERE key LIKE 't-%'");
             }
         }

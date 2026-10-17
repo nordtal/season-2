@@ -9,7 +9,8 @@ public sealed interface SmpRequest
         permits SmpRequest.CompleteObjective, SmpRequest.UnlockMilestone, SmpRequest.PreviewMessage {
 
     /** The SMP's inbox table. */
-    InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class);
+    InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
+            .withRows(CompleteObjective.class, UnlockMilestone.class);
 
     /** Closes one objective of the active milestone by hand, paying out what was collected. */
     record CompleteObjective(String key) implements SmpRequest {

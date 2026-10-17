@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 @RegisterConstructorMapper(PushSubscriptions.Subscription.class)
 public interface PushSubscriptionDao {
 
-    /** Subscribes a browser, or resubscribes it by endpoint and leaves {@code created_at} alone. */
+    /** Subscribes a browser, or resubscribes it by endpoint, keeping {@code created_at} and a name it cannot renew. */
     @SqlUpdate("""
             INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, system, browser)
             VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :system, :browser)
@@ -20,8 +20,10 @@ public interface PushSubscriptionDao {
                 discord_id = excluded.discord_id,
                 p256dh = excluded.p256dh,
                 auth = excluded.auth,
-                system = coalesce(excluded.system, steward_push_subscription.system),
-                browser = coalesce(excluded.browser, steward_push_subscription.browser)
+                system = CASE WHEN excluded.system IS NULL AND excluded.browser IS NULL
+                              THEN steward_push_subscription.system ELSE excluded.system END,
+                browser = CASE WHEN excluded.system IS NULL AND excluded.browser IS NULL
+                               THEN steward_push_subscription.browser ELSE excluded.browser END
             """)
     void add(
             @Bind("endpoint") String endpoint,

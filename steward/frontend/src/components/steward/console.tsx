@@ -97,7 +97,6 @@ export function ServiceConsole({
                 size="icon"
                 onClick={closeFind}
                 aria-label={t("steward.service-page.close-find")}
-                className="text-muted-foreground"
               >
                 <XIcon aria-hidden />
               </Button>
@@ -111,7 +110,6 @@ export function ServiceConsole({
                 onClick={() => setFinding(true)}
                 aria-label={t("steward.service-page.find")}
                 title={t("steward.service-page.find")}
-                className="text-muted-foreground"
               >
                 <ListMagnifyingGlassIcon aria-hidden />
               </Button>
@@ -121,7 +119,7 @@ export function ServiceConsole({
           <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
             <SelectTrigger
               aria-label={t("steward.service-page.lines")}
-              className="border-0 bg-transparent font-sans text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted/50"
+              className="border-0 bg-transparent font-sans text-foreground shadow-none hover:bg-muted dark:bg-transparent dark:hover:bg-muted/50 [&_svg]:text-foreground"
             >
               <SelectValue />
             </SelectTrigger>
@@ -141,7 +139,6 @@ export function ServiceConsole({
             disabled={!shown.some((entry) => entry.kind === "line")}
             aria-label={t("steward.service-page.download")}
             title={t("steward.service-page.download")}
-            className="text-muted-foreground"
           >
             <DownloadSimpleIcon aria-hidden />
           </Button>
@@ -455,7 +452,7 @@ function ConsoleLine({ name }: { name: string }) {
         }}
         placeholder="list"
         aria-label={t("steward.service-page.send-line")}
-        className="min-w-0 flex-1 self-stretch bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60 max-md:text-base"
+        className="min-w-0 flex-1 self-stretch bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/60"
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"
@@ -468,7 +465,6 @@ function ConsoleLine({ name }: { name: string }) {
         disabled={!command.trim() || send.isPending}
         aria-label={t("steward.service-page.send")}
         title={t("steward.service-page.send")}
-        className="text-muted-foreground"
       >
         <PaperPlaneTiltIcon aria-hidden />
       </Button>

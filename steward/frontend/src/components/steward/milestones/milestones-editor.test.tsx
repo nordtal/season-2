@@ -194,6 +194,18 @@ const DOCUMENT: ConfigDocument = {
         }),
         section(MILESTONE, {
           scalars: { key: "deep", unlocks: "NETHER", "border-diameter": "0" },
+          sections: {
+            objectives: [
+              section(OBJECTIVE, {
+                scalars: {
+                  key: "hardware",
+                  type: "ADVANCEMENT",
+                  target: "3",
+                  advancement: "minecraft:story/smelt_iron",
+                },
+              }),
+            ],
+          },
         }),
       ],
     }),
@@ -218,6 +230,9 @@ const GAME = {
       { id: "minecraft:jump", text: "Jump" },
       { id: "minecraft:play_one_minute", text: "Time Played" },
     ],
+    advancement: [
+      { id: "minecraft:story/smelt_iron", text: "Acquire Hardware", frame: "task", icon: "minecraft:iron_ingot" },
+    ],
   },
   tags: {},
   icons: {
@@ -230,6 +245,8 @@ const GAME = {
       "minecraft:chest": 3,
       "minecraft:netherrack": 4,
       "minecraft:writable_book": 5,
+      "minecraft:iron_ingot": 6,
+      "minecraft:knowledge_book": 7,
     },
   },
 }
@@ -383,33 +400,51 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     expect(within(list).getByTitle("Spin budget").textContent).toBe("41")
   })
 
-  it("names a milestone's unlock by its plugin's text and icon, and shows the diameter only for a border", async () => {
+  it("names a milestone's unlock by its plugin's text and icon, a border with its diameter in the same pill", async () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
     const list = screen.getByRole("list", { name: "Milestones" })
     const foothold = within(list).getByRole("listitem", { name: "foothold" })
     const deep = within(list).getByRole("listitem", { name: "deep" })
-    expect(within(foothold).getByText("Border")).toBeTruthy()
-    expect(within(foothold).getByTitle("Border diameter").textContent).toBe("99")
-    expect(within(deep).getByText("Nether")).toBeTruthy()
-    expect(within(deep).queryByTitle("Border diameter")).toBeNull()
+    expect(within(foothold).getByText("Border").parentElement?.textContent).toBe("Border99")
+    expect(within(foothold).queryByTitle("Border diameter")).toBeNull()
+    expect(within(deep).getByText("Nether").parentElement?.textContent).toBe("Nether")
     await waitFor(() => expect(foothold.querySelector('[data-icon="minecraft:map"]')).toBeTruthy())
     expect(deep.querySelector('[data-icon="minecraft:netherrack"]')).toBeTruthy()
   })
 
-  it("draws each objective of the open milestone as a card: its type, then what it names", async () => {
+  it("draws an objective's card as its type, ID and rewards, over its target and then what it counts", async () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
-    fireEvent.click(within(screen.getByRole("list", { name: "Milestones" })).getByRole("button", { name: /foothold/ }))
+    const list = screen.getByRole("list", { name: "Milestones" })
+    fireEvent.click(within(list).getByRole("button", { name: /foothold/ }))
     const foothold = screen.getByRole("region", { name: "foothold" })
     const logs = within(foothold).getByRole("button", { name: /logs/ })
-    await waitFor(() => expect(logs.querySelector('[data-icon="minecraft:chest"]')).toBeTruthy())
-    expect(logs.querySelector('[data-icon="minecraft:oak_log"]')).toBeTruthy()
+    const [logsTop, logsBottom] = Array.from(logs.children)
+    await waitFor(() => expect(logsTop.querySelector('[data-icon="minecraft:chest"]')).toBeTruthy())
+    expect(logsTop.textContent).toBe("Hand-inlogs3020")
+    if (!(logsTop instanceof HTMLElement)) throw new Error("an objective's card has no top row")
+    expect(within(logsTop).getByLabelText("Aura budget")).toBeTruthy()
+    expect(within(logs).queryByLabelText("Target")).toBeNull()
+    expect(logsBottom.textContent).toBe("2,048")
+    expect(logsBottom.querySelector('[data-icon="minecraft:oak_log"]')).toBeTruthy()
+
     const kills = within(foothold).getByRole("button", { name: /kills/ })
-    expect(within(kills).getByText("Kill entity")).toBeTruthy()
-    expect(kills.querySelector('[data-icon="minecraft:zombie_spawn_egg"]')).toBeTruthy()
+    const killsBottom = kills.children[1]
+    expect(killsBottom.textContent).toBe("50Kill entity")
+    const egg = killsBottom.querySelector('[data-icon="minecraft:zombie_spawn_egg"]')
+    if (!egg) throw new Error("a statistic's subjects are drawn without their icons")
+    expect(
+      egg.compareDocumentPosition(within(kills).getByText("Kill entity")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    fireEvent.click(within(list).getByRole("button", { name: /deep/ }))
+    const hardware = within(screen.getByRole("region", { name: "deep" })).getByRole("button", { name: /hardware/ })
+    const hardwareBottom = hardware.children[1]
+    await waitFor(() => expect(hardwareBottom.querySelector('[data-icon="minecraft:iron_ingot"]')).toBeTruthy())
+    expect(hardwareBottom.textContent).toBe("3Acquire Hardware")
   })
 
   it("shows an objective only the fields of its type, and empties the other type's when the type changes", async () => {
@@ -503,7 +538,7 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
         milestones: [
           { key: "waiting" },
           { key: "foothold" },
-          { objectives: [{ type: "HAND_IN", target: "1", items: [] }] },
+          { objectives: [{ key: "hardware" }, { type: "HAND_IN", target: "1", items: [] }] },
         ],
       },
     })

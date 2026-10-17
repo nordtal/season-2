@@ -157,7 +157,7 @@ export function TrackSplit(props: TrackProps) {
   return (
     <div className="flex flex-col gap-3">
       <SeasonSums track={track} schema={schema} />
-      <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[minmax(17rem,max-content)_minmax(0,1fr)] lg:gap-6">
         <div className={cn("flex flex-col gap-2 lg:border-r lg:pr-4", shown !== null && "max-lg:hidden")}>
           <ol aria-label={t("steward.game.milestones")} className="flex flex-col gap-0.5">
             {track.map((milestone, index) => {

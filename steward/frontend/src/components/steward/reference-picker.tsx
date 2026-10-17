@@ -177,11 +177,14 @@ export function ReferenceMarks({
   values,
   sibling,
   max = 3,
+  named = false,
 }: {
   reference: ConfigReference
   values: string[]
   sibling?: string
   max?: number
+  /** Draws each value's name beside its icon too, for a value that alone says what is counted. */
+  named?: boolean
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
   if (pending) return <Skeleton className="size-5" />
@@ -197,9 +200,16 @@ export function ReferenceMarks({
           )
         }
         return icons && choice?.icon ? (
-          <span key={`${value}-${index}`} title={name} className="shrink-0">
-            <GameIcon icons={icons} item={choice.icon} size={20} />
-          </span>
+          named ? (
+            <span key={`${value}-${index}`} className="inline-flex min-w-0 items-center gap-1">
+              <GameIcon icons={icons} item={choice.icon} size={20} />
+              <span className="truncate text-xs">{name}</span>
+            </span>
+          ) : (
+            <span key={`${value}-${index}`} title={name} className="shrink-0">
+              <GameIcon icons={icons} item={choice.icon} size={20} />
+            </span>
+          )
         ) : (
           <span key={`${value}-${index}`} className="truncate text-xs">
             {name}

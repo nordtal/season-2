@@ -7,7 +7,7 @@ import { isColour, namesNothing } from "@/lib/references"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ChoiceIcon, ListControl, ScalarControl, choiceName } from "@/components/steward/config-controls"
 import { ReferenceMarks } from "@/components/steward/reference-picker"
-import { FieldLabelIcon, TERM_ICON, fieldIcon } from "@/components/steward/term-icons"
+import { FieldLabelIcon, fieldIcon } from "@/components/steward/term-icons"
 import { type SectionValues, appliesTo, withValue } from "@/components/steward/repeatable-cards"
 import {
   BUDGETS,
@@ -193,7 +193,7 @@ export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
 /**
  * A milestone's settings as pills, as the list shows them: a choice by its icon and name, a number by its icon, a flag when on,
  * and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is
- * left out.
+ * left out; a number that applies only for a choice, such as a border's diameter, sits in that choice's pill.
  */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
@@ -202,17 +202,22 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
     if (!field || !appliesTo(field, milestone) || value === "" || value === "0" || value === "false") return []
     return [{ key, field, value }]
   })
+  const joined = (choice: string) => marks.filter(({ field }) => field.appliesWhen?.key === choice && !field.choices)
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-1">
+    <span className="flex min-w-0 flex-wrap items-center gap-1 lg:flex-nowrap">
       {marks.map(({ key, field, value }) => {
         if (field.choices) {
           return (
             <Pill key={key} className="pl-1">
               <ChoiceIcon choices={field.choices} value={value} size={18} />
               <span className="truncate">{choiceName(field.choices, value)}</span>
+              {joined(key).map((mark) => (
+                <span key={mark.key}>{Number(mark.value).toLocaleString("en")}</span>
+              ))}
             </Pill>
           )
         }
+        if (marks.some((mark) => mark.field.choices && mark.key === field.appliesWhen?.key)) return null
         const icons = { Mark: fieldIcon(key) }
         const mark = icons.Mark ? <icons.Mark aria-label={field.label} className="size-3.5 shrink-0" /> : field.label
         if (field.type === "BOOLEAN") {
@@ -234,26 +239,19 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
   )
 }
 
-/** The objective's type by its icon, or by its name where the icon cannot be drawn. */
-function TypeMark({ objective, schema, size }: { objective: SectionValues; schema: TrackSchema; size: number }) {
+/** The objective's type by its icon, where the icon can be drawn; the card writes its name beside it. */
+function TypeIcon({ objective, schema, size }: { objective: SectionValues; schema: TrackSchema; size: number }) {
   const choices = schema.objective.find((field) => field.key === KEY.type)?.choices
   const type = text(objective, KEY.type)
   const game = useGameData(choices?.icons !== undefined)
-  if (!choices || type === "") return null
-  const name = choiceName(choices, type)
-  if (choices.icons?.[type] === undefined || game.data?.icons === undefined) {
-    return <span className="shrink-0 text-xs text-muted-foreground">{name}</span>
-  }
-  return (
-    <span title={name} className="shrink-0">
-      <ChoiceIcon choices={choices} value={type} size={size} />
-    </span>
-  )
+  if (!choices || choices.icons?.[type] === undefined || game.data?.icons === undefined) return null
+  return <ChoiceIcon choices={choices} value={type} size={size} />
 }
 
 /**
- * What an objective names, field by field among those that apply: an item or a subject by its icon, a statistic by
- * its name, since none of its icons would say which.
+ * What an objective counts, field by field among those that apply: a list such as items or subjects by its icons, a
+ * single value by its icon and name, a statistic by its name alone since none of its icons would say which. A field
+ * another depends on comes after it, so subjects come before the statistic that counts them.
  */
 export function ObjectiveMarks({
   objective,
@@ -273,20 +271,27 @@ export function ObjectiveMarks({
       ),
     }))
     .filter(({ values }) => values.length > 0)
-  return named.map(({ field, values }) =>
-    field.refers ? (
-      <ReferenceMarks
-        key={field.key}
-        reference={field.refers}
-        values={values}
-        sibling={siblingOf(field, objective)}
-        max={max}
-      />
-    ) : null,
-  )
+  const dependedOn = new Set(named.flatMap(({ field }) => field.refers?.dependsOn ?? []))
+  return named
+    .toSorted((a, b) => Number(dependedOn.has(a.field.key)) - Number(dependedOn.has(b.field.key)))
+    .map(({ field, values }) =>
+      field.refers ? (
+        <ReferenceMarks
+          key={field.key}
+          reference={field.refers}
+          values={values}
+          sibling={siblingOf(field, objective)}
+          max={max}
+          named={field.kind !== "LIST"}
+        />
+      ) : null,
+    )
 }
 
-/** An objective as a card of its own: type, ID and target, then what it names and its budgets; it opens the sheet. */
+/**
+ * An objective as a card of its own, which opens the sheet: its type written out, its ID and its rewards, then its
+ * target and what it counts.
+ */
 export function ObjectiveCard({
   objective,
   schema,
@@ -300,7 +305,8 @@ export function ObjectiveCard({
 }) {
   const id = text(objective, KEY.id)
   const target = Number(text(objective, KEY.target))
-  const targetLabel = labelOf(schema.objective, KEY.target)
+  const choices = schema.objective.find((field) => field.key === KEY.type)?.choices
+  const type = text(objective, KEY.type)
   return (
     <button
       type="button"
@@ -311,20 +317,12 @@ export function ObjectiveCard({
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
-        <TypeMark objective={objective} schema={schema} size={20} />
-        <span className={cn("min-w-0 flex-1 truncate font-medium", id === "" && "text-muted-foreground")}>
+        <TypeIcon objective={objective} schema={schema} size={20} />
+        {choices && type !== "" ? <span className="shrink-0 font-medium">{choiceName(choices, type)}</span> : null}
+        <span className={cn("min-w-0 flex-1 truncate text-muted-foreground", id === "" && "italic")}>
           {id || "unnamed"}
         </span>
-        {Number.isFinite(target) && target > 0 ? (
-          <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-            <TERM_ICON.target aria-label={targetLabel} className="size-3.5" />
-            {target.toLocaleString("en")}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex min-h-6 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <ObjectiveMarks objective={objective} schema={schema} max={6} />
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        <span className="flex shrink-0 items-center gap-1">
           <BudgetMarks
             sums={budgetSums([{ [KEY.objectives]: [objective] }])}
             schema={schema}
@@ -332,6 +330,12 @@ export function ObjectiveCard({
             className="bg-background/70"
           />
         </span>
+      </span>
+      <span className="flex min-h-6 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+        {Number.isFinite(target) && target > 0 ? (
+          <span className="shrink-0 text-xs font-medium tabular-nums">{target.toLocaleString("en")}</span>
+        ) : null}
+        <ObjectiveMarks objective={objective} schema={schema} max={6} />
       </span>
     </button>
   )

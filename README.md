@@ -57,8 +57,9 @@ flowchart TB
     NC -->|"phase"| HG
     NC -->|"phase"| SMP
     NC -.-> LIMBOS
-    NCS -.-> LIMBO
     NCS -.-> LIMBOS
+    NCS -.-> LIMBO
+    NCS -.-> SMP
     UPD --> DEP
     UPD -->|"payments"| BANK
     BANK --> bunq

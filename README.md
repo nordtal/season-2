@@ -28,8 +28,8 @@ flowchart TB
         NCS["<b>proxy-standby</b><br/>during an update"]:::standby
         SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
         HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
-        LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
-        LIMBOS["<b>limbo-standby</b><br/>during an update"]:::standby
+      LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
+      LIMBOS["<b>limbo-standby</b><br/>during an update"]:::standby
     end
 
     subgraph st["Steward"]
@@ -57,6 +57,8 @@ flowchart TB
     NC -->|"phase"| HG
     NC -->|"phase"| SMP
     NC -.-> LIMBOS
+    NCS -.-> LIMBO
+    NCS -.-> LIMBOS
     UPD --> DEP
     UPD -->|"payments"| BANK
     BANK --> bunq

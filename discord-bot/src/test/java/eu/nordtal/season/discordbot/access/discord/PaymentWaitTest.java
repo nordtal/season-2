@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
+import eu.nordtal.season.database.payment.TabRefusal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -35,7 +36,8 @@ class PaymentWaitTest {
     void aRefusedTabEndsTheWaitWithTheRefusal() {
         assertEquals(
                 PaymentWait.REFUSED,
-                PaymentWait.of(request(PaymentRequestStatus.OPEN, null, "tab refused"), Duration.ofSeconds(3)));
+                PaymentWait.of(
+                        request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofSeconds(3)));
     }
 
     @Test
@@ -46,7 +48,7 @@ class PaymentWaitTest {
             }
             assertEquals(
                     PaymentWait.GONE,
-                    PaymentWait.of(request(status, "https://bunq.me/x", "tab refused"), Duration.ofHours(1)),
+                    PaymentWait.of(request(status, "https://bunq.me/x", TabRefusal.BAD_REQUEST), Duration.ofHours(1)),
                     status.name());
         }
     }
@@ -58,7 +60,8 @@ class PaymentWaitTest {
                 PaymentWait.of(request(PaymentRequestStatus.OPEN, "https://bunq.me/x", null), Duration.ofMinutes(11)));
         assertEquals(
                 PaymentWait.REFUSED,
-                PaymentWait.of(request(PaymentRequestStatus.OPEN, null, "tab refused"), Duration.ofMinutes(11)));
+                PaymentWait.of(
+                        request(PaymentRequestStatus.OPEN, null, TabRefusal.BAD_REQUEST), Duration.ofMinutes(11)));
     }
 
     @Test
@@ -80,7 +83,7 @@ class PaymentWaitTest {
     }
 
     private static PaymentRequest request(
-            final PaymentRequestStatus status, final @Nullable String shareUrl, final @Nullable String tabFailed) {
+            final PaymentRequestStatus status, final @Nullable String shareUrl, final @Nullable TabRefusal refusal) {
         return new PaymentRequest(
                 UUID.fromString("33333333-3333-3333-3333-333333333333"),
                 "NT-ABC123",
@@ -95,7 +98,8 @@ class PaymentWaitTest {
                 NOW,
                 NOW.plus(Duration.ofHours(1)),
                 null,
-                tabFailed,
+                refusal,
+                refusal == null ? null : NOW,
                 null,
                 null,
                 null);

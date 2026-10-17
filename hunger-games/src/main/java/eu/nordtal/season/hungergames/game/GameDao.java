@@ -142,8 +142,8 @@ public interface GameDao {
 
     @SqlQuery("""
             WITH recorded AS (
-                INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
-                VALUES (:gameId, :type, :actorId, :victimId, :detail)
+                INSERT INTO hg_event (game_id, type, actor_id, victim_id)
+                VALUES (:gameId, :type, :actorId, :victimId)
                 RETURNING id
             )
             SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM recorded) AS notified
@@ -152,8 +152,12 @@ public interface GameDao {
             @Bind("gameId") UUID gameId,
             @Bind("type") String type,
             @Bind("actorId") @Nullable UUID actorId,
-            @Bind("victimId") @Nullable UUID victimId,
-            @Bind("detail") @Nullable String detail);
+            @Bind("victimId") @Nullable UUID victimId);
+
+    /** Records the tiebreak of the last two deaths with its winner as the actor, none when nobody won it. */
+    default void recordTie(final UUID gameId, final @Nullable UUID winnerMemberId) {
+        recordEvent(gameId, "TIE", winnerMemberId, null);
+    }
 
     /** The kill tiebreaker: how many KILL events this member is the actor of, for this game. */
     @SqlQuery("""

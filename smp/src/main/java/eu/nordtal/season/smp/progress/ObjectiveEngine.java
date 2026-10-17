@@ -11,8 +11,8 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.AuraReason;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.milestone.Milestone;
@@ -286,18 +286,18 @@ public final class ObjectiveEngine implements Contributions {
 
         final int auraBudget = Payout.scaled(definition.auraBudget(), objective.amount(), objective.target());
         final int spinBudget = Payout.scaled(definition.spinBudget(), objective.amount(), objective.target());
-        final String ref = milestoneKey + "/" + objective.key();
 
         // In one order by player, so two payouts in flight lock the same rows in the same order and never deadlock.
         for (final Payout.Share share : byPlayer(Payout.split(auraBudget, objective.target(), contributions))) {
-            aura.addAura(DiscordId.of(share.contributorId()), share.total(), AuraReason.CONTRIBUTION.stored(), ref);
+            aura.addAura(
+                    DiscordId.of(share.contributorId()), share.total(), new AuraCause.Contribution(objective.id()));
         }
         for (final Payout.Share share : byPlayer(Payout.split(spinBudget, objective.target(), contributions))) {
             prizes.grant(DiscordId.of(share.contributorId()), share.total());
         }
         plugin.getLogger()
-                .info("objective " + ref + " paid " + contributions.size() + " contributor(s) out of " + auraBudget
-                        + " aura and " + spinBudget + " spins");
+                .info("objective " + milestoneKey + "/" + objective.key() + " paid " + contributions.size()
+                        + " contributor(s) out of " + auraBudget + " aura and " + spinBudget + " spins");
     }
 
     /** Returns the shares worth paying, by player id. */

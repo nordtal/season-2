@@ -228,8 +228,11 @@ class ObjectivePayoutIntegrationTest {
     }
 
     private int auraOf(final DiscordId player, final String objective) {
-        return (int) number("SELECT coalesce(sum(delta), 0) FROM smp_aura_event WHERE ref = 'foothold/" + objective
-                + "' AND discord_id = '" + player.value() + "'");
+        return (int) number("SELECT coalesce(sum(event.delta), 0) FROM smp_aura_event event"
+                + " JOIN smp_aura_contribution paid ON paid.event_id = event.id"
+                + " JOIN smp_objective objective ON objective.id = paid.objective_id"
+                + " WHERE objective.milestone_key = 'foothold' AND objective.key = '" + objective
+                + "' AND event.reason = 'CONTRIBUTION' AND event.discord_id = '" + player.value() + "'");
     }
 
     private long number(final String sql) {
@@ -257,8 +260,11 @@ class ObjectivePayoutIntegrationTest {
 
     private int auraPaidFor(final String objective) {
         return jdbi.withHandle(
-                handle -> handle.createQuery("SELECT coalesce(sum(delta), 0) FROM smp_aura_event WHERE ref = :ref")
-                        .bind("ref", "foothold/" + objective)
+                handle -> handle.createQuery("SELECT coalesce(sum(event.delta), 0) FROM smp_aura_event event"
+                                + " JOIN smp_aura_contribution paid ON paid.event_id = event.id"
+                                + " JOIN smp_objective objective ON objective.id = paid.objective_id"
+                                + " WHERE objective.milestone_key = 'foothold' AND objective.key = :key")
+                        .bind("key", objective)
                         .mapTo(Integer.class)
                         .one());
     }

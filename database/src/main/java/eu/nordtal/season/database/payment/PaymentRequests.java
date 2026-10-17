@@ -160,11 +160,11 @@ public final class PaymentRequests {
     /**
      * Records that bunq refused to make the tab.
      *
-     * @param reason what bunq said, shown to the user instead of a link
+     * @param refusal why, which the payer is shown instead of a link
      * @return {@code true} when the failure was recorded
      */
-    public boolean failTab(final UUID id, final String reason) {
-        return dao.failTab(id, reason) == 1;
+    public boolean failTab(final UUID id, final TabRefusal refusal) {
+        return dao.failTab(id, refusal) == 1;
     }
 
     /**

@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.command;
 
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.access.AccessReader;
@@ -16,8 +17,8 @@ import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.AuraReason;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import java.util.Optional;
@@ -101,7 +102,7 @@ public final class SmpAdmin {
             return Answer.failed(MESSAGES.smp().admin().targetUnlinked(PlayerContext.of(PlayerId.of(player), name)));
         }
         try {
-            aura.addAura(discordId.get(), delta, AuraReason.ADMIN.stored(), "by the console");
+            aura.addAura(discordId.get(), delta, new AuraCause.Admin(Actor.HOST));
         } catch (final RuntimeException failure) {
             // Its own answer: the transaction may have committed although its answer was lost.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);

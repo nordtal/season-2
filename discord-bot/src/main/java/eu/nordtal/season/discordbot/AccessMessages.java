@@ -328,7 +328,7 @@ public interface AccessMessages {
             MessageRef pending();
 
             @Name("Refused")
-            MessageRef refused();
+            MessageRef refused(@Arg("passes") boolean passes);
 
             @Name("Slow")
             MessageRef slow(@Arg("reference") @Example("NT-A1B2C3") String reference);

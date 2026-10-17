@@ -2,10 +2,12 @@ package eu.nordtal.season.smp;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.progress.ProgressDao;
@@ -60,7 +62,7 @@ class SurfaceSignalIntegrationTest {
             assertTrue(signalled(pg), "a finished milestone");
             track.activateAfter("second", 1);
             assertTrue(signalled(pg), "the next milestone");
-            aura.addAura(player, 5, "test", null);
+            aura.addAura(player, 5, new AuraCause.Admin(Actor.HOST));
             assertTrue(signalled(pg), "an aura change");
         }
     }

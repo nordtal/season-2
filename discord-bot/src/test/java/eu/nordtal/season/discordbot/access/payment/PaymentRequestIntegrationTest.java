@@ -21,6 +21,7 @@ import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.Watermark;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.TestPools;
@@ -252,15 +253,15 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id(), Actor.person(DiscordId.of(USER)));
 
-        assertTrue(requests.failTab(request.id(), "bunq: MonetaryAccount not found"));
+        assertTrue(requests.failTab(request.id(), TabRefusal.NOT_FOUND));
 
         final PaymentRequest failed = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
-                () -> assertEquals(
-                        "bunq: MonetaryAccount not found", failed.tabFailed(), "'der Link kommt gleich' needs an exit"),
+                () -> assertEquals(TabRefusal.NOT_FOUND, failed.tabRefusal(), "'der Link kommt gleich' needs an exit"),
+                () -> assertNotNull(failed.tabFailed(), "and when bunq refused"),
                 () -> assertTrue(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER)))),
                 () -> assertNull(
-                        requests.openOf(DiscordId.of(USER)).orElseThrow().tabFailed(),
+                        requests.openOf(DiscordId.of(USER)).orElseThrow().tabRefusal(),
                         "asking again clears the old reason rather than showing it next to a pending ask"));
     }
 

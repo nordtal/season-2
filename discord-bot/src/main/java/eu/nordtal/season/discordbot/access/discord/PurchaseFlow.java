@@ -8,6 +8,7 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequests;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.AdminLog;
@@ -282,19 +283,18 @@ public final class PurchaseFlow extends ListenerAdapter {
                                         locale,
                                         MESSAGES.purchase().linkSection().ttl(request.expires())));
             case REFUSED -> {
-                // bunq's error text goes to the admins as an alert, not to the buyer.
+                final TabRefusal refusal = Objects.requireNonNull(request.tabRefusal());
                 admin.alert(new Alert(
                         AlertType.PAYMENT,
                         Alert.Level.DOWN,
                         "purchase",
                         TEXTS.alert().linkRefused(),
-                        List.of(TEXTS.alert()
-                                .refused(request.reference(), Objects.requireNonNull(request.tabFailed()))),
+                        List.of(TEXTS.alert().refused(request.reference(), refusal)),
                         "/payments"));
                 edit(
                         hook,
                         messages.format(
-                                locale, MESSAGES.purchase().linkSection().refused()));
+                                locale, MESSAGES.purchase().linkSection().refused(refusal.passes())));
             }
             case GIVE_UP -> {
                 // The last thing this message says; it names the reference, which is what an admin needs.

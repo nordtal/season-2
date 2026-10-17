@@ -1,5 +1,6 @@
 package eu.nordtal.season.stewardbunq;
 
+import com.bunq.sdk.exception.ApiException;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.internalapi.BankWire;
@@ -63,25 +64,24 @@ public final class StewardBunq {
         });
     }
 
-    /**
-     * Answers what the bank said, or what went wrong as plain text.
-     *
-     * bunq's own words are what steward shows the person waiting, so they travel as the whole body.
-     */
+    /** Answers what the bank said, or what went wrong as a {@link BankWire.Refused}. */
     private static void answer(final Context ctx, final Supplier<Object> question) {
         try {
             ctx.json(question.get());
         } catch (final BunqGateway.NotConfigured off) {
-            ctx.status(503).result(off.getMessage());
+            ctx.status(503).json(refused(off));
         } catch (final RuntimeException refused) {
             log.warn("bunq refused {} {}: {}", ctx.method(), ctx.path(), refused.toString());
-            final String message = refused.getMessage();
-            ctx.status(502)
-                    .result(
-                            message == null || message.isBlank()
-                                    ? refused.getClass().getSimpleName()
-                                    : message.strip());
+            ctx.status(502).json(refused(refused));
         }
+    }
+
+    /** Returns a failure as steward is told it: the status bunq answered, if it answered one, and the words. */
+    static BankWire.Refused refused(final RuntimeException failure) {
+        final String message = failure.getMessage();
+        return new BankWire.Refused(
+                failure instanceof ApiException answered ? answered.getResponseCode() : null,
+                message == null || message.isBlank() ? failure.getClass().getSimpleName() : message.strip());
     }
 
     private static long id(final Context ctx) {

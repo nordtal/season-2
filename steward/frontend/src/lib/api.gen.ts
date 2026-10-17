@@ -206,6 +206,7 @@ export type Payment = {
   created: string
   expires: string
   settled?: string
+  tabRefusal?: TabRefusal
   tabFailed?: string
   tabCancelled?: string
   matchedCents?: number
@@ -562,6 +563,17 @@ export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
 export type AccessSource = "PURCHASE" | "ADMIN"
 
 export type PaymentRequestStatus = "OPEN" | "PAID" | "EXPIRED" | "CANCELLED" | "SUPERSEDED"
+
+export type TabRefusal =
+  | "NOT_CONFIGURED"
+  | "UNREACHABLE"
+  | "BAD_REQUEST"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "TOO_MANY_REQUESTS"
+  | "BUNQ_ERROR"
+  | "UNKNOWN"
 
 export type PaymentMatch = "TAB" | "REFERENCE" | "MANUAL"
 

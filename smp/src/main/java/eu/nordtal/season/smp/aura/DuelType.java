@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.duel;
+package eu.nordtal.season.smp.aura;
 
 import java.util.Optional;
 

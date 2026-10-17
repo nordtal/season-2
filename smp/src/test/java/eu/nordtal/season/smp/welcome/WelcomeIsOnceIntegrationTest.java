@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -75,7 +77,7 @@ class WelcomeIsOnceIntegrationTest {
 
     @Test
     void anExistingRowKeepsItsAura() {
-        aura.addAura(DiscordId.of(PLAYER), 40, "ADMIN", null);
+        aura.addAura(DiscordId.of(PLAYER), 40, new AuraCause.Admin(Actor.HOST));
         assertEquals(40, aura.auraOf(DiscordId.of(PLAYER)).orElseThrow());
 
         assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));

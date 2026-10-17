@@ -98,7 +98,7 @@ export type TextArgs = {
   "alert.purchase-failed": Record<string, never>
   "alert.refused": {
     reference: Arg["text"]
-    error: Arg["text"]
+    refusal: Arg["choice"]
   }
   "alert.role-ambiguous": {
     name: Arg["text"]

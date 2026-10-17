@@ -7,8 +7,8 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.AuraReason;
 import eu.nordtal.season.smp.config.AdvancementAwardSpec;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -79,7 +79,7 @@ public final class AdvancementListener implements Listener {
 
         PaperScheduler.of(plugin).execute(() -> {
             if (award != null && award > 0) {
-                aura.addAura(discordId.get(), award, AuraReason.ADVANCEMENT.stored(), key);
+                aura.addAura(discordId.get(), award, new AuraCause.Advancement(key));
                 final Locale locale = identities.languageOf(player.getUniqueId());
                 PaperScheduler.of(plugin).onMain(() -> {
                     if (player.isOnline()) {

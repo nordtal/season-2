@@ -41,7 +41,7 @@ enum PaymentWait {
         if (request.shareUrl() != null) {
             return LINK;
         }
-        if (request.tabFailed() != null) {
+        if (request.tabRefusal() != null) {
             return REFUSED;
         }
         return waited.compareTo(LIMIT) > 0 ? GIVE_UP : WAITING;

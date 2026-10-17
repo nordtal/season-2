@@ -56,6 +56,7 @@ public final class Purchases {
                         open.created(),
                         open.expires(),
                         null,
+                        open.tabRefusal(),
                         open.tabFailed(),
                         open.tabCancelled(),
                         open.matchedCents(),

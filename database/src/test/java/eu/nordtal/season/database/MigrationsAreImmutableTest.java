@@ -181,6 +181,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V52__a_key_s_transports_and_a_browser_s_device_are_one_value_per_column.sql",
                 "bedc1d35da3fa162419892b55d2d9db91f5625d46962343ccbcd1309f9a1b6f6");
+        FROZEN.put(
+                "V53__the_texts_an_override_replaced_are_a_row_each.sql",
+                "8c03319bf7f74799c98d78cd991b58954a83ce77fd264389ee2632b8af1550b4");
     }
 
     @Test

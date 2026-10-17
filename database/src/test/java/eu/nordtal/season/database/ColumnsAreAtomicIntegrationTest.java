@@ -30,7 +30,6 @@ class ColumnsAreAtomicIntegrationTest {
             "guild_channels.channels",
             "hunger_games_inbox.outcome",
             "hunger_games_inbox.payload",
-            "message_override.original",
             "setting_group.defaults",
             "setting_group.environment",
             "setting_group.schema",

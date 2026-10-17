@@ -254,8 +254,8 @@ dependencies {
     "glyphManifest"(project(":resource-pack", "glyphManifest"))
 
     // NullAway's annotations name checker-qual's TypeUseLocation; without it javac warns and -Werror fails.
-    compileOnly("org.checkerframework:checker-qual:4.3.0")
-    testCompileOnly("org.checkerframework:checker-qual:4.3.0")
+    compileOnly("org.checkerframework:checker-qual:4.3.1")
+    testCompileOnly("org.checkerframework:checker-qual:4.3.1")
 
     // Javalin's JSON mapper is wired to gson in Web; this repo carries no Jackson outside WebAuthn.
     implementation(libs.javalin)

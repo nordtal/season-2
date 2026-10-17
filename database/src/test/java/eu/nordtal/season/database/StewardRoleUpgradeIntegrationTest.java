@@ -70,7 +70,7 @@ class StewardRoleUpgradeIntegrationTest {
     }
 
     @Test
-    void theNameBeforeTheRenameHoldsNothingOnceMigrated() throws SQLException {
+    void theNameBeforeTheRenameIsGoneOnceMigrated() throws SQLException {
         final TestDatabase upgraded = TestDatabase.empty();
         execute(upgraded.dataSource(), """
                 DO $$
@@ -85,21 +85,13 @@ class StewardRoleUpgradeIntegrationTest {
         upgraded.migrate(before, "2");
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
 
-        final Set<String> held = privileges(upgraded.dataSource(), OLD_NAME);
-        held.addAll(members(upgraded.dataSource(), OLD_NAME));
-        // Every dump names a role that holds a grant, and a dump naming a dropped role cannot be restored.
-        assertEquals(Set.of(), held, "the name before the rename still holds a grant, so every dump names it");
+        assertEquals(Set.of(), roles(upgraded.dataSource(), OLD_NAME), "the name before the rename is still a role");
     }
 
-    private static Set<String> members(final DataSource source, final String role) throws SQLException {
+    private static Set<String> roles(final DataSource source, final String role) throws SQLException {
         final Set<String> found = new TreeSet<>();
         try (Connection connection = source.getConnection();
-                var query = connection.prepareStatement("""
-                        SELECT 'granted to ' || member.rolname
-                        FROM pg_auth_members granted
-                        JOIN pg_roles member ON member.oid = granted.member
-                        WHERE granted.roleid = (SELECT oid FROM pg_roles WHERE rolname = ?)
-                        """)) {
+                var query = connection.prepareStatement("SELECT rolname FROM pg_roles WHERE rolname = ?")) {
             query.setString(1, role);
             try (ResultSet rows = query.executeQuery()) {
                 while (rows.next()) {

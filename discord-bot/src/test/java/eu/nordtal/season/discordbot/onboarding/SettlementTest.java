@@ -125,10 +125,22 @@ class SettlementTest {
     }
 
     @Test
-    void withTheLockOffNobodyKeepsTheLockRoleChosenOrNot() {
+    void withTheLockOffARoleGivenByHandStaysWhileAChoiceIsMissing() {
+        assertTrue(
+                settle(Set.of(LOCK, EN), Set.of(), recorded("en", null), false).isEmpty());
+    }
+
+    @Test
+    void withTheLockOffNobodyIsGivenTheLockRole() {
         assertEquals(
-                Set.of(LOCK),
-                settle(Set.of(LOCK), Set.of(), Records.Recorded.NONE, false).remove());
+                Set.of(),
+                settle(Set.of(EN), Set.of(), recorded("en", null), false).add());
+    }
+
+    @Test
+    void withTheLockOffARoleGivenByHandGoesOnceBothAreHeld() {
+        final Settlement settlement = settle(Set.of(EN, LOCK, BERLIN), Set.of(BERLIN), recorded("en", null), false);
+        assertEquals(Set.of(LOCK), settlement.remove());
     }
 
     @Test

@@ -139,6 +139,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     /** Takes the onboarding group again after a change in Steward; a refused change keeps the values in use. */
     public void settingsChanged() {
         lane.execute(() -> {
+            final boolean wasLocked = setting.get().lock();
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
@@ -149,8 +150,21 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             }
             choices = Choices.of(languages, setting.get());
             publish();
+            if (wasLocked && !setting.get().lock()) {
+                release();
+            }
             sweep();
         });
+    }
+
+    /** Takes the lock role from every member holding it, once, as the lock is switched off. */
+    private void release() {
+        final Guild guild = guild();
+        if (guild != null) {
+            roles.role(guild, GuildRoles.LOCK)
+                    .ifPresent(role -> guild.getMembersWithRoles(role)
+                            .forEach(member -> change(guild, member.getId(), role.getId(), false)));
+        }
     }
 
     private void publish() {
@@ -215,8 +229,11 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         roles.resolve(guild, wanted());
         final Lock lock = lock(guild);
         final String onboardingChannel = setting.get().channel();
-        if (Configured.isSet(onboardingChannel) && guild.getGuildChannelById(onboardingChannel) != null) {
-            channels.keep(guild, lock.role(), onboardingChannel, lock.locking() && lock.role() != null);
+        final Role lockRole = lock.role();
+        if (lockRole != null
+                && Configured.isSet(onboardingChannel)
+                && guild.getGuildChannelById(onboardingChannel) != null) {
+            channels.keep(guild, lockRole, onboardingChannel);
         }
         final Map<String, Records.Recorded> recorded = records.all();
         int settled = 0;
@@ -243,10 +260,9 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             return;
         }
         final Lock lock = lock(guild);
-        if (lock.locking()
-                && lock.role() != null
-                && guild.getGuildChannelById(channelId) instanceof IPermissionContainer channel) {
-            channels.keepNew(channel, lock.role(), setting.get().channel());
+        final Role lockRole = lock.role();
+        if (lockRole != null && guild.getGuildChannelById(channelId) instanceof IPermissionContainer channel) {
+            channels.keepNew(channel, lockRole, setting.get().channel());
         }
     }
 
@@ -304,15 +320,14 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    /** Returns whether {@code member} holds the lock role while the lock is in force, which withholds the rest. */
+    /** Returns whether {@code member} holds the lock role, which withholds the rest, the lock on or off. */
     @Override
     public boolean withholds(final Member member) {
         if (!ours(member.getGuild()) || member.getUser().isBot()) {
             return false;
         }
-        final Lock lock = state(member.getGuild());
-        final Role role = lock.role();
-        return lock.locking() && role != null && member.getRoles().contains(role);
+        final Role role = roles.role(member.getGuild(), GuildRoles.LOCK).orElse(null);
+        return role != null && member.getRoles().contains(role);
     }
 
     /** Returns the lock role, and whether it locks now, saying once when it is on without a channel. */

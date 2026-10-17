@@ -21,22 +21,24 @@ flowchart TB
     players(["Players"]):::ext
     admins(["Admins"]):::ext
     CADDY["<b>caddy</b><br/>HTTPS, game port"]:::entry
-    PACK["<b>pack-host</b><br/>dev only: a local pack"]:::side
 
-    subgraph mc["Minecraft servers, one image"]
+    subgraph vlc["Velocity proxies"]
         NC["<b>proxy</b><br/><i>:proxy</i>"]:::proxy
-        NCS["<b>proxy-standby</b><br/>during an update"]:::standby
-        SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
-        HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
-      LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
-      LIMBOS["<b>limbo-standby</b><br/>during an update"]:::standby
+        NCS["<b>proxy-standby</b><br/>during proxy updates"]:::standby
+
+        subgraph ppr["Paper servers"]
+            HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
+            SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
+            LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
+            LIMBOS["<b>limbo-standby</b><br/>during limbo updates"]:::standby
+        end
     end
 
-    subgraph st["Steward"]
+    subgraph st["Steward (administration app)"]
         UPD["<b>steward</b><br/><i>:steward</i><br/>interface, alerts"]:::app
         DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>containers, runs, backups"]:::app
-        BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the bank key"]:::app
-        MIG["<b>migrate</b><br/><i>:steward-agent</i><br/>schema, then exits"]:::app
+        BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>bunq gateway"]:::app
+        MIG["<b>migrate</b><br/><i>:steward-agent</i><br/>schema migrations"]:::app
     end
 
     BOT["<b>discord-bot</b><br/><i>:discord-bot</i><br/>access, payments"]:::app
@@ -48,20 +50,17 @@ flowchart TB
     offsite(["offsite backup"]):::ext
 
     players --> CADDY
-    players -.-> PACK
     admins --> CADDY
     CADDY --> NC
     CADDY -.-> NCS
     CADDY --> UPD
-    NC -->|"pack"| LIMBO
-    NC -->|"phase"| HG
-    NC -->|"phase"| SMP
+    NC --> LIMBO
+    NC --> HG
+    NC --> SMP
     NC -.-> LIMBOS
-    NCS -.-> LIMBOS
-    NCS -.-> LIMBO
-    NCS -.-> SMP
+    NCS -.->  LIMBOS
     UPD --> DEP
-    UPD -->|"payments"| BANK
+    UPD --> BANK
     BANK --> bunq
     DEP -.-> MIG
     DEP --> gh
@@ -75,14 +74,15 @@ flowchart TB
     classDef key fill:#8b949e0d,stroke:#8b949e,stroke-width:1px,stroke-dasharray:2 2
     classDef ext fill:#8b949e26,stroke:#8b949e,stroke-width:2px
     classDef entry fill:#8b949e33,stroke:#8b949e,stroke-width:2px
-    classDef proxy fill:#4a90e233,stroke:#4a90e2,stroke-width:3px
-    classDef paper fill:#46a75833,stroke:#46a758,stroke-width:2px
-    classDef standby fill:#8b949e0d,stroke:#8b949e,stroke-width:2px,stroke-dasharray:6 4
+    classDef proxy fill:#4a90e253,stroke:#4a90e2,stroke-width:3px
+    classDef paper fill:#46a75853,stroke:#46a758,stroke-width:2px
+    classDef standby fill:#8b949e53,stroke:#8b949e,stroke-width:2px,stroke-dasharray:6 4
     classDef app fill:#e08c3433,stroke:#e08c34,stroke-width:2px
     classDef db fill:#d2565b33,stroke:#d2565b,stroke-width:3px
     classDef side fill:#8b949e1a,stroke:#8b949e,stroke-width:1px,stroke-dasharray:3 3
-    style mc fill:#4a90e21a,stroke:#4a90e2,stroke-width:1px
-    style st fill:#e08c341a,stroke:#e08c34,stroke-width:1px
+    style vlc fill:#4a90e210,stroke:#4a90e2,stroke-width:1px
+    style ppr fill:#46a75810,stroke:#46a758,stroke-width:2px
+    style st fill:#e08c3410,stroke:#e08c34,stroke-width:1px
 ```
 
 `compose.yml` ships inside the `steward-agent` image. The libraries below are compiled into the jars
@@ -108,8 +108,8 @@ above.
 | `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                         |
 | `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                        |
 | `hunger-games`      | Paper           | The start event: the game of the teams the bot registers, border, loot, HUD, winning.                            |
-| `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.             |
-| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins, registers teams for a game.                           |
+| `smp`               | Paper           | The SMP itself                                                                                                   |
+| `discord-bot`       | JVM app         | Catches user languages and regions from onboarding, payments interface, HG team registration, announcements      |
 | `steward`           | JVM app + React | The web interface and its API, payments, alerts and the clocks that ask for runs.                                |
 | `steward-agent`     | JVM app         | The schema, every jar version and every run. The only service allowed to create a container.                     |
 | `steward-bunq`      | JVM app         | The only service holding the bank key: creates and cancels tabs, lists payments. Decides nothing.                |

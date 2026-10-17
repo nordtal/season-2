@@ -26,10 +26,10 @@ flowchart TB
     subgraph mc["Minecraft servers, one image"]
         NC["<b>proxy</b><br/><i>:proxy</i>"]:::proxy
         NCS["<b>proxy-standby</b><br/>during an update"]:::standby
+        SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
+        HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
         LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
         LIMBOS["<b>limbo-standby</b><br/>during an update"]:::standby
-        HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
-        SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
     end
 
     subgraph st["Steward"]

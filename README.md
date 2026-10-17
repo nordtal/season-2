@@ -97,7 +97,7 @@ jars of the services.
 - **Commands:** each plugin registers Brigadier commands. Admins enter them on the server console;
   Steward sends a typed request to the server's inbox, which runs the same action.
 - **Text:** player-facing text is German or English, loaded once per join off the main thread.
-- **Glyphs:** allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json). The build
+- **Glyphs:** glyphs are allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json). The build
   generates the fonts, `Glyphs` and the advance tables from it.
 
 ### Modules
@@ -129,7 +129,7 @@ jars of the services.
 
 ## Operation
 
-On a host with Docker, in the directory the installation should live in:
+Run this on a host with Docker, in the directory that holds the installation:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
@@ -150,7 +150,7 @@ and troubleshooting.
 
 ## Development
 
-Requires JDK 25. Build only the modules you touched.
+The build requires JDK 25. Build only the modules you changed.
 
 ```bash
 ./gradlew :smp:check                 # one module, with its tests and the convention checks

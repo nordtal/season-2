@@ -24,7 +24,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps the onboarding channel the lock role's alone, and every other category and channel shut to it while it locks.
+ * Keeps the onboarding channel the lock role's alone and every other channel shut to it, the lock on or off.
  *
  * Categories go first and each channel gets the same overwrite, so a channel synced with its category stays synced.
  */
@@ -73,28 +73,26 @@ final class LockedChannels {
     /**
      * Returns the overwrites a channel is kept at, in the order they are set.
      *
-     * @param onboarding whether it is the onboarding channel, which only the lock role sees, the lock on or off
-     * @param locking whether the lock role is shut out of every other channel now
+     * @param onboarding whether it is the onboarding channel, which only the lock role sees
      */
-    static List<Overwrite> wanted(final boolean onboarding, final boolean locking) {
+    static List<Overwrite> wanted(final boolean onboarding) {
         if (onboarding) {
             return List.of(
                     new Overwrite(Holder.BOT, View.OPEN),
                     new Overwrite(Holder.LOCK, View.OPEN),
                     new Overwrite(Holder.EVERYONE, View.CLOSED));
         }
-        return locking ? List.of(new Overwrite(Holder.LOCK, View.CLOSED)) : List.of();
+        return List.of(new Overwrite(Holder.LOCK, View.CLOSED));
     }
 
     /** Keeps every channel of the guild, and says once in the admin channel which ones it could not. */
-    void keep(final Guild guild, final @Nullable Role lock, final String onboardingChannelId, final boolean locking) {
+    void keep(final Guild guild, final Role lock, final String onboardingChannelId) {
         final List<MessageRef> failed = new ArrayList<>();
         guild.getChannels(true).stream()
                 .filter(IPermissionContainer.class::isInstance)
                 .map(IPermissionContainer.class::cast)
                 .sorted(Comparator.comparing(channel -> channel.getType() != ChannelType.CATEGORY))
-                .forEach(channel ->
-                        keep(channel, lock, onboardingChannelId, locking).ifPresent(failed::add));
+                .forEach(channel -> keep(channel, lock, onboardingChannelId).ifPresent(failed::add));
         if (failed.isEmpty()) {
             alerts.clear(KEY);
             return;
@@ -115,25 +113,19 @@ final class LockedChannels {
 
     /** Shuts a channel just created to the lock role, and says so in the admin channel when it cannot. */
     void keepNew(final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
-        keep(channel, lock, onboardingChannelId, true).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
+        keep(channel, lock, onboardingChannelId).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
     }
 
     /** Keeps one channel's overwrites in order and returns what failed, stopping at the first failure. */
     private Optional<MessageRef> keep(
-            final IPermissionContainer channel,
-            final @Nullable Role lock,
-            final String onboardingChannelId,
-            final boolean locking) {
+            final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
         final Guild guild = channel.getGuild();
-        for (final Overwrite overwrite : wanted(channel.getId().equals(onboardingChannelId), locking)) {
-            final @Nullable IPermissionHolder holder = switch (overwrite.holder()) {
+        for (final Overwrite overwrite : wanted(channel.getId().equals(onboardingChannelId))) {
+            final IPermissionHolder holder = switch (overwrite.holder()) {
                 case BOT -> guild.getSelfMember();
                 case LOCK -> lock;
                 case EVERYONE -> guild.getPublicRole();
             };
-            if (holder == null) {
-                continue;
-            }
             final Optional<MessageRef> failed = keep(channel, holder, overwrite);
             if (failed.isPresent()) {
                 return failed;

@@ -83,10 +83,12 @@ flowchart LR
 - The onboarding channel is the lock role's alone: the bot keeps it shut to everyone and open to the lock role
   and to itself, the lock on or off, so a released member no longer sees it.
 
-- With the lock on in Steward, a member missing either role holds the lock role, which sees only the
-  onboarding channel; the bot keeps that on every channel and takes the role the moment both are held.
-  Bots are never locked.
-- While locked, the access and donor roles are withheld, so a role's allow cannot open a channel past
+- The lock role sees only the onboarding channel, the lock on or off: the bot keeps every channel's overwrite
+  for it, repairs drift on every reconcile and closes each new channel, so switching the lock rewrites none.
+- With the lock on in Steward, a member missing either role is given the lock role. Whoever holds it, given
+  by the bot or by hand, loses it the moment both are held; switching the lock off takes it from everyone
+  once, and a role given by hand after that stays, which is how the onboarding is tried. Bots are never locked.
+- While the lock role is held, the access and donor roles are withheld, so a role's allow cannot open a channel past
   the lock. When the lock goes both return as the database has them: access while a grant covers the
   member, donor while the flag is set. The game is unaffected, since the proxy reads the database.
 

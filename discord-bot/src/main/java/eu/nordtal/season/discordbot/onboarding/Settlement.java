@@ -32,7 +32,8 @@ record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
      * @param held the ids of the roles the member holds
      * @param chosen the ids just given or chosen, which win over the rest of their kind, held or not
      * @param lock the lock role's id, or {@code null} while there is none
-     * @param locking whether a member without a language or a region holds the lock role
+     * @param locking whether a member without a language or a region is given the lock role; one who holds it
+     *     keeps it until both are held, the lock on or off
      */
     static Settlement of(
             final Choices choices,
@@ -64,7 +65,7 @@ record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
         }
         if (lock != null) {
             managed.add(lock);
-            if (locking && missing) {
+            if (missing && (locking || held.contains(lock))) {
                 target.add(lock);
             }
         }

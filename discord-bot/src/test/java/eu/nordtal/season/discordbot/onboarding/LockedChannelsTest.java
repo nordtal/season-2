@@ -18,31 +18,20 @@ class LockedChannelsTest {
 
     @Test
     void theOnboardingChannelIsTheLockRolesAloneSoAReleasedMemberNoLongerSeesIt() {
-        assertEquals(ONBOARDING, LockedChannels.wanted(true, true));
-    }
-
-    @Test
-    void theOnboardingChannelStaysHiddenWhileTheLockIsOffSinceNobodyNeedsItThen() {
-        assertEquals(ONBOARDING, LockedChannels.wanted(true, false));
+        assertEquals(ONBOARDING, LockedChannels.wanted(true));
     }
 
     @Test
     void theBotOpensTheOnboardingChannelToItselfBeforeClosingItToEveryone() {
-        final List<Holder> order = LockedChannels.wanted(true, true).stream()
-                .map(Overwrite::holder)
-                .toList();
+        final List<Holder> order =
+                LockedChannels.wanted(true).stream().map(Overwrite::holder).toList();
 
         assertEquals(0, order.indexOf(Holder.BOT));
         assertEquals(order.size() - 1, order.indexOf(Holder.EVERYONE));
     }
 
     @Test
-    void everyOtherChannelIsClosedToTheLockRoleWhileTheLockIsOn() {
-        assertEquals(List.of(new Overwrite(Holder.LOCK, View.CLOSED)), LockedChannels.wanted(false, true));
-    }
-
-    @Test
-    void withTheLockOffEveryOtherChannelIsLeftAsItIs() {
-        assertEquals(List.of(), LockedChannels.wanted(false, false));
+    void everyOtherChannelIsClosedToTheLockRoleTheLockOnOrOffSoSwitchingItOnRewritesNoChannel() {
+        assertEquals(List.of(new Overwrite(Holder.LOCK, View.CLOSED)), LockedChannels.wanted(false));
     }
 }

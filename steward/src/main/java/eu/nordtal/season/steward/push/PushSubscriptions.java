@@ -35,7 +35,8 @@ public final class PushSubscriptions {
             final String p256dh,
             final String auth,
             final @Nullable String userAgent) {
-        dao.add(endpoint, discordId, p256dh, auth, Devices.nameOf(userAgent));
+        final Devices.Device device = Devices.of(userAgent);
+        dao.add(endpoint, discordId, p256dh, auth, device.system(), device.browser());
         log.info(
                 "{} subscribed a browser to web push - {} subscription(s) on that account now",
                 discordId,
@@ -86,5 +87,6 @@ public final class PushSubscriptions {
             String auth,
             @ColumnName("created_at") Instant createdAt,
             @ColumnName("last_sent_at") @Nullable Instant lastSentAt,
-            @Nullable String device) {}
+            @Nullable String system,
+            @Nullable String browser) {}
 }

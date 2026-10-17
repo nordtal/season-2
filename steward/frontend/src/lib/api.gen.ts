@@ -41,7 +41,8 @@ export type WebPushPublicKey = {
 
 export type PushDevice = {
   endpoint: string
-  device?: string
+  system?: string
+  browser?: string
   subscribedAt: string
   lastSentAt?: string
 }

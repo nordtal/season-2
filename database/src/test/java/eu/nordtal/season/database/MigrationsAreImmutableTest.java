@@ -178,6 +178,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V50__an_aura_change_records_its_cause_as_typed_values.sql",
                 "f23364d82220505b131983c64f4fcb63492ac5d79cd3d7b6ccc8bdb7ee571085");
+        FROZEN.put(
+                "V52__a_key_s_transports_and_a_browser_s_device_are_one_value_per_column.sql",
+                "725ec9ddeef4a475669d6a9ab0fdf9e6145212ca1f8664207ccb66287acf0b59");
     }
 
     @Test

@@ -11,7 +11,6 @@ import eu.nordtal.season.database.TestDatabase;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,7 +35,7 @@ class SessionRowsTest {
 
     @Test
     void theTableKeepsTheHashOfTheCookieAndNotTheCookie() throws Exception {
-        final String id = sessions.signIn(DiscordId.of("46"), "Hashed", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("46"), "Hashed");
 
         assertEquals(0, count("SELECT count(*) FROM steward_session WHERE id = '" + id + "'"));
         assertEquals(1, count("SELECT count(*) FROM steward_session WHERE id = '" + Sessions.stored(id) + "'"));
@@ -73,7 +72,7 @@ class SessionRowsTest {
 
     @Test
     void aCeremonyIsOneShotAndHasAClock() {
-        final String id = sessions.signIn(DiscordId.of("42"), "Someone", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("42"), "Someone");
         sessions.startCeremony(id, "{\"challenge\":\"abc\"}");
 
         assertEquals(Optional.of("{\"challenge\":\"abc\"}"), sessions.consumeCeremony(id));
@@ -93,7 +92,7 @@ class SessionRowsTest {
 
     @Test
     void startingAgainDropsTheOneBefore() {
-        final String id = sessions.signIn(DiscordId.of("43"), "Someone Else", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("43"), "Someone Else");
         sessions.startCeremony(id, "first");
         sessions.startCeremony(id, "second");
 
@@ -106,7 +105,7 @@ class SessionRowsTest {
 
     @Test
     void anExpiredSessionIsGoneBeforeTheSweepTouchesIt() {
-        final String id = sessions.signIn(DiscordId.of("44"), "Yesterday", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("44"), "Yesterday");
         assertTrue(sessions.find(id).isPresent());
 
         sessions.expireAt(id, Instant.now().minusSeconds(1));
@@ -118,7 +117,7 @@ class SessionRowsTest {
 
     @Test
     void verificationIsRecordedOnTheRow() {
-        final String id = sessions.signIn(DiscordId.of("45"), "Unverified", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("45"), "Unverified");
         assertFalse(sessions.find(id).orElseThrow().verified(), "a session was verified before anybody touched a key");
 
         sessions.markVerified(id, Duration.ofHours(1));

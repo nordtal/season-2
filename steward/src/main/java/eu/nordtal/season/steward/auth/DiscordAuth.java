@@ -1,7 +1,5 @@
 package eu.nordtal.season.steward.auth;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.http.Reply;
 import eu.nordtal.season.common.http.WebClient;
@@ -17,9 +15,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -27,9 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Signing in with Discord, and reading the signer's roles with their own token rather than the bot's.
- *
- * Identity comes first and the role check after, so a refusal can name the person and the missing role.
+ * Signing in with Discord, and reading the signer's guild membership with their own token rather than the bot's.
  */
 public final class DiscordAuth {
 
@@ -144,20 +138,13 @@ public final class DiscordAuth {
             return Outcome.refused(e.status() == 404 ? REFUSED.notInGuild() : e.why());
         }
 
-        final List<String> roles = new ArrayList<>();
-        final JsonArray fromDiscord = member.getAsJsonArray("roles");
-        if (fromDiscord != null) {
-            for (final JsonElement role : fromDiscord) {
-                roles.add(role.getAsString());
-            }
-        }
         final String id = user.get("id").getAsString();
         final String name = member.has("nick") && !member.get("nick").isJsonNull()
                 ? member.get("nick").getAsString()
                 : user.get("username").getAsString();
 
         log.info("Discord confirmed {} ({})", name, id);
-        return Outcome.signedIn(new Account(id, name, List.copyOf(roles)));
+        return Outcome.signedIn(new Account(id, name));
     }
 
     private String exchange(final String code) {
@@ -208,8 +195,8 @@ public final class DiscordAuth {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    /** Who signed in, with the roles kept so a later refusal can name the missing one. */
-    public record Account(String id, String name, List<String> roles) {
+    /** Who signed in. */
+    public record Account(String id, String name) {
 
         /** Returns them as the actor of whatever they ask for. */
         public Actor actor() {

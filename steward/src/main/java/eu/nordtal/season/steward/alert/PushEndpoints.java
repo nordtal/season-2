@@ -70,7 +70,7 @@ public final class PushEndpoints {
             throw new BadRequestResponse(
                     "that is not a PushSubscription - endpoint and" + " keys.p256dh/keys.auth are required");
         }
-        // The User-Agent becomes a short device name; the raw string is stored nowhere.
+        // The User-Agent becomes a system and a browser; the raw string is stored nowhere.
         pushSubscriptions()
                 .subscribe(
                         who.signedInDiscordId(),
@@ -96,10 +96,11 @@ public final class PushEndpoints {
         ctx.status(204);
     }
 
-    /** A browser this account subscribed; {@code device} is absent without a User-Agent. */
+    /** A browser this account subscribed; {@code system} and {@code browser} are each absent where unrecognised. */
     public record PushDevice(
             String endpoint,
-            @Nullable String device,
+            @Nullable String system,
+            @Nullable String browser,
             Instant subscribedAt,
             @Nullable Instant lastSentAt) {}
 
@@ -112,7 +113,8 @@ public final class PushEndpoints {
         ctx.json(pushSubscriptions().of(who.signedInDiscordId()).stream()
                 .map(subscription -> new PushDevice(
                         subscription.endpoint(),
-                        subscription.device(),
+                        subscription.system(),
+                        subscription.browser(),
                         subscription.createdAt(),
                         subscription.lastSentAt()))
                 .toList());

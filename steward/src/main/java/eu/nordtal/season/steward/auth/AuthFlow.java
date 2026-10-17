@@ -117,7 +117,7 @@ public final class AuthFlow {
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
         // A new session id, so the one the sign-in started in cannot be fixated.
-        final String id = sessions().signIn(DiscordId.of(who.id()), who.name(), who.roles());
+        final String id = sessions().signIn(DiscordId.of(who.id()), who.name());
         sessions().end(started);
         setSessionCookie(ctx, id, lifetime());
         ctx.redirect("/");

@@ -103,32 +103,30 @@ above.
 
 ### Modules
 
-| module              | platform        | what it owns                                                                                                     |
-| ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                         |
-| `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                        |
-| `hunger-games`      | Paper           | The start event: the game of the teams the bot registers, border, loot, HUD, winning.                            |
-| `smp`               | Paper           | The SMP itself                                                                                                   |
-| `discord-bot`       | JVM app         | Catches user languages and regions from onboarding, payments interface, HG team registration, announcements      |
-| `steward`           | JVM app + React | The web interface and its API, payments, alerts and the clocks that ask for runs.                                |
-| `steward-agent`     | JVM app         | The schema, every jar version and every run. The only service allowed to create a container.                     |
-| `steward-bunq`      | JVM app         | The only service holding the bank key: creates and cancels tabs, lists payments. Decides nothing.                |
-| `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack. |
-| `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                         |
-| `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                   |
-| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                   |
-| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                 |
-| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                   |
-| `internal-api`      | library         | The token-guarded HTTP wire between `steward` and the services only it may call, and the bank's wire records.    |
-| `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                      |
-| `display-tags`      | library         | Every player's name tag as packet-only text displays, which smp hosts as its `nametags` settings group.          |
-| `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                       |
-| `spec`              | library         | The spec interfaces every settings group is written as, and the schema Steward draws its forms from.             |
-| `resource-pack`     | assets          | The pack, the glyph allocation its fonts are written from, and the zip + SHA-1 a release ships.                  |
-| `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
-| `shipped-jars`      | tests           | Every shipped jar loaded as its host loads it, and its database pool opened on a throwaway PostgreSQL.           |
-
-[`architecture`](architecture/README.md) holds the dependency rules between them as tests.
+| module              | platform        | what it owns                                                                               |
+| ------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                   |
+| `limbo`             | Paper           | The waiting room that applies the resource pack.                                           |
+| `hunger-games`      | Paper           | The start event: the bot's teams, border, loot, HUD, winning.                              |
+| `smp`               | Paper           | Nordtal, the farm world, Nether and End, milestones, aura, prestige, wheel, duels, graves. |
+| `discord-bot`       | JVM app         | Access sales and grants, linking, roles, game registration, the admin log. Books nothing.  |
+| `steward`           | JVM app + React | The web interface and its API; books payments, raises alerts, its clocks ask for runs.     |
+| `steward-agent`     | JVM app         | The schema, the jar versions, every run. The only one that creates containers.             |
+| `steward-bunq`      | JVM app         | The only holder of the bank key: tabs and the payment list. Decides nothing.               |
+| `common`            | library         | The shared kernel: platform constants, the phase, languages, readiness. JDK and Gson only. |
+| `database`          | library         | Everything in PostgreSQL: access, phase, payments, inboxes, signal hub, migration SQL.     |
+| `messages`          | library         | The message system without Adventure, for the bot and Steward.                             |
+| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity.                                  |
+| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list.                            |
+| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                             |
+| `internal-api`      | library         | The token-guarded HTTP wire from `steward` to `steward-agent` and `steward-bunq`.          |
+| `paper-common`      | library         | What the Paper plugins share.                                                              |
+| `display-tags`      | library         | Name tags as packet-only text displays, hosted by smp.                                     |
+| `settings`          | library         | Where every process's settings come from.                                                  |
+| `spec`              | library         | Settings groups as spec interfaces, and the schema of Steward's forms.                     |
+| `resource-pack`     | assets          | The pack, its glyph allocation, and the zip + SHA-1 a release ships.                       |
+| `architecture`      | tests           | The ArchUnit rules over every module: dependencies and wiring.                             |
+| `shipped-jars`      | tests           | Every shipped jar loaded as its host loads it.                                             |
 
 ## Operating it
 

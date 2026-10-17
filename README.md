@@ -67,7 +67,7 @@ flowchart TB
     DEP --> offsite
     LEG ~~~ BOT
     BOT --> discord
-    mc --> PG
+    vlc --> PG
     BOT --> PG
     st --> PG
 

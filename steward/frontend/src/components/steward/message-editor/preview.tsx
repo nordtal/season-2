@@ -21,6 +21,16 @@ export type Tones = Record<string, string>
 /** Minecraft draws its font eight pixels tall; at GUI scale 2 that is sixteen CSS pixels. */
 const SCALE = 2
 
+/** Where the game wraps a line, in its own pixels: chat at its full width, floating text at its default width. */
+const CHAT_WRAP = 320
+const HOLOGRAM_WRAP = 200
+
+/** A hover text wraps at half the screen, but never narrower than this. */
+const HOVER_WRAP = 200
+
+/** A screen wraps 50 pixels short of its width, here a 1920 pixel window at GUI scale 2. */
+const SCREEN_WRAP = 960 - 50
+
 export const MINECRAFT_FONT: CSSProperties = {
   fontFamily: "Monocraft, ui-monospace, monospace",
   fontSize: 8 * SCALE,
@@ -40,36 +50,76 @@ type McProps = {
   scale?: number
 }
 
-/** Runs drawn in the game's look: tone, colour, gradient, decorations, glyphs, the shadow, and hover. */
-export function MinecraftText({ runs, fill, glyphs, tones, base = "#FFFFFF", shadow = true, scale = SCALE }: McProps) {
+/**
+ * Runs drawn in the game's look: tone, colour, gradient, decorations, glyphs, the shadow, and hover.
+ *
+ * Each line is a block of its own that keeps its spaces; it wraps only at `wrap`, the width in the game's pixels
+ * where the place itself wraps, and never where it draws one line however long.
+ */
+export function MinecraftText({
+  runs,
+  fill,
+  glyphs,
+  tones,
+  base = "#FFFFFF",
+  shadow = true,
+  scale = SCALE,
+  wrap,
+}: McProps & { wrap?: number }) {
   const gradients = gradientPositions(runs, fill)
+  const lines: number[][] = [[]]
+  runs.forEach((run, index) => (run.kind === "break" ? lines.push([]) : lines.at(-1)!.push(index)))
   return (
     <>
-      {runs.map((run, index) => {
-        const drawn = (
-          <McRun
-            key={index}
-            run={run}
-            fill={fill}
-            glyphs={glyphs}
-            tones={tones}
-            base={base}
-            shadow={shadow}
-            scale={scale}
-            gradient={gradients[index]}
-          />
-        )
-        return run.style.hover ? (
-          <HoverTip
-            key={index}
-            tip={<MinecraftText runs={run.style.hover} fill={fill} glyphs={glyphs} tones={tones} scale={scale} />}
-          >
-            {drawn}
-          </HoverTip>
-        ) : (
-          drawn
-        )
-      })}
+      {lines.map((line, number) => (
+        <span
+          key={number}
+          data-slot="mc-line"
+          style={{
+            display: "block",
+            whiteSpace: wrap === undefined ? "pre" : "pre-wrap",
+            overflowWrap: wrap === undefined ? undefined : "anywhere",
+            maxWidth: wrap === undefined ? undefined : wrap * scale,
+          }}
+        >
+          {line.length === 0 ? "\u200b" : null}
+          {line.map((index) => {
+            const run = runs[index]
+            const drawn = (
+              <McRun
+                key={index}
+                run={run}
+                fill={fill}
+                glyphs={glyphs}
+                tones={tones}
+                base={base}
+                shadow={shadow}
+                scale={scale}
+                gradient={gradients[index]}
+              />
+            )
+            return run.style.hover ? (
+              <HoverTip
+                key={index}
+                tip={
+                  <MinecraftText
+                    runs={run.style.hover}
+                    fill={fill}
+                    glyphs={glyphs}
+                    tones={tones}
+                    scale={scale}
+                    wrap={HOVER_WRAP}
+                  />
+                }
+              >
+                {drawn}
+              </HoverTip>
+            ) : (
+              drawn
+            )
+          })}
+        </span>
+      ))}
     </>
   )
 }
@@ -120,8 +170,7 @@ function McRun({
   gradient?: { start: number; total: number }
 }) {
   const style = run.style
-  if (run.kind === "break") return <br />
-  if (run.kind === "raw") return null
+  if (run.kind === "break" || run.kind === "raw") return null
   if (run.kind === "glyph") return <Glyph name={run.name} glyphs={glyphs} scale={scale} />
   const text = visible(run, fill)
   const decoration = decorationStyle(style)
@@ -242,7 +291,7 @@ export function GlyphTile({ glyph, className }: { glyph: GlyphInfo; className?: 
 export function McTooltip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={cn("inline-block rounded-[2px] px-2 py-1 text-left whitespace-pre-wrap", className)}
+      className={cn("inline-block rounded-[2px] px-2 py-1 text-left", className)}
       style={{
         background: "#100010F0",
         boxShadow: "inset 0 0 0 2px #100010F0, inset 0 0 0 4px #5000FF50, 0 0 0 2px #100010F0",
@@ -265,7 +314,7 @@ function HoverTip({ tip, children }: { tip: ReactNode; children: ReactNode }) {
     >
       {children}
       {open ? (
-        <span className="absolute bottom-full left-0 z-20 mb-1 w-max max-w-72">
+        <span className="absolute bottom-full left-0 z-20 mb-1 w-max">
           <McTooltip>{tip}</McTooltip>
         </span>
       ) : null}
@@ -276,6 +325,9 @@ function HoverTip({ tip, children }: { tip: ReactNode; children: ReactNode }) {
 // The places
 
 const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b6e2c 70%, #3b2a1d 70.5%, #2e2117 100%)"
+
+/** The places the game draws on one line. */
+const ONE_LINE = new Set(["TITLE", "SUBTITLE", "ACTION_BAR", "BOSS_BAR"])
 
 type PreviewProps = {
   runs: Run[]
@@ -297,12 +349,17 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
   if (surface === "DISCORD") {
     return <DiscordPreview runs={runs} shown={shown} fill={fill} className={className} />
   }
-  const text = (base = "#FFFFFF", shadow = true, scale = SCALE) => (
-    <MinecraftText runs={runs} fill={fill} glyphs={glyphs} tones={tones} base={base} shadow={shadow} scale={scale} />
+  // A title or a bar holds one line, so the game draws each line break there as a space.
+  const drawn = ONE_LINE.has(shown)
+    ? runs.map((run): Run => (run.kind === "break" ? { kind: "text", text: " ", style: run.style } : run))
+    : runs
+  const text = ({ base = "#FFFFFF", scale = SCALE, wrap }: { base?: string; scale?: number; wrap?: number } = {}) => (
+    <MinecraftText runs={drawn} fill={fill} glyphs={glyphs} tones={tones} base={base} scale={scale} wrap={wrap} />
   )
+  // A line the game draws however long runs past the preview's edge, so the scene scrolls rather than cutting it.
   const scene = (children: ReactNode, background = SKY) => (
     <div
-      className={cn("relative flex min-h-36 w-full overflow-hidden rounded-md", className)}
+      className={cn("relative flex min-h-36 w-full overflow-x-auto overflow-y-hidden rounded-md", className)}
       style={{ background, ...MINECRAFT_FONT }}
     >
       {children}
@@ -314,28 +371,25 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
       const title = shown === "TITLE"
       return scene(
         <div
-          className="flex w-full flex-col items-center justify-center gap-2 px-3 text-center"
+          className="flex w-max min-w-full shrink-0 flex-col items-center justify-center gap-2 px-3 text-center"
           style={{ background: "rgba(0,0,0,0.15)" }}
         >
-          <div
-            style={{ fontSize: 8 * (title ? 4 : 2), lineHeight: `${9 * (title ? 4 : 2) + 2}px` }}
-            className="break-words"
-          >
-            {text("#FFFFFF", true, title ? 4 : 2)}
+          <div style={{ fontSize: 8 * (title ? 4 : 2), lineHeight: `${9 * (title ? 4 : 2) + 2}px` }}>
+            {text({ scale: title ? 4 : 2 })}
           </div>
         </div>,
       )
     }
     case "ACTION_BAR":
       return scene(
-        <div className="mt-auto flex w-full flex-col items-center gap-2 px-3 pb-3 text-center">
+        <div className="mt-auto flex w-max min-w-full shrink-0 flex-col items-center gap-2 px-3 pb-3 text-center">
           <div>{text()}</div>
           <Hotbar />
         </div>,
       )
     case "BOSS_BAR":
       return scene(
-        <div className="flex w-full flex-col items-center gap-1 px-3 pt-3 text-center">
+        <div className="flex w-max min-w-full shrink-0 flex-col items-center gap-1 px-3 pt-3 text-center">
           <div>{text()}</div>
           <div
             className="h-2.5 w-full max-w-[364px] rounded-[1px]"
@@ -347,9 +401,9 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
       )
     case "TAB_LIST":
       return scene(
-        <div className="flex w-full justify-center px-3 pt-3">
+        <div className="flex w-max min-w-full shrink-0 justify-center px-3 pt-3">
           <div
-            className="flex w-full max-w-[520px] flex-col items-center gap-1 px-2 py-1 text-center"
+            className="flex w-max min-w-full shrink-0 flex-col items-center gap-1 px-2 py-1 text-center sm:min-w-[520px]"
             style={{ background: "rgba(0,0,0,0.5)" }}
           >
             <div>{text()}</div>
@@ -358,35 +412,43 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
       )
     case "GUI":
       return scene(
-        <div className="flex w-full items-center justify-center p-3" style={{ background: "rgba(16,16,16,0.75)" }}>
-          <McTooltip className="max-w-full">{text()}</McTooltip>
+        <div
+          className="flex w-max min-w-full shrink-0 items-center justify-center p-3"
+          style={{ background: "rgba(16,16,16,0.75)" }}
+        >
+          <McTooltip>{text()}</McTooltip>
         </div>,
       )
     case "HOLOGRAM":
       return scene(
-        <div className="flex w-full items-center justify-center p-3 text-center">
+        <div className="flex w-max min-w-full shrink-0 items-center justify-center p-3 text-center">
           <span className="px-1" style={{ background: "rgba(0,0,0,0.25)" }}>
-            {text()}
+            {text({ wrap: HOLOGRAM_WRAP })}
           </span>
         </div>,
       )
     case "KICK_SCREEN":
-      return scene(<div className="flex w-full items-center justify-center p-3 text-center">{text()}</div>, "#1f1a14")
+      return scene(
+        <div className="flex w-max min-w-full shrink-0 items-center justify-center p-3 text-center">
+          <div>{text({ wrap: SCREEN_WRAP })}</div>
+        </div>,
+        "#1f1a14",
+      )
     case "SERVER_LIST":
       return scene(
         <div className="flex w-full items-center justify-center p-3">
           <div className="flex w-full max-w-[610px] gap-2 p-1" style={{ boxShadow: "inset 0 0 0 2px #808080" }}>
             <div className="size-16 shrink-0 rounded-[2px]" style={{ background: "var(--brand)" }} />
-            <div className="min-w-0 flex-1">{text("#AAAAAA")}</div>
+            <div className="min-w-0 flex-1 overflow-x-auto">{text({ base: "#AAAAAA" })}</div>
           </div>
         </div>,
         "#1f1a14",
       )
     default:
       return scene(
-        <div className="mt-auto w-full p-2 pb-6">
-          <div className="max-w-[640px] px-1 py-0.5 break-words" style={{ background: "rgba(0,0,0,0.5)" }}>
-            {text()}
+        <div className="mt-auto w-max min-w-full shrink-0 p-2 pb-6">
+          <div className="w-fit px-1 py-0.5" style={{ background: "rgba(0,0,0,0.5)" }}>
+            {text({ wrap: CHAT_WRAP })}
           </div>
         </div>,
       )

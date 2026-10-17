@@ -379,6 +379,7 @@
     "steward.shell.run-hit": {"run":"number","kind":"text"},
     "steward.shell.run-when": {"status":"text","requested":"instant"},
     "steward.shell.service-note": {"name":"text"},
+    "steward.shell.version": {"version":"text"},
     "steward.texts.group": {"group":"choice"}
   },
   "texts": {
@@ -1323,6 +1324,7 @@
     "steward.service-page.send": [["Send"]],
     "steward.service-page.send-line": [["Send a line to the server console"]],
     "steward.service-page.settings": [["Settings"]],
+    "steward.service-page.stats": [["Stats"]],
     "steward.service-page.the-jar": [["The jar"]],
     "steward.service-page.uncheckable": [["Updates can't be checked right now."]],
     "steward.service-page.up-to-date": [["up to date"]],
@@ -1414,6 +1416,7 @@
     "steward.shell.still-reading": [["Still reading the settings…"]],
     "steward.shell.stuck": [["This is not an expired session. You stay signed in. The interface only knows who you are again once this request gets through."]],
     "steward.shell.unknown": [["unknown"]],
+    "steward.shell.version": [["v",{"v":"version"}]],
     "steward.texts.all-services": [["All services"]],
     "steward.texts.group": [[{"c":"group","plural":false,"cases":{"game":["In game"],"discord":["Discord"],"steward":["Steward & Admin"],"values":["Building blocks"],"other":[{"v":"group"}]}}]],
     "steward.texts.none": [["No texts."]],

@@ -1814,6 +1814,7 @@ export type TextArgs = {
   "steward.service-page.send": Record<string, never>
   "steward.service-page.send-line": Record<string, never>
   "steward.service-page.settings": Record<string, never>
+  "steward.service-page.stats": Record<string, never>
   "steward.service-page.the-jar": Record<string, never>
   "steward.service-page.uncheckable": Record<string, never>
   "steward.service-page.up-to-date": Record<string, never>
@@ -1959,6 +1960,9 @@ export type TextArgs = {
   "steward.shell.still-reading": Record<string, never>
   "steward.shell.stuck": Record<string, never>
   "steward.shell.unknown": Record<string, never>
+  "steward.shell.version": {
+    version: Arg["text"]
+  }
   "steward.texts.all-services": Record<string, never>
   "steward.texts.group": {
     group: Arg["choice"]

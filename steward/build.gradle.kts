@@ -124,6 +124,9 @@ val viteBuild =
         // Vite is a separate process, so the output directory is handed over, or `-PbuildRoot` would not move it.
         environment.put("VITE_OUT_DIR", frontendDistDirectory.map { it.asFile.absolutePath })
         inputs.property("viteOutDir", frontendDistDirectory.map { it.asFile.absolutePath })
+        // The release the shell names under "Steward"; a release's tag is this version.
+        environment.put("VITE_VERSION", project.version.toString())
+        inputs.property("version", project.version.toString())
     }
 
 /** The frontend's own tests, on `check`, after viteBuild so a type error comes from the build. */

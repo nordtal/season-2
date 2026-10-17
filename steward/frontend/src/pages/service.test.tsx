@@ -79,7 +79,7 @@ describe("ServiceHead - the number row", () => {
   })
 })
 
-/** Both curves follow one range, picked under the State heading, six hours until somebody picks another. */
+/** Both curves follow one range, picked beside the Stats heading, six hours until somebody picks another. */
 describe("ServiceHead - the range of the curves", () => {
   it("asks for six hours of CPU and RAM, counted in minutes", () => {
     draw(<ServiceHead name="smp" service={service()} />)
@@ -90,14 +90,22 @@ describe("ServiceHead - the range of the curves", () => {
     }
   })
 
-  it("draws the range under the State heading, reading six hours", () => {
-    draw(<ServiceHead name="smp" service={service()} />)
+  it("draws the range in the stats' own header, reading six hours, and not under State", () => {
+    draw(<ServiceHead name="smp" service={service({ cpuPercent: 12 })} />)
 
     const range = screen.getByRole("combobox", { name: "Range" })
-    const state = screen.getByText("State")
+    const header = screen.getByText("Stats").parentElement
     expect(range.textContent).toBe("6h")
-    expect(state.parentElement?.contains(range)).toBe(true)
-    expect(state.compareDocumentPosition(range) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(header?.contains(range)).toBe(true)
+    expect(screen.getByText("State").parentElement?.contains(range)).toBe(false)
+  })
+
+  it("puts each stat's label on its value's line", () => {
+    draw(<ServiceHead name="smp" service={service({ cpuPercent: 12 })} />)
+
+    const stat = screen.getByText("CPU").parentElement
+    expect(stat?.textContent).toMatch(/^CPU12(\.0)?\s%$/)
+    expect(stat?.className).toMatch(/(^| )flex-row( |$)/)
   })
 })
 

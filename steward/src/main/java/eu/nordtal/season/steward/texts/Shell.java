@@ -12,6 +12,9 @@ public interface Shell {
     @Name("Steward")
     MessageRef steward();
 
+    @Name("Version")
+    MessageRef version(@Arg("version") String version);
+
     @Name("Page")
     MessageRef page(@Arg("page") Page page);
 

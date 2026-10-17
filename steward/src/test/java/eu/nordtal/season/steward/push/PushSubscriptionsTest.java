@@ -72,16 +72,20 @@ class PushSubscriptionsTest {
                 "a",
                 "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15"
                         + " (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1");
+        final PushSubscriptions.Subscription named =
+                subscriptions.of(DiscordId.of("46")).get(0);
         assertEquals(
-                "iPhone, Safari",
-                subscriptions.of(DiscordId.of("46")).get(0).device(),
+                "iPhone Safari",
+                named.system() + " " + named.browser(),
                 "the endpoint is not a name - see Devices for where one comes from");
 
         // A second call without a User-Agent must not blank the name it already has.
         subscriptions.subscribe(DiscordId.of("46"), "https://push.example/ep-5", "p", "a", null);
+        final PushSubscriptions.Subscription again =
+                subscriptions.of(DiscordId.of("46")).get(0);
         assertEquals(
-                "iPhone, Safari",
-                subscriptions.of(DiscordId.of("46")).get(0).device(),
+                "iPhone Safari",
+                again.system() + " " + again.browser(),
                 "a resubscription without a User-Agent erased the name");
     }
 

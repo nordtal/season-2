@@ -434,7 +434,8 @@ function DeviceRow({
   isThisOne: boolean
   state: NotificationActions
 }) {
-  const name = device.device ?? t("steward.notifications.unnamed")
+  // The system first, then the browser, as Steward stores them apart.
+  const name = [device.system, device.browser].filter(Boolean).join(", ") || t("steward.notifications.unnamed")
   const busy = state.test.isPending || state.forget.isPending
   const [testing, setTesting] = useState(false)
 

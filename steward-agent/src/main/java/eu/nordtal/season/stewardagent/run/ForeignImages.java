@@ -3,6 +3,7 @@ package eu.nordtal.season.stewardagent.run;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
@@ -141,7 +142,11 @@ final class ForeignImages {
                     UpdateReport.Facts.of(UpdateReport.Act.RECREATE)
                             .made(pull ? UpdateReport.Image.OUTDATED : UpdateReport.Image.KEPT)));
             progress.accept(report);
+            final Steps.Step installing = run.record
+                    .begin(RunStep.Kind.INSTALL, service)
+                    .change(UpdateRun.IMAGE, null, null, pull ? RunStep.Image.PULLED : RunStep.Image.KEPT);
             final RedeployResult result = pull ? containers.deploy(service) : containers.recreate(service);
+            UpdateRun.endBy(installing, result);
             if (result.triggered()) {
                 asked.add(service);
                 continue;

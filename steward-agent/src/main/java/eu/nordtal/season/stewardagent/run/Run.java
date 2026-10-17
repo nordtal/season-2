@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent.run;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
@@ -284,7 +285,8 @@ final class Run {
 
     /** Carries the plan out, never throwing, so every path from a stop ends in a start. */
     Outcome carryOut(final UpdateRequest request, final Plan plan) {
-        final Choreography choreography = new Choreography(runner.containers, runner.occupancy(), runner.waiting);
+        final Choreography choreography =
+                new Choreography(runner.containers, runner.occupancy(), runner.waiting, steps.record);
         UpdateReport planned = plan.planned();
         final List<String> moving = plan.stops() ? Runner.movingServices(planned) : List.of();
         final Choreography.Window window = choreography.open(moving);
@@ -299,14 +301,22 @@ final class Run {
             progress.accept(planned);
         }
         try {
-            if (plan.announced() && !runner.countDown(request.id(), planned, plan.moving(), progress)) {
+            final Steps.Step players = plan.announced()
+                    ? runner.countDown(request.id(), planned, plan.moving(), progress, steps.record)
+                    : null;
+            if (plan.announced() && players == null) {
                 return Runner.cancelled();
             }
 
             // After the countdown the run waits for the players to move, then stops regardless after ten seconds.
-            final List<Note> stillOn = choreography.waitUntilEmpty(moving);
-            if (!stillOn.isEmpty()) {
-                planned = planned.withNotes(stillOn);
+            final Choreography.Left left = choreography.waitUntilEmpty(moving);
+            if (players != null) {
+                players.end(left.outcome(), left.reason());
+            } else if (left.reason() != null) {
+                steps.record.ended(RunStep.Kind.PLAYERS_MOVED, null, left.outcome(), left.reason());
+            }
+            if (!left.notes().isEmpty()) {
+                planned = planned.withNotes(left.notes());
                 progress.accept(planned);
             }
 
@@ -327,7 +337,7 @@ final class Run {
                         steps.verify(back, stopped.services(), runner.waiting).withStage(UpdateReport.Stage.FAILED)));
             }
 
-            return finish(plan, stopped, done, choreography);
+            return finish(plan, stopped, done, choreography, players != null);
         } finally {
             // Every exit closes the standbys, so none is left running all night.
             choreography.close();
@@ -336,7 +346,11 @@ final class Run {
 
     /** Starts what the run stopped and what the plan adds, verifies, renews the foreign images and settles. */
     private Outcome finish(
-            final Plan plan, final UpdateRun.Stopped stopped, final Done done, final Choreography choreography) {
+            final Plan plan,
+            final UpdateRun.Stopped stopped,
+            final Done done,
+            final Choreography choreography,
+            final boolean moved) {
         UpdateReport report = done.report();
         if (plan.startsAgain()) {
             final List<String> starting = new ArrayList<>(stopped.services());
@@ -352,8 +366,13 @@ final class Run {
             report = steps.verify(started, starting, runner.waiting);
         }
 
+        // The proxy counts each player back against the move; the standbys hand theirs back as they close.
+        final Steps.Step back = moved ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
         // The standbys hand their players back first: caddy carries their ports, so it must not go before them.
         final List<Note> closed = choreography.close();
+        if (back != null) {
+            back.done();
+        }
         // Last, once the Minecraft services are healthy again, and postgres last of all.
         final UpdateReport renewedForeign = ForeignImages.renewForeign(
                 runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
@@ -379,7 +398,11 @@ final class Run {
                 List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
                 UpdateReport.Facts.of(UpdateReport.Act.RENEW)));
         progress.accept(report);
+        final Steps.Step install = steps.record
+                .begin(RunStep.Kind.INSTALL, AgentWire.SERVICE)
+                .change(UpdateRun.IMAGE, null, null, RunStep.Image.PULLED);
         final RedeployResult result = runner.containers.renewAgent();
+        UpdateRun.endBy(install, result);
         if (!result.triggered()) {
             report = report.with(report.line(AgentWire.SERVICE)
                     .failed(UpdateReport.Facts.refused(UpdateReport.Act.RENEW, result.message())));

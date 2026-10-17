@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.ServiceHold;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateReport;
@@ -158,38 +159,41 @@ public final class Runner implements RequestRunner {
 
     @Override
     public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+        final Steps record = new Steps(directory.recorder(), request.id());
         try {
-            final UpdateRun steps = new UpdateRun(request.id(), containers, backups, progress);
+            final UpdateRun steps = new UpdateRun(request.id(), containers, backups, progress, record);
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {
+                record.ended(RunStep.Kind.RUNTIME, null, RunStep.Outcome.FAILED, RunStep.Reason.UNREACHABLE);
                 return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                         .withNote(Note.failed(Step.RUN, TEXTS.report().words(unreachableMessage(runtime))))));
             }
             // The row is the lock: the inbox holds one open run at a time, whoever wrote it.
-            final Kinds.Planned planned = plan(request, progress);
+            final Kinds.Planned planned = plan(request, progress, record);
             return planned.outcome() != null
                     ? planned.outcome()
                     : new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
+            record.endOpen(RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                     .withNote(Note.failed(Step.RUN, TEXTS.report().failedUnexpectedly(failure.toString())))));
         }
     }
 
     /** What the request's kind plans; the sequence after it is the same for every kind. */
-    private Kinds.Planned plan(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+    private Kinds.Planned plan(final UpdateRequest request, final Consumer<UpdateReport> progress, final Steps record) {
         return switch (request.kind()) {
-            case UPDATE -> Kinds.update(this, request, progress);
-            case RESTART -> Kinds.restart(this, request);
-            case BACKUP -> Kinds.backup(this, progress);
-            case DOWN -> Kinds.down(this, request);
-            case START -> Kinds.start(this, request);
-            case RECREATE -> Kinds.remake(this, request, false);
-            case DEPLOY -> Kinds.remake(this, request, true);
-            case REMOVE_PLUGIN -> Kinds.removePlugin(this, request);
-            case RESTORE -> Kinds.restore(this, request);
+            case UPDATE -> Kinds.update(this, request, progress, record);
+            case RESTART -> Kinds.restart(this, request, record);
+            case BACKUP -> Kinds.backup(this, progress, record);
+            case DOWN -> Kinds.down(this, request, record);
+            case START -> Kinds.start(this, request, record);
+            case RECREATE -> Kinds.remake(this, request, false, record);
+            case DEPLOY -> Kinds.remake(this, request, true, record);
+            case REMOVE_PLUGIN -> Kinds.removePlugin(this, request, record);
+            case RESTORE -> Restores.restore(this, request, record);
             case INSTALL -> throw new IllegalStateException("a start-up install is written settled and never claimed");
         };
     }
@@ -197,18 +201,21 @@ public final class Runner implements RequestRunner {
     /**
      * Counts down on this run's own row to the database's instant, so the proxy's countdown agrees with it.
      *
-     * @return {@code true} when the countdown ran out and the run may proceed; {@code false} when cancelled
+     * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
      */
-    boolean countDown(
+    Steps.@Nullable Step countDown(
             final long id,
             final UpdateReport planned,
             final List<String> moving,
-            final Consumer<UpdateReport> progress) {
+            final Consumer<UpdateReport> progress,
+            final Steps record) {
+        final Steps.Step countdown = record.begin(RunStep.Kind.COUNTDOWN);
         final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving);
         if (counting.isEmpty()) {
             // No longer RUNNING between the claim and here, which in practice means cancelled.
             log.info("Request {} is no longer running, so no countdown was started", id);
-            return false;
+            countdown.skipped(RunStep.Reason.CANCELLED);
+            return null;
         }
         progress.accept(planned.withStage(UpdateReport.Stage.COUNTDOWN));
 
@@ -217,7 +224,8 @@ public final class Runner implements RequestRunner {
             final Duration left = Duration.between(waiting.now(), due);
             if (!waiting.sleep(left.compareTo(COUNTDOWN_TICK) < 0 ? left : COUNTDOWN_TICK)) {
                 log.warn("The countdown for request {} was interrupted; nothing was stopped", id);
-                return false;
+                countdown.skipped(RunStep.Reason.INTERRUPTED);
+                return null;
             }
             // Ends the wait here, so a cancel is not ignored for the rest of the countdown.
             final boolean stillRunning = directory
@@ -226,15 +234,20 @@ public final class Runner implements RequestRunner {
                     .orElse(false);
             if (!stillRunning) {
                 log.info("Request {} was cancelled during its countdown; nothing was stopped", id);
-                return false;
+                countdown.skipped(RunStep.Reason.CANCELLED);
+                return null;
             }
         }
+        countdown.done();
+        // Before the commit, which is the proxy's signal: the proxy counts what it moves against this step.
+        final Steps.Step players = record.begin(RunStep.Kind.PLAYERS_MOVED);
         // The race at zero: a cancel arriving now either takes the row or is refused by SKIP LOCKED.
         if (!directory.commitCountdown(id)) {
             log.info("Request {} was cancelled as its countdown ran out; nothing was stopped", id);
-            return false;
+            players.skipped(RunStep.Reason.CANCELLED);
+            return null;
         }
-        return true;
+        return players;
     }
 
     /** What an unverified stop costs on the path being settled. */

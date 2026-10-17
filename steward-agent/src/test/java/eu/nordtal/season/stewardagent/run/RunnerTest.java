@@ -106,6 +106,16 @@ class RunnerTest {
                 "the feeds see the countdown too: " + progress);
         allTold(outcome);
         assertEquals(List.of("report.nothing-changes"), Told.toldKeys(outcome.report(), "smp"));
+        // The fake runtime counts no players, so the move cannot say whether anybody stayed.
+        assertEquals(
+                List.of(
+                        "COUNTDOWN DONE",
+                        "PLAYERS_MOVED WARNING PLAYERS_UNKNOWN",
+                        "STOP smp DONE",
+                        "START smp DONE",
+                        "VERIFY smp DONE",
+                        "PLAYERS_BACK DONE"),
+                steps(request.id()));
     }
 
     /** A one-shot's last act is the long-running agent at its own release, after every server is back. */
@@ -168,13 +178,15 @@ class RunnerTest {
     void aBackupThatWouldNotLeaveTheDiskItsFreeShareFailsBeforeAnythingStops() {
         snapshots.full();
 
-        final Outcome outcome = runner.run(claimed(UpdateKind.BACKUP, null), progress::add);
+        final UpdateRequest request = claimed(UpdateKind.BACKUP, null);
+        final Outcome outcome = runner.run(request, progress::add);
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
         final String english = Told.report(outcome.report());
         assertTrue(english.contains("needs about 3.7 GiB with 4.7 GiB free"), english);
         assertTrue(english.contains("\"step\":\"BACKUP\",\"outcome\":\"FAILED\""), english);
+        assertEquals(List.of("PRUNE DONE", "ROOM_CHECK FAILED NO_ROOM"), steps(request.id()));
     }
 
     @Test
@@ -501,6 +513,24 @@ class RunnerTest {
         for (final UpdateReport report : progress) {
             assertEquals(List.of(), Told.untold(report), report.toString());
         }
+    }
+
+    /** The run's steps as rows, in order: the step, what it is about, its outcome and its reason. */
+    private List<String> steps(final long run) {
+        final List<String> steps = new java.util.ArrayList<>();
+        try (java.sql.Connection connection = database.dataSource().getConnection();
+                java.sql.PreparedStatement query = connection.prepareStatement(
+                        "SELECT concat_ws(' ', step, service, outcome, reason) FROM run_step WHERE run = ? ORDER BY seq")) {
+            query.setLong(1, run);
+            try (java.sql.ResultSet rows = query.executeQuery()) {
+                while (rows.next()) {
+                    steps.add(rows.getString(1));
+                }
+            }
+        } catch (final java.sql.SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
+        return steps;
     }
 
     /** Submits a request of any kind due now and claims it. */

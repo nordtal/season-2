@@ -1,5 +1,8 @@
 package eu.nordtal.season.stewardagent.backup;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.stewardagent.run.Snapshots;
@@ -15,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,29 +93,64 @@ public final class OffsiteCopy {
                     configured.get().tag(),
                     "--tag",
                     configured.get().tag(),
-                    "--no-scan"));
+                    "--no-scan",
+                    "--json"));
             newest.forEach(file -> backup.add(file.toString()));
-            final Pipeline.Result copied = restic.run(backup.toArray(String[]::new));
-            if (copied.failed()) {
-                return failed(startedAt, "the copy failed: " + copied.describe());
+            final Path said = Files.createTempFile("restic-backup-", ".json");
+            final Optional<Summary> summary;
+            try {
+                final Pipeline.Result copied = restic.run(said, backup.toArray(String[]::new));
+                if (copied.failed()) {
+                    return failed(startedAt, "the copy failed: " + copied.describe());
+                }
+                summary = summary(Files.readAllLines(said));
+            } finally {
+                Files.deleteIfExists(said);
+            }
+            if (summary.isEmpty()) {
+                return failed(startedAt, "the copy made no snapshot");
             }
             mark(newest);
             final Pipeline.Result forgot = restic.forget(policy);
             if (forgot.failed()) {
                 return failed(startedAt, "the copy is there, and applying the retention failed: " + forgot.describe());
             }
-            long bytes = 0;
-            for (final Path file : newest) {
-                bytes += Files.size(file);
-            }
+            // The snapshot is where the copy landed, and its bytes what the repository grew by.
             return Optional.of(SnapshotResult.saved(
-                    Snapshots.OFFSITE, bytes, since(startedAt), configured.get().repository()));
+                    Snapshots.OFFSITE,
+                    summary.get().added(),
+                    since(startedAt),
+                    summary.get().snapshot()));
         } catch (final IOException failure) {
             return failed(startedAt, failure.toString());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return failed(startedAt, "interrupted");
         }
+    }
+
+    /** The snapshot a backup made and the bytes it added to the repository, packed where restic says so. */
+    record Summary(String snapshot, long added) {}
+
+    /** The summary among the lines of {@code restic backup --json}, empty when it made no snapshot. */
+    static Optional<Summary> summary(final List<String> lines) {
+        for (final String line : lines.reversed()) {
+            if (!line.startsWith("{")) {
+                continue;
+            }
+            final JsonObject message = Json.decode(line, JsonObject.class);
+            if ("summary".equals(text(message, "message_type")) && message.has("snapshot_id")) {
+                final JsonElement packed = message.get("data_added_packed");
+                final long added = (packed == null ? message.get("data_added") : packed).getAsLong();
+                return Optional.of(new Summary(message.get("snapshot_id").getAsString(), added));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static @Nullable String text(final JsonObject message, final String field) {
+        final JsonElement value = message.get(field);
+        return value == null || !value.isJsonPrimitive() ? null : value.getAsString();
     }
 
     /** Whether the repository holds this archive, by its mark. */
@@ -215,6 +254,12 @@ public final class OffsiteCopy {
         }
 
         Pipeline.Result run(final String... arguments) throws IOException, InterruptedException {
+            return run(null, arguments);
+        }
+
+        /** The same, with what restic prints written to {@code stdout}. */
+        Pipeline.Result run(final @Nullable Path stdout, final String... arguments)
+                throws IOException, InterruptedException {
             final List<String> command = new ArrayList<>(List.of(
                     "restic",
                     "--retry-lock",
@@ -225,7 +270,7 @@ public final class OffsiteCopy {
             command.addAll(List.of(arguments));
             return Pipeline.run(
                     PATIENCE,
-                    null,
+                    stdout,
                     Map.of("RESTIC_REPOSITORY", target.repository(), "RESTIC_PASSWORD", target.password()),
                     List.of(command));
         }

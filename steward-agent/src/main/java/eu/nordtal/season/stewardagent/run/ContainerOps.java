@@ -4,6 +4,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
+import java.util.Map;
 
 /**
  * What an update sequence needs a container runtime to do, as the seam its tests fake.
@@ -81,10 +82,12 @@ public interface ContainerOps {
     /**
      * What a prune of the images removed.
      *
+     * @param removed the images among them by id, with their size, as far as Docker listed them before
      * @param failure what Docker answered when it refused, {@code null} when it pruned
      */
     record Pruned(
             int images,
+            Map<String, Long> removed,
             long freedBytes,
             @org.jspecify.annotations.Nullable String failure) {}
 }

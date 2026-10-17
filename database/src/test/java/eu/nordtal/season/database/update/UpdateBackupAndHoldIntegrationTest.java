@@ -38,7 +38,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY");
+        execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE");
         updates = UpdateDirectory.using(dataSource);
     }
 

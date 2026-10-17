@@ -190,6 +190,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V55__the_bank_inbox_has_no_payload.sql",
                 "77e74337ab65deed666f6cfb7261f3b2bc793997f12db438d4fff7ccf5d7fe27");
+        FROZEN.put(
+                "V70__a_run_s_steps_and_facts_are_rows.sql",
+                "d9b616c9b269fe9dce81d54e86fa9f6d5fca70459a4d3dedeba7394e374f90e0");
     }
 
     @Test

@@ -20,7 +20,7 @@ brings the runtime it already has; this module never migrates.
 | Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s              |
 | Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language         |
 | Season phase   | one row every process follows on its hub                                                                                |
-| Runs           | a request in `steward_inbox`, one open at a time by a unique index; its outcome is an `UpdateReport`, its notes records |
+| Runs           | a request in `steward_inbox`, one open at a time by a unique index; its steps and their facts are rows a `RunRecorder` writes, beside the `UpdateReport` still written as its outcome |
 
 ## Conventions
 

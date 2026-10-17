@@ -275,4 +275,9 @@ public interface UpdateDirectory {
     default void putBack(final String row, final MessageRef why) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
     }
+
+    /** Returns where a run's steps and facts are written; the default writes nothing. */
+    default RunRecorder recorder() {
+        return RunRecorder.NONE;
+    }
 }

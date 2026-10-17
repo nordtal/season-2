@@ -35,7 +35,7 @@ class StartUpInstallIntegrationTest {
     void freshInbox() throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement truncate = connection.createStatement()) {
-            truncate.execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY");
+            truncate.execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE");
         }
         updates = UpdateDirectory.using(dataSource);
     }

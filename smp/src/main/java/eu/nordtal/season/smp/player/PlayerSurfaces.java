@@ -76,7 +76,7 @@ public final class PlayerSurfaces {
     /**
      * Writes our composition onto a nametag DisplayTags has already created, never creating one.
      *
-     * A tag created at join is replaced by DisplayTags' own lines; {@code onNameTagCreate} is the seam that holds.
+     * A tag created later starts without text; {@code onNameTagCreate} is the seam that fills it.
      */
     private void applyNameTag(final Player player, final PlayerIdentity identity) {
         final PlayerNameTag tag = nameTags.getByPlayer(player);

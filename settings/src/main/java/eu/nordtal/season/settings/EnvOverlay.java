@@ -69,7 +69,7 @@ public final class EnvOverlay {
     }
 
     /**
-     * {@code nametag.display.text-shadow} + {@code NORDTAL} -> {@code NORDTAL_NAMETAG_DISPLAY_TEXT_SHADOW}.
+     * {@code nametags.text-shadow} + {@code NORDTAL} -> {@code NORDTAL_NAMETAGS_TEXT_SHADOW}.
      *
      * @param prefix the variable prefix, e.g. {@code NORDTAL}
      * @param path the dotted config path

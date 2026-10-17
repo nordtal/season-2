@@ -58,14 +58,14 @@ public class NameTagData {
     }
 
     /**
-     * @return the configured lines, before any placeholder substitution
+     * @return the lines drawn, as MiniMessage, empty until the host writes them
      */
     public List<String> getLines() {
         return this.lines;
     }
 
     /**
-     * @param lines the configured lines, before any placeholder substitution
+     * @param lines the lines drawn, as MiniMessage
      */
     public void setLines(final List<String> lines) {
         this.lines = lines;

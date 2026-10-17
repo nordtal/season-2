@@ -8,8 +8,6 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     // PacketEvents.
     maven("https://repo.codemc.io/repository/maven-releases/")
-    // PlaceholderAPI.
-    maven("https://repo.extendedclip.com/releases/")
     // TAB's API is published there only.
     maven("https://jitpack.io")
 }
@@ -35,7 +33,6 @@ dependencies {
     // What the Paper plugins compile against and the server or a sibling plugin provides at runtime.
     paperHost(libs.paper.api)
     paperHost(libs.packetevents)
-    paperHost(libs.placeholderapi)
     paperHost(libs.tab.api)
     velocityHost(libs.velocity.api)
 

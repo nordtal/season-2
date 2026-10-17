@@ -52,7 +52,7 @@ public final class PlayerSurfacesListener implements Listener {
     /**
      * Fills in a nametag the moment DisplayTags creates one, on every path that creates it.
      *
-     * DisplayTags writes its own lines while constructing the tag, so anything written earlier is overwritten.
+     * A tag starts without text, so one created after the last refresh would otherwise stay empty.
      */
     @EventHandler
     public void onNameTagCreate(final NameTagCreateEvent event) {

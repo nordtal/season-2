@@ -25,8 +25,8 @@ dependencies {
     testImplementation(libs.gson)
 
     // NullAway's annotations reference checker-qual at class-file level, so javac needs it to read them.
-    compileOnly("org.checkerframework:checker-qual:4.3.0")
-    testCompileOnly("org.checkerframework:checker-qual:4.3.0")
+    compileOnly("org.checkerframework:checker-qual:4.3.1")
+    testCompileOnly("org.checkerframework:checker-qual:4.3.1")
 
     // compileOnly, so no consumer shades the database stack; one that needs it adds libs.bundles.access.persistence.
     compileOnly(libs.jdbi.core)

@@ -65,7 +65,7 @@ describe("JournalPage - profiles, never user ids", () => {
     await screen.findAllByText("Access granted")
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("bob")).toBeTruthy()
-    expect(screen.getByText(/^30 days of access, until /)).toBeTruthy()
+    expect(screen.getByText(/^Granted 30 days of access until /)).toBeTruthy()
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
@@ -86,7 +86,7 @@ describe("JournalPage - profiles, never user ids", () => {
     )
     draw(<JournalPage />)
 
-    await screen.findByText("1 grant of access revoked.")
+    await screen.findByText("Revoked 1 grant of access.")
     expect(await screen.findByText("no Discord name on record")).toBeTruthy()
     // The id lives in the popover, next to a button that copies it.
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
@@ -181,8 +181,8 @@ describe("JournalPage - the phone card says each thing once", () => {
     draw(<JournalPage />)
 
     expect(await off("Started the Hunger Games.")).toEqual(["action", "Concerns", "Detail"])
-    expect(await off("This browser gets no push alerts.")).toEqual(["action", "Concerns", "Detail"])
-    expect(await off(/^30 days of access, until /)).toEqual(["action"])
+    expect(await off("Push alerts off for this browser.")).toEqual(["action", "Concerns", "Detail"])
+    expect(await off(/^Granted 30 days of access until /)).toEqual(["action"])
   })
 })
 

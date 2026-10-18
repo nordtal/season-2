@@ -23,25 +23,22 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 
 public class PlayerNameTagImpl extends PlayerNameTag {
-    /**
-     * The name as it is seen with nothing in the way: depth-tested, fully opaque.
-     */
+    /** The name with nothing in the way: depth-tested, fully opaque. */
     private final TextDisplayWrapper display;
 
     /**
-     * The faint copy drawn through blocks under the opaque one: the whole of what {@link SeeThroughMode#VANILLA} adds.
-     *
+     * The faint copy drawn through blocks under the opaque one.
      * It is spawned only when {@link #shouldDrawGhost()} says so.
      */
     private final TextDisplayWrapper ghost;
 
-    // The ghost's viewers come and go with the mode and with sneaking, so they need their own set.
+    // The ghost's viewers follow the mode and sneaking.
     private final Set<UUID> ghostViewers = ConcurrentHashMap.newKeySet();
 
-    // A vanilla name stays hidden even when the display is not shown, so this differs from the viewers above.
+    // A vanilla name stays hidden while the display is not shown, so this set differs from the viewers.
     private final Set<UUID> vanillaHidden = ConcurrentHashMap.newKeySet();
 
-    // The name tag text is cached temporarily, and it is only changed when the name tag ticks.
+    // The cached text changes only when the name tag ticks.
     private Component cachedText;
 
     public PlayerNameTagImpl(final Player player) {
@@ -65,7 +62,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.data.setTranslation(config.getOffset());
         this.data.setScale(config.getScale());
 
-        // A tag created while already sneaking starts dimmed: no PlayerToggleSneakEvent arrives for that state.
+        // A tag created while the player sneaks starts dimmed: no sneak event arrives for that state.
         this.data.setSneaking(player.isSneaking());
         if (config.hasSneakTextOpacity() && player.isSneaking()) {
             this.data.setTextOpacity(config.getSneakTextOpacity());
@@ -76,10 +73,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void spawnFor(final UUID viewerId) {
-        // Suppress the vanilla name tag for this viewer, otherwise they would see two names.
         this.hideVanillaNameTagFor(viewerId);
 
-        // "show-to-self: false" only concerns the tag's own owner; every other viewer still sees it.
+        // show-to-self: false concerns the owner only.
         if (!this.data.shouldShowToSelf() && this.isOwner(viewerId)) {
             return;
         }
@@ -106,7 +102,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.apply(this.display);
         this.display.setSeeThrough(this.data.getSeeThrough() == SeeThroughMode.ALWAYS);
         this.display.setTextOpacity(this.data.getTextOpacity());
-        // With the ghost present, the background belongs to it alone and stays visible through a wall.
+        // With a ghost, the background belongs to the ghost alone.
         this.display.setBackground(ghost ? Constants.TRANSPARENT_TEXT_DISPLAY_BACKGROUND : this.data.getBackground());
 
         if (ghost) {
@@ -116,7 +112,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
             this.ghost.setBackground(this.data.getBackground());
         }
 
-        // The ghost spawns and despawns here, not in spawnFor/despawnFor, because it follows the mode, not the viewer.
+        // The ghost follows the mode, not the viewer, so it spawns and despawns here.
         if (ghost && this.ghostViewers.add(viewerId)) {
             this.ghost.setLocation(this.display.getLocation());
             this.ghost.spawnFor(viewerId);
@@ -124,7 +120,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
             this.ghost.despawnFor(viewerId);
         }
 
-        // A SetPassengers packet is absolute, so both displays go out together or the second unseats the first.
+        // A SetPassengers packet is absolute, so both displays go out together.
         if (ghost) {
             EntityWrapper.mountAllFor(
                     viewerId, this.player.getEntityId(), this.display.getEntityId(), this.ghost.getEntityId());
@@ -138,12 +134,12 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         }
     }
 
-    /** Whether the faint see-through copy is drawn: like vanilla, not for a sneaking player. */
+    /** Whether the faint see-through copy is drawn: not for a sneaking player, as in vanilla. */
     private boolean shouldDrawGhost() {
         return this.data.getSeeThrough() == SeeThroughMode.VANILLA && !this.data.isSneaking();
     }
 
-    /** Everything both copies share; see-through, opacity and background are what make one of them the faint one. */
+    /** Applies the settings both copies share. See-through, opacity and background differ for the ghost. */
     private void apply(final TextDisplayWrapper display) {
         display.setTextAlignment(
                 TextAlignment.valueOf(this.data.getTextAlignment().name()));
@@ -164,7 +160,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void teleportFor(final UUID viewerId, final Location location) {
-        // clone() leaves the caller's Location alone; it is usually the live PlayerTeleportEvent destination.
+        // clone() leaves the caller's location alone.
         this.display.setLocation(location.clone().setRotation(0, 0));
         this.ghost.setLocation(this.display.getLocation());
         this.display.teleportFor(viewerId);
@@ -179,7 +175,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
             return;
         }
 
-        // A viewer that already logged out cannot be handed to event listeners but still has to leave the viewer set.
+        // A viewer who logged out cannot be passed to listeners but still has to leave the viewer set.
         final Player viewer = Bukkit.getPlayer(viewerId);
         if (viewer != null) {
             final NameTagDespawnEvent event = new NameTagDespawnEvent(this, viewer);
@@ -205,7 +201,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.viewers.removeIf(PlayerNameTagImpl::isOffline);
         this.ghostViewers.removeIf(PlayerNameTagImpl::isOffline);
 
-        // A reconnecting client starts with an empty scoreboard, so it forgets who was hidden from as soon as it drops.
+        // A reconnecting client starts with an empty scoreboard.
         this.vanillaHidden.removeIf(PlayerNameTagImpl::isOffline);
 
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
@@ -225,7 +221,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     private boolean shouldBeVisibleTo(final Player viewer) {
-        // A tag whose player has left must never spawn again, even between the quit event and the tag being removed.
+        // A tag whose player left never spawns again, even between the quit event and its removal.
         if (!this.player.isOnline()) {
             return false;
         }
@@ -253,22 +249,21 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     /**
-     * Suppresses the player's vanilla name tag for a viewer, once.
-     *
-     * Sending the team packet again on every tick makes the client log a warning about a team it knows.
+     * Hides the player's vanilla name tag from a viewer once.
+     * A repeated team packet makes the client log a warning.
      */
     private void hideVanillaNameTagFor(final UUID viewerId) {
         if (this.vanillaHidden.contains(viewerId)) {
             return;
         }
 
-        // Only remember the viewer when a packet really went out, so a missing packet is never suppressed for good.
+        // A viewer is remembered only after a packet went out.
         if (VanillaNameTagUtil.hide(this.player, viewerId)) {
             this.vanillaHidden.add(viewerId);
         }
     }
 
-    /** Hands the vanilla name tag back to every viewer it was hidden from, once the tag is removed. */
+    /** Restores the vanilla name tag for every viewer it was hidden from. */
     void restoreVanillaNameTags() {
         for (final UUID viewerId : List.copyOf(this.vanillaHidden)) {
             VanillaNameTagUtil.show(this.player, viewerId);
@@ -282,9 +277,6 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         return viewer == null || !viewer.isOnline();
     }
 
-    /**
-     * Whether {@code viewerId} is the player this name tag belongs to.
-     */
     private boolean isOwner(final UUID viewerId) {
         return this.player.getUniqueId().equals(viewerId);
     }

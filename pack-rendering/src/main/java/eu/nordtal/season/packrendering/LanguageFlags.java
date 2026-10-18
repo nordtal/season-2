@@ -4,12 +4,12 @@ import eu.nordtal.season.common.language.Locales;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
-/** Picks the flag glyph drawn beside a player's name for the language they read in. */
+/** Chooses the flag glyph drawn beside a player's name. */
 public final class LanguageFlags {
 
     private LanguageFlags() {}
 
-    /** Returns the glyph of the flag {@link Locales#flagCountry} names, and the neutral flag for anything else. */
+    /** Returns the glyph of the flag {@link Locales#flagCountry} names, or the neutral flag. */
     public static String of(final @Nullable Locale locale) {
         return switch (Locales.flagCountry(locale).orElse("")) {
             case "DE" -> Glyphs.FLAG_GERMANY;

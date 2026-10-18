@@ -21,9 +21,8 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 
 /**
- * The Paper half of the command allowlist: it hides what the proxy refuses from each player's command tree.
- *
- * The list is the network's players group as of its last reload, so a change in Steward reaches the next command.
+ * Hides the commands that the proxy refuses from each player's command tree.
+ * The list is the network's players group.
  */
 public final class CommandFilter implements Listener {
 
@@ -34,11 +33,6 @@ public final class CommandFilter implements Listener {
     private final PaperUser.Chime chime;
     private final Supplier<ToneColours> colours;
 
-    /**
-     * @param allowlist the network's list as of its last reload
-     * @param colours   the current tone palette, a supplier so a reload reaches the next refusal
-     * @param chime     how the refusal sounds; {@link PaperUser.Chime#silent()} for a module with no sounds
-     */
     public CommandFilter(
             final Supplier<CommandAllowlist> allowlist,
             final Predicate<UUID> admin,
@@ -54,7 +48,7 @@ public final class CommandFilter implements Listener {
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
-    /** Refuses a command the list does not carry, first and by cancelling rather than rewriting. */
+    /** Cancels a command that the list does not carry. */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
         if (admin.test(event.getPlayer().getUniqueId()) || allowlist.get().allows(event.getMessage())) {
@@ -65,11 +59,7 @@ public final class CommandFilter implements Listener {
         chime.play(event.getPlayer(), Feedback.REFUSED);
     }
 
-    /**
-     * Answers an unknown command with the same line a refused one gets, so a player cannot tell which exists.
-     *
-     * The console keeps vanilla's text, since the parse position is diagnosis.
-     */
+    /** Answers an unknown command with the line of a refused one. The console keeps vanilla's text. */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onUnknownCommand(final UnknownCommandEvent event) {
         if (!(event.getSender() instanceof org.bukkit.entity.Player player)) {
@@ -79,7 +69,6 @@ public final class CommandFilter implements Listener {
         chime.play(player, Feedback.REFUSED);
     }
 
-    /** Returns the one refusal line, in that player's {@code discord_user.locale}. */
     private net.kyori.adventure.text.Component refusal(final UUID player) {
         return Tones.paint(
                 renderer.format(
@@ -89,9 +78,8 @@ public final class CommandFilter implements Listener {
     }
 
     /**
-     * Takes every command the list does not carry out of the tree this player is sent.
-     *
-     * It hides the command from completion; {@link #onCommand} is what stops it being typed.
+     * Removes the commands that the list does not carry from the tree sent to the player.
+     * {@link #onCommand} stops them being typed.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommandSend(final PlayerCommandSendEvent event) {

@@ -10,16 +10,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * The five-pixel alphabet the row fonts draw, and how wide text written in it is.
- * Text is folded to capitals except ß, and a character the sheet lacks becomes {@code ?}.
- */
+/** The five-pixel alphabet of the row fonts. Text is folded to capitals except ß. */
 public final class MenuFont {
 
-    /** What a character the sheet does not carry is drawn as. */
+    /** The character drawn for one that the sheet lacks. */
     public static final char UNKNOWN = '?';
 
-    /** The tallest a row glyph is: the sheet is five pixels, with no descenders. */
+    /** The height of a row glyph: five pixels, no descenders. */
     public static final int HEIGHT = 5;
 
     private static final String RESOURCE = "/nordtal/menu/gui-row-advances.properties";
@@ -28,19 +25,18 @@ public final class MenuFont {
 
     private MenuFont() {}
 
-    /** Returns how far {@code codePoint} moves the cursor in a row font, or 0 if it has none. */
+    /** Returns the cursor advance of {@code codePoint} in a row font, or 0 if it has none. */
     public static int advance(final int codePoint) {
         return TABLE.getOrDefault(codePoint, 0);
     }
 
-    /** Returns whether the row fonts declare {@code codePoint}. */
     public static boolean covers(final int codePoint) {
         return TABLE.containsKey(codePoint);
     }
 
-    /** Returns the character the row fonts would draw for {@code character}. */
+    /** Returns the character that the row fonts draw for {@code character}. */
     public static char fold(final char character) {
-        // A row holds one line, so a line break is a space there.
+        // A row holds one line.
         if (character == '\n') {
             return ' ';
         }
@@ -48,7 +44,7 @@ public final class MenuFont {
         return covers(upper) ? upper : UNKNOWN;
     }
 
-    /** Folds a whole string, the one place text becomes drawable and the one place it is measured. */
+    /** Folds a string. */
     public static String fold(final String text) {
         final StringBuilder out = new StringBuilder(text.length());
         for (int index = 0; index < text.length(); index++) {
@@ -57,17 +53,12 @@ public final class MenuFont {
         return out.toString();
     }
 
-    /** Returns the cursor's displacement after drawing {@code text}, which must already be folded. */
+    /** Returns the cursor advance of {@code text}, which must be folded. */
     public static int width(final String text) {
         return text.codePoints().map(MenuFont::advance).sum();
     }
 
-    /**
-     * Shortens {@code text} until it fits {@code pixels}, ending it in two dots when it does not.
-     *
-     * @param text   any string, folded here
-     * @param pixels the space available, in GUI pixels
-     */
+    /** Shortens {@code text} to fit {@code pixels} GUI pixels and ends it in two dots if it does not fit. */
     public static String fit(final String text, final int pixels) {
         final String folded = fold(text);
         if (width(folded) <= pixels) {
@@ -80,7 +71,6 @@ public final class MenuFont {
         return shorter.stripTrailing() + "..";
     }
 
-    /** Returns the whole table, code point to advance, for tests. */
     public static Map<Integer, Integer> table() {
         return Map.copyOf(TABLE);
     }

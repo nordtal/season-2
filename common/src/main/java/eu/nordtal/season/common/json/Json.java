@@ -20,9 +20,7 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The one JSON codec: records, lists, maps and plain values to text and back.
- * On Gson, which Paper and Velocity ship, so it is never shaded; a {@code null} component is left out, and an id, an
- * instant or a duration is written as its ISO text.
+ * The JSON codec over Gson. It leaves out a {@code null} component and writes an id, an instant and a duration as text.
  */
 public final class Json {
 
@@ -37,13 +35,12 @@ public final class Json {
 
     private Json() {}
 
-    /** Returns {@code value} as compact JSON. */
     public static String encode(final Object value) {
         return GSON.toJson(value);
     }
 
     /**
-     * Reads {@code json} as {@code type}; a missing component arrives as {@code null} or zero.
+     * Reads {@code json} as {@code type}. A missing component is {@code null} or zero.
      *
      * @throws com.google.gson.JsonParseException if the text is not JSON of that shape
      */
@@ -51,27 +48,22 @@ public final class Json {
         return GSON.fromJson(json, type);
     }
 
-    /** Reads {@code json} as a generic type, such as {@code new TypeToken<Map<String, Object>>() {}}. */
     public static <T> T decode(final String json, final TypeToken<T> type) {
         return GSON.fromJson(json, type);
     }
 
-    /** Reads a stream of JSON as {@code type}, leaving the reader open. */
     public static <T> T decode(final Reader json, final Class<T> type) {
         return GSON.fromJson(json, type);
     }
 
-    /** Returns the tree of {@code json}, for a document whose shape is walked rather than bound. */
     public static JsonElement tree(final String json) {
         return JsonParser.parseString(json);
     }
 
-    /** Returns the codec itself, for a web framework's mapper, which takes a Gson. */
     public static Gson gson() {
         return GSON;
     }
 
-    /** Writes a value type as the one string it wraps, and reads it back. */
     private static final class TextAdapter<T> extends TypeAdapter<T> {
 
         private final Function<T, String> write;

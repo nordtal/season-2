@@ -3,29 +3,18 @@ package eu.nordtal.season.common.health;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
-/**
- * Runs one step of a plugin's {@code onDisable}, isolated from the next.
- *
- * A step that throws is logged and the next one runs, so a replaced jar cannot skip the rest.
- */
+/** Runs one step of a plugin's {@code onDisable}. A step that throws is logged, and the next step still runs. */
 public final class Shutdown {
 
     private Shutdown() {}
 
     /**
-     * Loads this class while the jar it comes from still exists; call it from {@code onEnable}.
-     * Otherwise its first load happens in {@code onDisable}, after a replaced jar is gone.
+     * Loads this class while its jar exists.
+     * Call it in {@code onEnable}, so that a replaced jar does not break {@code onDisable}.
      */
-    public static void warmUp() {
-        // Empty on purpose. The call is the point: it loads, links and initialises this class.
-    }
+    public static void warmUp() {}
 
-    /**
-     * Runs one step and logs anything it throws instead of propagating it.
-     *
-     * @param what what the step is, for the one line a failure produces, such as {@code "duels.stop"}
-     * @param warn where the line goes: message and cause
-     */
+    /** Runs {@code step}, and logs a failure with the text {@code what} instead of throwing it. */
     public static void quietly(final String what, final Runnable step, final BiConsumer<String, Throwable> warn) {
         Objects.requireNonNull(what, "what");
         Objects.requireNonNull(step, "step");
@@ -33,7 +22,7 @@ public final class Shutdown {
         try {
             step.run();
         } catch (final RuntimeException | LinkageError failure) {
-            // LinkageError, such as a replaced jar's NoClassDefFoundError, is not an Exception.
+            // LinkageError is not an Exception.
             warn.accept("disable step " + what + " failed; carrying on with the next one", failure);
         }
     }

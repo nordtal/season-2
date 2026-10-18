@@ -4,14 +4,13 @@ import java.time.Duration;
 import java.util.concurrent.RejectedExecutionException;
 import org.jspecify.annotations.Nullable;
 
-/** {@link Scheduler#every}: each run arms the next through {@link Scheduler#after} once it has ended. */
+/** {@link Scheduler#every}: arms the next run when a run has ended. */
 final class Repeating implements Scheduler.Task {
 
     private final Scheduler scheduler;
     private final long period;
     private final Runnable work;
 
-    /** When the next run is due, by {@link System#nanoTime()}; only the one run going touches it. */
     private long due;
 
     private volatile boolean cancelled;
@@ -31,7 +30,6 @@ final class Repeating implements Scheduler.Task {
         try {
             next = scheduler.after(Duration.ofNanos(Math.max(0, due - System.nanoTime())), this::runOnce);
         } catch (final RejectedExecutionException stopping) {
-            // The scheduler is shutting down; nothing more is due.
             cancelled = true;
         }
     }
@@ -43,7 +41,6 @@ final class Repeating implements Scheduler.Task {
         try {
             work.run();
         } finally {
-            // A throw is the scheduler's to report; the next run is armed either way.
             due = Math.max(due + period, System.nanoTime());
             arm();
         }

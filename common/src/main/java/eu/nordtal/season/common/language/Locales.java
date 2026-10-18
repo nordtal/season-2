@@ -4,43 +4,27 @@ import java.util.Locale;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Turns a stored language tag into a {@link Locale} and back.
- *
- * Nothing here throws: a language column holding nonsense degrades to English rather than breaking a login.
- */
+/** Converts a stored language tag to a {@link Locale} and back. It never throws. */
 public final class Locales {
 
-    /** The tag of {@link #DEFAULT}, the network's default language and the one every translation falls back to. */
+    /** The tag of {@link #DEFAULT}. */
     public static final String DEFAULT_TAG = "en";
 
-    /** The default and the fallback for every user-visible string in season 2. */
     public static final Locale DEFAULT = Locale.of(DEFAULT_TAG);
 
     private Locales() {}
 
-    /**
-     * Parses a stored language tag such as {@code en} or {@code de}.
-     *
-     * @param tag the tag, may be {@code null} or blank
-     * @return the matching locale, or {@link #DEFAULT} when the tag is missing or unparseable
-     */
+    /** Returns the locale of a stored tag, or {@link #DEFAULT} if the tag is null, blank or unreadable. */
     public static Locale parse(final @Nullable String tag) {
         if (tag == null || tag.isBlank()) {
             return DEFAULT;
         }
 
-        // forLanguageTag never throws; it returns Locale.ROOT ("") for anything it cannot read.
         final Locale locale = Locale.forLanguageTag(tag.trim());
         return locale.getLanguage().isEmpty() ? DEFAULT : locale;
     }
 
-    /**
-     * Returns the language-only tag stored in {@code discord_user.locale}.
-     *
-     * @param locale the locale, may be {@code null}
-     * @return a lowercase two-letter language tag, {@code "en"} for {@code null}
-     */
+    /** Returns the lower-case language tag that {@code discord_user.locale} stores. */
     public static String tag(final Locale locale) {
         if (locale == null || locale.getLanguage().isEmpty()) {
             return DEFAULT.getLanguage();
@@ -49,9 +33,8 @@ public final class Locales {
     }
 
     /**
-     * Returns the country whose flag stands for a language, as its two upper-case letters.
-     *
-     * English is British unless the locale says American; a language without a flag of its own has none.
+     * Returns the country whose flag stands for a language, as two upper-case letters.
+     * English has the British flag, unless the locale is American. A language without a flag has none.
      */
     public static Optional<String> flagCountry(final @Nullable Locale locale) {
         if (locale == null) {

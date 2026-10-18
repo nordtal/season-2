@@ -7,18 +7,15 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /**
- * Hides the vanilla player name tag from individual viewers, so a player shows one name and not two.
- *
- * It puts the target into a client-side scoreboard team whose name tag visibility is {@code NEVER}.
+ * Hides the vanilla name tags from individual viewers.
+ * It uses a client-side scoreboard team whose name tag visibility is {@code NEVER}.
  */
 public final class VanillaNameTagUtil {
     private VanillaNameTagUtil() {}
 
     /**
-     * Hides {@code target}'s vanilla name tag for a single viewer.
-     *
-     * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
-     *         name tags and DisplayTags left the scoreboard alone
+     * Hides the vanilla name tag from a viewer.
+     * Returns {@code true} if a team packet was sent, {@code false} if TAB handles it.
      */
     public static boolean hide(final Player target, final UUID viewerId) {
         if (TabUtil.managesNameTags()) return false;
@@ -41,10 +38,8 @@ public final class VanillaNameTagUtil {
     }
 
     /**
-     * Restores {@code target}'s vanilla name tag for a single viewer.
-     *
-     * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
-     *         name tags and DisplayTags left the scoreboard alone
+     * Restores the vanilla name tag for a viewer.
+     * Returns {@code true} if a team packet was sent, {@code false} if TAB handles it.
      */
     public static boolean show(final Player target, final UUID viewerId) {
         if (TabUtil.managesNameTags()) return false;
@@ -60,7 +55,7 @@ public final class VanillaNameTagUtil {
         return true;
     }
 
-    /** The client-side team name for a player, keyed by UUID, since the entity id changes on respawn. */
+    /** The client-side team name of a player. It is keyed by UUID, because the entity id changes on respawn. */
     private static String getTeamName(final Player target) {
         return "displaytags_" + target.getUniqueId().toString().replace("-", "");
     }

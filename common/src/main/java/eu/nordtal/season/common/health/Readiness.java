@@ -13,28 +13,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * The file a process touches to say it started and is still here.
- * It is first written only after startup fully succeeded and then refreshed every {@link #BEAT}; the healthcheck reads
- * its modification time.
+ * The file that a process writes after a successful startup and then every {@link #BEAT}.
+ * The health check reads its modification time.
  */
 public final class Readiness {
 
-    /** Where the marker goes: {@code /tmp}, so it is gone again after a restart. */
+    /** The marker file. It lives in {@code /tmp}, so a restart deletes it. */
     public static final Path MARKER = Path.of("/tmp/nordtal-ready");
 
-    /** How often a healthy process refreshes the marker. */
     public static final Duration BEAT = Duration.ofSeconds(30);
 
-    /**
-     * How old the marker may be before the process behind it counts as gone: three missed beats.
-     * {@code compose.yml} repeats it as {@code -lt 90}, and {@code TopologyTest} keeps the two equal.
-     */
+    /** The age from which a marker is stale: three beats. {@code compose.yml} repeats it as {@code -lt 90}. */
     public static final Duration STALE_AFTER = Duration.ofSeconds(90);
 
     private final Path marker;
     private final Consumer<String> complaints;
 
-    /** Whether the last refresh failed, so a failure is logged once and again after a recovery. */
     private final AtomicBoolean complained = new AtomicBoolean();
 
     private final Clock clock;
@@ -45,25 +39,19 @@ public final class Readiness {
         this.complaints = complaints;
     }
 
-    /**
-     * Returns a readiness writing to {@link #MARKER}, as every container in this stack does.
-     *
-     * @param complaints where a failed refresh is reported, such as a logger's warn method
-     */
+    /** Returns a readiness that writes to {@link #MARKER}. {@code complaints} receives the report of a failed write. */
     public static Readiness onDefaultPath(final Clock clock, final Consumer<String> complaints) {
         return new Readiness(MARKER, clock, complaints);
     }
 
-    /** Returns where this instance writes. */
     public Path marker() {
         return marker;
     }
 
     /**
-     * Writes the marker, creating it and its parent directories if needed.
-     * It never throws: a failure is logged once instead.
-     *
-     * @return true when the marker now says this process is alive
+     * Writes the marker and its parent directories.
+     * A failure is logged once and never thrown.
+     * Returns whether the write succeeded.
      */
     public boolean refresh() {
         try {
@@ -85,9 +73,8 @@ public final class Readiness {
     }
 
     /**
-     * Writes the marker now and then every {@link #BEAT} on {@code scheduler}, for as long as the process lives.
-     *
-     * @return whether the first write succeeded
+     * Writes the marker now and then every {@link #BEAT} on {@code scheduler}.
+     * Returns whether the first write succeeded.
      */
     public boolean keepBeating(final Scheduler scheduler) {
         final boolean written = refresh();
@@ -96,15 +83,14 @@ public final class Readiness {
     }
 
     /**
-     * Returns whether a marker last written at {@code lastBeat} is still fresh at {@code now}.
-     * It matches the {@code -lt} in {@code compose.yml}: an age equal to {@code staleAfter} is stale, a future one
-     * fresh.
+     * Returns whether a marker written at {@code lastBeat} is fresh at {@code now}.
+     * An age equal to {@code staleAfter} is stale.
      */
     public static boolean fresh(final Instant lastBeat, final Instant now, final Duration staleAfter) {
         return Duration.between(lastBeat, now).compareTo(staleAfter) < 0;
     }
 
-    /** Returns when the marker was last written, empty when it is absent or unreadable. */
+    /** Returns when the marker was last written, or empty if it is missing or unreadable. */
     public static Optional<Instant> lastBeat(final Path marker) {
         try {
             return Optional.of(Files.getLastModifiedTime(marker).toInstant());
@@ -114,7 +100,6 @@ public final class Readiness {
         }
     }
 
-    /** Returns whether the marker file is still fresh at {@code now}. */
     public static boolean fresh(final Path marker, final Instant now, final Duration staleAfter) {
         return lastBeat(marker).map(beat -> fresh(beat, now, staleAfter)).orElse(false);
     }

@@ -4,18 +4,18 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One placeholder or action a message declares in its jar's {@code schema.json}.
- * Roles and globals are already expanded into their attributes.
+ * A placeholder or action that a message declares in {@code schema.json}.
+ * Roles and globals are expanded into their attributes.
  *
- * @param name    the placeholder's name, dotted for a role's attribute; for an action, its name
- * @param kind    the value kind's token, for example {@code duration}; {@code null} for an action or a value declared
- *                without a kind
- * @param type    the role's context type, for example {@code player}; {@code null} for a plain value
- * @param global  whether every message has it, rather than this one alone
- * @param example the value an editor shows for it, as the kind writes it, or {@code null}
- * @param action  whether it is an action, placed as {@code <action:name>} around a text that runs it
- * @param exampleWords for a value that is a message, whose example is a key: that key's first text in each
- *                language the jar ships it in, by language tag; empty for any other value
+ * @param name the placeholder's name, dotted for the attribute of a role, or the name of an action
+ * @param kind the token of the value kind, for example {@code duration}, or {@code null} for an action or a value
+ *     without a kind
+ * @param type the context type of the role, for example {@code player}, or {@code null} for a plain value
+ * @param global whether every message has it
+ * @param example the value that an editor shows, as the kind writes it, or {@code null}
+ * @param action whether it is an action, written as {@code <action:name>} around a text that runs it
+ * @param exampleWords for a value whose example is a message key: the first text of that key in each language, by
+ *     language tag; otherwise empty
  */
 public record MessageArg(
         String name,
@@ -27,11 +27,10 @@ public record MessageArg(
         Map<String, String> exampleWords) {
 
     public MessageArg {
-        // A body without it reads as no words, and the editor shows the example as it is.
+        // A body without it reads as no words.
         exampleWords = exampleWords == null ? Map.of() : Map.copyOf(exampleWords);
     }
 
-    /** A placeholder whose example is not a message's key, so it has no words of its own. */
     public MessageArg(
             final String name,
             final @Nullable String kind,
@@ -42,12 +41,10 @@ public record MessageArg(
         this(name, kind, type, global, example, action, Map.of());
     }
 
-    /** The same placeholder with its example message's words. */
     public MessageArg withExampleWords(final Map<String, String> words) {
         return new MessageArg(name, kind, type, global, example, action, words);
     }
 
-    /** How the placeholder is written in a text. */
     public String token() {
         return action ? "<action:" + name + ">" : "{" + name + "}";
     }

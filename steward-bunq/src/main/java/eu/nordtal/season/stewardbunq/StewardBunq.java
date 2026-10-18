@@ -13,19 +13,13 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The only process that holds the bank key, answering steward's questions about the bank and nothing else.
- *
- * It decides nothing: which tab to open, what a payment pays for and when to ask are steward's.
- */
+/** Serves steward's questions about the bank. It decides nothing. */
 public final class StewardBunq {
 
     private static final Logger log = LoggerFactory.getLogger(StewardBunq.class);
 
-    /** Where bunq's session for this device lives; the image mounts the context volume there. */
     private static final String DEFAULT_CONTEXT = "/app/bunq/bunq-config.conf";
 
-    /** The most payments one question may ask the bank for. */
     private static final int MAX_RECENT = 200;
 
     private StewardBunq() {}
@@ -36,15 +30,12 @@ public final class StewardBunq {
                 server.setting("API_KEY", ""),
                 server.setting("ACCOUNT_ID", ""),
                 Path.of(server.setting("CONTEXT_PATH", DEFAULT_CONTEXT)));
-        // Logged on both branches, so a renamed key cannot turn payments off silently.
         bank.logStartupLine();
-        // Lives as long as the process, which ends by SIGTERM.
         final ProcessScheduler scheduler =
                 new ProcessScheduler(BankWire.SERVICE, failure -> log.error("A task of steward-bunq failed", failure));
         server.serve(BankWire.PORT, NetworkTime.clock(), scheduler, config -> routes(config, bank));
     }
 
-    /** Every route but health, which the server adds itself. */
     static void routes(final JavalinConfig config, final BunqGateway bank) {
         config.routes.get(BankWire.ACCOUNT, ctx -> ctx.json(bank.account()));
         config.routes.post(BankWire.TABS, ctx -> {
@@ -64,7 +55,6 @@ public final class StewardBunq {
         });
     }
 
-    /** Answers what the bank said, or what went wrong as a {@link BankWire.Refused}. */
     private static void answer(final Context ctx, final Supplier<Object> question) {
         try {
             ctx.json(question.get());
@@ -76,7 +66,6 @@ public final class StewardBunq {
         }
     }
 
-    /** Returns a failure as steward is told it: the status bunq answered, if it answered one, and the words. */
     static BankWire.Refused refused(final RuntimeException failure) {
         final String message = failure.getMessage();
         return new BankWire.Refused(

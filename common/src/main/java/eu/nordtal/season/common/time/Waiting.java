@@ -7,13 +7,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/** How a process lets time pass: the time now, and a pause a test can skip. */
+/** The time now, and a pause that a test can skip. */
 public interface Waiting {
 
     /** Returns the time now. */
     Instant now();
 
-    /** Pauses, and returns false when interrupted, with the flag restored, which ends the wait. */
+    /** Pauses and returns false if the thread was interrupted, with the interrupt flag restored. */
     boolean sleep(Duration duration);
 
     /** Returns time as it really passes, read from {@code source}. */
@@ -39,10 +39,8 @@ public interface Waiting {
     }
 
     /**
-     * Tries until {@code attempt} answers or {@code patience} has passed, pausing by {@code backoff} between tries.
-     * The last try starts no later than the deadline; an interrupt ends the wait at once.
-     *
-     * @return the first answer, or empty once the patience is spent or the thread was interrupted
+     * Calls {@code attempt} until it answers or {@code patience} has passed, pausing by {@code backoff} between calls.
+     * An interrupt ends the wait. Returns empty if the patience is spent or the thread was interrupted.
      */
     default <T> Optional<T> until(final Supplier<Optional<T>> attempt, final Duration patience, final Backoff backoff) {
         final Instant deadline = now().plus(patience);

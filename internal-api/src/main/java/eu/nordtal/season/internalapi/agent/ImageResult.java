@@ -6,13 +6,13 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which services run an image older than the registry's, where "up to date" and "nobody looked" stay apart.
+ * The services that run an image older than the registry's. It keeps "up to date" and "not looked at" apart.
  *
  * @param reached whether the images could be read at all
- * @param services one entry per running compose service, service name to what was found
- * @param unverifiable the {@link State#UNKNOWN} services whose image could not be identified, so the report can say why
- * @param message why not, or {@code null} when they could be read
- * @param localBuilds what each service runs that was built on this host and no release has, absent when nothing
+ * @param services the finding for each running compose service
+ * @param unverifiable the {@link State#UNKNOWN} services whose image could not be identified
+ * @param message the reason if the images could not be read, otherwise {@code null}
+ * @param localBuilds what each service runs that was built on this host and in no release, absent if nothing
  */
 public record ImageResult(
         boolean reached,
@@ -24,15 +24,14 @@ public record ImageResult(
     public ImageResult {
         services = Map.copyOf(services);
         unverifiable = Set.copyOf(unverifiable);
-        // An older agent's answer has no such field.
         localBuilds = localBuilds == null ? Map.of() : Map.copyOf(localBuilds);
     }
 
     /**
-     * What one service runs that was built on this host, which the next run that replaces it overwrites.
+     * What one service runs that was built on this host. The next run that replaces the service overwrites it.
      *
-     * @param image the image reference when the image itself was built here, whatever its {@link State}
-     * @param jars the plugin and server jars in its volume whose descriptor says they were built outside a release
+     * @param image the image reference, if the image itself was built here
+     * @param jars the jars in its volume whose descriptor says they were built outside a release
      */
     public record LocalBuild(@Nullable String image, List<String> jars) {
 
@@ -41,16 +40,14 @@ public record ImageResult(
         }
     }
 
-    /** What is known about one service's image. */
     public enum State {
 
-        /** compose.yml now makes this container differently, or the registry has a newer image under its tag. */
+        /** compose.yml makes this container differently now, or the registry has a newer image under its tag. */
         OUTDATED,
 
-        /** Checked, and what is running is what the registry has. */
         UP_TO_DATE,
 
-        /** Running from an image built on this host and never published, which the next update run replaces. */
+        /** The container runs an image built on this host and never published. The next update run replaces it. */
         LOCAL,
 
         /** This service's image could not be compared with a registry; a note, never work and never current. */
@@ -69,30 +66,25 @@ public record ImageResult(
         return new ImageResult(false, Map.of(), Set.of(), message, Map.of());
     }
 
-    /** This result with what each service runs that was built here. */
     public ImageResult withLocalBuilds(final Map<String, LocalBuild> builds) {
         return new ImageResult(reached, services, unverifiable, message, builds);
     }
 
-    /** Returns what was found for that service, or {@link State#UNKNOWN} if it was not among them. */
     public State state(final String service) {
         return services.getOrDefault(service, State.UNKNOWN);
     }
 
-    /** Returns whether that service runs an image the registry has moved past. */
     public boolean isOutdated(final String service) {
         return state(service) == State.OUTDATED;
     }
 
-    /** Returns whether that service runs an image built here and published nowhere. */
     public boolean isLocal(final String service) {
         return state(service) == State.LOCAL;
     }
 
     /**
-     * Returns whether the images were read and none was compared with a registry, which otherwise reads as current.
-     *
-     * Never together with {@link #unverifiable}: two notes about the same thing is how a report stops being read.
+     * Returns whether the images were read and none was compared with a registry.
+     * Never true together with {@link #unverifiable}.
      */
     public boolean nothingCompared() {
         return reached

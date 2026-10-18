@@ -11,9 +11,8 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * An item that draws nothing and carries a tooltip, for slots under a card painted into a menu's title.
- *
- * The name and lore are set non-italic explicitly, since a custom name renders italic otherwise.
+ * An item that draws nothing and has a tooltip, for slots under a card in a menu's title.
+ * Name and lore are not italic.
  */
 public final class BlankItem {
 
@@ -22,23 +21,13 @@ public final class BlankItem {
 
     private BlankItem() {}
 
-    /**
-     * @param name what the tooltip is headed with
-     * @param lore the lines under it, already translated and coloured; may be empty
-     * @return a fresh stack
-     */
     public static ItemStack of(final Component name, final List<Component> lore) {
         final ItemStack stack = ItemStack.of(Material.PAPER);
         stack.setData(DataComponentTypes.ITEM_MODEL, MODEL);
         return described(stack, name, lore);
     }
 
-    /**
-     * Gives {@code stack} a tooltip with one line per line of its texts.
-     * The name's first line heads it and its later lines open the lore, since a name and a lore line hold one line.
-     *
-     * @return {@code stack}
-     */
+    /** Sets a tooltip on {@code stack}. The first line of {@code name} heads it, and later lines open the lore. */
     public static ItemStack described(final ItemStack stack, final Component name, final List<Component> lore) {
         final List<Component> tooltip = Lines.tooltip(name, lore);
         stack.setData(DataComponentTypes.CUSTOM_NAME, upright(tooltip.getFirst()));

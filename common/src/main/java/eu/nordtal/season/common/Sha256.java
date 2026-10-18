@@ -5,16 +5,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-/** SHA-256 of text, the one place that asks the JVM for it. */
+/** SHA-256 of a text. */
 public final class Sha256 {
 
     private Sha256() {}
 
-    /**
-     * The SHA-256 of {@code text}'s UTF-8 bytes.
-     *
-     * @return 64 lower-case hex digits
-     */
+    /** Returns the SHA-256 of the UTF-8 bytes of {@code text} as 64 lower-case hex digits. */
     public static String hex(final String text) {
         try {
             return HexFormat.of()

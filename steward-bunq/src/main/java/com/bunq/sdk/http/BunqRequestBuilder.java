@@ -12,11 +12,7 @@ import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 
-/**
- * A patched copy of the bunq SDK's request builder, in the library's own package so it wins on the classpath.
- *
- * It leaves the final {@code delete()} of OkHttp 5 alone; re-check it on every SDK or OkHttp bump.
- */
+/** A patched copy of the SDK's request builder. It does not override the final {@code delete()} of OkHttp 5. */
 @Getter
 @Setter
 public class BunqRequestBuilder extends Request.Builder {
@@ -118,8 +114,6 @@ public class BunqRequestBuilder extends Request.Builder {
     public BunqRequestBuilder delete(final RequestBody body) {
         return (BunqRequestBuilder) super.delete(body);
     }
-
-    // delete() is final in OkHttp 5; callers fall back to super, which passes a null body.
 
     @Override
     public BunqRequestBuilder put(final RequestBody body) {

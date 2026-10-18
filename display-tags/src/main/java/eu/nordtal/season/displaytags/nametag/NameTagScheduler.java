@@ -15,10 +15,9 @@ public class NameTagScheduler {
     }
 
     public void start() {
-        // start() is called again on every reload, so a previous timer must not keep running.
+        // start() runs on every reload, so the previous timer must stop.
         this.end();
 
-        // An update interval of 0 runs on every server tick, which is the scheduler's floor.
         final Duration interval = Duration.ofSeconds(this.plugin.config().getUpdateInterval());
         this.task = PaperScheduler.of(this.plugin.host()).onMainEvery(interval, interval, () -> {
             for (final PlayerNameTag nametag : this.plugin.getNameTagManager().getAll()) {

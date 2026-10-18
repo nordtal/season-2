@@ -4,14 +4,10 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The names a run joins on: server kinds, artefact ids and the plugins Nordtal publishes.
- *
- * Which server runs which jars is not here: compose.yml's labels say it, and steward-agent serves them.
- */
+/** The names that a run joins on: server kinds, artefact ids and the plugins that Nordtal publishes. */
 public final class Topology {
 
-    /** What kind of server jar a service runs, which is also the Fill API's project name. */
+    /** The kind of server jar, which is also the project name in the Fill API. */
     public enum Kind {
         PAPER("paper", "paper"),
         VELOCITY("velocity", "velocity");
@@ -28,7 +24,6 @@ public final class Topology {
             return fillProject;
         }
 
-        /** The kind whose {@link #fillProject()} this is, which is how the label {@code eu.nordtal.server} names it. */
         public static Kind of(final String fillProject) {
             for (final Kind kind : values()) {
                 if (kind.fillProject.equals(fillProject)) {
@@ -38,29 +33,26 @@ public final class Topology {
             throw new IllegalArgumentException("no server kind is called '" + fillProject + "'");
         }
 
-        /** What Modrinth calls this platform, kept apart from {@link #fillProject()} because two vendors name them. */
         public String modrinthLoader() {
             return modrinthLoader;
         }
     }
 
     /**
-     * One compose service with a plugins folder, as its {@code eu.nordtal.plugins} label describes it.
+     * A compose service with a plugins folder, as its {@code eu.nordtal.plugins} label describes it.
      *
      * @param name the compose service name, also its directory under {@code volumes-root}
      * @param plugins the artifact ids whose jars belong in its {@code plugins/} folder
-     * @param optional the subset of {@code plugins} whose absence must not stop the container
+     * @param optional the plugins whose absence does not stop the container
      * @param prefixes the jar filename prefix of each artifact whose prefix is not its id
      */
     public record Service(
             String name, Kind kind, List<String> plugins, List<String> optional, Map<String, String> prefixes) {
 
-        /** A service whose every jar is named after its artifact id. */
         public Service(final String name, final Kind kind, final List<String> plugins, final List<String> optional) {
             this(name, kind, plugins, optional, Map.of());
         }
 
-        /** A service every one of whose plugins the entrypoint guard demands. */
         public Service(final String name, final Kind kind, final List<String> plugins) {
             this(name, kind, plugins, List.of());
         }
@@ -75,13 +67,12 @@ public final class Topology {
             }
         }
 
-        /** The filename prefix of {@code artifact}'s jar on this service, its id unless the label names another. */
         public String prefixOf(final String artifact) {
             return prefixes.getOrDefault(artifact, artifact);
         }
     }
 
-    // The id is what topology, resolver and report join on; for third-party jars it is not the filename prefix.
+    // The id joins topology, resolver and report. For a third-party jar it differs from the filename prefix.
 
     public static final String PROXY = "proxy";
     public static final String LIMBO = "limbo";
@@ -90,44 +81,38 @@ public final class Topology {
     public static final String DISCORD_BOT = "discord-bot";
     public static final String STEWARD = "steward";
 
-    /** The service that applies the schema from steward-agent's image and exits; an update's install runs it. */
     public static final String MIGRATE = "migrate";
 
     public static final String PACKETEVENTS = "packetevents";
 
-    /** Simple Voice Chat's Bukkit plugin, optional since a missing voice chat must not stop a server from starting. */
+    /** The Bukkit plugin of Simple Voice Chat. It is optional. */
     public static final String VOICE_CHAT = "voicechat";
 
     /**
-     * Simple Voice Chat's Velocity plugin, which forwards every backend's voice over the proxy's one UDP port.
-     *
-     * Resolved from a pre-release and optional, since a proxy that will not start is the whole network.
+     * The Velocity plugin of Simple Voice Chat.
+     * It forwards the voice of every backend over the proxy's one UDP port.
+     * It is optional.
      */
     public static final String VOICE_CHAT_PROXY = "voicechat-velocity";
 
-    /**
-     * CoreProtect, the block logger, which stays in the plan as {@link Change.Status#UNSUPPORTED} until it has a build.
-     */
+    /** CoreProtect stays in the plan as {@link Change.Status#UNSUPPORTED} until it has a build. */
     public static final String CORE_PROTECT = "coreprotect";
 
     public static final String PAPER = "paper";
     public static final String VELOCITY = "velocity";
 
-    /** The resource pack: not a jar, not installed anywhere, but a version that has to move. */
     public static final String RESOURCE_PACK = "resource-pack";
 
-    /** The four plugins a season-2 release publishes as jars; the bot and steward are in their images. */
     public static final List<String> SEASON_JARS = List.of(PROXY, LIMBO, HUNGER_GAMES, SMP);
 
-    /** Every plugin Nordtal publishes itself, keyed by filename prefix, in the order the plugins tab lists them. */
+    /** Every plugin that Nordtal publishes, by filename prefix, in the order of the plugins tab. */
     public static final Map<String, String> NORDTAL_PLUGINS =
             orderedMap(SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
 
-    /** The data folder each Nordtal plugin keeps its config in, with the name the plugins tab shows. */
+    /** The data folder of each Nordtal plugin and the name the plugins tab shows. */
     public static final Map<String, String> NORDTAL_DATA_FOLDERS =
             orderedMap(SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
 
-    /** Whether a jar with this filename prefix is one Nordtal publishes. */
     public static boolean isNordtal(final @Nullable String prefix) {
         return prefix != null && NORDTAL_PLUGINS.containsKey(prefix);
     }
@@ -141,9 +126,8 @@ public final class Topology {
     }
 
     /**
-     * The artefact id an added plugin resolves under on a service of this kind.
-     *
-     * The loader is in the id because one Modrinth project can be two jars, as Simple Voice Chat is.
+     * Returns the artefact id of an added plugin on a service of this kind.
+     * The loader is in the id, because one Modrinth project can be two jars.
      */
     public static String addedArtifact(final String slug, final Kind kind) {
         return kind == Kind.VELOCITY ? slug + "-velocity" : slug;

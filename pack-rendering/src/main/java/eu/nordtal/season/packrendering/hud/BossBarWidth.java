@@ -2,34 +2,23 @@ package eu.nordtal.season.packrendering.hud;
 
 import eu.nordtal.season.packrendering.Glyphs;
 
-/**
- * Composes a HUD pill background of any inner width from {@code Glyphs.BOSSBAR_BG_*}.
- * Every glyph is followed by {@link Glyphs#BOSSBAR_SPACE_MINUS_1}, cancelling the client's one-pixel separator.
- */
+/** Composes the background of a HUD pill of any inner width from {@code Glyphs.BOSSBAR_BG_*}. */
 public final class BossBarWidth {
 
     /** The drawn width of {@code start.png} and {@code end.png}. */
     public static final int CAP = 4;
 
-    /** Segment widths this class can compose with, largest first, mirroring {@code Glyphs.BOSSBAR_BG_*}. */
+    /** The widths of the segments, largest first. */
     private static final int[] SEGMENT_WIDTHS = {128, 64, 32, 16, 8, 4, 2, 1};
 
     private BossBarWidth() {}
 
-    /**
-     * Returns a whole pill that advances the cursor by exactly {@code CAP + inner + CAP}.
-     *
-     * @param inner the body width in pixels, zero or more
-     */
+    /** Returns a pill whose advance is {@code CAP + inner + CAP}. */
     public static String pill(final int inner) {
         return seamless(Glyphs.BOSSBAR_BG_START) + body(inner) + seamless(Glyphs.BOSSBAR_BG_END);
     }
 
-    /**
-     * Returns {@code width} pixels of power-of-two segments, largest first, each stepped back by one.
-     *
-     * @throws IllegalArgumentException if {@code width} is negative
-     */
+    /** Returns {@code width} pixels of power-of-two segments, largest first. */
     public static String body(final int width) {
         if (width < 0) {
             throw new IllegalArgumentException("width must not be negative, was " + width);
@@ -45,7 +34,6 @@ public final class BossBarWidth {
         return out.toString();
     }
 
-    /** The glyph, then the one-pixel step back that cancels the client's separator. */
     private static String seamless(final String glyph) {
         return glyph + Glyphs.BOSSBAR_SPACE_MINUS_1;
     }

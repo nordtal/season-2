@@ -4,14 +4,14 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What saving one thing came to; zero {@code bytes} with {@code ok} true is a finding, not a detail.
+ * The result of saving one thing. Zero {@code bytes} with {@code ok} true is a finding.
  *
- * @param name what was saved: a volume name, or {@code database}
- * @param ok whether there is now a file that can be restored from
- * @param bytes how large it is, which a report tells through its own words for a size
- * @param took how long it ran, likewise
- * @param file where it landed, or {@code null} when nothing was written
- * @param message why it failed, in the words of whatever failed, or {@code null} when it saved
+ * @param name a volume name, or {@code database}
+ * @param ok whether a file exists that can be restored from
+ * @param bytes the size of the file
+ * @param took how long the save ran
+ * @param file the path of the file, or {@code null} if nothing was written
+ * @param message the reason of the failure, in the words of the failing tool, or {@code null} if it saved
  */
 public record SnapshotResult(
         String name,

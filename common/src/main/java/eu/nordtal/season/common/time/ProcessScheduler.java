@@ -8,22 +8,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-/**
- * The scheduler of a plain JVM process: one timer thread that only hands work on, and a virtual thread per run.
- *
- * Work may block on I/O as long as it likes; a throw goes to {@code failures}, and a repeating task carries on.
- */
+/** The scheduler of a JVM process: one timer thread and a virtual thread per run. A throw goes to {@code failures}. */
 public final class ProcessScheduler implements Scheduler, AutoCloseable {
 
     private final ScheduledExecutorService timer;
     private final ExecutorService runs;
     private final Consumer<RuntimeException> failures;
 
-    /**
-     * Starts the threads of process {@code name}, which name every thread they start.
-     *
-     * @param failures told of every throw of a run, which nothing else sees
-     */
     public ProcessScheduler(final String name, final Consumer<RuntimeException> failures) {
         this.timer = Executors.newSingleThreadScheduledExecutor(
                 Thread.ofPlatform().name(name + "-timer").daemon().factory());
@@ -43,7 +34,6 @@ public final class ProcessScheduler implements Scheduler, AutoCloseable {
         return () -> due.cancel(false);
     }
 
-    /** Stops the timer and interrupts every run still going. */
     @Override
     public void close() {
         timer.shutdownNow();

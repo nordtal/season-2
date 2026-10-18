@@ -3,10 +3,10 @@ package eu.nordtal.season.internalapi.agent;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One service of the compose project as the Docker daemon sees it now, from its list and one inspect.
+ * One service of the compose project as the Docker daemon reports it.
  *
  * @param service the compose service name
- * @param containerId what the stop and start calls are addressed to
+ * @param containerId the id that the stop and start calls address
  * @param status Docker's container status, {@code running} when it is up
  * @param health Docker's health state, or {@code null} for a service without a healthcheck
  */
@@ -17,9 +17,8 @@ public record ServiceRuntime(
         @Nullable String health) {
 
     /**
-     * Whether this service is back for real: healthy, since a plugin failing in {@code onEnable} leaves it running.
-     *
-     * A service with no healthcheck is accepted on {@code running}.
+     * Returns whether the service is back: healthy, or {@code running} if it has no healthcheck.
+     * A plugin that fails in {@code onEnable} leaves it running but not healthy.
      */
     public boolean isBack() {
         if (!"running".equalsIgnoreCase(status)) {
@@ -28,7 +27,6 @@ public record ServiceRuntime(
         return health == null || health.isBlank() || "healthy".equalsIgnoreCase(health);
     }
 
-    /** What a report line says when this service did not come back. */
     public String describe() {
         final String state = status == null ? "no container" : status;
         return health == null || health.isBlank() ? state : state + ", " + health;

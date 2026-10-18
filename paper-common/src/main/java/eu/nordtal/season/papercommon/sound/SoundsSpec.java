@@ -7,7 +7,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** What each feedback category sounds like on one server, taken while it runs, since it is tuned by ear. */
+/** The sound of each feedback category on one server. */
 @ConfigSpec
 public interface SoundsSpec {
 

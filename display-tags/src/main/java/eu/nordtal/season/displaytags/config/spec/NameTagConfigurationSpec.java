@@ -50,7 +50,7 @@ public interface NameTagConfigurationSpec {
         return true;
     }
 
-    /** vanilla dims it like Minecraft's own, true is full brightness, false hides it. */
+    /** {@code vanilla} dims the name like Minecraft, {@code true} is full brightness, {@code false} hides it. */
     @Order(5)
     @Name("Through blocks")
     @Key("see-through")

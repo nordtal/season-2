@@ -5,10 +5,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-/** Lets everybody the proxy sends join, since the network's limit is the proxy's alone and no server has its own. */
+/** Lets every player that the proxy sends join. Only the proxy limits the network. */
 final class Unbounded implements Listener {
 
-    /** Overrides the server's own max-players, which nothing sets and which Paper defaults to 20. */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFullCheck(final PlayerServerFullCheckEvent event) {
         event.allow(true);

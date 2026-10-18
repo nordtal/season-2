@@ -3,41 +3,33 @@ package eu.nordtal.season.common;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The phases of season 2, which decide who may join and where they land.
- *
- * The current value is the one row of {@code season_phase}; adding a phase is a migration.
+ * The phases of season 2.
+ * The phase decides who joins and where they land.
+ * {@code season_phase} holds the current one.
  */
 public enum SeasonPhase {
 
-    /**
-     * Before the network first opens; only admins get in, everybody else sees a countdown.
-     *
-     * The initial state, left only by an admin.
-     */
+    /** Only admins join. Everybody else sees a countdown. Only an admin leaves this initial phase. */
     PRE_LAUNCH,
 
-    /** Before the start event; any linked, non-banned member lands in the {@code hunger-games} lobby. */
+    /** Every linked member who is not banned lands in the {@code hunger-games} lobby. */
     PRE_EVENT,
 
-    /** The hunger games start event; admission as in {@link #PRE_EVENT}, landing on {@code hunger-games}. */
+    /** The Hunger Games start event. Admission and landing as in {@link #PRE_EVENT}, but on {@code hunger-games}. */
     START_EVENT,
 
-    /** The season proper; players land on {@code smp} and also need an active access period. */
+    /** Players land on {@code smp} and need an active access period. */
     SMP,
 
     /**
-     * Planned work; members wait in {@code limbo} while admins reach the servers.
-     *
-     * Also the phase of a process that has never read the row.
+     * Admins reach the servers and members wait in {@code limbo}.
+     * A process that has not read the row is in this phase.
      */
     MAINTENANCE;
 
     /**
-     * Parses a value read from {@code season_phase.phase}.
-     *
-     * @param value the stored string, may be {@code null}
-     * @return the matching phase, or {@link #MAINTENANCE} for {@code null} or anything unrecognised, so an unreadable
-     *     phase is never more permissive than the real one
+     * Returns the phase stored in {@code season_phase.phase}.
+     * Returns {@link #MAINTENANCE} if {@code value} is null or unknown.
      */
     public static SeasonPhase fromDatabase(final @Nullable String value) {
         if (value == null) {

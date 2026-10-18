@@ -8,9 +8,7 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The mutable settings behind a single {@link PlayerNameTag}.
- */
+/** The mutable settings of one {@link PlayerNameTag}. */
 public class NameTagData {
     private boolean showToSelf = true;
     private int visibilityDistance = 32;
@@ -29,44 +27,28 @@ public class NameTagData {
     private Vector translation = new Vector(0, 0, 0);
     private Vector scale = new Vector(1, 1, 1);
 
-    /**
-     * @return whether the name is shown to the player it belongs to
-     */
     public boolean shouldShowToSelf() {
         return this.showToSelf;
     }
 
-    /**
-     * @param showToSelf whether the name is shown to the player it belongs to
-     */
     public void setShowToSelf(final boolean showToSelf) {
         this.showToSelf = showToSelf;
     }
 
-    /**
-     * @return the maximum distance, in blocks, a viewer can see the name tag from
-     */
+    /** Returns the maximum distance in blocks from which a viewer sees the name tag. */
     public int getVisibilityDistance() {
         return this.visibilityDistance;
     }
 
-    /**
-     * @param visibilityDistance the maximum distance, in blocks, a viewer can see the name tag from
-     */
     public void setVisibilityDistance(final int visibilityDistance) {
         this.visibilityDistance = visibilityDistance;
     }
 
-    /**
-     * @return the lines drawn, as MiniMessage, empty until the host writes them
-     */
+    /** Returns the lines drawn as MiniMessage, empty until the host writes them. */
     public List<String> getLines() {
         return this.lines;
     }
 
-    /**
-     * @param lines the lines drawn, as MiniMessage
-     */
     public void setLines(final List<String> lines) {
         this.lines = lines;
     }
@@ -87,16 +69,10 @@ public class NameTagData {
         this.billboard = billboard;
     }
 
-    /**
-     * @return whether the text is drawn with a shadow
-     */
     public boolean hasTextShadow() {
         return this.textShadow;
     }
 
-    /**
-     * @param textShadow whether the text is drawn with a shadow
-     */
     public void setTextShadow(final boolean textShadow) {
         this.textShadow = textShadow;
     }
@@ -105,53 +81,37 @@ public class NameTagData {
         return this.seeThrough;
     }
 
-    /**
-     * @param seeThrough the new mode, or {@code null} to fall back to {@link SeeThroughMode#NEVER}
-     */
+    /** Sets the mode. {@code null} means {@link SeeThroughMode#NEVER}. */
     public void setSeeThrough(final @Nullable SeeThroughMode seeThrough) {
         this.seeThrough = seeThrough == null ? SeeThroughMode.NEVER : seeThrough;
     }
 
-    /**
-     * @return the packed ARGB background colour, as produced by {@link Util#parseDisplayBackground}
-     */
+    /** Returns the packed ARGB background colour, as {@link Util#parseDisplayBackground} produces it. */
     public int getBackground() {
         return this.background;
     }
 
-    /**
-     * @param background the packed ARGB background colour
-     */
     public void setBackground(final int background) {
         this.background = background;
     }
 
-    /**
-     * @param background {@code "default"}, {@code "transparent"}, or a hex colour such as
-     *                   {@code "#FFFFFF"}
-     */
+    /** Sets the background to {@code "default"}, {@code "transparent"} or a hex colour such as {@code "#FFFFFF"}. */
     public void setBackground(final String background) {
         this.background = Util.parseDisplayBackground(background);
     }
 
-    /**
-     * @return the text opacity, or {@code -1} for "fully opaque" (the vanilla default)
-     */
+    /** Returns the text opacity, or {@code -1} for fully opaque (the vanilla default). */
     public int getTextOpacity() {
         return this.textOpacity;
     }
 
-    /**
-     * @param textOpacity the text opacity, or {@code -1} for "fully opaque"
-     */
     public void setTextOpacity(final int textOpacity) {
         this.textOpacity = textOpacity;
     }
 
     /**
-     * Whether the player is sneaking, kept here since {@code PlayerToggleSneakEvent} fires before the state changes.
-     *
-     * @return whether the player is sneaking
+     * Whether the player is sneaking.
+     * It is kept here, because {@code PlayerToggleSneakEvent} fires before the state changes.
      */
     public boolean isSneaking() {
         return this.sneaking;

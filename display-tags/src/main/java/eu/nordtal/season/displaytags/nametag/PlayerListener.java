@@ -22,10 +22,9 @@ public class PlayerListener implements Listener {
         this.plugin = plugin;
     }
 
-    // Waits for the client to finish loading the world; on PlayerJoinEvent the spawn packets would be dropped.
+    // On PlayerJoinEvent the client has not loaded the world, so the spawn packets would be dropped.
     @EventHandler
     public void onPlayerClientLoadedWorld(final PlayerClientLoadedWorldEvent event) {
-        // Tick right away instead of waiting up to one update-interval for the scheduler.
         this.plugin.getNameTagManager().createNameTag(event.getPlayer()).tick();
     }
 
@@ -40,11 +39,10 @@ public class PlayerListener implements Listener {
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
         if (tag == null) return;
 
-        // With see-through: vanilla, sneaking also decides whether the name draws through blocks at all.
+        // With see-through: vanilla, sneaking also decides whether the name draws through blocks.
         tag.getData().setSneaking(event.isSneaking());
 
         if (config.hasSneakTextOpacity()) {
-            // -1 is the vanilla "fully opaque" value, so it restores the normal look.
             tag.getData().setTextOpacity(event.isSneaking() ? config.getSneakTextOpacity() : -1);
         }
 
@@ -57,10 +55,10 @@ public class PlayerListener implements Listener {
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
         if (tag == null) return;
 
-        // The event fires before the player moves, so the destination comes from the event, not the player.
+        // The event fires before the player moves.
         tag.teleportForViewers(event.getTo());
 
-        // Distance and world can only be re-evaluated once the move has actually happened.
+        // The distance and world can be evaluated only after the move.
         PaperScheduler.of(this.plugin.host()).onMain(() -> {
             final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
             if (current != null) current.tick();
@@ -72,7 +70,7 @@ public class PlayerListener implements Listener {
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
         if (tag == null) return;
 
-        // The display lives in the world it was spawned in, so it must despawn before re-evaluating.
+        // The display lives in the world it was spawned in.
         tag.despawnForViewers();
         tag.tick();
     }
@@ -82,7 +80,7 @@ public class PlayerListener implements Listener {
         final Player player = event.getPlayer();
         if (this.plugin.getNameTagManager().getByPlayer(player) == null) return;
 
-        // Player#getGameMode() still reports the old mode here, so visibility is re-evaluated next tick instead.
+        // Player#getGameMode() still returns the old mode here.
         PaperScheduler.of(this.plugin.host()).onMain(() -> {
             final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
             if (current != null) current.tick();

@@ -21,20 +21,15 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A player or the console that typed a command on a Paper server.
- *
- * The console is always an admin and speaks English; replies hop to the main thread with their sound in one tick.
- */
+/** A player or the console who typed a command. The console is an admin and speaks English. */
 public final class PaperUser {
 
-    /** How a module plays its own feedback sounds. */
+    /** Plays the feedback sounds of a module. */
     @FunctionalInterface
     public interface Chime {
 
         void play(Player player, Feedback feedback);
 
-        /** Returns a chime that plays nothing, for a module with no sounds and for the console. */
         static Chime silent() {
             return (player, feedback) -> {};
         }
@@ -69,11 +64,10 @@ public final class PaperUser {
     }
 
     /**
-     * Returns a player who has already been looked up.
+     * Returns a player who has been looked up.
      *
-     * @param admin their {@code discord_user.admin} flag, read by the caller off the main thread
-     * @param discordId their Discord id, or {@code null} if the caller does not know it
-     * @param colours the current tone palette, a supplier so that a reload reaches the next reply
+     * @param admin their {@code discord_user.admin} flag
+     * @param colours the tone palette, a supplier, so that a reload reaches the next reply
      */
     public static PaperUser of(
             final Plugin plugin,
@@ -87,7 +81,7 @@ public final class PaperUser {
         return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), renderer, chime, colours);
     }
 
-    /** Returns the same, with the Discord account resolved only when asked; use it unless the source is a cache. */
+    /** Returns the same player, with the Discord account resolved only when asked. */
     public static PaperUser of(
             final Plugin plugin,
             final Player player,
@@ -108,7 +102,7 @@ public final class PaperUser {
                 Objects.requireNonNull(colours, "colours"));
     }
 
-    /** Returns the console: English, always an admin, no identities, no sound, and names drawn bare. */
+    /** Returns the console: English, always an admin, without identities and sound, names drawn bare. */
     public static PaperUser console(
             final Plugin plugin,
             final CommandSender sender,
@@ -125,16 +119,11 @@ public final class PaperUser {
                 Objects.requireNonNull(colours, "colours"));
     }
 
-    /** Returns whether this sender is the console. */
     public static boolean isConsole(final CommandSender sender) {
         return sender instanceof ConsoleCommandSender;
     }
 
-    /**
-     * Returns their Discord account, resolved when asked rather than when built.
-     *
-     * A {@code PaperUser} is built on the main thread per invocation, where an eager lookup would query the database.
-     */
+    /** Returns the Discord account, resolved when asked, because the lookup queries the database. */
     public Optional<DiscordId> discordId() {
         return discordId.get();
     }
@@ -156,7 +145,7 @@ public final class PaperUser {
     }
 
     public void reply(final MessageRef message) {
-        // send(..., null): reply(message, null) would be ambiguous between the Feedback and Tone overloads.
+        // null: reply(message, null) is ambiguous between the Feedback and Tone overloads.
         send(render(message), null);
     }
 
@@ -169,12 +158,11 @@ public final class PaperUser {
     }
 
     public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
-        // One hop carrying the line, colour and chime: painting first keeps Adventure off the main thread.
         send(Tones.paint(render(message), tone, colours.get()), feedback);
     }
 
     public String phrase(final MessageRef message) {
-        // Plain text: the result is substituted into a message re-parsed as MiniMessage, where tags would leak through.
+        // The result is inserted into a message that is parsed as MiniMessage again.
         return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 
@@ -186,7 +174,6 @@ public final class PaperUser {
         return renderer.format(locale, message);
     }
 
-    /** Sends on the main thread, always scheduled, so that replies keep their order across threads. */
     private void send(final Component message, final @Nullable Feedback feedback) {
         PaperScheduler.of(plugin).onMain(() -> {
             sender.sendMessage(message);

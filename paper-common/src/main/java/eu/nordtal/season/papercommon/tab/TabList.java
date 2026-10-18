@@ -10,11 +10,7 @@ import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-/**
- * The tab list every server draws: paper-common's header over a footer the server passes.
- *
- * The client keeps the frame across a server change, so the header is written once, here.
- */
+/** The tab list: the header of paper-common over a footer that the server passes. The header is written once, here. */
 public final class TabList {
 
     private final MessageRenderer renderer;
@@ -23,13 +19,11 @@ public final class TabList {
         this.renderer = Objects.requireNonNull(renderer, "renderer");
     }
 
-    /** Draws the header over {@code footer} for one player, in their language. */
     public void draw(final Player player, final Locale locale, final MessageRef footer) {
         player.sendPlayerListHeaderAndFooter(
                 renderer.format(locale, MESSAGES.tab().header()), renderer.format(locale, footer));
     }
 
-    /** Draws the header over the footer that counts everybody online against the network's limit. */
     public void drawCounted(final Player player, final Locale locale, final PlayersSpec network) {
         draw(player, locale, MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers()));
     }

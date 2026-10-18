@@ -21,13 +21,11 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Publishes this server's whole command tree for Steward's console: the game's commands, every plugin's and ours.
- *
- * The tree is read on the main thread a tick after it may have changed, and written off it when it changed.
+ * Publishes this server's command tree for Steward's console.
+ * It reads on the main thread and writes off it when the tree changed.
  */
 public final class CommandTrees implements Listener {
 
-    /** Brigadier's nodes as the walk reads them. */
     public static final CommandTree.Shape<CommandNode<?>> BRIGADIER = new CommandTree.Shape<>() {
         @Override
         public String name(final CommandNode<?> node) {
@@ -65,7 +63,7 @@ public final class CommandTrees implements Listener {
         this.writer = writer;
     }
 
-    /** Takes the dispatcher the commands event hands out at start and on every reload, and reads it a tick later. */
+    /** Takes the dispatcher from the commands event at the start and on every reload, and reads it a tick later. */
     public void take(final Commands registrar) {
         try {
             dispatcher = game(registrar.getDispatcher());
@@ -76,23 +74,19 @@ public final class CommandTrees implements Listener {
         readSoon();
     }
 
-    /** A plugin enabled while the server runs may have brought commands. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void enabled(final PluginEnableEvent event) {
         readSoon();
     }
 
-    /** A plugin disabled while the server runs may have taken its commands along. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void disabled(final PluginDisableEvent event) {
         readSoon();
     }
 
     /**
-     * Returns the game's own dispatcher behind the one Paper hands plugins, whose nodes cannot be walked.
-     *
-     * Paper's command root names it by a public method of a public class it extends, which no API exposes.
-     * @throws IllegalStateException when the root names no dispatcher
+     * Returns the game's dispatcher behind the one Paper gives plugins, whose nodes cannot be walked.
+     * Throws if the command root names none.
      */
     static CommandDispatcher<?> game(final CommandDispatcher<?> mirror) {
         final Object root = mirror.getRoot();

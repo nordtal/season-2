@@ -9,34 +9,25 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.ShadowColor;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One HUD line: a row of pills, each drawn as wide as what it holds, in {@code nordtal:bossbar}.
- *
- * The whole line is one shadowless component, since a shadow bleeds between background tiles.
- */
+/** A HUD line of pills in {@code nordtal:bossbar}. It is one component without shadow. */
 public final class BossBarLine {
 
-    /** Pixels between a pill's cap and its content, on either side. */
+    /** Pixels between a pill's cap and its content. */
     public static final int PADDING = 4;
 
     /** Pixels between two pills. */
     public static final int GAP = 4;
 
-    /** Between an icon and the text after it: the ordinary space, which this font draws 3 wide. */
+    /** The width of the space between an icon and its text. */
     public static final String ICON_GAP = Glyphs.BOSSBAR_SPACE_PLUS_3;
 
     private BossBarLine() {}
 
-    /**
-     * One pill's content: an optional icon glyph and the text after it.
-     *
-     * @param icon a {@code nordtal:bossbar} icon or arrow, or null for a text-only pill
-     * @param text what the pill says, already translated; may be empty for an icon-only pill
-     */
+    /** One pill's content: an optional icon and a text, which may be empty. */
     public record Pill(@Nullable String icon, String text) {
 
         public Pill {
-            // A boss bar holds one line, and its font draws a line break as an unknown character.
+            // A line break in the font draws as an unknown character.
             text = Objects.requireNonNull(text, "text").replace('\n', ' ');
         }
 
@@ -48,7 +39,6 @@ public final class BossBarLine {
             return new Pill(Objects.requireNonNull(icon, "icon"), text);
         }
 
-        /** The glyphs inside the pill, icon first. */
         String content() {
             if (icon == null) {
                 return text;
@@ -57,35 +47,29 @@ public final class BossBarLine {
         }
     }
 
-    /** Returns a new, empty bar in the look every HUD line uses; {@link #show} gives it its line. */
     public static BossBar bar() {
         return BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
     }
 
-    /** Names {@code bar} with the line {@code pills} make, the one way a HUD line reaches a boss bar. */
     public static void show(final BossBar bar, final List<Pill> pills) {
         bar.name(render(pills));
     }
 
-    /** Returns the line as the component a {@code BossBar#name} takes. */
     public static Component render(final List<Pill> pills) {
         return Component.text(compose(pills)).font(Key.key(Glyphs.FONT_BOSSBAR)).shadowColor(ShadowColor.none());
     }
 
-    /** Returns the same as the raw glyph string, for a test to walk with a cursor. */
     public static String compose(final List<Pill> pills) {
         final StringBuilder out = new StringBuilder();
         for (int index = 0; index < pills.size(); index++) {
             final String content = pills.get(index).content();
             final int width = BossBarAdvances.width(content);
-            // The content's advance ends one pixel past its last column; without the -1 the right padding grows.
+            // The advance of the content ends one pixel after its last column.
             final int inner = PADDING + Math.max(0, width - 1) + PADDING;
 
             out.append(BossBarWidth.pill(inner));
-            // The pill left the cursor at its right edge; the content column is CAP + PADDING in.
             out.append(left(inner + BossBarWidth.CAP - PADDING));
             out.append(content);
-            // Forward to the pill's right edge, CAP + inner + CAP from its start.
             out.append(right(inner + BossBarWidth.CAP - PADDING - width));
             if (index < pills.size() - 1) {
                 out.append(right(GAP));
@@ -94,12 +78,11 @@ public final class BossBarLine {
         return out.toString();
     }
 
-    /** Moves the cursor {@code pixels} to the left, repeating the largest advance past 255. */
+    /** Moves the cursor left by {@code pixels}. */
     public static String left(final int pixels) {
         return shift(pixels, LEFT_WIDTHS, LEFT_GLYPHS);
     }
 
-    /** Moves the cursor {@code pixels} to the right. */
     public static String right(final int pixels) {
         return shift(pixels, RIGHT_WIDTHS, RIGHT_GLYPHS);
     }
@@ -112,7 +95,7 @@ public final class BossBarLine {
         Glyphs.BOSSBAR_SPACE_MINUS_2, Glyphs.BOSSBAR_SPACE_MINUS_1,
     };
 
-    // No +64 or +128 exists in the font; nothing on a HUD line moves that far to the right.
+    // The font has no +64 or +128.
     private static final int[] RIGHT_WIDTHS = {32, 16, 8, 4, 2, 1};
     private static final String[] RIGHT_GLYPHS = {
         Glyphs.BOSSBAR_SPACE_PLUS_32, Glyphs.BOSSBAR_SPACE_PLUS_16,

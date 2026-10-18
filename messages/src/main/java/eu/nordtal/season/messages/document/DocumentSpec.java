@@ -27,7 +27,9 @@ public record DocumentSpec<V extends Record>(
         /** A message's content, the lines of its text blocks. */
         PLAIN,
         /** A channel's name, the lines of its text blocks on one line. */
-        CHANNEL_NAME
+        CHANNEL_NAME,
+        /** A game menu: a text block with its window title, then its items and labels. */
+        MENU
     }
 
     public DocumentSpec {
@@ -63,6 +65,11 @@ public record DocumentSpec<V extends Record>(
     public static <V extends Record> DocumentSpec<V> channelName(
             final String namespace, final String name, final String area, final Class<V> values) {
         return new DocumentSpec<>(namespace, name, area, Shape.CHANNEL_NAME, values, List.of());
+    }
+
+    public static <V extends Record> DocumentSpec<V> menu(
+            final String namespace, final String name, final String area, final Class<V> values, final Slot... slots) {
+        return new DocumentSpec<>(namespace, name, area, Shape.MENU, values, List.of(slots));
     }
 
     public String id() {

@@ -1,0 +1,90 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Hand in",
+            "de": "Abgabe"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "sample",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>What is wanted</emphasis>",
+            "de": "<emphasis>Was gesucht wird</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Still needed: <emphasis>{amount}</emphasis> of:</muted>",
+            "de": "<muted>Noch gebraucht: <emphasis>{amount}</emphasis> von:</muted>"
+          }
+        },
+        {
+          "list": "wanted",
+          "text": {
+            "en": "<faint>{item}</faint>",
+            "de": "<faint>{item}</faint>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "still-needed",
+      "lines": [
+        {
+          "text": {
+            "en": "{amount} still needed",
+            "de": "Noch {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "confirm",
+      "lines": [
+        {
+          "text": {
+            "en": "Hand in what is in this window",
+            "de": "Abgeben, was in diesem Fenster liegt"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Still needed: <emphasis>{amount}</emphasis> of:</muted>",
+            "de": "<muted>Noch gebraucht: <emphasis>{amount}</emphasis> von:</muted>"
+          }
+        },
+        {
+          "list": "wanted",
+          "text": {
+            "en": "<faint>{item}</faint>",
+            "de": "<faint>{item}</faint>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "confirm-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Hand in",
+            "de": "Abgeben"
+          }
+        }
+      ]
+    }
+  ]
+}

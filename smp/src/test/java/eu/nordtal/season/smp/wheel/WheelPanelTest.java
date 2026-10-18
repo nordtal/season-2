@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.wheel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
@@ -13,7 +14,7 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Properties;
+import java.util.Locale;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
@@ -197,37 +198,16 @@ class WheelPanelTest {
     }
 
     @Test
-    void theDrawnKeysAreTagless() {
-        final List<String> tagged = new ArrayList<>();
-        for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            for (final String key : new String[] {
-                "smp.wheel.spins-left", "smp.wheel.rule-top", "smp.wheel.rule-bottom", "smp.wheel.again-button"
-            }) {
-                final String value = bundle.getProperty(key);
-                assertTrue(value != null, language + " does not declare " + key);
-                if (value.indexOf('<') >= 0 || value.indexOf('>') >= 0) {
-                    tagged.add(language + " " + key + " = " + value);
-                }
-            }
-        }
-        assertEquals(
-                List.of(),
-                tagged,
-                "these four are drawn in the pack's five-pixel sheet by MenuFont, which prints them"
-                        + " character for character - a tag would reach the player as literal text");
-    }
-
-    @Test
     void theWheelPromisesNoSpinForAShare() {
         final List<String> promising = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            for (final String key :
-                    new String[] {"smp.wheel.hub-hint", "smp.wheel.rule-top", "smp.wheel.rule-bottom"}) {
-                final String value = bundle.getProperty(key);
-                if (value.indexOf('%') >= 0 || value.contains("{percent")) {
-                    promising.add(language + " " + key + " = " + value);
+            final MenuDocument document = wheel(language);
+            final List<String> lines = new ArrayList<>(PanelWalk.lines(document.item("hub")));
+            lines.add(document.label("rule-top"));
+            lines.add(document.label("rule-bottom"));
+            for (final String line : lines) {
+                if (line.indexOf('%') >= 0) {
+                    promising.add(language + " " + line);
                 }
             }
         }
@@ -241,9 +221,9 @@ class WheelPanelTest {
     @Test
     void theRealRuleLinesNeverNeedTruncation() {
         for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            final String top = bundle.getProperty("smp.wheel.rule-top");
-            final String bottom = bundle.getProperty("smp.wheel.rule-bottom");
+            final MenuDocument document = wheel(language);
+            final String top = document.label("rule-top");
+            final String bottom = document.label("rule-bottom");
             final List<Run> runs = PanelWalk.runs(PanelWalk.surface(
                     WheelPanel.title(Component.text("Wheel"), "7", "7 spins left", top, bottom, "Again")));
             for (final String line : new String[] {top, bottom}) {
@@ -257,6 +237,10 @@ class WheelPanelTest {
     private static final int CELL = 0xFF3A3A40;
     private static final int WINNER = 0xFF48484F;
     private static final int FRAME = 0xFFFFFF;
+
+    private static MenuDocument wheel(final String language) {
+        return PanelWalk.document(WheelGui.DOCUMENT, Locale.forLanguageTag(language), new WheelGui.Window(7));
+    }
 
     private static Component surface() {
         return PanelWalk.surface(

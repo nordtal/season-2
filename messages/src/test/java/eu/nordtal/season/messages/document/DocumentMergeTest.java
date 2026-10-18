@@ -65,4 +65,39 @@ class DocumentMergeTest {
         assertEquals(
                 DocumentMerge.Change.SET_ASIDE, merged.adaptations().getFirst().change());
     }
+
+    @Test
+    void aMenusRemovedItemIsTakenOutAndAnAddedOneIsAppended() {
+        final Document menu = Document.decode("""
+                {"parts": [
+                  {"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Wheel"}}]},
+                  {"type": "ITEM", "slot": "hub", "lines": [{"text": {"en": "Hub"}}]},
+                  {"type": "LABEL", "slot": "left", "lines": [{"text": {"en": "Left"}}]}]}
+                """);
+        final Documents.Packaged packaged = new Documents.Packaged(
+                DocumentSpec.menu(
+                                "test", "wheel", "Menus", DocumentSpec.None.class, Slot.item("hub"), Slot.label("left"))
+                        .declaration(),
+                menu);
+        final Document written = Document.decode("""
+                {"parts": [
+                  {"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Spin"}}]},
+                  {"type": "ITEM", "slot": "gone", "lines": [{"text": {"en": "Gone"}}]},
+                  {"type": "ITEM", "slot": "hub", "lines": [{"text": {"en": "Centre"}}]}]}
+                """);
+
+        final DocumentMerge.Merged merged = DocumentMerge.merge(packaged, written, "an older release");
+
+        assertEquals(
+                List.of(
+                        new DocumentMerge.Adaptation(DocumentMerge.Change.SLOT_REMOVED, "gone"),
+                        new DocumentMerge.Adaptation(DocumentMerge.Change.SLOT_ADDED, "left")),
+                merged.adaptations());
+        assertEquals(Document.decode("""
+                        {"parts": [
+                          {"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Spin"}}]},
+                          {"type": "ITEM", "slot": "hub", "lines": [{"text": {"en": "Centre"}}]},
+                          {"type": "LABEL", "slot": "left", "lines": [{"text": {"en": "Left"}}]}]}
+                        """), merged.document());
+    }
 }

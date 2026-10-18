@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * @param media a gallery's images, each {@code attachment://name}, {@code upload://id} or an https URL, or a file's one
  *     address
  * @param items a row's buttons, or its one select or field
- * @param slot the slot of a block per language
+ * @param slot the slot of a block per language, a menu's item or a menu's label
  */
 public record Part(
         Type type,
@@ -42,7 +42,11 @@ public record Part(
         /** An action row: up to five buttons, or one select or field. */
         ROW,
         /** Repeats the parts it holds once per configured language. */
-        LANGUAGES
+        LANGUAGES,
+        /** A menu's item: its first shown line is the name, the others its lore. */
+        ITEM,
+        /** A word painted into a menu's window: one plain line. */
+        LABEL
     }
 
     public Part {

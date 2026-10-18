@@ -102,10 +102,7 @@ public final class DocumentCheck {
         switch (declaration.shape()) {
             case MESSAGE -> {}
             case MODAL -> {
-                final boolean titled = !parts.isEmpty()
-                        && parts.getFirst().type() == Part.Type.TEXT
-                        && parts.getFirst().allLines().size() == 1
-                        && parts.getFirst().allLines().getFirst().style() == Line.Style.TITLE;
+                final boolean titled = titled(parts);
                 final boolean fields = parts.stream()
                         .skip(1)
                         .allMatch(part -> part.type() == Part.Type.ROW
@@ -118,6 +115,14 @@ public final class DocumentCheck {
                     error("a modal holds " + (parts.size() - 1) + " fields, Discord takes 1 to " + MODAL_FIELDS);
                 }
             }
+            case MENU -> {
+                if (!titled(parts)
+                        || parts.stream()
+                                .skip(1)
+                                .anyMatch(part -> part.type() != Part.Type.ITEM && part.type() != Part.Type.LABEL)) {
+                    error("a menu holds something other than its title, then items and labels");
+                }
+            }
             case PLAIN, CHANNEL_NAME -> {
                 if (parts.stream()
                         .anyMatch(part -> part.type() != Part.Type.TEXT
@@ -128,9 +133,16 @@ public final class DocumentCheck {
         }
     }
 
+    private static boolean titled(final List<Part> parts) {
+        return !parts.isEmpty()
+                && parts.getFirst().type() == Part.Type.TEXT
+                && parts.getFirst().allLines().size() == 1
+                && parts.getFirst().allLines().getFirst().style() == Line.Style.TITLE;
+    }
+
     private void parts(final List<Part> parts, final boolean inContainer, final boolean inLanguages) {
         for (final Part part : parts) {
-            condition(part.when());
+            condition(part.when(), Map.of());
             part.allMedia().stream()
                     .filter(address -> !MEDIA.matcher(address).matches())
                     .forEach(address ->
@@ -168,6 +180,8 @@ public final class DocumentCheck {
                     }
                     place(part.slot(), Slot.Type.LANGUAGES);
                 }
+                case ITEM -> menuItem(part);
+                case LABEL -> label(part);
                 case SEPARATOR -> {}
             }
             parts(
@@ -183,7 +197,7 @@ public final class DocumentCheck {
         }
         final boolean modalTitle = declaration.shape() == DocumentSpec.Shape.MODAL;
         for (final Line line : part.allLines()) {
-            condition(line.when());
+            condition(line.when(), Map.of());
             if (line.list() != null) {
                 final Slot slot = place(line.list(), Slot.Type.LIST);
                 text(line.text(), "a data list's line", TEXT, false, slot == null ? Map.of() : slot.values());
@@ -194,7 +208,46 @@ public final class DocumentCheck {
                     case CHANNEL_NAME -> text(line.text(), "a channel's name", CHANNEL_NAME, true, Map.of());
                     case PLAIN -> text(line.text(), "a message's content", PLAIN, false, Map.of());
                     case MESSAGE, MODAL -> text(line.text(), "a text block", TEXT, false, Map.of());
+                    case MENU -> text(line.text(), "a menu's title", 0, true, true, Map.of());
                 }
+            }
+        }
+    }
+
+    /** Checks a menu's item: a name and lore lines, each in MiniMessage, filled with the item's values. */
+    private void menuItem(final Part part) {
+        final Slot slot = place(part.slot(), Slot.Type.ITEM);
+        final Map<String, Value> values = slot == null ? Map.of() : slot.values();
+        if (part.allLines().isEmpty()) {
+            error("the item " + part.slot() + " has no name");
+        }
+        for (final Line line : part.allLines()) {
+            condition(line.when(), values);
+            final Map<String, Value> all = new LinkedHashMap<>(values);
+            if (line.list() != null) {
+                final Slot list = place(line.list(), Slot.Type.LIST);
+                if (list != null) {
+                    all.putAll(list.values());
+                }
+            }
+            text(line.text(), "the item " + part.slot() + "'s line", 0, true, true, all);
+        }
+    }
+
+    /** Checks a menu's label: one plain line, which the window cuts to its room. */
+    private void label(final Part part) {
+        final Slot slot = place(part.slot(), Slot.Type.LABEL);
+        if (part.allLines().size() != 1 || part.allLines().getFirst().list() != null) {
+            error("the label " + part.slot() + " holds " + part.allLines().size() + " lines, a label takes one");
+        }
+        for (final Line line : part.allLines()) {
+            final Map<String, Value> values = slot == null ? Map.of() : slot.values();
+            condition(line.when(), values);
+            text(line.text(), "the label " + part.slot(), 0, true, false, values);
+            if (line.text().languages().values().stream()
+                    .flatMap(List::stream)
+                    .anyMatch(version -> version.indexOf('<') >= 0 || version.indexOf('>') >= 0)) {
+                error("the label " + part.slot() + " holds an angle bracket, which the menu's font cannot draw");
             }
         }
     }
@@ -233,7 +286,7 @@ public final class DocumentCheck {
 
     /** Checks a row item or a section's button and returns its slot, if it has a declared one. */
     private @Nullable Slot item(final Item item, final boolean inSection) {
-        condition(item.when());
+        condition(item.when(), Map.of());
         if (item.slot() == null) {
             if (item.link() == null || !LINK.matcher(item.link()).matches()) {
                 error("a link button opens no https:// address");
@@ -267,7 +320,7 @@ public final class DocumentCheck {
                     text(item.placeholder(), "a field's placeholder", FIELD_PLACEHOLDER, true, Map.of());
                 }
             }
-            case LIST, LANGUAGES -> {}
+            case LIST, LANGUAGES, ITEM, LABEL -> {}
         }
         return slot;
     }
@@ -305,13 +358,14 @@ public final class DocumentCheck {
             final int times = placed.getOrDefault(slot.id(), 0);
             if (times == 0 && slot.required()) {
                 error("it does not place the " + noun(slot.type()) + " " + slot.id());
-            } else if (times > 1) {
+            } else if (times > 1 && slot.type() != Slot.Type.LIST) {
                 error("it places the " + noun(slot.type()) + " " + slot.id() + " " + times + " times");
             }
         }
     }
 
-    private void condition(final @Nullable String when) {
+    /** @param item the values of a data list's item or a menu's entry, which a condition may also name */
+    private void condition(final @Nullable String when, final Map<String, Value> item) {
         if (when == null) {
             return;
         }
@@ -321,7 +375,9 @@ public final class DocumentCheck {
             return;
         }
         used.add(condition.value());
-        final Value value = declaration.named().get(condition.value());
+        final Value value = item.containsKey(condition.value())
+                ? item.get(condition.value())
+                : declaration.named().get(condition.value());
         if (value == null) {
             error("the condition " + when + " names {" + condition.value() + "}, which the document does not have");
         } else if (condition.constant() != null && !Kind.CHOICE.token().equals(value.kind())) {
@@ -330,12 +386,22 @@ public final class DocumentCheck {
         }
     }
 
+    private void text(
+            final Text text,
+            final String place,
+            final int limit,
+            final boolean oneLine,
+            final Map<String, Value> item) {
+        text(text, place, limit, oneLine, false, item);
+    }
+
     /** Checks each language and version of a text as a message text in its place. */
     private void text(
             final Text text,
             final String place,
             final int limit,
             final boolean oneLine,
+            final boolean markup,
             final Map<String, Value> item) {
         if (!text.languages().containsKey(Locales.DEFAULT_TAG)) {
             error(place + " has no English text, which every other language falls back to");
@@ -345,7 +411,7 @@ public final class DocumentCheck {
                 error(place + " has no text in " + language + ", which the document's other texts have");
             }
         }
-        final Declaration rules = declaration.text(item, limit, oneLine);
+        final Declaration rules = declaration.text(item, limit, oneLine, markup);
         text.languages().forEach((language, versions) -> {
             if (!LANGUAGE.matcher(language).matches()) {
                 error(place + " is in " + language + ", which is no language tag");
@@ -361,14 +427,14 @@ public final class DocumentCheck {
                 Typography.problems(version)
                         .forEach(rule ->
                                 problems.add(new Problem(mode == MessageCheck.Mode.PACKAGED, where + ": " + rule)));
-                names(version);
+                names(version, markup);
             }
         });
     }
 
-    private void names(final String version) {
+    private void names(final String version, final boolean markup) {
         try {
-            nodes(MessageText.parse(version, false).nodes());
+            nodes(MessageText.parse(version, markup).nodes());
         } catch (final MessageSyntaxException ignored) {
             // The message check reports it.
         }
@@ -421,6 +487,8 @@ public final class DocumentCheck {
             case PLAIN -> fits(measure, document, PLAIN, "its content");
             // Each line of a name is checked against the limit by itself, and the renderer cuts the name it joins.
             case CHANNEL_NAME, MODAL -> {}
+            // A menu's window cuts what does not fit.
+            case MENU -> {}
         }
     }
 
@@ -440,6 +508,8 @@ public final class DocumentCheck {
             case LIST -> "data list";
             case LANGUAGES -> "block per language";
             case INPUT -> "field";
+            case ITEM -> "item";
+            case LABEL -> "label";
         };
     }
 
@@ -449,6 +519,7 @@ public final class DocumentCheck {
             case MODAL -> "modal";
             case PLAIN -> "plain message";
             case CHANNEL_NAME -> "channel name";
+            case MENU -> "menu";
         };
     }
 
@@ -463,7 +534,7 @@ public final class DocumentCheck {
                     case SECTION -> 2 + components(part.inner());
                     case ROW -> 1 + part.allItems().size();
                     case LANGUAGES -> Math.max(1, languages.size()) * components(part.inner());
-                    case TEXT, SEPARATOR, GALLERY, FILE -> 1;
+                    case TEXT, SEPARATOR, GALLERY, FILE, ITEM, LABEL -> 1;
                 };
             }
             return count;

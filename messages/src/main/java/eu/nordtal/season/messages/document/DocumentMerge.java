@@ -60,7 +60,7 @@ public final class DocumentMerge {
                     merged.add(Part.text(placement.get().allLines().stream()
                             .filter(line -> slot.id().equals(line.list()))
                             .toList()));
-                case LANGUAGES -> merged.add(placement.get());
+                case LANGUAGES, ITEM, LABEL -> merged.add(placement.get());
             }
         }
         for (int from = 0; from < buttons.size(); from += DocumentCheck.ROW_BUTTONS) {
@@ -154,6 +154,16 @@ public final class DocumentMerge {
                 case CONTAINER -> {
                     final List<Part> inner = parts(part.inner());
                     yield inner.isEmpty() ? List.of() : List.of(with(part, inner, part.lines(), null, part.items()));
+                }
+                case ITEM, LABEL -> {
+                    final List<Line> lines = part.allLines().stream()
+                            .filter(line -> line.list() == null || keep(line.list(), Slot.Type.LIST))
+                            .toList();
+                    yield keep(
+                                    Objects.requireNonNullElse(part.slot(), ""),
+                                    Slot.Type.valueOf(part.type().name()))
+                            ? List.of(with(part, part.parts(), lines, null, part.items()))
+                            : List.of();
                 }
                 case SEPARATOR, GALLERY, FILE -> List.of(part);
             };

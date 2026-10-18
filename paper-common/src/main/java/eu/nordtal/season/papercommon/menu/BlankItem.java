@@ -1,6 +1,7 @@
 package eu.nordtal.season.papercommon.menu;
 
 import eu.nordtal.season.messagerendering.Lines;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import java.util.List;
@@ -25,6 +26,14 @@ public final class BlankItem {
         final ItemStack stack = ItemStack.of(Material.PAPER);
         stack.setData(DataComponentTypes.ITEM_MODEL, MODEL);
         return described(stack, name, lore);
+    }
+
+    public static ItemStack of(final MenuDocument.Drawn drawn) {
+        return of(drawn.name(), drawn.lore());
+    }
+
+    public static ItemStack described(final ItemStack stack, final MenuDocument.Drawn drawn) {
+        return described(stack, drawn.name(), drawn.lore());
     }
 
     /** Sets a tooltip on {@code stack}. The first line of {@code name} heads it, and later lines open the lore. */

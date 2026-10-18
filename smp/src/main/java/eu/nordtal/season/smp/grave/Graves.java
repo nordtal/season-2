@@ -4,9 +4,13 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.SmpSpec;
@@ -53,6 +57,7 @@ public final class Graves {
     private final GraveDao dao;
     private final Identities identities;
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final SmpSpec config;
@@ -79,6 +84,7 @@ public final class Graves {
             final GraveDao dao,
             final Identities identities,
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final SmpSounds sounds,
             final WorldEffects effects,
             final SmpSpec config,
@@ -88,6 +94,7 @@ public final class Graves {
         this.dao = dao;
         this.identities = identities;
         this.renderer = renderer;
+        this.documents = documents;
         this.sounds = sounds;
         this.effects = effects;
         this.config = config;
@@ -373,15 +380,18 @@ public final class Graves {
     private GraveWindow window(final GraveRow row, final Locale locale) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
+        final MenuDocument document = new MenuDocument(
+                renderer,
+                documents.applied(GraveWindow.DOCUMENT),
+                Viewer.of(locale),
+                new GraveWindow.Window(row.experience()));
         final GraveWindow menu = new GraveWindow(
                 this,
                 row.id(),
                 contentRows,
-                renderer.format(locale, MESSAGES.smp().grave().title()),
-                row.experience() > 0
-                        ? renderer.raw().format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
-                        : "",
-                renderer.raw().format(locale, MESSAGES.smp().grave().takeAllButton()));
+                document.title(),
+                row.experience() > 0 ? document.label("experience-line") : "",
+                document.label("take-all-button"));
         final Inventory window = menu.getInventory();
 
         final int slots = GravePanel.contentSlots(contentRows);
@@ -389,23 +399,19 @@ public final class Graves {
             window.setItem(slot, contents[slot]);
         }
 
-        window.setItem(GravePanel.headSlot(contentRows), head(row, renderer, locale));
+        window.setItem(GravePanel.headSlot(contentRows), head(row, document));
 
-        final ItemStack experience = eu.nordtal.season.papercommon.menu.BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().grave().experienceTooltip()),
-                List.of(renderer.format(locale, MESSAGES.smp().grave().experienceHint(row.experience()))));
+        final ItemStack experience = BlankItem.of(document.item("experience"));
         GravePanel.experienceSlots(contentRows).forEach(slot -> window.setItem(slot, experience));
 
-        final ItemStack takeAll = eu.nordtal.season.papercommon.menu.BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().grave().takeAll()),
-                List.of(renderer.format(locale, MESSAGES.smp().grave().takeAllHint())));
+        final ItemStack takeAll = BlankItem.of(document.item("take-all"));
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
 
         return menu;
     }
 
     /** Returns the head of the dead player. Its lore holds the time and the place of death. */
-    private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
+    private static ItemStack head(final GraveRow row, final MenuDocument document) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         final UUID owner = row.ownerUuid();
         final String name =
@@ -415,15 +421,12 @@ public final class Graves {
                 skull.setOwningPlayer(Bukkit.getOfflinePlayer(owner));
             }
         });
-        return eu.nordtal.season.papercommon.menu.BlankItem.described(
+        final PlayerContext player = owner == null || name == null ? null : PlayerContext.of(PlayerId.of(owner), name);
+        return BlankItem.described(
                 head,
-                renderer.format(
-                        locale,
-                        owner == null || name == null
-                                ? MESSAGES.smp().grave().ownerUnknown()
-                                : MESSAGES.smp().grave().owner(PlayerContext.of(PlayerId.of(owner), name))),
-                List.of(renderer.format(
-                        locale, MESSAGES.smp().grave().diedAt(row.created(), row.x(), row.y(), row.z()))));
+                document.item(
+                        "owner",
+                        new GraveWindow.Owner(player != null, player, row.created(), row.x(), row.y(), row.z())));
     }
 
     /** Moves the content items into the player's inventory and drops what does not fit. */

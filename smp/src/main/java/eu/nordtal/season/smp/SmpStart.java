@@ -159,6 +159,7 @@ final class SmpStart {
                 plugin.jdbi().onDemand(GraveDao.class),
                 plugin.identities(),
                 plugin.renderer(),
+                plugin.documents(),
                 plugin.sounds,
                 effects,
                 config,
@@ -186,6 +187,7 @@ final class SmpStart {
                 config,
                 plugin.identities(),
                 plugin.renderer(),
+                plugin.documents(),
                 plugin.sounds,
                 plugin.clock());
         return new Activities(penalty, wheel, graves, duels);
@@ -240,6 +242,7 @@ final class SmpStart {
                                 plugin.engine,
                                 plugin.identities(),
                                 plugin.renderer(),
+                                plugin.documents(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer().getPluginManager().registerEvents(new NpcProtection(npc), plugin);

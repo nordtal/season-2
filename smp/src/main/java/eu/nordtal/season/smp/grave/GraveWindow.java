@@ -1,14 +1,35 @@
 package eu.nordtal.season.smp.grave;
 
+import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
+import java.time.Instant;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.jspecify.annotations.Nullable;
 
 /** The window of a grave. Any viewer may take the content items. {@link Graves} handles the close of the window. */
 final class GraveWindow extends Menu {
+
+    record Window(long experience) {}
+
+    /** @param player the dead player, {@code null} when the server does not know the name */
+    record Owner(boolean known, @Nullable PlayerContext player, Instant at, int x, int y, int z) {}
+
+    static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
+            "smp",
+            "grave",
+            "Menus",
+            Window.class,
+            Slot.item("owner", Owner.class),
+            Slot.item("experience"),
+            Slot.label("experience-line"),
+            Slot.item("take-all"),
+            Slot.label("take-all-button"));
 
     private final Graves graves;
     private final UUID graveId;

@@ -4,13 +4,17 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.RepositoryRoot;
+import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -19,12 +23,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import javax.imageio.ImageIO;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * Rebuilds a composed menu surface the way the client lays it out, so a test can contradict a panel.
@@ -96,16 +101,27 @@ public final class PanelWalk {
         return read(ROOT.resolve(ASSETS + "/nordtal/textures/ui/gui/" + name));
     }
 
-    /** A message bundle of {@code smp}, for asserting what a drawn string may contain. */
-    public static Properties bundle(final String language) {
-        final Properties properties = new Properties();
-        final Path path = ROOT.resolve("smp/src/main/resources/messages/smp/" + language + ".properties");
-        try (Reader reader = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + path, e);
-        }
-        return properties;
+    private static final MessageRenderer RENDERER = MessageRenderer.of(
+            Messages.load(PanelWalk.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN));
+
+    /** The packaged document of {@code spec} in {@code locale}, for asserting what a menu draws. */
+    public static MenuDocument document(final DocumentSpec<?> spec, final Locale locale, final Record values) {
+        return new MenuDocument(
+                RENDERER,
+                Documents.packaged(PanelWalk.class.getClassLoader(), spec.namespace())
+                        .get(spec.name()),
+                Viewer.of(locale),
+                values);
+    }
+
+    /** The plain text of every line of {@code drawn}, its name first. */
+    public static List<String> lines(final MenuDocument.Drawn drawn) {
+        final List<String> out = new ArrayList<>();
+        out.add(PlainTextComponentSerializer.plainText().serialize(drawn.name()));
+        drawn.lore()
+                .forEach(
+                        line -> out.add(PlainTextComponentSerializer.plainText().serialize(line)));
+        return out;
     }
 
     private static void walk(

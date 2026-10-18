@@ -97,6 +97,7 @@ class DocumentRendererTest {
                 case MESSAGE, MODAL -> "components";
                 case PLAIN -> "content";
                 case CHANNEL_NAME -> "name";
+                case MENU -> throw new AssertionError("the bot ships no menu");
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
         }
@@ -248,6 +249,7 @@ class DocumentRendererTest {
                                     .map(tag -> Locales.parse(tag.getAsString()))
                                     .toList());
                         case INPUT -> throw new IllegalArgumentException("a modal's field is in no message");
+                        case ITEM, LABEL -> throw new IllegalArgumentException("a menu's slot is in no message");
                     });
         }
         return filled;

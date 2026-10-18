@@ -55,6 +55,12 @@ public record DocumentDeclaration(
 
     /** Returns what a text in a place with {@code limit} characters may use, with an item's own values. */
     public Declaration text(final Map<String, Value> item, final int limit, final boolean oneLine) {
+        return text(item, limit, oneLine, false);
+    }
+
+    /** @param markup whether the text is MiniMessage, as a game menu's title and items are */
+    public Declaration text(
+            final Map<String, Value> item, final int limit, final boolean oneLine, final boolean markup) {
         final Map<String, Value> all = new LinkedHashMap<>(named());
         all.putAll(item);
         final Map<String, Kind> kinds = new HashMap<>();
@@ -63,7 +69,7 @@ public record DocumentDeclaration(
             kinds.put(name, Kind.byToken(value.kind()).orElse(Kind.TEXT));
             examples.put(name, value.example());
         });
-        return new Declaration(kinds, Set.of(), Set.of(), false, limit, examples, oneLine);
+        return new Declaration(kinds, Set.of(), Set.of(), markup, limit, examples, oneLine);
     }
 
     public Map<String, Kind> kinds(final Map<String, Value> item) {

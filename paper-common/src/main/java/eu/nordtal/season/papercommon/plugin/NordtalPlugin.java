@@ -16,6 +16,8 @@ import eu.nordtal.season.database.access.AdminOperators;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.command.CommandTreeWriter;
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.game.GameCatalogue;
 import eu.nordtal.season.database.game.GameDataStore;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -75,10 +77,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -117,6 +121,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     // Read on every name drawn, from any thread.
     private volatile Names names = Names.BARE;
     private MessageRenderer renderer;
+    private AppliedDocuments documents;
     private Previews previews;
     private HikariDataSource pool;
     private Jdbi jdbi;
@@ -193,6 +198,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         listen(worldDistances);
 
         messages = loadMessages();
+        documents = new AppliedDocuments(getClass().getClassLoader(), namespaces());
 
         jdbi = Jdbis.over(pool);
         access = AccessReader.using(pool, clock);
@@ -228,6 +234,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         settings.listen(signals, this::reload);
         // The hub reads the overrides when it connects; until then the packaged texts show.
         MessageOverrideStore.using(pool).follow(messages, signals);
+        // A menu reads its document when it opens, so a change needs nothing redrawn.
+        documents.follow(DocumentStore.using(pool), signals, () -> {});
         signals.start();
         exportGameData();
 
@@ -300,9 +308,21 @@ public abstract class NordtalPlugin extends JavaPlugin {
         });
     }
 
-    private Messages loadMessages() {
+    private List<String> roots() {
         final List<String> roots = new ArrayList<>(List.of("messages/database", "messages/paper-common"));
         roots.addAll(bundles());
+        return roots;
+    }
+
+    /** A bundle {@code messages/<namespace>} has its documents in {@code documents/<namespace>}. */
+    private Set<String> namespaces() {
+        final Set<String> namespaces = new HashSet<>();
+        roots().forEach(root -> namespaces.add(root.substring(root.lastIndexOf('/') + 1)));
+        return namespaces;
+    }
+
+    private Messages loadMessages() {
+        final List<String> roots = roots();
         return Messages.load(
                         getClass().getClassLoader(),
                         roots,
@@ -565,6 +585,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     public final ToneColours colours() {
         return colours;
+    }
+
+    /** Returns the documents of {@code paper-common} and of this plugin, an admin's in place of a packaged one. */
+    public final AppliedDocuments documents() {
+        return documents;
     }
 
     /** Returns the renderer over the bundles of {@code paper-common} and of this plugin. */

@@ -4,19 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
 import eu.nordtal.season.papercommon.menu.SlotGeometry;
-import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.menu.PanelWalk;
 import eu.nordtal.season.smp.menu.PanelWalk.Run;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
@@ -27,8 +26,6 @@ import org.junit.jupiter.api.Test;
  * The bar matters most, because its width is computed and can be wrong by a little.
  */
 class ObjectivePanelTest {
-
-    private static final Messages BUNDLE = Messages.load("messages/smp", Locale.ENGLISH, Locale.GERMAN);
 
     private static final List<ObjectivePanel.Card> FOUR = List.of(
             new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_HAND_IN, "Logs", "1240/2048", 0.605, false),
@@ -338,36 +335,15 @@ class ObjectivePanelTest {
     }
 
     @Test
-    void theDrawnKeysAreTagless() {
-        final List<String> tagged = new ArrayList<>();
-        for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            for (final String key : new String[] {"smp.objectives.share", "smp.objectives.share-none"}) {
-                final String value = bundle.getProperty(key);
-                assertTrue(value != null, language + " does not declare " + key);
-                if (value.indexOf('<') >= 0 || value.indexOf('>') >= 0) {
-                    tagged.add(language + " " + key + " = " + value);
-                }
-            }
-        }
-        assertEquals(
-                List.of(),
-                tagged,
-                "these two are drawn in the pack's five-pixel sheet by MenuFont, which folds them to"
-                        + " capitals and prints them character for character. A MiniMessage tag in"
-                        + " one of them is not parsed - it is printed, and the sheet has no angle"
-                        + " brackets so it would come out as ?GRAY?");
-    }
-
-    @Test
     void theRealShareLinesNeverNeedTruncation() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            final String withSpins = BUNDLE.format(
+            final MenuDocument document = PanelWalk.document(
+                    ObjectiveGui.DOCUMENT,
                     Locale.forLanguageTag(language),
-                    SmpMessages.MESSAGES.smp().objectives().share(999, 999));
-            final String none = bundle.getProperty("smp.objectives.share-none");
+                    new ObjectiveGui.Window(new MilestoneContext("The Nether"), 1, 4, 999, 999, true));
+            final String withSpins = document.label("share-line");
+            final String none = document.label("share-none");
             for (final String share : new String[] {withSpins, none}) {
                 for (final boolean hasNext : new boolean[] {false, true}) {
                     final Run run = PanelWalk.textRuns(PanelWalk.runs(surface(FOUR, false, hasNext, share)), font)
@@ -377,7 +353,7 @@ class ObjectivePanelTest {
                             run.content(),
                             language + " \"" + share + "\" is shortened even at a generous three"
                                     + " digit spin count - the whole point of shortening"
-                                    + " smp.objectives.share was to give the page buttons room,"
+                                    + " the share line was to give the page buttons room,"
                                     + " not to make the truncation less frequent");
                 }
             }

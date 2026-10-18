@@ -338,7 +338,7 @@ public final class DocumentRenderer {
      */
     public String preview(final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
         final DocumentDeclaration declaration = draft.declaration();
-        final Map<String, Object> values = examples(declaration.named());
+        final Map<String, Object> values = Value.examples(declaration.named());
         final Map<String, Filled> slots = new HashMap<>();
         declaration.slots().forEach(slot -> slots.put(slot.id(), example(slot, languages)));
         return switch (declaration.shape()) {
@@ -355,13 +355,8 @@ public final class DocumentRenderer {
                 DataObject.empty().put("content", plain(draft, values, locale)).toString();
             case CHANNEL_NAME ->
                 DataObject.empty().put("name", plain(draft, values, locale)).toString();
+            case MENU -> throw new IllegalArgumentException("the game draws a menu, not Discord");
         };
-    }
-
-    private static Map<String, Object> examples(final Map<String, Value> declared) {
-        final Map<String, Object> examples = new LinkedHashMap<>();
-        declared.forEach((name, value) -> examples.put(name, value.exampleValue()));
-        return examples;
     }
 
     private static Filled example(final Slot slot, final List<Locale> languages) {
@@ -370,13 +365,15 @@ public final class DocumentRenderer {
             case SELECT ->
                 new FilledSelect(
                         slot.id(),
-                        List.of(new Option(slot.id(), slot.lined() ? null : slot.id(), examples(slot.values()), null)));
-            case LIST -> new FilledList(List.of(examples(slot.values())));
+                        List.of(new Option(
+                                slot.id(), slot.lined() ? null : slot.id(), Value.examples(slot.values()), null)));
+            case LIST -> new FilledList(List.of(Value.examples(slot.values())));
             case LANGUAGES -> new FilledLanguages(languages);
             case INPUT ->
                 new FilledInput(placeholder -> TextInput.create(slot.id(), TextInputStyle.SHORT)
                         .setPlaceholder(placeholder)
                         .build());
+            case ITEM, LABEL -> throw new IllegalArgumentException("the game fills a menu's " + slot.id());
         };
     }
 
@@ -412,7 +409,7 @@ public final class DocumentRenderer {
                             filled(slots, slot.id(), FilledLanguages.class)
                                     .languages()
                                     .size());
-                case BUTTON, SELECT, INPUT -> {}
+                case BUTTON, SELECT, INPUT, ITEM, LABEL -> {}
             }
         }
         while (true) {
@@ -583,7 +580,7 @@ public final class DocumentRenderer {
                             .toList());
                 case FILE ->
                     FileDisplay.fromFileName(url(part.allMedia().getFirst()).replaceFirst("^" + ATTACHMENT, ""));
-                case CONTAINER, ROW, LANGUAGES ->
+                case CONTAINER, ROW, LANGUAGES, ITEM, LABEL ->
                     throw new IllegalArgumentException("a " + part.type() + " cannot stand here");
             };
         }

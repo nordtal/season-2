@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.navigate;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messages.Messages;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,16 +46,14 @@ public final class NavigatePage {
             final double x,
             final double y,
             final double z,
-            final Messages messages,
-            final Locale locale) {
+            final MenuDocument document) {
         if (!target.isIn(world)) {
-            return messages.format(locale, MESSAGES.smp().navigate().otherWorld());
+            return document.label("other-world");
         }
         final double dx = target.x() - x;
         final double dy = target.y() - y;
         final double dz = target.z() - z;
-        return messages.format(
-                locale, MESSAGES.smp().navigate().distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
+        return document.label("distance", new NavigateGui.Distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
     }
 
     public static List<NavigatePanel.Entry> entries(
@@ -67,6 +64,7 @@ public final class NavigatePage {
             final double y,
             final double z,
             final Optional<NavigationTarget> active,
+            final MenuDocument document,
             final Messages messages,
             final Locale locale) {
         final List<NavigatePanel.Entry> out = new ArrayList<>();
@@ -74,13 +72,9 @@ public final class NavigatePage {
             out.add(new NavigatePanel.Entry(
                     NavigatePanel.icon(target.kind()),
                     label(target, messages, locale),
-                    distance(target, world, x, y, z, messages, locale),
+                    distance(target, world, x, y, z, document),
                     active.filter(target::equals).isPresent()));
         }
         return List.copyOf(out);
-    }
-
-    public static String pageLabel(final int page, final int total, final Messages messages, final Locale locale) {
-        return messages.format(locale, MESSAGES.smp().navigate().page(page + 1, pages(total)));
     }
 }

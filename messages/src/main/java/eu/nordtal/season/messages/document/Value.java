@@ -29,6 +29,13 @@ public record Value(String kind, String example, @Nullable List<String> takes) {
         }
     }
 
+    /** Returns each declared value's example by name, what a preview fills in. */
+    public static Map<String, Object> examples(final Map<String, Value> declared) {
+        final Map<String, Object> examples = new LinkedHashMap<>();
+        declared.forEach((name, value) -> examples.put(name, value.exampleValue()));
+        return examples;
+    }
+
     /** Returns the values of a record's components by name, with a context expanded into its attributes. */
     public static Map<String, Value> of(final Class<? extends Record> type) {
         final Map<String, Value> values = new LinkedHashMap<>();

@@ -1,5 +1,6 @@
 package eu.nordtal.season.proxy.update;
 
+import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
@@ -13,6 +14,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,6 +38,9 @@ public final class Evacuation {
 
     /** The servers that an admin keeps stopped. */
     private volatile Set<String> held = Set.of();
+
+    /** The players whose move to the waiting room Velocity has not answered yet. */
+    private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
 
     /** Whether the warning about the missing waiting room was logged. */
     private volatile boolean warnedAboutWaitingRoom;
@@ -173,35 +179,60 @@ public final class Evacuation {
             return;
         }
 
-        final List<Player> leaving = new java.util.ArrayList<>();
         final Map<String, Integer> off = new HashMap<>();
         for (final Player player : proxy.getAllPlayers()) {
             final String on = player.getCurrentServer()
                     .map(connection -> connection.getServerInfo().getName())
                     .orElse(null);
-            if (on != null && backends.contains(on)) {
-                leaving.add(player);
+            if (on == null || !backends.contains(on)) {
+                continue;
+            }
+            if (homecoming.movedOut(run, player, on)) {
                 off.merge(on, 1, Integer::sum);
             }
+            move(player, limbo);
         }
-        if (leaving.isEmpty()) {
+        if (!off.isEmpty()) {
+            logger.info("Moving players off {} into '{}' before the update stops them: {}", backends, waitingRoom, off);
+        }
+        off.forEach((from, players) -> moved(run, from, waitingRoom, players));
+    }
+
+    /**
+     * Asks Velocity to move the player unless a move is already under way.
+     * Velocity counts the player on the old server until the move completes, and refuses a second request with its
+     * own red text, which {@code connect()} keeps from the player where {@code fireAndForget()} would send it.
+     */
+    private void move(final Player player, final RegisteredServer room) {
+        final UUID uuid = player.getUniqueId();
+        if (!inFlight.add(uuid)) {
             return;
         }
+        final String name = room.getServerInfo().getName();
+        try {
+            final var _ = player.createConnectionRequest(room)
+                    .connect()
+                    .whenComplete((result, failure) -> moveEnded(player, name, result, failure));
+        } catch (final RuntimeException failure) {
+            moveEnded(player, name, null, failure);
+        }
+    }
 
-        logger.info(
-                "Moving {} player(s) off {} into '{}' before the update stops them",
-                leaving.size(),
-                new HashSet<>(backends),
-                waitingRoom);
-        homecoming.movedOut(leaving);
-        off.forEach((from, players) -> moved(run, from, waitingRoom, players));
-        for (final Player player : leaving) {
-            try {
-                player.createConnectionRequest(limbo).fireAndForget();
-            } catch (final RuntimeException failure) {
-                logger.warn(
-                        "Could not move {} into '{}' before the update", player.getUsername(), waitingRoom, failure);
-            }
+    /** Lets the next pass ask again for a player whose move did not happen. */
+    private void moveEnded(
+            final Player player,
+            final String room,
+            final ConnectionRequestBuilder.@Nullable Result result,
+            final @Nullable Throwable failure) {
+        inFlight.remove(player.getUniqueId());
+        if (failure != null) {
+            logger.warn("Could not move {} into '{}' before the update", player.getUsername(), room, failure);
+        } else if (result != null && !result.isSuccessful()) {
+            logger.info(
+                    "{} was not moved into '{}' ({}); asking again on the next pass",
+                    player.getUsername(),
+                    room,
+                    result.getStatus());
         }
     }
 }

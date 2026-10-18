@@ -283,6 +283,9 @@ public interface ProxyMessages {
     @Name("Return")
     interface Return {
 
+        @Name("Moved to the waiting room")
+        MessageRef movedOut(@Arg("what") @Example("restart.what.smp") MessageRef what);
+
         @Name("Waiting room")
         MessageRef waitingRoom(@Arg("what") @Example("restart.what.network") MessageRef what);
 

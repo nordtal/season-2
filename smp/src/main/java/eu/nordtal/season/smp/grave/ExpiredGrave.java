@@ -2,9 +2,5 @@ package eu.nordtal.season.smp.grave;
 
 import java.util.UUID;
 
-/**
- * A grave that ran out of time, as the delete statement hands it back.
- *
- * Its contents decay with it; what is left says which display to take down and where to play the sound.
- */
+/** The position of a grave that {@link GraveDao#expireGravesOlderThan} deleted. */
 public record ExpiredGrave(UUID id, String world, int x, int y, int z) {}

@@ -4,26 +4,20 @@ import eu.nordtal.season.smp.port.Contributions;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import java.util.List;
 
-/**
- * What a player has put into the active milestone, as the one line the NPC menu shows them.
- *
- * The percentage is per milestone, the spins per objective as its budget would pay them now, beside that budget.
- */
+/** Computes a player's share of the active milestone, which the NPC menu shows. */
 public final class OwnShare {
 
     private OwnShare() {}
 
     /**
-     * One objective's line: what this player put in, against what was asked.
-     *
-     * @param key     the objective's key, for looking its name up in the bundle
-     * @param percent this player's share of the target, not clamped, because over-collection is real
-     * @param spins   how many extra spins that share would get if the objective completed now
-     * @param budget  the objective's whole spin budget, shown beside {@code spins}
+     * @param key     the objective's key, which names its bundle entry
+     * @param percent the player's share of the target in percent, not clamped to 100
+     * @param spins   the extra spins that share earns if the objective completes now
+     * @param budget  the spin budget of the objective
      */
     public record Line(String key, double percent, int spins, int budget) {}
 
-    /** The whole answer: one line per objective, and the milestone's sums of each. */
+    /** Holds one {@link Line} per objective and the sums of percent, spins and budget over the milestone. */
     public record Summary(List<Line> lines, double percent, int spins, int budget) {
 
         public boolean empty() {
@@ -31,11 +25,7 @@ public final class OwnShare {
         }
     }
 
-    /**
-     * Summarises a player's contributions.
-     *
-     * @param rows one per objective of the active milestone, from {@link Contributions#ownContributions}
-     */
+    /** @param rows one row per objective of the active milestone, from {@link Contributions#ownContributions} */
     public static Summary of(final List<OwnContributionRow> rows) {
         final List<Line> lines = new java.util.ArrayList<>(rows.size());
         long mine = 0L;
@@ -55,7 +45,7 @@ public final class OwnShare {
         return new Summary(List.copyOf(lines), percentOf(mine, target), spins, budget);
     }
 
-    /** A share as a percentage; a target of zero answers zero. */
+    /** Returns {@code mine} as a percentage of {@code target}, or 0 if either is not positive. */
     public static double percentOf(final long mine, final long target) {
         if (target <= 0L || mine <= 0L) {
             return 0.0;

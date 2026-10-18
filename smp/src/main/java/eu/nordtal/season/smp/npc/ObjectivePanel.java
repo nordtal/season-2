@@ -8,26 +8,18 @@ import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 
-/**
- * Draws the spawn NPC's surface: a heading, four objective cards, and the player's own share.
- *
- * Four cards is a page, not a limit: {@link ObjectiveGui} pages rather than drop a fifth objective.
- */
+/** Draws the objective menu: a heading, up to {@link #CARDS_PER_PAGE} objective cards and the player's share. */
 public final class ObjectivePanel {
 
-    /** The window is always six rows, whatever the milestone holds. */
     public static final int ROWS = MenuTitle.MAX_ROWS;
 
-    /** The heading plate's row: which milestone this is, and how much of it is done. */
     public static final int HEADING_ROW = 0;
 
-    /** The share line's row: what the player themselves has contributed. */
     public static final int SHARE_ROW = ROWS - 1;
 
-    /** Cards on one page: two rows of two, the artifact's own layout. */
     public static final int CARDS_PER_PAGE = 4;
 
-    /** Pixels between a piece of furniture and the slot cells that make it clickable. */
+    /** The distance in pixels between a drawn element and the slot cells it covers. */
     public static final int INSET = 2;
 
     public static final int PILL_X = SlotGeometry.ORIGIN_X + INSET;
@@ -36,54 +28,45 @@ public final class ObjectivePanel {
     private static final int PILL_TEXT_X = PILL_X + 3;
     private static final int PILL_RIGHT = PILL_X + PILL_WIDTH - 3;
 
-    /** Where the heading's six-character text bar starts. */
     private static final int HEADING_BAR_X = 104;
 
-    /** How many characters that bar is. Six fits between the name and the counter and no more. */
     public static final int HEADING_BAR_WIDTH = 6;
 
-    /** The icon on the share line, and where the sentence beside it starts. */
     private static final int ICON_SIZE = 8;
 
     private static final int SHARE_ICON_X = PILL_X + 3;
     private static final int SHARE_TEXT_X = SHARE_ICON_X + ICON_SIZE + 5;
 
-    /** Four slot columns inset two: the same 68 pixels a balloon card is wide. */
     public static final int CARD_WIDTH = 4 * SlotGeometry.PITCH - 2 * INSET;
 
-    /** Two slot rows inset two. */
     public static final int CARD_HEIGHT = 2 * SlotGeometry.PITCH - 2 * INSET;
 
-    /** The two x positions a card sits at; slot column 4 is the gap, as it is on the balloon. */
+    /** The x positions of the left and the right card column. Slot column 4 stays empty. */
     public static final List<Integer> CARD_X = List.of(SlotGeometry.x(0) + INSET, SlotGeometry.x(5) + INSET);
 
-    /** The chest row a card's <em>upper</em> half sits on; its lower half is the row after. */
+    /** The chest row of the upper half of each card row. The lower half is on the next row. */
     public static final List<Integer> CARD_ROW = List.of(1, 3);
 
     private static final int CARD_ICON_DX = 3;
     private static final int CARD_NAME_DX = 15;
     private static final int CARD_NUMBERS_DX = 3;
 
-    /** The room a card's name has: from its own x to one pixel inside the card's right edge. */
     public static final int CARD_NAME_WIDTH = CARD_WIDTH - CARD_NAME_DX - 1;
 
-    /** The bar's fill starts one pixel inside the track, which starts three inside the card. */
     private static final int CARD_BAR_DX = 4;
 
-    /** The widest the fill can be: the 62px track less its own two edge pixels. */
     public static final int BAR_MAX = CARD_WIDTH - 2 * CARD_ICON_DX - 2;
 
-    /** How wide each of {@link Glyphs#GUI_BAR_FILL_TOP}'s glyphs is, in its order: the fill's art is drawn so. */
+    /** The widths in pixels of the glyphs of {@link Glyphs#GUI_BAR_FILL_TOP}, in the order of that list. */
     private static final List<Integer> BAR_FILL_WIDTHS = List.of(1, 2, 4, 8, 16, 32);
 
     private static final int BUTTON_WIDTH = SlotGeometry.PITCH - 2 * INSET;
     private static final int PREV_X = SlotGeometry.x(7) + INSET;
     private static final int NEXT_X = SlotGeometry.x(8) + INSET;
 
-    /** Where the share sentence has to stop when the page controls are there. */
     private static final int PAGED_RIGHT = SlotGeometry.x(7) - 2;
 
-    /** The share plate's width on a paged menu: seven slot cells inset two, ending where the page buttons begin. */
+    /** The width of the share plate on a paged menu. It ends where the page buttons begin. */
     public static final int PILL_SHORT_WIDTH = 7 * SlotGeometry.PITCH - 2 * INSET;
 
     public static final int PREV_SLOT = SlotGeometry.slot(7, SHARE_ROW);
@@ -92,17 +75,14 @@ public final class ObjectivePanel {
     private ObjectivePanel() {}
 
     /**
-     * One drawn card.
-     *
-     * @param icon    one of the four {@code GUI_ROW_ICON_*} states, which is the card's state
-     * @param name    the objective's name, folded and shortened here
-     * @param numbers what stands under the bar, e.g. {@code 1240/2048}
-     * @param ratio   0 to 1; the painted bar's width comes from this alone
-     * @param done    whether the green wash goes over it
+     * @param icon    one of the {@code GUI_ROW_ICON_*} glyphs
+     * @param name    the objective's name, which {@link #title} folds and shortens
+     * @param numbers the text under the bar, for example {@code 1240/2048}
+     * @param ratio   the fill of the bar, from 0 to 1
+     * @param done    whether the card is drawn with the green overlay
      */
     public record Card(String icon, String name, String numbers, double ratio, boolean done) {}
 
-    /** The pictogram for this kind of objective, or for a finished one. */
     public static String icon(final eu.nordtal.season.smp.milestone.ObjectiveType type, final boolean done) {
         if (done) {
             return Glyphs.GUI_ROW_ICON_DONE;
@@ -115,16 +95,16 @@ public final class ObjectivePanel {
     }
 
     /**
-     * The whole surface, as the inventory title.
+     * Draws the menu into the inventory title.
      *
-     * @param title     the readable window title, already translated
-     * @param milestone what the heading names
-     * @param bar       the heading's text bar, {@link #HEADING_BAR_WIDTH} characters
-     * @param counter   what stands at the heading's right edge, e.g. {@code 1/4}
-     * @param cards     up to {@link #CARDS_PER_PAGE} cards, top-left first then top-right
-     * @param share     the sentence along the bottom
-     * @param hasPrev   whether there is a page of cards before this one
-     * @param hasNext   whether there is a page after this one
+     * @param title     the translated window title
+     * @param milestone the milestone name in the heading
+     * @param bar       the text bar in the heading, {@link #HEADING_BAR_WIDTH} characters
+     * @param counter   the text at the right edge of the heading, for example {@code 1/4}
+     * @param cards     at most {@link #CARDS_PER_PAGE} cards, top row first, left to right
+     * @param share     the share sentence in the bottom row
+     * @param hasPrev   whether a page precedes this one
+     * @param hasNext   whether a page follows this one
      */
     public static Component title(
             final Component title,
@@ -164,7 +144,6 @@ public final class ObjectivePanel {
                 MenuFont.fit(milestone, HEADING_BAR_X - 4 - PILL_TEXT_X), HEADING_ROW, PILL_TEXT_X, MenuPalette.INK);
     }
 
-    /** One card, in draw order: its plate, everything on it, then the wash if it is finished. */
     private static void card(final MenuTitle.Canvas canvas, final int index, final Card card) {
         final int x = CARD_X.get(index % 2);
         final int upper = CARD_ROW.get(index / 2);
@@ -182,11 +161,7 @@ public final class ObjectivePanel {
         }
     }
 
-    /**
-     * The painted fill, as a run of power-of-two slices starting at {@code x}, largest first.
-     *
-     * A ratio that has started but rounds to nothing still draws one pixel.
-     */
+    /** Draws the bar fill from {@code x} as slices of power-of-two widths. A ratio above 0 draws at least one pixel. */
     private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top, final double ratio) {
         final double clamped = Math.max(0.0, Math.min(1.0, ratio));
         int width = (int) Math.floor(clamped * BAR_MAX);
@@ -208,7 +183,7 @@ public final class ObjectivePanel {
     private static void share(
             final MenuTitle.Canvas canvas, final String share, final boolean hasPrev, final boolean hasNext) {
         final boolean paged = hasPrev || hasNext;
-        // The plate follows the sentence, not the row: with the arrows there, both stop at the seventh cell.
+        // A paged menu uses the short plate, which ends at the seventh cell.
         canvas.rowArt(paged ? Glyphs.GUI_ROW_PILL_SHORT : Glyphs.GUI_ROW_PILL, SHARE_ROW, PILL_X, null);
         canvas.rowArt(Glyphs.GUI_ROW_ICON_AURA, SHARE_ROW, SHARE_ICON_X, MenuPalette.INK);
 
@@ -224,7 +199,7 @@ public final class ObjectivePanel {
         pageButton(canvas, NEXT_X, Glyphs.GUI_ROW_ICON_NEXT, hasNext);
     }
 
-    /** One page button, drawn greyed when there is no page on that side, so a control never vanishes. */
+    /** Draws a page button. The button is greyed out if {@code enabled} is false. */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
         canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF, SHARE_ROW, x, null);
@@ -232,7 +207,6 @@ public final class ObjectivePanel {
                 arrow, SHARE_ROW, x + (BUTTON_WIDTH - ICON_SIZE) / 2, enabled ? MenuPalette.INK : MenuPalette.DISABLED);
     }
 
-    /** The slots one card covers: four columns on each of its two rows. */
     public static List<Integer> slotsOf(final int index) {
         final int firstColumn = index % 2 == 0 ? 0 : 5;
         final int upper = CARD_ROW.get(index / 2);
@@ -245,7 +219,7 @@ public final class ObjectivePanel {
         return List.copyOf(slots);
     }
 
-    /** Which card a slot belongs to, or -1: the inverse of {@link #slotsOf}. */
+    /** Returns the index of the card that covers {@code slot}, or -1. */
     public static int cardOf(final int slot) {
         for (int index = 0; index < CARDS_PER_PAGE; index++) {
             if (slotsOf(index).contains(slot)) {

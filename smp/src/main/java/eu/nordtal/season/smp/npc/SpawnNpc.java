@@ -13,7 +13,7 @@ import org.bukkit.entity.Mannequin;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/** The figure in the tavern, a vanilla {@link Mannequin}: click it to open the objective list and hand items in. */
+/** The spawn NPC, a {@link Mannequin} that a player clicks to open the objective menu. */
 public final class SpawnNpc {
 
     private final Plugin plugin;
@@ -25,7 +25,7 @@ public final class SpawnNpc {
         this.config = config;
     }
 
-    /** Puts the figure in place, removing any this plugin left behind first, on the main thread. */
+    /** Removes the old NPC and spawns a new one at the configured spot. Main thread only. */
     public void spawn() {
         final NpcSpec spec = config.npc();
         final World world = Bukkit.getWorld(spec.world());
@@ -36,7 +36,7 @@ public final class SpawnNpc {
         }
         remove();
         final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
-        // Loaded before the sweep: getNearbyEntitiesByType searches loaded chunks only.
+        // getNearbyEntitiesByType searches loaded chunks only.
         at.getChunk().load();
         sweep(world);
 
@@ -44,21 +44,20 @@ public final class SpawnNpc {
             mannequin.setImmovable(true);
             mannequin.setInvulnerable(true);
             mannequin.setSilent(true);
-            // Persistent, or Paper discards the figure on chunk unload; sweep() stops it duplicating.
+            // Paper discards a non-persistent entity on chunk unload.
             mannequin.setPersistent(true);
             if (spec.name() != null && !spec.name().isBlank()) {
-                // The ordinary entity label, not Mannequin#setDescription.
                 mannequin.customName(Component.text(spec.name()));
                 mannequin.setCustomNameVisible(true);
             }
-            // Mannequin.defaultDescription() is the literal word "NPC" drawn as a second line.
+            // Removes the default description, the text "NPC".
             mannequin.setDescription(null);
             applySkin(mannequin, spec.skinName());
         });
         spawned = figure.getUniqueId();
     }
 
-    /** Wears somebody's skin, resolved from Mojang, never fatal and never blocking. */
+    /** Sets the skin of the player named {@code skinName}. It logs a warning if that fails. */
     private void applySkin(final Mannequin mannequin, final String skinName) {
         if (skinName == null || skinName.isBlank()) {
             return;
@@ -74,7 +73,7 @@ public final class SpawnNpc {
         }
     }
 
-    /** Removes any mannequin this plugin left standing near the configured spot. */
+    /** Removes every {@link Mannequin} within 4 blocks of the configured spot. */
     private void sweep(final World world) {
         final NpcSpec spec = config.npc();
         final Location at = new Location(world, spec.x(), spec.y(), spec.z());
@@ -92,7 +91,6 @@ public final class SpawnNpc {
         spawned = null;
     }
 
-    /** Whether an entity is this NPC. */
     public boolean is(final UUID entityId) {
         return spawned != null && spawned.equals(entityId);
     }

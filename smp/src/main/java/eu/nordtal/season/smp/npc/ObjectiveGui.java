@@ -26,11 +26,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * What the spawn NPC opens: the current milestone's objectives, with the player's own share.
- *
- * Only a {@code HAND_IN} card opens the deposit screen, and a page turn opens a new inventory.
- */
+/** The objective menu of the spawn NPC. It lists the objectives of one milestone and the player's share. */
 public final class ObjectiveGui extends Menu {
 
     private final MessageRenderer renderer;
@@ -42,10 +38,9 @@ public final class ObjectiveGui extends Menu {
     private final int page;
     private final Inventory inventory;
 
-    /** The entries on this page, in card order. */
     private final List<Entry> entries = new ArrayList<>();
 
-    /** One card: the definition, its stored progress, and which card of the page it is. */
+    /** An objective with its stored row and its card index on the current page. */
     public record Entry(Objective objective, ObjectiveRow row, int card) {
 
         public boolean isHandIn() {
@@ -110,10 +105,10 @@ public final class ObjectiveGui extends Menu {
         fill();
     }
 
-    /** A page button turns the page, a hand-in card opens the deposit screen, and any other card refuses. */
+    /** Opens another page for a page button and a {@link HandInGui} for a {@code HAND_IN} card. Refuses other cards. */
     @Override
     protected MenuClick click(final Player player, final int slot) {
-        // The page buttons first; they sit on the share plate's own two cells, never the share line.
+        // The page buttons share their slots with the share plate and take precedence.
         if (isPrevious(slot) || isNext(slot)) {
             return MenuClick.opening(new ObjectiveGui(
                     renderer, locale, milestone, rows, share, confirm, page + (isPrevious(slot) ? -1 : 1)));
@@ -123,7 +118,6 @@ public final class ObjectiveGui extends Menu {
             return MenuClick.nothing();
         }
         if (!entry.get().isHandIn()) {
-            // A statistic counts itself, an advancement is earned elsewhere.
             return MenuClick.refused();
         }
         final ObjectiveRow row = entry.get().row();
@@ -131,7 +125,6 @@ public final class ObjectiveGui extends Menu {
                 new HandInGui(renderer, locale, entry.get().objective(), row.amount(), row.target(), confirm));
     }
 
-    /** Which entry a raw slot belongs to, if any. */
     private Optional<Entry> at(final int slot) {
         final int card = ObjectivePanel.cardOf(slot);
         return card < 0
@@ -172,7 +165,7 @@ public final class ObjectiveGui extends Menu {
         return definition.key();
     }
 
-    /** The sentence on the bottom row, as the plain bundle value because {@code MenuFont} draws it. */
+    /** Returns the share sentence as plain text, which {@code MenuFont} draws. */
     private String shareLine() {
         if (share.empty()) {
             return renderer.raw().format(locale, MESSAGES.smp().objectives().shareNone());
@@ -199,7 +192,7 @@ public final class ObjectiveGui extends Menu {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.SHARE_ROW), shareItem);
         }
 
-        // Last, so they win the two cells the share plate also covers.
+        // The page buttons are set last to overwrite the share plate slots.
         if (page > 0) {
             inventory.setItem(
                     ObjectivePanel.PREV_SLOT,
@@ -243,7 +236,7 @@ public final class ObjectiveGui extends Menu {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }
 
-        // The objective's name goes in as a parameter so MessageRenderer escapes it; the colour is the bundle's.
+        // The name is a message parameter, which MessageRenderer escapes.
         return BlankItem.of(
                 renderer.format(
                         locale,

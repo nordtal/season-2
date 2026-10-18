@@ -23,16 +23,15 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Clicking the NPC opens the objective list; a deposit screen's confirm comes back here, where items change hands.
+ * Opens the objective menu when a player clicks the NPC and credits the items of a confirmed hand-in.
  *
- * The menu draws the milestone {@link SeasonState} holds; the credit runs off the main thread, its answer on it.
+ * The credit runs off the main thread. Its result is applied on the main thread.
  */
 public final class NpcListener implements Listener {
 
     private final Plugin plugin;
     private final SpawnNpc npc;
     private final SeasonState season;
-    /** The milestone track, as a supplier, because a settings change replaces it mid-season. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final Contributions contributions;
@@ -84,7 +83,7 @@ public final class NpcListener implements Listener {
         show(player, locale, milestone, active.objectives());
     }
 
-    /** Reads the player's own share, the one line only the database can answer, and opens the menu with it. */
+    /** Reads the player's share from the database off the main thread, then opens the menu on the main thread. */
     private void show(
             final Player player, final Locale locale, final Milestone milestone, final List<ObjectiveRow> rows) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
@@ -101,7 +100,7 @@ public final class NpcListener implements Listener {
         });
     }
 
-    /** The one moment items change hands, applying what {@link HandIn} decided and crediting it. */
+    /** Takes the items that {@link HandIn} accepts and credits them. Refuses a player without a linked account. */
     private void confirm(final Player player, final HandInGui gui) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
@@ -118,7 +117,7 @@ public final class NpcListener implements Listener {
             return;
         }
 
-        // Taken now, on the click, and held back since the credit may pay for none of them.
+        // The items are kept until the credit result is known, because the credit may be 0.
         final java.util.List<org.bukkit.inventory.ItemStack> taken = gui.apply(result);
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
@@ -128,7 +127,6 @@ public final class NpcListener implements Listener {
             try {
                 credited = contributions.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
             } catch (final RuntimeException failure) {
-                // The database said no; without this the items vanish and the player is told nothing.
                 plugin.getLogger()
                         .severe("the hand-in for " + player.getName() + " on "
                                 + objectiveKey + " could not be credited, giving the items back: "
@@ -140,7 +138,7 @@ public final class NpcListener implements Listener {
         });
     }
 
-    /** Main thread: tells the player what the credit above decided, and returns items it could not pay for. */
+    /** Sends the credit result to the player and returns the taken items if nothing was credited. Main thread only. */
     private void applyCreditResult(
             final Player player,
             final Locale locale,
@@ -149,9 +147,9 @@ public final class NpcListener implements Listener {
             final String objectiveKey,
             final long paid) {
         if (paid <= 0) {
-            // Nothing was credited: the objective finished while open.
+            // The objective finished while the screen was open.
             if (!player.isOnline()) {
-                // The one case nothing here can fix: the player is offline and this plugin has no mailbox.
+                // An offline player cannot receive the items.
                 plugin.getLogger()
                         .severe(player.getName() + " left while a hand-in on "
                                 + objectiveKey + " was in flight, it credited nothing, and these"
@@ -172,7 +170,6 @@ public final class NpcListener implements Listener {
         player.closeInventory();
     }
 
-    /** {@code 12x DIAMOND, 3x EMERALD}, for a log line an admin has to act on. */
     private static String describe(final java.util.List<org.bukkit.inventory.ItemStack> stacks) {
         return stacks.stream()
                 .map(stack -> stack.getAmount() + "x " + stack.getType().name())

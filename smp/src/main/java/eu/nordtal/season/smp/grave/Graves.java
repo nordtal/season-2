@@ -43,9 +43,9 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 /**
- * Graves: what a death leaves behind, everywhere except the duel arena.
- *
- * Display entities and an {@link Interaction}, solid by a {@link GraveBarrier}; anyone may open one.
+ * Creates, draws, opens and removes graves.
+ * Each grave consists of display entities, an {@link Interaction} and a barrier block placed by {@link GraveBarrier}.
+ * Any player may open a grave.
  */
 public final class Graves {
 
@@ -63,17 +63,13 @@ public final class Graves {
 
     private final Map<UUID, GraveRow> open = new HashMap<>();
 
-    /** Grave id to the countdown hovering over it, absent while decay is off. */
+    /** Maps a grave id to its countdown hologram. It has no entry if decay is off. */
     private final Map<UUID, TextDisplay> holograms = new HashMap<>();
 
-    /** Grave id to the epoch millisecond {@link #tickHolograms()} may next touch its hologram. */
+    /** Maps a grave id to the epoch millisecond at which {@link #tickHolograms()} next updates its hologram. */
     private final Map<UUID, Long> nextHologramUpdate = new HashMap<>();
 
-    /**
-     * Grave id to the one window showing it, however many people are looking.
-     *
-     * One shared window, because two windows would each write a whole snapshot back and duplicate the contents.
-     */
+    /** Maps a grave id to its window. All viewers of a grave share one window. */
     private final Map<UUID, GraveWindow> shown = new HashMap<>();
 
     private final Clock clock;
@@ -97,7 +93,7 @@ public final class Graves {
         this.config = config;
     }
 
-    /** Reads every grave that still holds something off the main thread, and puts it back into the world on it. */
+    /** Reads the open graves off the main thread and draws them on the main thread. */
     public void restore() {
         PaperScheduler.of(plugin).execute(() -> {
             final List<GraveRow> rows = dao.openGraves();
@@ -117,11 +113,11 @@ public final class Graves {
     }
 
     /**
-     * Records a death and draws its grave, from items the caller has already taken off the player.
+     * Stores a grave in the database and draws it. The caller has already removed the items from the player.
      *
-     * @param at        where they died
-     * @param contents  their whole inventory
-     * @param experience the experience to credit back to whoever empties it
+     * @param at         the death location
+     * @param contents   the items of the grave
+     * @param experience the experience that the player who empties the grave receives
      */
     public void create(
             final String ownerId,
@@ -142,7 +138,6 @@ public final class Graves {
                     grave.getBlockZ(),
                     bytes,
                     experience);
-            // Read back rather than invented locally, so a restart draws exactly what a fresh death drew.
             final List<GraveRow> rows = dao.openGraves();
             PaperScheduler.of(plugin)
                     .onMain(() -> rows.stream()
@@ -156,10 +151,9 @@ public final class Graves {
         });
     }
 
-    /** How far above {@code at} the countdown hologram floats, found by eye. */
     private static final double HOLOGRAM_HEIGHT = 1.6;
 
-    /** Below this much time left, the hologram is refreshed every second instead of every minute. */
+    /** The remaining time below which the hologram updates every second instead of every minute. */
     private static final Duration HOLOGRAM_FINAL_STRETCH = Duration.ofMinutes(1);
 
     private static final long HOLOGRAM_REFRESH_MINUTES_MS =
@@ -167,16 +161,12 @@ public final class Graves {
     private static final long HOLOGRAM_REFRESH_SECONDS_MS =
             Duration.ofSeconds(1).toMillis();
 
-    /**
-     * Spawns the chest, skull, click target and, while decay is on, the countdown for {@code row} at {@code at}.
-     *
-     * A BlockDisplay draws from its corner and needs a half-block offset; an ItemDisplay with NONE draws centred.
-     */
+    /** Spawns the chest, the skull, the {@link Interaction} and, if decay is on, the hologram of {@code row}. */
     private void draw(final GraveRow row, final Location at) {
         final World world = at.getWorld();
         final List<org.bukkit.entity.Entity> entities = new ArrayList<>(4);
 
-        // Drawn at its own size, no scale override: the translation only re-centres the model on the block cell.
+        // A BlockDisplay is drawn from its corner, so the translation moves it by half a block.
         final BlockDisplay chest = world.spawn(at, BlockDisplay.class, display -> {
             display.setBlock(Material.CHEST.createBlockData());
             display.setPersistent(false);
@@ -188,22 +178,21 @@ public final class Graves {
 
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         if (row.ownerUuid() != null) {
-            // Null only when the account was unlinked after the death; a plain head is then right.
+            // The owner is null after the account was unlinked. The head then stays plain.
             head.editMeta(SkullMeta.class, meta -> meta.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid())));
         }
-        // Spawned at the chest's own location, no X/Z offset.
         final ItemDisplay skull = world.spawn(at, ItemDisplay.class, display -> {
             display.setItemStack(head);
             display.setPersistent(false);
             display.setBillboard(Display.Billboard.FIXED);
-            // Explicit though it is the default: GraveHead is computed for this transform.
+            // GraveHead computes its transformation for NONE.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             display.setTransformation(GraveHead.transformation());
         });
         entities.add(skull);
 
         final Interaction click = world.spawn(at, Interaction.class, interaction -> {
-            // Wider than the barrier's block, so a click on the grave's side hits the grave and not the barrier.
+            // The width exceeds one block, so a click on the side of the barrier reaches the grave.
             interaction.setInteractionWidth(1.1f);
             interaction.setInteractionHeight(1.2f);
             interaction.setResponsive(true);
@@ -221,7 +210,6 @@ public final class Graves {
         open.put(row.id(), row);
     }
 
-    /** Spawns the see-through, billboarded countdown, unless decay is off. */
     private void spawnHologramIfDecaying(
             final GraveRow row, final Location at, final World world, final List<org.bukkit.entity.Entity> entities) {
         if (config.graveMaxAgeHours() <= 0) {
@@ -239,7 +227,7 @@ public final class Graves {
         nextHologramUpdate.put(row.id(), clock.millis() + refreshInterval(timeLeft));
     }
 
-    /** How long until {@code row} decays, floored at zero. Zero when decay itself is off. */
+    /** Returns the time until {@code row} decays, or zero if decay is off. */
     private Duration timeLeft(final GraveRow row) {
         final int hours = config.graveMaxAgeHours();
         if (hours <= 0) {
@@ -250,27 +238,22 @@ public final class Graves {
         return timeLeft.isNegative() ? Duration.ZERO : timeLeft;
     }
 
-    /**
-     * The hologram's text for {@code timeLeft} remaining, in the dead player's own language.
-     *
-     * One language serves every viewer; {@link Identities#languageOf} falls back to English for an offline owner.
-     */
+    /** Returns the hologram text in the language of the dead player, or English if the owner is null. */
     private Component hologramText(final GraveRow row, final Duration timeLeft) {
         final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : identities.languageOf(row.ownerUuid());
-        // Whole minutes outside the final stretch, since the text is redrawn once a minute there.
+        // Outside the final stretch the text shows whole minutes.
         final Duration shown =
                 timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
         return renderer.format(locale, MESSAGES.smp().grave().hologram(shown));
     }
 
-    /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
     private static long refreshInterval(final Duration timeLeft) {
         return timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0
                 ? HOLOGRAM_REFRESH_SECONDS_MS
                 : HOLOGRAM_REFRESH_MINUTES_MS;
     }
 
-    /** Refreshes every grave's countdown that is due; call once a second, on the main thread. */
+    /** Updates the holograms that are due. Call it once a second on the main thread. */
     public void tickHolograms() {
         if (holograms.isEmpty()) {
             return;
@@ -292,7 +275,7 @@ public final class Graves {
         }
     }
 
-    /** The block at a grave's position, absent when that lies outside the world's height, as after a void death. */
+    /** Returns the block at the position, or empty if the position is outside the world height. */
     private static Optional<Block> blockOf(final World world, final int x, final int y, final int z) {
         if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
             return Optional.empty();
@@ -307,7 +290,7 @@ public final class Graves {
         return block.isEmpty() ? GraveBarrier.There.EMPTY : GraveBarrier.There.OTHER;
     }
 
-    /** Takes the barrier out of a grave's block once the grave is erased, unless another open grave stands there. */
+    /** Sets the block to air if it is a barrier and no other open grave is at the position. */
     private void clearBarrier(final World world, final int x, final int y, final int z) {
         final boolean anotherGraveThere = open.values().stream()
                 .anyMatch(other ->
@@ -332,9 +315,10 @@ public final class Graves {
     }
 
     /**
-     * Deletes every grave that has run out of time, with its contents and display; call it off the main thread.
+     * Deletes the graves older than {@code hours} from the database and removes their displays and barriers.
+     * Call it off the main thread.
      *
-     * @param hours the configured maximum age; zero or less turns decay off
+     * @param hours the maximum age in hours. A value of 0 or less does nothing.
      */
     public void expire(final int hours) {
         if (hours <= 0) {
@@ -350,7 +334,6 @@ public final class Graves {
                 final World world = Bukkit.getWorld(grave.world());
                 if (world != null) {
                     clearBarrier(world, grave.x(), grave.y(), grave.z());
-                    // The same sound as a grave being emptied, deliberately.
                     sounds.playAt(
                             new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5), Feedback.RECLAIMED);
                 }
@@ -360,18 +343,17 @@ public final class Graves {
         });
     }
 
-    /** Removes every display this plugin drew, at disable; the rows and the barriers stay for the restart to redraw. */
+    /** Removes all grave displays. The database rows and the barrier blocks stay. */
     public void clearDisplays() {
         List.copyOf(parts.keySet()).forEach(this::erase);
         shown.clear();
     }
 
-    /** Whether an entity is a grave's click surface, and if so which grave. */
     public Optional<UUID> graveOfInteraction(final UUID interactionId) {
         return Optional.ofNullable(byInteraction.get(interactionId));
     }
 
-    /** Opens a grave for anybody, on the main thread. */
+    /** Opens the grave window for the player. Main thread only. */
     public void open(final Player player, final UUID graveId) {
         final GraveRow row = open.get(graveId);
         if (row == null) {
@@ -379,17 +361,15 @@ public final class Graves {
         }
         final Locale locale = identities.languageOf(player.getUniqueId());
 
-        // The window this grave already has, if somebody else is in it.
         shown.computeIfAbsent(graveId, id -> window(row, locale)).open(player);
 
-        // At the grave, not at the player, so anybody nearby hears it being disturbed.
+        // The sound plays at the grave location.
         final org.bukkit.World world = Bukkit.getWorld(row.world());
         if (world != null) {
             effects.graveOpened(new org.bukkit.Location(world, row.x(), row.y(), row.z()));
         }
     }
 
-    /** Builds the one window a grave is shown in, drawn by {@link GravePanel}. */
     private GraveWindow window(final GraveRow row, final Locale locale) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
@@ -411,7 +391,6 @@ public final class Graves {
 
         window.setItem(GravePanel.headSlot(contentRows), head(row, renderer, locale));
 
-        // The name is on the head, not the title.
         final ItemStack experience = eu.nordtal.season.papercommon.menu.BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().grave().experienceTooltip()),
                 List.of(renderer.format(locale, MESSAGES.smp().grave().experienceHint(row.experience()))));
@@ -425,11 +404,7 @@ public final class Graves {
         return menu;
     }
 
-    /**
-     * The dead player's own head, with when and where they died in the lore.
-     *
-     * Nobody takes it directly: {@link #settle} hands it over when the emptied grave closes.
-     */
+    /** Returns the head of the dead player. Its lore holds the time and the place of death. */
     private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         final UUID owner = row.ownerUuid();
@@ -451,7 +426,7 @@ public final class Graves {
                         locale, MESSAGES.smp().grave().diedAt(row.created(), row.x(), row.y(), row.z()))));
     }
 
-    /** Empties a grave into one player's inventory, dropping what does not fit; the head stays for the close. */
+    /** Moves the content items into the player's inventory and drops what does not fit. */
     void takeAll(final Player player, final GraveWindow window) {
         final Inventory inventory = window.getInventory();
         final Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
@@ -468,11 +443,7 @@ public final class Graves {
         }
     }
 
-    /**
-     * Called when a grave inventory is closed: whatever is left goes back, and an empty one is finished.
-     *
-     * Settled a tick later, because Bukkit fires the close before it drops the viewer.
-     */
+    /** Calls {@link #settle} one tick after a window closes, when the viewer is no longer listed. */
     void onClosed(final Player player, final GraveWindow window) {
         if (shown.get(window.graveId()) != window) {
             return;
@@ -483,7 +454,7 @@ public final class Graves {
     private void settle(final Player player, final GraveWindow window) {
         final Inventory inventory = window.getInventory();
         if (!inventory.getViewers().isEmpty()) {
-            // Somebody else still has it open and will come through here when they close it.
+            // The last viewer to close the window settles it.
             return;
         }
         final UUID graveId = window.graveId();
@@ -495,23 +466,21 @@ public final class Graves {
             return;
         }
 
-        // The CONTENT slots, not the whole window.
         final ItemStack[] left = contentOf(inventory);
         final boolean contentGone = java.util.Arrays.stream(left)
                 .allMatch(stack -> stack == null || stack.getType().isAir());
 
-        // The content alone decides: the head is handed over separately, a few lines below.
+        // The head does not count as content.
         if (!contentGone) {
             keepRemainder(graveId, row, left);
             return;
         }
 
-        // The head returns on the main thread before anything async starts.
         returnHeadToPlayer(inventory, player);
         finishLooting(graveId, row, player);
     }
 
-    /** Keeps what is left, in memory and in the database, so anybody can come back for the rest. */
+    /** Stores the remaining items in {@link #open} and in the database. */
     private void keepRemainder(final UUID graveId, final GraveRow row, final ItemStack[] left) {
         final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
         open.put(
@@ -527,7 +496,6 @@ public final class Graves {
                         remaining,
                         row.experience(),
                         row.created()));
-        // And in the database: the map above is process memory, but restore-on-enable reads the row.
         PaperScheduler.of(plugin).execute(() -> dao.updateGraveContents(graveId, remaining));
     }
 
@@ -545,9 +513,9 @@ public final class Graves {
         }
     }
 
-    /** Marks the grave looted, erases it and pays out its experience, all once the database confirms the claim. */
+    /** Marks the grave as looted. If that succeeds, it erases the grave and gives the experience to the player. */
     private void finishLooting(final UUID graveId, final GraveRow row, final Player player) {
-        // The looter's Discord id, not their Minecraft UUID: looted_by is varchar(32) like every other person column.
+        // The database stores the Discord id of the looter.
         final String looterId = identities
                 .discordIdOf(player.getUniqueId())
                 .map(DiscordId::value)
@@ -560,7 +528,6 @@ public final class Graves {
             PaperScheduler.of(plugin).onMain(() -> {
                 erase(graveId);
 
-                // A world sound so anybody at the grave hears it settle.
                 final World graveWorld = Bukkit.getWorld(row.world());
                 if (graveWorld != null) {
                     clearBarrier(graveWorld, row.x(), row.y(), row.z());
@@ -579,7 +546,6 @@ public final class Graves {
         });
     }
 
-    /** What is in a grave window's content slots, without its footer. */
     public static ItemStack[] contentOf(final Inventory inventory) {
         final int contentRows = inventory.getSize() / 9 - 1;
         return java.util.Arrays.copyOf(inventory.getContents(), GravePanel.contentSlots(contentRows));

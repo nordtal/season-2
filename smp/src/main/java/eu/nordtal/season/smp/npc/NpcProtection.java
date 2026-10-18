@@ -7,11 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 
-/**
- * Nothing may hurt, burn or shove the figure in the tavern, the only way to fulfil a hand-in.
- *
- * Creative players and the void pass {@code setInvulnerable}; each handler checks {@link SpawnNpc#is}.
- */
+/** Cancels damage, combustion and knockback events of the spawn NPC, which {@link SpawnNpc#is} identifies. */
 public final class NpcProtection implements Listener {
 
     private final SpawnNpc npc;
@@ -31,7 +27,7 @@ public final class NpcProtection implements Listener {
     public void onCombust(final EntityCombustEvent event) {
         if (npc.is(event.getEntity().getUniqueId())) {
             event.setCancelled(true);
-            // Cancelling stops combustion about to be applied; it does not undo one that already is.
+            // Cancelling the event does not extinguish a fire that already burns.
             event.getEntity().setFireTicks(0);
         }
     }

@@ -21,11 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * The deposit screen: put items in, press confirm, and only then does anything happen.
- *
- * Closing without confirming gives everything back, since a closed plugin inventory drops its contents into nothing.
- */
+/** The deposit screen. Closing it returns all deposited items to the player. */
 public final class HandInGui extends Menu {
 
     private static final int DEPOSIT_SLOTS = HandInPanel.DEPOSIT_SLOTS;
@@ -36,11 +32,7 @@ public final class HandInGui extends Menu {
     private final Set<String> wanted;
     private final BiConsumer<Player, HandInGui> confirm;
 
-    /**
-     * Builds the deposit screen for one objective.
-     *
-     * @param confirm credits what the player put in, once they press confirm
-     */
+    /** @param confirm runs when the player presses confirm */
     public HandInGui(
             final MessageRenderer renderer,
             final Locale locale,
@@ -60,7 +52,7 @@ public final class HandInGui extends Menu {
                         renderer.raw().format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
                         renderer.raw().format(locale, MESSAGES.smp().handin().confirmButton())));
 
-        // A sample of the first wanted material, so the window says what it wants without a sentence.
+        // Shows the first wanted material as a sample item.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
 
         final ItemStack button = BlankItem.of(
@@ -69,12 +61,11 @@ public final class HandInGui extends Menu {
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
-    /** The wanted items, which the client names in its reader's language. */
     private List<GameContent> wantedItems() {
         return wanted.stream().map(GameKeys::item).toList();
     }
 
-    /** The first wanted item, which {@link TrackNames} checked when the track loaded. */
+    /** Returns the material of the first wanted item. {@link TrackNames} validates the names. */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
                 .map(GameKeys::material)
@@ -93,7 +84,7 @@ public final class HandInGui extends Menu {
         return objective;
     }
 
-    /** The deposit slots are deliberately free, and so is the player's own inventory below: this is a chest to fill. */
+    /** Leaves the deposit slots and the player's own inventory free to move items in. */
     @Override
     protected boolean leavesFree(final int rawSlot) {
         return rawSlot < 0 || rawSlot >= inventory.getSize() || HandInPanel.isDeposit(rawSlot);
@@ -107,19 +98,17 @@ public final class HandInGui extends Menu {
         return MenuClick.nothing();
     }
 
-    /** Closing without confirming gives everything back. */
     @Override
     protected void closed(final Player player) {
         returnEverything(player);
     }
 
-    /** Paper disconnects players after the plugins stop, and a closed plugin inventory drops what it holds. */
+    /** Returns all deposited items when the plugin stops. */
     @Override
     protected void stopped(final Player player) {
         returnEverything(player);
     }
 
-    /** What is currently sitting in the deposit slots, as plain values the sorter understands. */
     public List<HandIn.Offered> offered() {
         final List<HandIn.Offered> out = new ArrayList<>();
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {
@@ -141,9 +130,9 @@ public final class HandInGui extends Menu {
     }
 
     /**
-     * Takes what was accepted and leaves the rest in place.
+     * Removes the taken amounts from the deposit slots and keeps the rest there.
      *
-     * @return the stacks that were removed, so a credit that fails can hand them back
+     * @return the removed stacks
      */
     public List<ItemStack> apply(final HandIn.Result result) {
         final List<ItemStack> taken = new ArrayList<>();
@@ -167,12 +156,11 @@ public final class HandInGui extends Menu {
         return taken;
     }
 
-    /** Gives back stacks {@link #apply} removed, straight into the inventory, when their credit did not happen. */
+    /** Gives the player the stacks that {@link #apply} removed. */
     public void giveBack(final Player player, final List<ItemStack> stacks) {
         stacks.forEach(stack -> give(player, stack));
     }
 
-    /** Gives everything in the deposit slots back to the player. */
     private void returnEverything(final Player player) {
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {
             final ItemStack stack = inventory.getItem(slot);
@@ -184,7 +172,7 @@ public final class HandInGui extends Menu {
         }
     }
 
-    /** Into the inventory, and on the floor at their feet if it does not fit. */
+    /** Adds the stack to the inventory and drops what does not fit at the player's location. */
     private static void give(final Player player, final ItemStack stack) {
         final org.bukkit.Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
         player.getInventory()

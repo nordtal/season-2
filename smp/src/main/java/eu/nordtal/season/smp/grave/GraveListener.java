@@ -27,11 +27,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
-/**
- * What happens when somebody dies, and when somebody opens what they left.
- *
- * The inventory becomes a grave, and the death costs aura except in the duel arena, which comes in as a predicate.
- */
+/** Turns the drops of a dead player into a grave, applies the death penalty and opens a grave on a click. */
 public final class GraveListener implements Listener {
 
     private final Plugin plugin;
@@ -66,7 +62,6 @@ public final class GraveListener implements Listener {
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();
         if (arenas.isInArena(player)) {
-            // The arena keeps its own inventory and consequences.
             return;
         }
 
@@ -79,7 +74,7 @@ public final class GraveListener implements Listener {
         event.setDroppedExp(0);
 
         if (discordId.isEmpty()) {
-            // No account to hang a grave off; give the items straight back rather than destroy them.
+            // A player without a linked account gets no grave and drops the items as usual.
             event.getDrops().addAll(drops);
             event.setDroppedExp(experience);
             return;
@@ -115,7 +110,7 @@ public final class GraveListener implements Listener {
         });
     }
 
-    /** Right-clicking a grave's invisible click surface opens it, for anybody. */
+    /** Opens the grave whose {@link org.bukkit.entity.Interaction} the player right-clicks. */
     @EventHandler(ignoreCancelled = true)
     public void onInteract(final PlayerInteractEntityEvent event) {
         final Optional<UUID> graveId =

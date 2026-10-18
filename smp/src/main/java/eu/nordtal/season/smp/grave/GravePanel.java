@@ -10,24 +10,23 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws a grave: a slab with a recess per stack, and a footer with the head, the experience and "take everything".
+ * Draws the grave window.
  *
- * Every footer slot must hold something, or a shift-click would put an item where {@code Graves} never reads.
+ * Every footer slot must hold an item. {@link Graves} reads only the content slots.
  */
 public final class GravePanel {
 
-    /** The most content rows there can be: a player carries at most 41 stacks. */
+    /** The maximum number of content rows. A player holds at most 41 stacks. */
     public static final int MAX_CONTENT_ROWS = MenuTitle.MAX_ROWS - 1;
 
-    /** Pixels between a piece of furniture and the slot cells that make it clickable. */
+    /** The distance in pixels between a drawn element and the slot cells it covers. */
     public static final int INSET = 2;
 
-    /** The slab is drawn from the slot cell's own corner, because it is the cells. */
+    /** The slab starts at the corner of the first slot cell and has no inset. */
     public static final int SLAB_X = SlotGeometry.ORIGIN_X;
 
     public static final int SLAB_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
 
-    /** Where the experience line starts: past the head's own cell. */
     private static final int EXPERIENCE_X = SlotGeometry.x(1) + INSET;
 
     public static final int TAKE_X = SlotGeometry.x(5) + INSET;
@@ -35,42 +34,32 @@ public final class GravePanel {
 
     private GravePanel() {}
 
-    /**
-     * How many rows of recesses a grave with {@code stacks} stacks needs.
-     *
-     * At least one, so an experience-only grave is still a window.
-     */
+    /** Returns the number of content rows for {@code stacks} stacks, from 1 to {@link #MAX_CONTENT_ROWS}. */
     public static int contentRows(final int stacks) {
         final int rows = (Math.max(0, stacks) + SlotGeometry.COLUMNS - 1) / SlotGeometry.COLUMNS;
         return Math.max(1, Math.min(MAX_CONTENT_ROWS, rows));
     }
 
-    /** The window's height in rows: the content, plus the footer. */
     public static int rows(final int contentRows) {
         return contentRows + 1;
     }
 
-    /** The footer's chest row, which is the first row after the content. */
     public static int footerRow(final int contentRows) {
         return contentRows;
     }
 
-    /** How many slots hold what the dead player was carrying. */
     public static int contentSlots(final int contentRows) {
         return contentRows * SlotGeometry.COLUMNS;
     }
 
-    /** Whether a slot holds an item anybody may take. */
     public static boolean isContent(final int slot, final int contentRows) {
         return slot >= 0 && slot < contentSlots(contentRows);
     }
 
-    /** The slot the dead player's own head sits in. */
     public static int headSlot(final int contentRows) {
         return SlotGeometry.slot(0, footerRow(contentRows));
     }
 
-    /** The four cells the experience line is written across: hoverable, and never free. */
     public static List<Integer> experienceSlots(final int contentRows) {
         final List<Integer> slots = new ArrayList<>(4);
         for (int column = 1; column <= 4; column++) {
@@ -79,7 +68,6 @@ public final class GravePanel {
         return List.copyOf(slots);
     }
 
-    /** The four cells the "take everything" plate covers. */
     public static List<Integer> takeAllSlots(final int contentRows) {
         final List<Integer> slots = new ArrayList<>(4);
         for (int column = 5; column <= 8; column++) {
@@ -89,12 +77,12 @@ public final class GravePanel {
     }
 
     /**
-     * The whole surface, as the inventory title.
+     * Draws the window into the inventory title.
      *
-     * @param title       the readable window title, already translated
-     * @param contentRows from {@link #contentRows(int)}
-     * @param experience  what stands beside the head, e.g. {@code +120 XP}; blank draws nothing
-     * @param takeAll     the button's label
+     * @param title       the translated window title
+     * @param contentRows the value of {@link #contentRows(int)}
+     * @param experience  the text beside the head, for example {@code +120 XP}. A blank text draws nothing.
+     * @param takeAll     the label of the take-all button
      */
     public static Component title(
             final Component title, final int contentRows, final String experience, final String takeAll) {

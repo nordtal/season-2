@@ -7,11 +7,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
-/**
- * The one window a grave is shown in, however many people look: content rows anyone may take from, and a footer.
- *
- * The footer is furniture and one button; {@link Graves} settles the grave once its last viewer closes it.
- */
+/** The window of a grave. Any viewer may take the content items. {@link Graves} handles the close of the window. */
 final class GraveWindow extends Menu {
 
     private final Graves graves;
@@ -19,11 +15,7 @@ final class GraveWindow extends Menu {
     private final int contentRows;
     private final Inventory inventory;
 
-    /**
-     * Frames the window for one grave.
-     *
-     * @param experience what stands beside the head, blank for none
-     */
+    /** @param experience the text beside the head, blank for none */
     GraveWindow(
             final Graves graves,
             final UUID graveId,
@@ -45,7 +37,7 @@ final class GraveWindow extends Menu {
         return contentRows;
     }
 
-    /** The content rows are free, and so is the player's own inventory below them. */
+    /** Leaves the content slots and the player's own inventory free to move items. */
     @Override
     protected boolean leavesFree(final int rawSlot) {
         return rawSlot < 0 || rawSlot >= inventory.getSize() || GravePanel.isContent(rawSlot, contentRows);
@@ -57,7 +49,7 @@ final class GraveWindow extends Menu {
             return MenuClick.nothing();
         }
         graves.takeAll(player, this);
-        // Even an empty grave is not a refusal: the close settles it and gives the head back.
+        // Closing the window lets Graves settle the grave, also if it is empty.
         return MenuClick.closing();
     }
 

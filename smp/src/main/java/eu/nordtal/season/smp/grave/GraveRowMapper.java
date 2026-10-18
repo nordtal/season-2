@@ -9,11 +9,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/**
- * Maps a row of {@link GraveDao#openGraves()}.
- *
- * Reads {@code created} through {@link OffsetDateTime}, the only way to avoid the JVM's default time zone.
- */
+/** Maps a row of {@link GraveDao#openGraves()}. It reads {@code created} as an {@link OffsetDateTime}. */
 public final class GraveRowMapper implements RowMapper<GraveRow> {
 
     @Override

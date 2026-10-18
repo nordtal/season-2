@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-/** A number for the four servers, asked of the agent, and no field for the rest. */
+/** Tests that the four servers get a disk number from the agent and the other services get none. */
 class DiskUsageTest {
 
     private final AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-09-23T20:00:00Z"));

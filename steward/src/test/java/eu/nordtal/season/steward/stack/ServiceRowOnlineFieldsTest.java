@@ -16,11 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * A subject {@link ServicesApi} does not name gets no online fields at all, not even {@code 0} or {@code null}.
- *
- * Otherwise the start page would draw "nobody is playing" where it should draw "nobody has said".
- */
+/** Tests that a subject which {@link ServicesApi} does not name has no online fields. */
 class ServiceRowOnlineFieldsTest {
 
     private static final UUID ADA = UUID.fromString("00000000-0000-4000-8000-000000000001");
@@ -85,7 +81,7 @@ class ServiceRowOnlineFieldsTest {
         return wireRow(service, online, new AgentWire.Topology(List.of(), List.of()));
     }
 
-    /** The row as the browser receives it, of a stopped container nothing else is known about. */
+    /** Returns the row of a stopped container as the browser receives it. */
     static JsonObject wireRow(
             final String service, final ServicesApi.Online online, final AgentWire.Topology topology) {
         final AgentWire.Container container = new AgentWire.Container(

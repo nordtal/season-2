@@ -19,7 +19,7 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** A service that runs once is judged by its last exit, and a service a run moves is not judged at all. */
+/** Tests that a one-shot is judged by its last exit and that a service moved by a run is not judged. */
 class ServiceRowOneShotTest {
 
     private static final AgentWire.Topology TOPOLOGY = new AgentWire.Topology(
@@ -59,7 +59,7 @@ class ServiceRowOneShotTest {
         assertFalse(row("proxy", "exited", 0, Set.of("proxy")).has("alert"));
     }
 
-    /** The open run's services and those of a run that has just settled; an older run's are no longer its. */
+    /** Tests that the moving services come from the open run and from runs finished within two minutes. */
     @Test
     void theOpenRunAndARunThatJustSettledAreWhatIsMoving() {
         final UpdateRequest settled = run(UpdateStatus.DONE, Instant.parse("2026-10-06T01:00:00Z"), "limbo", "proxy");

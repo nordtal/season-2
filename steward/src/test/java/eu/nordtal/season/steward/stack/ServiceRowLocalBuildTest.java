@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** A row says what its service runs that was built on the host, with the jars by name, and nothing otherwise. */
+/** Tests that a row names the local build of its service, with the jars by name. */
 class ServiceRowLocalBuildTest {
 
     private static final AgentWire.Topology TOPOLOGY =

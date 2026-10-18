@@ -15,31 +15,25 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One row of the actions feed: a run from the run inbox or an entry of the journal.
+ * One row of the actions feed, from the run inbox or the journal.
  *
  * @param kind the {@code UpdateKind} name for a run, or the {@link JournalAction} name for a journal entry
- * @param occurred when this happened, by the database's clock
- * @param label what happened, as a heading: a run's kind and stage, or a journal line's action
- * @param extent the outcome or its extent, such as "3 of 3 successful", or the journal's line
- * @param actor who asked for the run or did the journalled thing
+ * @param occurred the database time of the entry
+ * @param label the heading: the kind and stage of a run, or the action of a journal entry
+ * @param extent the outcome of a run, or the line of a journal entry
+ * @param actor the actor of the run or of the journal entry
  */
 public record ActionEntry(String kind, Instant occurred, MessageRef label, MessageRef extent, Actor actor) {
 
-    /** One row of {@code GET /api/actions}, with who did it flattened beside it. */
+    /** One row of {@code GET /api/actions}. */
     public record Action(
             String kind, Instant occurred, MessageRef label, MessageRef extent, Actor.Kind actorKind, String actorId) {}
 
-    /** This entry in the shape the browser reads. */
     public Action wire() {
         return new Action(kind, occurred, label, extent, actor.kind(), Objects.requireNonNullElse(actor.id(), ""));
     }
 
-    /**
-     * A run from the run inbox.
-     *
-     * @param run the row, however it finished
-     * @return the entry that describes it
-     */
+    /** Returns the entry for a run of the run inbox. */
     static ActionEntry of(final UpdateRequest run) {
         final Instant occurred = run.finished() != null ? run.finished() : run.requested();
         final UpdateReport report = UpdateReports.parse(run.result()).orElse(null);
@@ -48,12 +42,7 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
         return new ActionEntry(run.kind().name(), occurred, label, extentOf(run, report), run.actor());
     }
 
-    /**
-     * An entry of the journal, headed by its action.
-     *
-     * @param entry the journal entry
-     * @return the entry that describes it
-     */
+    /** Returns the entry for a journal entry. */
     static ActionEntry of(final AuditEntry entry) {
         return new ActionEntry(
                 entry.action().name(),
@@ -64,11 +53,9 @@ public record ActionEntry(String kind, Instant occurred, MessageRef label, Messa
     }
 
     /**
-     * What to say a run amounted to, below its title.
+     * Returns the number of successful services among the touched ones, else the status of the run.
      *
-     * @param run a finished, running or pending request
-     * @param report its report, or null when it has none that parses
-     * @return how many of the touched services came back, else the row's status
+     * @param report the report of the run, or {@code null} when none parses
      */
     private static MessageRef extentOf(final UpdateRequest run, final @Nullable UpdateReport report) {
         if (report == null || run.status() == UpdateStatus.PENDING || run.status() == UpdateStatus.RUNNING) {

@@ -12,16 +12,12 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * How much of the disk one service's volume takes, for the Disk field on its page; steward-agent runs the {@code du}.
- *
- * Only the servers' volumes get a number; after the first, each ask gets the last one and a refresh.
- */
+/** Measures the disk use of one service's volume through steward-agent, which runs {@code du}. */
 public final class DiskUsage {
 
     static final Duration TTL = Duration.ofMinutes(5);
 
-    /** One measurement: the bytes, or none when {@code du} could not answer, and when it was taken. */
+    /** One measurement with its bytes, empty when {@code du} gives none, and its time. */
     record Measured(OptionalLong bytes, Instant at) {}
 
     private final Function<String, OptionalLong> measure;
@@ -39,7 +35,7 @@ public final class DiskUsage {
         this.clock = clock;
     }
 
-    /** The last measurement for {@code service}, a server, or empty when none could be taken. */
+    /** Returns the last measurement for {@code service}, or empty when none could be taken. */
     Optional<Measured> of(final String service) {
         final Measured measured = cache.computeIfAbsent(
                         service,
@@ -49,7 +45,6 @@ public final class DiskUsage {
         return measured.bytes().isPresent() ? Optional.of(measured) : Optional.empty();
     }
 
-    /** The agent's answer, and none when it has no such volume or did not answer. */
     private static OptionalLong sizeOf(final AgentClient agent, final String service) {
         try {
             return agent.disk(service);

@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** What {@link ServicesApi} makes of what {@link OnlineDirectory} and {@link OnlineRoster} hand back, in memory. */
+/** Tests {@link ServicesApi} with in-memory {@link OnlineDirectory} and {@link OnlineRoster}. */
 class ServicesApiTest {
 
     private static final Instant NOW = Instant.parse("2026-09-17T12:00:00Z");
@@ -62,7 +62,6 @@ class ServicesApiTest {
 
     @Test
     void aRowOlderThanTheCutoffIsTreatedExactlyLikeNoRowAtAll() {
-        // A service that stopped writing is dropped, whatever its row last held.
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         assertFalse(
@@ -179,7 +178,6 @@ class ServicesApiTest {
 
     @Test
     void theCountsAndTheRosterAreReadAgainstOneInstantNotTwo() {
-        // A clock that moves on every call would judge counts and players at different moments around the cutoff.
         final Instant justInside = NOW.minus(ServicesApi.STALE_AFTER);
         final ServicesApi api = new ServicesApi(
                 new FakeDirectory(Map.of("smp", new OnlineCount("smp", 1, justInside))),
@@ -210,7 +208,7 @@ class ServicesApiTest {
                 : players.stream().map(OnlinePlayer::name).toList();
     }
 
-    /** Answers whatever it was constructed with. */
+    /** Returns the rows it was given. */
     private static final class FakeDirectory implements OnlineDirectory {
 
         private final Map<String, OnlineCount> rows;
@@ -230,7 +228,7 @@ class ServicesApiTest {
         }
     }
 
-    /** The same, for the player list. */
+    /** Returns the player list it was given. */
     private static final class FakeRoster implements OnlineRoster {
 
         private final List<OnlinePlayer> rows;
@@ -250,7 +248,7 @@ class ServicesApiTest {
         }
     }
 
-    /** A clock that moves on by a second every time it is asked. */
+    /** A clock that advances one second per call. */
     private static final class SteppingClock extends Clock {
 
         private Instant now;

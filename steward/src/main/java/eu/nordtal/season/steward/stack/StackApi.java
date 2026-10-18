@@ -45,11 +45,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The stack's routes: services, logs, the console, settings, messages, the host, backups and plugins.
- *
- * Stopping and starting are not here; they are rows in the run inbox. Every route sits behind the web's gate.
- */
+/** The routes for services, logs, the console, settings, messages, the host, backups and plugins. */
 public final class StackApi implements AutoCloseable {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -57,89 +53,70 @@ public final class StackApi implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(StackApi.class);
 
-    /** The only way to Docker and the volumes. */
     final AgentClient agent;
 
     /**
-     * What {@code backup.at} and {@code update.at} say, and in which zone.
+     * The values of {@code backup.at} and {@code update.at} with their zone.
      *
-     * @param at {@code HH:mm} in this container's own time zone, or blank for no nightly backup
-     * @param updateAt the same for the scheduled update, blank (the default) for none
-     * @param zone the network's default zone, from its settings, not the browser's
+     * @param at {@code HH:mm}, or blank for no nightly backup
+     * @param updateAt {@code HH:mm}, or blank for no scheduled update
+     * @param zone the network's default zone
      */
     public record Nightly(String at, List<String> days, String updateAt, List<String> updateDays, ZoneId zone) {
 
-        /** No scheduled update, which is what a config without the {@code update} section says. */
+        /** Creates a schedule without a scheduled update. */
         public Nightly(final String at, final List<String> days, final ZoneId zone) {
             this(at, days, "", List.of(), zone);
         }
     }
 
-    /** Asked on every request, because a save of the steward group changes it without a restart. */
     private final Supplier<Nightly> nightly;
 
-    /** The plugin routes, or null without a database, when every route answers 503. */
+    /** The plugin routes, or {@code null} without a database, which makes every route answer 503. */
     private final @Nullable PluginsForward managedPlugins;
 
-    /** Every process's settings, or {@code null} without a database. */
     private final @Nullable SettingsApi settings;
 
-    /** The live console SSE stream and its shutdown ordering. */
     final LogFollows logFollows;
 
     private final ServiceRows serviceRows;
 
-    /**
-     * How long a registry answer is good for.
-     *
-     * The response carries {@code driftCheckedAt}, so the page says how old the comparison is.
-     */
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
-    /** How long the answer of the proxy's pack URL is good for; each look downloads the zip. */
+    /** How long the answer of the proxy's pack URL stays cached. */
     private static final Duration PACK_TTL = Duration.ofMinutes(10);
 
     private static final WebClient PACK_PROBE =
             WebClient.create(Duration.ofSeconds(10)).followingRedirects();
 
-    /** The console's steps are 1000, 5000 and 10000 lines; counting past the top one buys nothing. */
+    /** The largest console step in lines. */
     static final int LOG_CAPACITY_MAX = 10_000;
 
     private static final Duration LOG_CAPACITY_TTL = Duration.ofMinutes(5);
 
-    /** One comparison and the moment it was made, as one value, so a row and its age always match. */
+    /** One image comparison with its time. */
     private record Drift(ImageResult result, Instant checkedAt) {}
 
-    /** The lane for background refreshes, which never run two at once. */
+    /** Runs background refreshes one at a time. */
     private final Executor driftRefresh;
 
     private final Refreshed<Drift> drift;
 
-    /** The pack URL the proxy offers when it does not answer, or {@code null} without a database. */
+    /** The pack URL of the proxy when it does not answer, or {@code null} without a database. */
     private final @Nullable Refreshed<Optional<String>> deadPack;
 
-    /**
-     * How long a resolve is good for.
-     *
-     * Looking is not running: the resolve writes nothing, and a page open asks at most every six hours.
-     */
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
-    /**
-     * The resolve, or {@code null} where this API has no sources to ask.
-     *
-     * Null rather than an empty plan, which would claim everything is current; the endpoint answers 503.
-     */
+    /** The resolve, or {@code null} without sources, which makes the endpoint answer 503. */
     final @Nullable Refreshed<AgentWire.Resolve> available;
 
     final MessagesApi messages;
     final LayoutsApi layouts;
     final ActionsApi actions;
-    /** The Disk field of one service's page; never part of the service table. */
     private final DiskUsage disk;
-    /** How many lines the console can fill per service, Docker plus archive, capped at the top step. */
+    /** The console line count per service, capped at {@code LOG_CAPACITY_MAX}. */
     private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
 
-    /** The API without player counts, plugins, inboxes or a resolve, as a test against the real daemon needs it. */
+    /** Creates the API without player counts, plugins, stores or a resolve. */
     public StackApi(
             final AgentClient agent,
             final UpdateDirectory updates,
@@ -153,22 +130,20 @@ public final class StackApi implements AutoCloseable {
     private final Clock clock;
     private final Scheduler scheduler;
 
-    /** The run inbox, where a restore is asked for like every other run. */
     private final UpdateDirectory updates;
 
     /**
-     * The whole API.
+     * Creates the whole API.
      *
-     * @param updates the run inbox, sharing one directory with the run loop
+     * @param updates the run inbox
      * @param audit the journal, for {@link ActionsApi}
-     * @param online where the player counts and the player list come from, or {@code null} without a database
-     * @param resolve steward-agent's resolve, asked again when the cache ages; {@code null} makes the
-     *     endpoint answer 503
-     * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
-     * @param messageOverrides the admins' message overrides, or {@code null} without a database, when a save is refused
-     * @param layoutStore the rebuilt layouts and images, or {@code null} without a database, when a save is refused
-     * @param nightly the schedule as it stands right now, changed with the steward settings
-     * @param settings every process's settings, or {@code null} without a database, when their routes answer 503
+     * @param online the player counts and the player list, or {@code null} without a database
+     * @param resolve steward-agent's resolve, or {@code null}, which makes the endpoint answer 503
+     * @param managedPlugins the plugin routes, or {@code null} without a database, which makes them answer 503
+     * @param messageOverrides the message overrides, or {@code null} without a database, which refuses a save
+     * @param layoutStore the layouts and images, or {@code null} without a database, which refuses a save
+     * @param nightly the current schedule
+     * @param settings every process's settings, or {@code null} without a database, which makes their routes answer 503
      */
     public StackApi(
             final AgentClient agent,
@@ -193,32 +168,28 @@ public final class StackApi implements AutoCloseable {
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);
         this.layouts = new LayoutsApi(agent, layoutStore, settings);
-        // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
-        // Beside the drift lane, so a du never waits behind a registry call.
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
         this.serviceRows = new ServiceRows(agent, updates, online);
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
-        // The drift lane: both are slow calls nobody asked for.
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
         this.deadPack = settings == null
                 ? null
                 : new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
     }
 
-    /** Puts every route of this API onto {@code config}, behind the gate {@code caller} answers for. */
     public void register(final JavalinConfig config, final Caller caller) {
         Routes.register(this, config, caller);
     }
 
-    /** Reads an admin's preview of a text out of {@code POST /api/message-preview}, which the web then asks for. */
+    /** Returns the preview of {@code POST /api/message-preview}. */
     public MessagePreview messagePreview(final Context ctx) {
         return messages.preview(ctx);
     }
 
-    /** Registers the topics only this API can read: the service table, the host, the topology and the settings. */
+    /** Registers the topics for the service table, the host, the topology and the settings. */
     public void watch(final LiveFeed live) {
         live.watch(Topic.SERVICES, this::serviceTable);
         live.watch(Topic.HOST, this::hostNumbers);
@@ -228,12 +199,11 @@ public final class StackApi implements AutoCloseable {
         }
     }
 
-    /** Whether steward-agent answers; without it every container route says it could not be reached. */
     public boolean agentReachable() {
         return agent.isReachable();
     }
 
-    /** Runs the first image comparison in the background, so the first {@code /api/services} need not wait for it. */
+    /** Runs the first image comparison in the background. */
     public void warm() {
         driftRefresh.execute(() -> {
             try {
@@ -244,7 +214,7 @@ public final class StackApi implements AutoCloseable {
         });
     }
 
-    /** The settings routes, or a 503: without a database there are no settings to show. */
+    /** Returns the settings routes and refuses with 503 without a database. */
     SettingsApi settings() {
         if (settings == null) {
             throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.SETTINGS));
@@ -252,7 +222,7 @@ public final class StackApi implements AutoCloseable {
         return settings;
     }
 
-    /** The plugin routes, or a 503, since "no plugins" and "cannot read the table" are different answers. */
+    /** Returns the plugin routes and refuses with 503 without a database. */
     PluginsForward plugins() {
         if (managedPlugins == null) {
             throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PLUGINS));
@@ -260,13 +230,13 @@ public final class StackApi implements AutoCloseable {
         return managedPlugins;
     }
 
-    /** {@code GET /api/services}: every row, and how old the image comparison is, which is not the age of a row. */
+    /** The answer to {@code GET /api/services}: every row and the age of the image comparison. */
     public record ServiceTable(List<ServiceRows.Service> services, DriftReading drift) {}
 
     /**
-     * How the running images compared with the registry, and when.
+     * The comparison of the running images with the registry.
      *
-     * @param message why the images could not be read at all, absent when they could
+     * @param message the reason the images could not be read, absent when they could
      */
     public record DriftReading(
             Instant checkedAt,
@@ -274,7 +244,7 @@ public final class StackApi implements AutoCloseable {
             List<String> unverifiable,
             @Nullable String message) {}
 
-    /** The services the network page draws, as compose.yml's labels place and wire them, in file order. */
+    /** Returns the services of the network page from the labels of compose.yml, in file order. */
     NetworkMap network() {
         final List<NetworkBox> boxes = new ArrayList<>();
         for (final AgentWire.Service service : agent.topology().services()) {
@@ -287,22 +257,20 @@ public final class StackApi implements AutoCloseable {
         return new NetworkMap(boxes);
     }
 
-    /** {@code GET /api/topology}: every service the network page draws, the one list the browser knows them by. */
+    /** The answer to {@code GET /api/topology}. */
     public record NetworkMap(List<NetworkBox> services) {}
 
     /**
-     * One service as the network page draws it.
+     * One service of the network page.
      *
-     * @param section the heading it is grouped under
+     * @param section the heading of its group
      * @param entry whether players reach it from outside
      * @param reaches the services it sends requests to
-     * @param storesIn the services it keeps its data in
+     * @param storesIn the services that store its data
      */
     public record NetworkBox(String name, String section, boolean entry, List<String> reaches, List<String> storesIn) {}
 
-    /** The service table, with the age of the drift comparison beside it. */
     ServiceTable serviceTable() {
-        // Taken once, for the rows and for the sentence about them.
         final Drift drift = drift();
         final ImageResult images = drift.result();
         return new ServiceTable(
@@ -314,7 +282,6 @@ public final class StackApi implements AutoCloseable {
                         images.message()));
     }
 
-    /** The drift answer as it stands, refreshed in the background rather than on the caller's thread. */
     private Drift drift() {
         return drift.get();
     }
@@ -336,7 +303,7 @@ public final class StackApi implements AutoCloseable {
         });
     }
 
-    /** Lines the console can offer, Docker's and the archive's, asked of the agent at most every five minutes. */
+    /** Returns the console line count, which the agent is asked for at most every five minutes. */
     private int logCapacity(final String name) {
         return logCapacity
                 .computeIfAbsent(
@@ -350,9 +317,8 @@ public final class StackApi implements AutoCloseable {
     }
 
     /**
-     * {@code GET /api/schedule}: both nightly clocks as the settings say them, the zone, and their next moments.
-     *
-     * A blank time is no schedule, so {@code backupAt} and {@code updateAt} are absent then, and so is the next moment.
+     * The answer to {@code GET /api/schedule}.
+     * A blank time leaves {@code backupAt} or {@code updateAt} and its next moment absent.
      */
     public record Schedule(
             @Nullable String backupAt,
@@ -363,11 +329,9 @@ public final class StackApi implements AutoCloseable {
             List<String> updateDays,
             @Nullable String nextUpdateAt) {}
 
-    /** {@code backup.at}, {@code backup.days}, the zone they are read in, and the next moment. */
     Schedule schedule() {
         final Nightly nightly = this.nightly.get();
         final ZonedDateTime now = ZonedDateTime.now(clock.withZone(nightly.zone()));
-        // The weekdays as the settings say them, not as the clock understood them.
         return new Schedule(
                 nightly.at().isBlank() ? null : nightly.at(),
                 nightly.days(),
@@ -390,9 +354,8 @@ public final class StackApi implements AutoCloseable {
     }
 
     /**
-     * {@code GET /api/host}: the machine's numbers, and what Docker's images and volumes take of its disk.
-     *
-     * A part that could not be read is absent, with its sentence in {@code unreadable} or {@code dockerDiskUnreadable}.
+     * The answer to {@code GET /api/host}.
+     * A part that could not be read is absent, and {@code unreadable} or {@code dockerDiskUnreadable} says why.
      */
     public record Host(
             @Nullable Double load1,
@@ -431,22 +394,20 @@ public final class StackApi implements AutoCloseable {
                 host.dockerDiskUnreadable());
     }
 
-    /** What is actually on the disk, newest first, not what a run reported. */
     List<AgentWire.Archive> archives() {
         return agent.archives();
     }
 
     /**
-     * Streams one finished archive from the agent to the browser as a download, never buffered.
+     * Streams one finished archive from the agent to the browser as a download.
      *
      * @return the archive as the list has it, empty when it was pruned meanwhile
      */
     Optional<AgentWire.Archive> download(final Context ctx, final String name) {
-        // The agent refuses a name that is not a finished archive with a 400 and a missing one with a 404.
         final InputStream body = agent.archive(name);
         ctx.contentType("application/octet-stream");
         ctx.header("Content-Disposition", "attachment; filename=\"" + name + "\"");
-        // The length from the list, so the browser can show progress; an archive pruned meanwhile has none.
+        // An archive pruned meanwhile has no length.
         final Optional<AgentWire.Archive> listed = archives().stream()
                 .filter(archive -> archive.name().equals(name))
                 .findFirst();
@@ -455,11 +416,7 @@ public final class StackApi implements AutoCloseable {
         return listed;
     }
 
-    /**
-     * Asks for a restore of one finished archive, once the caller has typed what it replaces.
-     *
-     * The run takes a fresh backup first, counts down and stops what the archive replaces; this only writes the row.
-     */
+    /** Writes the restore request for one finished archive after the caller has typed what it replaces. */
     void restore(final Context ctx, final eu.nordtal.season.common.id.Actor actor) {
         final String name = ctx.pathParam("name");
         final AgentWire.Archive archive = archives().stream()
@@ -474,7 +431,6 @@ public final class StackApi implements AutoCloseable {
         if (body == null || !replaces.equals(body.confirm)) {
             throw new RequestRefused(400, ANSWER.confirmRestore(replaces));
         }
-        // A refused write reaches the error handler, which words it with the admins' overrides.
         final eu.nordtal.season.database.update.UpdateRequest written = updates.submit(
                 new eu.nordtal.season.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
         log.info("restore of {} asked for as request {}", name, written.id());
@@ -482,16 +438,15 @@ public final class StackApi implements AutoCloseable {
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }
 
-    /** {@code POST /api/backups/{name}/restore}: the run that restores it, by its id. */
+    /** The answer to {@code POST /api/backups/{name}/restore}. */
     public record RestoreAsked(long id, eu.nordtal.season.database.update.UpdateKind kind, String archive) {}
 
-    /** The body of a restore: what it replaces, typed back. */
     static final class Confirmation {
         @Nullable
         String confirm;
     }
 
-    /** What every measured alert is judged on: the service table, the archives on disk and the host's numbers. */
+    /** Returns the service table, the archives and the host numbers that the alerts read. */
     public StackReading stackReading() {
         final ImageResult images = drift().result();
         final List<StackReading.Service> services = serviceRows.readings(images);
@@ -513,7 +468,7 @@ public final class StackApi implements AutoCloseable {
                 deadPack == null ? null : deadPack.get().orElse(null));
     }
 
-    /** The pack URL the proxy offers when a GET of it does not answer 200; empty when it does or none is set. */
+    /** Returns the pack URL when a GET of it does not answer 200, else empty. */
     private static Optional<String> deadPack(final SettingStore settings) {
         final String url = PackState.read(settings).url();
         if (url == null) {
@@ -526,7 +481,7 @@ public final class StackApi implements AutoCloseable {
         }
     }
 
-    /** The disk and memory numbers, or null when the agent could not read them. */
+    /** Returns the disk and memory numbers, or {@code null} when the agent cannot read them. */
     private StackReading.@Nullable Host host() {
         final AgentWire.HostNumbers numbers;
         try {
@@ -543,18 +498,16 @@ public final class StackApi implements AutoCloseable {
                         numbers.memoryTotalBytes());
     }
 
-    /** The body of a console POST. */
     static final class ConsoleLine {
         @Nullable
         String command;
     }
 
-    /** Types one line into a server's console through the agent, which logs who typed it beside the line. */
+    /** Types one line into a server's console through the agent. */
     void console(final String service, final String command, final eu.nordtal.season.common.id.Actor actor) {
         agent.console(service, command, actor);
     }
 
-    /** Stops every open log follow; called before Jetty stops. */
     @Override
     public void close() {
         logFollows.close();

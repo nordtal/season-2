@@ -12,17 +12,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-/**
- * {@code GET /api/actions}: the newest runs from the run inbox and entries of the journal, merged.
- *
- * The audit half is one search per displayed action, since {@code HELD_KEY} rows would crowd out the rest.
- */
+/** {@code GET /api/actions} answers the newest runs of the run inbox and the newest journal entries, merged. */
 public final class ActionsApi {
 
-    /** What the interface gets when it does not ask for a number. */
+    /** The number of entries when the request names none. */
     public static final int DEFAULT_LIMIT = 5;
 
-    /** The journal actions worth a place here; the two step-ups are left off on purpose. */
+    /** The journal actions that the feed shows. */
     private static final Set<JournalAction> DISPLAYED_AUDIT_ACTIONS = Set.of(
             JournalAction.GRANT_ACCESS,
             JournalAction.REVOKE_ACCESS,
@@ -44,17 +40,15 @@ public final class ActionsApi {
         this.audit = audit;
     }
 
-    /** {@code GET /api/actions?limit=n}: a bare JSON array, newest first. */
     public void list(final Context ctx) {
         final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(DEFAULT_LIMIT);
-        // Through json(), never the records themselves.
         ctx.json(recent(limit).stream().map(ActionEntry::wire).toList());
     }
 
     /**
-     * The merged, newest-first list.
+     * Returns the merged entries, newest first.
      *
-     * @param limit how many, at most; below 1 is clamped to 1
+     * @param limit the maximum count, and a value below 1 counts as 1
      */
     List<ActionEntry> recent(final int limit) {
         final int clamped = Math.max(1, limit);

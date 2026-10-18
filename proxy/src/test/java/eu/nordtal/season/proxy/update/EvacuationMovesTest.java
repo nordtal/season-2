@@ -21,7 +21,9 @@ import eu.nordtal.season.proxy.PhaseServers;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -49,18 +51,24 @@ class EvacuationMovesTest {
     private final AtomicInteger counted = new AtomicInteger();
     private final Player player = player(UUID.randomUUID());
 
-    private final Evacuation evacuation = new Evacuation(
-            proxy(),
-            LoggerFactory.getLogger(EvacuationMovesTest.class),
-            updates(),
-            SERVERS,
-            new Homecoming(
-                    LoggerFactory.getLogger(EvacuationMovesTest.class),
-                    MessageRenderer.of(Messages.load(
-                            EvacuationMovesTest.class.getClassLoader(), "messages/proxy", Locale.ENGLISH)),
-                    new LoginRoster(),
-                    SERVERS,
-                    RunRecorder.NONE));
+    private final Evacuation evacuation = evacuation(Instant.EPOCH.minusSeconds(60));
+
+    /** An evacuation in a proxy started at {@code started}; the run's countdown ended at the epoch. */
+    private Evacuation evacuation(final Instant started) {
+        return new Evacuation(
+                proxy(),
+                LoggerFactory.getLogger(EvacuationMovesTest.class),
+                updates(),
+                SERVERS,
+                new Homecoming(
+                        LoggerFactory.getLogger(EvacuationMovesTest.class),
+                        MessageRenderer.of(Messages.load(
+                                EvacuationMovesTest.class.getClassLoader(), "messages/proxy", Locale.ENGLISH)),
+                        new LoginRoster(),
+                        SERVERS,
+                        RunRecorder.NONE),
+                Clock.fixed(started, ZoneOffset.UTC));
+    }
 
     @Test
     void aSlowMoveIsAskedForOnce() {
@@ -71,6 +79,14 @@ class EvacuationMovesTest {
 
         assertEquals(1, moves.size(), "a second request makes Velocity answer 'already connecting'");
         assertEquals(1, counted.get(), "the player is counted as moved once");
+    }
+
+    @Test
+    void aProxyTheRunStartedMovesNobody() {
+        evacuation(Instant.EPOCH.plusSeconds(120)).check();
+
+        assertEquals(0, moves.size(), "the proxy it replaced moved the players before the run stopped anything");
+        assertEquals(0, told.size());
     }
 
     @Test
@@ -145,6 +161,7 @@ class EvacuationMovesTest {
             case "holds" -> List.of();
             case "running" -> Optional.of(running);
             case "recorder" -> recorder;
+            case "stepsOf" -> List.of();
             default -> throw new UnsupportedOperationException(method);
         });
     }

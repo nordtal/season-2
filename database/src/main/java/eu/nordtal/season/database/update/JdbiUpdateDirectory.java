@@ -18,7 +18,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -299,8 +298,8 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public OptionalInt progressOf(final UpdateRequest run) {
-        return RunProgress.percent(recorder.steps(run.id()), run.moving());
+    public List<RunProgress.Step> stepsOf(final UpdateRequest run) {
+        return recorder.steps(run.id());
     }
 
     /** Returns a failed report with one note that says why. */

@@ -527,8 +527,8 @@ public final class ProxyPlugin {
                 shared.renderer(),
                 shared.phaseServers(),
                 clock);
-        final Evacuation evacuation =
-                new Evacuation(proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming());
+        final Evacuation evacuation = new Evacuation(
+                proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming(), clock);
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
         packs.whenProgressing(evacuation::progress);

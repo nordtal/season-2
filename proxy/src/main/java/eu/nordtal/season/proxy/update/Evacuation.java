@@ -4,9 +4,13 @@ import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import eu.nordtal.season.database.update.RunProgress;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.proxy.PhaseServers;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +35,9 @@ public final class Evacuation {
     private final Logger logger;
     private final UpdateDirectory updates;
     private final PhaseServers servers;
+
+    /** When this proxy started. */
+    private final Instant started;
 
     /** Informs the players when they return. */
     private final Homecoming homecoming;
@@ -57,12 +64,14 @@ public final class Evacuation {
             final Logger logger,
             final UpdateDirectory updates,
             final PhaseServers servers,
-            final Homecoming homecoming) {
+            final Homecoming homecoming,
+            final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
+        this.started = clock.instant();
     }
 
     /** Returns whether an update run stops or has stopped the server. */
@@ -88,15 +97,17 @@ public final class Evacuation {
     /** Reads the update row and moves the players when the countdown has ended. It never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> running;
+        final List<RunProgress.Step> steps;
         try {
             held = heldServices(updates.holds());
             running = updates.running();
+            steps = running.map(updates::stepsOf).orElseGet(List::of);
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
 
-        final Set<String> next = imminent(running);
+        final Set<String> next = notYetReplaced(imminent(running), steps);
         if (next.isEmpty()) {
             moving = Set.of();
             progress = OptionalInt.empty();
@@ -126,8 +137,13 @@ public final class Evacuation {
         }
 
         moving = next;
-        track(running.orElseThrow());
-        evacuate(next, room, running.orElseThrow().id());
+        final UpdateRequest run = running.orElseThrow();
+        track(run, steps);
+        if (startedByTheRun(started, run)) {
+            // The proxy this one replaced moved the players already; the rooms may be gone by now.
+            return;
+        }
+        evacuate(next, room, run.id());
     }
 
     /**
@@ -179,20 +195,31 @@ public final class Evacuation {
         return OptionalInt.of(Math.max(held.getAsInt(), now.getAsInt()));
     }
 
+    /** Returns the moving services whose health check after the replacement has not passed yet. */
+    static Set<String> notYetReplaced(final Set<String> moving, final List<RunProgress.Step> steps) {
+        final Set<String> left = new HashSet<>(moving);
+        for (final RunProgress.Step step : steps) {
+            if (step.kind() == RunStep.Kind.VERIFY
+                    && (step.outcome() == RunStep.Outcome.DONE || step.outcome() == RunStep.Outcome.WARNING)) {
+                left.remove(step.service());
+            }
+        }
+        return Set.copyOf(left);
+    }
+
+    /** Returns whether this proxy started after the countdown of the run ended, so the run started it. */
+    static boolean startedByTheRun(final Instant started, final UpdateRequest run) {
+        return run.countdownEnd() != null && started.isAfter(run.countdownEnd());
+    }
+
     /** Returns the services that the request stops. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
     }
 
-    /** Reads how far the run is and keeps the highest value of the run. A failed read keeps the last one. */
-    private void track(final UpdateRequest run) {
-        final OptionalInt now;
-        try {
-            now = updates.progressOf(run);
-        } catch (final RuntimeException failure) {
-            logger.warn("Could not read the steps of run {}", run.id(), failure);
-            return;
-        }
+    /** Keeps the highest percentage of the run. */
+    private void track(final UpdateRequest run, final List<RunProgress.Step> steps) {
+        final OptionalInt now = RunProgress.percent(steps, run.moving());
         progress = run.id() == progressRun ? higher(progress, now) : now;
         progressRun = run.id();
     }

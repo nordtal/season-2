@@ -49,6 +49,41 @@ Where a place limits a text (a server-list line, a boss bar, a button), the limi
 full sentence. A value spliced into another text (`{countdown}`) is written to read correctly in
 every text that uses it.
 
+### Phrasing
+
+Rewording is not optional: every sentence that stays is written anew, and one that only lost words
+still fails. Each pattern below shows a sentence that fails and one that passes.
+
+- **Lists are sentences.** A list item is a full sentence that names its subject. A bold lead-in is
+  allowed only as a label, the name of the thing the sentence is about.
+  - Fails: `**Recreating itself.** A one-shot renews steward-agent.`
+  - Passes: `steward-agent never recreates itself. A one-shot container recreates it.`
+- **The subject comes first.** A sentence opens with what it is about, not with a condition or a
+  pronoun whose noun is in another sentence.
+  - Fails: `Until migrate has applied its newest migration, it writes no run rows.`
+  - Passes: `The one-shot writes no run rows before migrate has finished.`
+- **Plain verbs.** A verb says what happens: start, stop, create, delete, read, write, copy, move,
+  wait, send, refuse. A verb that paints a picture (carries, settles, renews, hands back, goes to,
+  evacuates) is replaced, unless it is a name in the code.
+  - Fails: `An update to a newer release goes to a one-shot.`
+  - Passes: `A one-shot container of the new release runs an update to that release.`
+- **No private words.** A word the reader cannot know (one-shot, slot, payload, settle) is either a
+  name in the code, set in code type, or explained in plain words where it first appears.
+- **One fact per sentence.** No semicolons and no chain of "and" between two facts.
+- **Comments in a command block are sentences too.**
+  - Fails: `# pull, up, wait, exit with the code`
+  - Passes: `# Pull every image, start the stack and wait until it is healthy.`
+- **A heading names a topic.** "Rules", "Notes" and "Details" name none.
+- **German is written, not translated.** A German text says the meaning as a German player would
+  say it, in German word order, without the English sentence behind it.
+  - Fails: `Verbinde dich erneut, um es noch einmal zu versuchen.`
+  - Passes: `Verbinde dich neu.`
+  - Fails: `Du wirst jetzt hinübergeschickt.`
+  - Passes: `Du kommst jetzt zurück.`
+
+Before a rewrite is done, each sentence is read on its own: if a reader would ask "who?", "what
+is that?" or "what does that mean here?", it is written again.
+
 ### Glossary
 
 The one name of each game term, in English and German. A text uses no other word for it, and a new

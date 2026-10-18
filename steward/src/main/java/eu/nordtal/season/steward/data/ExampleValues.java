@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
 
-/** What a translation editor fills a placeholder with, per context type, from real rows or a fixed fallback. */
+/** Provides the example values of the translation editor per context type, from database rows or fixed values. */
 public final class ExampleValues {
 
     private final DataSource dataSource;
@@ -25,7 +25,8 @@ public final class ExampleValues {
     }
 
     /**
-     * Example values by type and property, with the asking admin's own account as the example player when it has one.
+     * Returns the example values by type and property.
+     * The player is the account of the asking admin, if it has one.
      */
     public Map<String, Map<String, String>> of(final DiscordId discordId, final String displayName) {
         final Map<String, Map<String, String>> answer = new LinkedHashMap<>();
@@ -68,7 +69,7 @@ public final class ExampleValues {
         return answer;
     }
 
-    /** The season as the network's settings name it: the spec's defaults under whatever an admin stored. */
+    /** Returns the season values from the stored settings over the defaults of the spec. */
     private Map<String, String> season() {
         final SeasonSpec season;
         try {
@@ -87,7 +88,7 @@ public final class ExampleValues {
         return Map.of("name", name);
     }
 
-    /** The first column of the first row, or empty when there is none or it is null. */
+    /** Returns the first column of the first row, or empty without a row or with {@code null}. */
     private static Optional<String> first(final Connection connection, final String sql, final String... parameters) {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (int i = 0; i < parameters.length; i++) {

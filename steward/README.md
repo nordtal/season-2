@@ -1,17 +1,17 @@
 # steward
 
-Steward's web interface and its API, payments, metrics, alerts and the clocks that ask for runs. It
-carries out no run itself: a button, a clock or `/update` writes a row into `steward_inbox`, and
-`steward-agent` carries it out. It starts once `steward-agent` is healthy, which is when the schema
-is current.
+Steward serves the web interface and its API, payments, metrics, alerts and the clocks that request
+runs. It carries out no run itself. A button, a clock or `/update` writes a row into `steward_inbox`,
+and `steward-agent` carries it out. Steward starts after `steward-agent` is healthy, so the schema is
+current.
 
 ```bash
-docker compose up -d steward                                           # serve
-docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>   # a lost key or app
-docker run --rm ghcr.io/nordtal/steward generate-vapid-keys            # a Web Push keypair
+docker compose up -d steward                                           # Serve the interface.
+docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>   # Remove the second factors of one admin.
+docker run --rm ghcr.io/nordtal/steward generate-vapid-keys            # Print a Web Push keypair.
 ```
 
-Any other word is refused, so a typo never starts a second interface beside the running one.
+Steward refuses any other argument.
 
 ```mermaid
 flowchart LR
@@ -24,157 +24,141 @@ flowchart LR
 
 ## One process
 
-The interface, the stack routes (`stack/Routes`) and the runs' view share one Javalin and one set of
-gates: a read, or a change that is easily undone, needs a signed-in admin who used a second factor this
-session (`KEY_HELD`); a change that destroys, cannot be undone, hands out access or money, or changes
-admins or keys needs a step-up that still holds (`KEY_FRESH`). `GateTest` names the gate of every
-change, and `POST /api/updates` asks for the step-up per kind of run (`Updates.needsStepUp`). A factor
-is a security key (WebAuthn) or an authenticator app
-(`auth/Totp`, RFC 6238: SHA-1, six digits, 30 seconds, one step either side, each step once), whose
-secret is sealed with `web.totp-key`; without that key the app is not offered. Adding a factor beside
-another needs a step-up, and the last one cannot be removed. A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that
-(`SecondFactor.StepUpLength`); `steward_session.step_up_until` keeps its end, and `DELETE /api/step-up` ends it early.
-The plugin "added by" comes from the session, and a long log follow re-checks it once a second.
+The interface, the stack routes (`stack/Routes`) and the view of runs share one Javalin and one set of
+gates.
 
-The process on the internet holds no Docker socket and mounts no volume; everything Docker knows
-comes from `steward-agent` through `AgentClient`. It logs in as `nordtal_steward`
-(`DatabaseRole.STEWARD`), and its tests open the database under that role too, so a statement it was
-never granted fails in `check`.
+- A read or an easily undone change needs a signed-in admin with a second factor in this session
+  (`KEY_HELD`).
+- A destructive or irreversible change, a grant of access or money, and a change of admins or keys need
+  a valid step-up (`KEY_FRESH`).
+- `GateTest` names the gate of every change. `Updates.needsStepUp` sets the step-up per kind of run.
+- A second factor is a security key (WebAuthn) or an authenticator app (`auth/Totp`, RFC 6238: SHA-1,
+  six digits, 30 seconds, one step either side, each step once).
+- `web.totp-key` seals the app's secret. Without it Steward does not offer the app.
+- Adding a factor needs a step-up. Steward refuses to remove the last factor.
+- A step-up holds 15 minutes, or 1 or 6 hours when its sheet asks for that (`SecondFactor.StepUpLength`).
+  `steward_session.step_up_until` stores its end, and `DELETE /api/step-up` ends it early.
+
+Steward holds no Docker socket and mounts no volume. It reaches Docker through `steward-agent` with
+`AgentClient`. It logs in as `nordtal_steward` (`DatabaseRole.STEWARD`), and its tests use that role, so
+a statement without a grant fails in `check`.
 
 ## What it does
 
-- **Runs.** Every button that stops something, and the two clocks, write a row into `steward_inbox`;
-  the agent writes the report back into it and the interface follows it on `nordtal_update`.
-  Layouts for the run page, drawn on real runs, are proposed under `/designs/run-page`.
-- **Containers and images.** State, health and the last sample come from the agent, as does writing
-  into a console, naming who typed the line. The console suggests from each server's `command_tree`
-  and reads it again as soon as a server publishes a changed one.
-  An image the registry could not be asked about shows as unchecked, never as current.
-- **Metrics.** Every 30 seconds the agent's new sampler rounds are copied into `metric_sample` and
-  folded into hourly means after 30 days.
-- **Backups.** The nightly clock writes a request row; steward lists and downloads archives through the agent.
-- **Journal.** Every changing route carries one journal decision where it is registered, as it carries a
-  `Gate`. `Journaled.as(action)`: once the route has answered below 400, `journal.Journaling` writes the lines
-  its handler named, with the signed-in admin as a structured actor and each line a message of the admin
-  bundle. `Unjournaled` names why a route writes none here, mostly because `:database` writes the line in the
-  transaction of the change itself (a request row, a booking, the phase). `JournaledRoutesTest` fails on a
-  changing route with neither and lists every one left out. The Journal page renders a line through the web
-  target and filters by action, the person concerned, a payment reference and the least days granted.
-- **Alerts.** A row in `admin_alert`, raised by whoever saw it: steward measures the stack every 30
-  seconds against the `web` group's thresholds, downloads the proxy's pack URL every ten minutes, and
-  raises failed runs and unbookable payments; the bot
-  raises what it could not do in Discord. Steward routes each row once, per alert type and admin, to
-  Web Push (title and level rendered in plain text) and to the admin channel through the bot's inbox.
-- **Payments.** Steward books them and holds no bank credential. A booking is one transaction in
-  `:database`'s `Bookings`: the request paid, the access appended, the donor flag set, the journal
-  line written and the bot told, or none of it. The poll books what it matched at the `prices` of the
-  start; a booking by hand from the Access page is the same booking with the admin as actor. Every
-  question to bunq goes to `steward-bunq`; at start it asks for the account for up to thirty seconds,
-  and when none answers the log says so at ERROR and payments stay off until the next start.
+- **Runs:** The agent writes each report into the `steward_inbox` row, and the interface follows it on
+  `nordtal_update`.
+- **Containers and images:** The agent supplies state, health and the last sample. A console suggests
+  commands from the `command_tree` of its server. An image whose registry did not answer shows as
+  unchecked.
+- **Metrics:** Every 30 seconds Steward copies the agent's new sampler rounds into `metric_sample`.
+  After 30 days it folds them into hourly means.
+- **Backups:** The nightly clock writes a request row. Steward lists and downloads archives through the
+  agent.
+- **Journal:** Every changing route has a `Gate` and one journal decision. `Journaled.as(action)` makes
+  `journal.Journaling` write the lines the handler named after the route answered below 400. `Unjournaled`
+  names why a route writes no line. `JournaledRoutesTest` fails on a changing route with neither.
+- **Alerts:** Steward measures the stack every 30 seconds against the thresholds of the `web` group. It
+  downloads the proxy's pack URL every ten minutes. It raises failed runs and unbookable payments. The bot
+  raises what it could not do in Discord. Steward sends each `admin_alert` row once per alert type and
+  admin to Web Push and to the admin channel through the bot's inbox.
+- **Payments:** Steward holds no bank credential. `Bookings` in `:database` books a payment in one
+  transaction: it marks the request paid, appends the access, sets the donor flag, writes the journal line
+  and tells the bot. The poll books a matched payment at the `prices` read at start. Every question to
+  bunq goes to `steward-bunq`. At start Steward asks it for the account for up to thirty seconds. If it
+  does not answer, Steward logs ERROR and keeps payments off until the next start.
 
 ### The live stream
 
-A signed-in browser holds one `GET /api/live` (`KEY_HELD`), an SSE stream of `change` events whose
-data is `{topic, version}`: a `live.Topic` and a short hash of its new answer, never the answer. The
-browser refetches what the topic covers from the route that owns it. `LiveFeed` re-reads a topic in
-full from the same reads those routes answer with and announces it when the hash moves; it reads only
-while somebody listens. The hub rings it on the channels in `Web.LIVE_CHANNELS` and on its minute;
-topics only the agent knows (containers, host, topology) are read every ten seconds as well.
-`nordtal_smp` is not among the channels, since play moves the track many times a minute. A request in
-a server's or the bot's inbox moves its topic by `Inbox.version()`. Logs are their own follow,
-relayed from the agent once.
+A signed-in browser holds one `GET /api/live` (`KEY_HELD`), an SSE stream of `change` events with the data
+`{topic, version}`: a `live.Topic` and a short hash of its new answer. The browser fetches again from the
+route that owns the topic.
+
+- `LiveFeed` reads a topic with the reads those routes use and announces it when the hash changes. It
+  reads only while a browser listens.
+- The hub triggers it on the channels in `Web.LIVE_CHANNELS` and every minute. `nordtal_smp` is not a
+  channel.
+- Steward reads the topics only the agent knows (containers, host, topology) every ten seconds.
+- Logs have their own follow, which Steward relays from the agent.
 
 ### The API's types
 
-Every route answers and reads records, declared in the route's feature package. The frontend's types
-in `frontend/src/lib/api.gen.ts` are written from them by `./gradlew :steward:generateApiTypes`, and
-`ApiTypesTest` fails on `check` while the committed file differs. `ApiTypes` (test sources) is a small
-reflection over record components, since no maintained generator reads JSpecify's type-use
-`@Nullable`. `StewardWire` (test sources) lists the top-level records and `ApiRoots` gathers them. A
-`@Nullable` component is an absent field, never `null`. `WireJson` is the one codec of the routes.
-Three types stay hand-written in `lib/api.ts`: the bodies of a settings save and a message save
-(where `null` resets and absent leaves) and the glyph manifest.
+Every route reads and answers records declared in its feature package.
+
+- `./gradlew :steward:generateApiTypes` writes `frontend/src/lib/api.gen.ts` from them. `ApiTypesTest`
+  fails `check` when the committed file differs.
+- `ApiTypes`, `StewardWire` and `ApiRoots` (test sources) reflect over the records and list the roots.
+- A `@Nullable` component is an absent field, never `null`.
+- `WireJson` is the one codec of the routes.
+- `lib/api.ts` holds three hand-written types: the bodies of a settings save and a message save (`null`
+  resets, absent leaves) and the glyph manifest.
 
 ### Texts
 
-Every word the page shows is a key of the `steward` bundle, English only, declared by
-`texts.StewardTexts` and overridable like any other.
+Every word the page shows is a key of the English-only `steward` bundle, declared by `texts.StewardTexts`.
+Admins can override it like any other text.
 
-- `GET /api/texts` serves every key's variants as parsed trees with overrides layered, open before
-  sign-in. `lib/texts.ts` is the web target: it fills a tree into text nodes, never markup, and
-  formats values in `en-GB` and the browser's zone. `t(key, values)` is typed by `texts.gen.ts`, and
-  `texts.gen.json` is the packaged English; `generateApiTypes` writes both and `TextTypesTest` fails
-  while either differs.
-- A refusal a person meets is a `texts.RequestRefused`: the status, a message of the bundle and the
+- `GET /api/texts` serves the variants of every key as parsed trees with the overrides applied. It needs
+  no sign-in.
+- `lib/texts.ts` fills a tree into text nodes, never markup.
+- `generateApiTypes` writes `texts.gen.ts` and `texts.gen.json`. `TextTypesTest` fails when either
+  differs.
+- A refusal shown to a person is a `texts.RequestRefused` with a status, a message of the bundle and a
   code the page branches on. A refused write of `:database` (`Refused`) reaches the same handlers.
-  What answers a malformed request is a literal, like a log line.
-- A page's own words are a section of their own, one interface per page beside `StewardTexts`; the
-  words every settings dialog shares are `texts.Forms`. What Steward says back as data is a message
-  the page renders; a server's own answer passes through `steward.said.words`.
+- Steward answers a malformed request with a literal.
+- `texts.Forms` holds the words of every settings dialog. A server's own answer passes through
+  `steward.said.words`.
 
 ### Game data, pickers, editors
 
-- `GET /api/game-data` serves the union of the servers' catalogues for the newest version with the
-  icon sheet's index; the sheet is cached per version. The settings form draws one picker per field
-  a schema marks with `refers`, from the catalogue, the guild or the people Steward knows, and falls
-  back to the typed field where nothing can be listed. A choice's values are named by the plugin's
-  English texts, an admin's override first, so they are edited on the Translations page; a field shows only
-  where it applies, and one that stops applying goes back to its default. The guild's channels are
-  the list discord-bot publishes into `guild_channels`, so Steward never holds the bot's token and
+- `GET /api/game-data` serves the union of the servers' catalogues for the newest version with the index
+  of the icon sheet. Steward caches the sheet per version.
+- The settings form draws a picker for each field whose schema sets `refers`. If nothing can be listed,
+  the form shows the typed field.
+- Channels come from the list discord-bot publishes into `guild_channels`. Steward holds no bot token and
   shows the last list while the bot is down.
-- The milestone track joins the database's progress to the group's own sections by their `key`, so
-  nothing in it knows what a milestone holds.
-- A plugin's descriptor may name a custom editor per group; the registry draws it only when the editor
-  reads the document it got. An editor knows its structure, never a label or a reference. The
-  milestones editor lists the track beside the open milestone, edits an objective in a sheet and saves
-  every game value in its namespaced form.
+- A plugin's descriptor may name a custom editor per group. The registry draws it only when the editor
+  reads the document it received. An editor knows its structure, never a label or a reference.
 
 ### The Translations page
 
-The Translations page (`/translations`) edits every text of every bundle, Steward's own among them, from
-`GET /api/messages`: each text once, as `<bundle>/<key>`, with the services that show it, the
-places a preview reaches, the network's `languages`, each service's tone `colours` and where each
-place is (`places`). The texts are grouped by where their first place is (in game, Discord, Steward
-& Admin), the `values` bundle apart as the building blocks, then by topic; a filter keeps one
-service's texts and draws them in its palette, and pills name the places a text appears in, a whole
-surface as one. A service shows a text its jar ships where it draws one of the text's places
-(`TextServices`): the bot in Discord, Steward on its page, every other service in the game; a building
-block stays with every service that ships it. A bundle that ships English only is edited in English only. One key is open at a
-time. Its text is edited as it looks (runs of styled text with values as pills, `lib/rich-text.ts`)
-or as it is written (the source coloured from the marks of the one parser in `lib/message-tree.ts`).
-As it looks, a plural or a choice is a chip in the field, and each of its cases a field of its own below
-it (`message-editor/cases.tsx`), with `#` as a chip; the plural categories the language needs are offered as cases.
-The tools above the field offer what the key's format allows: its values with their examples
-(`GET /api/message-examples`), glyphs, tones, colours, styles, hover, click and actions. Whether a
-text is right is only ever `MessageCheck`: the editor asks `GET /api/message-check` once typing
-pauses, and the save refuses what it errs on. An override no process shows
-(`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. Below
-the field is one preview per place, as the game, Discord, Steward's page or a notification shows
-it; a building block gets one plain preview. A plural or a choice is drawn as the case its value's
-example picks, as the web target picks it, its `other` case where the example names none. The counter is the key's `limit`, the strictest of its
-places. A place a preview reaches has a send button, which asks `POST /api/message-preview`: a
-Discord place arrives as a direct message from the bot, a game place on the admin's linked player's
-server, filled with the editor's examples, in the filtered service's palette if there is one. One
-`PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
+`/translations` edits every text of every bundle, Steward's own included, from `GET /api/messages`.
+
+- A service shows a text its jar ships where it draws one of the text's places (`TextServices`): the bot
+  in Discord, Steward on its page, every other service in the game. A building block stays with every
+  service that ships it.
+- A bundle that ships English only is edited in English only.
+- The styled view edits runs of text with values as pills (`lib/rich-text.ts`). The source view colours
+  the source with the one parser in `lib/message-tree.ts`.
+- `MessageCheck` alone decides whether a text is right. The editor calls `GET /api/message-check` when
+  typing pauses, and the save refuses what it errs on.
+- `GET /api/message-fallbacks` lists overrides no process shows.
+- A preview draws a plural or a choice as the case the example of its value picks. It uses `other` if
+  the example names none.
+- The counter shows the `limit` of the key, the strictest of its places.
+- The send button of a place calls `POST /api/message-preview`. A Discord place arrives as a direct
+  message from the bot. A game place arrives on the server of the admin's linked player.
+- `PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
 
 ### Discord layouts
 
-`GET /api/layouts` answers each packaged Discord layout (`messages.LayoutsApi`) with its values, the
-keys it shows, its hash and the rebuild stored over it, carried over to the jar's layout with what
-that adapted (`adapted`) and the added texts the validator now refuses (`fallbacks`), beside the building blocks, the network's languages and the contribution tiers; the live channels
-are `GET /api/discord/channels`. `PUT /api/layouts/{bundle}/{layout}` stores a rebuild: the parts
-and the link buttons the editor added. It saves only what `LayoutCheck.rebuildProblems` passes and
-an added text `MessageCheck` does not err on, answers its warnings and writes nothing otherwise;
-`DELETE` brings the packaged layout back. `POST /api/layout-images` stores a PNG, JPEG, GIF or WebP
-of at most 8 MiB (Discord takes 20 MiB a file) once by its bytes and answers its `upload://<id>`
-address, which `GET /api/layout-images/{id}` serves to the page.
+`GET /api/layouts` answers each packaged Discord layout (`messages.LayoutsApi`) with its values, keys,
+hash and stored rebuild. The rebuild is carried over to the jar's layout. `adapted` lists what that
+changed, and `fallbacks` lists the added texts the validator now refuses. The answer also holds the
+building blocks, the network's languages and the contribution tiers. `GET /api/discord/channels`
+answers the live channels.
+
+- `PUT /api/layouts/{bundle}/{layout}` stores a rebuild only if `LayoutCheck.rebuildProblems` passes and
+  `MessageCheck` does not err on an added text. Otherwise it answers the warnings and writes nothing.
+- `DELETE` restores the packaged layout.
+- `POST /api/layout-images` stores a PNG, JPEG, GIF or WebP of at most 8 MiB once by its bytes and
+  answers its `upload://<id>` address. `GET /api/layout-images/{id}` serves the image.
 
 ## Configuration
 
-The connection and every secret come from the environment; everything else is three groups in the
-database, which Steward publishes at start and edits on its settings pages. `StewardSettings` checks
-them before the web starts. A change to `steward` re-arms both clocks without a restart, one to
-`alerts` applies at the next reading. Where a run's versions come from is `steward-agent`'s `runs` group.
+The environment supplies the connection and every secret. Three groups in the database hold everything
+else. Steward publishes them at start, and its settings pages edit them. `StewardSettings` checks them
+before the web starts. A change to `steward` rearms both clocks without a restart. A change to `alerts`
+applies at the next reading.
 
 | group      | environment                  | holds                                                                                          |
 | ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -186,12 +170,12 @@ them before the web starts. A change to `steward` re-arms both clocks without a 
 ## Tests
 
 ```bash
-./gradlew :steward:test       # no network; stack tests talk to AgentStandIn, the agent's API over a fake daemon
-./gradlew :steward:preview    # the real interface on http://localhost:18180 over stand-ins and a scratch database
+./gradlew :steward:test       # Run without network. Stack tests talk to AgentStandIn, the agent's API over a fake daemon.
+./gradlew :steward:preview    # Serve the real interface on http://localhost:18180 over stand-ins and a scratch database.
 ```
 
-`preview` signs in as an invented admin whose key counts as just held, until it is stopped, so a page
-is looked at without a security key. `--args="--dump FILE"` restores a `pg_dump` first, and the
-session cookie is written to `build/preview/state.json` as Playwright's `storageState`. The stand-in
-agent carries no bundle of its own, so the Translations page lists nothing until `--jars DIR` hands it real
-jars, one directory per service (`DIR/smp/smp-<version>.jar`, `DIR/discord-bot/discord-bot-<version>.jar`).
+`preview` signs in as an invented admin whose key counts as just held. `--args="--dump FILE"` first
+restores a `pg_dump`. Preview writes the session cookie to `build/preview/state.json` as Playwright's
+`storageState`. The stand-in agent has no bundle of its own, so the Translations page lists nothing until
+`--jars DIR` supplies real jars, one directory per service (`DIR/smp/smp-<version>.jar`,
+`DIR/discord-bot/discord-bot-<version>.jar`).

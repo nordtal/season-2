@@ -8,9 +8,8 @@ import eu.nordtal.season.spec.schema.SchemaWriter;
 import org.junit.jupiter.api.Test;
 
 /**
- * The credentials {@code steward.yml} carries, and the annotation that keeps them out of a browser.
- *
- * {@code ConfigEntry.isSecretKey} only guesses from a name; {@code @Secret} is a statement about the value.
+ * Tests that {@code @Secret} marks the credentials of {@code steward.yml}.
+ * {@code ConfigEntry.isSecretKey} only guesses from the name.
  */
 class SchemaSecretsTest {
 

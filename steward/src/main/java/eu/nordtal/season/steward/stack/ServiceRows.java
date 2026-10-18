@@ -22,14 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Builds the rows of {@code /api/services} and {@code /api/services/{name}}.
- *
- * Memory and CPU are the agent's last sample, so drawing the table asks Docker for nothing per container.
- */
+/** Builds the rows of {@code /api/services} and {@code /api/services/{name}}. */
 public final class ServiceRows {
 
-    /** How long after a run settles the services it moved are still its, so the next reading sees them back. */
+    /** The time after a run finishes during which its services still count as moving. */
     static final Duration AFTER_RUN = Duration.ofMinutes(2);
 
     private final AgentClient agent;
@@ -43,13 +39,12 @@ public final class ServiceRows {
     }
 
     /**
-     * One row of {@code /api/services}; the last five fields only on {@code /api/services/{name}}.
+     * One row of {@code /api/services}. Only {@code /api/services/{name}} fills the last five fields.
      *
-     * Absent is never zero, empty or false: nobody reported the players, or the service is no standby and not held.
-     * @param localBuild the image or jars it runs that were built on the host, which an update asks before replacing
-     * @param oneShot true for a service that runs once and exits, absent for every other
-     * @param lastRun how a one-shot's last run went, absent while it runs, before it ran and for every other service
-     * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row red, else absent
+     * @param localBuild the image or jars built on the host
+     * @param oneShot true for a service that runs once and exits, else absent
+     * @param lastRun the last run of a one-shot, absent while it runs, before its first run and for other services
+     * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row down, else absent
      */
     public record Service(
             String service,
@@ -78,7 +73,7 @@ public final class ServiceRows {
             @Nullable Long diskBytes,
             @Nullable Instant diskMeasuredAt) {
 
-        /** What the alerts read of this row, with the services a run is moving. */
+        /** Returns the reading of this row for the alerts. */
         StackReading.Service reading(final Set<String> moving) {
             return ServiceRows.reading(
                     service,
@@ -89,7 +84,7 @@ public final class ServiceRows {
                     drift == ImageResult.State.OUTDATED);
         }
 
-        /** This row with what only the page of one service shows. */
+        /** Returns this row with the fields of the service page. */
         Service detailed(
                 final List<String> digests,
                 final boolean hasPlugins,
@@ -125,7 +120,7 @@ public final class ServiceRows {
         }
     }
 
-    /** What a service is for right now: a run moving it outranks everything, then a one-shot, then a meant stop. */
+    /** Returns the purpose of a service. {@code MOVING} wins over {@code ONCE}, and {@code ONCE} over the rest. */
     static StackReading.Purpose purpose(
             final String service,
             final @Nullable Boolean standby,
@@ -151,41 +146,35 @@ public final class ServiceRows {
         return new StackReading.Service(service, state, health, purpose, exitCode, outdated);
     }
 
-    /** Somebody stopped the service on purpose, and it stays stopped. */
     public record Hold(Instant since) {}
 
     /**
-     * How a one-shot's last run went.
+     * The last run of a one-shot.
      *
-     * @param startedAt when it started, or {@code null} when Docker did not say
-     * @param finishedAt when it ended
+     * @param startedAt the start time, or {@code null} when Docker gives none
+     * @param finishedAt the end time
      */
     public record LastRun(@Nullable String startedAt, String finishedAt, int exitCode) {}
 
-    /** The two fields of a connected player that leave this process. */
     public record Connected(String uuid, String name) {}
 
-    /** Every service row, sorted by name. */
     List<Service> rows(final ImageResult drift) {
         return table(drift).rows();
     }
 
-    /** What the alerts read of every service, from the same look at the stack the rows come from. */
+    /** Returns the reading of every service for the alerts. */
     public List<StackReading.Service> readings(final ImageResult drift) {
         final Table table = table(drift);
         return table.rows().stream().map(row -> row.reading(table.moving())).toList();
     }
 
-    /** The rows and the services the runs were moving when they were read. */
     private record Table(List<Service> rows, Set<String> moving) {}
 
     private Table table(final ImageResult drift) {
         final AgentWire.Containers containers = agent.containers();
         if (!containers.reached()) {
-            // The agent answered and the daemon behind it did not; the interface names the daemon.
             throw InternalClient.Failure.behind("docker", String.valueOf(containers.message()));
         }
-        // Once for the whole table, so two rows cannot disagree about the same instant.
         final ServicesApi.Online counts = online();
         final Map<String, ServiceHold> holds = holds();
         final Set<String> moving = moving();
@@ -197,7 +186,7 @@ public final class ServiceRows {
         return new Table(List.copyOf(all), Set.copyOf(moving));
     }
 
-    /** The services the open run is moving, and those a run that settled within {@link #AFTER_RUN} moved. */
+    /** Returns the services of the open run and of runs finished within {@link #AFTER_RUN}. */
     Set<String> moving() {
         return moving(updates);
     }
@@ -213,12 +202,10 @@ public final class ServiceRows {
         return moving;
     }
 
-    /** What compose.yml's labels say, taken once for the whole table. */
     AgentWire.Topology topology() {
         return agent.topology();
     }
 
-    /** The services compose.yml gives a console. */
     static Set<String> consoles(final AgentWire.Topology topology) {
         final Set<String> consoles = new LinkedHashSet<>();
         for (final AgentWire.Service service : topology.services()) {
@@ -229,7 +216,7 @@ public final class ServiceRows {
         return consoles;
     }
 
-    /** The run inbox and {@code service_hold}, taken once for the whole table. */
+    /** Returns the holds from the run inbox and {@code service_hold}. */
     Map<String, ServiceHold> holds() {
         final Map<String, ServiceHold> holds = new LinkedHashMap<>();
         for (final ServiceHold hold : updates.holds()) {
@@ -238,7 +225,6 @@ public final class ServiceRows {
         return holds;
     }
 
-    /** One row. */
     static Service describe(
             final AgentWire.Container container,
             final ImageResult drift,
@@ -289,7 +275,7 @@ public final class ServiceRows {
                 null);
     }
 
-    /** How a container's last run ended, or nothing while it runs or before it ever ended. */
+    /** Returns the last run of a container, or {@code null} while it runs or before its first end. */
     private static @Nullable LastRun lastRun(final AgentWire.Container container) {
         final String finishedAt = container.finishedAt();
         final Integer exitCode = container.exitCode();
@@ -299,21 +285,17 @@ public final class ServiceRows {
         return new LastRun(container.startedAt(), finishedAt, exitCode);
     }
 
-    /** The counts and the list as they stand, or nothing at all, never a guessed zero. */
+    /** Returns the player counts and lists, or {@code Online.NONE} without a database. */
     ServicesApi.Online online() {
         return players == null ? ServicesApi.Online.NONE : players.read();
     }
 
-    /**
-     * True for a standby service, whose normal state is stopped, so a dashboard does not call it down.
-     *
-     * Absent rather than false for every other service, so there is one spelling.
-     */
+    /** Returns true for a standby service and {@code null} for every other. */
     static @Nullable Boolean standby(final String service, final AgentWire.Topology topology) {
         return topology.standbys().contains(service) ? Boolean.TRUE : null;
     }
 
-    /** Who is connected to a service, or nothing at all when nobody has said, never a guessed empty list. */
+    /** Returns the players connected to a service, or {@code null} when none are reported. */
     static @Nullable List<Connected> roster(final String service, final ServicesApi.Online online) {
         final List<OnlinePlayer> roster = online.roster().get(service);
         if (roster == null) {

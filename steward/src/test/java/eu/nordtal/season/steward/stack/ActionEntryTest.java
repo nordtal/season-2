@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** The mapping from a raw row of either table to one {@link ActionEntry}, its extent and who is credited. */
+/** Tests the mapping of a row of either table to an {@link ActionEntry}. */
 class ActionEntryTest {
 
     private static final Instant REQUESTED = Instant.parse("2026-09-16T12:00:00Z");
@@ -49,7 +49,7 @@ class ActionEntryTest {
 
     @Test
     void countsHealthySavedAndRestoredLinesAgainstEverythingTouched() {
-        // One HEALTHY, SAVED, RESTORED, FAILED and UNCHANGED each, plus an untouched PLANNED: total 4, successful 3.
+        // Total 4 and successful 3.
         final String report = "{\"stage\":\"DONE\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"HEALTHY\",\"changes\":[]},"
                 + "{\"service\":\"b\",\"state\":\"SAVED\",\"changes\":[]},"
@@ -74,7 +74,6 @@ class ActionEntryTest {
 
     @Test
     void unparseableResultFallsBackToTheStatusWord() {
-        // An older steward wrote plain text, or the row has none yet.
         final ActionEntry done = ActionEntry.of(
                 run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, "some plain text a very old steward wrote"));
         assertEquals("done", shown(done.extent()));

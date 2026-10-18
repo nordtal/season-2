@@ -44,7 +44,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** {@link LayoutsApi} served over real HTTP against a real database, the contract the frontend reads. */
+/** Tests {@link LayoutsApi} over HTTP against a database. */
 class LayoutsApiIntegrationTest {
 
     private static final Gson GSON = new Gson();
@@ -68,7 +68,7 @@ class LayoutsApiIntegrationTest {
 
     @BeforeEach
     void start() throws IOException {
-        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        // Short, because a Unix socket path has a length limit.
         scratch = Files.createTempDirectory(Path.of("/tmp"), "layouts");
         agent = new AgentStandIn(scratch, 0, config -> {}, new JsonObject());
         final LayoutSchema.Entry entry = new LayoutSchema.Entry(
@@ -112,7 +112,7 @@ class LayoutsApiIntegrationTest {
         }
     }
 
-    /** A rebuild that moves the button, adds a title, a link button and the uploaded image. */
+    /** A rebuild that moves the button and adds a title, a link button and the uploaded image. */
     private static String rebuild(final String address, final String title) {
         return Json.encode(Map.of(
                 "parts",

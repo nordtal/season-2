@@ -9,14 +9,10 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The standby marker keeps a stopped standby out of the fault count.
- *
- * Docker cannot tell a stopped standby from a crashed backend; only the topology the agent serves knows.
- */
+/** Tests that the standby marker keeps a stopped standby out of the fault count. */
 class ServiceRowStandbyFieldTest {
 
-    /** What the agent serves, with the label {@code eu.nordtal.standby-of} on the two standbys. */
+    /** The topology of the agent, with the label {@code eu.nordtal.standby-of} on the two standbys. */
     private static final AgentWire.Topology TOPOLOGY = new AgentWire.Topology(
             List.of(
                     new AgentWire.Service("proxy", null, true, false),
@@ -52,7 +48,7 @@ class ServiceRowStandbyFieldTest {
         }
     }
 
-    /** The alert rule's verdict rides on the row, so a page colours a service as the alerts judge it. */
+    /** Tests that the row carries the verdict of the alert rule. */
     @Test
     void aStoppedStandbyIsNotRedAndAStoppedLiveServiceIs() {
         for (final String standby : TOPOLOGY.standbys()) {

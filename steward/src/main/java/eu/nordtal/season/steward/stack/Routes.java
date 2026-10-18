@@ -14,9 +14,9 @@ import io.javalin.http.BadRequestResponse;
 import java.util.Optional;
 
 /**
- * Every route {@link StackApi} serves, each with the {@link Gate} it needs.
- *
- * A read or an easily undone save is {@link Gate#KEY_HELD}; what replaces, removes or runs code {@link Gate#KEY_FRESH}.
+ * Registers every route of {@link StackApi} with its {@link Gate}.
+ * Reads and easily undone saves use {@link Gate#KEY_HELD}. Routes that replace, remove or run code use
+ * {@link Gate#KEY_FRESH}.
  */
 public final class Routes {
 
@@ -25,7 +25,6 @@ public final class Routes {
 
     private Routes() {}
 
-    /** Wires every route onto {@code config}. */
     static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
         serviceRoutes(api, config, caller);
         consoleRoute(api, config, caller);
@@ -36,9 +35,8 @@ public final class Routes {
         availableRoute(api, config);
     }
 
-    /** The service table and one service's row, plus its live log. */
+    /** Registers the service table, one service's row and its live log. */
     private static void serviceRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
-        // One round trip per table: state, health, image, uptime, RAM and CPU together.
         config.routes.get("/api/services", ctx -> ctx.json(api.serviceTable()), Gate.KEY_HELD);
         config.routes.get("/api/topology", ctx -> ctx.json(api.network()), Gate.KEY_HELD);
 
@@ -48,7 +46,6 @@ public final class Routes {
                         .orElseThrow(() -> new RequestRefused(404, ANSWER.noService(ctx.pathParam("name"))))),
                 Gate.KEY_HELD);
 
-        // SSE: one direction, reconnects itself, no reverse-proxy rule.
         config.routes.sse(
                 "/api/services/{name}/logs",
                 client -> {
@@ -62,11 +59,7 @@ public final class Routes {
                 Gate.KEY_HELD);
     }
 
-    /**
-     * One line into one server's console.
-     *
-     * The answer is not in the response: the server prints it on its own console, where every admin sees it.
-     */
+    /** Registers the route that types one line into a server's console. The answer appears in the service log. */
     private static void consoleRoute(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.post(
                 "/api/services/{name}/console",
@@ -75,7 +68,6 @@ public final class Routes {
                     if (body == null || body.command == null || body.command.isBlank()) {
                         throw new BadRequestResponse("command is the line to type");
                     }
-                    // The agent refuses a service without a console with a 400 that names the ones with one.
                     api.console(ctx.pathParam("name"), body.command.strip(), caller.actor(ctx));
                     Journaling.line(ctx, new JournalDetail.ConsoleTyped(ctx.pathParam("name"), body.command.strip()));
                     ctx.status(202)
@@ -85,9 +77,8 @@ public final class Routes {
                 Journaled.as(JournalAction.CONSOLE));
     }
 
-    /** Every process's settings: the groups it published, how each plugin is shown, and a save that writes rows. */
+    /** Registers the routes for the setting groups, their descriptors and their save. */
     private static void settingRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
-        // Each jar's own word on the custom editors its groups are drawn with.
         config.routes.get("/api/descriptors", ctx -> ctx.json(api.agent.descriptors()), Gate.KEY_HELD);
         config.routes.get("/api/setting-groups", ctx -> api.settings().list(ctx), Gate.KEY_HELD);
         config.routes.get(
@@ -103,7 +94,7 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
-    /** The message bundles, on their own routes. */
+    /** Registers the routes for message bundles and layouts. */
     private static void messageRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
@@ -137,23 +128,19 @@ public final class Routes {
         config.routes.get("/api/layout-images/{id}", api.layouts::image, Gate.KEY_HELD);
     }
 
-    /** The host numbers, the nightly schedule, the backup list, its download and its restore, and the feed. */
+    /** Registers the routes for the host numbers, the schedule, the backups and the action feed. */
     private static void hostRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/host", ctx -> ctx.json(api.hostNumbers()), Gate.KEY_HELD);
 
-        // "Tonight" means a moment on this host, not in the browser's zone.
         config.routes.get("/api/schedule", ctx -> ctx.json(api.schedule()), Gate.KEY_HELD);
 
-        // What is actually on the disk, not what a run reported.
         config.routes.get("/api/backups", ctx -> ctx.json(api.archives()), Gate.KEY_HELD);
 
-        // Streamed, not buffered, since these are hundreds of megabytes; reading a backup is a read.
         config.routes.get(
                 "/api/backups/{name}/download",
                 ctx -> {
                     final String name = ctx.pathParam("name");
                     final Optional<AgentWire.Archive> listed = api.download(ctx, name);
-                    // A dump holds every account and payment, so taking one off the host is on the record.
                     Journaling.line(
                             ctx,
                             new JournalDetail.BackupDownloaded(
@@ -162,27 +149,20 @@ public final class Routes {
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.DOWNLOAD_BACKUP));
 
-        // A run like every other stop: the body names what it replaces, so a wrong click restores nothing.
         config.routes.post(
                 "/api/backups/{name}/restore",
                 ctx -> api.restore(ctx, caller.actor(ctx)),
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.REQUEST_RUN));
 
-        // The newest rows across the run inbox and the journal, merged.
         config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);
     }
 
-    /**
-     * The plugins on one Minecraft server, and the Modrinth search beside them.
-     *
-     * Installing writes a row the next update run fulfils; removing is a run that stops the server first.
-     */
+    /** Registers the routes for the plugins of one Minecraft server and the Modrinth search. */
     private static void pluginRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins().list(ctx), Gate.KEY_HELD);
         config.routes.get(
                 "/api/services/{name}/plugins/search", ctx -> api.plugins().search(ctx), Gate.KEY_HELD);
-        // Who asked comes from the session, never from the browser.
         config.routes.post(
                 "/api/services/{name}/plugins",
                 ctx -> {
@@ -198,23 +178,17 @@ public final class Routes {
                 Journaled.as(JournalAction.REMOVE_PLUGIN));
     }
 
-    /**
-     * What a run would do, without doing it.
-     *
-     * Reading this route writes nothing: no request row, no container touched, no jar moved.
-     */
+    /** Registers the route that answers what a run would do. It writes nothing. */
     private static void availableRoute(final StackApi api, final JavalinConfig config) {
-        // Before /api/updates/{id}, which the web registers later: Javalin matches in registration order.
+        // Javalin matches in registration order, so this precedes /api/updates/{id}, which the web registers.
         config.routes.get(
                 "/api/updates/available",
                 ctx -> {
                     final Refreshed<AgentWire.Resolve> available = api.available;
                     if (available == null) {
-                        // 503, not an empty plan, since those are different answers.
                         throw new RequestRefused(
                                 503, StewardTexts.TEXTS.steward().answer().noSources());
                     }
-                    // Asked again on purpose right after publishing: a parameter that throws the cache away.
                     if (ctx.queryParam("refresh") != null) {
                         available.invalidate();
                     }
@@ -224,9 +198,9 @@ public final class Routes {
     }
 
     /**
-     * A console line sent to a service.
+     * The answer to a console line.
      *
-     * @param where where its answer shows, since the console answers into the service's log and not here
+     * @param where the place where the answer shows
      */
     public record ConsoleSent(String sent, String where) {}
 }

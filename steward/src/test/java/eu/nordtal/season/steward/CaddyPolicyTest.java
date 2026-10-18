@@ -10,21 +10,20 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the public Steward site sends: four security headers, and the image CDN in a policy that restricts images.
+ * Checks four security headers of the public Steward site, and the image CDN in a policy that restricts images.
  *
- * Without the CDN a restricting policy blanks the plugin icons silently; a policy with no image directive needs none.
+ * A restricting policy without the CDN blanks the plugin icons. A policy without an image directive needs no CDN.
  */
 class CaddyPolicyTest {
 
     private static final Path COMPOSE = Path.of("..", "compose.yml");
 
-    /** The Caddyfile out of {@code compose.yml} and nothing else, since the {@code smp} service names the CDN too. */
+    /** Reads only the Caddyfile out of {@code compose.yml}, because the {@code smp} service names the CDN too. */
     private static String caddyfileIn(final String compose) {
         final int block = compose.indexOf("caddyfile:");
         return block < 0 ? "" : compose.substring(block);
     }
 
-    /** Every line whose first non-blank character is a {@code #}, gone. */
     private static String withoutComments(final String text) {
         return text.lines()
                 .filter(line -> !line.strip().startsWith("#"))
@@ -35,16 +34,13 @@ class CaddyPolicyTest {
                 .toString();
     }
 
-    /** Where Modrinth serves every project icon from. */
     private static final String CDN = "cdn.modrinth.com";
 
-    /** The Caddyfile of {@code compose.yml} without its comments, in lower case. */
     private static String directives() throws IOException {
         return withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)))
                 .toLowerCase(Locale.ROOT);
     }
 
-    /** The value of the Content-Security-Policy line of the site block, or none. */
     private static String policy(final String directives) {
         return directives
                 .lines()
@@ -84,7 +80,6 @@ class CaddyPolicyTest {
     void theCaddyfileCarriesTheWarning() throws IOException {
         final String compose = caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8));
 
-        // The comment reaches somebody before they write the header; the assertion only catches it after.
         assertTrue(
                 compose.contains(CDN),
                 "the Caddyfile in compose.yml no longer mentions " + CDN + ". That note is what"

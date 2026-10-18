@@ -14,15 +14,12 @@ import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The check of an admin's save: the one validator the build and every process run, over the jar's schema.
- * An error refuses the save; a warning, such as a value the text no longer shows, is answered with it.
- */
+/** Checks a text of an admin's save with the shared validator against the schema of the jar. */
 public final class OverrideCheck {
 
     private OverrideCheck() {}
 
-    /** Returns what {@code text} gets wrong for {@code entry}; a key the schema does not describe is never checked. */
+    /** Returns the problems of {@code text} for {@code entry}, and none for a key without a schema. */
     static List<MessageCheck.Problem> problems(final MessageEntry entry, final @Nullable String text) {
         if (text == null || !entry.described()) {
             return List.of();
@@ -30,7 +27,7 @@ public final class OverrideCheck {
         return MessageCheck.check(text, declaration(entry), MessageCheck.Mode.OVERRIDE);
     }
 
-    /** Returns what a described entry offers its texts, as its jar's schema declared it. */
+    /** Returns the declaration of a described entry from the schema of its jar. */
     static Declaration declaration(final MessageEntry entry) {
         final Map<String, Kind> values = new HashMap<>();
         final Map<String, String> examples = new HashMap<>();
@@ -55,7 +52,6 @@ public final class OverrideCheck {
                                 : arg.name().substring(0, arg.name().indexOf('.')));
             }
         }
-        // A place this release does not know is left out, so it never makes a text one line.
         final List<Display> shown = entry.shown().stream()
                 .flatMap(name -> Arrays.stream(Display.values())
                         .filter(place -> place.name().equals(name)))

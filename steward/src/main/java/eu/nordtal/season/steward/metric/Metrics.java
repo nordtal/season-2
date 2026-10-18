@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** {@code /api/metrics}: the curves the start page draws, read from Postgres since Docker only answers "now". */
+/** {@code /api/metrics} answers the curves of the start page from Postgres. */
 public final class Metrics {
 
-    /** Six hours, the start page's curve. */
+    /** The default window in minutes, six hours. */
     private static final int DEFAULT_MINUTES = 360;
 
     private final @Nullable Data data;
@@ -30,7 +30,7 @@ public final class Metrics {
         return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
-    /** {@code GET /api/metrics}: one number of one subject since {@code from}, oldest point first. */
+    /** The curve of one metric of one subject since {@code from}, oldest point first. */
     public record Curve(String subject, String metric, Instant from, List<MetricPoint> points) {}
 
     public void range(final Context ctx) {

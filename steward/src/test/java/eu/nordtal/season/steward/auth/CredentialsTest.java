@@ -16,12 +16,12 @@ import java.util.Set;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
-/** {@code steward_credential} and its transports, against a real PostgreSQL. */
+/** Tests {@code steward_credential} and its transports against PostgreSQL. */
 class CredentialsTest {
 
     @Test
     void aKeysTransportsAreARowEachAndGoWithTheKey() throws SQLException {
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         final TestDatabase database = TestDatabase.fresh();
         final Credentials credentials = new Credentials(database.dataSourceAs(DatabaseRole.STEWARD));
         final DiscordId account = DiscordId.of("51");

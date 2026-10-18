@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The Translations page: every text of every bundle, grouped by where it appears, with its filter and its search. */
+/** The texts of the Translations page, which groups every text by place and has a filter and a search. */
 @Name("Translations")
 public interface TranslationsPage {
 
@@ -26,7 +26,7 @@ public interface TranslationsPage {
     @Name("No texts")
     MessageRef none();
 
-    /** Where a text appears, or the building blocks every other text puts in. */
+    /** The place where a text appears, or the building blocks. */
     enum Group {
         GAME,
         DISCORD,

@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** What the sign-in page says about a deployment nobody can sign in to, the half that never reaches Discord. */
+/** Tests the messages for a deployment that nobody can sign in to, before any call to Discord. */
 class DiscordAuthTest {
 
     @Test
@@ -28,7 +28,7 @@ class DiscordAuthTest {
         assertEquals(
                 "discord.guild-id",
                 missingFrom(new Values().withClientId("an-application").withClientSecret("shh")));
-        // No admin role: who may in is the admin tree in the database, not a Discord role.
+        // The admin tree in the database decides who may sign in, not a Discord role.
         assertTrue(new DiscordAuth(
                         new Values()
                                 .withClientId("an-application")
@@ -41,22 +41,20 @@ class DiscordAuthTest {
 
     @Test
     void theRedirectUriIsWrittenDownNotGuessed() {
-        // A redirect URI that follows the Host header is a redirect URI an attacker can choose.
+        // The redirect URI must not follow the Host header.
         assertEquals(
                 "https://steward.dev.nordtal.eu/auth/callback",
                 new DiscordAuth(new Values(), "https://steward.dev.nordtal.eu").redirectUri());
     }
 
-    /** The operator-facing texts that tell somebody what to type into Discord. */
     private static final List<String> GUIDANCE =
             List.of("deploy/nordtal.sh", "deploy/dev.env.example", "deploy/README.md", "README.md");
 
-    /** A path ending in {@code auth/callback}, after whatever non-blank scheme, host or placeholder precedes it. */
     private static final Pattern MENTION = Pattern.compile("[^\\s\"'`]*auth/callback");
 
     @Test
     void theGuidanceNamesTheRealRedirectUri() {
-        // Derived from DiscordAuth rather than written out here: fails when the route moves, not when a string drifts.
+        // The path derives from DiscordAuth, so the test fails when the route moves.
         final String built = new DiscordAuth(new Values(), "https://steward.example").redirectUri();
         final String path = built.substring("https://steward.example".length());
 
@@ -79,7 +77,7 @@ class DiscordAuthTest {
                         + " a URI the sign-in will never present");
     }
 
-    /** What is left of a mention once a scheme and a host are taken off the front. */
+    /** Removes the scheme and host from the front of a mention. */
     private static String pathOf(final String mention) {
         final String withoutScheme = mention.replaceFirst("^https?://", "");
         final int host = withoutScheme.indexOf('/');
@@ -100,7 +98,7 @@ class DiscordAuthTest {
                 .orElseThrow();
     }
 
-    /** The three values, each empty until a test fills it in. */
+    /** Holds the three values, each empty until a test sets it. */
     private static final class Values implements WebSpec.DiscordSpec {
 
         private String clientId = "";
@@ -149,7 +147,7 @@ class DiscordAuthTest {
                 IllegalArgumentException.class,
                 () -> new DiscordAuth(config, "https://steward.example", "http://10.0.0.5:8080"));
 
-        // The two that are allowed: the real one, and a stand-in on a loopback port.
+        // Allowed are the real API and a stand-in on a loopback port.
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
     }

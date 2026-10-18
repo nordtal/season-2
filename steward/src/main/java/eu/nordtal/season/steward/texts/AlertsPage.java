@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The alerts page's own words; an alert itself is told in the admin bundle. */
+/** The words of the alerts page. The admin bundle holds the alert texts. */
 @Name("Alerts page")
 public interface AlertsPage {
 

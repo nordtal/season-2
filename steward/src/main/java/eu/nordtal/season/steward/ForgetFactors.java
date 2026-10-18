@@ -17,15 +17,15 @@ import java.time.Clock;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
-/** The host command that clears one account's second factor. */
+/** The host command that removes the second factors of one account. */
 final class ForgetFactors {
 
     private ForgetFactors() {}
 
     /**
-     * {@code forget-factors <discord-id>}: the way back in after a lost key or app, run from a host shell.
+     * Runs {@code forget-factors <discord-id>} from a host shell.
      *
-     * Removes keys, the app and sessions together, so no browser stays inside; returns the exit status.
+     * Removes keys, the app and sessions together. Returns the exit status.
      */
     static int run(final String[] args, final @Nullable DatabaseSpec databaseConfig, final Clock clock) {
         if (args.length != 2 || args[1].isBlank()) {
@@ -36,7 +36,7 @@ final class ForgetFactors {
             return 2;
         }
         final DiscordId discordId = DiscordId.of(args[1].trim());
-        // Anything but digits would run a DELETE matching nothing.
+        // Anything but digits would run a DELETE that matches nothing.
         if (!discordId.value().chars().allMatch(Character::isDigit)) {
             System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
                     + " Take it from the journal or from the account list.");
@@ -53,7 +53,6 @@ final class ForgetFactors {
         try (Database database = opened) {
             final Data data = new Data(database, clock);
             final int keys = new Credentials(data.dataSource()).forget(discordId);
-            // Deleting a row needs no key to its secret.
             final boolean app = new Authenticators(data.dataSource(), null, clock).forget(discordId) > 0;
             final int signedOut = new Sessions(data.dataSource(), Duration.ofDays(1)).endAllOf(discordId);
             if (keys == 0 && !app && signedOut == 0) {

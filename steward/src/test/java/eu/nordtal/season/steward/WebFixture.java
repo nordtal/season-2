@@ -29,9 +29,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * The stand-in Docker daemon, agent and Discord, and the real interface, stack routes and database before them.
+ * The stand-in Docker daemon, agent and Discord, with the real interface, stack routes and database.
  *
- * One Postgres container, one set of stand-ins and one {@link Web}, started once per subclass.
+ * One Postgres container, one set of stand-ins and one {@link Web} start once per subclass.
  */
 abstract class WebFixture {
 
@@ -39,24 +39,20 @@ abstract class WebFixture {
 
     static final String GUILD = StandInDiscord.GUILD;
 
-    /** Discord's sign-in routes, answering for whom {@link #memberId} names. */
     static final StandInDiscord fakeDiscord = new StandInDiscord();
 
-    /** Who the stand-in Discord says is signing in, settable so a test can use a 32-character nickname. */
+    /** Who the stand-in Discord says is signing in. A test can set it to use a 32-character nickname. */
     static final java.util.concurrent.atomic.AtomicReference<String> memberId = fakeDiscord.memberId;
 
     static final java.util.concurrent.atomic.AtomicReference<String> memberNick = fakeDiscord.memberNick;
 
-    /** The client secret as it arrived at the stand-in Discord, or null if it never did. */
     static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw = fakeDiscord.secretSeen;
 
-    /** steward-agent's real routes, over the daemon the stack routes reach through it. */
+    /** The real routes of steward-agent, over the daemon that the stack routes reach through it. */
     static AgentStandIn agent;
 
-    /** The agent's daemon, with one running {@code smp} container. */
     static FakeDaemon daemon;
 
-    /** The port the running {@link #web} answers on, which the operating system chose. */
     static int webPort;
 
     static Web web;
@@ -65,13 +61,11 @@ abstract class WebFixture {
     static Database database;
     static Data data;
 
-    /** Kept, so a test can build a second interface against the same database. */
     static WebSpec config;
 
-    /** Where the stand-in Discord answers, on a port the operating system chose. */
     static String discordBase;
 
-    /** Holds the daemon's socket and the backups directory, both short paths a Unix socket can bind. */
+    /** Holds the daemon's socket and the backups directory, both short paths that a Unix socket can bind. */
     static Path scratch;
 
     @BeforeAll
@@ -86,7 +80,6 @@ abstract class WebFixture {
     }
 
     private static void startAgent() throws IOException {
-        // The real agent routes behind the real guard.
         agent = new AgentStandIn(scratch, 0, cfg -> {});
         daemon = agent.daemon;
     }
@@ -100,7 +93,7 @@ abstract class WebFixture {
 
             @Override
             public WebAuthnSpec webauthn() {
-                // The defaults, deliberately: relying-party-id and public-url are the production pair.
+                // The defaults, on purpose: relying-party-id and public-url are the production pair.
                 return new WebAuthnSpec() {};
             }
 
@@ -111,20 +104,18 @@ abstract class WebFixture {
 
             @Override
             public WebPushSpec webPush() {
-                // The defaults: both keys blank, meaning "not configured".
                 return new WebPushSpec() {};
             }
 
             @Override
             public String totpKey() {
-                // A fixed key, so the authenticator app is offered; only these tests ever seal with it.
+                // A fixed key, so the authenticator app is offered. Only these tests seal with it.
                 return "0123456789abcdef".repeat(4);
             }
         };
     }
 
     private static void startDatabase() {
-        // A real database with the real migrations, not a stub that only agrees with itself.
         postgres = TestDatabase.fresh();
         database = Database.open(
                 new DatabaseSpec() {
@@ -133,7 +124,7 @@ abstract class WebFixture {
                         return postgres.jdbcUrl();
                     }
 
-                    // The role steward logs in as, so a statement it was never granted fails here first.
+                    // The role steward logs in as, so a statement without a grant fails here first.
                     @Override
                     public String username() {
                         return DatabaseRole.STEWARD.roleName();
@@ -149,15 +140,14 @@ abstract class WebFixture {
     }
 
     /**
-     * The production constructors over the stand-ins: who is signed in is read out of the session, by deployed code.
+     * Builds the production constructors over the stand-ins. Deployed code reads who is signed in from the session.
      *
-     * A new {@link StackApi} each time, since stopping a {@link Web} closes the one it was given.
+     * Each call creates a new {@link StackApi}, because stopping a {@link Web} closes the one it got.
      */
     static Web newWeb() {
         return newWeb(data, new AgentClient(agent.client()));
     }
 
-    /** The same interface over another database and another agent, for a test that breaks one of them. */
     static Web newWeb(final Data over, final AgentClient client) {
         final StackApi stack = new StackApi(
                 client,
@@ -179,20 +169,18 @@ abstract class WebFixture {
                 TestScheduler.SHARED);
     }
 
-    /** The one key account "1" has, registered once in {@code WebTestSupport}. */
     static final TestAuthenticator authenticator = new TestAuthenticator();
 
     /**
      * A season date a month ahead, the same for the whole run.
      *
-     * A date in the past is refused, and so is a launch after the SMP start.
+     * A past date is refused, and so is a launch after the SMP start.
      */
     static final String SOON = java.time.Instant.now()
             .plus(Duration.ofDays(30))
             .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
             .toString();
 
-    /** The origin the interface expects, which is `public-url`'s and not this JVM's address. */
     static final String ORIGIN = "https://steward.dev.nordtal.eu";
 
     @AfterAll
@@ -204,7 +192,7 @@ abstract class WebFixture {
             try {
                 agent.close();
             } catch (final IOException ignored) {
-                // A socket file left in a temp directory is not worth failing a test run over.
+                // Cleanup failures do not fail a test run.
             }
         }
         fakeDiscord.close();
@@ -221,11 +209,11 @@ abstract class WebFixture {
                     try {
                         Files.deleteIfExists(path);
                     } catch (final IOException ignored) {
-                        // A leftover temp directory is not worth failing a test run over.
+                        // Cleanup failures do not fail a test run.
                     }
                 });
             } catch (final IOException ignored) {
-                // Same.
+                // Cleanup failures do not fail a test run.
             }
         }
     }

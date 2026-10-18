@@ -27,11 +27,7 @@ import java.util.Optional;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The SMP's and the hunger games' admin actions, each one typed request written through {@link CommandApi}.
- *
- * The track is read from {@code smp_milestone} and {@code smp_objective}, as the running server holds it.
- */
+/** The admin actions for the SMP and the Hunger Games, each written as a request through {@link CommandApi}. */
 public final class GameActions {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -49,19 +45,19 @@ public final class GameActions {
         return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
     }
 
-    /** {@code GET /api/smp/track}: every milestone with its state and objectives; the page orders them by the file. */
+    /** {@code GET /api/smp/track} answers every milestone with its state and objectives. */
     public void track(final Context ctx) {
         ctx.json(readTrack());
     }
 
-    /** {@code GET /api/smp/track}: every milestone the SMP wrote a row for, unlocked first. */
+    /** Every milestone that has a row in {@code smp_milestone}, unlocked first. */
     public record SmpTrack(List<SmpMilestone> milestones) {}
 
-    /** One milestone; {@code state} is the column's word, {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}. */
+    /** One milestone. {@code state} is {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}. */
     public record SmpMilestone(
             String key, String state, @Nullable Instant unlocked, List<SmpObjective> objectives) {}
 
-    /** One objective; {@code type} is {@code HAND_IN}, {@code STATISTIC} or {@code ADVANCEMENT}. */
+    /** One objective. {@code type} is {@code HAND_IN}, {@code STATISTIC} or {@code ADVANCEMENT}. */
     public record SmpObjective(
             String key,
             String type,
@@ -70,14 +66,13 @@ public final class GameActions {
             boolean completed,
             @Nullable Instant completedAt) {}
 
-    /** {@code GET /api/hunger-games/round}: the open round's state and roster size, both absent when none is open. */
+    /** The state and registered player count of the open round, both {@code null} when no round is open. */
     public record HungerGamesRound(
             @Nullable String state, @Nullable Long registered) {}
 
-    /** A request written into a server's inbox, which the server answers on its own time. */
+    /** The id and status of a request in a server's inbox. */
     public record CommandAsked(String id, String status) {}
 
-    /** The whole track as {@code GET /api/smp/track} answers. */
     public SmpTrack readTrack() {
         final Map<String, SmpMilestone> milestones = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
@@ -119,11 +114,7 @@ public final class GameActions {
         return at == null ? null : at.toInstant();
     }
 
-    /**
-     * {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone.
-     *
-     * A stale key is refused at once, with the reason and the words the SMP's own refusal carries.
-     */
+    /** {@code POST /api/smp/objective} with {@code {key}} completes an open objective of the active milestone. */
     public void completeObjective(final Context ctx) {
         final String key = key(ctx);
         if (!exists("""
@@ -145,7 +136,7 @@ public final class GameActions {
                         new JournalDetail.ObjectiveCompleted(key)));
     }
 
-    /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone, refused as the SMP refuses it. */
+    /** {@code POST /api/smp/milestone} with {@code {key}} unlocks the active milestone. */
     public void unlockMilestone(final Context ctx) {
         final String key = key(ctx);
         final Optional<String> active = activeMilestone();
@@ -169,19 +160,14 @@ public final class GameActions {
     }
 
     /**
-     * {@code GET /api/hunger-games/round}: the open round's state, or empty when none is open.
-     *
-     * The count is players on a team, owner or accepted, not resolved participants.
+     * {@code GET /api/hunger-games/round} answers the open round.
+     * The count covers members in state OWNER or ACCEPTED.
      */
     public void round(final Context ctx) {
         ctx.json(readRound());
     }
 
-    /**
-     * The open round as {@code GET /api/hunger-games/round} answers.
-     *
-     * Its state is its game's while one is under way, and {@code REGISTRATION} while it is open.
-     */
+    /** Returns the open round. Its state is the game's state while a game runs, else {@code REGISTRATION}. */
     public HungerGamesRound readRound() {
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
@@ -206,9 +192,7 @@ public final class GameActions {
         }
     }
 
-    /**
-     * {@code POST /api/hunger-games/start} with {@code {confirm}}, true only after the browser has shown the numbers.
-     */
+    /** {@code POST /api/hunger-games/start} with {@code {confirm}} starts the game. */
     public void startRound(final Context ctx) {
         final JsonObject body = body(ctx);
         final boolean confirm = body.has("confirm")
@@ -217,7 +201,7 @@ public final class GameActions {
         answer(ctx, commands.submit(ctx, new HungerGamesRequest.StartGame(confirm), JournalAction.START_GAME, null));
     }
 
-    /** Answers that the request named {@code id} is written, for the browser to follow. */
+    /** Answers with status 202 and the pending request {@code id}. */
     public static void answer(final Context ctx, final String id) {
         ctx.status(202).json(new CommandAsked(id, "PENDING"));
     }

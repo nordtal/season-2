@@ -10,7 +10,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** An admin's save runs the one validator over what the jar's schema declares. */
+/** Tests that a save runs the validator over the schema of the jar. */
 class OverrideCheckTest {
 
     private static final MessageEntry WON = entry(

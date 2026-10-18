@@ -6,7 +6,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 import java.time.Instant;
 
-/** The season page: the phase, its two dates and the network's settings. */
+/** The texts of the season page for the phase, its two dates and the network settings. */
 @Name("Season")
 public interface SeasonPage {
 

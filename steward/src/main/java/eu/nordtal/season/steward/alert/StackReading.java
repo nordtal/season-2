@@ -6,12 +6,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the stack looks like right now, as far as an alert can be about it.
- *
- * @param registryProblem why the images were not compared, or null when the registry answered
- * @param host the machine's numbers, or null when they could not be read
- * @param backupVolumes the volumes a backup saves now, by the name their archives carry
- * @param mountedBy for each saved volume, by the name its archives carry, the services that run on it
+ * @param registryProblem the reason the images were not compared, or null when the registry answered
+ * @param mountedBy the services that run on each saved volume, keyed by the name its archives carry
  * @param deadPack the resource pack URL the proxy offers when it does not answer, or null when it does or none is set
  */
 public record StackReading(
@@ -30,13 +26,7 @@ public record StackReading(
         mountedBy = Map.copyOf(mountedBy);
     }
 
-    /**
-     * One compose service.
-     *
-     * @param health Docker's health word, or null for a container without a check
-     * @param exitCode what its last run exited with, or null while it runs or when that is not known
-     * @param outdated whether it runs an older image than the registry has
-     */
+    /** @param exitCode the exit code of its last run, or null while it runs or when unknown */
     public record Service(
             String name,
             String state,
@@ -45,7 +35,6 @@ public record StackReading(
             @Nullable Integer exitCode,
             boolean outdated) {
 
-        /** A long-running service with no last exit, which is how most of the stack reads. */
         public Service(
                 final String name,
                 final String state,
@@ -56,25 +45,20 @@ public record StackReading(
         }
     }
 
-    /** What a service is for right now, which decides what its state means. */
+    /** Says what a service is for, which decides what its state means. */
     public enum Purpose {
-        /** It should run, so a stop is an outage. */
+        /** Should run, so a stop is an outage. */
         SERVES,
-        /** Its stop is meant: a standby, or a service an admin holds down. */
+        /** Is meant to be stopped: a standby, or a service an admin holds down. */
         RESTS,
-        /** It runs once and exits, so only a failed exit is wrong. */
+        /** Runs once and exits, so only a failed exit is wrong. */
         ONCE,
-        /** A run stops and starts it right now, or did a moment ago. */
+        /** An update run stops and starts it now, or did a moment ago. */
         MOVING
     }
 
-    /**
-     * One file in the backup folder; a partial one is still being written.
-     *
-     * @param offsite whether a copy of it is in the offsite repository
-     */
+    /** A partial file is still being written. */
     public record Archive(String name, Instant modified, boolean partial, boolean offsite) {}
 
-    /** The disk and memory numbers, in bytes. */
     public record Host(long diskUsed, long diskTotal, long memoryAvailable, long memoryTotal) {}
 }

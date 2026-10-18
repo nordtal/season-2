@@ -14,14 +14,14 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** {@code steward_push_subscription}, against a real PostgreSQL. */
+/** Tests {@code steward_push_subscription} against PostgreSQL. */
 class PushSubscriptionsTest {
 
     private static PushSubscriptions subscriptions;
 
     @BeforeAll
     static void start() {
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // The role that steward logs in as.
         final DataSource source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
         subscriptions = new PushSubscriptions(source);
     }
@@ -79,7 +79,7 @@ class PushSubscriptionsTest {
                 named.system() + " " + named.browser(),
                 "the endpoint is not a name - see Devices for where one comes from");
 
-        // A second call without a User-Agent must not blank the name it already has.
+        // A call without a User-Agent keeps the stored name.
         subscriptions.subscribe(DiscordId.of("46"), "https://push.example/ep-5", "p", "a", null);
         final PushSubscriptions.Subscription again =
                 subscriptions.of(DiscordId.of("46")).get(0);
@@ -88,7 +88,7 @@ class PushSubscriptionsTest {
                 again.system() + " " + again.browser(),
                 "a resubscription without a User-Agent erased the name");
 
-        // A User-Agent that names only a system replaces the whole name, never half of it.
+        // A User-Agent with only a system replaces the whole name.
         subscriptions.subscribe(
                 DiscordId.of("46"), "https://push.example/ep-5", "p", "a", "Mozilla/5.0 (X11; Linux x86_64)");
         final PushSubscriptions.Subscription renamed =

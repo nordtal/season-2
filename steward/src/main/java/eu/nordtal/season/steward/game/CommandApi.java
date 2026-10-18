@@ -35,9 +35,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Steward's actions on the game servers, asked for from a browser as typed requests in the servers' inboxes.
- * A request is named to the browser as {@code <target>:<id>}, or {@code announce:<id>:<language>} for one line;
- * the bot is a target only for an admin's preview of a text.
+ * Writes the browser's actions on the game servers as typed requests into the servers' inboxes.
+ * A request is named {@code <target>:<id>}, or {@code announce:<id>:<language>} for one announcement line.
+ * The bot is a target for the preview of a text only.
  */
 public final class CommandApi {
 
@@ -46,7 +46,7 @@ public final class CommandApi {
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
 
-    /** How long the asker waits before the row is EXPIRED. */
+    /** The time after which a request expires. */
     private static final Duration PATIENCE = Duration.ofMinutes(2);
 
     private final @Nullable Data data;
@@ -54,7 +54,7 @@ public final class CommandApi {
     private final Function<Context, DiscordAuth.Account> accounts;
     private final Messages refusals;
 
-    /** @param refusals the database bundle with the admins' overrides, which a server's refusal is worded in */
+    /** @param refusals the database bundle that words a server's refusal */
     public CommandApi(
             final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts, final Messages refusals) {
         this.data = data;
@@ -66,7 +66,7 @@ public final class CommandApi {
         return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
-    /** Asks the SMP, journals who asked, and returns the name the browser polls. */
+    /** Writes the request to the SMP inbox with a journal line and returns its name. */
     String submit(
             final Context ctx,
             final SmpRequest request,
@@ -75,7 +75,7 @@ public final class CommandApi {
         return "smp:" + submit(ctx, data().smp(), request, action, detail);
     }
 
-    /** Asks the Hunger Games server, journals who asked, and returns the name the browser polls. */
+    /** Writes the request to the Hunger Games inbox with a journal line and returns its name. */
     String submit(
             final Context ctx,
             final HungerGamesRequest request,
@@ -91,7 +91,6 @@ public final class CommandApi {
             final JournalAction action,
             final @Nullable JournalDetail detail) {
         final DiscordAuth.Account who = accounts.apply(ctx);
-        // One statement: a committed row with no journal line would run an action silently.
         final Request<P> asked = inbox.submit(
                 request, who.actor(), Schedule.within(PATIENCE), AuditLine.of(action, who.actor(), detail));
         log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
@@ -99,9 +98,9 @@ public final class CommandApi {
     }
 
     /**
-     * Asks for an admin's preview where it reaches them and returns the name the browser polls.
-     * That is a direct message from the bot, or their linked player on the game server the roster has them on. A
-     * preview changes nothing, so it is the one request without a journal line.
+     * Writes the request for an admin's preview and returns its name.
+     * The target is a direct message of the bot or the linked player on their game server. The request has no
+     * journal line.
      */
     public String preview(final Context ctx, final MessagePreview preview) {
         final DiscordAuth.Account who = accounts.apply(ctx);
@@ -134,18 +133,14 @@ public final class CommandApi {
         return asked.id();
     }
 
-    /**
-     * What became of a request; {@code reason} is why a server refused, when it did.
-     *
-     * Out of time, PENDING means the target is down and RUNNING that it is stuck, so EXPIRED is a diagnosis.
-     */
+    /** The status of a request. {@code reason} is the reason of a server refusal. */
     public record CommandRun(
             String id,
             InboxStatus status,
             @Nullable MessageRef result,
             @Nullable String reason) {}
 
-    /** {@code GET /api/commands/{id}}: what became of it, the id being what {@link #submit} answered. */
+    /** {@code GET /api/commands/{id}} answers the status of the request that {@code submit} named. */
     public void outcome(final Context ctx) {
         final String id = ctx.pathParam("id");
         final String[] name = id.split(":", -1);
@@ -170,10 +165,7 @@ public final class CommandApi {
         return settled(name, inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name))));
     }
 
-    /**
-     * A preview the bot was asked for, worded here once Discord delivered it.
-     * The bot answers no words of its own; every other row of its inbox has a name of its own, or none.
-     */
+    /** Returns the status of a bot preview, with the sent text once the row is done. */
     private CommandRun sent(final String name, final long id) {
         final Request<BotRequest> row = data().bot()
                 .find(id)
@@ -186,11 +178,7 @@ public final class CommandApi {
                 : run;
     }
 
-    /**
-     * A request: its status, and its answer in its own words, a refusal worded by the database bundle.
-     *
-     * A refusal also names its reason, which is what the browser branches on.
-     */
+    /** Returns the status of a request, its result and the reason of a refusal. */
     private <P> CommandRun settled(final String name, final Request<P> row) {
         final Optional<String> result = row.status() == InboxStatus.REFUSED
                 ? row.refusal().map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
@@ -202,7 +190,7 @@ public final class CommandApi {
                 row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
     }
 
-    /** A failed row's text: the server's own sentence, or the error a throwing handler left. */
+    /** Returns the failure text of a failed row. */
     private static <P> Optional<String> failure(final Request<P> row) {
         if (row.status() != InboxStatus.FAILED) {
             return Optional.empty();
@@ -215,7 +203,7 @@ public final class CommandApi {
         }
     }
 
-    /** One language's line of an announcement: the request's status, and whether that language's text went out. */
+    /** Returns the status of the announcement and the result for one language. */
     private CommandRun announced(final String name, final long id, final String language) {
         final Request<BotRequest> row = data().bot()
                 .find(id)

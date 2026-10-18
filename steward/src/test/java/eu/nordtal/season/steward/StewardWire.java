@@ -46,10 +46,9 @@ import eu.nordtal.season.steward.update.Updates;
 import java.util.List;
 import java.util.Map;
 
-/** The records the routes answer and read, for the generated TypeScript types. */
+/** The records that the routes answer and read, for the generated TypeScript types. */
 public final class StewardWire {
 
-    /** Every record a route answers or reads at its top level. */
     public static final List<Class<?>> ROOTS = List.of(
             Profile.Me.class,
             PushEndpoints.WebPushPublicKey.class,
@@ -107,7 +106,6 @@ public final class StewardWire {
             Routes.ConsoleSent.class,
             StackApi.NetworkMap.class);
 
-    /** Records whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(Metrics.Curve.class, "Metrics"),
             Map.entry(GameDataRoutes.Icons.class, "GameIcons"),

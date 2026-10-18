@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The journal page's own words; a line of it is told in the admin bundle. */
+/** The words of the journal page. The admin bundle holds the journal line texts. */
 @Name("Journal page")
 public interface JournalPage {
 

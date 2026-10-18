@@ -43,24 +43,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
-/**
- * Entry point: {@code serve}, {@code forget-factors} and {@code generate-vapid-keys}.
- *
- * Steward is the interface; every run, the schema and every file belong to steward-agent.
- */
+/** Runs the subcommands {@code serve}, {@code forget-factors} and {@code generate-vapid-keys}. */
 @Slf4j
 public final class Steward {
 
-    /** The one clock of this process. */
     private static final Clock CLOCK = NetworkTime.clock();
 
-    /** The logger the settings name what they refused or ignored in. */
     private static final org.slf4j.Logger SETTINGS_LOG = LoggerFactory.getLogger(StewardSettings.class);
 
-    /** The payment loop, the scheduled clocks and the web interface, for the container's lifetime. */
+    /** The subcommand that starts the payment loop, the scheduled clocks and the web interface. */
     private static final String SERVE = "serve";
 
-    /** Clears a signed-in admin's second factor. Reachable only from a shell on the host. */
     private static final String FORGET = "forget-factors";
 
     private Steward() {}
@@ -70,7 +63,7 @@ public final class Steward {
             case FORGET -> ForgetFactors.run(args, databaseConfig(), CLOCK);
             case Web.GENERATE_VAPID_KEYS -> generateVapidKeys();
             case SERVE, "" -> serve();
-            // Refused rather than served: a second interface beside the running one is never what a typo meant.
+            // An unknown subcommand must not serve.
             default -> {
                 log.error(
                         "`{}` is not one of steward's commands: serve, {} and {}. A run is asked for in the"
@@ -93,7 +86,7 @@ public final class Steward {
         if (opened == null) {
             return 1;
         }
-        // Closed before the database, so no timed work outlives the pool it reads through.
+        // The scheduler closes before the database, so no timed work reads a closed pool.
         try (Database database = opened;
                 ProcessScheduler scheduler =
                         new ProcessScheduler("steward", failure -> log.error("A task of Steward failed", failure))) {
@@ -109,11 +102,11 @@ public final class Steward {
     /**
      * The settings {@code serve} runs on.
      *
-     * @param handle the steward group, so a change in Steward re-arms the two clocks
-     * @param config what {@code handle} hands out, which reads through to every reload
-     * @param settings where both groups came from, listened to for a change
-     * @param languages the network's at this start, which the announcements are listed in
-     * @param tiers the network's price list at this start, which payments are booked by
+     * @param handle the steward group, which rearms the two clocks when it changes
+     * @param config the values of {@code handle}, read again on every reload
+     * @param settings the source of both groups, listened to for changes
+     * @param languages the network's languages at start, which list the announcements
+     * @param tiers the network's price list at start, which payments are booked by
      */
     record Configs(
             Setting<StewardSpec> handle,
@@ -126,14 +119,14 @@ public final class Steward {
             Languages languages,
             Tiers tiers) {}
 
-    /** Takes both groups out of the database, or {@code null}. */
+    /** Reads both groups from the database, or returns {@code null}. */
     static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
         final DatabaseSettings settings = StewardSettings.stored(database.dataSource(), SETTINGS_LOG);
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
             final WebSpec web = StewardSettings.web(settings).get();
             final Setting<AlertsSpec> alerts = StewardSettings.alerts(settings);
-            // Steward starts first, so the network's groups are published before any server asks for them.
+            // Publishes the network's groups before any server asks for them.
             settings.load(NetworkSettings.PLAYERS);
             settings.load(NetworkSettings.SEASON);
             final Tiers tiers =
@@ -151,7 +144,6 @@ public final class Steward {
                     NetworkSettings.languages(languageAndTime),
                     tiers);
         } catch (final SettingsException broken) {
-            // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
             return null;
         }
@@ -161,7 +153,6 @@ public final class Steward {
         final StewardSpec config = configs.config();
         final AgentClient agent = agentOf(config);
         if (config.agent().token().isBlank()) {
-            // Said once: every container route, every run and the curves need the agent.
             log.warn("agent.token is empty in the steward group, so this container cannot ask"
                     + " steward-agent for anything: no container page, no log and no plugin list."
                     + " The setup script writes that secret.");
@@ -173,7 +164,7 @@ public final class Steward {
         }
     }
 
-    /** The one client of steward-agent, for the curves and the web alike. */
+    /** Returns the client of steward-agent that the curves and the web share. */
     private static AgentClient agentOf(final StewardSpec config) {
         return new AgentClient(new InternalClient(
                 AgentWire.SERVICE,
@@ -185,17 +176,14 @@ public final class Steward {
     private static int serveWithAgent(
             final Configs configs, final Database database, final AgentClient agent, final Scheduler scheduler) {
         final StewardSpec config = configs.config();
-        // The schedules and the season dates tell time in the network's zone.
         final Clock zoned = NetworkTime.clock(configs.zone());
-        // One set of directories, shared by the schedules, the stack routes and the web.
         final Data data = new Data(database, zoned);
 
         try (Schedules schedules = new Schedules(data.updates(), config, zoned, scheduler);
                 StackApi stack = buildStack(config, agent, database, data, configs.zone(), scheduler)) {
-            // Started after the marker, so a failure of the interface cannot keep the servers down.
+            // Starts after the readiness marker, so an interface failure cannot keep the servers down.
             final Web web = startWeb(configs, stack, agent, data, scheduler);
             try {
-                // The nightly backup and the optional scheduled update.
                 schedules.arm();
                 return serveWithApi(configs, database, scheduler, () -> reReadOwn(configs, schedules), web::listen);
             } finally {
@@ -204,7 +192,7 @@ public final class Steward {
         }
     }
 
-    /** Builds and starts the web interface on the {@code web} group's port, with the stack routes on it. */
+    /** Starts the web interface and the stack routes on the port of the {@code web} group. */
     private static Web startWeb(
             final Configs configs,
             final StackApi stack,
@@ -235,7 +223,7 @@ public final class Steward {
         return web;
     }
 
-    /** Builds the stack routes the web serves: services, logs, the console, files, the host and plugins. */
+    /** Builds the stack routes the web serves. */
     static StackApi buildStack(
             final StewardSpec config,
             final AgentClient agent,
@@ -243,7 +231,6 @@ public final class Steward {
             final Data data,
             final ZoneId zone,
             final Scheduler scheduler) {
-        // Every process's settings, which its signal re-reads; the proxy's pack among them.
         final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
                 agent,
@@ -255,14 +242,10 @@ public final class Steward {
                         config.update().at(),
                         config.update().days(),
                         zone),
-                // The player counts proxy writes, and the player list next to them.
                 new eu.nordtal.season.steward.stack.ServicesApi(
                         OnlineDirectory.using(database.dataSource(), CLOCK), data.roster(), CLOCK),
-                // The agent's resolve, so the page can ask what is newest without a run.
                 agent::plan,
-                // The agent's plugin list and search; removing one is a run.
                 new PluginsForward(agent, data.updates()),
-                // The overrides every process re-reads on the signal a save sends.
                 eu.nordtal.season.database.message.MessageOverrideStore.using(database.dataSource()),
                 eu.nordtal.season.database.layout.LayoutStore.using(database.dataSource()),
                 settings,
@@ -270,10 +253,9 @@ public final class Steward {
                 scheduler);
     }
 
-    /** Takes the live groups again after a change in Steward and re-arms the two clocks from the steward group. */
+    /** Reloads the live groups after a change in Steward and rearms both clocks from the {@code steward} group. */
     private static void reReadOwn(final Configs configs, final Schedules schedules) {
         try {
-            // Read at the alert monitor's next reading, through the one instance the group hands out.
             configs.alerts().reload();
         } catch (final SettingsException broken) {
             log.warn("The alert thresholds were changed but refused, so the last ones stay: {}", broken.getMessage());
@@ -281,14 +263,13 @@ public final class Steward {
         try {
             configs.handle().reload();
         } catch (final SettingsException broken) {
-            // The problem is on the group, where Steward shows it; the values in use stay.
             log.warn("The steward settings were changed but refused, so the last ones stay: {}", broken.getMessage());
             return;
         }
         schedules.arm();
     }
 
-    /** The payment loop over steward-bunq and the signals the web and the settings listen on, until SIGTERM. */
+    /** Runs the payment loop over steward-bunq and the signals the web and the settings listen on until SIGTERM. */
     private static int serveWithApi(
             final Configs configs,
             final Database database,
@@ -317,7 +298,6 @@ public final class Steward {
             }
             alerts.accept(signals);
             signals.start();
-            // SIGTERM is how a restart asks; the resources above close on the way out.
             final CountDownLatch stopping = new CountDownLatch(1);
             Runtime.getRuntime().addShutdownHook(new Thread(stopping::countDown, "steward-shutdown"));
             stopping.await();
@@ -327,11 +307,10 @@ public final class Steward {
         return 0;
     }
 
-    /** Writes the readiness marker once the schema is current and keeps it fresh; every service waits for it. */
+    /** Writes the readiness marker once the schema is current and keeps it fresh. Every service waits for it. */
     private static void markReady(final Scheduler scheduler) {
         final Readiness readiness = Readiness.onDefaultPath(CLOCK, log::warn);
         if (!readiness.keepBeating(scheduler)) {
-            // Fatal to everything waiting on this process, so it is loud.
             log.error(
                     "Could not write the readiness marker {}. The rest of the stack will not"
                             + " start, because its healthcheck reads this file.",
@@ -339,11 +318,7 @@ public final class Steward {
         }
     }
 
-    /**
-     * The subcommand, or the empty string.
-     *
-     * Anything unrecognised reads as the default, which cannot break anything.
-     */
+    /** Returns the subcommand, or the empty string. */
     private static String command(final String[] args) {
         return args.length == 0 ? "" : args[0].strip().toLowerCase(Locale.ROOT);
     }
@@ -357,7 +332,7 @@ public final class Steward {
         }
     }
 
-    /** Prints a fresh VAPID keypair for the {@code web} group's web-push section, public half first. */
+    /** Prints a new VAPID keypair for the web-push section of the {@code web} group, public half first. */
     private static int generateVapidKeys() {
         final com.interaso.webpush.VapidKeys keys = com.interaso.webpush.VapidKeys.generate();
         System.out.println(keys.getX509PublicKey());

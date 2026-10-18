@@ -20,7 +20,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Fails the build on a route nobody decided about, asking the real service what Javalin routed. */
+/** Fails the build on a route without a decision, using the routes the real service registered. */
 class GateTest {
 
     private static Javalin app;
@@ -37,7 +37,6 @@ class GateTest {
         }
     }
 
-    /** Every route Javalin has, with the decision it carries; none is undecided. */
     @Test
     void everyRouteCarriesExactlyOneDecision() {
         final List<String> undecided = new ArrayList<>();
@@ -56,16 +55,15 @@ class GateTest {
     }
 
     /**
-     * Every writing route with its gate, {@link Gate#KEY_FRESH} only for a change that needs the step-up.
+     * Every writing route with its gate. {@link Gate#KEY_FRESH} marks only a change that needs the step-up.
      *
-     * That is one that destroys, cannot be undone, hands out access or money, or changes admins or keys.
-     * Written out rather than derived, so moving a route across that line means editing a list a person reads.
+     * Such a change destroys, cannot be undone, grants access or money, or changes admins or keys.
+     * A person edits this list to move a route across that line.
      * {@code POST /api/updates} is {@link Gate#KEY_HELD} here and asks for the step-up per kind of run.
      */
     private static final Map<String, Gate> WRITES_GATED = Map.ofEntries(
-            // Signing out: a person part-way through the key ceremony must still be able to leave.
             Map.entry("POST /auth/logout", Gate.SIGNED_IN),
-            // The ceremonies of a key and of an app: a door cannot ask for what it hands out.
+            // The key and app ceremonies issue the factor, so they cannot require it.
             Map.entry("POST /auth/webauthn/register/start", Gate.SIGNED_IN),
             Map.entry("POST /auth/webauthn/register/finish", Gate.SIGNED_IN),
             Map.entry("POST /auth/webauthn/authenticate/start", Gate.SIGNED_IN),
@@ -73,26 +71,26 @@ class GateTest {
             Map.entry("POST /auth/totp/enrol/start", Gate.SIGNED_IN),
             Map.entry("POST /auth/totp/enrol/finish", Gate.SIGNED_IN),
             Map.entry("POST /auth/totp/verify", Gate.SIGNED_IN),
-            // Replaces or stops what runs, overwrites live data, or runs foreign code.
+            // These routes replace or stop what runs, overwrite live data or run foreign code.
             Map.entry("POST /api/backups/{name}/restore", Gate.KEY_FRESH),
             Map.entry("POST /api/services/{name}/plugins", Gate.KEY_FRESH),
             Map.entry("DELETE /api/services/{name}/plugins/{artifact}", Gate.KEY_FRESH),
             Map.entry("POST /api/services/{name}/console", Gate.KEY_FRESH),
-            // Changes admins or keys.
+            // These routes change admins or keys.
             Map.entry("POST /api/admins/grant", Gate.KEY_FRESH),
             Map.entry("POST /api/admins/revoke", Gate.KEY_FRESH),
             Map.entry("DELETE /api/keys/{id}", Gate.KEY_FRESH),
             Map.entry("DELETE /api/authenticator", Gate.KEY_FRESH),
-            // Hands out access or money, or cuts a link only the player can redo.
+            // These routes grant access or money, or cut a link only the player can redo.
             Map.entry("POST /api/access/grant", Gate.KEY_FRESH),
             Map.entry("POST /api/access/unlink", Gate.KEY_FRESH),
             Map.entry("POST /api/access/settle", Gate.KEY_FRESH),
-            // Cannot be taken back: the season moving on, game progress, a public message.
+            // These changes cannot be undone: the season moving on, game progress, a public message.
             Map.entry("POST /api/season/phase", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/objective", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/milestone", Gate.KEY_FRESH),
             Map.entry("POST /api/announcements", Gate.KEY_FRESH),
-            // Easily undone, or touching only one's own session, notifications or preview.
+            // These changes are easily undone or touch only the admin's session, notifications or preview.
             Map.entry("POST /api/updates", Gate.KEY_HELD),
             Map.entry("POST /api/updates/cancel", Gate.KEY_HELD),
             Map.entry("PUT /api/setting-groups/{service}/{name}", Gate.KEY_HELD),
@@ -130,20 +128,17 @@ class GateTest {
                 "A writing route carries the gate WRITES_GATED names for it, and every writing route is named there.");
     }
 
-    /** Reading is at least {@link Gate#KEY_HELD}, with the five routes a signed-out browser needs. */
+    /** Reading needs at least {@link Gate#KEY_HELD}, except five routes that a signed-out browser needs. */
     @Test
     void theOnlyReadsOutsideTheKeyAreTheDoorItself() {
         final Set<String> allowed = Set.of(
-                // A container healthcheck carries no cookie.
                 "GET /api/health",
-                // The one route whose answer IS "you are not signed in".
                 "GET /api/me",
-                // The page's own words, which its script ships anyway, so the sign-in page reads them too.
+                // The sign-in page reads the page's words, which its script ships anyway.
                 "GET /api/texts",
-                // The two halves of the Discord redirect.
                 "GET /auth/login",
                 "GET /auth/callback",
-                // Answer "nothing at this address" and nothing else, no more than a closed door shows a stranger.
+                // These routes answer "nothing at this address" and nothing else.
                 "GET /api/<path>",
                 "GET /auth/<path>");
 
@@ -164,10 +159,9 @@ class GateTest {
                         + String.join("\n  ", loose));
     }
 
-    /** The routing table is not empty, which every other assertion here would pass on. */
+    /** Checks that the routing table is not empty. Every other assertion here would pass on an empty one. */
     @Test
     void thereAreRoutesToCheckAtAll() {
-        // A GateTest that enumerates nothing is green about nothing: an empty list passes every assertion.
         assertTrue(
                 endpoints().size() >= 40,
                 "Steward has about forty routes; this found " + endpoints().size()
@@ -186,10 +180,9 @@ class GateTest {
     private static final Set<HandlerType> WRITES =
             Set.of(HandlerType.POST, HandlerType.PUT, HandlerType.PATCH, HandlerType.DELETE);
 
-    /** What Javalin actually routed, filters and internal entries left out. */
     @Test
     void everyEndpointLivesUnderOneOfTheTwoPrefixes() {
-        // The premise `Gatekeeper#isOurs` rests on: every endpoint lives under /api or /auth.
+        // `Gatekeeper#isOurs` assumes that every endpoint lives under /api or /auth.
         final List<String> outside = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
             final String path = endpoint.path;

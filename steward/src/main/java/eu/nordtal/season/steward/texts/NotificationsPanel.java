@@ -6,7 +6,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 import java.time.Instant;
 
-/** The notifications dialog: this device, the alert types per channel, the thresholds and the devices. */
+/** The texts of the notifications dialog: this device, the alert types, the thresholds and the devices. */
 @Name("Notifications")
 public interface NotificationsPanel {
 

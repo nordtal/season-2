@@ -16,12 +16,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** {@link Bank} against a stand-in for steward-bunq that refuses tabs the way it passes on bunq's refusals. */
 class BankTest {
 
     private static final String TOKEN = "bank-token";
 
-    /** What bunq says when it refuses a tab, which goes to steward's log. */
     private static final String REFUSAL = "The amount is above the limit for a bunq.me request.";
 
     private static Javalin bunq;

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** {@link ActionsApi#recent(int)} merges two tables into one sorted list. */
+/** Tests that {@link ActionsApi#recent(int)} merges two tables into one sorted list. */
 class ActionsApiTest {
 
     private static UpdateRequest run(final long id, final Instant finished, final UpdateKind kind) {

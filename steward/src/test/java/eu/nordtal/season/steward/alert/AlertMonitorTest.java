@@ -29,14 +29,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** What the monitor raises: a change of a type, never its unchanged numbers, and a failed run exactly once. */
+/** Tests that the monitor raises a change of a type, not unchanged numbers, and a failed run once. */
 class AlertMonitorTest {
 
     private static final long GIB = 1L << 30;
 
     private static DataSource dataSource;
 
-    /** The owner, for fixtures and for whatever stands in for another service. */
+    /** The owner role, for fixtures and for other services. */
     private static DataSource owner;
 
     private AlertBook book;
@@ -49,7 +49,7 @@ class AlertMonitorTest {
     static void startDatabase() {
         final TestDatabase database = TestDatabase.fresh();
         owner = database.dataSource();
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
@@ -66,7 +66,7 @@ class AlertMonitorTest {
         monitor = new AlertMonitor(() -> reading.get(), () -> thresholds, book, runs, Clock.systemUTC());
     }
 
-    /** A stack with fresh backups, one service in {@code state} and the disk {@code diskGib} of 100 GiB full. */
+    /** Builds a reading with fresh backups, one service in {@code state} and {@code diskGib} of 100 GiB used. */
     private static StackReading stack(final long diskGib, final String state) {
         final Instant fresh = Instant.now().minusSeconds(60);
         return new StackReading(
@@ -113,7 +113,7 @@ class AlertMonitorTest {
         monitor.poll();
         assertEquals(List.of("disk warn The disk is 90 % full"), raised());
 
-        // A number moving inside the same verdict is no news.
+        // A number that changes within the same verdict raises nothing.
         reading = () -> stack(91, "running");
         monitor.poll();
         assertEquals(List.of(), raised());
@@ -224,7 +224,7 @@ class AlertMonitorTest {
 
     private long finished(final UpdateKind kind, final UpdateStatus status, final String report) {
         final long id = runs.submit(kind, Actor.STEWARD, null).id();
-        // steward-agent's half, as the owner it logs in as.
+        // The part of steward-agent, as the owner role.
         final UpdateDirectory agent = UpdateDirectory.using(owner);
         assertEquals(id, agent.claimNext().orElseThrow().id());
         assertEquals(status, agent.finish(id, status, report).orElseThrow().status());

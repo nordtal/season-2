@@ -10,7 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** A restore is a run the agent carries out; Steward only writes the row, and only once the name is typed back. */
+/** Tests that a restore is a run the agent carries out. Steward writes the row only after the name is typed back. */
 class RestoreRunTest extends WebTestSupport {
 
     private static final String ARCHIVE = "nordtal-s2_mc-smp-20261001T044500Z.tar.zst";

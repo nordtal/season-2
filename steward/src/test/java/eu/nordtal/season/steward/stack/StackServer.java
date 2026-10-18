@@ -15,10 +15,10 @@ import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
 
-/** {@link StackApi}'s routes and the error shapes over a stand-in agent: no gate in front, and a caller who stays. */
+/** Serves the routes of {@link StackApi} over a stand-in agent, without a gate. */
 final class StackServer {
 
-    /** Signed in for as long as the test runs; the gate in front of these routes is {@code GateTest}'s to check. */
+    /** A caller that stays signed in. */
     private static final Caller ALWAYS = new Caller() {
         @Override
         public Actor actor(final Context ctx) {
@@ -33,7 +33,7 @@ final class StackServer {
 
     private StackServer() {}
 
-    /** The API under test over {@code agent}, with a nightly window that never fires. */
+    /** Returns the API over {@code agent} with a nightly schedule that never fires. */
     static StackApi api(final AgentStandIn agent) {
         return new StackApi(
                 new AgentClient(agent.client()),
@@ -49,7 +49,7 @@ final class StackServer {
                 TestScheduler.SHARED);
     }
 
-    /** Serves {@code api} on {@code port}; stop the returned server, then close the API. */
+    /** Serves {@code api} on {@code port}. */
     static Javalin start(final StackApi api, final int port) {
         return Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(Json.gson(), true));

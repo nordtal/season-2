@@ -15,24 +15,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Feeds {@code /api/services} player counts and names, keyed by compose service name.
- *
- * A missing key means unknown, never zero; a row older than {@link #STALE_AFTER} counts as missing.
- */
+/** Reads the player counts and names for {@code /api/services} by compose service name. */
 public final class ServicesApi {
 
-    /**
-     * How old a row may be before it is treated as absent.
-     *
-     * Three write intervals: one missed write is noise, three mean the proxy has stopped writing.
-     */
+    /** The age after which a row counts as absent. */
     static final Duration STALE_AFTER = OnlineDirectory.WRITE_INTERVAL.multipliedBy(3);
 
-    /** The proxy's own subject: the network total, and the key for the network's whole player list. */
+    /** The subject of the network total and of the whole player list. */
     static final String PROXY = "proxy";
 
-    /** By name, then uuid, so {@code Ada} and {@code ada} keep their order between reads. */
+    /** Orders players by name, then by uuid. */
     private static final Comparator<OnlinePlayer> BY_NAME = Comparator.comparing(
                     (OnlinePlayer player) -> player.name().toLowerCase(Locale.ROOT))
             .thenComparing(player -> player.uuid().toString());
@@ -41,7 +33,6 @@ public final class ServicesApi {
     private final OnlineRoster roster;
     private final Clock clock;
 
-    /** Package-visible so a test can hold time still. */
     public ServicesApi(final OnlineDirectory online, final OnlineRoster roster, final Clock clock) {
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
@@ -49,9 +40,9 @@ public final class ServicesApi {
     }
 
     /**
-     * Both tables, judged against one instant.
+     * Reads both tables at one instant.
      *
-     * @return the counts and lists for every subject with a fresh row, and no key for any other
+     * @return the counts and lists for every subject with a fresh row
      */
     public Online read() {
         final Instant now = clock.instant();
@@ -69,11 +60,7 @@ public final class ServicesApi {
         return fresh;
     }
 
-    /**
-     * The fresh players, under {@value #PROXY} and under the backend they are on, sorted by name.
-     *
-     * Sorted, so the first three faces the interface draws do not reshuffle on every refresh.
-     */
+    /** Returns the fresh players under {@value #PROXY} and under their backend, sorted by name. */
     private Map<String, List<OnlinePlayer>> freshRoster(final Instant now) {
         final Map<String, List<OnlinePlayer>> bySubject = new LinkedHashMap<>();
         final List<OnlinePlayer> network = new ArrayList<>();
@@ -101,12 +88,11 @@ public final class ServicesApi {
     /**
      * One reading of both tables.
      *
-     * @param counts subject to player count; a missing key is unknown, not zero
-     * @param roster subject to the players on it; a missing key has no list, which does not mean nobody is on
+     * @param counts the player count by subject, and a missing key is unknown
+     * @param roster the players by subject, and a missing key has no list
      */
     public record Online(Map<String, Integer> counts, Map<String, List<OnlinePlayer>> roster) {
 
-        /** The answer without a database: absence, not zeroes. */
         public static final Online NONE = new Online(Map.of(), Map.of());
 
         public Online {

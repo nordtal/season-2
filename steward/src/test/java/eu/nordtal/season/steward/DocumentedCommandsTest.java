@@ -17,13 +17,12 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every documented {@code docker compose run --rm steward} names what it does.
+ * Checks that every documented {@code docker compose run --rm steward} names what it does.
  *
- * A bare {@code run} starts a second {@code serve} daemon, so no document may present it as a harmless report.
+ * A bare {@code run} starts a second {@code serve} daemon, so no document may call it a harmless report.
  */
 class DocumentedCommandsTest {
 
-    /** Everywhere this command is written down for a person to copy. */
     private static final List<String> DOCUMENTS = List.of(
             "compose.yml",
             ".env.example",
@@ -32,7 +31,6 @@ class DocumentedCommandsTest {
             "steward/README.md",
             "deploy/README.md");
 
-    /** What {@link Steward} actually dispatches on. Anything else is refused. */
     private static final List<String> SUBCOMMANDS = List.of("serve", "forget-factors", "generate-vapid-keys");
 
     private static final Pattern INVOCATION = Pattern.compile("docker compose run (?:--rm )?steward(?<rest>[^\\n`]*)");

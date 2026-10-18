@@ -18,7 +18,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** A follow still open when the interface stops, which has to end once and quietly. */
+/** Checks that a follow still open when the interface stops ends once and quietly. */
 class LogFollowShutdownTest extends WebTestSupport {
 
     @Test
@@ -34,9 +34,7 @@ class LogFollowShutdownTest extends WebTestSupport {
             final BufferedReader lines =
                     new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             String line;
-            while ((line = lines.readLine()) != null && !line.contains("still running")) {
-                // Until the follow is really running.
-            }
+            while ((line = lines.readLine()) != null && !line.contains("still running")) {}
             assertTrue(line != null, "the follow ended before it was running");
             root.addAppender(warnings);
             web.stop();

@@ -10,10 +10,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-/**
- * Seals a secret for the database with AES-256-GCM and the JDK alone: the 12-byte nonce, then ciphertext and tag.
- * The context, such as the row's account, is authenticated with it, so a sealed value copied elsewhere fails to open.
- */
+/** Seals a secret with AES-256-GCM. The result is the 12-byte nonce, then ciphertext and tag. */
 public final class SecretBox {
 
     private static final int KEY_BYTES = 32;
@@ -28,11 +25,7 @@ public final class SecretBox {
         this.key = new SecretKeySpec(key, "AES");
     }
 
-    /**
-     * The box for a key given as 64 hex digits, as {@code openssl rand -hex 32} prints it; empty when blank.
-     *
-     * @throws IllegalArgumentException for anything else, so a mistyped key stops the start rather than the codes
-     */
+    /** @throws IllegalArgumentException when the string is not 64 hex digits */
     public static Optional<SecretBox> of(final String hex) {
         final String trimmed = hex.strip();
         if (trimmed.isEmpty()) {
@@ -51,7 +44,6 @@ public final class SecretBox {
         return Optional.of(new SecretBox(key));
     }
 
-    /** Seals {@code plain} under a fresh nonce, bound to {@code context}. */
     public byte[] seal(final byte[] plain, final byte[] context) {
         final byte[] nonce = new byte[NONCE_BYTES];
         RANDOM.nextBytes(nonce);
@@ -69,11 +61,6 @@ public final class SecretBox {
         }
     }
 
-    /**
-     * Opens what {@link #seal} sealed for the same context.
-     *
-     * @throws IllegalStateException when the key, the context or the bytes are not the ones it was sealed with
-     */
     public byte[] open(final byte[] sealed, final byte[] context) {
         if (sealed.length <= NONCE_BYTES) {
             throw new IllegalStateException("a sealed secret is shorter than its nonce");

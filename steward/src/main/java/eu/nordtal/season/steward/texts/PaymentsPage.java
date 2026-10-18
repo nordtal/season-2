@@ -6,7 +6,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 import java.time.Instant;
 
-/** The payments page's own words. */
+/** The words of the payments page. */
 @Name("Payments page")
 public interface PaymentsPage {
 

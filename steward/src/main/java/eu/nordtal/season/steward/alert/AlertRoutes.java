@@ -22,13 +22,12 @@ import java.util.Map;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
-/** {@code /api/alerts}: what is wrong now and what was raised lately, and each admin's channels per type. */
+/** Serves {@code /api/alerts}: the current alerts, the recent alerts and the channel preferences of the admin. */
 public final class AlertRoutes {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** How many raised alerts the page lists. */
     static final int RECENT = 20;
 
     private final Function<Context, Sessions.Session> sessions;
@@ -47,16 +46,11 @@ public final class AlertRoutes {
         this.preferences = preferences;
     }
 
-    /** {@code GET /api/alerts}. */
     public void current(final Context ctx) {
         ctx.json(read());
     }
 
-    /**
-     * {@code GET /api/alerts}: what is wrong now, red first, and every alert raised lately, newest first.
-     *
-     * {@code checkedAt} is absent before the first reading, {@code unreadable} while the last one failed.
-     */
+    /** Holds the body of {@code GET /api/alerts}. {@code checkedAt} is null before the first reading. */
     public record Alerts(
             @Nullable Instant checkedAt,
             @Nullable String unreadable,
@@ -64,7 +58,6 @@ public final class AlertRoutes {
             List<Alert> alerts,
             List<RecentAlert> recent) {}
 
-    /** One alert as it was raised, by steward or the bot. */
     public record RecentAlert(
             long id,
             Instant raised,
@@ -77,7 +70,6 @@ public final class AlertRoutes {
             List<Measure> measured,
             String path) {}
 
-    /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */
     public Alerts read() {
         if (monitor == null || book == null) {
             throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.ALERTS));
@@ -91,7 +83,6 @@ public final class AlertRoutes {
                 book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
     }
 
-    /** {@code GET /api/alerts/preferences}: every type with its channels, for the admin who asks. */
     public void preferences(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final Map<String, Map<String, Boolean>> answer = new LinkedHashMap<>();
@@ -103,10 +94,8 @@ public final class AlertRoutes {
         ctx.json(answer);
     }
 
-    /** One switch of one admin: whether alerts of a type reach them on a channel. */
     public record AlertPreference(AlertType type, AlertChannel channel, boolean enabled) {}
 
-    /** {@code PUT /api/alerts/preferences}: one switch, for the admin who is signed in. */
     public void setPreference(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PreferenceBody body = ctx.bodyAsClass(PreferenceBody.class);
@@ -146,7 +135,7 @@ public final class AlertRoutes {
     private static final class PreferenceBody {
         private @Nullable String type;
         private @Nullable String channel;
-        /** Boxed, so a missing field is a bad request, not a false. */
+        /** Boxed so that a missing field is a bad request, not false. */
         private @Nullable Boolean enabled;
     }
 }

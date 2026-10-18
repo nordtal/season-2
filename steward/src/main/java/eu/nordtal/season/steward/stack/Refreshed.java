@@ -11,9 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A value that goes out of date on a timer and is refreshed beside the reader, never by them.
- *
- * Only the first read blocks; a stale value is handed over at once and a failed refresh keeps it.
+ * A cached value that a background executor refreshes after its time to live.
+ * Only the first read blocks. A stale read returns the old value, and a failed refresh keeps it.
  */
 public final class Refreshed<T> {
 
@@ -35,10 +34,8 @@ public final class Refreshed<T> {
         this.clock = clock;
     }
 
-    /** The value as it stands: the newest one that finished, not the newest one asked for. */
     synchronized T get() {
         if (value == null) {
-            // Nothing to serve, so this one read is on the caller.
             value = read.get();
             refreshedAt = clock.get();
             return value;
@@ -49,23 +46,17 @@ public final class Refreshed<T> {
             try {
                 background.execute(this::refresh);
             } catch (RejectedExecutionException shuttingDown) {
-                // The process is going away; the value is still right for requests in flight.
                 refreshing = false;
             }
         }
         return Objects.requireNonNull(value, "set together with refreshedAt");
     }
 
-    /** When the value being handed out was read, so a stale answer says so. */
     synchronized Instant refreshedAt() {
         return Objects.requireNonNull(refreshedAt, "read only after the first get()");
     }
 
-    /**
-     * Throws the cached value away, so the next {@link #get()} reads for real and blocks doing it.
-     *
-     * Dropped rather than aged, since the caller pressed a button because they doubt the current answer.
-     */
+    /** Drops the cached value, so the next {@link #get()} reads and blocks. */
     synchronized void invalidate() {
         value = null;
     }
@@ -75,7 +66,6 @@ public final class Refreshed<T> {
         try {
             fresh = read.get();
         } catch (RuntimeException failed) {
-            // Warned rather than swallowed: the page shows the old answer with its age.
             log.warn(
                     "could not refresh a cached answer - the one from {} stays on the page: {}",
                     refreshedAt(),

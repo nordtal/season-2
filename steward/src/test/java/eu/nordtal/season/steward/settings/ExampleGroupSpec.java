@@ -10,7 +10,7 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Secret;
 import java.util.List;
 
-/** A group with a number, a text, lists, sections and a secret, in an order no sorting of their keys gives. */
+/** Holds a number, a text, lists, sections and a secret, in an order that sorting the keys would not give. */
 @ConfigSpec
 public interface ExampleGroupSpec {
 
@@ -52,7 +52,7 @@ public interface ExampleGroupSpec {
         return "";
     }
 
-    /** One stage, whose statistic comes before the subjects it counts, and which counts only when its kind says so. */
+    /** Holds a stage whose statistic comes before the subjects it counts. It counts only when its kind says so. */
     @ConfigSpec
     interface Stage {
 

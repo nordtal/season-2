@@ -10,7 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/** A server's command tree as its console suggests from it, to signed-in admins only. */
+/** Checks that the console suggests from a server's command tree for signed-in admins only. */
 class ConsoleCommandsApiTest extends WebTestSupport {
 
     @AfterEach

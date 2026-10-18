@@ -13,11 +13,7 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/**
- * On which channels each admin wants each alert type, where a missing row is the type's default.
- *
- * A switch turned back to its start writes a row rather than deleting one: "chose this" and "never looked" differ.
- */
+/** Stores the channels each admin wants per alert type. A missing row means the default of the type. */
 public final class AlertPreferences {
 
     private final Jdbi jdbi;
@@ -26,7 +22,6 @@ public final class AlertPreferences {
         this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
     }
 
-    /** Returns one admin's effective answer for every type and channel, defaults where nothing was chosen. */
     public Map<AlertType, Map<AlertChannel, Boolean>> of(final DiscordId admin) {
         final Chosen chosen = new Chosen(rows("WHERE discord_id = :discordId", admin.value()));
         final Map<AlertType, Map<AlertChannel, Boolean>> answer = new EnumMap<>(AlertType.class);
@@ -40,12 +35,10 @@ public final class AlertPreferences {
         return answer;
     }
 
-    /** Returns every admin's choices in one query, for one round of routing. */
     public Chosen all() {
         return new Chosen(rows("", null));
     }
 
-    /** Sets one switch for one admin. */
     public void set(final DiscordId admin, final AlertType type, final AlertChannel channel, final boolean enabled) {
         jdbi.useHandle(handle -> handle.createUpdate("""
                         INSERT INTO steward_alert_preference (discord_id, alert_type, channel, enabled, updated_at)
@@ -78,7 +71,7 @@ public final class AlertPreferences {
 
     private record Row(String discordId, String type, String channel, boolean enabled) {}
 
-    /** The stored choices of every admin; a type or channel this build does not know is ignored. */
+    /** Holds the stored choices. Rows of types or channels unknown to this build are ignored. */
     public static final class Chosen {
 
         private final Map<String, Boolean> switches = new HashMap<>();
@@ -93,7 +86,6 @@ public final class AlertPreferences {
             }
         }
 
-        /** Returns whether {@code admin} wants {@code type} on {@code channel}. */
         public boolean wants(final DiscordId admin, final AlertType type, final AlertChannel channel) {
             return switches.getOrDefault(key(admin.value(), type, channel), type.wantedByDefault(channel));
         }

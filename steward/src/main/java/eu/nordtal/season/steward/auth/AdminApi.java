@@ -15,11 +15,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Granting and revoking admin, written to the tree directly and journalled here with the admin who clicked.
- *
- * The Discord admin role follows on its own through {@code nordtal_admin}.
- */
+/** Grants and revokes admin in the {@link AdminTree} and journals each change with the acting admin. */
 public final class AdminApi {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -35,7 +31,6 @@ public final class AdminApi {
         this.accounts = accounts;
     }
 
-    /** {@code POST /api/admins/grant} with {@code {discordId}}. */
     public void grant(final Context ctx) {
         final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
@@ -53,7 +48,7 @@ public final class AdminApi {
         }
     }
 
-    /** {@code POST /api/admins/revoke} with {@code {discordId}}; takes everybody below them too. */
+    /** The revocation includes every admin below the target. */
     public void revoke(final Context ctx) {
         final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
@@ -88,6 +83,5 @@ public final class AdminApi {
         return DiscordId.of(value.getAsString().trim());
     }
 
-    /** A grant that went through; every other outcome answers an error. */
     public record Granted(AdminTree.Grant outcome) {}
 }

@@ -22,11 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One group of settings as the form draws it: its published schema, its defaults and the rows an admin changed.
- *
- * A changed value equal to the default removes its row, so a row is always a difference from the process's own value.
- */
+/** Holds one group of settings as the form draws it. A value equal to the default removes its row. */
 public final class SettingsDocument {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -53,13 +49,11 @@ public final class SettingsDocument {
         this.revision = revisionOf(stored);
     }
 
-    /** Returns the document of {@code group} over its stored rows, its choices named by {@code names}. */
     static SettingsDocument of(
             final SettingStore.Group group, final List<SettingStore.Value> stored, final Names names) {
         return new SettingsDocument(group, stored, names);
     }
 
-    /** Returns what the listing says of one group. */
     static Location describe(final SettingStore.Group group) {
         return new Location(
                 group.service(),
@@ -72,7 +66,7 @@ public final class SettingsDocument {
                 true);
     }
 
-    /** Returns a fingerprint of the stored rows, which a save sends back so a change in between is a conflict. */
+    /** Returns a fingerprint of the stored rows. A save sends it back, and a change in between is a conflict. */
     static String revisionOf(final List<SettingStore.Value> stored) {
         final StringBuilder text = new StringBuilder();
         stored.stream()
@@ -84,7 +78,6 @@ public final class SettingsDocument {
         return Sha256.hex(text.toString());
     }
 
-    /** Returns the document as the page reads it, with {@code reload} after a save and absent otherwise. */
     Document document(final @Nullable Reloading reload) {
         final Location location = describe(group);
         final List<Entry> entries = new ArrayList<>();
@@ -115,11 +108,10 @@ public final class SettingsDocument {
         }
     }
 
-    /** Returns one entry; {@code value} is what it holds now, absent for a template field. */
     private Entry entry(final String path, final String key, final JsonObject node, final @Nullable JsonElement value) {
         final Shape kind = formKindOf(node);
         final boolean secret = flag(node, "secret");
-        // A secret is the environment's, so the form shows only whether it is there.
+        // A secret shows only whether it is set.
         final boolean shown = !secret;
         return new Entry(
                 path,
@@ -143,7 +135,7 @@ public final class SettingsDocument {
                 objectAt(node, "appliesWhen", Condition.class));
     }
 
-    /** The node's choices, each value named by its plugin's text and paired with its icon where the schema says. */
+    /** Returns the choices of the node with the plugin name and icon of each value. */
     private @Nullable Choices choicesOf(final JsonObject node) {
         final SchemaNode.@Nullable Choices choices = objectAt(node, "choices", SchemaNode.Choices.class);
         if (choices == null) {
@@ -180,7 +172,6 @@ public final class SettingsDocument {
         return sections;
     }
 
-    /** One section's fields, each holding what a new section starts from where the schema says. */
     private List<Entry> templateOf(final JsonObject node) {
         final JsonObject blank =
                 node.get("defaults") instanceof final JsonObject defaulted ? defaulted : new JsonObject();
@@ -206,9 +197,9 @@ public final class SettingsDocument {
     }
 
     /**
-     * Returns the rows a save writes: JSON text per path, or {@code null} where the value is back at the default.
+     * Returns the rows a save writes: JSON text per path, or {@code null} where the value equals the default.
      *
-     * @throws RequestRefused for a path the group has no setting for, a secret, or a value of the wrong type
+     * @throws RequestRefused for an unknown path, a secret or a value of the wrong type
      */
     Map<String, @Nullable String> rowsFor(final JsonObject changes) {
         final Map<String, @Nullable String> rows = new LinkedHashMap<>();
@@ -241,7 +232,6 @@ public final class SettingsDocument {
         return node;
     }
 
-    /** Returns a node's children in the order its schema names them, which the stored object's own keys do not keep. */
     private static JsonObject children(final JsonObject node) {
         final JsonElement children = node.get("children");
         if (children == null || !children.isJsonObject()) {
@@ -263,13 +253,11 @@ public final class SettingsDocument {
         return text(node, "kind");
     }
 
-    /** The form's kind: a list whose elements are sections is drawn as cards. */
     private static Shape formKindOf(final JsonObject node) {
         final Shape kind = Shape.valueOf(kindOf(node));
         return kind == Shape.LIST && !children(node).isEmpty() ? Shape.SECTIONS : kind;
     }
 
-    /** A list of sections names no type of its own, and a node without one holds text. */
     private static SettingType typeOf(final JsonObject node, final Shape kind) {
         final JsonElement type = node.get("type");
         return type == null || type.isJsonNull() || kind == Shape.SECTIONS
@@ -342,7 +330,6 @@ public final class SettingsDocument {
         object.add(segments[segments.length - 1], value);
     }
 
-    /** How the form draws a setting: the schema's kinds, with a list of sections apart since it is drawn as cards. */
     public enum Shape {
         SCALAR,
         LIST,
@@ -350,11 +337,6 @@ public final class SettingsDocument {
         SECTIONS
     }
 
-    /**
-     * One group of settings a process published, as the listing names it.
-     *
-     * @param problem why the process refused the stored values and runs on its defaults; absent while it took them
-     */
     public record Location(
             String service,
             String name,
@@ -365,12 +347,7 @@ public final class SettingsDocument {
             boolean readable,
             boolean writable) {}
 
-    /**
-     * One group as the form draws it.
-     *
-     * @param revision the fingerprint of the stored rows, which the save sends back so a write in between is a 409
-     * @param reload what became of asking the process to take a save, on a save's answer alone
-     */
+    /** @param revision the fingerprint of the stored rows */
     public record Document(
             String service,
             String name,
@@ -385,20 +362,7 @@ public final class SettingsDocument {
             List<Entry> entries,
             @Nullable Reloading reload) {}
 
-    /**
-     * One key of a group, as the form draws it; a secret carries {@code filled} alone, never its value.
-     *
-     * @param explanation the schema's short text, empty where no schema entry covers the key
-     * @param editable false for a nested section, which has no value, and for a secret
-     * @param environmentOverridden an environment variable overrides the key, so a saved value waits until it is gone
-     * @param value a scalar's text, with a block scalar's newlines
-     * @param items the entries of a list
-     * @param template one section's fields in display order, the blank one "Add" starts from
-     * @param sections one field list per section the list holds, in order
-     * @param protectedEntry the one section a save may never remove
-     * @param refers what the value names, which Steward offers a picker for
-     * @param appliesWhen the sibling value this setting applies to alone, absent for one that always applies
-     */
+    /** Holds one key of a group. A secret has {@code filled} but never its value. */
     public record Entry(
             String path,
             String key,
@@ -420,27 +384,15 @@ public final class SettingsDocument {
             @Nullable Reference refers,
             @Nullable Condition appliesWhen) {}
 
-    /**
-     * The values a setting offers, each with the name its plugin gives it and the item drawn before that name.
-     *
-     * @param strict whether only these values are accepted, or they are suggestions beside free text
-     * @param names value to its name, absent where the schema names no texts and missing a value no text names
-     * @param icons value to the item it is drawn with, absent where the schema names none
-     */
+    /** Holds the values a setting offers. {@code names} is null when the schema names no texts. */
     public record Choices(
             List<String> values,
             boolean strict,
             @Nullable Map<String, String> names,
             @Nullable Map<String, String> icons) {}
 
-    /**
-     * That a setting applies only while a sibling holds one of {@code values}, as {@code AppliesWhen} declares it.
-     *
-     * @param key the sibling's key
-     */
     public record Condition(String key, List<String> values) {}
 
-    /** Where the names of a choice's values come from: a text by its bundle key, or {@code null} for none. */
     @FunctionalInterface
     public interface Names {
 
@@ -448,13 +400,6 @@ public final class SettingsDocument {
         String name(String key);
     }
 
-    /**
-     * What a value names, as its spec declares it with {@link Refers}.
-     *
-     * @param dependsOn the sibling key whose value decides the registry, for {@link Refers.To#SUBJECT}
-     * @param optional whether an empty value is a choice of its own
-     * @param except the registry's entries the picker leaves out
-     */
     public record Reference(
             Refers.To to,
             @Nullable String dependsOn,

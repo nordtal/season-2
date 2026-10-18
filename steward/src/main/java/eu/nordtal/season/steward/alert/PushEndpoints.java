@@ -15,11 +15,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The web push half: browser subscriptions, a test send and the VAPID public key.
- *
- * Without a VAPID keypair {@code vapidKeys} is null and the router sends no push.
- */
+/** Serves the web push routes: browser subscriptions, a test send and the VAPID public key. */
 public final class PushEndpoints {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -45,7 +41,6 @@ public final class PushEndpoints {
         return Objects.requireNonNull(pushSubscriptions, "web-push is not configured on this deployment yet");
     }
 
-    /** {@code GET /api/web-push/public-key}: the VAPID public key, encoded for the Push API. */
     public void publicKey(final Context ctx) {
         if (vapidKeys == null) {
             throw new RequestRefused(404, ANSWER.pushUnconfigured());
@@ -54,7 +49,6 @@ public final class PushEndpoints {
                 Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
     }
 
-    /** {@code POST /api/web-push/subscribe} with a browser's own {@code PushSubscription.toJSON()}. */
     public void subscribe(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
@@ -81,7 +75,6 @@ public final class PushEndpoints {
         ctx.status(204);
     }
 
-    /** {@code DELETE /api/web-push/subscribe}: only the endpoint is needed to name the row. */
     public void unsubscribe(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
@@ -95,7 +88,7 @@ public final class PushEndpoints {
         ctx.status(204);
     }
 
-    /** A browser this account subscribed; {@code system} and {@code browser} are each absent where unrecognised. */
+    /** Describes a subscribed browser. {@code system} and {@code browser} are null when not recognised. */
     public record PushDevice(
             String endpoint,
             @Nullable String system,
@@ -103,10 +96,8 @@ public final class PushEndpoints {
             Instant subscribedAt,
             @Nullable Instant lastSentAt) {}
 
-    /** {@code GET /api/web-push/public-key}: the VAPID public key, base64url. */
     public record WebPushPublicKey(String publicKey) {}
 
-    /** {@code GET /api/web-push/devices}: every browser of this account, with its endpoint to mark "this device". */
     public void devices(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         ctx.json(pushSubscriptions().of(who.signedInDiscordId()).stream()
@@ -119,11 +110,7 @@ public final class PushEndpoints {
                 .toList());
     }
 
-    /**
-     * {@code POST /api/web-push/test}: one notification of one type, to one of this account's browsers.
-     *
-     * Scoped by {@code discordId} and endpoint, since an endpoint alone is not a secret; preferences are ignored.
-     */
+    /** Sends one notification of one type to one browser of the account. Preferences are ignored. */
     public void test(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         if (router == null || vapidKeys == null) {
@@ -142,7 +129,7 @@ public final class PushEndpoints {
         }
         final AlertRouter.Delivery delivery = router.sendSample(subscription, type);
         if (delivery == AlertRouter.Delivery.GONE) {
-            // sendSample already removed the row; a silent 204 would leave the browser waiting.
+            // sendSample has already removed the row.
             throw new RequestRefused(404, ANSWER.subscriptionGone());
         }
         if (delivery != AlertRouter.Delivery.SENT) {
@@ -157,7 +144,6 @@ public final class PushEndpoints {
         private @Nullable String type;
     }
 
-    /** The body of both subscription routes; unsubscribe only reads {@code endpoint}. */
     private static final class PushSubscriptionBody {
         private @Nullable String endpoint;
         private @Nullable Keys keys;

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** The arithmetic of the nightly clock, without a database and without waiting for 04:45. */
+/** Tests the time arithmetic of the nightly clock without a database. */
 class NightlyClockTest {
 
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
@@ -26,7 +26,7 @@ class NightlyClockTest {
 
     @Test
     void aMomentBeforeTheHourWaitsTheFractionAndNeverZero() {
-        // Flooring this to zero would fire while the target is still ahead, re-arm, and write one request per pass.
+        // The wait rounds up to one second, never down to zero.
         final Duration until = at("04:45").untilNext(ZonedDateTime.of(2026, 9, 13, 4, 44, 59, 600_000_000, BERLIN));
 
         assertTrue(until.toMillis() > 0 && until.toMillis() < 1000, until.toString());
@@ -51,13 +51,13 @@ class NightlyClockTest {
 
     @Test
     void theHourTheClocksGoForwardIsStill0445AndItIs23HoursAway() {
-        // Europe/Berlin loses an hour in late March; a clock counting fixed hours would fire an hour off until October.
+        // Europe/Berlin loses an hour in late March.
         final ZonedDateTime beforeTheChange = ZonedDateTime.of(2027, 3, 27, 5, 45, 0, 0, BERLIN);
         final Duration until = at("04:45").untilNext(beforeTheChange);
 
         assertEquals(4, beforeTheChange.plus(until).getHour());
         assertEquals(45, beforeTheChange.plus(until).getMinute());
-        // Twenty-two, not twenty-three: the wall clock moves 23 hours, but 02:00-03:00 does not exist that night.
+        // 22 hours, because 02:00-03:00 does not exist that night.
         assertEquals(
                 Duration.ofHours(22),
                 until,
@@ -76,7 +76,7 @@ class NightlyClockTest {
 
     @Test
     void theNextBackupIsAMomentOnThisHostWhoeverIsAskingAndFromWhere() {
-        // "Tonight" must be worked out in the host's time zone, or an admin east of it can schedule AFTER the backup.
+        // "Tonight" is worked out in the time zone of the host.
         final ZonedDateTime beforeIt = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
         final ZonedDateTime afterIt = ZonedDateTime.of(2026, 9, 13, 5, 0, 0, 0, BERLIN);
 
@@ -88,7 +88,7 @@ class NightlyClockTest {
                 NightlyClock.next("04:45", BERLIN, afterIt).orElseThrow(),
                 "past today's, so it is tomorrow's - never a moment already gone");
 
-        // Asked from somewhere else entirely: the answer is the same instant, expressed here.
+        // A request from another zone gives the same instant.
         assertEquals(
                 ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", BERLIN, beforeIt.withZoneSameInstant(ZoneId.of("Pacific/Auckland")))
@@ -100,7 +100,7 @@ class NightlyClockTest {
 
     @Test
     void aNightThatIsNotOneOfTheChosenWeekdaysIsSkippedNotShortened() {
-        // 09-13 is a Sunday, so a schedule of Monday and Thursday has its next firing tomorrow morning.
+        // 09-13 is a Sunday, so the next firing of a Monday and Thursday schedule is tomorrow morning.
         final List<String> monAndThu = List.of("MONDAY", "THURSDAY");
         final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
 
@@ -109,7 +109,7 @@ class NightlyClockTest {
                 NightlyClock.next("04:45", monAndThu, BERLIN, sundayNight).orElseThrow(),
                 "Sunday is not one of the two, so the next firing is Monday's");
 
-        // Monday, and today's has already gone: the next one is Thursday and not tomorrow.
+        // Monday, and today's time has passed, so the next firing is Thursday.
         assertEquals(
                 ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", monAndThu, BERLIN, ZonedDateTime.of(2026, 9, 14, 5, 0, 0, 0, BERLIN))
@@ -117,7 +117,7 @@ class NightlyClockTest {
                 "three days are skipped whole - a day-of-week schedule that only ever adds one day"
                         + " is a daily backup wearing a different config key");
 
-        // And the day it IS on still behaves like the daily one: before the time, it is today's.
+        // On a scheduled day before the time, the next firing is today.
         assertEquals(
                 ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", monAndThu, BERLIN, ZonedDateTime.of(2026, 9, 14, 3, 0, 0, 0, BERLIN))
@@ -171,7 +171,7 @@ class NightlyClockTest {
                 "past its patience it waits for tomorrow rather than running into the morning");
     }
 
-    /** Every submit is refused, as the directory refuses one while another run is open. */
+    /** Refuses every submit like a directory with an open run. */
     private static UpdateDirectory busy() {
         final eu.nordtal.season.database.update.UpdateRequest open =
                 new eu.nordtal.season.database.update.UpdateRequest(
@@ -201,7 +201,7 @@ class NightlyClockTest {
                 });
     }
 
-    /** Nothing here ever submits, so the directory is a proxy that refuses every call. */
+    /** A directory that refuses every call. */
     private static UpdateDirectory noDirectory() {
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),
@@ -259,7 +259,7 @@ class NightlyClockTest {
         assertTrue(scheduler.pending().isEmpty(), "a closed clock asks for nothing more");
     }
 
-    /** A directory that keeps the arguments of every submit and answers it with request 12. */
+    /** A directory that records every submit and answers with request 12. */
     private static UpdateDirectory recording(final List<Object[]> submitted) {
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),

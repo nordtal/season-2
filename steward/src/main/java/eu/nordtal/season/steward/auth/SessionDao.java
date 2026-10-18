@@ -8,15 +8,10 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/**
- * The SQL behind {@link Sessions}, which is the API; every {@code id} here is the stored hash.
- *
- * Every read checks {@code expires_at > now()} itself; the hourly sweep is only housekeeping.
- */
+/** Every {@code id} here is the stored hash. */
 @RegisterConstructorMapper(Sessions.Session.class)
 public interface SessionDao {
 
-    /** The row between {@code /auth/login} and {@code /auth/callback}, with no account yet. */
     @SqlUpdate("""
             INSERT INTO steward_session (id, oauth_state, csrf, created_at, expires_at)
             VALUES (:id, :state, :csrf, now(), now() + make_interval(secs => :seconds))
@@ -27,7 +22,10 @@ public interface SessionDao {
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
-    /** Reads the one-time OAuth state and clears it atomically; the self-join returns the old value, not the NULL. */
+    /**
+     * Returns the OAuth state and sets it to NULL in the same statement.
+     * The self-join returns the value from before the update.
+     */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET oauth_state = NULL
@@ -44,7 +42,6 @@ public interface SessionDao {
             """)
     Optional<String> consumeState(@Bind("id") String id);
 
-    /** A fresh, signed-in row under a new id; see {@link Sessions#signIn}. */
     @SqlUpdate("""
             INSERT INTO steward_session
                 (id, discord_id, display_name, csrf, created_at, expires_at)
@@ -58,7 +55,7 @@ public interface SessionDao {
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
-    /** The row stored under {@code id}, answered under the cookie's own id, which the table does not hold. */
+    /** Returns the row stored under {@code id} with {@code cookie} as its id, since the table holds only the hash. */
     @SqlQuery("""
             SELECT :cookie AS id, discord_id, display_name, csrf, created_at, expires_at, verified_at,
                    step_up_until
@@ -68,7 +65,6 @@ public interface SessionDao {
             """)
     Optional<Sessions.Session> find(@Bind("id") String id, @Bind("cookie") String cookie);
 
-    /** Parks the WebAuthn ceremony this browser has just been handed, one at a time. */
     @SqlUpdate("""
             UPDATE steward_session
             SET webauthn_request = :request,
@@ -78,7 +74,9 @@ public interface SessionDao {
             """)
     int startCeremony(@Bind("id") String id, @Bind("request") String request);
 
-    /** The ceremony this browser started, readable once within ten minutes, as {@link #consumeState} does it. */
+    /**
+     * Returns the stored WebAuthn request once, within ten minutes of its start, as {@link #consumeState} does.
+     */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET webauthn_request = NULL,
@@ -97,7 +95,6 @@ public interface SessionDao {
             """)
     Optional<String> consumeCeremony(@Bind("id") String id);
 
-    /** Records that this browser has just held its key, on PostgreSQL's clock, and how long that step-up holds. */
     @SqlUpdate("""
             UPDATE steward_session
             SET verified_at = now(),
@@ -107,22 +104,20 @@ public interface SessionDao {
             """)
     int markVerified(@Bind("id") String id, @Bind("seconds") long seconds);
 
-    /** Ends this browser's step-up early; the door, {@code verified_at}, stays open. */
+    /** {@code verified_at} stays. */
     @SqlUpdate("UPDATE steward_session SET step_up_until = NULL WHERE id = :id")
     int endStepUp(@Bind("id") String id);
 
     @SqlUpdate("DELETE FROM steward_session WHERE id = :id")
     void end(@Bind("id") String id);
 
-    /** Ends every session of one account and answers how many, so no session outlives its keys. */
     @SqlUpdate("DELETE FROM steward_session WHERE discord_id = :discordId")
     int endAllOf(@Bind("discordId") DiscordId discordId);
 
-    /** Deletes expired rows and answers how many. */
     @SqlUpdate("DELETE FROM steward_session WHERE expires_at < now()")
     int sweep();
 
-    /** Ages a session for a test, moving {@code created_at} too, which a check constraint requires. */
+    /** Lowers {@code created_at} too, as a check constraint requires. */
     @SqlUpdate("""
             UPDATE steward_session
             SET expires_at = CAST(:at AS timestamptz),
@@ -132,7 +127,6 @@ public interface SessionDao {
             """)
     void expireAt(@Bind("id") String id, @Bind("at") Instant at);
 
-    /** Ages the ceremony clock for a test. */
     @SqlUpdate("UPDATE steward_session SET webauthn_started_at = :at WHERE id = :id")
     void ceremonyStartedAt(@Bind("id") String id, @Bind("at") Instant at);
 }

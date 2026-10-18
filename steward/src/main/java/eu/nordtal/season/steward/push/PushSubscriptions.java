@@ -23,12 +23,12 @@ public final class PushSubscriptions {
         this.dao = Jdbis.over(dataSource).onDemand(PushSubscriptionDao.class);
     }
 
-    /** Records a browser's subscription, or refreshes it if this endpoint has already subscribed. */
+    /** Stores a subscription, or refreshes the subscription of the same endpoint. */
     public void subscribe(final DiscordId discordId, final String endpoint, final String p256dh, final String auth) {
         subscribe(discordId, endpoint, p256dh, auth, null);
     }
 
-    /** Records a subscription, naming the browser from its User-Agent; the raw string is never stored. */
+    /** Stores a subscription with the system and browser names parsed from the User-Agent. */
     public void subscribe(
             final DiscordId discordId,
             final String endpoint,
@@ -43,38 +43,36 @@ public final class PushSubscriptions {
                 dao.forAccount(discordId).size());
     }
 
-    /** Every subscription there is, for {@link eu.nordtal.season.steward.alert.AlertRouter}. */
     public List<Subscription> all() {
         return dao.all();
     }
 
-    /** One account's own subscriptions, oldest first. */
     public List<Subscription> of(final DiscordId discordId) {
         return dao.forAccount(discordId);
     }
 
-    /** One subscription of this account, or null; looked up by endpoint and account, never endpoint alone. */
+    /** Returns the subscription of this endpoint and account, or {@code null}. */
     public @Nullable Subscription find(final DiscordId discordId, final String endpoint) {
         return dao.find(endpoint, discordId);
     }
 
     /**
-     * Removes one subscription of one account, the settings page's unsubscribe.
+     * Removes one subscription of one account.
      *
-     * @return whether a subscription of that endpoint was on that account
+     * @return whether the account had a subscription of that endpoint
      */
     public boolean unsubscribe(final DiscordId discordId, final String endpoint) {
         return dao.remove(endpoint, discordId) == 1;
     }
 
-    /** Removes a subscription whose push service just said 404 or 410; no account check. */
+    /** Removes the subscription of {@code endpoint} without an account check. */
     public void expired(final String endpoint) {
         if (dao.expired(endpoint) == 1) {
             log.info("a push subscription answered 404/410 and was removed: {}", endpoint);
         }
     }
 
-    /** Stamps the moment a push last reached this endpoint without a 404/410 back. */
+    /** Stores the time of the last push that the push service accepted. */
     public void touchSent(final String endpoint) {
         dao.touchSent(endpoint);
     }

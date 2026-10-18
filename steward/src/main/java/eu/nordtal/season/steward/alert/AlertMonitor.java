@@ -26,16 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Measures the stack, keeps what is wrong for the pages, and raises an alert whenever a type changes.
- *
- * The first reading only sets the baseline, a failed run is raised once, and the thresholds are asked for anew.
+ * Measures the stack, keeps the current alerts for the pages and raises an alert when a type changes.
+ * The first reading only sets the baseline. A failed run is raised once.
  */
 public final class AlertMonitor {
 
-    /** The module name every alert of this process is raised under. */
     public static final String RAISED_BY = "steward";
 
-    /** How far back a failed run is still raised, which covers a restart of this process. */
+    /** The age limit of a failed run that {@link #runs} still raises. */
     static final Duration RUN_WINDOW = Duration.ofMinutes(15);
 
     private static final Logger log = LoggerFactory.getLogger(AlertMonitor.class);
@@ -48,7 +46,7 @@ public final class AlertMonitor {
 
     private volatile Snapshot snapshot = new Snapshot(null, null, List.of());
 
-    /** Null until the first reading; touched by the polling thread only. */
+    /** Is null before the first reading. Only the polling thread uses it. */
     private @Nullable Map<AlertType, Alert> last;
 
     public AlertMonitor(
@@ -64,12 +62,6 @@ public final class AlertMonitor {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /**
-     * What is wrong right now, for the pages.
-     *
-     * @param checkedAt when the last reading succeeded, or null before the first
-     * @param unreadable why the last reading failed, or null when it succeeded
-     */
     public record Snapshot(
             @Nullable Instant checkedAt, @Nullable String unreadable, List<Alert> alerts) {
 
@@ -77,7 +69,7 @@ public final class AlertMonitor {
             alerts = List.copyOf(alerts);
         }
 
-        /** Returns the worst level, and yellow rather than green when nothing could be read. */
+        /** Returns DOWN if any alert is DOWN, OK when there are no alerts and the last reading succeeded, else WARN. */
         public Alert.Level level() {
             if (alerts.stream().anyMatch(alert -> alert.level() == Alert.Level.DOWN)) {
                 return Alert.Level.DOWN;
@@ -90,7 +82,7 @@ public final class AlertMonitor {
         return snapshot;
     }
 
-    /** Reads the stack once and raises every type that changed; never throws, since it runs on a timer. */
+    /** Raises every type that changed since the last reading. Never throws. */
     public void poll() {
         final List<Alert> now;
         try {
@@ -117,7 +109,7 @@ public final class AlertMonitor {
         }
     }
 
-    /** Raises every run that failed lately and was not raised yet; never throws. */
+    /** Raises each failed run of the last {@link #RUN_WINDOW} once. Never throws. */
     public void runs() {
         final List<UpdateRequest> finished;
         try {
@@ -141,7 +133,6 @@ public final class AlertMonitor {
         }
     }
 
-    /** A failed run as its card in the admin channel names it, with the same failed lines and records below. */
     static Alert runFailed(final UpdateRequest run) {
         final List<MessageRef> detail = new ArrayList<>();
         detail.add(TEXTS.alert().run(run.id()));
@@ -168,7 +159,7 @@ public final class AlertMonitor {
         }
     }
 
-    /** One alert per type: the worst one, naming every subject of its type. */
+    /** Merges the alerts of a type into the worst one, naming every subject. */
     static Map<AlertType, Alert> byType(final List<Alert> alerts) {
         final Map<AlertType, List<Alert>> grouped = new EnumMap<>(AlertType.class);
         for (final Alert alert : alerts) {
@@ -199,7 +190,7 @@ public final class AlertMonitor {
                 worst.path());
     }
 
-    /** Whether two readings of one type tell the same; the title is left out, since it carries numbers. */
+    /** Compares level and subject, not the title. */
     private static boolean sameFact(final @Nullable Alert before, final @Nullable Alert after) {
         if (before == null || after == null) {
             return before == null && after == null;

@@ -14,7 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** The interface's own doors: the CSRF token, health, the service table, and the run and access rows. */
+/** Tests the CSRF token, health, the service table, and the run and access rows. */
 class WebRoutesTest extends WebTestSupport {
 
     @Test
@@ -30,7 +30,7 @@ class WebRoutesTest extends WebTestSupport {
 
     @Test
     void theCookieAloneIsNotEnough() throws Exception {
-        // A form posted from another site carries the cookie. It cannot read /api/me.
+        // A form posted from another site carries the cookie but cannot read /api/me.
         final HttpResponse<String> refused = http.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/services/smp/console"))
                         .header("Content-Type", "application/json")
@@ -95,9 +95,9 @@ class WebRoutesTest extends WebTestSupport {
     }
 
     /**
-     * A {@code HEAD} against the health route answers like its {@code GET}, which is what a monitor sends first.
+     * Checks that a {@code HEAD} against the health route answers like its {@code GET}, which a monitor sends first.
      *
-     * The gate looks up roles by exact method, so an unrouted {@code HEAD} would read as undecided.
+     * The gate looks up roles by exact method, so an unrouted {@code HEAD} reads as undecided.
      */
     @Test
     void headOnHealthIsNotUndecided() throws Exception {
@@ -127,11 +127,9 @@ class WebRoutesTest extends WebTestSupport {
         final JsonObject row = GSON.fromJson(asked.body(), JsonObject.class);
         assertEquals("BACKUP", row.get("kind").getAsString());
         assertEquals("PENDING", row.get("status").getAsString());
-        // Who asked is written down, as the person's Discord id.
         assertEquals("PERSON", row.get("actorKind").getAsString(), row.toString());
         assertEquals("1", row.get("actorId").getAsString(), row.toString());
 
-        // It is in the list the interface draws its runs from.
         final JsonArray recent = GSON.fromJson(get("/api/updates").body(), JsonArray.class);
         assertTrue(recent.size() >= 1);
         assertEquals(
@@ -186,20 +184,19 @@ class WebRoutesTest extends WebTestSupport {
         assertEquals(400, refused.statusCode(), refused.body());
     }
 
-    /** A grant of six million years is refused as a slip of the keyboard, capped at a decade. */
+    /** A grant of six million years is refused as a slip of the keyboard, and the cap is a decade. */
     @Test
     void anAbsurdGrantIsRefused() throws Exception {
         final HttpResponse<String> refused = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":2147483647}");
         assertEquals(400, refused.statusCode(), refused.body());
 
-        // 3650 is a decade of free access, one keystroke away from 365.
         final HttpResponse<String> decade = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":3650}");
         assertEquals(400, decade.statusCode(), decade.body());
         assertTrue(decade.body().contains("between 1 and 365 days"), decade.body());
     }
 
     /**
-     * A grant from here is a row in the bot's inbox, which the bot carries out, answered 202 with its id.
+     * A grant from here is a row in the bot's inbox that the bot carries out, answered 202 with its id.
      *
      * Only the bot sets the role, messages the member and journals, so this side writes no journal line.
      */
@@ -256,7 +253,6 @@ class WebRoutesTest extends WebTestSupport {
         }
     }
 
-    /** Holds the row one access change wrote: its kind, its payload and the admin who asked. */
     private void assertAsked(final long id, final String[] ask) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.prepareStatement("select kind, payload = cast(? AS jsonb) AS asked,"
@@ -268,13 +264,12 @@ class WebRoutesTest extends WebTestSupport {
                 assertEquals(ask[2], row.getString("kind"));
                 assertTrue(row.getBoolean("asked"), ask[0] + " asked for " + row.getString("payload"));
                 assertEquals("PERSON", row.getString("actor_kind"));
-                // The admin's Discord id, which is what the bot re-reads and journals.
                 assertEquals("1", row.getString("actor_id"));
             }
         }
     }
 
-    /** A booking by hand is booked here, in one answer, and the bot is only told; the admin is the actor. */
+    /** A booking by hand is booked here in one answer. The bot is only told, and the admin is the actor. */
     @Test
     void aBookingByHandIsBookedHereAndTheBotIsOnlyTold() throws Exception {
         final PaymentRequest request = new PaymentRequests(WebFixture.postgres.dataSource())
@@ -316,7 +311,7 @@ class WebRoutesTest extends WebTestSupport {
                         JsonObject.class)
                 .get("id")
                 .getAsLong();
-        // Standing in for the bot, as the owner: claim everything waiting, and answer this one.
+        // Stands in for the bot, as the owner: claims everything waiting and answers this one.
         eu.nordtal.season.database.inbox.Inbox.over(
                         WebFixture.postgres.dataSource(), eu.nordtal.season.database.inbox.BotRequest.TABLE)
                 .drain(request -> eu.nordtal.season.database.inbox.Outcome.done(

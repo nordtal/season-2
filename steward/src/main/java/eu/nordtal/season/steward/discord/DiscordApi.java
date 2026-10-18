@@ -10,11 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The route over the guild's channels as discord-bot last published them, so steward never holds the bot's token.
- *
- * It never fails the page: every failure is a {@code 200} with {@code available: false} and a reason.
- */
+/** The route for the channels that discord-bot published. A failure answers 200 with {@code available: false}. */
 public final class DiscordApi {
 
     private static final StewardTexts.Steward.Said SAID =
@@ -23,7 +19,7 @@ public final class DiscordApi {
     private final WebSpec.DiscordSpec config;
     private final @Nullable GuildChannels channels;
 
-    /** @param channels the list discord-bot publishes, absent when this instance has no database */
+    /** @param channels the list that discord-bot publishes, or {@code null} without a database */
     public DiscordApi(final WebSpec.DiscordSpec config, final @Nullable GuildChannels channels) {
         this.config = config;
         this.channels = channels;
@@ -33,7 +29,6 @@ public final class DiscordApi {
         ctx.json(guild());
     }
 
-    /** What the guild is made of as the bot last saw it, or why there is no list. */
     Guild guild() {
         final String guildId = config.guildId();
         if (guildId.isBlank()) {
@@ -51,16 +46,16 @@ public final class DiscordApi {
     }
 
     /**
-     * What the guild is made of, or why that could not be answered; without it an id can still be typed.
+     * The channels of the guild.
      *
-     * @param reason why there is no list, absent while there is one
+     * @param reason the reason for a missing list, absent while there is a list
      */
     public record Guild(boolean available, @Nullable MessageRef reason, List<Pick> entries) {}
 
     /**
-     * One channel as a picker offers it, in the guild's own order.
+     * One channel of the picker, in guild order.
      *
-     * @param type Discord's channel type, so a category groups apart from its channels
+     * @param type the Discord channel type
      */
     public record Pick(String id, String name, int type) {}
 }

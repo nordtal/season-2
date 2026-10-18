@@ -20,17 +20,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/**
- * A log follow ends quietly when its browser goes away and when steward stops.
- *
- * Neither ending throws; a dead client shows only as one warning per line, so warnings are what this counts.
- */
+/** Tests that a log follow ends without an exception when its browser leaves and when Steward stops. */
 class FollowEndsTest {
 
     private static final int PORT = 18084;
     private static final Gson GSON = new Gson();
 
-    /** Counts, rather than collecting: a storm would fill a list faster than it could be read. */
     private static final class Warnings extends AppenderBase<ILoggingEvent> {
 
         private final AtomicInteger count = new AtomicInteger();
@@ -64,7 +59,6 @@ class FollowEndsTest {
                 api.close();
                 server.stop();
                 closedByTheTest = true;
-                // A second is nothing next to a retry storm, and long enough for one follow ending to settle.
                 Thread.sleep(1_000);
 
                 assertTrue(
@@ -75,7 +69,6 @@ class FollowEndsTest {
                                 + " will not tell it any other way");
             }
         } finally {
-            // The close is what is under test, so it happens above; this only covers paths that never got there.
             if (!closedByTheTest) {
                 api.close();
                 server.stop();
@@ -88,12 +81,7 @@ class FollowEndsTest {
         }
     }
 
-    /**
-     * Opens the follow and leaves it the way a browser leaves.
-     *
-     * A first line is read so the follow is established rather than merely accepted, then the body is closed and
-     * the server told nothing.
-     */
+    /** Opens the follow, reads the first line and closes the body. */
     private static void followThenLeaveLikeABrowser(final HttpClient http, final String name) throws Exception {
         final HttpResponse<InputStream> follow = http.send(
                 HttpRequest.newBuilder(
@@ -109,7 +97,7 @@ class FollowEndsTest {
         }
     }
 
-    /** Counts warnings on the ROOT logger while attached, and detaches itself on {@link #close()}. */
+    /** Counts warnings on the ROOT logger until {@link #close()}. */
     private static final class WarningWatch implements AutoCloseable {
 
         private final ch.qos.logback.classic.Logger root;
@@ -141,7 +129,7 @@ class FollowEndsTest {
         }
     }
 
-    /** A service with a container actually running, or a skip, since a stopped one never follows. */
+    /** Returns a service with a running container, or skips the test. */
     private static String aRunningService(final HttpClient http) throws Exception {
         final HttpResponse<String> response = http.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + PORT + "/api/services"))

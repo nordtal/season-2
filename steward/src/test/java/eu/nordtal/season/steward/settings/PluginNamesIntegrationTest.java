@@ -20,7 +20,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** That a choice's values are named by the texts of the plugin that published the group, as an admin changed them. */
+/** Tests that choice values are named by the texts of the plugin that published the group, with admin overrides. */
 class PluginNamesIntegrationTest {
 
     private Path scratch;
@@ -29,7 +29,7 @@ class PluginNamesIntegrationTest {
 
     @BeforeEach
     void start() throws IOException {
-        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        // A short path, since a Unix socket path has a length limit.
         scratch = Files.createTempDirectory(Path.of("/tmp"), "names");
         agent = new AgentStandIn(scratch, 0, config -> {});
         overrides = MessageOverrideStore.using(TestDatabase.fresh().dataSource());

@@ -20,7 +20,7 @@ import java.time.Duration;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/** The health route fails with a 503 when the database or steward-agent does not answer, so a plain check sees it. */
+/** Checks that the health route answers 503 when the database or steward-agent does not answer. */
 class HealthTest extends WebFixture {
 
     @Test
@@ -37,7 +37,6 @@ class HealthTest extends WebFixture {
 
     @Test
     void anAgentThatDoesNotAnswerIsA503() throws Exception {
-        // Port 1 answers nothing on this machine.
         final AgentClient nobody =
                 new AgentClient(new InternalClient(AgentWire.SERVICE, "http://127.0.0.1:1", "", Duration.ofSeconds(2)));
 
@@ -47,7 +46,6 @@ class HealthTest extends WebFixture {
         assertFalse(health.get("agent").getAsBoolean(), health.toString());
     }
 
-    /** Starts {@code web} on a free port, asks its health route once, and stops it again. */
     private static JsonObject healthOf(final Web web) throws Exception {
         try {
             final int port = web.start(0).port();

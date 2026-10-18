@@ -15,11 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The plugins on one server: the list, the search and the install are steward-agent's, passed on with who asked.
- *
- * Removing one stops its server, so it is a run like every other stop.
- */
+/** Forwards the plugin list, the search and the install of one server to steward-agent with the asker. */
 public final class PluginsForward {
 
     private final AgentClient agent;
@@ -30,17 +26,15 @@ public final class PluginsForward {
         this.updates = updates;
     }
 
-    /** {@code GET /api/services/{name}/plugins} */
     void list(final Context ctx) {
         ctx.json(agent.plugins(service(ctx)));
     }
 
-    /** {@code GET /api/services/{name}/plugins/search?q=} */
     void search(final Context ctx) {
         ctx.json(agent.searchPlugins(service(ctx), Objects.requireNonNullElse(ctx.queryParam("q"), "")));
     }
 
-    /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils, answered and returned. */
+    /** {@code POST /api/services/{name}/plugins} adds a plugin row. */
     AgentWire.PluginAdded add(final Context ctx, final Actor by) {
         final AgentWire.PluginAsk ask = ctx.bodyAsClass(AgentWire.PluginAsk.class);
         if (ask == null) {
@@ -51,10 +45,10 @@ public final class PluginsForward {
         return added;
     }
 
-    /** {@code DELETE /api/services/{name}/plugins/{artifact}}: the run that removes it, by its id. */
+    /** The answer to {@code DELETE /api/services/{name}/plugins/{artifact}}. */
     public record RemovalAsked(long id, UpdateKind kind, String artifact) {}
 
-    /** {@code DELETE /api/services/{name}/plugins/{artifact}}: a REMOVE_PLUGIN run, answered with its row. */
+    /** {@code DELETE /api/services/{name}/plugins/{artifact}} writes a REMOVE_PLUGIN run request. */
     void remove(final Context ctx, final Actor actor) {
         final String artifact = ctx.pathParam("artifact");
         final UpdateRequest written;
@@ -68,7 +62,6 @@ public final class PluginsForward {
         ctx.status(202).json(new RemovalAsked(written.id(), written.kind(), artifact));
     }
 
-    /** The service out of the path, checked since it goes into the agent's URL. */
     private static String service(final Context ctx) {
         final String service = ctx.pathParam("name");
         if (!service.matches("[a-z0-9][a-z0-9-]{0,62}")) {

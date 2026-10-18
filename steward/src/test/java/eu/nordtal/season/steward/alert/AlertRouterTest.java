@@ -27,7 +27,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Where a raised alert goes: to the browsers and the admin channel of every admin who wants it, once. */
+/** Tests that a raised alert goes once to the browsers and the admin channel of every admin who wants it. */
 class AlertRouterTest {
 
     private static final DiscordId FIRST = DiscordId.of("42");
@@ -35,7 +35,7 @@ class AlertRouterTest {
 
     private static DataSource dataSource;
 
-    /** The owner, for fixtures and for whatever stands in for another service. */
+    /** The owner role, for fixtures and for other services. */
     private static DataSource owner;
 
     private AlertBook book;
@@ -49,7 +49,7 @@ class AlertRouterTest {
     static void startDatabase() {
         final TestDatabase database = TestDatabase.fresh();
         owner = database.dataSource();
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
@@ -140,7 +140,7 @@ class AlertRouterTest {
 
     @Test
     void theAdminChannelGetsWhatItsAdminsWantMentioningOnlyThem() {
-        // A service alert is not in Discord by default; a run is.
+        // By default a service alert is not sent to Discord, and a run alert is.
         book.raise(alert(AlertType.SERVICE, Alert.Level.DOWN), "steward");
         book.raise(alert(AlertType.RUN, Alert.Level.DOWN), "steward");
         preferences.set(SECOND, AlertType.RUN, AlertChannel.DISCORD, false);

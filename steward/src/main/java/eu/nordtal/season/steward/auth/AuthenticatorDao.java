@@ -7,11 +7,11 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/** The SQL behind {@link Authenticators}, which is the API; the secret passes through here sealed only. */
+/** Holds the SQL of {@link Authenticators}. */
 @RegisterConstructorMapper(Authenticators.Row.class)
 public interface AuthenticatorDao {
 
-    /** Starts or restarts an enrolment; answers 0 when the account already has a confirmed app. */
+    /** Returns 0 when the account has a confirmed app. */
     @SqlUpdate("""
             INSERT INTO steward_authenticator (discord_id, secret, created_at)
             VALUES (:discordId, :secret, now())
@@ -36,9 +36,9 @@ public interface AuthenticatorDao {
             @Bind("discordId") DiscordId discordId, @Bind("most") int most, @Bind("seconds") long seconds);
 
     /**
-     * Takes the code of one step, once: answers 0 when that step or a later one was taken already.
+     * Records the step of an accepted code. Returns 0 when that step or a later one was recorded.
      *
-     * {@code confirming} says which row it is for, the enrolment or the confirmed app, so neither stands in.
+     * {@code confirming} selects the unconfirmed enrolment (true) or the confirmed app (false).
      */
     @SqlUpdate("""
             UPDATE steward_authenticator
@@ -53,7 +53,6 @@ public interface AuthenticatorDao {
             """)
     int take(@Bind("discordId") DiscordId discordId, @Bind("step") long step, @Bind("confirming") boolean confirming);
 
-    /** Counts one wrong code, starting the count afresh once the last window has passed. */
     @SqlUpdate("""
             UPDATE steward_authenticator
             SET wrong_codes = CASE WHEN wrong_since > now() - make_interval(secs => :seconds)
@@ -67,7 +66,7 @@ public interface AuthenticatorDao {
     @SqlUpdate("DELETE FROM steward_authenticator WHERE discord_id = :discordId AND confirmed_at IS NOT NULL")
     int remove(@Bind("discordId") DiscordId discordId);
 
-    /** Everything of one account, an enrolment included, for {@code forget-factors}. */
+    /** Deletes the row of the account, an enrolment included. */
     @SqlUpdate("DELETE FROM steward_authenticator WHERE discord_id = :discordId")
     int forget(@Bind("discordId") DiscordId discordId);
 }

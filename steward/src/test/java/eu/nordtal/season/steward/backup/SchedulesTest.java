@@ -13,14 +13,10 @@ import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * A schedule saved in Steward reaches the clocks without a restart.
- *
- * The config is a live object whose values change between two {@link Schedules#arm()} calls, as a reload does.
- */
+/** Tests that {@link Schedules#arm()} applies a changed schedule without a restart. */
 class SchedulesTest {
 
-    /** What the two sections say right now; changed by the test between arms. */
+    /** The values of the two sections, which the test changes between arms. */
     private String backupAt = "04:45";
 
     private String updateAt = "";
@@ -43,7 +39,7 @@ class SchedulesTest {
         }
     }
 
-    /** A StewardSpec whose two schedule sections read the fields above; everything else defaults. */
+    /** Returns a StewardSpec whose schedule sections read the fields above. */
     private StewardSpec config() {
         final BackupSpec backup = section(
                 BackupSpec.class,
@@ -68,7 +64,7 @@ class SchedulesTest {
         return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler));
     }
 
-    /** Arming never writes a row, only firing does, and nothing here waits long enough to fire. */
+    /** Tests that arming writes no row. */
     private static UpdateDirectory noDirectory() {
         return section(UpdateDirectory.class, (proxy, method, args) -> {
             throw new AssertionError("the clock asked the database: " + method.getName());

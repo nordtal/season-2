@@ -19,14 +19,14 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The channel pickers' list: what discord-bot published for steward's guild, or why there is none. */
+/** Tests the channel list that discord-bot published for the guild, or the reason for its absence. */
 class DiscordApiTest {
 
     private static final Messages TEXTS = WebTexts.load().messages();
 
     private static final String GUILD = "100000000000000001";
 
-    /** A store holding what the bot published, by guild. */
+    /** A store of the published channels by guild. */
     private static GuildChannels published(final Map<String, List<GuildChannel>> lists) {
         return new GuildChannels() {
             @Override

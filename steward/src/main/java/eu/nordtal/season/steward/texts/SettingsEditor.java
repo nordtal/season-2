@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The settings and translations editor: the files, a file's fields and texts, and the list and reference controls. */
+/** The texts of the settings and translations editor for files, fields, texts, and the list and reference controls. */
 @Name("Settings")
 public interface SettingsEditor {
 

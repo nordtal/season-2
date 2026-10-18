@@ -4,10 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A request Steward refuses: the status, why as a message of its bundle, and a code the page branches on.
- * Steward's error handlers render it with the admins' overrides, so no refusal a person reads is a literal.
- */
+/** A refused request with a status, a reason as a message of the bundle, and a code for the page. */
 public final class RequestRefused extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
@@ -22,9 +19,9 @@ public final class RequestRefused extends RuntimeException {
     }
 
     /**
-     * Refuses with a code the page branches on.
+     * Refuses with a code for the page.
      *
-     * @param retryable whether the page may send the same request again once it has done what the code asks
+     * @param retryable whether the page may repeat the request after it has done what the code says
      */
     public RequestRefused(
             final int status, final MessageRef why, final @Nullable String code, final boolean retryable) {

@@ -11,11 +11,7 @@ import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Turns what the form sends into the JSON value a setting holds, by the type its schema names.
- *
- * The form sends text: a scalar's, a list's entries, or one record per section of a list of sections.
- */
+/** Converts what the form sends into the JSON value of a setting, by the type its schema names. */
 public final class SettingValues {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -24,9 +20,7 @@ public final class SettingValues {
     private SettingValues() {}
 
     /**
-     * Returns {@code sent} as the value of the setting {@code node} describes.
-     *
-     * @throws BadRequestResponse when {@code sent} does not have the setting's shape, which the form always has
+     * @throws BadRequestResponse when {@code sent} does not have the shape of the setting
      * @throws RequestRefused when {@code sent} is not of the setting's type
      */
     static JsonElement convert(final String path, final JsonObject node, final JsonElement sent) {
@@ -102,11 +96,6 @@ public final class SettingValues {
         };
     }
 
-    /**
-     * Refuses a list of sections that drops the section its schema protects.
-     *
-     * @throws RequestRefused naming the section that has to stay
-     */
     static void refuseRemovingTheProtected(final String path, final JsonObject node, final JsonElement value) {
         if (!(node.get("protectedEntry") instanceof final JsonObject kept) || !value.isJsonArray()) {
             return;

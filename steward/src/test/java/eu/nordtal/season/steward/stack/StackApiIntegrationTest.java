@@ -22,7 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** The stack routes over real HTTP against the agent's real routes, so status codes and the JSON shape are checked. */
+/** Tests the stack routes over HTTP against the real routes of the agent, with status codes and JSON shape. */
 class StackApiIntegrationTest {
 
     private static final int PORT = 18082;
@@ -36,7 +36,7 @@ class StackApiIntegrationTest {
 
     @BeforeAll
     static void start() throws java.io.IOException {
-        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        // Short, because a Unix socket path has a length limit.
         scratch = java.nio.file.Files.createTempDirectory(Path.of("/tmp"), "stack");
         agent = new AgentStandIn(scratch, 0, config -> {});
         api = StackServer.api(agent);
@@ -46,7 +46,7 @@ class StackApiIntegrationTest {
 
     @AfterAll
     static void stop() throws java.io.IOException {
-        // The follows first: one closed after Jetty stopped loops in Javalin's error handling.
+        // Closes the follows before Jetty stops.
         if (api != null) {
             api.close();
         }
@@ -72,7 +72,6 @@ class StackApiIntegrationTest {
             assertTrue(first.has(column), column + " is missing from " + first);
         }
 
-        // The console comes from compose.yml's label, which the stand-in agent gives smp.
         final JsonObject smp = services.get(0).getAsJsonObject();
         assertEquals("smp", smp.get("service").getAsString());
         assertTrue(smp.get("hasConsole").getAsBoolean(), "smp carries the console label: " + smp);
@@ -87,7 +86,6 @@ class StackApiIntegrationTest {
         assertTrue(drift.has("checkedAt"), "no age means the interface cannot say how old it is");
         assertTrue(drift.has("reached"), "whether a registry answered at all is not optional");
 
-        // Cached for a minute, so a second call reports the same instant.
         final JsonObject again = GSON.fromJson(get("/api/services"), JsonObject.class);
         assertEquals(
                 drift.get("checkedAt"),
@@ -108,10 +106,8 @@ class StackApiIntegrationTest {
                 HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, follow.statusCode());
 
-        // Jetty drops a silent connection after a while, and keepAlive() writes nothing itself.
         try (var lines = new java.io.BufferedReader(
                 new java.io.InputStreamReader(follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
-            // A DAEMON thread: closing the response body does not unblock a read already parked in it.
             final var one = java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "heartbeat-test-reader");
                 thread.setDaemon(true);
@@ -144,7 +140,6 @@ class StackApiIntegrationTest {
 
         assertEquals("04:45", schedule.get("backupAt").getAsString());
         assertEquals("Europe/Berlin", schedule.get("zone").getAsString());
-        // An offset, not a local time: the browser must be able to turn it into an instant across every time zone.
         final java.time.ZonedDateTime next =
                 java.time.ZonedDateTime.parse(schedule.get("nextBackupAt").getAsString());
         assertTrue(next.toInstant().isAfter(java.time.Instant.now()), "it has already been: " + next);
@@ -152,7 +147,7 @@ class StackApiIntegrationTest {
         assertEquals(4, next.getHour(), "read in the zone steward was given, not this JVM's");
     }
 
-    /** A service with a running container, or a skipped test; a stopped one's follow ends at once. */
+    /** Returns a service with a running container, or skips the test. */
     private static String aRunningService() throws Exception {
         for (final var row : serviceRows()) {
             final JsonObject service = row.getAsJsonObject();
@@ -164,7 +159,6 @@ class StackApiIntegrationTest {
         throw new AssertionError("unreachable");
     }
 
-    /** The rows out of the envelope. */
     private static JsonArray serviceRows() throws Exception {
         return GSON.fromJson(get("/api/services"), JsonObject.class).getAsJsonArray("services");
     }
@@ -178,7 +172,6 @@ class StackApiIntegrationTest {
         final JsonObject one = GSON.fromJson(get("/api/services/" + name), JsonObject.class);
         assertEquals(name, one.get("service").getAsString());
         assertTrue(one.has("digests"));
-        // The console offers only the steps steward can fill.
         final int capacity = one.get("logCapacity").getAsInt();
         assertTrue(capacity >= 0 && capacity <= StackApi.LOG_CAPACITY_MAX, "capacity " + capacity);
     }
@@ -280,7 +273,7 @@ class StackApiIntegrationTest {
 
     @Test
     void anEncodedTraversalNeverReachesAFileOutsideTheOutputRoot() throws Exception {
-        // A client can send %2F for a path separator; the resolved-path check must still refuse it if decoded early.
+        // %2F is a path separator, and the service name check must refuse it.
         final String encoded = "..%2F..%2F..%2Fetc%2Fpasswd-20260913T044507Z.tar.zst";
         final int status = raw("/api/backups/" + encoded + "/download").statusCode();
         assertNotEquals(200, status, "an encoded traversal was answered with a body");

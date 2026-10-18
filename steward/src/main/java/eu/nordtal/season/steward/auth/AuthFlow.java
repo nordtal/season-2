@@ -20,10 +20,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The Discord OAuth round trip: sending a browser to Discord and signing it in when it comes back. */
+/** Runs the Discord OAuth sign-in. {@link #login} redirects to Discord, and {@link #callback} signs the browser in. */
 public final class AuthFlow {
 
-    /** How often expired rows are swept out of {@code steward_session}. */
     public static final Duration SWEEP = Duration.ofHours(1);
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -62,11 +61,7 @@ public final class AuthFlow {
         return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
     }
 
-    /**
-     * What is missing before anybody can sign in, or empty when somebody can.
-     *
-     * An empty admin tree without a root id is such a gap, since nobody may claim it.
-     */
+    /** An empty admin tree without {@code discord.root-id} counts as missing. */
     public Optional<String> whatIsMissing() {
         return discord.whatIsMissing().or(this::rootUnclaimable);
     }
@@ -85,7 +80,6 @@ public final class AuthFlow {
         if (missing.isPresent()) {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
-        // A one-time value tied to this browser's session; a callback carrying anything else is not it.
         final String state = random();
         setSessionCookie(ctx, sessions().begin(state), Sessions.SIGN_IN_WINDOW);
         ctx.redirect(discord.authorizeUrl(state).toString());
@@ -93,7 +87,6 @@ public final class AuthFlow {
 
     public void callback(final Context ctx) {
         final String started = ctx.cookie(Sessions.COOKIE);
-        // Read once and cleared in the same statement, so a replayed callback matches nothing.
         final Optional<String> expected = sessions().consumeState(started);
         final String state = ctx.queryParam("state");
         if (expected.isEmpty() || !expected.get().equals(state)) {
@@ -108,20 +101,19 @@ public final class AuthFlow {
             throw new RequestRefused(403, Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
         }
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
-        // A tree with nobody in it lets the account of discord.root-id claim root, and nobody else.
+        // An empty admin tree lets only the {@code discord.root-id} account claim root.
         final String signingIn = who.id();
         if (admins == null || !(admins().isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
-        // A new session id, so the one the sign-in started in cannot be fixated.
+        // A new session id prevents session fixation.
         final String id = sessions().signIn(DiscordId.of(who.id()), who.name());
         sessions().end(started);
         setSessionCookie(ctx, id, lifetime());
         ctx.redirect("/");
     }
 
-    /** True when this sign-in is the root id's and just became the root of an empty admin tree. */
     private boolean claimRoot(final DiscordAuth.Account who) {
         if (!who.id().equals(config.discord().rootId().strip())
                 || !admins().claimRootIfNobody(DiscordId.of(who.id()))) {
@@ -135,7 +127,7 @@ public final class AuthFlow {
         return true;
     }
 
-    /** Sweeps expired sessions, swallowing a failure, which would otherwise cancel the schedule for good. */
+    /** A failure is logged and not thrown. */
     public void sweepSessions() {
         try {
             sessions().sweep();
@@ -144,11 +136,7 @@ public final class AuthFlow {
         }
     }
 
-    /**
-     * Sets the session cookie for {@code maxAge}, {@code Secure} whenever the request arrived over TLS.
-     *
-     * {@code X-Forwarded-Proto} can only turn the flag on, so a forged one costs only its forger's session.
-     */
+    /** The cookie is {@code Secure} when the request arrived over TLS. */
     private static void setSessionCookie(final Context ctx, final String id, final Duration maxAge) {
         final Cookie cookie =
                 new Cookie(Sessions.COOKIE, id, "/", (int) maxAge.toSeconds(), overTls(ctx), true, null, SameSite.LAX);
@@ -156,7 +144,7 @@ public final class AuthFlow {
     }
 
     private static boolean overTls(final Context ctx) {
-        // The header may carry a list of hops; the first entry is the browser's own.
+        // The header may list several hops. The first entry is the browser's.
         final String forwarded = ctx.header("X-Forwarded-Proto");
         if (forwarded != null && !forwarded.isBlank()) {
             final int comma = forwarded.indexOf(',');

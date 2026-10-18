@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-/** What a pass announces: a change once, nothing for an unchanged answer, and nothing to a feed nobody reads. */
+/** Tests that a pass announces a change once and announces nothing for an unchanged answer or without readers. */
 class LiveFeedTest {
 
     private final AtomicReference<Object> runs = new AtomicReference<>("one run");

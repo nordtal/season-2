@@ -12,14 +12,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-/**
- * A refresh runs beside the reader who triggers it, never in front of them.
- *
- * A blocking refresh would hold that reader on a registry round trip, and every other reader behind the lock.
- */
+/** Tests that {@code Refreshed} runs a refresh in the background and never blocks the reader. */
 class RefreshedTest {
 
-    /** An executor that runs nothing until a test says so. */
+    /** An executor that runs a task when a test says so. */
     private static final class Later implements java.util.concurrent.Executor {
         private final Deque<Runnable> queued = new ArrayDeque<>();
 
@@ -67,7 +63,6 @@ class RefreshedTest {
         assertEquals("read 1", value.get());
         tick(Duration.ofMinutes(2));
 
-        // The old answer, immediately; the refresh has not run yet.
         assertEquals("read 1", value.get());
         assertEquals(1, reads.get(), "the reader must not have done the read itself");
         assertEquals(1, later.pending());
@@ -92,7 +87,6 @@ class RefreshedTest {
 
     @Test
     void aRefreshThatFailsKeepsTheOldAnswerAndTheNextReaderAsksAgain() {
-        // An unreachable registry keeps the old answer, aged rather than current.
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
         final Refreshed<String> value = new Refreshed<>(

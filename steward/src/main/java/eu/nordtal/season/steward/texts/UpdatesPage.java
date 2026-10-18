@@ -3,7 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The updates page's own words. */
+/** The words of the updates page. */
 @Name("Updates page")
 public interface UpdatesPage {
 

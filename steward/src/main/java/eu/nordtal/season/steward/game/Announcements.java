@@ -29,7 +29,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** Announcements an admin writes by hand: one request in the bot's inbox, a message per language, as the SMP sends. */
+/** Writes an announcement of an admin as one request with a message per language into the bot's inbox. */
 public final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -37,10 +37,10 @@ public final class Announcements {
     private static final StewardTexts.Steward.Said SAID =
             StewardTexts.TEXTS.steward().said();
 
-    /** Discord refuses a longer message. */
+    /** The longest message that Discord accepts. */
     public static final int MAX_LENGTH = 2000;
 
-    /** How long a request waits for the bot before it is given up on. */
+    /** The time a request waits for the bot. */
     private static final Duration PATIENCE = Duration.ofMinutes(2);
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
@@ -58,12 +58,12 @@ public final class Announcements {
                 .bot();
     }
 
-    /** {@code POST /api/announcements}: each language's line to follow, by its tag. */
+    /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
     public record AnnouncementsAsked(Map<String, String> ids) {}
 
     /**
-     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}}: one request with every language.
-     * Each language's message is the admin's words as written; nothing is written unless every entry carries text.
+     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}} writes one request.
+     * It writes nothing unless every entry has text.
      */
     public void send(final Context ctx) {
         final Map<String, String> checked = texts(ctx);
@@ -115,7 +115,7 @@ public final class Announcements {
         return checked;
     }
 
-    /** Returns the status the browser knows, in which a line that went nowhere is a failure. */
+    /** Returns the status for the browser. */
     static InboxStatus status(final InboxStatus status) {
         return switch (status) {
             case PENDING, RUNNING, DONE, FAILED, EXPIRED -> status;
@@ -124,7 +124,7 @@ public final class Announcements {
         };
     }
 
-    /** Returns what became of one language's line once the bot has answered. */
+    /** Returns the result for one language once the bot has answered. */
     static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
         final @Nullable String posted = row.outcome(Map.class)
                 .map(answer -> answer.get(language))

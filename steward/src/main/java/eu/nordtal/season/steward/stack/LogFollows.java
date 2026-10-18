@@ -8,11 +8,7 @@ import eu.nordtal.season.internalapi.sse.Follows;
 import io.javalin.http.sse.SseClient;
 import java.util.function.BooleanSupplier;
 
-/**
- * The live console for the browser: steward-agent's log follow, passed on event by event while the session holds.
- *
- * The agent reads Docker and the rotated logs; this only relays, and ends every follow before Jetty stops.
- */
+/** Relays the log follow of steward-agent to the browser as server-sent events while the session is valid. */
 public final class LogFollows implements AutoCloseable {
 
     private static final String SIGNED_OUT = "this session ended - sign in again to keep watching";
@@ -26,9 +22,9 @@ public final class LogFollows implements AutoCloseable {
     }
 
     /**
-     * One service's log, the backlog first, until the browser leaves, the session ends or the agent stops.
+     * Streams the log of one service, the backlog first, until the browser leaves, the session ends or the agent stops.
      *
-     * @param signedIn asked at most once a second while lines arrive; a {@code false} ends the follow with
+     * @param signedIn checked at most once a second while lines arrive, and {@code false} ends the follow with
      *     {@code gone}
      */
     void serve(final SseClient client, final String name, final BooleanSupplier signedIn) {
@@ -38,7 +34,6 @@ public final class LogFollows implements AutoCloseable {
         try {
             follow = agent.logs(name, tail, since);
         } catch (final InternalClient.Failure unreachable) {
-            // A gone event, not an error: the browser would only reconnect into the same answer.
             client.sendEvent("gone", AgentClient.sentence(unreachable));
             client.close();
             return;

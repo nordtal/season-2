@@ -62,7 +62,6 @@ public final class Updates {
                 .toList());
     }
 
-    /** The one open run, absent when there is none. */
     public void active(final Context ctx) {
         ctx.json(new ActiveRun(data().updates().open().map(this::describe).orElse(null)));
     }
@@ -75,7 +74,7 @@ public final class Updates {
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id)))));
     }
 
-    /** Asks for a run by writing a row, behind a step-up for a kind that needs one; touches no container. */
+    /** Writes a request row for a run. Kinds that need a step-up require one. It touches no container. */
     public void ask(final Context ctx) {
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.kind == null) {
@@ -90,13 +89,11 @@ public final class Updates {
         if (needsStepUp(kind)) {
             stepUp.accept(ctx);
         }
-        // An unnamed scope would put the whole network down, or throw every player out without a countdown.
         if ((kind == UpdateKind.DOWN || kind == UpdateKind.RECREATE)
                 && (ask.services == null || ask.services.isEmpty())) {
             throw new BadRequestResponse("a " + kind + " has to name the services it is for");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        // `scheduled_for`: the run loop refuses to claim the row until then.
         final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
                 ? Duration.ZERO
                 : Duration.ofSeconds(ask.delaySeconds);
@@ -114,7 +111,6 @@ public final class Updates {
                                     delay)
                     : data().updates().submit(kind, who.actor(), delay, ask.services);
         } catch (final IllegalArgumentException named) {
-            // A restore and a plugin removal carry more than services and have routes of their own.
             throw new BadRequestResponse(named.getMessage());
         }
         log.info(
@@ -128,17 +124,15 @@ public final class Updates {
         ctx.status(202).json(describe(written, scope));
     }
 
-    /** Whether a run of this kind replaces, stops or destroys something with no undo, so it needs a step-up. */
+    /** Returns whether a run of this kind replaces, stops or destroys something without undo. */
     static boolean needsStepUp(final UpdateKind kind) {
         return switch (kind) {
-            // A start-up install is never asked for; were it, it would install like an update.
             case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN, INSTALL -> true;
-            // Bringing back what is there, or only adding an archive.
             case RESTART, START, BACKUP -> false;
         };
     }
 
-    /** Cancels the earliest run still counting down; an empty answer means its countdown ran out meanwhile. */
+    /** Cancels the earliest run in its countdown and refuses with 409 when none is counting down. */
     public void cancel(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final var cancelled = data().updates().cancelCountdown();
@@ -158,11 +152,11 @@ public final class Updates {
     }
 
     /**
-     * One run as the interface shows it; a report that cannot be parsed is kept as {@code resultText}.
+     * One run. A report that does not parse is {@code resultText}.
      *
-     * @param scope the services this run is for, where empty is the whole network
-     * @param moving the services the run stops, written when its countdown starts
-     * @param said what each of the report's lines says, by service, drawn from its facts
+     * @param scope the services of the run, and empty means the whole network
+     * @param moving the services the run stops
+     * @param said the message of each report line by service
      */
     public record Run(
             long id,
@@ -182,15 +176,14 @@ public final class Updates {
             @Nullable Boolean savedSomething,
             @Nullable String resultText) {}
 
-    /** {@code GET /api/updates/active}: the one open run, absent when there is none. */
+    /** The answer of {@code GET /api/updates/active}, with {@code null} when no run is open. */
     public record ActiveRun(@Nullable Run run) {}
 
-    /** One request as the interface shows it. */
     Run describe(final UpdateRequest request) {
         return describe(request, data().updates().scopeOf(request.id()));
     }
 
-    /** The same, for a known {@code scope}, where empty is the whole network. */
+    /** Returns the run for {@code scope}, and an empty scope means the whole network. */
     static Run describe(final UpdateRequest request, final List<String> scope) {
         final String result = request.result();
         final Optional<UpdateReport> report =
@@ -221,9 +214,9 @@ public final class Updates {
 
         @Nullable
         Long delaySeconds;
-        /** The compose services this run is for; absent or empty is the whole network. */
+
         java.util.@Nullable List<String> services;
-        /** For an update: whoever asked confirmed that the builds made on the host it would replace go. */
+        /** For an update: true confirms that the update replaces builds made on the host. */
         @Nullable
         Boolean replaceLocal;
     }

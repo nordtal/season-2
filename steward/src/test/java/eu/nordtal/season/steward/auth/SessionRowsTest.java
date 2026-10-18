@@ -16,11 +16,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * The three one-time values {@code steward_session} carries, against a real PostgreSQL.
- *
- * Rows are aged through the DAO rather than waited out, and the third value is the {@code RETURNING} trap.
- */
+/** Tests the three one-time values of {@code steward_session} against PostgreSQL. */
 class SessionRowsTest {
 
     private static Sessions sessions;
@@ -28,7 +24,7 @@ class SessionRowsTest {
 
     @BeforeAll
     static void start() {
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
         sessions = new Sessions(source, Duration.ofDays(30));
     }
@@ -65,7 +61,7 @@ class SessionRowsTest {
     void consumingAStateAnswersWithTheOldValue() {
         final String id = sessions.begin("the-state");
 
-        // `RETURNING x` after `SET x = NULL` answers the new row, so the naive one-liner hands back empty.
+        // A plain `RETURNING x` after `SET x = NULL` returns the new, empty value.
         assertEquals(Optional.of("the-state"), sessions.consumeState(id));
         assertEquals(Optional.empty(), sessions.consumeState(id), "it was readable twice");
     }
@@ -81,7 +77,7 @@ class SessionRowsTest {
                 sessions.consumeCeremony(id),
                 "a challenge that can be answered twice is a challenge whoever saw it can answer");
 
-        // Eleven minutes is past the window; the browser's own dialog gives two.
+        // Eleven minutes is past the window.
         sessions.startCeremony(id, "{\"challenge\":\"def\"}");
         sessions.ceremonyStartedAt(id, Instant.now().minus(11, ChronoUnit.MINUTES));
         assertEquals(
@@ -110,7 +106,7 @@ class SessionRowsTest {
 
         sessions.expireAt(id, Instant.now().minusSeconds(1));
 
-        // The row is still there, since nothing has swept, and it is already not a session.
+        // The row exists until a sweep, but it is no session.
         assertTrue(sessions.find(id).isEmpty(), "an expired row was handed out as a session");
         assertEquals(1, sessions.sweep(), "and the sweep is what actually removes it");
     }

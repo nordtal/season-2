@@ -14,14 +14,10 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The authenticator apps: one per account, its secret sealed, each code taken once, wrong codes rate limited.
- *
- * Without a {@link SecretBox} none can be added or used, so an installation without the key offers none.
- */
+/** Stores one authenticator app per account with a sealed secret. Each code is accepted once. */
 public final class Authenticators {
 
-    /** Wrong codes allowed within {@link #WRONG_WINDOW}; the next code, right or wrong, waits until it ends. */
+    /** Locks the account at this many wrong codes within {@link #WRONG_WINDOW}. */
     static final int MOST_WRONG = 5;
 
     static final Duration WRONG_WINDOW = Duration.ofMinutes(15);
@@ -30,7 +26,7 @@ public final class Authenticators {
     private final @Nullable SecretBox box;
     private final Clock clock;
 
-    /** Over steward's database, sealing with the hex {@code key}; null without a database, unoffered without a key. */
+    /** Returns null when {@code data} is null. */
     public static @Nullable Authenticators over(final @Nullable Data data, final String key, final Clock clock) {
         return data == null
                 ? null
@@ -43,12 +39,11 @@ public final class Authenticators {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /** Whether this installation can add or check an app at all. */
     public boolean offered() {
         return box != null;
     }
 
-    /** The confirmed app of an account; an enrolment not yet confirmed is not one. */
+    /** An unconfirmed enrolment is not an app. */
     public Optional<Row> of(final DiscordId discordId) {
         return find(discordId).filter(row -> row.confirmedAt() != null);
     }
@@ -57,7 +52,6 @@ public final class Authenticators {
         return of(discordId).isPresent();
     }
 
-    /** Starts an enrolment with a fresh secret and answers it, or empty when the account already has an app. */
     public Optional<byte[]> enrol(final DiscordId discordId) {
         final byte[] secret = Totp.newSecret();
         return dao.enrol(discordId, box().seal(secret, contextOf(discordId))) == 1
@@ -65,26 +59,24 @@ public final class Authenticators {
                 : Optional.empty();
     }
 
-    /** What became of one typed code. */
     public enum Outcome {
         ACCEPTED,
-        /** Not this app's code for now, or a step either side; counted towards the limit. */
+        /** The code matches no accepted step. It counts towards the limit. */
         WRONG,
-        /** The code of a step already taken, or of one before it. */
+        /** The step of the code, or a later step, was used already. */
         TAKEN,
-        /** Too many wrong codes lately; nothing was checked. */
+        /** Too many wrong codes. The code was not checked. */
         LOCKED,
-        /** No app, or no enrolment, of the kind asked for. */
+        /** No row of the requested kind exists. */
         NONE
     }
 
-    /** One checked code, and until when the account is locked out if it is. */
     public record Checked(Outcome outcome, @Nullable Instant lockedUntil) {}
 
     /**
-     * Checks a typed code against the enrolment ({@code confirming}) or the confirmed app, and takes it if it fits.
-     *
-     * Taking it is one guarded update, so the same code sent twice at once still counts once.
+     * Checks {@code code} against the enrolment ({@code confirming}) or the confirmed app.
+     * A match records its step.
+     * The recording is one guarded update, so a code sent twice counts once.
      */
     public Checked check(final DiscordId discordId, final String code, final boolean confirming) {
         final Optional<Row> found = find(discordId).filter(row -> (row.confirmedAt() == null) == confirming);
@@ -106,12 +98,10 @@ public final class Authenticators {
                 : new Checked(Outcome.TAKEN, null);
     }
 
-    /** Removes the confirmed app; answers whether there was one. */
     public boolean remove(final DiscordId discordId) {
         return dao.remove(discordId) > 0;
     }
 
-    /** Removes the app and any enrolment, for {@code forget-factors}; answers how many rows went. */
     public int forget(final DiscordId discordId) {
         return dao.forget(discordId);
     }
@@ -124,12 +114,12 @@ public final class Authenticators {
         return Objects.requireNonNull(box, "no authenticator key - this route is not available without one");
     }
 
-    /** What a sealed secret is bound to: its own account, so a row copied to another does not open. */
+    /** A row copied to another account fails to open. */
     private static byte[] contextOf(final DiscordId discordId) {
         return ("steward_authenticator:" + discordId.value()).getBytes(StandardCharsets.UTF_8);
     }
 
-    /** One row of {@code steward_authenticator}; {@code lockedUntil} is set while wrong codes lock it. */
+    /** {@code lockedUntil} is set while wrong codes lock the account. */
     public record Row(
             byte[] secret,
             @ColumnName("confirmed_at") @Nullable Instant confirmedAt,

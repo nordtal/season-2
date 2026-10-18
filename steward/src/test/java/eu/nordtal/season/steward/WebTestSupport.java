@@ -19,18 +19,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 
-/** The HTTP and database helpers every web integration test drives the fixture through. */
+/** The HTTP and database helpers that every web integration test drives the fixture with. */
 abstract class WebTestSupport extends WebFixture {
 
     @BeforeAll
     static void signInAsRoot() throws Exception {
         http = browser();
         signIn(http);
-        // The first key, and every other test in this class rides on it: no key, no /api/me.
+        // The first key. Every other test in this class rides on it: no key, no /api/me.
         registerAKey(http, authenticator, "The test key");
     }
 
-    /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
     void settleOpenRuns() throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var settle = connection.prepareStatement("UPDATE steward_inbox SET status = 'DONE', "
@@ -69,7 +68,6 @@ abstract class WebTestSupport extends WebFixture {
         return journal.get(0).getAsJsonObject();
     }
 
-    /** The whole authentication, driven the way the browser drives it, for the default hold. */
     static void holdTheKey(final HttpClient browser, final TestAuthenticator key) throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
@@ -77,7 +75,6 @@ abstract class WebTestSupport extends WebFixture {
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
-    /** The same, choosing how long the step-up holds. */
     static void holdTheKey(final HttpClient browser, final TestAuthenticator key, final String hold) throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
@@ -95,7 +92,7 @@ abstract class WebTestSupport extends WebFixture {
         return post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
     }
 
-    /** Moves this browser's key ceremony back out of its step-up, by the row rather than a clock. */
+    /** Moves the key ceremony of this browser back out of its step-up, by the row rather than a clock. */
     static void heldLongAgo(final HttpClient browser) throws Exception {
         final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                 .get("csrf")
@@ -130,7 +127,6 @@ abstract class WebTestSupport extends WebFixture {
                 HttpResponse.BodyHandlers.ofString());
     }
 
-    /** The whole registration, driven the way the browser drives it. */
     static void registerAKey(final HttpClient browser, final TestAuthenticator key, final String label)
             throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
@@ -139,7 +135,7 @@ abstract class WebTestSupport extends WebFixture {
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
-    /** The finish, with the credential as a string inside the envelope, since only the library may parse it. */
+    /** The finish, with the credential as a string inside the envelope, because only the library may parse it. */
     static HttpResponse<String> finishRegistration(
             final HttpClient browser, final String credential, final String label) throws Exception {
         final JsonObject envelope = new JsonObject();
@@ -148,15 +144,14 @@ abstract class WebTestSupport extends WebFixture {
         return post(browser, "/auth/webauthn/register/finish", GSON.toJson(envelope));
     }
 
-    /** One browser: its own cookie jar, and no following of redirects, which a test reads. */
     static HttpClient browser() {
         return HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
     }
 
     /**
-     * The whole sign-in, driven the way a browser drives it, for an account made an admin first.
+     * Drives the whole sign-in the way a browser does, for an account made an admin first.
      *
-     * The first sign-in claims the root; others are made admins by SQL, since a grant is limited to three an hour.
+     * The first sign-in claims the root. SQL makes the others admins, because a grant is limited to three an hour.
      */
     static void signIn(final HttpClient browser) throws Exception {
         if (!"1".equals(memberId.get())) {
@@ -170,12 +165,10 @@ abstract class WebTestSupport extends WebFixture {
         assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
     }
 
-    /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
     static void admitBelowRoot(final DiscordId discordId) throws Exception {
         StandInDiscord.admitBelow(WebFixture.postgres.dataSource(), discordId.value(), "1");
     }
 
-    /** The one-time value the interface minted into the URL it sent the browser to. */
     static String stateFrom(final HttpResponse<String> redirect) {
         assertEquals(302, redirect.statusCode(), redirect.body());
         final String location = redirect.headers().firstValue("Location").orElseThrow();
@@ -184,7 +177,6 @@ abstract class WebTestSupport extends WebFixture {
         return state.group(1);
     }
 
-    /** The value of the session cookie this response set, or a failure naming what it did set. */
     static String sessionCookieOf(final HttpResponse<String> response) {
         return response.headers().allValues("Set-Cookie").stream()
                 .filter(header -> header.startsWith(Sessions.COOKIE + "="))
@@ -197,7 +189,7 @@ abstract class WebTestSupport extends WebFixture {
     /**
      * Stops the interface and starts a new one against the same database, sharing nothing but the rows.
      *
-     * The old {@code Data} stays open, since other tests still hold sessions in its pool.
+     * The old {@code Data} stays open, because other tests still hold sessions in its pool.
      */
     static void restartTheInterface() throws Exception {
         web.stop();

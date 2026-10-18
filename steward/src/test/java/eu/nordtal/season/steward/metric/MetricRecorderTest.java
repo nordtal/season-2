@@ -18,7 +18,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The recorder copies each of the agent's rounds once, asking after the newest it already wrote. */
+/** Tests that the recorder copies each round once, starting after the newest written round. */
 class MetricRecorderTest {
 
     private static final Instant FIRST = Instant.parse("2026-10-02T01:00:00Z");
@@ -61,7 +61,7 @@ class MetricRecorderTest {
         assertTrue(samples.contains(new MetricSample("host", Metric.MEMORY_USED_BYTES, FIRST, 600)));
         assertTrue(samples.contains(new MetricSample("smp", Metric.MEMORY_BYTES, FIRST, 2048)));
         assertTrue(samples.contains(new MetricSample("smp", Metric.CPU_PERCENT, FIRST, 12.5)));
-        // No CPU yet: the agent has one reading of postgres, and a rate needs two.
+        // No CPU value yet, because a rate needs two readings.
         assertEquals(
                 List.of(new MetricSample("postgres", Metric.MEMORY_BYTES, FIRST, 512)),
                 samples.stream()

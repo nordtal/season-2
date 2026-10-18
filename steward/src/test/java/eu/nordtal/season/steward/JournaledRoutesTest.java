@@ -19,17 +19,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Fails the build on a changing route that writes no journal line and is not one of the few named below. */
+/** Fails the build on a changing route that writes no journal line and is not named below. */
 class JournaledRoutesTest {
 
     private static final Set<HandlerType> WRITES =
             Set.of(HandlerType.POST, HandlerType.PUT, HandlerType.PATCH, HandlerType.DELETE);
 
-    /**
-     * The changing routes that write no line of their own, each with the reason it carries.
-     *
-     * Written out rather than derived, so leaving one more out means editing a list a person reads.
-     */
+    /** The changing routes that write no line of their own, each with its reason. */
     private static final Map<String, Unjournaled> LEFT_OUT = Map.ofEntries(
             Map.entry("POST /api/access/grant", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/access/revoke", Unjournaled.IN_THE_CHANGE),

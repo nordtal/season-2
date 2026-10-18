@@ -17,31 +17,28 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Discord's three OAuth routes, answering for one guild member whom a test or the preview chooses.
+ * Answers the three OAuth routes of Discord for one guild member whom a test or the preview chooses.
  *
- * The one system boundary in the sign-in; everything else in the flow is the interface's own code.
+ * It is the only system boundary in the sign-in. The code of the interface does everything else.
  */
 public final class StandInDiscord implements AutoCloseable {
 
     public static final String GUILD = "1234";
 
-    /** The only code the token route accepts. */
     public static final String CODE = "the-code";
 
-    /** Who is signing in. */
     public final AtomicReference<String> memberId = new AtomicReference<>("1");
 
     public final AtomicReference<String> memberNick = new AtomicReference<>("Ally");
 
-    /** The account {@link #spec()} names as the one that may claim an empty admin tree; blank for none. */
+    /** The account that {@link #spec()} names as the one that may claim an empty admin tree. Blank means none. */
     public final AtomicReference<String> rootId = new AtomicReference<>("1");
 
-    /** The client secret as it arrived at the token route, or null if it never did. */
     public final AtomicReference<String> secretSeen = new AtomicReference<>();
 
     private @Nullable Javalin server;
 
-    /** Starts on {@code port}, or any free one for {@code 0}, and returns the base URL the interface calls. */
+    /** Starts on {@code port}, or on any free port for {@code 0}, and returns the base URL that the interface calls. */
     public String start(final int port) {
         final Javalin started = Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(new Gson(), true));
@@ -69,7 +66,6 @@ public final class StandInDiscord implements AutoCloseable {
         return "http://127.0.0.1:" + started.port();
     }
 
-    /** The interface's Discord settings for this stand-in, read live. */
     public WebSpec.DiscordSpec spec() {
         return new WebSpec.DiscordSpec() {
             @Override
@@ -94,7 +90,7 @@ public final class StandInDiscord implements AutoCloseable {
         };
     }
 
-    /** Makes {@code member} a guild member and an admin below {@code granter}, as the bot's sync and a grant would. */
+    /** Makes {@code member} a guild member and an admin below {@code granter}, as the bot's sync and a grant do. */
     public static void admitBelow(final DataSource dataSource, final String member, final String granter)
             throws SQLException {
         try (Connection connection = dataSource.getConnection();

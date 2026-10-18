@@ -16,11 +16,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Letting one player through without the resource pack, and taking that back.
- *
- * A change takes effect at the player's next login and is journalled with the admin who clicked.
- */
+/** Exempts a player from the resource pack and ends the exemption. */
 public final class PackExemptionApi {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -97,6 +93,6 @@ public final class PackExemptionApi {
         return DiscordId.of(value.getAsString().trim());
     }
 
-    /** An exemption or its end that went through; every other outcome answers an error. */
+    /** The outcome of a successful exemption or of its end. */
     public record Exempted(PackExemptions.Outcome outcome) {}
 }

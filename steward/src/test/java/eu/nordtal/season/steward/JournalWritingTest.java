@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** The journal line a changing route writes once it has answered, and only then. */
+/** Checks that a changing route writes its journal line after it has answered, and only then. */
 class JournalWritingTest extends WebTestSupport {
 
     @Test

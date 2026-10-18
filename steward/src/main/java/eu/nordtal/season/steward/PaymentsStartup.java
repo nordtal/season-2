@@ -24,20 +24,19 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
-/** Whether this deployment can take money, which steward-bunq answers, and the loop that polls it when it can. */
+/** Asks steward-bunq for the account and runs the payment loop when there is one. */
 @Slf4j
 final class PaymentsStartup {
 
-    /** How long a start waits for steward-bunq, which compose starts before steward. */
+    /** How long a start waits for steward-bunq. */
     private static final Duration PATIENCE = Duration.ofSeconds(30);
 
     private PaymentsStartup() {}
 
     /**
-     * Asks steward-bunq whether there is an account, records it for the bot, and starts the loop if there is.
+     * Asks steward-bunq whether there is an account, records the answer for the bot and starts the loop.
      *
-     * @param tiers the price list a matched payment is booked by
-     *
+     * @param tiers the price list that books a matched payment
      * @return the running loop, or {@code null} when there is no bank to poll
      */
     static @Nullable PaymentLoop start(
@@ -68,7 +67,7 @@ final class PaymentsStartup {
                 PATIENCE,
                 new Backoff(Duration.ofSeconds(1), Duration.ofSeconds(8)));
         if (account.isEmpty()) {
-            // Not announced: nobody knows, so the row keeps what the last start found and this line is the record.
+            // No row is written, so the row keeps the result of the last start.
             log.error(
                     "Payments are OFF until steward restarts: steward-bunq did not answer at {} within {}s.",
                     settings.url(),
@@ -86,7 +85,6 @@ final class PaymentsStartup {
                 account.get().id(),
                 poll.toSeconds());
 
-        // The cut-off, resolved once and read back by every later start.
         final Instant watermark = Watermark.resolve(database.jdbi(), settings.watermark(), waiting.now());
 
         return PaymentLoop.start(
@@ -107,7 +105,6 @@ final class PaymentsStartup {
         try {
             PaymentGateway.announce(database.jdbi(), configured);
         } catch (final RuntimeException failure) {
-            // One row in payment_gateway is no reason to refuse to serve four servers.
             log.warn(
                     "Could not record whether bunq is configured; the bot will say it does not"
                             + " know rather than saying it is off.",

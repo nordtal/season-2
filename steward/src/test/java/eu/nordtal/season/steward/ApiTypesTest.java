@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** The committed TypeScript types are the ones the Java records give, so the browser and steward agree. */
+/** Checks that the committed TypeScript types are the ones the Java records give. */
 class ApiTypesTest {
 
     @Test

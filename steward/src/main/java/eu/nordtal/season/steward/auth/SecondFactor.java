@@ -18,14 +18,10 @@ import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
-/** The WebAuthn ceremony, the keys it registers, and the checks {@code Gatekeeper#guard} runs. */
+/** Handles the WebAuthn key routes and the second-factor checks that {@code Gatekeeper#guard} runs. */
 public final class SecondFactor {
 
-    /**
-     * How long one step-up holds, chosen on the step-up sheet for that step-up only.
-     *
-     * The server offers these and no other; the first is the default, and none is configurable.
-     */
+    /** {@code DEFAULT} applies when a request names none. */
     public enum StepUpLength {
         QUARTER_HOUR(Duration.ofMinutes(15)),
         ONE_HOUR(Duration.ofHours(1)),
@@ -43,7 +39,6 @@ public final class SecondFactor {
             return length;
         }
 
-        /** The hold a finish route asked for: none is the default, and one the server does not offer is refused. */
         static StepUpLength of(final @Nullable String asked) {
             if (asked == null) {
                 return DEFAULT;
@@ -60,7 +55,6 @@ public final class SecondFactor {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** The longest name a key takes, so that it can be told apart from the next one. */
     private static final int MOST_LABEL = 64;
 
     private final Function<Context, Sessions.Session> requireSession;
@@ -98,7 +92,7 @@ public final class SecondFactor {
         return Objects.requireNonNull(webauthn, "no database - this route is not available without one");
     }
 
-    /** Refuses an account with neither a key nor an app, which reaches only {@code /api/me}, with a 403 and a code. */
+    /** Refuses an account without a factor with a 403 and the code {@code SECOND_FACTOR_MISSING}. */
     void requireAKey(final Sessions.Session who) {
         if (credentials == null || anyFactor(who)) {
             return;
@@ -106,12 +100,10 @@ public final class SecondFactor {
         throw new RequestRefused(403, ANSWER.noKey(), "SECOND_FACTOR_MISSING", false);
     }
 
-    /** Whether this account has a second factor, a security key or a confirmed authenticator app. */
     boolean anyFactor(final Sessions.Session who) {
         return credentials().any(who.signedInDiscordId()) || hasApp(who);
     }
 
-    /** How many security keys this account has. */
     int keysOf(final Sessions.Session who) {
         return credentials().of(who.signedInDiscordId()).size();
     }
@@ -120,7 +112,6 @@ public final class SecondFactor {
         return authenticators != null && authenticators.confirmed(who.signedInDiscordId());
     }
 
-    /** Refuses a session that has not held its key, with the refusal the interface recovers from by holding it. */
     void requireKeyHeld(final Sessions.Session who) {
         if (who.verified()) {
             return;
@@ -128,11 +119,6 @@ public final class SecondFactor {
         throw required(ANSWER.keyNotHeld());
     }
 
-    /**
-     * Refuses unless this session's step-up still holds, until the end its ceremony set.
-     *
-     * The window does not slide, or anybody working continuously would never be asked.
-     */
     void requireKeyRecently(final Sessions.Session who) {
         final Instant until = who.stepUpUntil();
         if (until != null && until.isAfter(clock.instant())) {
@@ -141,25 +127,15 @@ public final class SecondFactor {
         throw required(ANSWER.keyNotRecent());
     }
 
-    /** Refuses unless the step-up behind {@code ctx} still holds, for a route that decides per request. */
     public void requireStepUp(final Context ctx) {
         requireKeyRecently(requireSession.apply(ctx));
     }
 
-    /**
-     * The refusal the interface recovers from: hold the key, then send the same request again.
-     *
-     * Its code, {@code SECOND_FACTOR_REQUIRED}, tells it apart from the account that has no key at all.
-     */
     private static RequestRefused required(final MessageRef why) {
         return new RequestRefused(403, why, "SECOND_FACTOR_REQUIRED", true);
     }
 
-    /**
-     * Hands this browser a registration challenge.
-     *
-     * A further factor needs a step-up that still holds: adding one is as powerful as having one.
-     */
+    /** An account that has a factor needs a step-up that still holds. */
     public void beginRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         if (anyFactor(who)) {
@@ -168,15 +144,10 @@ public final class SecondFactor {
         final WebAuthn.Ceremony ceremony =
                 webauthn().startRegistration(who.signedInDiscordId(), who.signedInDisplayName());
         sessions().startCeremony(who.id(), ceremony.parked());
-        // The library's own JSON, straight through: see WebAuthn on the boundary.
+        // forBrowser holds the library's JSON and is sent unchanged.
         ctx.contentType("application/json").result(ceremony.forBrowser());
     }
 
-    /**
-     * Takes the browser's answer, verifies it and writes the key down, under the same rule as the start.
-     *
-     * The credential is a {@code String} field, since only the library may parse it and Gson must never see it.
-     */
     public void finishRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Answer answer = ctx.bodyAsClass(Answer.class);
@@ -187,7 +158,7 @@ public final class SecondFactor {
         if (label.isEmpty() || label.length() > MOST_LABEL) {
             throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
-        // Checked again here, since the window may have closed between the two routes.
+        // The step-up may have ended since the begin route.
         final boolean further = anyFactor(who);
         if (further) {
             requireKeyRecently(who);
@@ -202,7 +173,7 @@ public final class SecondFactor {
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(400, refused.why());
         }
-        // Registering the first key is holding it; a further one leaves the window where the held key set it.
+        // The first key counts as held. A further key leaves the step-up unchanged.
         if (!further) {
             sessions().markVerified(who.id(), StepUpLength.DEFAULT.length());
         }
@@ -210,27 +181,21 @@ public final class SecondFactor {
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
     }
 
-    /**
-     * A security key just registered.
-     *
-     * @param backedUp whether the authenticator says the key is synced, so losing the device does not lose it
-     */
+    /** @param backedUp true when the authenticator reports the key as synced */
     public record KeyRegistered(String label, boolean userVerified, boolean backedUp) {}
 
-    /** A key's new name. */
     public record KeyRenamed(String label) {}
 
-    /** The name of the key removed, and how many the account still holds. */
     public record KeyRemoved(String removed, int left) {}
 
-    /** The body of the WebAuthn finish routes: {@code credential} stays a string, {@code hold} names a length. */
+    /** {@code credential} is a {@code String} so that only the WebAuthn library parses it. */
     private static final class Answer {
         private @Nullable String label;
         private @Nullable String credential;
         private @Nullable String hold;
     }
 
-    /** Hands this browser a challenge for a key it already has, or refuses if it has none. */
+    /** Refuses with a 403 when the account has none. */
     public void beginAssertion(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final WebAuthn.Ceremony ceremony;
@@ -243,11 +208,6 @@ public final class SecondFactor {
         ctx.contentType("application/json").result(ceremony.forBrowser());
     }
 
-    /**
-     * Takes the answer, verifies it, and stamps this session as one that has held its key.
-     *
-     * The stamp is a column, so a restart of this container is never a way to be asked less.
-     */
     public void finishAssertion(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Answer answer = ctx.bodyAsClass(Answer.class);
@@ -272,13 +232,11 @@ public final class SecondFactor {
         ctx.json(held);
     }
 
-    /** {@code DELETE /api/step-up}: ends this session's step-up now; reading goes on, the next change asks again. */
     public void endStepUp(final Context ctx) {
         sessions().endStepUp(requireSession.apply(ctx).id());
         ctx.status(204);
     }
 
-    /** The credential id out of the path, base64url as {@code /api/me} lists it. */
     private static ByteArray keyIdOf(final Context ctx) {
         try {
             return ByteArray.fromBase64Url(ctx.pathParam("id"));
@@ -288,7 +246,6 @@ public final class SecondFactor {
         }
     }
 
-    /** {@code PUT /api/keys/{id}}: what this key is called, so two can be told apart. */
     public void renameKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Answer body = ctx.bodyAsClass(Answer.class);
@@ -303,7 +260,7 @@ public final class SecondFactor {
         ctx.json(new KeyRenamed(label));
     }
 
-    /** {@code DELETE /api/keys/{id}}: removes one key, unless it is the account's last factor. */
+    /** Refuses to remove the last factor. */
     public void removeKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final ByteArray id = keyIdOf(ctx);

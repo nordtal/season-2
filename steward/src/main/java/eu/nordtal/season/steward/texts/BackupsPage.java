@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The backups page's own words. */
+/** The words of the backups page. */
 @Name("Backups page")
 public interface BackupsPage {
 

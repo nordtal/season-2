@@ -26,9 +26,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every {@code /api/...} path the browser asks for is a path this service registers.
+ * Checks that every {@code /api/...} path the browser asks for is a path this service registers.
  *
- * Two green halves can still miss the middle; whether the answer is right is not checked here.
+ * It does not check whether the answer is right.
  */
 class EveryCalledPathIsRoutedTest {
 
@@ -37,7 +37,7 @@ class EveryCalledPathIsRoutedTest {
     /** An {@code /api/...} literal in the frontend, up to a quote, a query, an interpolation or a backslash. */
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
-    /** The catch-all {@code /api/<path>}, which matches every path and so must not count as an answer. */
+    /** The catch-all {@code /api/<path>}. It matches every path, so it does not count as an answer. */
     private static final Pattern CATCH_ALL = Pattern.compile("/api/(?:\\{[^}]+}|<[^>]+>)");
 
     private static Javalin app;
@@ -57,7 +57,6 @@ class EveryCalledPathIsRoutedTest {
     @Test
     void nothingIsCalledThatIsNotRouted() {
         final Set<String> routes = registered();
-        // A guard that silently stops guarding is worse than none: say so here, not at the wrong assertion.
         assertTrue(
                 routes.size() > 20,
                 "only " + routes.size() + " /api routes were found on the running service - the API moved"
@@ -94,13 +93,12 @@ class EveryCalledPathIsRoutedTest {
                         + " reason to look for it, and this line should go with it.");
     }
 
-    /** {@code useMetrics("host", "cpu_percent", 6)}; the second argument is the one that matters. */
     private static final Pattern ASKED_METRIC = Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
 
     /**
-     * Every metric the frontend draws a curve of is one the sampler writes, which takes its names from {@link Metric}.
+     * Checks that every metric curve in the frontend is a metric the sampler writes, named by {@link Metric}.
      *
-     * An unknown metric answers 200 with no points, so a misspelt one draws nothing silently; subjects are not held.
+     * An unknown metric answers 200 with no points, so a misspelt one draws nothing. The test does not check subjects.
      */
     @Test
     void nothingIsDrawnThatIsNeverSampled() {
@@ -130,9 +128,9 @@ class EveryCalledPathIsRoutedTest {
                         + " sampler writes are " + written + ".");
     }
 
-    /** Whether a Javalin route pattern covers a called path: {@code {name}} is one segment, {@code <file>} the rest. */
+    /** Returns whether a route pattern covers a path: {@code {name}} is one segment, {@code <file>} the rest. */
     private static boolean matches(final String route, final String called) {
-        // A trailing slash is where the interpolation began, not part of the path; only the prefix is known.
+        // A trailing slash marks where the interpolation began, and only the prefix is known.
         if (called.endsWith("/")) {
             return route.startsWith(called);
         }
@@ -149,7 +147,6 @@ class EveryCalledPathIsRoutedTest {
         return called.matches(regex.toString());
     }
 
-    /** Every {@code /api/...} path the running service registers, the catch-all aside. */
     private static Set<String> registered() {
         return RouteTable.endpoints(app).stream()
                 .map(endpoint -> endpoint.path)
@@ -169,7 +166,6 @@ class EveryCalledPathIsRoutedTest {
         return paths;
     }
 
-    /** Every {@code .ts} and {@code .tsx} source file of the frontend, one at a time. */
     private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
         final Path root = RepositoryRoot.path().resolve(FRONTEND);
         assertTrue(
@@ -177,7 +173,6 @@ class EveryCalledPathIsRoutedTest {
                 root + " is not there, so this test was reading" + " nothing. Fix the path rather than the assertion.");
         try (Stream<Path> walk = Files.walk(root)) {
             walk.filter(Files::isRegularFile)
-                    // A test's fixture is not a call the browser makes, and a mock may name a path that never existed.
                     .filter(path -> !path.getFileName().toString().contains(".test."))
                     .filter(path -> !path.getFileName().toString().contains(".fixtures."))
                     .filter(path -> {

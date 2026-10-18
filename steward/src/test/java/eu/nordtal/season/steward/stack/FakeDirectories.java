@@ -16,16 +16,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * {@link UpdateDirectory} and {@link AuditDirectory} over fixed rows, for a {@link StackApi} without PostgreSQL.
- *
- * Every method but the listing ones throws, so a test cannot silently write.
- */
+/** Fixed-row {@link UpdateDirectory} and {@link AuditDirectory} for a {@link StackApi} without PostgreSQL. */
 public final class FakeDirectories {
 
     private FakeDirectories() {}
 
-    /** Every method throws except {@code recent}, {@code open} and {@code finishedWithin}, which read {@code rows}. */
+    /** Reads {@code rows} in {@code recent}, {@code open} and {@code finishedWithin}. Every other method throws. */
     public static UpdateDirectory updates(final UpdateRequest... rows) {
         final List<UpdateRequest> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(
@@ -35,7 +31,7 @@ public final class FakeDirectories {
         return new ThrowingUpdateDirectory(sorted);
     }
 
-    /** {@link UpdateDirectory#recent(int)} answers a fixed, pre-sorted list; every other method throws. */
+    /** Returns the sorted fixed rows of {@link UpdateDirectory#recent(int)}. */
     private static final class ThrowingUpdateDirectory implements UpdateDirectory {
 
         private final List<UpdateRequest> sorted;
@@ -80,7 +76,7 @@ public final class FakeDirectories {
                     .findFirst();
         }
 
-        /** Every finished row, whatever the window, since this fake keeps no clock. */
+        /** Returns every finished row, regardless of the window. */
         @Override
         public List<UpdateRequest> finishedWithin(final Duration window) {
             return sorted.stream().filter(run -> run.finished() != null).toList();
@@ -145,7 +141,7 @@ public final class FakeDirectories {
         }
     }
 
-    /** Every method throws but {@code recent}, {@code entry} and {@code search}, by action and subject. */
+    /** Implements {@code recent}, {@code entry} and {@code search}. Every other method throws. */
     public static AuditDirectory audit(final AuditEntry... rows) {
         final List<AuditEntry> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(AuditEntry::occurred).reversed())

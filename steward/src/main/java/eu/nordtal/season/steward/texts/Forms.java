@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The words every settings dialog shares. */
+/** The words that all settings dialogs share. */
 @Name("Forms")
 public interface Forms {
 

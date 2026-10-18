@@ -9,11 +9,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Keeps the nightly backup and the scheduled update clocks in step with the {@code steward} group.
- *
- * {@link #arm()} runs at start and after every save of the steward group, rebuilding both clocks.
- */
+/** Holds the nightly backup clock and the update clock, which {@link #arm()} rebuilds from the {@code steward}
+ * group. */
 public final class Schedules implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(Schedules.class);
@@ -35,7 +32,7 @@ public final class Schedules implements AutoCloseable {
         this.update = null;
     }
 
-    /** Closes both clocks and starts them again from what the config now says. */
+    /** Closes both clocks and starts them from the current config. */
     public synchronized void arm() {
         close();
         backup = start(NightlyClock.from(

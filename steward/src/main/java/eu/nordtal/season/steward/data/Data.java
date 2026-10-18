@@ -16,10 +16,10 @@ import eu.nordtal.season.settings.Database;
 import java.time.Clock;
 import java.time.Duration;
 
-/** The directories the web reads and writes through, over Steward's one pool, which it borrows and never closes. */
+/** The directories that the web reads and writes through, over the one pool of Steward. It never closes the pool. */
 public final class Data {
 
-    /** How far back a chart looks when the caller names no window. */
+    /** The chart window when the caller names none. */
     public static final Duration DEFAULT_WINDOW = Duration.ofHours(6);
 
     private final Database database;
@@ -50,7 +50,7 @@ public final class Data {
         this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
     }
 
-    /** Whether PostgreSQL answers a trivial query now, within the pool's timeout; any failure is a no. */
+    /** Returns whether PostgreSQL answers a trivial query within the pool's timeout. */
     public boolean answers() {
         try (java.sql.Connection connection = database.dataSource().getConnection();
                 java.sql.Statement statement = connection.createStatement()) {
@@ -60,7 +60,6 @@ public final class Data {
         }
     }
 
-    /** The pool itself, for {@code steward_session} and the tables only the web reads. */
     public javax.sql.DataSource dataSource() {
         return database.dataSource();
     }
@@ -81,7 +80,6 @@ public final class Data {
         return payments;
     }
 
-    /** Books a payment in one transaction, which a booking by hand on the Access page goes through. */
     public Bookings bookings() {
         return bookings;
     }
@@ -90,27 +88,22 @@ public final class Data {
         return audit;
     }
 
-    /** Granting and revoking access, each writing a journal entry naming the admin who clicked. */
     public AccessDirectory access() {
         return access;
     }
 
-    /** Who is connected right now and on which server, as the proxy writes it. */
     public OnlineRoster roster() {
         return roster;
     }
 
-    /** The SMP's inbox, which the track actions are asked through. */
     public Inbox<SmpRequest> smp() {
         return smp;
     }
 
-    /** The Hunger Games server's inbox, which the start is asked through. */
     public Inbox<HungerGamesRequest> hungerGames() {
         return hungerGames;
     }
 
-    /** The bot's inbox, through which every access change is asked for. */
     public Inbox<BotRequest> bot() {
         return bot;
     }

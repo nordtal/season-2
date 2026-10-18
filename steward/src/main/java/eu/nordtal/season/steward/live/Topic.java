@@ -1,16 +1,12 @@
 package eu.nordtal.season.steward.live;
 
-/**
- * What the browser can be told has changed, each one or more of the API's reads.
- *
- * A timed topic is read on every pass, since no signal covers it; every other one only on a signal.
- */
+/** The topics the browser is told about. A timed topic is read on every pass, and any other topic on a signal. */
 public enum Topic {
 
-    /** The run inbox: the list, the open run and every report. */
+    /** The run inbox with the list, the open run and every report. */
     RUNS(false),
 
-    /** The requests steward asks the servers and the bot for, and what became of them. */
+    /** The requests that Steward writes for the servers and the bot, with their status. */
     REQUESTS(false),
 
     /** The newest journal line. */
@@ -28,25 +24,25 @@ public enum Topic {
     /** Every published group of settings and the stored overrides. */
     SETTINGS(false),
 
-    /** The service table, as steward-agent's last sample has it. */
+    /** The service table from the last sample of steward-agent. */
     SERVICES(true),
 
-    /** The host's numbers. */
+    /** The host numbers. */
     HOST(true),
 
     /** The newest sampler round in {@code metric_sample}. */
     METRICS(true),
 
-    /** What is wrong now, and what was raised lately. */
+    /** The current alerts and the recently raised alerts. */
     ALERTS(true),
 
-    /** What compose.yml's labels say. */
+    /** The labels of compose.yml. */
     TOPOLOGY(true),
 
-    /** What the servers exported of the game, and the icons drawn for it. */
+    /** The game exports of the servers and their icons. */
     GAME_DATA(false),
 
-    /** The command tree each server published last, which the console suggests from. */
+    /** The command tree that each server published last. */
     COMMANDS(false);
 
     private final boolean timed;
@@ -55,7 +51,6 @@ public enum Topic {
         this.timed = timed;
     }
 
-    /** Whether it is read on every pass rather than only when the hub rang. */
     boolean timed() {
         return timed;
     }

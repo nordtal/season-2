@@ -22,19 +22,17 @@ import java.util.TreeMap;
 
 /**
  * Writes the frontend's packaged texts and the values each key takes, from the bundles {@link WebTexts} serves.
- * Run by {@code :steward:generateApiTypes}; {@code TextTypesTest} fails while a committed file differs.
+ * {@code :steward:generateApiTypes} runs it. {@code TextTypesTest} fails while a committed file differs.
  */
 public final class TextTypes {
 
-    /** The values each key takes, which type a call of {@code t}. */
     static final Path TYPES = Path.of("frontend/src/lib/texts.gen.ts");
 
-    /** The packaged English texts as parsed trees, and each value's declared kind, which a test renders. */
+    /** The packaged English texts as parsed trees, and the declared kind of each value, which a test renders. */
     static final Path TEXTS = Path.of("frontend/src/lib/texts.gen.json");
 
     private TextTypes() {}
 
-    /** The TypeScript, one entry per key of every spec, sorted, as the JSON is. */
     static String types() {
         final StringBuilder out = new StringBuilder();
         out.append(
@@ -66,7 +64,6 @@ public final class TextTypes {
         return out.toString();
     }
 
-    /** The JSON, one key per line, sorted, so a change to one text is a change to one line. */
     static String texts() {
         final Map<String, Object> kinds = new TreeMap<>();
         for (final MessageSchema.Entry entry : entries()) {
@@ -90,7 +87,6 @@ public final class TextTypes {
         return out.append("  }").toString();
     }
 
-    /** Every key the page may name, sorted: the schema orders by the English file, which this may not see. */
     private static List<MessageSchema.Entry> entries() {
         return WebTexts.SPECS.stream()
                 .flatMap(spec -> MessageSchema.entries(spec).stream())
@@ -98,7 +94,7 @@ public final class TextTypes {
                 .toList();
     }
 
-    /** Steward's own resources from the source tree, since this runs on classes alone; the rest from the jars. */
+    /** Steward's own resources from the source tree, because this runs on classes alone, and the rest from the jars. */
     private static ClassLoader sources() {
         try {
             return new URLClassLoader(

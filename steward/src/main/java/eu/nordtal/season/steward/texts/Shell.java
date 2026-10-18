@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 import java.time.Instant;
 
-/** The frame around every page: the navigation, the search, the account menu and the stuck door. */
+/** The texts of the frame around every page: the navigation, the search, the account menu and the stuck door. */
 @Name("Shell")
 public interface Shell {
 
@@ -81,7 +81,7 @@ public interface Shell {
     @Name("Pages")
     MessageRef pages();
 
-    /** A page of the navigation, which names it and says in one line what it is for. */
+    /** A page of the navigation with its name and description. */
     enum Page {
         OVERVIEW,
         SERVICES,

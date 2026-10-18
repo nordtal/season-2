@@ -11,9 +11,7 @@ const WIDTHS = {
 } as const
 
 /**
- * A surface that stands in for something that has not arrived. It sits inside the data component's own layout, so nothing jumps.
- *
- * `index.css` explains the shimmer beside `@utility skeleton-shimmer`.
+ * It sits inside the data component's own layout, so nothing jumps. `index.css` explains the shimmer beside `@utility skeleton-shimmer`.
  */
 function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & { width?: keyof typeof WIDTHS }) {
   return (
@@ -25,9 +23,7 @@ function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & 
   )
 }
 
-/**
- * A line of text that has not arrived. It is `h-[1lh]` tall, so it has the height of the line it replaces.
- */
+/** It is `h-[1lh]` tall, so it has the height of the line it replaces. */
 function SkeletonText({
   width = "medium",
   className,

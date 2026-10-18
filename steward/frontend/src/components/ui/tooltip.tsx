@@ -6,9 +6,6 @@ function TooltipProvider({ delayDuration = 0, ...props }: React.ComponentProps<t
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
 }
 
-/**
- * What a trigger needs to turn a tap into a toggle: whether the tip is open, and a way to set it.
- */
 const TapContext = React.createContext<{
   isOpen: () => boolean
   toggle: (open: boolean) => void
@@ -47,9 +44,6 @@ function Tooltip({ onOpenChange, defaultOpen = false, ...props }: React.Componen
 
 function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   const tap = React.useContext(TapContext)
-  /**
-   * Whether the open tip was visible before this press closed it, and whether the press came from a finger.
-   */
   const press = React.useRef<{ touch: boolean; wasOpen: boolean }>({ touch: false, wasOpen: false })
 
   return (

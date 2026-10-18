@@ -48,9 +48,6 @@ function CommandDialog({
   title?: string
   description?: string
   label?: string
-  /**
-   * How a row is scored. It is passed to cmdk's `filter`. Undefined keeps cmdk's subsequence default.
-   */
   filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
   className?: string
   showCloseButton?: boolean

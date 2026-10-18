@@ -35,14 +35,11 @@ import {
 
 const ResponsiveContext = React.createContext(false)
 
-/** Returns whether this subtree is drawn as a sheet. Only the components in this file read it. */
 function useSheet(): boolean {
   return React.useContext(ResponsiveContext)
 }
 
 /**
- * One dialog: a bottom sheet below the sidebar's 640px breakpoint and a centred dialog above it.
- *
  * The exports mirror `dialog.tsx` one for one, so converting a call site means changing its import and renaming.
  */
 export function ResponsiveDialog({ children, ...props }: React.ComponentProps<typeof Dialog>) {
@@ -99,11 +96,7 @@ export function ResponsiveDialogClose(props: React.ComponentProps<typeof DialogC
   return <Close {...props} />
 }
 
-/**
- * The confirmation in front of something that cannot be taken back, in both shapes.
- *
- * Flicking the sheet away answers no, like a click on the dialog's overlay.
- */
+/** Flicking the sheet away answers no, like a click on the dialog's overlay. */
 export function ResponsiveAlertDialog({ children, ...props }: React.ComponentProps<typeof AlertDialog>) {
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : AlertDialog
@@ -145,7 +138,6 @@ export function ResponsiveAlertDialogFooter(props: React.ComponentProps<typeof A
   return <Footer {...props} />
 }
 
-/** The button that answers no. It is outlined and closes the dialog in both shapes. */
 export function ResponsiveAlertDialogCancel({
   variant = "outline",
   size = "default",

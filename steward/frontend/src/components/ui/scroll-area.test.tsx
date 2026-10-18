@@ -5,7 +5,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 afterEach(cleanup)
 
-/** The classes that make an element the containing block of an absolutely placed descendant. */
 const POSITIONED = /(^|\s)(relative|absolute|fixed|sticky)(\s|$)/
 
 /**

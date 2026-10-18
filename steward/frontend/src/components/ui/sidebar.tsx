@@ -45,7 +45,6 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
-  /** Internal state. `openProp` and `setOpenProp` from outside override it. */
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const setOpen = React.useCallback(
@@ -57,7 +56,6 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // Stores the sidebar state in a cookie.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open],
@@ -67,7 +65,6 @@ function SidebarProvider({
     return isMobile ? setOpenMobile((wasOpen) => !wasOpen) : setOpen((wasOpen) => !wasOpen)
   }, [isMobile, setOpen, setOpenMobile])
 
-  // Adds a keyboard shortcut that toggles the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {

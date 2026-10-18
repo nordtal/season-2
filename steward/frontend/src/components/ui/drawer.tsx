@@ -3,8 +3,6 @@ import { cn } from "cn"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 /**
- * A bottom sheet. It is the shape of every dialog on a narrow screen and is used only through {@link ResponsiveDialog}.
- *
  * `vaul` does the drag. It does not lift the sheet above the keyboard, because vaul ignores the pan that iOS adds. The sheet stands on `--keyboard-inset` instead.
  */
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
@@ -86,9 +84,6 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div data-slot="drawer-header" className={cn("flex flex-col gap-2", className)} {...props} />
 }
 
-/**
- * The footer of `DialogFooter`. Below the breakpoint it is always a column, with the affirmative button under the thumb.
- */
 function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

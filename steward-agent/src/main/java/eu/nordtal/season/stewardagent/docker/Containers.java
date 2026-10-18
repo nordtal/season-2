@@ -113,6 +113,7 @@ public final class Containers {
         String startedAt = null;
         String finishedAt = null;
         Integer exitCode = null;
+        int restarts = 0;
         try {
             final Docker.Inspection inspection = docker.inspect(container.id());
             state = String.valueOf(inspection.state());
@@ -120,6 +121,7 @@ public final class Containers {
             startedAt = inspection.startedAt();
             finishedAt = inspection.finishedAt();
             exitCode = finishedAt == null || inspection.exitCode() < 0 ? null : inspection.exitCode();
+            restarts = inspection.restartCount();
         } catch (DockerException e) {
             log.debug("could not inspect {}", container.id(), e);
         }
@@ -135,7 +137,8 @@ public final class Containers {
                 "running".equalsIgnoreCase(state) ? sample : null,
                 digests,
                 "running".equalsIgnoreCase(state) ? null : finishedAt,
-                "running".equalsIgnoreCase(state) ? null : exitCode);
+                "running".equalsIgnoreCase(state) ? null : exitCode,
+                restarts);
     }
 
     public RuntimeResult runtime() {
@@ -148,7 +151,8 @@ public final class Containers {
                 }
                 // Inspect avoids parsing the status string of the list.
                 final Docker.Inspection inspection = docker.inspect(container.id());
-                services.add(new ServiceRuntime(service, container.id(), inspection.state(), inspection.health()));
+                services.add(new ServiceRuntime(
+                        service, container.id(), inspection.state(), inspection.health(), inspection.restartCount()));
             }
             return RuntimeResult.of(services);
         } catch (DockerException e) {

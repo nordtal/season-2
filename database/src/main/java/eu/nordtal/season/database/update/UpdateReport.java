@@ -234,6 +234,11 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
             return of(Act.VERIFY).came(back, waited, seen);
         }
 
+        /** A wait that ended early, because the service refused its start or restarted. */
+        public static Facts gaveUp(final Back back, final String reason, final @Nullable Seen seen) {
+            return new Facts(Act.VERIFY, null, reason, null, null, null, back, null, seen, null, null);
+        }
+
         /** A volume saved into an archive. */
         public static Facts saved(final @Nullable String archive, final @Nullable Mark mark) {
             return new Facts(Act.BACKUP, null, null, null, null, null, null, null, null, archive, mark);
@@ -276,9 +281,12 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
                 case VERIFY ->
                     !failed
                             ? null
-                            : back == Back.INTERRUPTED
-                                    ? TEXTS.report().waitInterrupted()
-                                    : TEXTS.report().notHealthy(minutes(), sight());
+                            : switch (back == null ? Back.NO : back) {
+                                case INTERRUPTED -> TEXTS.report().waitInterrupted();
+                                case REFUSED -> TEXTS.report().startRefused(words(reason));
+                                case RESTARTED -> TEXTS.report().restarted(words(reason));
+                                case YES, NO -> TEXTS.report().notHealthy(minutes(), sight());
+                            };
             };
         }
 
@@ -320,7 +328,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
                             ? TEXTS.report().fellBack(outdated, why)
                             : switch (back) {
                                 case YES -> TEXTS.report().fellBackHealthy(outdated, why);
-                                case NO -> TEXTS.report().fellBackDown(outdated, why, minutes(), sight());
+                                case NO, REFUSED, RESTARTED ->
+                                    TEXTS.report().fellBackDown(outdated, why, minutes(), sight());
                                 case INTERRUPTED -> TEXTS.report().fellBackInterrupted(outdated, why);
                             };
             };
@@ -398,7 +407,11 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> n
     public enum Back {
         YES,
         NO,
-        INTERRUPTED
+        INTERRUPTED,
+        /** A plugin refused the start, which {@code reason} gives. */
+        REFUSED,
+        /** It restarted while it was waited for; {@code reason} is the last line its log gave why. */
+        RESTARTED
     }
 
     /** Whether the mark of an unverified stop lies beside an archive. */

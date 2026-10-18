@@ -22,6 +22,8 @@ import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxTable;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Outcome;
+import eu.nordtal.season.database.inbox.ServerRefusal;
+import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
@@ -68,10 +70,14 @@ import eu.nordtal.season.settings.network.SeasonSpec;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -93,6 +99,10 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Clock clock = NetworkTime.clock();
 
     private DatabaseSettings settings;
+
+    /** This plugin's own groups by name, which a {@link #checkSettings} names. */
+    private final Map<String, Group<?>> groups = new java.util.concurrent.ConcurrentHashMap<>();
+
     private Setting<DatabaseSpec> database;
     private Setting<ColoursSpec> colourSettings;
     private Setting<DistancesSpec> distanceSettings;
@@ -454,6 +464,34 @@ public abstract class NordtalPlugin extends JavaPlugin {
         NEEDED
     }
 
+    /**
+     * Answers whether this server would start with {@code change} saved.
+     * The group's check runs first, then {@link #refusesAtStart}. A group this plugin does not load refuses nothing.
+     */
+    protected final Answer checkSettings(final SettingsChange change) {
+        final Group<?> group = groups.get(change.group());
+        final String refusal;
+        try {
+            refusal = group == null ? null : trial(group, change);
+        } catch (final SettingsException refused) {
+            return refusedSettings(String.valueOf(refused.getMessage()));
+        }
+        return refusal == null ? Answer.done(MESSAGES.admin().settingsTaken()) : refusedSettings(refusal);
+    }
+
+    private <T> @Nullable String trial(final Group<T> group, final SettingsChange change) throws SettingsException {
+        return refusesAtStart(group, settings.trial(group, change));
+    }
+
+    private Answer refusedSettings(final String reason) {
+        return Answer.refused(ServerRefusal.SETTINGS_REFUSED.with(getName(), reason));
+    }
+
+    /** Returns why this server would not start with {@code value} as {@code group}, or null. Its check has passed. */
+    protected <T> @Nullable String refusesAtStart(final Group<T> group, final T value) {
+        return null;
+    }
+
     /** Loads one group of this plugin's settings, or stops the server and names the group. */
     protected final <T> Setting<T> setting(final Group<T> group) {
         return setting(settings, group);
@@ -461,15 +499,33 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     private <T> Setting<T> setting(final Settings source, final Group<T> group) {
         try {
-            return source.load(group);
+            final Setting<T> loaded = source.load(group);
+            if (!group.network()) {
+                groups.put(group.name(), group);
+            }
+            return loaded;
         } catch (final SettingsException refused) {
             throw fatal(getName() + " is not starting because its settings could not be read: " + refused.getMessage());
         }
     }
 
-    /** Logs the reason and stops the server. Throw the result, so that no code after it runs. */
+    /**
+     * Logs the reason, writes it to the file {@code NORDTAL_REFUSED_START} names and stops the server.
+     * The entrypoint then holds the container, which Docker would restart into the same refusal.
+     * Throw the result, so that no code after it runs.
+     */
     protected final RuntimeException fatal(final String message) {
         getLogger().severe(message);
+        final String refused = System.getenv("NORDTAL_REFUSED_START");
+        if (refused != null) {
+            try {
+                Files.writeString(Path.of(refused), message);
+            } catch (final IOException | RuntimeException unwritten) {
+                getLogger()
+                        .warning("the refusal could not be written to " + refused + ", so the container restarts: "
+                                + unwritten.getMessage());
+            }
+        }
         getServer().getPluginManager().disablePlugin(this);
         getServer().shutdown();
         return new Fatal();

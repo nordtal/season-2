@@ -100,6 +100,11 @@ export type TextArgs = {
     reference: Arg["text"]
     refusal: Arg["choice"]
   }
+  "alert.restarted-by-docker": Record<string, never>
+  "alert.restarting": {
+    service: Arg["text"]
+    count: Arg["number"]
+  }
   "alert.role-ambiguous": {
     name: Arg["text"]
   }
@@ -630,6 +635,9 @@ export type TextArgs = {
   "report.renewing-agent": Record<string, never>
   "report.restart-all-held": Record<string, never>
   "report.restart-none-in-scope": Record<string, never>
+  "report.restarted": {
+    reason: Arg["text"]
+  }
   "report.restore-database-unsaved": {
     reason: Arg["text"]
   }
@@ -690,6 +698,9 @@ export type TextArgs = {
     seen: Arg["message"]
   }
   "report.start-failed": {
+    reason: Arg["text"]
+  }
+  "report.start-refused": {
     reason: Arg["text"]
   }
   "report.starts-again": Record<string, never>
@@ -911,6 +922,9 @@ export type TextArgs = {
   "steward.answer.settings-changed": {
     service: Arg["text"]
     group: Arg["text"]
+  }
+  "steward.answer.settings-refused": {
+    refusal: Arg["text"]
   }
   "steward.answer.sign-in-elsewhere": Record<string, never>
   "steward.answer.sign-in-refused": {
@@ -1665,6 +1679,10 @@ export type TextArgs = {
   "steward.said.preview-sent": Record<string, never>
   "steward.said.setting": {
     network: Arg["choice"]
+    service: Arg["text"]
+    live: Arg["choice"]
+  }
+  "steward.said.setting-unchecked": {
     service: Arg["text"]
     live: Arg["choice"]
   }

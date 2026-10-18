@@ -274,6 +274,9 @@ public interface StewardTexts {
             @Name("Settings changed meanwhile")
             MessageRef settingsChanged(@Arg("service") String service, @Arg("group") String group);
 
+            @Name("Settings refused by the server")
+            MessageRef settingsRefused(@Arg("refusal") String refusal);
+
             @Name("A secret setting")
             MessageRef secretSetting(@Arg("path") String path);
 
@@ -361,6 +364,9 @@ public interface StewardTexts {
             @Name("A setting saved")
             MessageRef setting(
                     @Arg("network") boolean network, @Arg("service") String service, @Arg("live") boolean live);
+
+            @Name("A setting saved unchecked")
+            MessageRef settingUnchecked(@Arg("service") String service, @Arg("live") boolean live);
 
             @Name("A message saved")
             MessageRef message();

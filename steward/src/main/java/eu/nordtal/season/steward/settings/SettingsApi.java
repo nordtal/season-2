@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
@@ -12,13 +13,16 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Serves the setting groups of every process and saves changed values as rows.
- * A process takes a change at once when its group is live, else at its next start.
+ * The running server of the group tries a change first. It takes a change at once when its group is live, else at
+ * its next start.
  */
 public final class SettingsApi {
 
@@ -28,12 +32,17 @@ public final class SettingsApi {
     private final SettingStore store;
     private final AgentClient agent;
     private final @Nullable MessageOverrideStore overrides;
+    private final ServerTrial trial;
 
     public SettingsApi(
-            final SettingStore store, final AgentClient agent, final @Nullable MessageOverrideStore overrides) {
+            final SettingStore store,
+            final AgentClient agent,
+            final @Nullable MessageOverrideStore overrides,
+            final ServerTrial trial) {
         this.store = store;
         this.agent = agent;
         this.overrides = overrides;
+        this.trial = trial;
     }
 
     public void list(final Context ctx) {
@@ -62,6 +71,10 @@ public final class SettingsApi {
             throw new BadRequestResponse("a save sends the revision it read and its changes");
         }
         final Map<String, @Nullable String> rows = documentOf(group).rowsFor(changes.getAsJsonObject());
+        final ServerTrial.Verdict verdict = trial.ask(group.service(), changeOf(group, rows), actor);
+        if (verdict.kind() == ServerTrial.Verdict.Kind.REFUSED) {
+            throw new RequestRefused(422, ANSWER.settingsRefused(String.valueOf(verdict.refusal())));
+        }
         final boolean written = store.change(
                 group.service(),
                 group.name(),
@@ -73,7 +86,20 @@ public final class SettingsApi {
         }
         final SettingStore.Group now =
                 store.group(group.service(), group.name()).orElse(group);
-        ctx.json(documentOf(now).document(outcomeOf(now)));
+        ctx.json(documentOf(now).document(outcomeOf(now, verdict.kind() == ServerTrial.Verdict.Kind.UNANSWERED)));
+    }
+
+    private static SettingsChange changeOf(final SettingStore.Group group, final Map<String, @Nullable String> rows) {
+        final Map<String, String> values = new LinkedHashMap<>();
+        final List<String> resets = new ArrayList<>();
+        rows.forEach((path, value) -> {
+            if (value == null) {
+                resets.add(path);
+            } else {
+                values.put(path, value);
+            }
+        });
+        return new SettingsChange(group.name(), values, resets);
     }
 
     private SettingStore.Group groupOf(final Context ctx) {
@@ -89,11 +115,11 @@ public final class SettingsApi {
         return SettingsDocument.of(group, stored, PluginNames.of(agent, overrides, group.service()));
     }
 
-    private static Reloading outcomeOf(final SettingStore.Group group) {
-        final MessageRef said = StewardTexts.TEXTS
-                .steward()
-                .said()
-                .setting(SettingStore.NETWORK.equals(group.service()), group.service(), group.live());
+    private static Reloading outcomeOf(final SettingStore.Group group, final boolean unchecked) {
+        final StewardTexts.Steward.Said words = StewardTexts.TEXTS.steward().said();
+        final MessageRef said = unchecked
+                ? words.settingUnchecked(group.service(), group.live())
+                : words.setting(SettingStore.NETWORK.equals(group.service()), group.service(), group.live());
         return group.live() ? Reloading.applied(said) : Reloading.restartRequired(said);
     }
 

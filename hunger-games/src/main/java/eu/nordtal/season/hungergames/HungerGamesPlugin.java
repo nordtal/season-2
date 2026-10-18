@@ -153,6 +153,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         answer(HungerGamesRequest.TABLE, request -> switch (request) {
             case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
             case HungerGamesRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
+            case HungerGamesRequest.CheckSettings check -> checkSettings(check.change());
         });
         final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());
         hub().on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());

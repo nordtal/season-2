@@ -144,7 +144,10 @@ public final class Docker {
                 state != null && state.has("ExitCode") && !state.get("ExitCode").isJsonNull()
                         ? state.get("ExitCode").getAsInt()
                         : -1,
-                repoDigests(string(json, "Image")));
+                repoDigests(string(json, "Image")),
+                json.has("RestartCount") && !json.get("RestartCount").isJsonNull()
+                        ? json.get("RestartCount").getAsInt()
+                        : 0);
     }
 
     /**
@@ -490,6 +493,7 @@ public final class Docker {
      * @param finishedAt when its process last ended, {@code null} when it never did
      * @param stopTimeout the seconds Docker waits before a kill, which compose sets from {@code stop_grace_period}
      * @param exitCode what the process exited with, or {@code -1}; {@code 137} is SIGKILL after a stop timed out
+     * @param restartCount how often the restart policy started it again since it was created
      */
     public record Inspection(
             String id,
@@ -503,7 +507,8 @@ public final class Docker {
             boolean tty,
             int stopTimeout,
             int exitCode,
-            List<String> repoDigests) {
+            List<String> repoDigests,
+            int restartCount) {
 
         /** Returns whether SIGKILL ended the process, as a stop that ran out of time does. */
         public boolean wasKilled() {

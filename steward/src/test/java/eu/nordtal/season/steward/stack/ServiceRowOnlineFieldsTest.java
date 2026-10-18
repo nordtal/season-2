@@ -85,7 +85,7 @@ class ServiceRowOnlineFieldsTest {
     static JsonObject wireRow(
             final String service, final ServicesApi.Online online, final AgentWire.Topology topology) {
         final AgentWire.Container container = new AgentWire.Container(
-                service, "id-" + service, null, null, "exited", null, null, null, null, null, null, null);
+                service, "id-" + service, null, null, "exited", null, null, null, null, null, null, null, 0);
         return WireJson.gson()
                 .toJsonTree(ServiceRows.describe(
                         container,

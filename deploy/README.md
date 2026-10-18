@@ -155,6 +155,13 @@ mc <command>       # send one command; the output goes to the container log
 entrypoint therefore pipes the pane into `logs/console.log` and tails `logs/latest.log` to stdout.
 `EntrypointRulesTest` checks this and the order of `remain-on-exit` and `pipe-pane`.
 
+A plugin that refuses the start writes its reason to `refused-start` in the data folder before the
+server stops. The entrypoint then prints `[nordtal] REFUSED: <reason>` and holds the container
+running and unhealthy, because Docker's restart policy would start it into the same refusal again. An
+update run reads that line and fails the service with the reason at once. The next start of the
+container removes the file. Steward tries a change to the settings of `smp` or `hunger-games` on the
+running server before it saves it, and refuses a change the server would not start with.
+
 ## Updating
 
 `/update` in the admin channel or in game reports what is newer. **Update now** runs the update after
@@ -385,6 +392,7 @@ is for a repository forked into a new season, which starts on an empty host.
 | symptom                                                         | cause                                                                           |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | a log names a setting                                           | a stored value was refused; Steward shows the reason on the group               |
+| the log ends with `[nordtal] REFUSED:`                          | the plugin refused the start; fix the cause, then restart the container         |
 | `FATAL: set EULA=true`                                          | the image does not accept the EULA for you                                      |
 | every login fails with _"Unable to connect you to the backend"_ | the forwarding secret differs somewhere                                         |
 | Velocity exits with _"Your configuration is invalid"_           | `velocity.toml` names a server that its `[servers]` does not define             |

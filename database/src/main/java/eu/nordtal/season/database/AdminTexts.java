@@ -332,6 +332,13 @@ public interface AdminTexts {
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef dockerState(@Arg("state") String state);
 
+        @Name("A service restarts")
+        MessageRef restarting(@Arg("service") @Example("smp") String service, @Arg("count") int count);
+
+        @Name("Restarted by Docker")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef restartedByDocker();
+
         @Name("A one-shot service failed")
         MessageRef failedOnce(@Arg("service") @Example("smp") String service, @Arg("code") int code);
 

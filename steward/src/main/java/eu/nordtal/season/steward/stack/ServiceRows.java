@@ -45,6 +45,7 @@ public final class ServiceRows {
      * @param oneShot true for a service that runs once and exits, else absent
      * @param lastRun the last run of a one-shot, absent while it runs, before its first run and for other services
      * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row down, else absent
+     * @param restarts how often Docker restarted it since it was last started on purpose, absent for none
      */
     public record Service(
             String service,
@@ -64,6 +65,7 @@ public final class ServiceRows {
             @Nullable String health,
             Alert.@Nullable Level alert,
             @Nullable String startedAt,
+            @Nullable Integer restarts,
             @Nullable Long memoryBytes,
             @Nullable Long memoryLimitBytes,
             @Nullable Double cpuPercent,
@@ -81,7 +83,9 @@ public final class ServiceRows {
                     health,
                     purpose(service, standby, hold, oneShot, moving),
                     lastRun == null ? null : lastRun.exitCode(),
-                    drift == ImageResult.State.OUTDATED);
+                    drift == ImageResult.State.OUTDATED,
+                    restarts == null ? 0 : restarts,
+                    startedAt == null ? null : Instant.parse(startedAt));
         }
 
         /** Returns this row with the fields of the service page. */
@@ -109,6 +113,7 @@ public final class ServiceRows {
                     health,
                     alert,
                     startedAt,
+                    restarts,
                     memoryBytes,
                     memoryLimitBytes,
                     cpuPercent,
@@ -142,8 +147,10 @@ public final class ServiceRows {
             final @Nullable String health,
             final StackReading.Purpose purpose,
             final @Nullable Integer exitCode,
-            final boolean outdated) {
-        return new StackReading.Service(service, state, health, purpose, exitCode, outdated);
+            final boolean outdated,
+            final int restarts,
+            final @Nullable Instant startedAt) {
+        return new StackReading.Service(service, state, health, purpose, exitCode, outdated, restarts, startedAt);
     }
 
     public record Hold(Instant since) {}
@@ -246,7 +253,9 @@ public final class ServiceRows {
                 health,
                 purpose(service, standby, hold, oneShot, moving),
                 lastRun == null ? null : lastRun.exitCode(),
-                false));
+                false,
+                0,
+                null));
         return new Service(
                 service,
                 container.id(),
@@ -265,6 +274,7 @@ public final class ServiceRows {
                 health,
                 down ? Alert.Level.DOWN : null,
                 running ? container.startedAt() : null,
+                container.restarts() > 0 ? container.restarts() : null,
                 sample == null ? null : sample.memoryBytes(),
                 sample == null ? null : sample.memoryLimitBytes(),
                 sample == null ? null : sample.cpuPercent(),

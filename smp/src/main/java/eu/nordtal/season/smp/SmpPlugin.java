@@ -252,6 +252,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
+            case SmpRequest.CheckSettings check -> checkSettings(check.change());
         });
         getLogger().info(track.size() + " milestones, " + regions.all().size() + " protected boxes");
     }
@@ -263,21 +264,35 @@ public final class SmpPlugin extends NordtalPlugin {
 
     private void loadMilestoneTrack() {
         final Milestones.Result milestonesResult = Milestones.read(milestoneSettings.get());
-        if (!milestonesResult.problems().isEmpty()) {
-            milestonesResult.problems().forEach(problem -> getLogger().severe("milestones: " + problem));
+        final String refusal =
+                milestonesRefusal(milestonesResult, problem -> getLogger().severe("milestones: " + problem));
+        if (refusal != null) {
+            throw fatal("smp is not starting: " + refusal + ", see the problems just logged.");
         }
-        final MilestoneTrack loadedTrack = milestonesResult.track();
+        track = Objects.requireNonNull(milestonesResult.track());
+    }
+
+    @Override
+    protected <T> @Nullable String refusesAtStart(final Group<T> group, final T value) {
+        if (!(value instanceof final MilestonesSpec milestones)) {
+            return null;
+        }
+        final List<String> problems = new ArrayList<>();
+        final String refusal = milestonesRefusal(Milestones.read(milestones), problems::add);
+        return refusal == null ? null : refusal + ": " + String.join("; ", problems);
+    }
+
+    /** Returns why the server does not start with this track, or null, and hands each problem to {@code problems}. */
+    private static @Nullable String milestonesRefusal(
+            final Milestones.Result result, final java.util.function.Consumer<String> problems) {
+        result.problems().forEach(problem -> problems.accept(String.valueOf(problem)));
+        final MilestoneTrack loadedTrack = result.track();
         if (loadedTrack == null) {
-            throw fatal("smp is not starting: the milestones group could not be parsed into a track at all - "
-                    + "see the problem just logged.");
+            return "the milestones group could not be parsed into a track at all";
         }
         final List<TrackValidation.Problem> unknown = TrackNames.validate(loadedTrack, TrackNames.Server.running());
-        if (!unknown.isEmpty()) {
-            unknown.forEach(problem -> getLogger().severe("milestones: " + problem));
-            throw fatal("smp is not starting: the milestones group names what this server does not have, see the"
-                    + " problems just logged.");
-        }
-        track = loadedTrack;
+        unknown.forEach(problem -> problems.accept(String.valueOf(problem)));
+        return unknown.isEmpty() ? null : "the milestones group names what this server does not have";
     }
 
     private void loadFeedbackPalettes() {

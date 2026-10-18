@@ -4,6 +4,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,6 +21,9 @@ public interface ContainerOps {
     RedeployResult stop(String containerId);
 
     RedeployResult start(String containerId);
+
+    /** Returns the last {@code count} lines of a container's log, oldest first, or none if it cannot be read. */
+    List<String> lastLines(String containerId, int count);
 
     /**
      * Gives the user of one service ownership of everything the service mounts. A failure is logged.

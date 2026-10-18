@@ -235,6 +235,7 @@ public final class AgentWire {
      * @param digests the registry digests of its image, filled by {@link #CONTAINER} only
      * @param finishedAt when its process last ended, or {@code null} while it runs or if it never ran
      * @param exitCode the exit code of that process, or {@code null} if {@code finishedAt} is {@code null}
+     * @param restarts how often the restart policy started it again since it was created
      */
     public record Container(
             String service,
@@ -248,7 +249,8 @@ public final class AgentWire {
             @Nullable Reading sample,
             @Nullable List<String> digests,
             @Nullable String finishedAt,
-            @Nullable Integer exitCode) {
+            @Nullable Integer exitCode,
+            int restarts) {
 
         public boolean isRunning() {
             return "running".equalsIgnoreCase(state);

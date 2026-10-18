@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.setting.SettingStore;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,23 @@ class DatabaseSettingsTest {
         final SettingStore.Group published = store.group("smp", "example").orElseThrow();
         assertEquals(List.of("name"), published.environment());
         assertFalse(published.defaults().contains("from-the-host"), "an environment value is never published");
+    }
+
+    @Test
+    void aTrialReadsTheChangeOverTheStoredRowsAndTheCheckRefusesItWithoutSavingIt() throws Exception {
+        store.set("smp", "example", "view-distance", 12).set("smp", "example", "name", "stored");
+        final DatabaseSettings settings = store.settings("smp");
+
+        final ExampleSpec tried =
+                settings.trial(EXAMPLE, new SettingsChange("example", Map.of("view-distance", "20"), List.of("name")));
+
+        assertEquals(20, tried.viewDistance());
+        assertEquals("nordtal", tried.name(), "a reset path is back at its default");
+        final SettingsException refused = assertThrows(
+                SettingsException.class,
+                () -> settings.trial(EXAMPLE, new SettingsChange("example", Map.of("view-distance", "99"), List.of())));
+        assertTrue(refused.getMessage().contains("view-distance is above 32"), refused.getMessage());
+        assertEquals(12, settings.load(EXAMPLE).get().viewDistance(), "a trial stores nothing");
     }
 
     @Test

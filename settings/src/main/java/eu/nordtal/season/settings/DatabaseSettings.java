@@ -3,10 +3,12 @@ package eu.nordtal.season.settings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.spec.ManagedSpecReference;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -67,6 +69,22 @@ public final class DatabaseSettings implements Settings {
         final Stored<T> setting = new Stored<>(group, owner, defaults);
         setting.start();
         return setting;
+    }
+
+    /**
+     * Returns {@code group} as this process would read it with {@code change} saved over the stored rows.
+     *
+     * @throws SettingsException if the group's check refuses the result
+     */
+    public <T> T trial(final Group<T> group, final SettingsChange change) throws SettingsException {
+        final String owner = group.network() ? SettingStore.NETWORK : service;
+        final List<SettingStore.Value> stored = new ArrayList<>(store.overrides(List.of(owner)).stream()
+                .filter(value -> value.group().equals(group.name()))
+                .filter(value -> !change.resets().contains(value.path())
+                        && !change.values().containsKey(value.path()))
+                .toList());
+        change.values().forEach((path, value) -> stored.add(new SettingStore.Value(owner, group.name(), path, value)));
+        return compose(group, defaultsOf(group), stored, environment, ignored -> {});
     }
 
     /**

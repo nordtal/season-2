@@ -35,7 +35,10 @@ public enum ServerRefusal implements RefusalReason {
     NOT_HERE,
 
     /** Discord did not deliver a preview as a direct message. */
-    NOT_DELIVERED;
+    NOT_DELIVERED,
+
+    /** The server would not start with a change to its settings. */
+    SETTINGS_REFUSED;
 
     /** Returns this refusal with its message from the database bundle. */
     public Refusal with(final Object... args) {
@@ -54,6 +57,7 @@ public enum ServerRefusal implements RefusalReason {
                     case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(count(args[0]), count(args[1]));
                     case NOT_HERE -> words.notHere();
                     case NOT_DELIVERED -> words.notDelivered();
+                    case SETTINGS_REFUSED -> words.settingsRefused(String.valueOf(args[0]), String.valueOf(args[1]));
                 });
     }
 

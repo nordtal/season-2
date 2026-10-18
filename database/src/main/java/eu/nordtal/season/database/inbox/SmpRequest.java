@@ -6,7 +6,10 @@ import java.util.Objects;
 
 /** A request to the SMP from another process. Each record is one kind. */
 public sealed interface SmpRequest
-        permits SmpRequest.CompleteObjective, SmpRequest.UnlockMilestone, SmpRequest.PreviewMessage {
+        permits SmpRequest.CompleteObjective,
+                SmpRequest.UnlockMilestone,
+                SmpRequest.PreviewMessage,
+                SmpRequest.CheckSettings {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
             .withRows(CompleteObjective.class, UnlockMilestone.class);
@@ -33,6 +36,14 @@ public sealed interface SmpRequest
         public PreviewMessage {
             Objects.requireNonNull(player, "player");
             Objects.requireNonNull(preview, "preview");
+        }
+    }
+
+    /** Tries a change to the settings before Steward saves it. Refused when the server would not start with it. */
+    record CheckSettings(SettingsChange change) implements SmpRequest {
+
+        public CheckSettings {
+            Objects.requireNonNull(change, "change");
         }
     }
 }

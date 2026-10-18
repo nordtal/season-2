@@ -77,6 +77,10 @@ public interface PaperCommonMessages {
         @Name("Preview shown")
         @Shown(Display.STEWARD)
         MessageRef previewShown();
+
+        @Name("Settings taken")
+        @Shown(Display.STEWARD)
+        MessageRef settingsTaken();
     }
 
     @Name("Login")

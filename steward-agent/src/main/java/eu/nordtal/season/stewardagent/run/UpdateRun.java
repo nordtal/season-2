@@ -42,6 +42,12 @@ final class UpdateRun {
 
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
+    /** What {@code deploy/minecraft/entrypoint.sh} prints as its last line when it holds a refused start. */
+    static final String REFUSED = "[nordtal] REFUSED: ";
+
+    /** The lines of a restarted container's log searched for why its last run ended. */
+    private static final int RESTART_LINES = 200;
+
     /** The run these steps belong to, which a mark beside an archive names. */
     private final long run;
 
@@ -351,26 +357,28 @@ final class UpdateRun {
         final Map<String, Steps.Step> verifying = new LinkedHashMap<>();
         pending.forEach(service -> verifying.put(service, record.begin(RunStep.Kind.VERIFY, service)));
         final Instant deadline = clock.now().plus(HEALTH_PATIENCE);
+        final Map<String, Integer> restartsBefore = new LinkedHashMap<>();
 
         while (!pending.isEmpty()) {
             final RuntimeResult now = containers.runtime();
             if (now.reached()) {
-                final List<String> back = new ArrayList<>();
+                final List<String> settled = new ArrayList<>();
                 for (final String service : pending) {
-                    if (now.service(service).map(ServiceRuntime::isBack).orElse(false)) {
-                        back.add(service);
-                        Objects.requireNonNull(verifying.get(service)).done();
-                        // A fallback line stays FAILED, its facts now saying that the service is back.
-                        report = report.with(
-                                fellBack.containsKey(service)
-                                        ? report.line(service)
-                                                .failed(Objects.requireNonNull(fellBack.get(service))
-                                                        .came(UpdateReport.Back.YES, null, null))
-                                        : renewed(report.line(service).at(UpdateReport.State.HEALTHY)));
+                    final ServiceRuntime state = now.service(service).orElse(null);
+                    final Steps.Step step = Objects.requireNonNull(verifying.get(service));
+                    if (state != null && state.isBack()) {
+                        settled.add(service);
+                        report = cameBack(report, service, step);
+                        continue;
+                    }
+                    final Facts ended = state == null ? null : gaveUp(state, restartsBefore);
+                    if (ended != null) {
+                        settled.add(service);
+                        report = endedEarly(report, service, ended, step);
                     }
                 }
-                if (!back.isEmpty()) {
-                    pending.removeAll(back);
+                if (!settled.isEmpty()) {
+                    pending.removeAll(settled);
                     progress.accept(report);
                 }
             }
@@ -401,6 +409,56 @@ final class UpdateRun {
                 result.ok()
                         ? TEXTS.report().saved(ByteSize.of(result.bytes()).message(), result.took())
                         : TEXTS.report().notSaved());
+    }
+
+    private UpdateReport cameBack(final UpdateReport report, final String service, final Steps.Step step) {
+        step.done();
+        final Facts fallback = fellBack.get(service);
+        // A fallback line stays FAILED, its facts now saying that the service is back.
+        return report.with(
+                fallback == null
+                        ? renewed(report.line(service).at(UpdateReport.State.HEALTHY))
+                        : report.line(service).failed(fallback.came(UpdateReport.Back.YES, null, null)));
+    }
+
+    private UpdateReport endedEarly(
+            final UpdateReport report, final String service, final Facts ended, final Steps.Step step) {
+        step.failed(ended.back() == UpdateReport.Back.REFUSED ? RunStep.Reason.REFUSED : RunStep.Reason.NOT_HEALTHY);
+        final Facts fallback = fellBack.get(service);
+        return report.with(report.line(service)
+                .failed(
+                        fallback == null
+                                ? ended
+                                : fallback.came(Objects.requireNonNull(ended.back()), null, ended.seen())));
+    }
+
+    /**
+     * Returns how the wait for a service ends early, or null while it may still come up.
+     * A held refusal is the last line of its log, and a restart is a climb over the count first seen.
+     */
+    private @Nullable Facts gaveUp(final ServiceRuntime state, final Map<String, Integer> restartsBefore) {
+        final String id = state.containerId();
+        if (id == null) {
+            return null;
+        }
+        final Facts.Seen seen = new Facts.Seen(state.status(), state.health(), null);
+        final List<String> last = containers.lastLines(id, 1);
+        if (!last.isEmpty() && last.getLast().contains(REFUSED)) {
+            final String line = last.getLast();
+            return Facts.gaveUp(
+                    UpdateReport.Back.REFUSED, line.substring(line.indexOf(REFUSED) + REFUSED.length()), seen);
+        }
+        final int before = restartsBefore.computeIfAbsent(state.service(), ignored -> state.restarts());
+        if (state.restarts() <= before) {
+            return null;
+        }
+        final List<String> lines = containers.lastLines(id, RESTART_LINES);
+        final String why = lines.reversed().stream()
+                .filter(line ->
+                        line.contains("FATAL") || line.contains("is not starting") || line.contains("server exited"))
+                .findFirst()
+                .orElse(lines.isEmpty() ? "its log could not be read" : lines.getLast());
+        return Facts.gaveUp(UpdateReport.Back.RESTARTED, why.strip(), seen);
     }
 
     /**

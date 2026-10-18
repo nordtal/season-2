@@ -201,6 +201,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V72__an_admins_discord_document_is_stored_whole.sql",
                 "a992caab55d4592394ecbeb49848865bcd88d126fbcec738b3b656a56bf481b5");
+        FROZEN.put(
+                "V73__a_server_tries_a_settings_change_before_it_is_saved.sql",
+                "09d953945d0ec6508f4152d6fbe4b2454d4691c37cd778808fa496dd96175ff1");
     }
 
     @Test

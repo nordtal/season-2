@@ -607,6 +607,15 @@ for pair in \
 done
 ok "the shell and JarName agree"
 
+case_begin "a refused start is read back as one line, and no file means no refusal"
+dir=$(volume refused)
+got=$(DATA="$dir" bash -c 'source "$1"; refusal' seeding-test "$ENTRYPOINT")
+[[ -z "$got" ]] || bad "no refused-start file read as '${got}'"
+printf 'smp is not starting: the milestones\ngroup is broken\n' > "$dir/refused-start"
+got=$(DATA="$dir" bash -c 'source "$1"; refusal' seeding-test "$ENTRYPOINT")
+[[ "$got" == "smp is not starting: the milestones group is broken" ]] || bad "read as '${got}'"
+ok "the reason is one line"
+
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2
     exit 1

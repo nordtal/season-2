@@ -23,7 +23,7 @@ class RepliesTest {
                 RENDERER.reply(Locale.ENGLISH, MESSAGES.unlink().success());
 
         assertEquals(
-                List.of("Your Minecraft account has been unlinked."),
+                List.of("Your Minecraft account is unlinked."),
                 drawn.components().stream()
                         .map(component -> ((TextDisplay) component).getContent())
                         .toList());
@@ -32,10 +32,10 @@ class RepliesTest {
     @Test
     void aReplyIsFilledWithItsTextsValues() {
         assertEquals(
-                "The payment link is still not here. Your reference is **NTABC123**.",
+                "The payment link is still missing. Your reference is **NTABC123**.",
                 RENDERER.reply(Locale.ENGLISH, MESSAGES.purchase().linkSection().slow("NTABC123"))
                         .text()
-                        .substring(0, 67));
+                        .substring(0, 66));
     }
 
     @Test

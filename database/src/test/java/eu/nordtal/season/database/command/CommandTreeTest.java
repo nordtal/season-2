@@ -11,10 +11,10 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The walk both platforms hand their dispatcher to, over a hand-built tree in Brigadier's shape. */
+/** The walk over a hand-built tree in the shape of Brigadier. */
 class CommandTreeTest {
 
-    /** A node as Brigadier has one: a name, a kind, whether it runs, its children and where it redirects. */
+    /** A node as in Brigadier: a name, a kind, whether it runs, its children and its redirect. */
     private static final class Fake {
         final String name;
         final boolean argument;

@@ -10,12 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A server's commands as its Brigadier dispatcher holds them: node 0 is the root, and every node is one index.
- *
- * A node reached twice and a redirect are an index too, so a tree looping back, as {@code execute run} does, is finite.
- * @param nodes every node by its index, the root first
- */
+/** A server's commands as a flat list of nodes, the root at index 0. */
 public record CommandTree(List<Node> nodes) {
 
     public CommandTree {
@@ -26,13 +21,12 @@ public record CommandTree(List<Node> nodes) {
     }
 
     /**
-     * A word to type or an argument to fill; every component a node does not need is absent rather than false or empty.
+     * A word to type or an argument to fill. A component a node does not need is null.
      *
-     * @param name the word to type, or the argument's name, which a reader shows as {@code <name>}; the root's is empty
-     * @param argument true for an argument, absent for a word
-     * @param executes true when what was typed up to here is a whole command, absent when it is not
-     * @param children the indexes of the nodes that may follow, words first and then arguments, each by name
-     * @param redirect the index of the node whose children follow instead of this one's own
+     * @param name the word, or the argument's name. Empty for the root
+     * @param executes true when the input up to this node is a whole command
+     * @param children the indexes of the following nodes, words first, then arguments, each by name
+     * @param redirect the index of the node whose children follow instead
      */
     public record Node(
             String name,
@@ -41,7 +35,7 @@ public record CommandTree(List<Node> nodes) {
             @Nullable List<Integer> children,
             @Nullable Integer redirect) {}
 
-    /** How to read one platform's Brigadier nodes, which never reach this module, so the walk exists once for both. */
+    /** Reads the Brigadier nodes of one platform, so {@link #of} is the only walk. */
     public interface Shape<N> {
 
         String name(N node);
@@ -56,7 +50,7 @@ public record CommandTree(List<Node> nodes) {
         N redirect(N node);
     }
 
-    /** Returns the tree below {@code root}, each node indexed once, breadth first in the order a reader offers. */
+    /** Returns the tree below {@code root}, breadth first, each node indexed once. */
     public static <N> CommandTree of(final N root, final Shape<N> shape) {
         Objects.requireNonNull(root, "root");
         Objects.requireNonNull(shape, "shape");
@@ -107,7 +101,7 @@ public record CommandTree(List<Node> nodes) {
         return children.isEmpty() ? null : children;
     }
 
-    /** Words before arguments, a namespaced word such as {@code minecraft:give} after the plain ones, then by name. */
+    /** Orders words before arguments, plain names before namespaced ones, then by name. */
     private static <N> Comparator<N> offered(final Shape<N> shape) {
         return Comparator.<N, Boolean>comparing(shape::argument)
                 .thenComparing(node -> shape.name(node).contains(":"))

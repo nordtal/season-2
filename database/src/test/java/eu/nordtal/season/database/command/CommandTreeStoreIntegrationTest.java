@@ -13,7 +13,7 @@ import java.util.Map;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** The servers' command trees against a real PostgreSQL and the real migrations; skipped without Docker. */
+/** The command trees of the servers against PostgreSQL and the real migrations. */
 class CommandTreeStoreIntegrationTest {
 
     private static final CommandTree TREE = new CommandTree(List.of(

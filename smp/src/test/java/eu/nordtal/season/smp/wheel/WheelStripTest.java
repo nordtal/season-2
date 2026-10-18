@@ -40,20 +40,42 @@ class WheelStripTest {
     }
 
     @Test
-    void itTravels() {
+    void itTurnsClockwiseOverOneRing() {
         for (final WheelStrip.Shape shape : SHAPES) {
-            final WheelStrip strip = WheelStrip.landingOn(5, 2, new Random(7), shape);
+            final WheelStrip strip = WheelStrip.landingOn(20, 2, new Random(7), shape);
             for (int step = 0; step + 1 < WheelStrip.steps(); step++) {
                 final int[] here = strip.cells(step);
                 final int[] next = strip.cells(step + 1);
-                for (int cell = 0; cell + 1 < shape.count(); cell++) {
+                for (int cell = 0; cell < shape.count(); cell++) {
                     assertEquals(
-                            here[cell + 1],
-                            next[cell],
-                            "frame " + step + " to " + (step + 1) + " has to be the same strip one"
-                                    + " cell along; anything else is a new set of icons appearing,"
-                                    + " and reads as a slot machine rather than a wheel");
+                            here[cell],
+                            next[(cell + 1) % shape.count()],
+                            "every step moves each prize one cell to the next index");
                 }
+            }
+        }
+    }
+
+    @Test
+    void oneSpinDrawsTwelveCellsWithTheWinnerOnIndexZero() {
+        final WheelStrip.Shape shape = WheelPanel.shape();
+        assertEquals(12, shape.count());
+        for (int poolSize = 1; poolSize <= 30; poolSize++) {
+            final WheelStrip strip = WheelStrip.landingOn(poolSize, poolSize - 1, new Random(poolSize), shape);
+            final int[] last = strip.cells(WheelStrip.steps() - 1);
+            assertEquals(12, last.length);
+            assertEquals(poolSize - 1, last[0]);
+            final java.util.Set<Integer> distinct = new java.util.HashSet<>();
+            for (final int cell : last) {
+                distinct.add(cell);
+            }
+            assertEquals(
+                    Math.min(poolSize, 12), distinct.size(), "pool " + poolSize + ": duplicates only below twelve");
+            for (int step = 0; step < WheelStrip.steps(); step++) {
+                final int[] cells = strip.cells(step);
+                java.util.Arrays.sort(cells);
+                java.util.Arrays.sort(last);
+                org.junit.jupiter.api.Assertions.assertArrayEquals(last, cells, "every frame shows the same ring");
             }
         }
     }

@@ -7,7 +7,7 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/** Holds what the move of the booking to steward does to a database the bot booked payments in. */
+/** Holds what moving the booking to steward does to a database in which the bot booked payments. */
 class PaymentBookingUpgradeIntegrationTest {
 
     @Test

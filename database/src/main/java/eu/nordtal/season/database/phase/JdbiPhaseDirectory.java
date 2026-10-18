@@ -19,7 +19,6 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link PhaseDirectory}; it borrows the pool it is given and owns nothing. */
 final class JdbiPhaseDirectory implements PhaseDirectory {
 
     private static final String MISSING =
@@ -38,7 +37,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
 
     @Override
     public SeasonPhase currentPhase() {
-        // A missing row or unknown value is MAINTENANCE; an unreachable database throws instead.
+        // A missing row or an unknown value is MAINTENANCE.
         return SeasonPhase.fromDatabase(dao.currentPhase().orElse(null));
     }
 
@@ -59,7 +58,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         return jdbi.inTransaction(handle -> {
             final @Nullable PhaseChange change = handle.attach(PhaseDao.class).switchPhase(phase.name());
             if (change == null) {
-                // No row matched: the singleton is gone, a corrupted database that must not get an audit entry.
+                // The singleton row is gone: a corrupted database gets no audit entry.
                 throw new IllegalStateException(MISSING);
             }
             Journal.write(
@@ -90,7 +89,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
 
     @Override
     public DateChange setSmpStart(final @Nullable Instant at, final Actor actor) {
-        // Read outside the write on purpose: this guards a forgetful admin, not a race.
+        // Read outside the write, as this guards an admin's slip, not a race.
         if (currentPhase() == SeasonPhase.SMP) {
             throw new Refused(SeasonDateRefusal.SMP_RUNNING, MESSAGES.season().smpRunning());
         }
@@ -109,7 +108,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                 change -> new JournalDetail.SmpStartSet(change.current(), change.grants()));
     }
 
-    /** Writes a date and its journal line in one transaction, with the missing-row check {@link #switchPhase} makes. */
+    /** Writes a date and its journal line in one transaction, with the row check of {@link #switchPhase}. */
     private DateChange written(
             final Function<PhaseDao, @Nullable DateChange> write,
             final JournalAction action,

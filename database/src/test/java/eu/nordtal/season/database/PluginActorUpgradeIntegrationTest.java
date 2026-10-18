@@ -6,7 +6,7 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/** Holds what giving an added plugin the structured actor does to the plugins an installation already has. */
+/** Holds what the structured actor of an added plugin does to the plugins an installation has. */
 class PluginActorUpgradeIntegrationTest {
 
     @Test

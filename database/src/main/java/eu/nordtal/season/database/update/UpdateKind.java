@@ -5,11 +5,11 @@ import java.util.List;
 
 /**
  * What an {@link UpdateRequest} asks steward to do: the kind of its request in the run inbox.
- * {@code UpdateKindTest} holds it against {@link StewardRequest}'s kinds.
+ * {@code UpdateKindTest} holds it against the kinds of {@link StewardRequest}.
  */
 public enum UpdateKind {
 
-    /** Counts down, stops what changes, migrates, swaps and restarts; never stops steward. */
+    /** Counts down, stops what changes, migrates, swaps and restarts. It never stops steward. */
     UPDATE,
 
     /** Counts down, stops, starts and waits, with nothing installed. */
@@ -17,50 +17,47 @@ public enum UpdateKind {
 
     /**
      * Counts down, stops, saves the volumes and starts again.
-     *
-     * Stopping first keeps a world copy from tearing; steward's own clock submits the nightly one.
+     * Stopping first keeps a world copy from tearing. Steward's own clock submits the nightly backup.
      */
     BACKUP,
 
     /**
      * Counts down, stops the named services and leaves them stopped.
-     *
-     * A row in {@code service_hold} keeps them down until {@link #START}; nothing expires it.
+     * A row in {@code service_hold} keeps them down until {@link #START}. Nothing expires it.
      */
     DOWN,
 
-    /** Takes the hold off and starts the services again, with no countdown. */
+    /** Removes the hold and starts the services again, without a countdown. */
     START,
 
     /** Takes a fresh backup, counts down, stops what the archive belongs to, puts it back and starts again. */
     RESTORE,
 
-    /** Counts down and makes the services' containers again from the images on this host. */
+    /** Counts down and recreates the containers of the services from the images on this host. */
     RECREATE,
 
-    /** Counts down, pulls the services' images and makes their containers again from them. */
+    /** Counts down, pulls the images of the services and recreates their containers. */
     DEPLOY,
 
-    /** Counts down, stops one server, takes one jar out of its plugins folder and starts it again. */
+    /** Counts down, stops one server, removes one jar from its plugins folder and starts it again. */
     REMOVE_PLUGIN,
 
     /**
      * Puts what has nothing installed into the volumes when steward-agent starts, before any server runs.
-     *
-     * Nobody asks for it: steward-agent writes the row once it is done, already settled.
+     * Nobody asks for it: steward-agent writes the row when done, already settled.
      */
     INSTALL;
 
-    /** Returns whether this kind stops servers, which is what a confirmation is asked for. */
+    /** Returns whether this kind stops servers, which a confirmation is asked for. */
     public boolean stopsServers() {
         return this != START && this != INSTALL;
     }
 
     /**
-     * Returns the request of this kind for the services, which the run inbox stores.
+     * Returns the request of this kind for the services.
      *
-     * @throws IllegalArgumentException for a kind that names more than services, a restore or a plugin removal, and
-     *     for the start-up install, which nobody asks for
+     * @throws IllegalArgumentException for a kind that names more than services (a restore, a plugin removal)
+     *     and for the start-up install
      */
     public StewardRequest request(final List<String> services) {
         return switch (this) {
@@ -78,12 +75,11 @@ public enum UpdateKind {
         };
     }
 
-    /** Returns the kind of a request in the run inbox. */
     public static UpdateKind of(final StewardRequest request) {
         return valueOf(StewardRequest.TABLE.kindOf(request));
     }
 
-    /** Returns whether this kind is half of the down and up pair, where a stopped service is the finished state. */
+    /** Returns whether this kind is half of the down and up pair, where a stopped service is the end state. */
     public boolean isHold() {
         return this == DOWN || this == START;
     }

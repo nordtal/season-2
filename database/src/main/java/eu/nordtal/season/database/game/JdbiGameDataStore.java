@@ -18,7 +18,7 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-/** The only implementation of {@link GameDataStore}; it borrows the pool it is given and owns nothing. */
+/** Implements {@link GameDataStore} with JDBI. */
 final class JdbiGameDataStore implements GameDataStore {
 
     private static final TypeToken<Map<String, Integer>> SLOTS = new TypeToken<>() {};
@@ -152,7 +152,7 @@ final class JdbiGameDataStore implements GameDataStore {
                 stored.tags() == null ? Map.of() : stored.tags());
     }
 
-    // In the writing transaction, so a listener woken by it reads what was written.
+    // In the writing transaction, so a listener woken by it reads the row.
     private static void signal(final Handle handle) {
         handle.createQuery("SELECT pg_notify(:channel, '') IS NULL")
                 .bind("channel", Channel.GAME_DATA.sqlName())
@@ -160,7 +160,7 @@ final class JdbiGameDataStore implements GameDataStore {
                 .one();
     }
 
-    // The catalogue column: what the server said beyond the version and the datapacks, which are columns.
+    // The catalogue column: everything but the version and the datapacks, which have columns.
     private record Stored(
             Map<String, List<GameCatalogue.Entry>> registries, Map<String, List<GameCatalogue.Tag>> tags) {}
 }

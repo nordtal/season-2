@@ -27,11 +27,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
-/**
- * Exercises {@link UpdateDirectory} against a real PostgreSQL running the real migrations.
- *
- * The claim, the countdown clock and the NOTIFY are database behaviour; tests skip without Docker.
- */
+/** Exercises {@link UpdateDirectory} against PostgreSQL with the real migrations. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateDirectoryIntegrationTest {
 
@@ -44,7 +40,7 @@ class UpdateDirectoryIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
     }
 
-    /** Both tables, since {@code service_hold} references {@code steward_inbox}; {@code CASCADE} would take more. */
+    /** Truncates both tables, as {@code service_hold} references {@code steward_inbox}. */
     private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE";
 
     @BeforeEach
@@ -53,7 +49,7 @@ class UpdateDirectoryIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
-    /** Writes a row straight into the table, past the held-service check, withdrawing whatever run was open. */
+    /** Writes a row into the table past the held-service check, withdrawing any open run. */
     private UpdateRequest queued(final UpdateKind kind, final Actor actor, final Duration delay) {
         try (Connection connection = dataSource.getConnection();
                 Statement close = connection.createStatement();
@@ -98,7 +94,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aPageSizeOfZeroIsStillAPageAndSaysSoInTheInterfaceAsWell() {
-        // A limit of zero is clamped, like the journal's, so the two lists cannot drift apart.
+        // A limit of zero is clamped, like the journal's, so the two lists stay equal.
         queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
         final UpdateRequest newest = queued(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
 
@@ -122,7 +118,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aDelayIsExactlyThatManySecondsOnTheDatabaseClock() {
-        // make_interval(secs => N) is real seconds, so the answer does not depend on the JVM's time zone.
+        // make_interval(secs => N) is real seconds, so the answer does not depend on the time zone of the JVM.
         final UpdateRequest request = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         final long gap =
@@ -132,7 +128,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aNegativeDelayIsTreatedAsNow() {
-        // A delay computed from two disagreeing clocks becomes "now", not an exception on the restart path.
+        // A delay computed from two disagreeing clocks becomes "now" and not an exception on the restart path.
         final UpdateRequest request = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(-30));
 
         assertEquals(
@@ -142,7 +138,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theInsertAnnouncesItselfOnTheChannel() throws Exception {
-        // The notification rides in the writing statement, so it is emitted only for a committed row.
+        // The notification is part of the writing statement, so it is emitted only for a committed row.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
                 statement.execute("LISTEN " + eu.nordtal.season.database.notify.Channel.UPDATE.sqlName());
@@ -191,11 +187,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /**
-     * Checks that {@code startCountdown()} notifies the channel like {@code submit()} does.
-     *
-     * Otherwise the proxy learns of the countdown only by its poll, and the thirty-second line can be lost.
-     */
+    /** Checks that {@code startCountdown()} notifies the channel as {@code submit()} does. */
     @Test
     void startingTheCountdownAnnouncesItselfOnTheChannel() throws Exception {
         final UpdateRequest submitted = updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
@@ -326,7 +318,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aRequestThatIsNotDueYetIsNotClaimed() {
-        // The row is not claimable for a minute: the minute the proxy counts down and a cancel fits into.
+        // The row is not claimable for a minute, the time in which the proxy counts down and a cancel fits.
         updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         assertTrue(updates.claimNext().isEmpty(), "not before its time");
@@ -337,7 +329,7 @@ class UpdateDirectoryIntegrationTest {
     void theDatabaseItselfRefusesASecondOpenRun() {
         queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
-        // Past the directory, as the host installer writes: the unique index is the one-run rule.
+        // Past the directory, as the host installer writes. The unique index is the one-run rule.
         final SQLException second = assertThrows(
                 SQLException.class,
                 () -> executeChecked("INSERT INTO steward_inbox (kind, payload, actor_kind)"
@@ -349,7 +341,7 @@ class UpdateDirectoryIntegrationTest {
     void twoStewardsNeverClaimTheSameRow() throws Exception {
         updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
-        // Hold the row in an open transaction, the way a second steward that claimed it would.
+        // Hold the row in an open transaction, as a second steward that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
@@ -357,7 +349,7 @@ class UpdateDirectoryIntegrationTest {
                         + "ORDER BY scheduled_for, id LIMIT 1 FOR UPDATE");
             }
 
-            // SKIP LOCKED: this finds nothing else and does not block; a block would hang the test.
+            // SKIP LOCKED finds nothing else and does not block, as a block would hang the test.
             assertTrue(updates.claimNext().isEmpty(), "the locked row is skipped rather than waited for");
 
             holder.rollback();
@@ -383,7 +375,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theCountdownStewardStartsIsTheOneTheProxyShowsAndTheButtonStops() {
-        // Claimed first, counted down after, so a run that finds nothing new never warns anybody.
+        // Claimed first and counted down after, so a run with nothing new warns nobody.
         final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.countingDown().isEmpty(), "a request nobody has resolved yet is not counting down");
 
@@ -445,7 +437,7 @@ class UpdateDirectoryIntegrationTest {
         assertTrue(updates.countingDown().isEmpty(), "a countdown that ran out is not counting down");
     }
 
-    /** A request of each kind, the two that name more than their services included. */
+    /** A request of each kind, including the two that name more than their services. */
     private static eu.nordtal.season.database.inbox.StewardRequest asked(final UpdateKind kind) {
         return switch (kind) {
             case RESTORE ->
@@ -456,7 +448,7 @@ class UpdateDirectoryIntegrationTest {
         };
     }
 
-    /** Checks that every kind that stops servers counts down, asking {@link UpdateKind#stopsServers()} for the list. */
+    /** Checks that every kind that stops servers counts down, using {@link UpdateKind#stopsServers()}. */
     @Test
     void everythingThatStopsServersCountsDown() {
         for (final UpdateKind kind : UpdateKind.values()) {
@@ -480,7 +472,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /** Checks that every countdown that can be started can be called off again. */
+    /** Checks that every countdown that can start can be called off. */
     @Test
     void everyCountdownThatCanBeStartedCanBeCalledOff() {
         for (final UpdateKind kind : UpdateKind.values()) {
@@ -507,7 +499,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /** Checks that a kind that stops nothing never makes players hear a countdown. */
+    /** Checks that a kind that stops nothing never plays a countdown to players. */
     @Test
     void aKindThatStopsNothingIsNotAnnounced() {
         final UpdateRequest submitted = updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
@@ -547,7 +539,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void cancellingAfterTheRunBeganAnswersEmptyRatherThanLying() {
-        // A claimed row with no countdown answers "too late", not "cancelled".
+        // A claimed row with no countdown answers "too late" and not "cancelled".
         updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
@@ -566,7 +558,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void anUpdateIsCountedDownAndCanBeStopped() {
-        // An UPDATE stops servers and counts down like a RESTART, so both must be found and cancellable.
+        // An UPDATE stops servers and counts down like a RESTART, so both are found and cancellable.
         final UpdateRequest update = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ofSeconds(30));
 
         assertEquals(
@@ -743,7 +735,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aStatusThisBuildCannotReadIsNotMistakenForPending() {
-        // A status a newer process does not know must not read as "still going to happen".
+        // A status that a newer process does not know must not read as "still going to happen".
         assertEquals(UpdateStatus.FAILED, UpdateStatus.fromDatabase("SOMETHING_ELSE"));
         assertEquals(UpdateStatus.FAILED, UpdateStatus.fromDatabase(null));
         assertEquals(UpdateStatus.PENDING, UpdateStatus.fromDatabase("PENDING"));
@@ -764,7 +756,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /** Waits up to five seconds for a notification; pgjdbc answers an empty array or null for none. */
+    /** Waits up to five seconds for a notification. pgjdbc answers an empty array or null for none. */
     private static boolean announced(final PGConnection pg) throws java.sql.SQLException {
         final PGNotification[] received = pg.getNotifications(5000);
         return received != null && received.length > 0;

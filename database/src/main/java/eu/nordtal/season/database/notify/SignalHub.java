@@ -16,19 +16,16 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * A process's one {@code LISTEN} connection: every refresh runs on connect, on every signal and every quiet minute.
- * The channel decides what is listened on, never which refresh runs. A refresh runs on the hub's thread and must be
- * quick; one that takes long rings a {@link Doorbell} or hands its work to its own executor.
+ * The {@code LISTEN} connection of a process. A refresh runs on connect, on every signal and every quiet minute.
+ * A refresh runs on the hub's thread and must be quick. A long one rings a {@link Doorbell} or uses its own executor.
  */
 public final class SignalHub implements AutoCloseable {
 
-    /** How long a quiet connection waits before every refresh runs anyway: the guarantee behind a lost signal. */
+    /** The wait of a quiet connection before every refresh runs anyway. It covers a lost signal. */
     public static final Duration RECONCILIATION = Duration.ofMinutes(1);
 
-    /** How long to wait before reconnecting after a failure. */
     private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
 
-    /** One thing to re-read, the channel whose signal it waits for, and a name for the log line when it fails. */
     private record Refresh(Channel channel, String what, Runnable task) {}
 
     private final Notifications.Connector connector;
@@ -44,19 +41,19 @@ public final class SignalHub implements AutoCloseable {
     private volatile @Nullable Thread thread;
 
     /**
-     * Creates a hub; nothing listens until {@link #start()}.
+     * Creates a hub that listens after {@link #start()}.
      *
-     * @param name the thread's and the log lines' name, naming the process
+     * @param name the name of the thread and the log lines
      */
     public SignalHub(final Notifications.Connector connector, final String name, final Logger logger) {
         this(connector, name, logger, RECONCILIATION, RECONNECT_BACKOFF);
     }
 
     /**
-     * Creates a hub on a dedicated, unpooled connection of its own.
+     * Creates a hub on its own unpooled connection.
      *
-     * @param socketTimeoutSeconds bounds a peer that has gone away without closing
-     * @param name                 the thread's, the connection's and the log lines' name, naming the process
+     * @param socketTimeoutSeconds the time after which a peer that vanished without closing fails
+     * @param name the name of the thread, the connection and the log lines
      */
     public static SignalHub open(
             final String jdbcUrl,
@@ -84,10 +81,10 @@ public final class SignalHub implements AutoCloseable {
     }
 
     /**
-     * Registers a re-read that waits for {@code channel}; refused once the hub has started.
+     * Registers a re-read that waits for {@code channel}. It is refused after the hub started.
      *
-     * @param what a name for the log line when it fails, such as "the season phase"
-     * @param task the re-read itself; safe to run repeatedly, from the hub's thread
+     * @param what a name for the log line on failure, such as "the season phase"
+     * @param task the re-read, which runs repeatedly on the hub's thread
      */
     public synchronized void on(final Channel channel, final String what, final Runnable task) {
         if (thread != null) {
@@ -100,12 +97,11 @@ public final class SignalHub implements AutoCloseable {
     }
 
     /**
-     * Registers a re-read of rows that hands them on only when they differ from the last ones handed on or seen.
-     * Every process layers stored rows over what it ships this way; a quiet reconciliation reads and calls nothing.
+     * Registers a re-read of rows that passes them on only when they differ from the rows last passed on or seen.
      *
-     * @param seen  what the process already runs with, or {@code null} to hand on the first read
-     * @param read  the rows, read in full; a read that throws leaves {@code seen} as it was
-     * @param apply takes rows that changed, on the hub's thread
+     * @param seen what the process runs with, or null to pass on the first read
+     * @param read the rows in full. A read that throws leaves {@code seen} as it was
+     * @param apply takes changed rows on the hub's thread
      */
     public <T> void watch(
             final Channel channel,
@@ -125,14 +121,14 @@ public final class SignalHub implements AutoCloseable {
         });
     }
 
-    /** Returns the channels this hub listens on: the union of every registration. */
+    /** Returns the channels of every registration. */
     public synchronized Set<Channel> channels() {
         final Set<Channel> channels = EnumSet.noneOf(Channel.class);
         refreshes.forEach(refresh -> channels.add(refresh.channel()));
         return channels;
     }
 
-    /** Starts listening on its own daemon thread; calling this twice, or with nothing registered, is refused. */
+    /** Starts listening on a daemon thread. A second call and a start with nothing registered are refused. */
     public synchronized void start() {
         if (thread != null) {
             throw new IllegalStateException("This hub has already been started");
@@ -146,7 +142,6 @@ public final class SignalHub implements AutoCloseable {
         hubThread.start();
     }
 
-    /** Runs the connect, re-read and wait loop. */
     void run() {
         final Set<Channel> channels = channels();
         final List<Refresh> registered = registered();
@@ -155,7 +150,7 @@ public final class SignalHub implements AutoCloseable {
                 current.set(notifications);
                 logger.info("{} is listening on {}", name, channels);
                 while (running) {
-                    // Before every wait: a change made while disconnected is never announced again.
+                    // A change made while disconnected is never announced again.
                     refreshAll(registered);
                     notifications.awaitNotification(reconciliation);
                 }
@@ -205,7 +200,7 @@ public final class SignalHub implements AutoCloseable {
         return waiting.sleep(reconnectBackoff) && running;
     }
 
-    /** Stops the loop and closes the connection under the blocking wait, so shutdown is immediate. */
+    /** Stops the loop and closes the connection under the blocking wait. */
     @Override
     public void close() {
         running = false;

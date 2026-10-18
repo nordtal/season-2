@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** A reread that changed nothing costs no write, and a failed write leaves nothing taken for granted. */
+/** A reread that changed nothing costs no write, and a failed write is not taken as done. */
 class CommandTreeWriterTest {
 
     private static final CommandTree STOP = new CommandTree(List.of(
@@ -23,7 +23,7 @@ class CommandTreeWriterTest {
             new CommandTree.Node("", null, null, List.of(1), null),
             new CommandTree.Node("list", null, true, null, null)));
 
-    /** Keeps what it was given, and then loses the answer while the line is bad, so a write may land unseen. */
+    /** Keeps what it was given, then loses the answer while the line is bad, so a write may land unseen. */
     private static final class Store implements CommandTreeStore {
         final List<String> written = new ArrayList<>();
         boolean bad;

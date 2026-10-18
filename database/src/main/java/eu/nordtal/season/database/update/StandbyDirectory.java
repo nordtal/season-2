@@ -5,29 +5,27 @@ import java.util.Optional;
 import javax.sql.DataSource;
 
 /**
- * What the standby proxy last said it holds, read by steward before it stops {@code proxy-standby}.
- *
- * It returns the count and when it was written; how old is too old is the caller's decision.
+ * What the standby proxy last said it holds, which steward reads before it stops {@code proxy-standby}.
+ * The caller decides how old is too old.
  */
 public interface StandbyDirectory {
 
-    /** Returns a directory over {@code dataSource}; it owns nothing. */
+    /** Returns a directory that borrows {@code dataSource}. */
     static StandbyDirectory using(final DataSource dataSource) {
         return new JdbiStandby(dataSource);
     }
 
-    /** Returns the standby's last heartbeat, or empty when none was ever written, which is not zero. */
+    /** Returns the last heartbeat of the standby, or empty if none was written. Empty is not zero. */
     Optional<Standby> current();
 
     /**
      * One heartbeat of the standby proxy.
      *
-     * @param players how many it was holding
-     * @param updated when it said so
+     * @param players the players it holds
+     * @param updated when it wrote the heartbeat
      */
     record Standby(int players, Instant updated) {
 
-        /** Returns whether this heartbeat is recent enough to act on. */
         public boolean isFresh(final Instant now, final java.time.Duration within) {
             return !updated.isBefore(now.minus(within));
         }

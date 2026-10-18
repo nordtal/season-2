@@ -4,19 +4,18 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The prestige crest: a tier from 1 to 13, derived from a player's total online time, AFK included.
- *
- * Derived from {@link PlayerIdentity#playtimeSeconds()}, never stored, and pure arithmetic: renders call it often.
+ * The prestige crest: a tier from 1 to 13, derived from the total online time of a player, AFK included.
+ * It is derived from {@link PlayerIdentity#playtimeSeconds()}, never stored, and pure arithmetic.
  */
 public final class Prestige {
 
-    /** The lowest tier, which everybody has from their first second. */
+    /** The lowest tier, which everybody has from the first second. */
     public static final int MINIMUM_TIER = 1;
 
-    /** The number of crest designs the resource pack draws, and therefore a hard cap. */
+    /** The number of crest designs in the resource pack, which caps the tier. */
     public static final int TIER_COUNT = 13;
 
-    /** The config default in hours, so a regular player reaches tier 13 in two to three months. */
+    /** The config default in hours. */
     public static final List<Integer> DEFAULT_THRESHOLD_HOURS =
             List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
 
@@ -56,7 +55,6 @@ public final class Prestige {
         }
     }
 
-    /** Returns the tier table built from {@link #DEFAULT_THRESHOLD_HOURS}. */
     public static Prestige defaults() {
         return new Prestige(DEFAULT_THRESHOLD_HOURS);
     }
@@ -64,14 +62,13 @@ public final class Prestige {
     /**
      * Returns the crest tier for an online time.
      *
-     * @param seconds total network-wide online time; a negative value is treated as none
-     * @return the crest tier, between {@link #MINIMUM_TIER} and {@link #TIER_COUNT}
+     * @param seconds the total network-wide online time. A negative value counts as none
      */
     public int tierOf(final long seconds) {
         if (seconds <= 0) {
             return MINIMUM_TIER;
         }
-        // The answer is the highest threshold the player has passed.
+        // The highest threshold the player has passed.
         for (int index = TIER_COUNT - 1; index >= 0; index--) {
             if (seconds >= thresholdSeconds[index]) {
                 return index + 1;
@@ -84,7 +81,7 @@ public final class Prestige {
      * Returns the online time at which a tier is reached.
      *
      * @param tier a tier between 1 and 13
-     * @return the online time in seconds at which it is reached
+     * @return the online time in seconds
      * @throws IllegalArgumentException if the tier is outside the table
      */
     public long secondsFor(final int tier) {
@@ -96,10 +93,9 @@ public final class Prestige {
     }
 
     /**
-     * How far a player is from their next tier.
+     * Returns the seconds still needed for the next tier, or 0 at tier 13.
      *
-     * @param seconds total online time
-     * @return the seconds still needed for the next tier, or {@code 0} at tier 13
+     * @param seconds the total online time
      */
     public long secondsToNextTier(final long seconds) {
         final int tier = tierOf(seconds);

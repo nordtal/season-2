@@ -19,15 +19,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises {@link MetricDirectory} against a real PostgreSQL running the real migrations.
- *
- * Bucketing, averages and the resolution seam are database behaviour; the tests skip without Docker.
- */
+/** Exercises {@link MetricDirectory} against PostgreSQL with the real migrations. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MetricDirectoryIntegrationTest {
 
-    /** A fixed instant on an exact UTC hour, so the hour-boundary tests are deterministic. */
+    /** An instant on an exact UTC hour, so the hour boundary tests are deterministic. */
     private static final Instant TEN = Instant.parse("2026-08-01T10:00:00Z");
 
     private static final Instant ELEVEN = Instant.parse("2026-08-01T11:00:00Z");
@@ -71,7 +67,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void theInstantWrittenIsTheInstantStoredWhateverZoneEitherSideIsIn() {
-        // pgjdbc and the server may use different zones; only a literal instant shows a shift.
+        // pgjdbc and the server may use different zones, and only a literal instant shows a shift.
         metrics.record(
                 List.of(new MetricSample("host", Metric.CPU_PERCENT, Instant.parse("2026-08-01T13:37:00Z"), 1.0)));
 
@@ -122,7 +118,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void everyResolutionTheCodeCanNameIsOneTheCheckAccepts() throws Exception {
-        // Resolution is a Java enum behind a text CHECK; a constant without a migration fails only here.
+        // Resolution is a Java enum behind a text CHECK, so a constant without a migration fails only here.
         for (final Resolution resolution : Resolution.values()) {
             execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES "
                     + "('host', 'cpu_percent', '" + resolution.name()
@@ -149,7 +145,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void theHourThatIsStillBeingMeasuredIsNotCompacted() {
-        // An hour still in progress must not be compacted, or its second half would be lost.
+        // An hour still in progress must not be compacted, or its second half is lost.
         metrics.record(List.of(
                 new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
                 new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
@@ -183,7 +179,7 @@ class MetricDirectoryIntegrationTest {
                 hourly("host", "cpu_percent", TEN),
                 "and the mean is still the mean of the raw samples, not of itself");
 
-        // Guards against a mean folded into a mean, which changes the value rather than the row count.
+        // Guards against a mean folded into a mean, which changes the value and not the row count.
         assertEquals(1, count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR'"));
     }
 
@@ -195,10 +191,10 @@ class MetricDirectoryIntegrationTest {
                 new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0),
                 new MetricSample("host", Metric.CPU_PERCENT, ELEVEN.plusSeconds(1800), 60.0)));
 
-        // Only the ten o'clock hour is averaged...
+        // Only the ten o'clock hour is averaged,
         assertEquals(1, metrics.compact(ELEVEN));
 
-        // ...but the delete is asked to go far past both of them. Age alone would take all four.
+        // but the delete is asked to go far past both. Age alone would take all four.
         assertEquals(2, metrics.forget(TWELVE), "only the two whose hour has a mean");
 
         assertEquals(
@@ -261,7 +257,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void betweenACompactionAndTheDeleteBehindItTheRawSamplesWin() {
-        // Between compact and forget an hour exists twice; summing both would double it on the graph.
+        // Between compact and forget an hour exists twice, and summing both doubles it on the graph.
         metrics.record(List.of(
                 new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
                 new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
@@ -282,7 +278,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void andTheyWinEvenWhenNoSampleHappensToSitOnTheHour() {
-        // Nothing at exactly 10:00, so the seam is not the oldest raw instant itself.
+        // Nothing at exactly 10:00, so the seam is not the oldest raw instant.
         metrics.record(List.of(
                 new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(600), 12.0),
                 new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
@@ -302,7 +298,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void aSeriesWithNothingButMeansIsStillACurve() {
-        // With no raw rows, coalesce(min(raw), 'infinity') keeps the seam from being null and the graph empty.
+        // With no raw rows, coalesce(min(raw), 'infinity') keeps the seam from being null.
         metrics.record(List.of(
                 new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
                 new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0)));
@@ -382,7 +378,7 @@ class MetricDirectoryIntegrationTest {
         assertEquals(0, metrics.forget(cut));
     }
 
-    /** Writes two samples, 10 and 20, into each of {@code hours} consecutive UTC hours from {@code first}. */
+    /** Writes two samples, 10 and 20, into each of {@code hours} UTC hours from {@code first}. */
     private void recordHours(final Instant first, final int hours) {
         final List<MetricSample> samples = new ArrayList<>();
         for (int hour = 0; hour < hours; hour++) {
@@ -393,7 +389,7 @@ class MetricDirectoryIntegrationTest {
         metrics.record(samples);
     }
 
-    /** A trigger that refuses an INSERT of the hourly row, or a DELETE of a raw row, of the hour at {@code hour}. */
+    /** A trigger that refuses an INSERT of the hourly row or a DELETE of a raw row of the hour at {@code hour}. */
     private static String failingTrigger(final String event, final String hour) {
         final String row = event.equals("INSERT") ? "NEW" : "OLD";
         final String kind = event.equals("INSERT") ? "HOUR" : "RAW";

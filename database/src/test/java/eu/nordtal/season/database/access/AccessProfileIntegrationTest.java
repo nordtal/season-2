@@ -28,11 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises what {@link AccessDirectory} keeps about a person against a real PostgreSQL: profiles, language, play time.
- *
- * Skips itself when no Docker daemon is reachable.
- */
+/** Exercises what {@link AccessDirectory} keeps about a person against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessProfileIntegrationTest {
 
@@ -95,7 +91,7 @@ class AccessProfileIntegrationTest {
         final DiscordProfile profile = directory.discordProfile(DiscordId.of(DISCORD_ID));
         assertNull(profile.displayName());
         assertNull(profile.avatarUrl());
-        // The timestamp says when the absence was last confirmed, not when a value last existed.
+        // The timestamp says when the absence was last confirmed.
         assertNotNull(profile.displayNameUpdated());
         assertNotNull(profile.avatarUrlUpdated());
     }
@@ -140,7 +136,7 @@ class AccessProfileIntegrationTest {
 
     @Test
     void twoDiscordAccountsMayShareEveryObservedFieldWithoutBecomingOneIdentity() {
-        // Two people may share a username or nickname; a UNIQUE constraint here would fail the INSERT below.
+        // Two people may share a username or nickname. A UNIQUE constraint would fail the INSERT below.
         final String otherDiscordId = "100000000000000099";
         final UUID otherMcUuid = UUID.randomUUID();
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
@@ -151,7 +147,7 @@ class AccessProfileIntegrationTest {
         directory.setMinecraftName(MC_UUID, "Herobrine");
         directory.setMinecraftName(otherMcUuid, "Herobrine");
 
-        // Each account still resolves to its own Minecraft account: the lookup is keyed on discordId.
+        // Each account resolves to its own Minecraft account, as the lookup is keyed on discordId.
         assertEquals(
                 MC_UUID,
                 directory.linkedMinecraftAccount(DiscordId.of(DISCORD_ID)).orElseThrow());
@@ -281,14 +277,14 @@ class AccessProfileIntegrationTest {
                         "INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', -1)"));
         assertTrue(negative.getMessage().contains("player_playtime_seconds_not_negative"), negative.getMessage());
 
-        // Seconds, not an interval: the proxy's flush is a plain addition, free of any time zone.
+        // Seconds, not an interval, as the flush of the proxy is a plain addition.
         execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 0)");
         execute("UPDATE player_playtime SET seconds = seconds + 86400, updated = now() WHERE discord_id = '"
                 + DISCORD_ID + "'");
         assertEquals(86400, count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"));
     }
 
-    /** Checks that an admin may set play time outright, unlike the proxy's {@code add}. */
+    /** Checks that an admin may set play time outright. */
     @Test
     void playtimeCanBeSetOutright() {
         directory.ensureUser(DiscordId.of(DISCORD_ID));
@@ -314,7 +310,7 @@ class AccessProfileIntegrationTest {
         }
     }
 
-    /** Like {@link #execute(String)}, but hands the failure back so a constraint can be asserted on. */
+    /** Like {@link #execute(String)}, but returns the failure for a constraint assertion. */
     private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {

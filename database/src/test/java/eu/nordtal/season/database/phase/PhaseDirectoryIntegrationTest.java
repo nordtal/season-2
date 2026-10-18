@@ -31,21 +31,17 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
-/**
- * Exercises {@link PhaseDirectory} against a real PostgreSQL running the real migrations.
- *
- * The CHECK, the atomic switch with its audit and NOTIFY are database behaviour; tests skip without Docker.
- */
+/** Exercises {@link PhaseDirectory} against PostgreSQL with the real migrations. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PhaseDirectoryIntegrationTest {
 
     private static final String ADMIN_ID = "300000000000000001";
     private static final Actor ADMIN = Actor.person(DiscordId.of(ADMIN_ID));
 
-    /** Every entry with the phases it moved between, where it has them. */
+    /** Every entry with the phases it moved between. */
     private static final String JOURNAL = " FROM journal_entry e LEFT JOIN journal_phase p ON p.entry = e.id";
 
-    /** A phase entry's change, as the constants it names. */
+    /** The change of a phase entry as the constants it names. */
     private static final String CHANGE =
             "p.from_phase || ' -> ' || p.to_phase || coalesce(' (' || p.reason || ')', '')";
 
@@ -62,9 +58,9 @@ class PhaseDirectoryIntegrationTest {
 
     @BeforeEach
     void freshPhase() {
-        // Restores the seeded singleton; DELETE + INSERT because one test removes the row.
+        // Restores the seeded singleton with DELETE and INSERT, as one test removes the row.
         execute("TRUNCATE TABLE journal_entry CASCADE");
-        // Grants cascade off the user; without this the date tests move each other's rows.
+        // Grants cascade off the user, and without this the date tests move each other's rows.
         execute("TRUNCATE TABLE discord_user CASCADE");
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
@@ -74,7 +70,7 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void theMigrationSeedsTheSeasonsStartState() {
-        // Reads the seed off a database migrated by Flyway, not off the row this class re-seeds.
+        // Reads the seed off a database migrated by Flyway and not off the row this class re-seeds.
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) SELECT 'PRE_EVENT'");
 
@@ -84,14 +80,14 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void aSecondRowCannotBeInsertedAtAll() {
-        // Taking the default id: the boolean primary key is already true.
+        // The default id: the boolean primary key is already true.
         final SQLException duplicate = assertThrows(
                 SQLException.class, () -> executeChecked("INSERT INTO season_phase (phase) VALUES ('SMP')"));
         assertTrue(
                 duplicate.getMessage().contains("season_phase_pkey"),
                 "the primary key is the first half of the singleton: " + duplicate.getMessage());
 
-        // Dodging the primary key by picking the other boolean value: the CHECK is the other half.
+        // The other boolean value dodges the primary key, and the CHECK is the other half.
         final SQLException checkViolation = assertThrows(
                 SQLException.class, () -> executeChecked("INSERT INTO season_phase (id, phase) VALUES (false, 'SMP')"));
         assertTrue(
@@ -110,7 +106,7 @@ class PhaseDirectoryIntegrationTest {
                 SQLException.class, () -> executeChecked("UPDATE season_phase SET phase = 'START-EVENT' WHERE id"));
         assertTrue(failure.getMessage().contains("season_phase_phase_check"), failure.getMessage());
 
-        // The column is varchar(16), so a longer name is refused before the CHECK is reached.
+        // The column is varchar(16), so a longer name is refused before the CHECK.
         final SQLException tooLong = assertThrows(
                 SQLException.class,
                 () -> executeChecked("UPDATE season_phase SET phase = 'RESOURCE_PACK_INSTALL' WHERE id"));
@@ -147,7 +143,7 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void theOpeningAndTheStartOfPaidTimeAreIndependent() {
-        // Launch and SMP start are independent dates, so setting one must not touch the other.
+        // Launch and SMP start are independent dates, so setting one leaves the other.
         execute("UPDATE season_phase SET launch = timestamptz '2026-10-01 18:00+02' WHERE id");
 
         assertTrue(phases.launch().isPresent());
@@ -199,7 +195,7 @@ class PhaseDirectoryIntegrationTest {
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
-    /** smp starts its track over when it sees the stamp; the switch itself writes nothing of smp's. */
+    /** smp starts its track over when it sees the stamp. The switch writes nothing of smp's. */
     @Test
     void enteringTheSeasonFromTheEventStampsAFreshStartAndLeavesTheTrackToSmp() {
         playedTrack();
@@ -225,7 +221,7 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
     }
 
-    /** A track somebody has played: waiting done, departure active with progress and a contribution. */
+    /** A track somebody has played: waiting done and departure active, with progress and a contribution. */
     private static void playedTrack() {
         user(DiscordId.of(ADMIN_ID));
         execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('waiting', 'UNLOCKED', now()),"
@@ -242,7 +238,7 @@ class PhaseDirectoryIntegrationTest {
         phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
         phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN, "database maintenance");
 
-        // Compared as a set: the three rows share a transaction timestamp, so their order is arbitrary.
+        // Compared as a set, as the three rows share a transaction timestamp.
         assertEquals(
                 Set.of("PRE_EVENT -> START_EVENT", "START_EVENT -> SMP", "SMP -> MAINTENANCE (database maintenance)"),
                 Set.copyOf(query("SELECT " + CHANGE + JOURNAL)));
@@ -270,7 +266,7 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void aCommittedSwitchNotifiesTheChannelTheProxyListensOn() throws SQLException {
-        // The poll is the guarantee; this proves only that the NOTIFY reaches a listener.
+        // The poll is the guarantee. This proves only that the NOTIFY reaches a listener.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
                 statement.execute("LISTEN nordtal_phase");
@@ -340,9 +336,9 @@ class PhaseDirectoryIntegrationTest {
     void theTwoDatesMayNotCrossEachOther() {
         phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN);
 
-        // The SMP cannot start running before the network it runs on is open.
+        // The SMP cannot start before the network it runs on is open.
         assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN));
-        // And the opening cannot be moved past a start that is already announced.
+        // The opening cannot move past a start that is announced.
         phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN);
         assertThrows(Refused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN));
     }
@@ -369,10 +365,10 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void stackedPurchasesStayStackedRatherThanCollapsingOntoTheDate() {
-        // Two chained purchases; moving the anchor must move the pair, not stack both on the opening day.
+        // Two chained purchases. Moving the anchor moves the pair and does not stack both on the opening day.
         user(DiscordId.of("400000000000000002"));
         grant(DiscordId.of("400000000000000002"), "now()", "now() + make_interval(hours => 720)");
-        // Anchored on the first period's end, not a second now(), as the append rule chains on max(valid_until).
+        // Anchored on the end of the first period, as the append rule chains on max(valid_until).
         final String endOfTheFirst =
                 "(SELECT max(valid_until) FROM access_grant" + " WHERE discord_id = '400000000000000002')";
         grant(DiscordId.of("400000000000000002"), endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
@@ -384,7 +380,7 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(1, change.accounts(), "one person, two periods");
         assertWithinSeconds(opening, earliestFrom(DiscordId.of("400000000000000002")), 2);
         assertWithinSeconds(opening.plus(Duration.ofDays(60)), latestUntil(DiscordId.of("400000000000000002")), 2);
-        // Every period but the earliest must start where the previous one ends.
+        // Every period but the earliest starts where the previous one ends.
         assertEquals(
                 0,
                 count("SELECT count(*) FROM access_grant later"
@@ -414,7 +410,7 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(2, change.accounts());
         assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000003")), 2);
         assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000004")), 2);
-        // Each keeps the length they paid for, which is not the same for the two of them.
+        // Each keeps the length they paid for, which differs between the two.
         assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000003")), 2);
         assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000004")), 2);
     }

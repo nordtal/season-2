@@ -9,7 +9,7 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link AuditDirectory}; it borrows its pool and owns nothing. */
+/** Implements {@link AuditDirectory} with JDBI. */
 final class JdbiAuditDirectory implements AuditDirectory {
 
     private final Jdbi jdbi;
@@ -42,12 +42,12 @@ final class JdbiAuditDirectory implements AuditDirectory {
         jdbi.useHandle(handle -> Journal.write(handle, line));
     }
 
-    /** Turns an empty search box into no filter, so a statement parameter is a value or absent. */
+    /** Turns a blank search box into null. */
     private static @Nullable String any(final @Nullable String filter) {
         return filter == null || filter.isBlank() ? null : filter;
     }
 
-    /** Clamped rather than rejected, exactly as {@code JdbiUpdateDirectory#recent} clamps it. */
+    /** Raises the limit to 1, as {@code JdbiUpdateDirectory#recent} does. */
     private static int clamp(final int limit) {
         return Math.max(1, limit);
     }

@@ -1,8 +1,8 @@
 package eu.nordtal.season.database.audit;
 
 /**
- * What a journal entry records, the {@code journal_entry.action} a writer files it under and the journal filters by.
- * Each has its line in {@link eu.nordtal.season.database.AdminTexts}; a new one is added to that column's check too.
+ * The {@code journal_entry.action} that a writer files an entry under and the journal filters by.
+ * Each action has its line in {@link eu.nordtal.season.database.AdminTexts} and needs an entry in that column's check.
  */
 public enum JournalAction {
     ADMIN_ROOT,

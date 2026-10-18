@@ -11,12 +11,12 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The SQL a run adds to the run inbox, whose state machine is the inbox's; {@link UpdateDirectory} is the API. */
+/** The SQL that a run adds to the run inbox. {@link UpdateDirectory} is its API. */
 @RegisterRowMapper(UpdateRequestMapper.class)
 @Notifies(Channel.UPDATE)
 interface UpdateDao {
 
-    /** Returns the oldest run that is pending or running, which is what refuses a new one. */
+    /** Returns the oldest pending or running run, which refuses a new one. */
     @SqlQuery("""
             SELECT * FROM steward_inbox
             WHERE status IN ('PENDING', 'RUNNING')
@@ -25,7 +25,7 @@ interface UpdateDao {
             """)
     Optional<UpdateRequest> open();
 
-    /** Returns the services a run is for, empty for a whole-network run and for no row. */
+    /** Returns the services of a run, empty for a whole-network run and for no row. */
     @SqlQuery("SELECT jsonb_array_elements_text(payload -> 'services') FROM steward_inbox WHERE id = :id")
     List<String> services(@Bind("id") long id);
 
@@ -33,18 +33,16 @@ interface UpdateDao {
     Optional<UpdateRequest> find(@Bind("id") long id);
 
     /**
-     * Returns every request written after the one named, oldest first.
+     * Returns every request after the one named, oldest first.
      *
-     * @param id the last one already seen; {@code 0} for everything
+     * @param id the last one already seen. 0 for everything
      */
     @SqlQuery("SELECT * FROM steward_inbox WHERE id > :id ORDER BY id")
     java.util.List<UpdateRequest> since(@Bind("id") long id);
 
-    /** Returns the most recent requests, newest first. */
     @SqlQuery("SELECT * FROM steward_inbox ORDER BY id DESC LIMIT :limit")
     java.util.List<UpdateRequest> recent(@Bind("limit") int limit);
 
-    /** Returns the highest id in the table, or zero when it is empty. */
     @SqlQuery("SELECT coalesce(max(id), 0) FROM steward_inbox")
     long latestId();
 
@@ -58,10 +56,10 @@ interface UpdateDao {
     java.util.List<UpdateRequest> finishedWithin(@Bind("seconds") long seconds);
 
     /**
-     * Returns every {@code BACKUP} that reached {@code DONE} inside the window, newest first.
+     * Returns every {@code BACKUP} that reached {@code DONE} in the window, newest first.
      * The caller parses each report and stops at the first that proves a file was saved.
      *
-     * @param seconds how far back to look, from the database's clock
+     * @param seconds how far back to look, by the database's clock
      */
     @SqlQuery("""
             SELECT * FROM steward_inbox
@@ -74,10 +72,10 @@ interface UpdateDao {
     java.util.List<UpdateRequest> backupsDoneWithin(@Bind("seconds") long seconds);
 
     /**
-     * Starts and announces the countdown on a claimed request, only while it is still {@code RUNNING}.
+     * Starts and announces the countdown on a claimed request, only while it is {@code RUNNING}.
      *
-     * @param moving the services the run stops, which the proxy evacuates once the countdown runs out
-     * @return the row with its {@code countdown_end}, or empty when it was withdrawn
+     * @param moving the services the run stops, which the proxy moves players off when the countdown ends
+     * @return the row with its {@code countdown_end}, or empty if it was withdrawn
      */
     @SqlQuery("""
             WITH updated AS (
@@ -94,9 +92,9 @@ interface UpdateDao {
             @Bind("id") long id, @Bind("seconds") long seconds, @Bind("moving") String[] moving);
 
     /**
-     * Ends the countdown atomically; the row lock decides the race with a cancel at zero.
+     * Ends the countdown atomically. The row lock decides a race with a cancel at zero.
      *
-     * @return the id when the run may go ahead, empty when it was cancelled
+     * @return the id if the run may go ahead, empty if it was cancelled
      */
     @SqlQuery("""
             WITH committed AS (
@@ -111,8 +109,7 @@ interface UpdateDao {
 
     /**
      * Returns the earliest outage counting down: a pending row to its schedule, a running one to its countdown.
-     *
-     * The kind list is held against {@link UpdateKind#stopsServers()} by an integration test.
+     * An integration test holds the kind list against {@link UpdateKind#stopsServers()}.
      */
     @SqlQuery("""
             SELECT * FROM steward_inbox
@@ -125,9 +122,8 @@ interface UpdateDao {
     Optional<UpdateRequest> countingDown();
 
     /**
-     * Returns the run that is happening right now: claimed and not counting down, servers going down.
-     *
-     * Any kind counts, since a backup stops the same servers as an update.
+     * Returns the run that is happening now: claimed, not counting down, servers going down.
+     * Any kind counts, as a backup stops the same servers as an update.
      */
     @SqlQuery("""
             SELECT * FROM steward_inbox
@@ -139,9 +135,8 @@ interface UpdateDao {
     Optional<UpdateRequest> running();
 
     /**
-     * Withdraws the running countdown; {@code SKIP LOCKED} makes a cancel racing the commit answer empty.
-     *
-     * The report it held, if any, moves to {@code CANCELLED}; who cancelled is the journal's line.
+     * Withdraws the running countdown. {@code SKIP LOCKED} makes a cancel that races the commit answer empty.
+     * A report it held moves to {@code CANCELLED}. The journal line says who cancelled.
      */
     @SqlQuery("""
             WITH cancellable AS (
@@ -170,27 +165,26 @@ interface UpdateDao {
             """)
     Optional<UpdateRequest> cancelCountdown();
 
-    /** Names the container a running request was handed to; zero rows when it is no longer running. */
+    /** Names the container that runs a running request. Zero rows if it is not running. */
     @SqlUpdate("UPDATE steward_inbox SET runner = :runner WHERE id = :id AND status = 'RUNNING'")
     int handOver(@Bind("id") long id, @Bind("runner") String runner);
 
     @SqlQuery("SELECT runner FROM steward_inbox WHERE id = :id AND status = 'RUNNING' AND runner IS NOT NULL")
     Optional<String> runnerOf(@Bind("id") long id);
 
-    /** Returns the running requests handed to a container, with that container's name. */
+    /** Returns the running requests with the name of the container that runs them. */
     @SqlQuery("SELECT id, runner FROM steward_inbox WHERE status = 'RUNNING' AND runner IS NOT NULL")
     @RegisterConstructorMapper(Handed.class)
     List<Handed> handed();
 
-    /** A running request and the container it was handed to. */
+    /** A running request and its container. */
     record Handed(long id, String runner) {}
 
-    /** Returns every service being held down, newest first. */
     @SqlQuery("SELECT * FROM service_hold ORDER BY since DESC, service")
     @RegisterRowMapper(ServiceHoldMapper.class)
     List<ServiceHold> holds();
 
-    /** Writes the hold, or refreshes the one already there so the newest press says who holds it; announced. */
+    /** Writes the hold, or refreshes the existing one so the newest press says who holds it. Announced. */
     @SqlQuery("""
             WITH held AS (
                 INSERT INTO service_hold (service, actor_kind, actor_id, request_id)
@@ -208,7 +202,7 @@ interface UpdateDao {
             @Bind("actorId") @Nullable String actorId,
             @Bind("requestId") @Nullable Long requestId);
 
-    /** Returns how many rows went away, zero when it was not being held; announced when one did. */
+    /** Deletes the hold and returns the rows deleted, zero if there was none. Announced if one went. */
     @SqlQuery("""
             WITH released AS (DELETE FROM service_hold WHERE service = :service RETURNING service)
             SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM released) AS announced

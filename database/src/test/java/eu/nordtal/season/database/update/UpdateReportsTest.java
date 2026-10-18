@@ -10,12 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * Checks that a report survives the trip through the run's outcome and back.
- *
- * A {@code null} version must not come back as {@code "null"}, typed text may hold quotes and newlines,
- * and plain-text rows must stay drawable.
- */
+/** Checks that a report survives the trip through the outcome of a run and back. */
 class UpdateReportsTest {
 
     @Test
@@ -104,7 +99,7 @@ class UpdateReportsTest {
 
     @Test
     void thePlainTextAnOlderStewardWroteIsNotAReportAndDoesNotThrow() {
-        // Plain-text rows must parse to empty without throwing.
+        // Plain-text rows parse to empty without throwing.
         assertEquals(Optional.empty(), UpdateReports.parse("Nothing needed doing.\n  smp: paper 26.2.121 (current)"));
         assertEquals(Optional.empty(), UpdateReports.parse(null));
         assertEquals(Optional.empty(), UpdateReports.parse(""));
@@ -159,7 +154,7 @@ class UpdateReportsTest {
 
     @Test
     void anArtefactWithNoBuildForThisVersionIsNewsAndNeverWork() {
-        // A line with only unsupported changes must not stop, install or close as installed.
+        // A line with only unsupported changes does not stop, install or close as installed.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -238,7 +233,7 @@ class UpdateReportsTest {
 
     @Test
     void aChangeStoredInWordsByAnEarlierReleaseStillReadsAsItWas() {
-        // An image change as the inbox keeps it from before it was a message.
+        // An image change as the inbox kept it before it was a message.
         final String stored = "{\"stage\": \"DONE\", \"notes\": [], \"services\": [{\"state\": \"HEALTHY\","
                 + " \"changes\": [{\"to\": \"out of date\", \"state\": \"MOVING\", \"artefact\": \"image\"}],"
                 + " \"service\": \"smp\"}]}";

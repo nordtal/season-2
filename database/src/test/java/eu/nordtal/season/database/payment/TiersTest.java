@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** The settlement rule: an order the money covers is honoured exactly, and only a shortfall is re-derived. */
+/** The settlement rule: an order the money covers is honoured exactly and only a shortfall is derived again. */
 class TiersTest {
 
-    /** The agreed product: 30/60/90 days at 3/5/7 EUR, with a 5 EUR donation surcharge. */
+    /** The agreed product: 30, 60 and 90 days at 3, 5 and 7 EUR, with a 5 EUR donation surcharge. */
     private final Tiers tiers = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 500);
 
     /** 60 days at 5 EUR with the donation added. */
@@ -39,7 +39,7 @@ class TiersTest {
 
     @Test
     void payingTheAskedForAmountBuysWhatWasAskedForNotTheHighestTierItCovers() {
-        // 10 EUR covers the 7 EUR tier, but the order says 60 days plus a donation, and the order wins.
+        // 10 EUR covers the 7 EUR tier, but the order says 60 days plus a donation and the order wins.
         final Tiers.Settlement settlement =
                 tiers.resolve(1000, SIXTY_WITH_DONATION).orElseThrow();
         final Tiers.Settlement amountOnly = tiers.resolve(1000).orElseThrow();
@@ -53,7 +53,7 @@ class TiersTest {
 
     @Test
     void surplusBelowTheSurchargeIsIgnoredNoExtraDaysNoPartialCredit() {
-        // Ordered 60 days at 5 EUR, paid 8; the 3 EUR left over is neither a donation nor a tier move.
+        // Ordered 60 days at 5 EUR and paid 8. The 3 EUR left over is neither a donation nor a tier move.
         final Tiers.Settlement settlement = tiers.resolve(800, SIXTY_PLAIN).orElseThrow();
 
         assertAll(
@@ -102,7 +102,7 @@ class TiersTest {
 
     @Test
     void droppingTheDonationIsAShortfallTooEvenWhenTheDaysStillFit() {
-        // Ordered 60 days plus the donation (10 EUR), paid 5. The days survive; the role does not.
+        // Ordered 60 days plus the donation (10 EUR) and paid 5. The days survive and the role does not.
         final Tiers.Settlement settlement =
                 tiers.resolve(500, SIXTY_WITH_DONATION).orElseThrow();
 
@@ -121,7 +121,7 @@ class TiersTest {
 
     @Test
     void withNoOrderTheAmountAloneDecidesHighestTierFirst() {
-        // Kept for a payment with no request; the fallback matcher raises an unknown reference instead.
+        // Kept for a payment with no request, as the fallback matcher raises an unknown reference instead.
         assertAll(
                 () -> assertEquals(90, tiers.resolve(1000).orElseThrow().days()),
                 () -> assertFalse(tiers.resolve(1000).orElseThrow().donation()),
@@ -131,7 +131,7 @@ class TiersTest {
 
     @Test
     void m8AnOrderSurvivesAChangeToTheDonationSurchargeNotOnlyToATierPrice() {
-        // Ordered 60 days at a 5 EUR surcharge and paid 10 EUR; the surcharge is lowered to 3 EUR before settling.
+        // Ordered 60 days at a 5 EUR surcharge and paid 10 EUR. The surcharge drops to 3 EUR before settling.
         final Tiers afterTheChange = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 300);
 
         final Tiers.Settlement settlement =
@@ -149,7 +149,7 @@ class TiersTest {
 
     @Test
     void m8ARaisedSurchargeDoesNotTurnAFullyPaidOrderIntoADowngrade() {
-        // The dangerous direction: the surcharge moves to 8 EUR after ordering, so 1000 reads as short.
+        // The surcharge moves to 8 EUR after ordering, so 1000 reads as short.
         final Tiers afterTheChange = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 800);
 
         final Tiers.Settlement settlement =
@@ -165,7 +165,7 @@ class TiersTest {
 
     @Test
     void anOrderPricedFromARetiredTierIsStillHonoured() {
-        // The price list no longer has a 45-day tier; the order is read off the row, not looked up.
+        // The price list has no 45-day tier, so the order is read off the row.
         final Tiers.Settlement settlement =
                 tiers.resolve(400, new Tiers.Order(45, 400, 0)).orElseThrow();
 

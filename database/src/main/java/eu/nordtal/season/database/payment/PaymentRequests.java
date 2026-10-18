@@ -17,22 +17,15 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-/**
- * The {@code payment_request} table, short of its booking, which {@link Bookings} does.
- * Only reference allocation is Java logic.
- */
+/** The {@code payment_request} table except the booking, which {@link Bookings} does. */
 public final class PaymentRequests {
 
-    /**
-     * The reference printed on the bunq.me tab and scraped back out of a payment description.
-     * A lookup key, never an authorisation: a payment carrying it books against that request.
-     */
+    /** The reference printed on the bunq.me tab and read back from a payment description. It is a lookup key only. */
     public static final Pattern REFERENCE_PATTERN = Pattern.compile("NT-[0-9A-F]{6}");
 
     private static final String PREFIX = "NT-";
     private static final int REFERENCE_BYTES = 3;
 
-    /** PostgreSQL's SQLSTATE for a unique violation. */
     private static final String UNIQUE_VIOLATION = "23505";
 
     private static final String REFERENCE_CONSTRAINT = "payment_request_reference_key";
@@ -44,7 +37,7 @@ public final class PaymentRequests {
     private final Inbox<BankRequest> bank;
     private final SecureRandom random = new SecureRandom();
 
-    /** Borrows the pool it is given and owns nothing; the process that built it closes it. */
+    /** Borrows {@code dataSource}. The process that built it closes it. */
     public PaymentRequests(final DataSource dataSource) {
         this.jdbi = Jdbis.over(dataSource);
         this.dao = jdbi.onDemand(PaymentRequestDao.class);
@@ -59,7 +52,6 @@ public final class PaymentRequests {
         return dao.findByReference(reference.trim().toUpperCase(Locale.ROOT));
     }
 
-    /** Returns one request by id, for a caller waiting for that row to change. */
     public Optional<PaymentRequest> byId(final UUID id) {
         return dao.findById(id);
     }
@@ -68,23 +60,19 @@ public final class PaymentRequests {
         return dao.findByUser(discordId, limit);
     }
 
-    /** Returns open requests that have a bunq tab, the poll loop's primary match path. */
     public List<PaymentRequest> openWithTab() {
         return dao.openWithTab();
     }
 
-    /** Returns the newest requests of every status, for Steward's payment list. */
     public List<PaymentRequest> recent(final int limit) {
-        // At least one row, since LIMIT 0 would look like an empty table.
+        // At least one row, as LIMIT 0 would look like an empty table.
         return dao.recent(Math.max(1, limit));
     }
 
-    /** Returns every open request, which the Access page offers a booking by hand on. */
     public List<PaymentRequest> allOpen() {
         return dao.allOpen();
     }
 
-    /** Returns open requests past their TTL, whose bunq tabs still have to be cancelled. */
     public List<PaymentRequest> dueForExpiry() {
         return dao.dueForExpiry();
     }
@@ -94,15 +82,11 @@ public final class PaymentRequests {
     }
 
     /**
-     * Opens a request with a freshly allocated reference, creating the {@code discord_user} row if needed.
-     * The caller must close any open request of this user first, or this throws.
+     * Opens a request with a new reference and creates the {@code discord_user} row if needed.
+     * The caller closes the open request of this user first, or this throws.
      *
-     * @param discordId     who is buying
-     * @param days          how many days were ordered
-     * @param amountCents   what the tab will ask for
-     * @param donationCents the donation part of that amount, zero for none
-     * @param ttlHours      how long it stays payable
-     * @return the row that was written
+     * @param ttlHours how long it stays payable
+     * @return the row written
      */
     public PaymentRequest open(
             final DiscordId discordId,
@@ -122,7 +106,7 @@ public final class PaymentRequests {
                             .insert(reference, discordId, days, amountCents, donationCents, ttlHours);
                 });
             } catch (final UnableToExecuteStatementException exception) {
-                // Only a reference collision is retried; a second open request means the caller skipped a step.
+                // Only a reference collision is retried.
                 if (attempt >= REFERENCE_ATTEMPTS || !isReferenceCollision(exception)) {
                     throw exception;
                 }
@@ -131,9 +115,9 @@ public final class PaymentRequests {
     }
 
     /**
-     * Changes the days or donation of an open request that has no tab yet.
+     * Changes the days or donation of an open request without a tab.
      *
-     * @return {@code false} once a tab exists, since the tab asks for a fixed amount
+     * @return false if a tab exists, as the tab asks a fixed amount
      */
     public boolean reselect(final UUID id, final int days, final int amountCents, final int donationCents) {
         return dao.reselect(id, days, amountCents, donationCents) == 1;
@@ -144,10 +128,9 @@ public final class PaymentRequests {
     }
 
     /**
-     * Asks the bank's inbox for a bunq.me tab, clearing any previous refusal, so this is also the retry.
+     * Asks the bank's inbox for a bunq.me tab and clears an earlier refusal, so it is also the retry.
      *
-     * @param by who asked: the payer, pressing the button
-     * @return {@code false} when the request was closed or already has one
+     * @return false if the request was closed or has a tab
      */
     public boolean requestTab(final UUID id, final Actor by) {
         if (dao.clearFailure(id) == 0) {
@@ -158,22 +141,21 @@ public final class PaymentRequests {
     }
 
     /**
-     * Records that bunq refused to make the tab.
+     * Records that bunq refused the tab.
      *
-     * @param refusal why, which the payer is shown instead of a link
-     * @return {@code true} when the failure was recorded
+     * @param refusal the reason the payer sees instead of a link
      */
     public boolean failTab(final UUID id, final TabRefusal refusal) {
         return dao.failTab(id, refusal) == 1;
     }
 
     /**
-     * Closes a request and asks the bank's inbox for its tab to go away, tab or no tab.
-     * The ask comes first: a request left open with its tab cancelled expires; a closed one with a live tab is paid.
+     * Closes a request and asks the bank's inbox to cancel its tab.
+     * The ask comes first, as a closed request with a live tab can still be paid.
      *
      * @param status anything but {@code PAID}
-     * @param by     who closed it: the payer, or Steward for an expiry
-     * @return {@code false} when something else already closed it; the cancel was still asked for
+     * @param by who closed it: the payer, or Steward for an expiry
+     * @return false if something else closed it already. The cancel was asked for anyway
      */
     public boolean closeAndRequestCancel(final UUID id, final PaymentRequestStatus status, final Actor by) {
         if (status == PaymentRequestStatus.PAID) {
@@ -183,11 +165,6 @@ public final class PaymentRequests {
         return dao.close(id, status.name()) == 1;
     }
 
-    /**
-     * Records that the tab is gone at bunq.
-     *
-     * @return {@code true} when this call closed it out
-     */
     public boolean recordCancelled(final UUID id) {
         return dao.recordCancelled(id) == 1;
     }

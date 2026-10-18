@@ -11,7 +11,7 @@ import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
-/** Holds that the packaged texts an override replaced, once an array on every variant row, arrive a row each. */
+/** Holds that texts an override replaced, once an array on every variant row, arrive as one row each. */
 class MessageOverrideOriginalUpgradeIntegrationTest {
 
     @Test

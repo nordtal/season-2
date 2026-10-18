@@ -2,17 +2,11 @@ package eu.nordtal.season.database.registration;
 
 import java.util.Locale;
 
-/**
- * A game teams register for, by the key its registration rows carry.
- *
- * The bot's registration flow takes one, so a second team mode is a constant here, not a copy of the flow.
- */
+/** A game that teams register for, by the key of its registration rows. */
 public enum Game {
-
-    /** The Hunger Games server's event. */
     HUNGER_GAMES;
 
-    /** Returns the key {@code registration.game} holds: the constant's name in lowercase, hyphenated. */
+    /** Returns the key in {@code registration.game}: the lowercase name with hyphens. */
     public String key() {
         return name().toLowerCase(Locale.ROOT).replace('_', '-');
     }

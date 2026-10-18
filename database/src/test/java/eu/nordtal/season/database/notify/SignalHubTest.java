@@ -21,19 +21,15 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Tests the reconnect loop in {@link SignalHub} against a fake {@link Notifications}.
- *
- * It proves nothing about a real dropped socket; it pins that every wake-up and every reconnect re-reads in full.
- */
+/** Tests the reconnect loop of {@link SignalHub} against a fake {@link Notifications}. */
 class SignalHubTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SignalHubTest.class);
 
-    /** Long, so a refresh counted in a short run came from a signal or a connect, never from the reconciliation. */
+    /** Long, so a refresh in a short run came from a signal or a connect and not from the reconciliation. */
     private static final Duration QUIET = Duration.ofSeconds(30);
 
-    /** Shortened from the production five seconds so several reconnects fit in one test. */
+    /** Shorter than the production five seconds, so several reconnects fit in one test. */
     private static final Duration BACKOFF = Duration.ofMillis(30);
 
     private final AtomicInteger first = new AtomicInteger();
@@ -153,7 +149,7 @@ class SignalHubTest {
         assertTrue(thirdRead.await(30, TimeUnit.SECONDS), "the hub stopped reconnecting");
         stop(hub, thread);
 
-        // The last connection may have opened after close() and is then never read.
+        // The last connection may have opened after close() and is never read.
         assertTrue(
                 opened.get() == first.get() || opened.get() == first.get() + 1,
                 "one re-read per connection: " + opened.get() + " opened, " + first.get() + " read");
@@ -271,7 +267,7 @@ class SignalHubTest {
                 throw new SQLException("the connection went away");
             }
             try {
-                // A quiet interval, cut short the way closing a real connection under the wait cuts it short.
+                // A quiet interval, cut short as closing a real connection cuts the wait.
                 if (closing.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                     throw new SQLException("the connection was closed");
                 }

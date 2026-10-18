@@ -11,21 +11,21 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 /**
- * Where an admin's message overrides are stored, network-wide: one row per bundle, key, language and variant.
+ * Stores message overrides network-wide, one row per bundle, key, language and variant.
  *
- * Every process reads the rows of the bundles it loads; steward writes them, and a write signals the bundle.
+ * Every process reads the rows of its bundles. Steward writes them and signals the bundle.
  */
 public interface MessageOverrideStore {
 
-    /** Returns the store in the database behind {@code dataSource}, which the caller owns. */
+    /** Returns a store that borrows {@code dataSource}. */
     static MessageOverrideStore using(final DataSource dataSource) {
         return new JdbiMessageOverrideStore(dataSource);
     }
 
     /**
-     * Layers the stored overrides over {@code messages} as the hub connects and again whenever they change.
+     * Layers the stored overrides over {@code messages} on connect and on every change.
      *
-     * Before {@link SignalHub#start}; the first read runs on the hub's thread, so a Paper server never waits for it.
+     * Call it before {@link SignalHub#start}. The first read runs on the hub's thread.
      */
     default void follow(final Messages messages, final SignalHub hub) {
         hub.watch(
@@ -36,21 +36,16 @@ public interface MessageOverrideStore {
                 messages::override);
     }
 
-    /** Returns every override of these bundles, in one read, by bundle, key, language and variant. */
     List<MessageOverride> overrides(Collection<String> bundles);
 
-    /**
-     * Returns the packaged texts each override of these bundles replaced, by {@code bundle/key/language}.
-     * Steward shows them beside a text a release changed; a key and language whose override replaced none is absent.
-     */
+    /** Returns the packaged texts that each override replaced, by {@code bundle/key/language}. */
     Map<String, List<String>> originals(Collection<String> bundles);
 
     /**
-     * Replaces the texts of one key in one language as one set of variants, and signals the bundle.
+     * Replaces the texts of one key in one language and signals the bundle.
      *
-     * @param texts    the variants in order; empty removes the override, so the packaged texts apply again
-     * @param original the packaged texts the override replaces, in order, empty where the language has none; their
-     *                 hash is what tells every process later that a release changed them
+     * @param texts the variants in order. Empty removes the override
+     * @param original the packaged texts it replaces, in order
      */
     void change(String bundle, String key, String language, List<String> texts, List<String> original, Actor actor);
 }

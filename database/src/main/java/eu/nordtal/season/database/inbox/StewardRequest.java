@@ -3,19 +3,18 @@ package eu.nordtal.season.database.inbox;
 import eu.nordtal.season.database.notify.Channel;
 import java.util.List;
 
-/** A run steward is asked for; each record is one kind, and each names the services it is for. */
+/** A run that steward is asked for. Each record is one kind and names the services it is for. */
 public sealed interface StewardRequest {
 
-    /** The run inbox table, whose rows the proxy and the bot's feed follow on the same channel. */
+    /** The run inbox table. The proxy and the bot's feed follow its rows on the same channel. */
     InboxTable<StewardRequest> TABLE = InboxTable.of("steward_inbox", Channel.UPDATE, StewardRequest.class);
 
-    /** Returns the compose services the run is for; empty is the whole network. */
     List<String> services();
 
     /**
      * Installs what is new and restarts what needs it.
      *
-     * @param replacesLocal whether whoever asked confirmed that builds made on the host and in no release are replaced
+     * @param replacesLocal whether the asker confirmed that builds made on the host and in no release are replaced
      */
     record Update(List<String> services, boolean replacesLocal) implements StewardRequest {
 
@@ -23,13 +22,13 @@ public sealed interface StewardRequest {
             services = List.copyOf(services);
         }
 
-        /** An update that stops before it replaces a local build. */
+        /** Creates an update that stops before it replaces a local build. */
         public Update(final List<String> services) {
             this(services, false);
         }
     }
 
-    /** Restarts everything, installing nothing. */
+    /** Restarts everything and installs nothing. */
     record Restart(List<String> services) implements StewardRequest {
 
         public Restart {
@@ -37,7 +36,7 @@ public sealed interface StewardRequest {
         }
     }
 
-    /** Backs the volumes up. */
+    /** Backs up the volumes. */
     record Backup(List<String> services) implements StewardRequest {
 
         public Backup {
@@ -45,7 +44,7 @@ public sealed interface StewardRequest {
         }
     }
 
-    /** Stops the services and holds them down. */
+    /** Stops the services and keeps them down. */
     record Down(List<String> services) implements StewardRequest {
 
         public Down {
@@ -53,7 +52,7 @@ public sealed interface StewardRequest {
         }
     }
 
-    /** Releases the holds on the services, or on every one. */
+    /** Releases the holds on the services, or on every service. */
     record Start(List<String> services) implements StewardRequest {
 
         public Start {
@@ -62,10 +61,10 @@ public sealed interface StewardRequest {
     }
 
     /**
-     * Puts one archive back: a volume archive into its volume, or a database dump into the database.
+     * Restores one archive: a volume archive into its volume, or a database dump into the database.
      *
-     * @param services empty: the archive itself says which services it stops
-     * @param archive the archive's file name in the backup directory, typed back by whoever asked as a confirmation
+     * @param services empty, as the archive says which services it stops
+     * @param archive the file name of the archive in the backup directory, which the asker types back to confirm
      */
     record Restore(List<String> services, String archive) implements StewardRequest {
 
@@ -77,7 +76,7 @@ public sealed interface StewardRequest {
         }
     }
 
-    /** Makes the services' containers again from the images on this host. */
+    /** Recreates the containers of the services from the images on this host. */
     record Recreate(List<String> services) implements StewardRequest {
 
         public Recreate {
@@ -85,7 +84,7 @@ public sealed interface StewardRequest {
         }
     }
 
-    /** Pulls the services' images and makes their containers again from them. */
+    /** Pulls the images of the services and recreates their containers. */
     record Deploy(List<String> services) implements StewardRequest {
 
         public Deploy {
@@ -94,10 +93,10 @@ public sealed interface StewardRequest {
     }
 
     /**
-     * Takes an added plugin, its jar and its data folder, off a server while that server is stopped.
+     * Removes an added plugin, its jar and its data folder, from a stopped server.
      *
      * @param services the one server
-     * @param artifact the plugin's artefact id, as the list of added plugins names it
+     * @param artifact the artefact id of the plugin, as the list of added plugins names it
      */
     record RemovePlugin(List<String> services, String artifact) implements StewardRequest {
 
@@ -113,7 +112,7 @@ public sealed interface StewardRequest {
     }
 
     /**
-     * What steward-agent installed on its start because nothing of it was there, written once it is done.
+     * Records what steward-agent installed on its start because nothing of it existed. It is written when done.
      *
      * @param services the services something was installed into, or meant to be
      */

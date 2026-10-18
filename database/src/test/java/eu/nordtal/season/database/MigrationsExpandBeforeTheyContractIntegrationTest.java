@@ -21,21 +21,16 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds that no migration takes away what the running release's proxy and limbo use.
- *
- * Their standbys keep running the previous release while {@code migrate} runs, so a drop comes a release after the
- * code stopped using it. What a role is granted stands for what its code uses.
+ * Holds that no migration takes away what the proxy and limbo of the running release use.
+ * Their standbys run the previous release during {@code migrate}.
+ * A drop comes a release after the code stops using it.
  */
 class MigrationsExpandBeforeTheyContractIntegrationTest {
 
-    /** The services that keep running the previous release while the next one migrates. */
+    /** The services that run the previous release while the next one migrates. */
     private static final List<DatabaseRole> STANDING = List.of(DatabaseRole.PROXY, DatabaseRole.LIMBO);
 
-    /**
-     * Each release and the newest migration it ships, so a test on that release knows what its standbys use.
-     *
-     * The release package adds its own line when it bumps {@code version}.
-     */
+    /** Each release and its newest migration. The release package adds a line when it bumps {@code version}. */
     private static final Map<String, String> NEWEST_MIGRATION = Map.ofEntries(
             Map.entry("0.12.1", "26"),
             Map.entry("0.13.0", "28"),
@@ -66,14 +61,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.29.0", "71"),
             Map.entry("0.30.0", "71"));
 
-    /**
-     * What a release's own code no longer uses, keyed as a privilege is listed, with that release.
-     *
-     * A grant listed here may go in the release after the one named, and the line goes with the grant.
-     */
+    /** The privileges a release no longer uses, with that release. A grant may go in the release after it. */
     private static final Map<String, String> NO_LONGER_USED = noLongerUsed();
 
-    /** Every column and table privilege a role holds, one line each, as {@code relation.column PRIVILEGE}. */
+    /** Every column and table privilege of a role, as {@code relation.column PRIVILEGE}. */
     private static final String PRIVILEGES = """
             SELECT c.relname || '.' || a.attname || ' ' || p.privilege
             FROM pg_class c
@@ -136,7 +127,7 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
                 if (!after.contains(privilege) && !noLongerUsed(role, privilege, newest)) {
                     lost.add(role.roleName() + " " + privilege);
                 }
-                // An insert the old code writes fails on a column it cannot know about, unless it has a default.
+                // An insert of the old code fails on a column it does not know, unless the column has a default.
                 if (privilege.endsWith(" INSERT")) {
                     final String relation = privilege.substring(0, privilege.indexOf('.'));
                     for (final String column : requiredAfter) {
@@ -161,7 +152,7 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
 
     private static Map<String, String> noLongerUsed() {
         final Map<String, String> unused = new HashMap<>();
-        // The legacy team tables, which the proxy's snapshot read before registration was the bot's.
+        // The legacy team tables, which the proxy read before registration moved to the bot.
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_team", "id", "game_id", "name", "colour_rgb");
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_team", "colour_named", "created");
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_member", "id", "team_id", "game_id", "discord_id");
@@ -171,13 +162,13 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.14.0", role, "INSERT", "setting_override", "service", "name", "path", "value");
             listed(unused, "0.14.0", role, "INSERT", "setting_override", "actor_kind", "actor_id", "changed");
         }
-        // A tie's winner as text, which the proxy's snapshot never read: it counts deaths only.
+        // A tie's winner as text, which the proxy never read.
         listed(unused, "0.26.0", "nordtal_proxy", "SELECT", "hg_event", "detail");
-        // The texts an override replaced, which only steward ever read; the standbys hold them through the read role.
+        // The texts an override replaced, which only steward read.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.26.0", role, "SELECT", "message_override", "original");
         }
-        // The old journal, which every role could append to and no proxy or limbo code ever wrote.
+        // The old journal, which no proxy or limbo code wrote.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "id", "occurred", "action", "actor_kind", "actor_id");
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "subject", "mc_uuid", "line", "reference", "days");
@@ -197,7 +188,7 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         }
     }
 
-    /** Returns whether a release up to the baseline listed the privilege as no longer used. */
+    /** Returns whether a release up to the baseline listed the privilege as unused. */
     private static boolean noLongerUsed(final DatabaseRole role, final String privilege, final String newest) {
         final String release = NO_LONGER_USED.get(role.roleName() + " " + privilege);
         if (release == null) {
@@ -207,7 +198,7 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         return shipped != null && Integer.parseInt(shipped) <= Integer.parseInt(newest);
     }
 
-    /** Returns the release {@code gradle.properties} names, which is the one installed while this tree is built. */
+    /** Returns the release that {@code gradle.properties} names. */
     private static String release() throws IOException {
         final Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(RepositoryRoot.resolve("gradle.properties"))) {

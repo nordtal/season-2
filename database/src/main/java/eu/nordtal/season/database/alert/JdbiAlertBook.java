@@ -15,7 +15,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link AlertBook}; it borrows the pool it is given and owns nothing. */
+/** Implements {@link AlertBook} with JDBI. */
 final class JdbiAlertBook implements AlertBook {
 
     private static final TypeToken<List<MessageRef>> LINES = new TypeToken<>() {};
@@ -40,12 +40,12 @@ final class JdbiAlertBook implements AlertBook {
         return jdbi.inTransaction(handle -> insert(handle, alert, raisedBy, source));
     }
 
-    /** Writes the row and, in the same transaction, the signal, which Postgres sends only on commit. */
+    /** Writes the row and sends the signal in the same transaction. */
     private static boolean insert(
             final Handle handle, final Alert alert, final String raisedBy, final @Nullable String source) {
         Objects.requireNonNull(alert, "alert");
         Objects.requireNonNull(raisedBy, "raisedBy");
-        // Only a raise with a source names the conflict, which would ask the bot's role for more than INSERT.
+        // The conflict clause needs more than INSERT from the bot's role, so only a raise with a source adds it.
         final int written = handle.createUpdate("""
                         INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, measured, path, source)
                         VALUES (:raisedBy, :type, :level, :subject, cast(:title AS jsonb), cast(:detail AS jsonb),

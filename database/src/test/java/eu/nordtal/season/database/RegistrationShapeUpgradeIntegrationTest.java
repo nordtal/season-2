@@ -9,7 +9,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** Holds what the contract half of the bot's registration does to a database that still holds the legacy shape. */
+/** Holds what the contract half of the registration does to a database with the legacy shape. */
 class RegistrationShapeUpgradeIntegrationTest {
 
     @Test

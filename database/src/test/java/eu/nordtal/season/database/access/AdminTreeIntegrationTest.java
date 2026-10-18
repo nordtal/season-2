@@ -23,11 +23,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
-/**
- * Tests the admin tree against a real PostgreSQL: bootstrap, revocation rights, branches, limits.
- *
- * Skipped when no Docker daemon is reachable.
- */
+/** Tests the admin tree against PostgreSQL: bootstrap, revocation rights, branches and limits. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AdminTreeIntegrationTest {
 
@@ -128,7 +124,7 @@ class AdminTreeIntegrationTest {
                 "the limit is global - A1 has granted nobody and is still refused");
         assertFalse(tree.isAdmin(DiscordId.of(A1X)));
 
-        // A revoked grant still counted: revoking and re-granting is not a way round the limit.
+        // A revoked grant still counts, so revoking and re-granting is no way round the limit.
         tree.revoke(ROOT, B);
         assertEquals(AdminTree.Grant.RATE_LIMITED, tree.grant(ROOT, B));
 
@@ -253,7 +249,7 @@ class AdminTreeIntegrationTest {
                         + " admin_granted_at = now() WHERE discord_id = '" + A + "'"));
     }
 
-    /** ROOT above A and B; A above A1; A1 above A1X. Four grants, so the limit is lifted between. */
+    /** ROOT above A and B, A above A1 and A1 above A1X. Four grants, so the limit is lifted between. */
     private void buildTree() {
         tree.claimRootIfNobody(DiscordId.of(ROOT));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, A));

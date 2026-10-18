@@ -8,10 +8,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps the single row {@link PhaseDao#switchPhase(String)} returns.
- * Written out, reading the timestamp through {@link OffsetDateTime} so the JVM's zone never enters.
- */
+/** Maps the row of {@link PhaseDao#switchPhase(String)}, reading the timestamp through {@link OffsetDateTime}. */
 public final class PhaseChangeMapper implements RowMapper<PhaseChange> {
 
     @Override

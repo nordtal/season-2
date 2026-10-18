@@ -17,11 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * A run's steps, its services, its stage and the proxy's player counts, written against a real PostgreSQL.
- *
- * Skips itself when no Docker daemon is reachable, like every integration test in this module.
- */
+/** The steps, services and stage of a run and the player counts of the proxy, written against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RunStepsIntegrationTest {
 

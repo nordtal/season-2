@@ -5,7 +5,6 @@ import eu.nordtal.season.database.registration.Game;
 import java.util.Objects;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link SnapshotDirectory}. */
 final class JdbiSnapshotDirectory implements SnapshotDirectory {
 
     private final SnapshotDao dao;
@@ -17,7 +16,6 @@ final class JdbiSnapshotDirectory implements SnapshotDirectory {
 
     @Override
     public NetworkSnapshot snapshot() {
-        // The query always returns one row; the guard answers an empty network for the impossible case.
         final NetworkSnapshot snapshot = dao.snapshot(Game.HUNGER_GAMES.key());
         return snapshot == null ? NetworkSnapshot.EMPTY : snapshot;
     }

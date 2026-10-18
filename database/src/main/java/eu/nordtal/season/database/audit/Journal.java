@@ -5,15 +5,12 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.Handle;
 
-/**
- * The one way an entry is appended to {@code journal_entry}, inside a transaction its caller holds.
- * So an entry written by a writer in this module exists exactly when the change it describes does.
- */
+/** Appends an entry to {@code journal_entry} in the transaction of its caller. */
 public final class Journal {
 
     private Journal() {}
 
-    /** Appends one entry and its values through {@code handle}, and returns the entry's id. */
+    /** Appends the entry and its values through {@code handle} and returns the id. */
     public static UUID write(final Handle handle, final AuditLine line) {
         Objects.requireNonNull(line, "line");
         final JournalDetail detail = line.detail();

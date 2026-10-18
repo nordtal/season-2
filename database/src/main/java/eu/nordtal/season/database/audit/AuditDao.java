@@ -9,14 +9,10 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The SQL surface of the journal; {@link AuditDirectory} is the API.
- *
- * The insert is {@link Journal}'s, which every writer goes through.
- */
+/** The SQL of the journal. {@link AuditDirectory} is its API and {@link Journal} writes the entries. */
 interface AuditDao {
 
-    /** Every entry with the values of every family beside it, read by {@link AuditEntryMapper}. */
+    /** Selects every entry with the values of its family, which {@link AuditEntryMapper} reads. */
     String ENTRIES = """
             SELECT e.id, e.occurred, e.action, e.actor_kind, e.actor_id, e.subject, e.mc_uuid, e.service, e.run,
                    e.payment, p.reference, p.days AS ordered, p.matched_cents, p.matched_by,
@@ -56,7 +52,7 @@ interface AuditDao {
                      LEFT JOIN journal_unanchored un ON un.entry = e.id
             """;
 
-    /** Returns the newest entries; {@code id} breaks ties, since one transaction's entries share {@code occurred}. */
+    /** Returns the newest entries. {@code id} breaks ties, as one transaction's entries share {@code occurred}. */
     @SqlQuery(ENTRIES + """
             ORDER BY e.occurred DESC, e.id DESC
             LIMIT :limit
@@ -64,15 +60,14 @@ interface AuditDao {
     @RegisterRowMapper(AuditEntryMapper.class)
     List<AuditEntry> recent(@Bind("limit") int limit);
 
-    /** Returns one entry, as the bot draws a card of an entry another service wrote. */
     @SqlQuery(ENTRIES + "WHERE e.id = :id")
     @RegisterRowMapper(AuditEntryMapper.class)
     Optional<AuditEntry> entry(@Bind("id") UUID id);
 
     /**
-     * Returns the newest entries, filtered, in one statement whose predicates switch off on null.
+     * Returns the newest entries in one statement whose predicates switch off on null.
      *
-     * The casts are required, as {@code :action IS NULL} alone has no type; days are a grant's or a booking's.
+     * The casts give {@code :action IS NULL} a type. Days are a grant's or a booking's.
      */
     @SqlQuery(ENTRIES + """
             WHERE (cast(:action AS varchar) IS NULL OR e.action = cast(:action AS varchar))

@@ -3,10 +3,9 @@ package eu.nordtal.season.database.metric;
 import java.time.Instant;
 
 /**
- * One point of a curve, on its way out of the table.
+ * One point of a curve.
  *
- * @param at         when it was measured, or for {@link Resolution#HOUR} the start of the UTC hour it averages
- * @param value      the measurement, or the mean of the hour
- * @param resolution which of the two this point is
+ * @param at the time measured, or the start of the UTC hour for {@link Resolution#HOUR}
+ * @param value the measurement, or the mean of the hour
  */
 public record MetricPoint(Instant at, double value, Resolution resolution) {}

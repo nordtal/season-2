@@ -13,10 +13,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what giving a run's service lines their facts does to the reports an installation already wrote.
- * Each line's message becomes the facts it was composed from, and reads as before; a restored archive says so.
- */
+/** Holds that reports written before service lines had facts read as before. */
 class ServiceLineFactsUpgradeIntegrationTest {
 
     private static final String BEFORE = "45";
@@ -130,7 +127,7 @@ class ServiceLineFactsUpgradeIntegrationTest {
                 line("velocity", "FAILED", "", message("report.wait-interrupted")));
     }
 
-    /** Lines of a step that ran, failed or was told in words, and one only a source spoke about. */
+    /** Lines of a step that ran, failed or was told in words, and one that only a source spoke about. */
     private static List<String> stepLines() {
         return List.of(
                 line(

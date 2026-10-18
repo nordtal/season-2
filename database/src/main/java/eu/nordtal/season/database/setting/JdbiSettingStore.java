@@ -16,7 +16,6 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link SettingStore}; it borrows the pool it is given and owns nothing. */
 final class JdbiSettingStore implements SettingStore {
 
     private static final String GROUP_COLUMNS =
@@ -103,7 +102,7 @@ final class JdbiSettingStore implements SettingStore {
             final Actor actor,
             final Predicate<List<Value>> current) {
         return jdbi.inTransaction(handle -> {
-            // One lock per group to the end of the transaction, which also holds for a group not yet published.
+            // One lock per group until the transaction ends, also for a group not yet published.
             handle.execute(
                     "SELECT pg_advisory_xact_lock(hashtext('setting_override'), hashtext(?))", service + "/" + name);
             final List<Value> held = handle.createQuery("""
@@ -158,7 +157,7 @@ final class JdbiSettingStore implements SettingStore {
                 .execute();
     }
 
-    /** Committed with the change, so nobody re-reads before the rows are there. */
+    /** Sends the signal in the transaction of the change. */
     private static void signal(final Handle handle, final String service) {
         handle.createQuery("SELECT pg_notify('nordtal_settings', :service) IS NULL")
                 .bind("service", service)

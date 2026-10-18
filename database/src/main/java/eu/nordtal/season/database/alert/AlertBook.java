@@ -5,34 +5,34 @@ import java.util.List;
 import javax.sql.DataSource;
 
 /**
- * Every admin alert as a row: raised by steward and the bot, routed to its channels by steward alone.
+ * Stores admin alerts. Steward and the bot raise them, only steward routes them.
  *
- * A raise is announced on {@code Channel.ALERT} when it commits.
+ * A raise sends {@code Channel.ALERT} on commit.
  */
 public interface AlertBook {
 
-    /** Returns a book over a pool the caller owns. */
+    /** Returns a book that uses {@code dataSource}. */
     static AlertBook using(final DataSource dataSource) {
         return new JdbiAlertBook(dataSource);
     }
 
-    /** Raises one alert on behalf of {@code raisedBy}, a module name such as {@code discord-bot}. */
+    /** Raises {@code alert} for the module {@code raisedBy}, such as {@code discord-bot}. */
     void raise(Alert alert, String raisedBy);
 
     /**
-     * Raises one alert unless {@code source} has raised one already, so a fact seen twice is told once.
+     * Raises {@code alert} unless {@code source} raised one already.
      *
      * @param source what raised it, such as {@code run:42}
      * @return whether a row was written
      */
     boolean raiseOnce(String source, Alert alert, String raisedBy);
 
-    /** Marks every alert not yet routed as routed and returns them, oldest first; steward only. */
+    /** Marks every unrouted alert as routed and returns them, oldest first. Steward only. */
     List<RaisedAlert> claimUnrouted();
 
-    /** Returns the newest alerts, newest first, at most {@code limit}; steward only. */
+    /** Returns at most {@code limit} alerts, newest first. Steward only. */
     List<RaisedAlert> recent(int limit);
 
-    /** Deletes routed alerts raised longer ago than {@code age}; steward only. */
+    /** Deletes routed alerts older than {@code age}. Steward only. */
     int purge(Duration age);
 }

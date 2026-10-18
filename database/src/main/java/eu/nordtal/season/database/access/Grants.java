@@ -6,18 +6,15 @@ import java.util.UUID;
 import org.jdbi.v3.core.Handle;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Appends an access period and sets the donor flag through a transaction the caller holds.
- * So a change and the access it buys commit together; {@link AccessDirectory} goes through here too.
- */
+/** Appends an access period and sets the donor flag in the transaction of the caller, so they commit together. */
 public final class Grants {
 
     private Grants() {}
 
     /**
-     * Appends a period after the person's last running one, creating their {@code discord_user} row if needed.
+     * Appends a period after the last running period of the person, and creates their {@code discord_user} row.
      *
-     * @param paymentRequestId the request it was bought with, {@code null} for an admin's grant
+     * @param paymentRequestId the request it was bought with, null for an admin's grant
      */
     public static AccessGrant append(
             final Handle handle,
@@ -35,7 +32,7 @@ public final class Grants {
         return dao.grantAccess(discordId, days, source.name(), paymentRequestId);
     }
 
-    /** Marks somebody a donor, which is never taken back. */
+    /** Marks somebody as donor, which is never taken back. */
     public static void markDonor(final Handle handle, final DiscordId discordId) {
         handle.attach(AccessDao.class).setDonor(Objects.requireNonNull(discordId, "discordId"), true);
     }

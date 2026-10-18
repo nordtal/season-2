@@ -5,10 +5,7 @@ import java.sql.SQLException;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/**
- * Maps the single row {@link SnapshotDao#snapshot(String)} returns, reading every {@code NULL} as zero or empty.
- * Alive is computed here from the two counts, so the invariant holds by construction.
- */
+/** Maps the row of {@link SnapshotDao#snapshot(String)}, reading NULL as zero or empty, and computes Alive. */
 public final class SnapshotMapper implements RowMapper<NetworkSnapshot> {
 
     @Override

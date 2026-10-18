@@ -1,10 +1,10 @@
 package eu.nordtal.season.database.payment;
 
 /**
- * One thing that can be bought: a number of days of access for a price.
+ * One thing to buy: days of access for a price.
  *
- * @param days       how many days of access; a day is exactly 24 hours
- * @param priceCents what it costs, in integer cents
+ * @param days a day is exactly 24 hours
+ * @param priceCents the price in cents
  */
 public record Tier(int days, int priceCents) {
 

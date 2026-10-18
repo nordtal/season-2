@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Every way of saying "the whole network" is the whole network, never a run that names a blank service. */
+/** Every way of saying "the whole network" is the whole network and never a run that names a blank service. */
 class UpdateScopeTextTest {
 
     @Test

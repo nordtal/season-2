@@ -8,10 +8,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps the single row the two date writes in {@link PhaseDao} return.
- * Written out, reading both timestamps through {@link OffsetDateTime} so the JVM's zone never enters.
- */
+/** Maps the row of the two date writes of {@link PhaseDao}, reading timestamps through {@link OffsetDateTime}. */
 public final class DateChangeMapper implements RowMapper<DateChange> {
 
     @Override

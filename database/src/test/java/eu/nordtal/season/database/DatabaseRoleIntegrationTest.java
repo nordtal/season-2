@@ -17,10 +17,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-/** Holds what V1 grants each role: a statement it needs goes through, one it has no business with is refused. */
+/** Holds what V1 grants each role: a needed statement goes through and an unneeded one is refused. */
 class DatabaseRoleIntegrationTest {
 
-    /** PostgreSQL's SQLSTATE for "permission denied". */
+    /** The SQLSTATE for "permission denied". */
     private static final String DENIED = "42501";
 
     private static final List<DatabaseRole> LOGINS = List.of(
@@ -31,7 +31,7 @@ class DatabaseRoleIntegrationTest {
             DatabaseRole.SMP,
             DatabaseRole.STEWARD);
 
-    /** Only steward writes a setting; every other service reads its own. */
+    /** Only steward writes a setting. */
     private static final String WRITE_SETTING = "INSERT INTO setting_override (service, name, path, value, actor_kind,"
             + " changed) SELECT 'x', 'y', 'z', '1', 'HOST', now() WHERE false";
 
@@ -48,14 +48,14 @@ class DatabaseRoleIntegrationTest {
         return new Case(role, sql, true);
     }
 
-    /** Steward and the bot append to the journal and read it back; no one changes or removes an entry. */
+    /** Steward and the bot append to the journal and read it. Nobody changes or removes an entry. */
     private static List<Case> journal() {
         final List<Case> cases = new ArrayList<>();
         for (final DatabaseRole role : LOGINS) {
             final boolean journals = role == DatabaseRole.STEWARD || role == DatabaseRole.DISCORD_BOT;
             cases.add(new Case(
                     role, "INSERT INTO journal_entry (action, actor_kind) VALUES ('LINK', 'STEWARD')", journals));
-            // The bot draws the card of an entry steward wrote, with the run and the payment it names.
+            // The bot draws the card of an entry that steward wrote.
             cases.add(new Case(
                     role,
                     "SELECT e.id, b.days, r.payload, p.reference FROM journal_entry e"
@@ -125,12 +125,7 @@ class DatabaseRoleIntegrationTest {
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
     }
 
-    /**
-     * What steward writes on its own clock.
-     *
-     * The curves, the payment poll and its cut-off, and a booking: the access it buys, appended by steward. Clearing
-     * old requests out of every inbox is the owner's, so steward deletes from none of them.
-     */
+    /** What steward writes on its own clock: the curves, the payment poll and bookings. It deletes from no inbox. */
     private static List<Case> stewardsOwnLoops() {
         return List.of(
                 may(
@@ -152,7 +147,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM bank_inbox WHERE false"));
     }
 
-    /** The bot raises an alert and reads none back; steward routes them and keeps each admin's channels. */
+    /** The bot raises an alert and reads none. Steward routes them. */
     @Test
     void theBotRaisesAlertsAndOnlyStewardRoutesThem() {
         final String raise = "INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path)"
@@ -167,7 +162,7 @@ class DatabaseRoleIntegrationTest {
                 .map(DatabaseRoleIntegrationTest::check));
     }
 
-    /** The Discord roles the bot found are the bot's alone. */
+    /** The Discord roles the bot found belong to the bot. */
     private static List<Case> discordRoles() {
         return List.of(
                 may(
@@ -178,7 +173,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM discord_role"));
     }
 
-    /** The bot writes the guild's channels and reads none of them back; steward only reads them. */
+    /** The bot writes the guild channels. Steward only reads them. */
     @Test
     void theBotPublishesTheGuildsChannelsAndOnlyStewardReadsThem() {
         assertAll(guildChannels().stream().map(DatabaseRoleIntegrationTest::check));
@@ -197,7 +192,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT channels FROM guild_channels"));
     }
 
-    /** Each server writes its command tree with the store's own upsert and reads none back; steward only reads. */
+    /** Each server writes its command tree and reads none. Steward only reads. */
     private static List<Case> commandTrees() {
         final String upsert = "INSERT INTO command_tree (server, tree, published) SELECT 'x', '{}', now() WHERE false"
                 + " ON CONFLICT (server) DO UPDATE SET tree = '{}', published = now()";
@@ -215,7 +210,7 @@ class DatabaseRoleIntegrationTest {
         return cases;
     }
 
-    /** The bot writes the registration and the game moves only its state; the game's own tables are the game's. */
+    /** The bot writes the registration and the game moves only its state. */
     private static List<Case> registration() {
         return List.of(
                 may(DatabaseRole.DISCORD_BOT, "INSERT INTO registration (game) SELECT 'hunger-games' WHERE false"),
@@ -242,7 +237,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM registration"));
     }
 
-    /** The bot and steward ask the bank's inbox, a kind's row with its request; only steward claims it. */
+    /** The bot and steward ask the inbox of the bank. Only steward claims. */
     private static List<Case> bankInbox() {
         return List.of(
                 may(
@@ -260,7 +255,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "INSERT INTO bank_open_tab (request, payment) VALUES (0, gen_random_uuid())"));
     }
 
-    /** Every server with an inbox claims only its own, and steward writes into each. */
+    /** Every server with an inbox claims its own. Steward writes into each. */
     private static List<Case> serverInboxes() {
         return List.of(
                 mayNot(
@@ -297,7 +292,7 @@ class DatabaseRoleIntegrationTest {
                 c.role().roleName() + (c.allowed() ? " may: " : " may not: ") + c.sql());
     }
 
-    /** Runs the statement and rolls it back; any failure but a refused permission counts as allowed. */
+    /** Runs the statement, rolls it back and counts any failure but a refused permission as allowed. */
     private static boolean allowed(final DatabaseRole role, final String sql) throws SQLException {
         try (Connection connection = database.dataSourceAs(role).getConnection()) {
             connection.setAutoCommit(false);
@@ -312,7 +307,7 @@ class DatabaseRoleIntegrationTest {
         }
     }
 
-    /** The bot names its status channels and the proxy its MOTD from one query over smp's and hunger-games' tables. */
+    /** The bot names its status channels and the proxy its MOTD from one query. */
     @Test
     void everyProcessThatNamesTheNetworkReadsTheSnapshotUnderItsOwnRole() {
         assertAll(List.of(DatabaseRole.DISCORD_BOT, DatabaseRole.PROXY).stream()

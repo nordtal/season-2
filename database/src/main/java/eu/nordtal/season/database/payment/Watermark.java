@@ -12,8 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The cut-off before which the payment poll ignores payments, written once by the first start.
- * The {@code payment.watermark} override wins when set, but the stored value is still written.
+ * The time before which the payment poll ignores payments. The first start writes it.
+ * The {@code payment.watermark} override wins, but the stored value is still written.
  */
 public final class Watermark {
 
@@ -22,15 +22,15 @@ public final class Watermark {
     private Watermark() {}
 
     /**
-     * Resolves the cut-off, writing the first-start value if there is none yet.
+     * Returns the cut-off and writes the first-start value if none is stored.
      *
-     * @param configured {@code payment.watermark} from the {@code access} group, normally blank
-     * @param now        this start, which becomes the cut-off when none is stored
+     * @param configured {@code payment.watermark} of the {@code access} group, normally blank
+     * @param now this start, the cut-off if none is stored
      */
     public static Instant resolve(final Jdbi jdbi, final String configured, final Instant now) {
         final WatermarkDao dao = jdbi.onDemand(WatermarkDao.class);
 
-        // Written even with an override, so removing it later falls back to the first start.
+        // Written even with an override, so removing it falls back to the first start.
         if (dao.writeIfAbsent(now.atOffset(ZoneOffset.UTC)) == 1) {
             log.info(
                     "No payment watermark was stored; this start is the cut-off: {}. "
@@ -51,7 +51,7 @@ public final class Watermark {
         return watermark;
     }
 
-    /** Returns the stored cut-off, empty until the first start that polls has written it. */
+    /** Returns the stored cut-off, empty until a start that polls wrote it. */
     public static Optional<Instant> stored(final Jdbi jdbi) {
         return jdbi.onDemand(WatermarkDao.class).watermark().map(OffsetDateTime::toInstant);
     }
@@ -59,7 +59,7 @@ public final class Watermark {
     /** The {@code watermark} column of the one {@code payment_gateway} row. */
     interface WatermarkDao {
 
-        /** Returns 1 when this call wrote the value, 0 when one was already there. */
+        /** Returns 1 if this call wrote the value, 0 if one existed. */
         @SqlUpdate("""
                 INSERT INTO payment_gateway (watermark)
                 VALUES (:watermark)

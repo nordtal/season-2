@@ -13,10 +13,9 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** What the bot can be asked to do, since only it holds a Discord session; each record is one kind. */
+/** A request to the bot, which alone holds a Discord session. Each record is one kind. */
 public sealed interface BotRequest {
 
-    /** The bot's inbox table. */
     InboxTable<BotRequest> TABLE = InboxTable.of("bot_inbox", Channel.BOT, BotRequest.class);
 
     /** Adds days of access to a person, applies the role and tells them. */
@@ -30,7 +29,7 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Takes every running grant away, removes the role and tells them. */
+    /** Removes every running grant and the role, and tells the person. */
     record Revoke(DiscordId person) implements BotRequest {
 
         public Revoke {
@@ -39,18 +38,14 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Tells a payer what steward booked for them: the roles, the direct messages, the thank-you and the admin card.
-     * The booking itself is done and committed with this row; the bot only reacts.
+     * Tells a payer what steward booked: the roles, the direct messages, the thank-you and the admin card.
+     * The booking is committed with this row, so the bot only reacts.
      *
-     * @param payment       the request that was booked
-     * @param reference     its {@code NT-XXXXXX}
-     * @param days          the days granted
-     * @param donationCents what of the payment counts as a donation, zero for none
-     * @param downgraded    whether fewer days were granted than ordered, because less money arrived
-     * @param receivedCents what arrived, or {@code null} for an admin's booking by hand
-     * @param from          when the access period it bought starts
-     * @param until         when it ends
-     * @param entry         the journal entry the booking wrote, which the admin channel's card draws
+     * @param donationCents the part of the payment that counts as donation
+     * @param downgraded whether fewer days were granted than ordered
+     * @param receivedCents the amount, null for an admin's booking by hand
+     * @param from the start of the access period it bought
+     * @param entry the journal entry of the booking, which the admin card draws
      */
     record PaymentBooked(
             UUID payment,
@@ -77,13 +72,12 @@ public sealed interface BotRequest {
             }
         }
 
-        /** Returns whether the payment earned the donor role. */
         public boolean donation() {
             return donationCents > 0;
         }
     }
 
-    /** Breaks the link between a Discord account and a Minecraft one. */
+    /** Breaks the link between a Discord account and a Minecraft account. */
     record Unlink(DiscordId person) implements BotRequest {
 
         public Unlink {
@@ -91,7 +85,7 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Writes somebody's total play time. */
+    /** Writes the total play time of a person. */
     record SetPlaytime(DiscordId person, long seconds) implements BotRequest {
 
         public SetPlaytime {
@@ -103,10 +97,10 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Posts one alert into the admin channel, mentioning the admins who chose Discord for its type.
+     * Posts an alert into the admin channel and mentions the admins who chose Discord for its type.
      *
-     * @param link     the alert's page in Steward, or {@code null} for a request written before it had one
-     * @param mentions empty for an all-clear, which tells without calling anybody
+     * @param link the Steward page of the alert, may be null
+     * @param mentions empty for an all-clear, which mentions nobody
      */
     record PostAlert(
             Alert.Level level,
@@ -125,17 +119,17 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Posts one message per language into that language's announcement channel; a language without one is skipped.
-     * The bot renders each in its language, so an override of the text reaches a request already written.
+     * Posts one message per language into the announcement channel of that language. A language without one is skipped.
+     * The bot renders each message, so an override reaches a request already written.
      *
-     * @param messages language tag to the message of the database bundle's {@code announcement} section
+     * @param messages the message of the {@code announcement} section by language tag
      */
     record Announce(Map<String, MessageRef> messages) implements BotRequest {
 
-        /** The bot's answer for a language whose text went out; the answer maps each language to this or the next. */
+        /** The answer for a language whose text went out. */
         public static final String POSTED = "POSTED";
 
-        /** The bot's answer for a language without a channel it can write to. */
+        /** The answer for a language without a channel that the bot can write to. */
         public static final String NOT_POSTED = "NOT_POSTED";
 
         public Announce {
@@ -146,7 +140,7 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Sends an admin a text they are trying as a direct message; refused when Discord does not deliver it. */
+    /** Sends an admin a text that the admin tries, as a direct message. Refused if Discord does not deliver it. */
     record PreviewMessage(DiscordId person, MessagePreview preview) implements BotRequest {
 
         public PreviewMessage {

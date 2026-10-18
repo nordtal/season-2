@@ -11,7 +11,7 @@ import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** A player's card: what they are on the network and the crest their play earned, in the reader's language. */
+/** The card of a player in the language of the reader: their role on the network and the crest their play earned. */
 class PlayerCardTest {
 
     private static final Messages BUNDLE =
@@ -30,7 +30,7 @@ class PlayerCardTest {
 
     @Test
     void theCrestIsTheOneThePlayEarned() {
-        // Ten hours reach tier 4 by default and twenty tier 5, so twelve hours wear the fourth crest.
+        // Ten hours reach tier 4 and twenty tier 5, so twelve hours wear the fourth crest.
         final MessageRef card = PlayerCard.of(ALEX, false, false, TWELVE_HOURS_FIVE_MINUTES, Prestige.defaults());
 
         assertEquals(4, card.args().get("tier"));
@@ -41,7 +41,7 @@ class PlayerCardTest {
     void theCardReadsInTheReadersLanguage() {
         final MessageRef card = PlayerCard.of(ALEX, true, false, TWELVE_HOURS_FIVE_MINUTES, Prestige.defaults());
 
-        // Plain text leaves the admin tag and the crest out, which the game draws as glyphs.
+        // Plain text leaves out the admin tag and the crest, which the game draws as glyphs.
         assertEquals("Alex \n Prestige 4\nPlayed for 12 hours and 5 minutes", BUNDLE.format(Locale.ENGLISH, card));
         assertEquals("Alex \n Prestige 4\n12 Stunden und 5 Minuten gespielt", BUNDLE.format(Locale.GERMAN, card));
     }

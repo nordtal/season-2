@@ -5,10 +5,10 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The SQL of a run's steps and facts; {@link UpdateDirectory} is the API. */
+/** The SQL of the steps and facts of a run. {@link UpdateDirectory} is its API. */
 interface RunStepDao {
 
-    /** Writes a step that begins now, numbered after the run's last one. */
+    /** Writes a step that begins now, numbered after the last step of the run. */
     @SqlQuery("""
             INSERT INTO run_step (run, seq, step, service)
             SELECT :run, coalesce(max(seq), 0) + 1, :step, :service FROM run_step WHERE run = :run
@@ -16,7 +16,7 @@ interface RunStepDao {
             """)
     long begin(@Bind("run") long run, @Bind("step") String step, @Bind("service") @Nullable String service);
 
-    /** Ends a step of that run that is still open; zero rows for one already ended. */
+    /** Ends a step of that run that is open. A step that ended gives zero rows. */
     @SqlUpdate("""
             UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason
             WHERE id = :step AND run = :run AND finished IS NULL
@@ -27,7 +27,6 @@ interface RunStepDao {
             @Bind("outcome") String outcome,
             @Bind("reason") @Nullable String reason);
 
-    /** Ends every step of the run still open, as a run that stops early leaves them. */
     @SqlUpdate("""
             UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason
             WHERE run = :run AND finished IS NULL
@@ -62,11 +61,11 @@ interface RunStepDao {
     @SqlUpdate("UPDATE steward_inbox SET stage = :stage WHERE id = :run AND stage IS DISTINCT FROM :stage")
     void stage(@Bind("run") long run, @Bind("stage") String stage);
 
-    /** Every run settled as failed by a statement that wrote no stage, as an orphan or a restored-over row is. */
+    /** Sets the stage of every failed run to {@code FAILED}, where no statement wrote it. */
     @SqlUpdate("UPDATE steward_inbox SET stage = 'FAILED' WHERE status = 'FAILED' AND stage IS DISTINCT FROM 'FAILED'")
     void failedStages();
 
-    /** The services a request names, none of them moving yet. */
+    /** Writes the services that a request names as not moving. */
     @SqlUpdate("""
             INSERT INTO run_service (run, service, moving)
             SELECT :run, service, false FROM unnest(cast(:services AS text[])) AS named (service)
@@ -74,7 +73,7 @@ interface RunStepDao {
             """)
     void named(@Bind("run") long run, @Bind("services") String[] services);
 
-    /** Marks the services a run stops as moving, adding those its request did not name. */
+    /** Marks the services that a run stops as moving, and adds those that the request did not name. */
     @SqlUpdate("""
             INSERT INTO run_service (run, service, moving)
             SELECT :run, service, true FROM unnest(cast(:services AS text[])) AS stopped (service)
@@ -82,7 +81,7 @@ interface RunStepDao {
             """)
     void moving(@Bind("run") long run, @Bind("services") String[] services);
 
-    /** Adds players moved off one service to the run's latest move, which steward-agent began before the move. */
+    /** Adds players moved off a service to the latest move of the run, which steward-agent began before it. */
     @SqlUpdate("""
             INSERT INTO run_players (step, from_service, to_service, moved)
             SELECT id, :from, :to, :players FROM run_step
@@ -93,7 +92,7 @@ interface RunStepDao {
             """)
     int moved(@Bind("run") long run, @Bind("from") String from, @Bind("to") String to, @Bind("players") int players);
 
-    /** Counts players back on the latest move between those two services, never more than it moved. */
+    /** Counts players back on the latest move between those two services, at most the players moved. */
     @SqlUpdate("""
             UPDATE run_players SET returned = least(moved, returned + :players)
             WHERE step = (SELECT max(step) FROM run_players WHERE from_service = :from AND to_service = :to)

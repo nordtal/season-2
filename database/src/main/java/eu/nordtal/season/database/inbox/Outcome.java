@@ -4,13 +4,13 @@ import eu.nordtal.season.messages.Refusal;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** What a consumer answers a claimed request with; the inbox settles the row from it. */
+/** What a consumer answers a claimed request with. The inbox settles the row from it. */
 public sealed interface Outcome {
 
-    /** Carried out, with the kind's answer, or {@code null} for none. */
+    /** Carried out, with the answer of the kind or null. */
     record Done(@Nullable Object answer) implements Outcome {}
 
-    /** Refused, which is an answer and not a fault. */
+    /** Refused, which is an answer, not a fault. */
     record Refused(Refusal refusal) implements Outcome {
 
         public Refused {
@@ -18,20 +18,17 @@ public sealed interface Outcome {
         }
     }
 
-    /** Failed while it was carried out; it is never retried. */
+    /** Failed while carried out. It is not retried. */
     record Failed(@Nullable Object answer) implements Outcome {}
 
-    /** Returns a done outcome. */
     static Outcome done(final @Nullable Object answer) {
         return new Done(answer);
     }
 
-    /** Returns a refused outcome. */
     static Outcome refused(final Refusal refusal) {
         return new Refused(refusal);
     }
 
-    /** Returns a failed outcome. */
     static Outcome failed(final @Nullable Object answer) {
         return new Failed(answer);
     }

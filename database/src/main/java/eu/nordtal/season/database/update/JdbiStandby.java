@@ -5,7 +5,6 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link StandbyDirectory}; it borrows the pool and owns nothing. */
 final class JdbiStandby implements StandbyDirectory {
 
     private final StandbyDao dao;

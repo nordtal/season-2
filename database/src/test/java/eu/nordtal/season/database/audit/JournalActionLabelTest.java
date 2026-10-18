@@ -14,7 +14,7 @@ import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Holds the admin bundle's action names against {@link JournalAction}, since its {@code other} branch hides a gap. */
+/** Holds the action names of the admin bundle against {@link JournalAction}. */
 class JournalActionLabelTest {
 
     @Test

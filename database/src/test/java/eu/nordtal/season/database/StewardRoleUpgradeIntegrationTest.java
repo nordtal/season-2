@@ -13,17 +13,15 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds that a database migrated before steward's role was renamed ends up granting steward what a new one does.
- *
- * The installations of release 0.10 ran V1 and V2 with steward's role named {@code nordtal_steward_ui}; every later
- * migration grants to {@code nordtal_steward}, which those two never named.
+ * Holds that a database migrated before the rename of steward's role grants steward what a new one does.
+ * Release 0.10 ran V1 and V2 with {@code nordtal_steward_ui}. Every later migration grants to {@code nordtal_steward}.
  */
 class StewardRoleUpgradeIntegrationTest {
 
-    /** The name V1 and V2 granted steward's privileges to in the installations of release 0.10. */
+    /** The name V1 and V2 granted to in release 0.10. */
     private static final String OLD_NAME = "nordtal_steward_ui";
 
-    /** Every table and sequence privilege a role holds, and the roles it is a member of. */
+    /** Every table and sequence privilege of a role, and its memberships. */
     private static final String PRIVILEGES = """
             SELECT c.relname || ' ' || p.privilege
             FROM pg_class c

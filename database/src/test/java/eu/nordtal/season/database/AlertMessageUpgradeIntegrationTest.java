@@ -13,10 +13,7 @@ import java.util.stream.Stream;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what telling an alert in messages does to the alerts and posts an installation already wrote.
- * Each keeps its words and renders through the admin bundle, a post the bot has not read yet included.
- */
+/** Holds that alerts and posts written before alerts became messages keep their words and render. */
 class AlertMessageUpgradeIntegrationTest {
 
     private static final Messages ADMIN =

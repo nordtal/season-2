@@ -22,13 +22,12 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Freezes every released migration byte for byte, since Flyway checksums the whole file, comments included.
- *
- * Adding a migration means adding a line here; changing a released one means a new migration.
+ * Freezes every released migration byte for byte, as Flyway checksums the whole file.
+ * A new migration adds a line. A change to a released one needs a new migration.
  */
 class MigrationsAreImmutableTest {
 
-    /** SHA-256 of every file in {@code db/migration}, in version order. */
+    /** The SHA-256 of every file in {@code db/migration}, in version order. */
     private static final Map<String, String> FROZEN = new LinkedHashMap<>();
 
     static {
@@ -236,7 +235,7 @@ class MigrationsAreImmutableTest {
         }
     }
 
-    /** Returns the directory as the test classpath sees it, in this module's jar or in its resource directory. */
+    /** Returns the migration directory as the test classpath sees it. */
     private static Path migrations() {
         final var url = MigrationsAreImmutableTest.class.getResource("/db/migration");
         assertNotNull(url, "db/migration is not on the test classpath at all");

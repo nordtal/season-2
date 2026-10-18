@@ -4,10 +4,7 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
-/**
- * The one query behind every MOTD placeholder and every status channel name.
- * Scalar subqueries off a one-row {@code VALUES}, over the round discord-bot registers and what the games write.
- */
+/** The query behind every MOTD placeholder and every status channel name. */
 interface SnapshotDao {
 
     @SqlQuery("""

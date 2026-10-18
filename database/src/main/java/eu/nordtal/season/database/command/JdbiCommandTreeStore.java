@@ -11,7 +11,7 @@ import java.util.Optional;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 
-/** The only implementation of {@link CommandTreeStore}; it borrows the pool it is given and owns nothing. */
+/** Implements {@link CommandTreeStore} with JDBI. */
 final class JdbiCommandTreeStore implements CommandTreeStore {
 
     private final Jdbi jdbi;
@@ -22,7 +22,6 @@ final class JdbiCommandTreeStore implements CommandTreeStore {
 
     @Override
     public void publish(final String server, final CommandTree tree) {
-        // The tree is bound twice rather than read from excluded, which would need a server to read every column.
         jdbi.useTransaction(handle -> {
             handle.createUpdate("""
                             INSERT INTO command_tree (server, tree, published)
@@ -31,7 +30,7 @@ final class JdbiCommandTreeStore implements CommandTreeStore {
                     .bind("server", server)
                     .bind("tree", Json.encode(tree))
                     .execute();
-            // In the writing transaction, so a listener woken by the signal reads what was written.
+            // In the same transaction, so a listener woken by the signal reads the row.
             handle.createQuery("SELECT pg_notify(:channel, :server) IS NULL")
                     .bind("channel", Channel.COMMAND_TREE.sqlName())
                     .bind("server", server)

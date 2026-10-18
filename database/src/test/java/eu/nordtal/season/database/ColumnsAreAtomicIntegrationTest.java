@@ -10,10 +10,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
-/** Holds the schema to atomic columns: a jsonb or array column exists only on a list that only shrinks. */
+/** Holds the schema to atomic columns. A jsonb or array column exists only on a list that only shrinks. */
 class ColumnsAreAtomicIntegrationTest {
 
-    /** The composite columns the schema still has; a change that normalizes one removes it here. */
+    /** The composite columns the schema still has. */
     private static final Set<String> COMPOSITE = Set.of(
             "admin_alert.detail",
             "admin_alert.measured",

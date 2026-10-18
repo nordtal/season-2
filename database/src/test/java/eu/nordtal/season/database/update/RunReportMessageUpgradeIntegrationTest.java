@@ -10,10 +10,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what telling a run's report in messages does to the reports an installation already wrote.
- * Each keeps its words in its order, a bare reason becomes a report, and one already in messages stays as it is.
- */
+/** Holds that reports written before they became messages keep their words in order. A bare reason becomes a report. */
 class RunReportMessageUpgradeIntegrationTest {
 
     private static final String ORPHANED = "The steward-agent carrying out this request stopped before it finished.";
@@ -69,7 +66,7 @@ class RunReportMessageUpgradeIntegrationTest {
                 .orElse(null));
     }
 
-    /** Each note as its key and its words, as the report stored them at this version. */
+    /** Each note as its key and words, as the report stored them at this version. */
     private static List<String> notes(final Jdbi jdbi, final long id) {
         return jdbi.withHandle(handle ->
                 handle.createQuery("""

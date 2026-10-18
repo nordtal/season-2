@@ -11,7 +11,7 @@ import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
-/** Holds that a key's transports and a browser's device name, once composed text, arrive as one value per column. */
+/** Holds that transports of a key and device names of a browser, once composed text, arrive as one value per column. */
 class StewardSignInRowsUpgradeIntegrationTest {
 
     @Test

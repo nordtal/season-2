@@ -10,10 +10,7 @@ import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.Map;
 
-/**
- * The one codec with a message in it: the kernel's, and a {@link MessageRef} typed as {@link MessageJson} writes it.
- * A journal line, an alert and an inbox payload store messages this way, and Steward's API speaks the same.
- */
+/** The one codec that handles a {@link MessageRef} typed as {@link MessageJson}. */
 public final class DatabaseJson {
 
     private static final Gson GSON = Json.gson()
@@ -23,22 +20,19 @@ public final class DatabaseJson {
 
     private DatabaseJson() {}
 
-    /** Returns {@code value} as compact JSON. */
     public static String encode(final Object value) {
         return GSON.toJson(value);
     }
 
-    /** Reads {@code json} as {@code type}. */
     public static <T> T decode(final String json, final Class<T> type) {
         return GSON.fromJson(json, type);
     }
 
-    /** Reads {@code json} as a generic type, such as a list of messages. */
     public static <T> T decode(final String json, final TypeToken<T> type) {
         return GSON.fromJson(json, type);
     }
 
-    /** Returns the codec itself, for a codec built on it. */
+    /** Returns the codec itself. */
     public static Gson gson() {
         return GSON;
     }

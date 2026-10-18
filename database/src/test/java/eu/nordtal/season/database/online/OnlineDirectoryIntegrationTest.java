@@ -19,7 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** Exercises {@link OnlineDirectory} against a real PostgreSQL, skipping itself without Docker. */
+/** Exercises {@link OnlineDirectory} against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OnlineDirectoryIntegrationTest {
     private static DataSource dataSource;

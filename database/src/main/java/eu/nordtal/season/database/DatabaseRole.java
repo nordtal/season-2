@@ -12,41 +12,29 @@ import java.util.Objects;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A role the schema grants to, named in {@code V1} by the Flyway placeholder {@link #placeholder()}.
- *
- * Roles belong to the cluster, so the migrator creates them with {@link #provision} before it migrates.
- */
+/** A role the schema grants to. {@code V1} names it by the Flyway placeholder {@link #placeholder()}. */
 public enum DatabaseRole {
-
-    /** discord-bot. */
     DISCORD_BOT(Login.PASSWORD),
 
-    /** The proxy. */
     PROXY(Login.PASSWORD),
 
-    /** The waiting room. */
     LIMBO(Login.PASSWORD),
 
-    /** The Hunger Games server. */
     HUNGER_GAMES(Login.PASSWORD),
 
-    /** The SMP server. */
     SMP(Login.PASSWORD),
 
-    /** Steward, which V1 grants to by the name it had when V1 was frozen, {@code role_steward_ui}. */
+    /** Steward, which V1 grants to by its old name {@code role_steward_ui}. */
     STEWARD(Login.PASSWORD, "role_steward_ui"),
 
-    /** The shared read models; every role above is a member, and nobody logs in as it. */
+    /** The shared read models. Every role above is a member of it. Nobody logs in as it. */
     READ(Login.NONE),
 
-    /** {@code pg_dump}, through the postgres container's own socket, so without a password. */
+    /** {@code pg_dump}, through the socket of the postgres container and without a password. */
     BACKUP(Login.SOCKET);
 
-    /** The prefix of every role name outside a test. */
     public static final String PREFIX = "nordtal_";
 
-    /** How a role logs in. */
     private enum Login {
         PASSWORD,
         SOCKET,
@@ -65,32 +53,30 @@ public enum DatabaseRole {
         this.placeholder = placeholder;
     }
 
-    /** Returns this role's part of a name, such as {@code hunger_games}. */
     public String key() {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    /** Returns the Flyway placeholder a migration names this role by, such as {@code role_hunger_games}. */
+    /** Returns the Flyway placeholder of this role, such as {@code role_hunger_games}. */
     public String placeholder() {
         return placeholder != null ? placeholder : "role_" + key();
     }
 
-    /** Returns the role's name under {@link #PREFIX}, which compose.yml gives each service as its user. */
+    /** Returns the role name under {@link #PREFIX}. */
     public String roleName() {
         return roleName(PREFIX);
     }
 
-    /** Returns the role's name under another prefix, for a scratch cluster that must not touch the real roles. */
+    /** Returns the role name under another prefix. */
     public String roleName(final String prefix) {
         return prefix + key();
     }
 
-    /** Returns whether the role logs in with a password, which the installation hands to the migrator. */
     public boolean hasPassword() {
         return login == Login.PASSWORD;
     }
 
-    /** Returns every placeholder with its role name, as Flyway's {@code placeholders} takes them. */
+    /** Returns every placeholder with its role name. */
     public static Map<String, String> placeholders(final String prefix) {
         final Map<String, String> named = new LinkedHashMap<>();
         for (final DatabaseRole role : values()) {
@@ -100,9 +86,8 @@ public enum DatabaseRole {
     }
 
     /**
-     * Creates every role that does not exist yet and sets each password, so a changed one takes effect.
+     * Creates every missing role and sets each password.
      *
-     * @param owner     a connection allowed to create roles, the migrator's
      * @param passwords one per role that {@link #hasPassword()}
      * @throws IllegalArgumentException when a password is missing or blank
      */
@@ -125,7 +110,6 @@ public enum DatabaseRole {
         }
     }
 
-    /** The {@code format} call that builds the statement giving the role its login; its arguments are bound. */
     private String alter() {
         return switch (login) {
             case PASSWORD -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ?, ?)";
@@ -146,7 +130,7 @@ public enum DatabaseRole {
         execute(connection, "SELECT format('CREATE ROLE %I', ?)", name);
     }
 
-    /** Runs the one statement {@code format} builds from bound values, so nothing is quoted by hand. */
+    /** Runs the statement that {@code format} builds from bound values. */
     private static void execute(final Connection connection, final String formatting, final String... values)
             throws SQLException {
         final String statement;

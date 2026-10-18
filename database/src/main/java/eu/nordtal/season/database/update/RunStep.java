@@ -1,27 +1,26 @@
 package eu.nordtal.season.database.update;
 
 /**
- * The typed values of a run's steps, as {@code run_step} and its fact tables hold them.
- *
- * steward-agent writes a step when it begins and ends it with an outcome and, unless it went as asked, a reason.
+ * The typed values of the steps of a run, as {@code run_step} and its fact tables hold them.
+ * steward-agent writes a step when it begins and ends it with an outcome and, if it went wrong, a reason.
  */
 public final class RunStep {
 
     private RunStep() {}
 
-    /** What a step does, in the order a run reaches them. */
+    /** What a step does, in the order that a run reaches the steps. */
     public enum Kind {
-        /** Reading the project's runtime before anything is planned. */
+        /** Reads the runtime of the project before anything is planned. */
         RUNTIME,
-        /** What the request covers, and what it leaves out. */
+        /** What the request covers and what it leaves out. */
         SCOPE,
-        /** What the sources answered: per service its artefacts, for the run the release from and to. */
+        /** What the sources answered: the artefacts per service, and the release from and to for the run. */
         RESOLVE,
-        /** The run handed to a one-shot at another release. */
+        /** A temporary container of another release takes over the run. */
         HAND_OVER,
-        /** Whether a backup leaves the disk its free share. */
+        /** Checks whether a backup leaves the disk its free share. */
         ROOM_CHECK,
-        /** Archives the retention or the disk budget no longer keeps, removed. */
+        /** Removes the archives that retention or the disk budget no longer keeps. */
         PRUNE,
         DUMP_DATABASE,
         STANDBY_UP,
@@ -29,21 +28,21 @@ public final class RunStep {
         PLAYERS_MOVED,
         STOP,
         SAVE_VOLUME,
-        /** A take-down's service held down, so no run starts it. */
+        /** A take-down holds its service down, so no run starts it. */
         HOLD,
-        /** A start's service let go of its hold. */
+        /** A start releases the hold of its service. */
         UNHOLD,
         MIGRATE,
-        /** Files put into place or removed, or a container made again from its image. */
+        /** Puts files into place or removes them, or recreates a container from its image. */
         INSTALL,
-        /** An archive put back into its volume or the database. */
+        /** Puts an archive back into its volume or the database. */
         RESTORE,
         START,
-        /** Waiting for a started service to report healthy, with the version seen. */
+        /** Waits for a started service to report healthy, with the version seen. */
         VERIFY,
         PLAYERS_BACK,
         STANDBY_DOWN,
-        /** The images nothing uses any more, removed. */
+        /** Removes the images that nothing uses. */
         CLEANUP,
         OFFSITE_COPY
     }
@@ -58,25 +57,25 @@ public final class RunStep {
         FAILED
     }
 
-    /** Why a step did not go as asked; any number it names is one of the step's own facts. */
+    /** Why a step did not go as asked. A number it names is one of the facts of the step. */
     public enum Reason {
-        /** The runtime could not be reached. */
+        /** The runtime was unreachable. */
         UNREACHABLE,
-        /** steward-agent itself failed; its log says how. */
+        /** steward-agent failed. Its log says how. */
         UNEXPECTED,
         CANCELLED,
         /** steward-agent stopped while it waited. */
         INTERRUPTED,
         NO_CONTAINER,
-        /** Docker or the process asked refused; the run log has its answer. */
+        /** Docker or the process refused. The run log has the answer. */
         REFUSED,
-        /** Not healthy between the step's start and end. */
+        /** Not healthy between the start and the end of the step. */
         NOT_HEALTHY,
-        /** It stopped, and nobody could read how it ended. */
+        /** It stopped and nobody could read how it ended. */
         UNVERIFIED_STOP,
         PLAYERS_STAYED,
         PLAYERS_UNKNOWN,
-        /** The room check's own row says how much was needed and free. */
+        /** The row of the room check says how much was needed and free. */
         NO_ROOM,
         TOOL_FAILED,
         NO_REPOSITORY,
@@ -90,20 +89,20 @@ public final class RunStep {
         UNNAMED,
         /** Steward or postgres, which a take-down never stops. */
         NEVER_DOWN,
-        /** steward-agent, which never makes its own container again. */
+        /** steward-agent, which never recreates itself. */
         SELF,
-        /** The request names something this stack does not have. */
+        /** The request names something that this stack does not have. */
         UNKNOWN,
         NOT_A_VOLUME,
         NO_VOLUMES,
         NOTHING_TO_REMOVE,
         /** The backup before a restore was not saved, so nothing was put back. */
         NOT_SAVED,
-        /** Put back half, so what runs on it stays held down. */
+        /** Half was put back, so what runs on it stays down. */
         LEFT_DOWN,
         SOURCE_FAILED,
         NOT_IN_RELEASE,
-        /** A jar no artefact claims. */
+        /** A jar that no artefact claims. */
         UNCLAIMED,
         /** An image whose registry could not be compared. */
         UNVERIFIABLE,
@@ -111,7 +110,7 @@ public final class RunStep {
         FOREIGN_NEWER
     }
 
-    /** Which image a container was made again from. */
+    /** Which image a container was recreated from. */
     public enum Image {
         PULLED,
         KEPT

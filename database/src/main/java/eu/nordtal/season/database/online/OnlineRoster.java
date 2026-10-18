@@ -9,12 +9,12 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Who is connected right now, one row per player, written by the proxy in the same tick as the counts.
+ * Stores who is connected, one row per player. The proxy writes it with the counts.
  * Unlike {@link OnlineDirectory#write}, {@link #replace} deletes every row not given.
  */
 public interface OnlineRoster {
 
-    /** Returns a roster over a pool the caller owns; there is nothing to close. */
+    /** Returns a roster that borrows {@code dataSource}. */
     static OnlineRoster using(final DataSource dataSource, final InstantSource clock) {
         return new JdbiRoster(dataSource, clock);
     }
@@ -22,19 +22,19 @@ public interface OnlineRoster {
     /**
      * Makes the table hold exactly these players, stamped with the time of the call.
      *
-     * @param connected everyone the proxy currently has; an empty collection empties the table
-     * @throws NullPointerException     if the collection or an element is {@code null}
-     * @throws IllegalArgumentException if two presences carry the same {@link Presence#uuid()}
+     * @param connected everyone connected. An empty collection empties the table
+     * @throws NullPointerException if the collection or an element is null
+     * @throws IllegalArgumentException if two presences have the same {@link Presence#uuid()}
      */
     void replace(Collection<Presence> connected);
 
-    /** Returns every player proxy last wrote down, in no order; an empty list may also be stale. */
+    /** Returns every player that the proxy last wrote, in no order. */
     List<OnlinePlayer> current();
 
     /**
-     * One connected player as the writer sees them, without a timestamp.
+     * One connected player without a timestamp.
      *
-     * @param subject the backend they are on, or {@code null} when no server has them yet; never a guess
+     * @param subject the backend of the player, null when none has them
      */
     record Presence(UUID uuid, String name, @Nullable String subject) {
 

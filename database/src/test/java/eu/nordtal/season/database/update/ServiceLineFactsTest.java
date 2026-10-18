@@ -14,7 +14,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** Holds the short message a service line says, drawn from its typed facts, which every surface shows the same. */
+/** Holds the short message of a service line, drawn from its typed facts, and the same on every surface. */
 class ServiceLineFactsTest {
 
     private static final Facts.Seen STARTING = new Facts.Seen("running", "starting", null);

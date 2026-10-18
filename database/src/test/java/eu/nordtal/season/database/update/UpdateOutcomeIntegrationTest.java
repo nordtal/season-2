@@ -74,7 +74,7 @@ class UpdateOutcomeIntegrationTest {
         final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        // A sentence in the column is a text no reader can put into another language.
+        // A sentence in the column is a text that no reader can put into another language.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.FAILED, "the download timed out"));

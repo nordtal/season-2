@@ -11,14 +11,10 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests {@link AdminOperators} without a server.
- *
- * A call that changes nothing must write nothing, since {@code setOp} rewrites {@code ops.json}.
- */
+/** Tests {@link AdminOperators} without a server. A call that changes nothing writes nothing. */
 class AdminOperatorsTest {
 
-    /** Records every call, so a test can assert on writes that did <em>not</em> happen. */
+    /** Records every call, so a test can assert on writes that did not happen. */
     private static final class RecordingOps implements AdminOperators.Ops {
 
         private final Set<UUID> operators = new LinkedHashSet<>();
@@ -77,7 +73,7 @@ class AdminOperatorsTest {
 
     @Test
     void theSweepRemovesEveryOperatorIncludingOnesThisObjectNeverGranted() {
-        // A crash between join and quit leaves a name in ops.json that no object knows about.
+        // A crash between join and quit leaves a name in ops.json that no object knows.
         final UUID leftBehind = UUID.randomUUID();
         ops.setOp(leftBehind, true);
         operators.onJoin(ADMIN, true);
@@ -90,7 +86,7 @@ class AdminOperatorsTest {
 
     @Test
     void theSweepAsksNothingAboutWhoIsAnAdmin() {
-        // The sweep takes no admin set, so it is safe at enable when the database may be unreachable.
+        // The sweep takes no admin set, so it is safe at enable when the database is unreachable.
         ops.setOp(ADMIN, true);
 
         operators.sweep();
@@ -103,7 +99,7 @@ class AdminOperatorsTest {
         operators.onJoin(ADMIN, true);
         operators.onJoin(PLAYER, false);
 
-        // The revocation case: ADMIN lost the Discord role while online, PLAYER gained it.
+        // The revocation case: ADMIN lost the Discord role while online and PLAYER gained it.
         operators.refresh(Set.of(PLAYER), Set.of(ADMIN, PLAYER));
 
         assertEquals(Set.of(PLAYER), ops.operators());

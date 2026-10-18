@@ -4,10 +4,9 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.notify.Channel;
 import java.util.Objects;
 
-/** What the Hunger Games server can be asked to do by another process; each record is one kind. */
+/** A request to the Hunger Games server from another process. Each record is one kind. */
 public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame, HungerGamesRequest.PreviewMessage {
 
-    /** The Hunger Games server's inbox table. */
     InboxTable<HungerGamesRequest> TABLE = InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class)
             .withRows(StartGame.class);
 
@@ -18,7 +17,7 @@ public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame,
      */
     record StartGame(boolean confirmed) implements HungerGamesRequest {}
 
-    /** Shows an admin's player a text they are trying; refused while that player is not on the server. */
+    /** Shows a text that an admin tries to the admin's player. Refused while the player is not on the server. */
     record PreviewMessage(PlayerId player, MessagePreview preview) implements HungerGamesRequest {
 
         public PreviewMessage {

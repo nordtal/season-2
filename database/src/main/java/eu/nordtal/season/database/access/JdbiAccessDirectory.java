@@ -19,9 +19,6 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The only implementation of {@link AccessDirectory}, over a bare {@link Jdbi} that needs no pool wrapper.
- */
 final class JdbiAccessDirectory implements AccessDirectory {
 
     private final Jdbi jdbi;
@@ -97,7 +94,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     @Override
     public List<Person> people(final int limit) {
-        // At least one row, since LIMIT 0 would look like an empty database.
+        // At least one row, as LIMIT 0 would look like an empty database.
         return people.people(Math.max(1, limit));
     }
 
@@ -187,10 +184,8 @@ final class JdbiAccessDirectory implements AccessDirectory {
         return dao.revokeAccess(Objects.requireNonNull(discordId, "discordId"));
     }
 
-    /** PostgreSQL's SQLSTATE for a unique-constraint violation. */
     private static final String UNIQUE_VIOLATION_SQLSTATE = "23505";
 
-    /** How many times a colliding link code is retried with a new candidate. */
     private static final int MAX_LINK_CODE_ATTEMPTS = 5;
 
     @Override
@@ -209,7 +204,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
                 if (!isUniqueViolation(exception)) {
                     throw exception;
                 }
-                // A code collision is not caught by the mc_uuid ON CONFLICT; each attempt is its own statement.
+                // A code collision escapes the mc_uuid ON CONFLICT, so each attempt is its own statement.
                 lastCollision = exception;
             }
         }
@@ -233,7 +228,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
             transactional.ensureUser(discordId);
             if (transactional.link(discordId, mcUuid.get()) != 1) {
-                // Either side is already linked; the code is kept so a wrong click does not burn a retry.
+                // Either side is linked: the code is kept so a wrong click does not burn a retry.
                 return LinkRedemption.alreadyLinked();
             }
 

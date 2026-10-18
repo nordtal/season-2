@@ -54,11 +54,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps a row of the journal's read query: the entry, and the detail its action reads from its family's columns.
- *
- * A missing detail row is {@code null}, and the entry reads as its action; times go through {@link OffsetDateTime}.
- */
+/** Maps a row of the journal read query to the entry and the detail its action reads from its family's columns. */
 public final class AuditEntryMapper implements RowMapper<AuditEntry> {
 
     @Override
@@ -110,7 +106,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
-    /** Access, payments and the admin tree. */
     private static @Nullable JournalDetail person(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
             case GRANT_ACCESS -> {
@@ -152,7 +147,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
-    /** The season's dates and what the game reached. */
     private static @Nullable JournalDetail season(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
             case SET_PHASE -> {
@@ -179,7 +173,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
-    /** Second factors and alert routes. */
     private static @Nullable JournalDetail security(final JournalAction action, final ResultSet rs)
             throws SQLException {
         return switch (action) {
@@ -228,7 +221,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
-    /** The services and the runs Steward asked for. */
     private static @Nullable JournalDetail stack(final JournalAction action, final ResultSet rs) throws SQLException {
         final String service = rs.getString("service");
         final Long run = rs.getObject("run", Long.class);

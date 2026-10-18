@@ -10,7 +10,7 @@ import java.util.List;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** The guild's channels against a real PostgreSQL and the real migrations; skipped without Docker. */
+/** The channels of the guild against PostgreSQL and the real migrations. */
 class GuildChannelsIntegrationTest {
 
     private static final String GUILD = "100000000000000001";

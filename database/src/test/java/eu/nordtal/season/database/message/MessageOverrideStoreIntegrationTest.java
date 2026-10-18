@@ -15,7 +15,7 @@ import java.util.Set;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** Stores message overrides against a real PostgreSQL running the real migrations; skipped without Docker. */
+/** Stores message overrides against PostgreSQL and the real migrations. */
 class MessageOverrideStoreIntegrationTest {
 
     private static final Actor ADMIN = Actor.person(DiscordId.of("123456789012345678"));

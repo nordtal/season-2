@@ -7,14 +7,13 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One run: a row of the run inbox, what was asked for, by whom, and what happened.
+ * One run: a row of the run inbox, with what was asked, by whom and what happened.
  *
- * @param scheduledFor the instant steward may claim it
- * @param countdownEnd when the servers go down, {@code null} until steward's plan has work and counts down
- * @param moving       the services this run stops, empty until the countdown starts
- * @param started      when steward claimed it, {@code null} while {@link UpdateStatus#PENDING}
- * @param finished     when it reached a terminal state, {@code null} until then
- * @param result       the report, verbatim, {@code null} until finished
+ * @param scheduledFor the instant at which steward may claim it
+ * @param countdownEnd when the servers go down, null until the plan has work and counts down
+ * @param moving the services the run stops, empty until the countdown starts
+ * @param started when steward claimed it, null while {@link UpdateStatus#PENDING}
+ * @param result the report verbatim, null until finished
  */
 public record UpdateRequest(
         long id,
@@ -33,31 +32,23 @@ public record UpdateRequest(
         moving = List.copyOf(moving);
     }
 
-    /** Returns this run's page in Steward, a path below its address. */
+    /** Returns the path of the page of this run in Steward. */
     public String page() {
         return "/operations/updates/" + id;
     }
 
-    /** Returns what this row counts towards: the countdown once one has started, else the scheduled instant. */
+    /** Returns the countdown end if it has started, else the scheduled instant. */
     public Instant due() {
         return countdownEnd != null ? countdownEnd : scheduledFor;
     }
 
-    /**
-     * Returns the whole seconds until {@link #due()}, never negative.
-     *
-     * @param now the instant to measure from
-     */
+    /** Returns the whole seconds until {@link #due()}, never negative. */
     public long secondsUntilDue(final Instant now) {
         final long seconds = due().getEpochSecond() - now.getEpochSecond();
         return Math.max(0L, seconds);
     }
 
-    /**
-     * Returns the time until {@link #due()} to the millisecond, never negative, so a countdown lands on time.
-     *
-     * @param now the instant to measure from
-     */
+    /** Returns the time until {@link #due()} to the millisecond, never negative. */
     public Duration untilDue(final Instant now) {
         final Duration left = Duration.between(now, due());
         return left.isNegative() ? Duration.ZERO : left;

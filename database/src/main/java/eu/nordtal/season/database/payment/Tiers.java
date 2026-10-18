@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The network's price list, and the rule that turns arrived money into a grant, which steward applies as it books.
+ * The price list and the rule that turns arrived money into a grant, which steward applies when it books.
  *
- * A covered order is granted as ordered; a short payment is downgraded to the highest tier it covers.
+ * A covered order is granted as ordered. A short payment is downgraded to the highest tier it covers.
  */
 public final class Tiers {
 
@@ -19,13 +19,6 @@ public final class Tiers {
         this.donationCents = donationCents;
     }
 
-    /**
-     * Builds the price list.
-     *
-     * @param tiers         the tiers, in any order
-     * @param donationCents the donation surcharge
-     * @return the price list
-     */
     public static Tiers of(final List<Tier> tiers, final int donationCents) {
         return new Tiers(
                 tiers.stream()
@@ -34,53 +27,45 @@ public final class Tiers {
                 donationCents);
     }
 
-    /** Returns every tier, cheapest first, the order the purchase options render in. */
+    /** Returns every tier, cheapest first. */
     public List<Tier> all() {
         return byPriceDescending.reversed();
     }
 
-    /** @return the donation surcharge in cents */
     public int donationCents() {
         return donationCents;
     }
 
-    /**
-     * Returns the tier offering exactly that many days, if a price change has not removed it.
-     *
-     * @param days a number of days a user clicked on
-     */
+    /** Returns the tier with exactly that many days, if a price change did not remove it. */
     public Optional<Tier> byDays(final int days) {
         return byPriceDescending.stream().filter(tier -> tier.days() == days).findFirst();
     }
 
     /**
-     * What an amount buys against a known order.
+     * Returns what an amount buys against a known order.
      *
-     * @param receivedCents what the payment was worth, in cents
-     * @param order         what the payer asked for
-     * @return what to grant, or empty when the amount does not even cover the cheapest tier
+     * @return the grant, or empty if the amount does not cover the cheapest tier
      */
     public Optional<Settlement> resolve(final int receivedCents, final Order order) {
-        // The row's own total, never the configured one; a spontaneous surplus asks today's threshold.
+        // The total of the row, never the configured one.
         final int orderedTotal = order.totalCents();
         if (receivedCents < orderedTotal) {
-            // Short: the only case the tiers are re-derived from the amount.
+            // Short: the only case that derives the tiers from the amount.
             return resolve(receivedCents).map(Settlement::asDowngrade);
         }
 
         final int surplus = receivedCents - orderedTotal;
         final boolean donation = order.donationOrdered() || surplus >= donationCents;
 
-        // Everything beyond the price of the days: an ordered surcharge plus surplus, the number the thank-you names.
+        // Everything above the price of the days: ordered surcharge plus surplus, which the thank-you names.
         final int donated = donation ? receivedCents - order.priceCents() : 0;
         return Optional.of(new Settlement(order.days(), order.priceCents(), donated, false));
     }
 
     /**
-     * Returns the highest tier an amount covers, with a remainder of at least the surcharge as a donation.
+     * Returns the highest tier an amount covers. A remainder of at least the surcharge is a donation.
      *
-     * @param receivedCents what the payment was worth, in cents.
-     * @return what to grant, or empty when the amount does not even cover the cheapest tier.
+     * @return the grant, or empty if the amount does not cover the cheapest tier
      */
     public Optional<Settlement> resolve(final int receivedCents) {
         for (final Tier tier : byPriceDescending) {
@@ -94,35 +79,28 @@ public final class Tiers {
     }
 
     /**
-     * What was ordered, taken from the {@code payment_request} row.
+     * What was ordered, from the {@code payment_request} row.
      *
-     * @param days how many days were asked for.
-     * @param priceCents what those days cost, without any donation.
-     * @param donationCents the surcharge amount of the order, not a flag.
+     * @param priceCents the price of the days, without donation
+     * @param donationCents the surcharge amount of the order
      */
     public record Order(int days, int priceCents, int donationCents) {
 
-        /**
-         * Reads the order off a request, so a later price or surcharge change cannot rewrite it.
-         *
-         * @param request the request being settled.
-         * @return the order it recorded.
-         */
+        /** Reads the order off a request, so a later price change cannot rewrite it. */
         public static Order of(final PaymentRequest request) {
             return new Order(request.days(), request.amountCents() - request.donationCents(), request.donationCents());
         }
 
-        /** @return whether the surcharge was part of the order */
         public boolean donationOrdered() {
             return donationCents > 0;
         }
 
-        /** Returns what the payer was asked to pay, from the stored row alone so a price change cannot rewrite it. */
+        /** Returns what the payer was asked to pay. */
         public int totalCents() {
             return priceCents + donationCents;
         }
 
-        /** Returns the order granted exactly as it was placed, which is what an admin's booking by hand grants. */
+        /** Returns the order as placed, which a booking by hand grants. */
         public Settlement asOrdered() {
             return new Settlement(days, priceCents, donationCents, false);
         }
@@ -131,14 +109,12 @@ public final class Tiers {
     /**
      * What an arrived amount buys.
      *
-     * @param days how many days of access to grant
-     * @param priceCents what those days cost; the donation is everything above this
-     * @param donationCents how much of the payment counts as a donation; zero when none does
-     * @param downgraded whether this is less than was ordered, which the confirmation must say
+     * @param priceCents the price of the days. The donation is everything above it
+     * @param donationCents the part of the payment that counts as donation
+     * @param downgraded whether it is less than ordered, which the confirmation says
      */
     public record Settlement(int days, int priceCents, int donationCents, boolean downgraded) {
 
-        /** @return whether the permanent donor role is earned */
         public boolean donation() {
             return donationCents > 0;
         }

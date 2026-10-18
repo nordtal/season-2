@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** Every channel any module's SQL notifies on is a {@link Channel}, so no signal goes out on a name nobody knows. */
+/** Every channel that the SQL of any module notifies on is a {@link Channel}. */
 class ChannelTest {
 
     private static final Pattern EMITTED = Pattern.compile("pg_notify\\('([a-z0-9_]+)'|NOTIFY ([a-z0-9_]+)");

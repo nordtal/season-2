@@ -6,12 +6,7 @@ import eu.nordtal.season.messages.MessageRef;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/**
- * A number of bytes as a person reads it: whole bytes below a KiB, else one decimal in the largest binary unit.
- *
- * @param amount the size in {@code unit}
- * @param unit   the binary unit, which a message names through {@code select}
- */
+/** A size as a person reads it: whole bytes below 1 KiB, else one decimal in the largest binary unit. */
 public record ByteSize(BigDecimal amount, ByteSize.Unit unit) {
 
     /** The binary units, smallest first. */
@@ -43,12 +38,12 @@ public record ByteSize(BigDecimal amount, ByteSize.Unit unit) {
         return new ByteSize(BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP), units[unit]);
     }
 
-    /** The size as a message of the report section, for a report line that names one. */
+    /** Returns the size as a message of the report section. */
     public MessageRef message() {
         return TEXTS.report().size(amount, unit);
     }
 
-    /** The size for a log line or a file listing, such as {@code 2.0 KiB}. */
+    /** Returns the size for a log line or a file listing, such as {@code 2.0 KiB}. */
     @Override
     public String toString() {
         return amount.toPlainString() + " " + unit.symbol;

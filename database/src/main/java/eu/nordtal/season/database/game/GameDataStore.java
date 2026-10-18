@@ -7,42 +7,42 @@ import java.util.Optional;
 import javax.sql.DataSource;
 
 /**
- * The servers' game data and the icons drawn for each version; every write signals {@code nordtal_game_data}.
+ * Stores the game data of the servers and the icons of each version. Every write signals {@code nordtal_game_data}.
  *
  * A Paper server publishes its catalogue, steward-agent stores the icons, steward reads both.
  */
 public interface GameDataStore {
 
-    /** Returns a store over {@code dataSource}, which it borrows and never closes. */
+    /** Returns a store that uses {@code dataSource} and never closes it. */
     static GameDataStore using(final DataSource dataSource) {
         return new JdbiGameDataStore(dataSource);
     }
 
-    /** Replaces what {@code server} said of the game before. */
+    /** Replaces the catalogue of {@code server}. */
     void publish(String server, GameCatalogue catalogue);
 
-    /** When each server last exported, by server, so a reader can tell whether anything moved. */
+    /** Returns the time of each server's last export, by server. */
     Map<String, Instant> exports();
 
-    /** Every server's catalogue, by server. */
+    /** Returns the catalogue of each server, by server. */
     Map<String, GameCatalogue> catalogues();
 
-    /** The versions some server runs whose icons are not drawn yet or were drawn by a painter other than this. */
+    /** Returns the versions that a server runs and whose icons are not drawn or were drawn by another painter. */
     List<String> versionsToDraw(String painter);
 
-    /** The painter that drew each version's icons, by version, so a reader can tell whether a sheet was drawn again. */
+    /** Returns the painter of each version's icons, by version. */
     Map<String, String> iconPainters();
 
-    /** Stores the icons of a version, replacing the ones a painter drew before. */
+    /** Stores the icons of a version and replaces those of an earlier painter. */
     void storeIcons(String minecraftVersion, Icons icons);
 
-    /** The icons of a version, if they were drawn. */
+    /** Returns the icons of a version, if drawn. */
     Optional<Icons> icons(String minecraftVersion);
 
-    /** The slot of each item's icon in a version's sheet, without the sheet. */
+    /** Returns the slot of each item's icon in the sheet of a version, without the sheet. */
     Optional<IconIndex> iconIndex(String minecraftVersion);
 
-    /** One version's icons: the sheet, 32 pixels an icon, and where each item's is in it. */
+    /** The icons of one version: a sheet of 32-pixel icons and the slot of each item's icon. */
     final class Icons {
 
         private final byte[] png;
@@ -51,14 +51,13 @@ public interface GameDataStore {
         /**
          * @param png the sheet as a PNG, {@code columns} icons to a row
          * @param slots the slot of each item's icon, by namespaced id
-         * @param painter the identity of the drawing code that painted the sheet
+         * @param painter the identity of the drawing code
          */
         public Icons(final byte[] png, final int columns, final Map<String, Integer> slots, final String painter) {
             this.png = png.clone();
             this.index = new IconIndex(columns, Map.copyOf(slots), painter);
         }
 
-        /** The sheet as a PNG, a copy. */
         public byte[] png() {
             return png.clone();
         }
@@ -69,9 +68,9 @@ public interface GameDataStore {
     }
 
     /**
-     * Where a version's icons are, for a reader that does not need the pixels.
+     * Locates the icons of a version, without the pixels.
      *
-     * @param painter the identity of the drawing code that painted the sheet, empty if none was recorded
+     * @param painter the identity of the drawing code, empty if none was recorded
      */
     record IconIndex(int columns, Map<String, Integer> slots, String painter) {}
 }

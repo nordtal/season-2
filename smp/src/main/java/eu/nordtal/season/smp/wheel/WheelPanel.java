@@ -7,40 +7,50 @@ import eu.nordtal.season.papercommon.menu.MenuTitle;
 import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 
 public final class WheelPanel {
 
-    public static final int ROWS = 5;
+    public static final int ROWS = 6;
 
     public static final int INSET = 2;
 
-    /** The prize cells as column and row, clockwise. Index 0 is the resting cell of the winner. */
+    /**
+     * The prize cells as column and row, clockwise. Index 0 is the resting cell of the winner.
+     * Row 0 is left free for the pointer, which would otherwise cut the separator under the title.
+     */
     private static final int[][] CELLS = {
-        {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3}, {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
+        {2, 1}, {3, 1}, {4, 2}, {4, 3}, {4, 4}, {3, 5}, {2, 5}, {1, 5}, {0, 4}, {0, 3}, {0, 2}, {1, 1},
     };
 
     public static final List<Integer> CELL_SLOTS = cellSlots();
 
-    public static final int HUB_SLOT = SlotGeometry.slot(2, 2);
+    public static final int HUB_SLOT = SlotGeometry.slot(2, 3);
 
     private static final int HUB_CENTRE_X = SlotGeometry.x(2) + SlotGeometry.PITCH / 2;
 
-    private static final int HUB_ROW = 2;
+    private static final int HUB_ROW = 3;
 
     private static final int INFO_X = SlotGeometry.x(5) + INSET;
     private static final int INFO_RIGHT = SlotGeometry.x(8) + SlotGeometry.PITCH - INSET;
 
-    private static final int SPINS_ROW = 1;
+    private static final int SPINS_ROW = 2;
 
-    private static final int RULE_TOP_ROW = 2;
-    private static final int RULE_BOTTOM_ROW = 3;
+    private static final int RULE_TOP_ROW = 3;
+    private static final int RULE_BOTTOM_ROW = 4;
 
-    public static final int AGAIN_ROW = 4;
-    public static final int AGAIN_X = SlotGeometry.x(6) + INSET;
+    public static final int AGAIN_ROW = 5;
+    /** The width of the {@code GUI_ROW_BUTTON_CONFIRM} plate. */
     public static final int AGAIN_WIDTH = 3 * SlotGeometry.PITCH - 2 * INSET;
 
-    public static final List<Integer> AGAIN_SLOTS =
-            List.of(SlotGeometry.slot(6, AGAIN_ROW), SlotGeometry.slot(7, AGAIN_ROW), SlotGeometry.slot(8, AGAIN_ROW));
+    public static final int AGAIN_X = SlotGeometry.x(5) + (4 * SlotGeometry.PITCH - AGAIN_WIDTH) / 2;
+
+    /** The centred plate overlaps all four columns beside the ring, so each of them takes its click. */
+    public static final List<Integer> AGAIN_SLOTS = List.of(
+            SlotGeometry.slot(5, AGAIN_ROW),
+            SlotGeometry.slot(6, AGAIN_ROW),
+            SlotGeometry.slot(7, AGAIN_ROW),
+            SlotGeometry.slot(8, AGAIN_ROW));
 
     public static final List<Integer> INFO_SLOTS = infoSlots();
 
@@ -63,15 +73,21 @@ public final class WheelPanel {
         final String number = MenuFont.fold(spins);
         canvas.rowText(number, HUB_ROW, HUB_CENTRE_X - MenuFont.width(number) / 2, MenuPalette.INK);
 
-        canvas.rowText(MenuFont.fit(left, INFO_RIGHT - INFO_X), SPINS_ROW, INFO_X, MenuPalette.INK);
-        canvas.rowText(MenuFont.fit(ruleTop, INFO_RIGHT - INFO_X), RULE_TOP_ROW, INFO_X, MenuPalette.SOFT);
-        canvas.rowText(MenuFont.fit(ruleFoot, INFO_RIGHT - INFO_X), RULE_BOTTOM_ROW, INFO_X, MenuPalette.SOFT);
+        info(canvas, left, SPINS_ROW, MenuPalette.INK);
+        info(canvas, ruleTop, RULE_TOP_ROW, MenuPalette.SOFT);
+        info(canvas, ruleFoot, RULE_BOTTOM_ROW, MenuPalette.SOFT);
 
         canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, AGAIN_ROW, AGAIN_X, null);
         final String label = MenuFont.fit(again, AGAIN_WIDTH - 6);
         canvas.rowText(label, AGAIN_ROW, AGAIN_X + (AGAIN_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
 
         return canvas.build(title);
+    }
+
+    /** Draws one line beside the ring, centred between {@link #INFO_X} and {@link #INFO_RIGHT}. */
+    private static void info(final MenuTitle.Canvas canvas, final String text, final int row, final TextColor colour) {
+        final String line = MenuFont.fit(text, INFO_RIGHT - INFO_X);
+        canvas.rowText(line, row, INFO_X + (INFO_RIGHT - INFO_X - MenuFont.width(line)) / 2, colour);
     }
 
     private static List<Integer> cellSlots() {

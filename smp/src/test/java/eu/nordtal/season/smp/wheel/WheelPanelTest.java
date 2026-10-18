@@ -119,9 +119,9 @@ class WheelPanelTest {
     @Test
     void theHubIsTheMiddle() {
         assertEquals(2, SlotGeometry.column(WheelPanel.HUB_SLOT));
-        assertEquals(2, SlotGeometry.row(WheelPanel.HUB_SLOT));
+        assertEquals(3, SlotGeometry.row(WheelPanel.HUB_SLOT));
 
-        final List<Run> text = PanelWalk.textRuns(PanelWalk.runs(surface()), Glyphs.FONT_GUI_ROWS.get(2));
+        final List<Run> text = PanelWalk.textRuns(PanelWalk.runs(surface()), Glyphs.FONT_GUI_ROWS.get(3));
         final Run number = text.stream()
                 .filter(run -> run.content().equals("7"))
                 .findFirst()
@@ -140,10 +140,11 @@ class WheelPanelTest {
         final Run plate = PanelWalk.find(runs, font, Glyphs.GUI_ROW_BUTTON_CONFIRM);
 
         final int first = SlotGeometry.x(SlotGeometry.column(WheelPanel.AGAIN_SLOTS.get(0)));
-        assertEquals(first + WheelPanel.INSET, plate.x());
+        final int last = SlotGeometry.column(WheelPanel.AGAIN_SLOTS.get(WheelPanel.AGAIN_SLOTS.size() - 1));
+        assertEquals(WheelPanel.AGAIN_X, plate.x());
+        assertTrue(plate.x() >= first, "the plate starts before the first cell that carries its click");
         assertTrue(
-                plate.end() - 1
-                        <= SlotGeometry.x(SlotGeometry.column(WheelPanel.AGAIN_SLOTS.get(2))) + SlotGeometry.PITCH,
+                plate.end() - 1 <= SlotGeometry.x(last) + SlotGeometry.PITCH,
                 "the plate runs past the last cell that carries its click");
 
         final Run label = PanelWalk.textRuns(runs, font).get(0);
@@ -159,7 +160,7 @@ class WheelPanelTest {
         final int left = SlotGeometry.x(5) + WheelPanel.INSET;
         final int right = SlotGeometry.x(8) + SlotGeometry.PITCH - WheelPanel.INSET;
 
-        for (final int row : new int[] {1, 3, WheelPanel.AGAIN_ROW}) {
+        for (final int row : new int[] {2, 4, WheelPanel.AGAIN_ROW}) {
             for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(row))) {
                 assertTrue(
                         run.x() >= left, "'" + run.content() + "' starts at " + run.x() + ", which is over the ring");
@@ -254,6 +255,48 @@ class WheelPanelTest {
         }
     }
 
+    @Test
+    void thePointerClearsTheTitleSeparator() {
+        final BufferedImage ring = PanelWalk.image("wheel_ring.png");
+        final int separator = SlotGeometry.ORIGIN_Y - 1;
+        for (int x = SlotGeometry.x(0); x < SlotGeometry.x(SlotGeometry.COLUMNS); x++) {
+            assertEquals(SEPARATOR, ring.getRGB(x, separator), "the separator under the title is broken at x " + x);
+        }
+
+        final int resting = WheelPanel.CELL_SLOTS.get(WheelPanel.shape().centre());
+        final int column = SlotGeometry.column(resting);
+        assertTrue(SlotGeometry.row(resting) >= 1, "the resting cell leaves no row for the pointer above it");
+        boolean pointer = false;
+        for (int y = separator + 2; y < SlotGeometry.y(SlotGeometry.row(resting)) - 1; y++) {
+            pointer |= ring.getRGB(SlotGeometry.x(column) + 9, y) == POINTER;
+        }
+        assertTrue(pointer, "no pointer between the separator and the resting cell");
+    }
+
+    @Test
+    void theTextsBesideTheRingAreCentredInTheirArea() {
+        final List<Run> runs = PanelWalk.runs(surface());
+        final int middle = (SlotGeometry.x(5) + SlotGeometry.x(SlotGeometry.COLUMNS)) / 2;
+        for (final String text : new String[] {"7 spins left", "One spin per", "2 % share"}) {
+            final Run run = runs.stream()
+                    .filter(candidate -> candidate.content().equals(MenuFont.fold(text)))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("'" + text + "' is not drawn"));
+            assertTrue(
+                    Math.abs((run.x() + run.end()) / 2 - middle) <= 1,
+                    "'" + text + "' runs " + run.x() + ".." + run.end() + " and the area's middle is " + middle);
+        }
+
+        final Run plate =
+                PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS.get(WheelPanel.AGAIN_ROW), Glyphs.GUI_ROW_BUTTON_CONFIRM);
+        assertTrue(
+                Math.abs((plate.x() + plate.end()) / 2 - middle) <= 1,
+                "the button runs " + plate.x() + ".." + plate.end() + " and the area's middle is " + middle);
+        assertEquals(WheelPanel.ROWS - 1, WheelPanel.AGAIN_ROW, "the button leaves the bottom row");
+    }
+
+    private static final int SEPARATOR = 0xFF96969C;
+    private static final int POINTER = 0xFF232328;
     private static final int CELL = 0xFF3A3A40;
     private static final int WINNER = 0xFF48484F;
     private static final int FRAME = 0xFFFFFF;

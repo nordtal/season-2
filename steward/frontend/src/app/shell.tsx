@@ -19,11 +19,7 @@ import { t } from "@/lib/texts"
 
 export { breadcrumbsFor } from "@/app/breadcrumbs"
 
-/**
- * The shell: a fixed viewport with one scrolling column and the navigation from `app/frames.tsx`.
- *
- * Its height is `--app-height`, which `lib/app-frame.ts` measures. Every edge keeps clear of its safe area inset.
- */
+/** Its height is `--app-height`, which `lib/app-frame.ts` measures. */
 export function Shell() {
   const me = useMe()
   const isMobile = useIsMobile()
@@ -31,9 +27,6 @@ export function Shell() {
   /** Draws nothing until `/api/me` answers, so no sidebar of pages that answer 401 flashes up. */
   if (me.isPending) return <SignInPage loading />
 
-  /**
-   * Only a 401 means signed out. Any other failure is a fault and does not draw the sign-in page.
-   */
   const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError && me.error.isSignedOut
   if (signedOut) return <SignInPage me={me.data} />
 
@@ -53,9 +46,6 @@ export function Shell() {
   return <SignedIn me={me.data} isMobile={isMobile} />
 }
 
-/**
- * Everything after the four checks above. It is separate from {@link Shell} because it reads the router.
- */
 function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
   /**
    * This runs after the key check, because `/api/live` answers only a session that holds a key.
@@ -80,9 +70,6 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
   )
 }
 
-/**
- * Shown when `/api/me` failed with something other than a 401. {@link Failure} names the service that answered.
- */
 function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">

@@ -7,11 +7,7 @@ import { NotificationsDialog, useNotificationActions } from "@/app/notifications
 import { asButton, asElement, asInput } from "@/lib/test-elements"
 import { stringChangesOf } from "@/lib/query-fixtures"
 
-/**
- * The notifications dialog. One switch writes its own type and channel, and the test send carries device and type.
- *
- * `@/lib/push` is mocked, because `push.test.ts` tests it against a fake service worker.
- */
+/** `@/lib/push` is mocked, because `push.test.ts` tests it against a fake service worker. */
 vi.mock("@/lib/push", () => ({
   pushSupported: () => supported,
   currentPushEndpoint: async () => thisBrowser,
@@ -50,7 +46,6 @@ type Call = { url: string; method: string; body: unknown }
 
 const ALERTS = "steward/alerts"
 
-/** The file that holds the three thresholds, as `/api/setting-groups/<file>` returns it. */
 function alertsFile(values: Record<string, string> = {}) {
   const value = (path: string, fallback: string) => values[path] ?? fallback
   return {
@@ -92,7 +87,6 @@ function backend(
   over: {
     devices?: unknown[]
     preferences?: Record<string, Record<string, boolean>>
-    /** Leaves the `alerts` group out of the listing, which is the read-only shape. */
     noAlertsFile?: boolean
     writable?: boolean
   } = {},
@@ -154,7 +148,6 @@ function backend(
   return { calls, fetcher }
 }
 
-/** The dialog, opened, because the two queries wait for it to open. */
 function Harness() {
   const state = useNotificationActions()
   return (
@@ -191,9 +184,6 @@ describe("the types, one switch per channel each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    /**
-     * Waits once for the list, then reads each type with `get`, so a missing type fails by name and not by timeout.
-     */
     await screen.findByRole("switch", { name: "Services by Push" })
     for (const label of [
       "Services",
@@ -215,7 +205,6 @@ describe("the types, one switch per channel each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    /** Waits for a switch that is on, so the wait ends when the answer has arrived. */
     const disk = await screen.findByRole("switch", { name: "Disk by Push" })
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     expect(screen.getByRole("switch", { name: "Images by Push" }).getAttribute("aria-checked")).toBe("false")
@@ -232,7 +221,6 @@ describe("the types, one switch per channel each", () => {
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     fireEvent.click(disk)
 
-    /** Waits for a write and then checks its body, so a wrong body is reported as such. */
     await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
     expect(calls.filter((call) => call.method === "PUT")).toEqual([
       {
@@ -336,7 +324,6 @@ describe("nothing in it scrolls sideways", () => {
   })
 })
 
-/** The test send is a popover on the send button, and its rows say what will arrive. */
 describe("the test send hangs off the paper plane", () => {
   it("says what each row will actually put on a lock screen, not the name of the switch", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
@@ -345,7 +332,6 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
-    /** Every type, in the words that `AlertRouter#sample` sends. */
     for (const label of [
       "Service down",
       "Backup missing",
@@ -377,12 +363,10 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
     const popover = asElement((await screen.findByText("Test notifications")).parentElement)
 
-    /** There is one row per push switch, so every switch has a test send. */
     expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
   })
 })
 
-/** The keys of `steward/alerts`, written by the configuration form's PUT with its revision. */
 describe("the thresholds the notifications fire on", () => {
   it("draws the numbers the file says, not the ones the light happens to hold", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
@@ -426,7 +410,6 @@ describe("the thresholds the notifications fire on", () => {
     await open()
     await screen.findByText("iPhone, Safari")
 
-    // A field that cannot write is not shown.
     expect(screen.queryByLabelText("Disk in use")).toBeNull()
     expect(screen.getByRole("link", { name: "steward" }).getAttribute("href")).toBe("/services/steward")
   })

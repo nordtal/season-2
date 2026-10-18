@@ -20,11 +20,7 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The step-up in front of a change that needs one. The same request is sent again afterwards.
- *
- * It offers the factors of the account: the key first, then the app's code. One step-up holds for the first value of `stepUpHolds`. The split button's menu offers the longer values for this step-up only.
- *
- * Safari opens the key dialog only on a fresh tap. A failed ceremony fails the original request.
+ * Safari opens the key dialog only on a fresh tap. A failed ceremony fails the original request. One step-up holds for the first value of `stepUpHolds`, and the split button's menu offers longer values for this step-up only.
  */
 export function StepUp() {
   const me = useMe()
@@ -48,14 +44,12 @@ export function StepUp() {
     onSecondFactorRequired(
       () =>
         new Promise<void>((resolve, reject) => {
-          /** A second refusal replaces the first waiter and rejects it. */
           pending.current?.reject(new Error(t("steward.keys.another-first")))
           pending.current = { resolve, reject }
           setFailure(null)
           setAsking(true)
         }),
     )
-    /** Removes the listener on unmount, so `api()` never waits on a dialog that is not drawn. */
     return () => onSecondFactorRequired(null)
   }, [])
 
@@ -132,7 +126,6 @@ export function StepUp() {
           </p>
         ) : null}
 
-        {/* The key comes first as the stronger factor. The app's code follows when the account has one. */}
         {hasKeys ? (
           <HoldSplitButton holds={holds} onHold={(length) => void hold(length)} disabled={!ready}>
             <FingerprintIcon aria-hidden />

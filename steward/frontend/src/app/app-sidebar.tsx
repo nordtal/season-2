@@ -6,19 +6,10 @@ import { HealthDot } from "@/components/steward/status"
 import { SkeletonText } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/** The number of placeholder rows shown while the services load. */
 const WAITING_ROWS = [0, 1, 2, 3]
 
-/**
- * The list of places, shared by the desktop column and the phone dock.
- *
- * Every row is a `size-control` box and a label.
- */
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  /**
-   * `activeEntryId` runs over the whole navigation, because two entries can match and the longer one wins.
-   */
   const groups = useNavigation()
   const active = activeEntryId(pathname, groups)
   const services = useServices()
@@ -43,7 +34,6 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             </div>
           ) : null}
           <ul className="flex flex-col">
-            {/* The service rows come from the topology, so they show placeholders of their own until it loads. */}
             {group.id === "services" && topology.isPending
               ? WAITING_ROWS.map((index) => (
                   <li key={index} className="flex min-h-control items-center pr-3">
@@ -54,9 +44,6 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
               : null}
             {group.entries.map((entry) => {
               const isActive = entry.id === active
-              /**
-               * Only service rows have a dot. The service name comes from the params that `navigation.ts` sets.
-               */
               const service =
                 group.id === "services"
                   ? services.data?.services.find((row) => row.service === entry.params?.name)
@@ -86,17 +73,12 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
   )
 }
 
-/** Replaces `$name`-style segments with the values from `params`. */
 export function resolveHref(to: string, params?: Record<string, string>) {
   if (!params) return to
   return Object.entries(params).reduce((path, [key, value]) => path.replace(`$${key}`, encodeURIComponent(value)), to)
 }
 
-/**
- * Returns the id of the one entry that matches a path. The entry with the longest fixed part wins.
- *
- * A route matches by its fixed part, so Backups stays selected on a backup run's page.
- */
+/** A route matches by its fixed part, so Backups stays selected on a backup run's page. */
 export function activeEntryId(
   pathname: string,
   groups: readonly { entries: readonly { id: string; to: string; params?: Record<string, string> }[] }[],
@@ -117,9 +99,6 @@ export function activeEntryId(
   return best
 }
 
-/**
- * Returns everything before the first parameter of a route. For `/operations/updates/$id` that is `/operations/updates`.
- */
 function fixedPart(to: string) {
   const parameter = to.indexOf("/$")
   return parameter === -1 ? to : to.slice(0, parameter)

@@ -20,14 +20,9 @@ export const STAGES = [
 
 export type StageKey = (typeof STAGES)[number]
 
-/**
- * The result of a stage: its worst record, `quiet` when it has none, `not-reached` after a failure.
- */
 export type Verdict = "failed" | "warning" | "done" | "skipped" | "quiet" | "now" | "not-reached"
 
-/**
- * One service as a stage shows it. `undone` marks a change that a run planned and did not make.
- */
+/** `undone` marks a change that a run planned and did not make. */
 export type StageItem = {
   service: string
   state?: LineState
@@ -47,7 +42,6 @@ const WALKS: Record<string, readonly StageKey[]> = {
   START: ["START"],
 }
 
-/** The stage a running run is in, taken from the stage that its report names. */
 const NOW: Record<string, StageKey> = {
   RESOLVING: "SOURCES",
   PLANNED: "RELEASE",
@@ -62,12 +56,8 @@ const NOW: Record<string, StageKey> = {
 /** The artefacts that mark which kind of run touched a line. They are not installs. */
 const MARKERS = new Set(["backup", "restart"])
 
-/** The states of a server that went down and came back, or failed to. */
 const CAME_BACK: ReadonlySet<LineState> = new Set(["STOPPED", "STARTING", "HEALTHY", "FAILED"])
 
-/**
- * Returns the name of a stage: the record step's word, or the trail's word for Start, which no record step names.
- */
 export function stageName(key: StageKey): string {
   return key === "START"
     ? t("steward.operations.step", { stage: "starting" })
@@ -75,8 +65,6 @@ export function stageName(key: StageKey): string {
 }
 
 /**
- * Returns a run as its stages, each with the records and service lines that belong to it, in the order a run reaches them.
- *
  * The report keeps only the last stage, so the state of a line decides its stage: saved goes under Backup, changes under Install.
  */
 export function stagesOf(run: Run): Stage[] {
@@ -134,7 +122,6 @@ export function stagesOf(run: Run): Stage[] {
   })
 }
 
-/** Returns the verdict that the records and lines of a stage give, or none when it has neither. */
 function contentVerdict(records: RunNote[], items: StageItem[]): Verdict | undefined {
   if (records.some((note) => note.outcome === "FAILED") || items.some((item) => item.state === "FAILED")) {
     return "failed"

@@ -9,10 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useSidebar } from "@/components/ui/sidebar"
 
 /**
- * The frame of the signed-in app. {@link DesktopFrame} is used from 640px up, and {@link PhoneFrame} below.
- *
- * The chrome aligns on `--gutter`. The page aligns on `--page-gutter`, which is further in on a phone. Only {@link Content}
- * scrolls. The bottom chrome is placed against this frame, because iOS can leave a fixed bottom element too high.
+ * The chrome aligns on `--gutter` and the page on `--page-gutter`, which is further in on a phone. The bottom chrome is placed against this frame, because iOS can leave a fixed bottom element too high.
  */
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
@@ -25,7 +22,6 @@ export function AppFrame({ me }: { me: Me }) {
 
 type Nav = ReturnType<typeof useNav>
 
-/** Holds whether the navigation shows on this device, and the functions that change it. */
 function useNav() {
   const { open, openMobile, isMobile, setOpenMobile, toggleSidebar } = useSidebar()
   const shown = isMobile ? openMobile : open
@@ -34,7 +30,6 @@ function useNav() {
     shown,
     isMobile,
     toggle: toggleSidebar,
-    // Tapping a place closes the dock. The column stays open, because it sits beside the page.
     follow: () => {
       if (isMobile) setOpenMobile(false)
     },
@@ -43,8 +38,6 @@ function useNav() {
 }
 
 /**
- * The frame for desktop and tablet: a fixed island over a column that slides in beneath it.
- *
  * Opening the column moves nothing in the island. The island drops its surface and path and becomes the head of the column.
  */
 function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
@@ -58,7 +51,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         inert={!shown}
         className={`absolute inset-y-0 left-0 z-40 flex w-(--col) flex-col border-r border-sidebar-border bg-sidebar transition-transform ${MOTION} ${shown ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* The island's border and padding are 5px, so the list's boxes start on the toggle's box. */}
         <ScrollArea className="min-h-0 flex-1">
           <div className="pt-[calc(var(--island-top)+5px+var(--control-min-height)+1rem)] pr-3 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[calc(var(--gutter)+5px)]">
             <NavList marker="text" />
@@ -66,7 +58,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         </ScrollArea>
       </aside>
 
-      {/* The island is fixed. Only its surface and the path appear and disappear. */}
       <div
         className={`fixed top-(--island-top) left-(--gutter) z-50 gap-2 flex max-w-[calc(100vw-2*var(--gutter)-7rem)] items-center rounded-xl border p-1 transition-[background-color,border-color,box-shadow] ${MOTION} ${
           shown ? "border-transparent bg-transparent shadow-none" : "border-border bg-card shadow-sm"
@@ -74,7 +65,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       >
         <NavToggle shown={shown} onToggle={toggle} glyph="panel" />
         <Brand version={shown} />
-        {/* While the column is open the list shows where the admin is, so the path folds away. */}
         <div
           aria-hidden={shown}
           inert={shown}
@@ -102,9 +92,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   )
 }
 
-/**
- * The frame for phones: one dock above the home indicator that grows upward into the navigation.
- */
 function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle, follow, close } = nav
 
@@ -153,7 +140,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
 }
 
 /**
- * The one scrolling column. Each frame shape sets the room its chrome needs at the edges. The bottom room is `--content-bottom`, which a row pinned to the bottom also keeps clear.
+ * Each frame shape sets the room its chrome needs at the edges. `--content-bottom` is the bottom room, which a row pinned to the bottom also keeps clear.
  */
 function Content({ className }: { className: string }) {
   return (

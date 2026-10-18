@@ -9,11 +9,7 @@ import { NETWORK_MAP } from "@/lib/query-fixtures"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * Renders both frame shapes through a real route tree and checks that there is no header element.
- *
- * jsdom has no layout, so a browser checks how each shape looks.
- */
+/** jsdom has no layout, so a browser checks how each shape looks. */
 const ME: Me = {
   signedIn: true,
   id: "214906139328839681",
@@ -26,7 +22,6 @@ const ME: Me = {
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }
 
-/** Every address that the navigation links to. */
 const PATHS = [
   "/services/$name",
   "/operations/updates",
@@ -66,7 +61,6 @@ function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
 }
 
 beforeEach(() => {
-  // The sidebar lists the served services with a health dot, so the shell sends two queries on mount.
   vi.stubGlobal(
     "fetch",
     vi.fn(
@@ -84,9 +78,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/**
- * The window width at the first render decides the phone shape, so the test sets the width first.
- */
 function asPhone() {
   atWidth(390)
 }
@@ -131,7 +122,6 @@ describe("the frame on a desktop", () => {
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
     expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).toBe("true")
-    /** The service rows arrive with `/api/topology`, after the page. */
     expect((await screen.findByRole("link", { name: /smp/ })).getAttribute("aria-current")).toBe("page")
   })
 

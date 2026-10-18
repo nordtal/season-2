@@ -45,7 +45,6 @@ describe("the account popover is the settings page's account half", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Account/ }))
 
-    /** The keys appear in the popover as a plain list, not behind a disclosure or a dialog. */
     expect(await screen.findByText("YubiKey on my keyring")).toBeTruthy()
     expect(screen.getByText("Phone")).toBeTruthy()
     expect(screen.getByText("ally")).toBeTruthy()
@@ -76,7 +75,6 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("stays tappable for an account with no picture on record", () => {
-    /** Without an avatar, signing out stays a plain control. */
     withQueries(<UserMenu me={{ ...ME, name: "ally smith" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
@@ -93,7 +91,6 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("falls back to initials, and stays tappable, when the picture fails to load", () => {
-    // A broken image falls back like a missing field.
     withQueries(<UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/gone.png" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })

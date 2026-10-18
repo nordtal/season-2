@@ -6,9 +6,6 @@ import type { Me } from "@/lib/api"
 import { AuthenticatorAppRow, useAuthenticatorActions } from "@/app/authenticator-app"
 import { HoldKeyPage } from "@/app/hold-key"
 
-/**
- * The authenticator app as a second factor. Its confirm button takes a code, and the last factor cannot be removed.
- */
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()

@@ -6,18 +6,13 @@ import { topologyOf } from "@/components/steward/network/topology"
 import { useTopology } from "@/lib/queries"
 import { t } from "@/lib/texts"
 
-/**
- * The list of places. The sidebar, the palette and the breadcrumb read it, and a route missing here is unreachable.
- */
+/** A route missing here is unreachable. */
 
 export type NavEntry = {
-  /** A stable id, used as React key and as the command palette's search value. */
   id: string
   label: string
-  /** One line that says what the page is for. The command palette and the placeholder show it. */
   note: string
   icon: Icon
-  /** Words an admin might type that the label does not contain. */
   keywords?: string[]
 } & (
   | { to: "/services/$name"; params: { name: string } }
@@ -26,16 +21,11 @@ export type NavEntry = {
 
 export type NavGroup = {
   id: string
-  /** The heading over the group. A group with a single entry omits it. */
   label?: string
   entries: NavEntry[]
 }
 
-/**
- * Returns four groups: Services, Operations, and two unlabelled groups for the single pages around them.
- *
- * `services` holds the names that `/api/topology` serves, in the order of the network table. {@link useNavigation} passes them.
- */
+/** `services` holds the names that `/api/topology` serves, in the order of the network table. */
 export function navigation(services: readonly string[]): NavGroup[] {
   return [
     {
@@ -143,9 +133,6 @@ export function navigation(services: readonly string[]): NavGroup[] {
   ]
 }
 
-/**
- * Returns the navigation with the served services. It lists none until `/api/topology` has answered.
- */
 export function useNavigation(): NavGroup[] {
   const topology = useTopology()
   return navigation(topology.data ? topologyOf(topology.data).names : [])

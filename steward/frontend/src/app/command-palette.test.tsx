@@ -8,11 +8,9 @@ import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
 import { takePendingJump, takePendingTextJump } from "@/lib/settings-search"
 import type { ConfigEntry, ConfigLocation, MessageEntry, MessageTexts, ConfigDocument, Run } from "@/lib/api"
 
-// The spy that records the palette's navigation on select.
 const navigateSpy = vi.fn<(options: Record<string, unknown>) => void>()
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
 
-/** The tests mock runs, configs and texts. */
 vi.mock("@/lib/queries", () => ({
   useRuns: vi.fn<typeof useRuns>(),
   useConfigs: vi.fn<typeof useConfigs>(),
@@ -22,7 +20,6 @@ vi.mock("@/lib/queries", () => ({
 }))
 
 beforeEach(() => {
-  // By default nothing is loaded.
   vi.mocked(useRuns).mockReturnValue(queryResult([]))
   vi.mocked(useConfigs).mockReturnValue(queryResult([]))
   vi.mocked(useConfigDocuments).mockReturnValue([])
@@ -41,7 +38,6 @@ afterEach(() => {
   vi.mocked(useTopology).mockReset()
 })
 
-/** Finds the palette by the placeholder that only the open dialog has. */
 const searchInput = () => screen.queryByPlaceholderText("Search pages, runs, settings…")
 
 function nonNull<T>(value: T | null, what: string): T {
@@ -53,7 +49,6 @@ function ctrlK(target: Element | Document) {
   fireEvent.keyDown(target, { key: "k", ctrlKey: true })
 }
 
-/** Returns a run shaped like an `/api/updates` entry. `over` sets the fields a test uses. */
 function run(over: Partial<Run> = {}): Run {
   return {
     id: 91,
@@ -73,7 +68,6 @@ function run(over: Partial<Run> = {}): Run {
   }
 }
 
-/** Opens the palette and types the query. */
 async function search(query: string) {
   render(<CommandPalette />)
   ctrlK(document.body)
@@ -103,7 +97,6 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
   }
 }
 
-/** Mocks `useConfigs` and `useConfigDocuments` for one file. The palette pairs them by index. */
 function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
   const document: ConfigDocument = { ...loc, revision: "r1", restartRequired: false, entries }
@@ -124,7 +117,6 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
   }
 }
 
-/** Mocks `useMessageTexts` for the texts of one bundle. */
 function oneBundle(entries: MessageEntry[]) {
   const texts: MessageTexts = {
     writable: true,
@@ -154,9 +146,7 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
   }
 }
 
-/**
- * Returns the `discord-bot/access` file in its real shape. It has no comments, so `role-names.donor` is found by label, path and `@Explain`.
- */
+/** The file has no comments, so `role-names.donor` is found by label, path and `@Explain`. */
 function accessFile() {
   const loc: ConfigLocation = {
     service: "discord-bot",
@@ -196,12 +186,10 @@ function accessFile() {
   ])
 }
 
-/** Returns the visible text of every row the palette shows, from top to bottom. */
 function paletteItems(): string[] {
   return Array.from(document.querySelectorAll("[cmdk-item]")).map((row) => (row.textContent ?? "").trim())
 }
 
-/** Returns the same setting in two services. */
 function twoServicesWithTheSameSetting() {
   const steward = configLocation({ path: "steward/steward", name: "steward" })
   const bot = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
@@ -213,9 +201,6 @@ function twoServicesWithTheSameSetting() {
   ])
 }
 
-/**
- * Ctrl+K in a text field stays with the browser. In the palette's own input it closes the palette.
- */
 describe("CommandPalette - Ctrl+K", () => {
   it("opens on Ctrl+K when nobody is typing", async () => {
     render(<CommandPalette />)
@@ -270,12 +255,8 @@ describe("CommandPalette - Ctrl+K", () => {
   })
 })
 
-/**
- * A run is found by its number, kind, outcome and search synonyms. The German synonym is imported, not written out.
- */
 describe("CommandPalette - finding a run", () => {
   it("still finds a page by its title", async () => {
-    // Restore is a dialog on Backups, and the word finds that page.
     await search("restore")
     expect(screen.queryByText("Backups")).not.toBeNull()
   })
@@ -314,7 +295,6 @@ describe("CommandPalette - finding a run", () => {
     await search("report")
     const item = await screen.findByText(/Run #91/)
     fireEvent.click(item)
-    // The fixture is a BACKUP run, and its page is under Backups.
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/operations/backups/$id",
       params: { id: "91" },
@@ -322,7 +302,6 @@ describe("CommandPalette - finding a run", () => {
   })
 })
 
-/** Every service's settings are searchable, and a hit names its service. */
 describe("CommandPalette - finding a setting", () => {
   it("finds a setting by its label and names the service it belongs to", async () => {
     const loc = configLocation({ path: "steward/steward", name: "steward" })
@@ -440,16 +419,12 @@ describe("CommandPalette - finding a setting", () => {
   })
 })
 
-/** A text that exists only in a message bundle is found. */
 describe("CommandPalette - finding a text", () => {
   it("finds a bundle key that no config file mentions", async () => {
     oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
 
-    /**
-     * A hit shows the name that the Translations page gives the text, and the matched text on the right.
-     */
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
   })
@@ -475,7 +450,6 @@ describe("CommandPalette - finding a text", () => {
 
     await search("grave.decay")
 
-    // The key matches, though the row does not show it.
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/grave\.decay/)).toBeNull()
   })
@@ -498,7 +472,6 @@ describe("CommandPalette - finding a text", () => {
 
     expect(navigateSpy).toHaveBeenCalledWith({ to: "/translations", search: {} })
     expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
-    // A text hit sets no pending jump into a config map.
     expect(takePendingJump("smp")).toBeUndefined()
   })
 
@@ -549,9 +522,6 @@ describe("CommandPalette - the input says what it is", () => {
   })
 })
 
-/**
- * A setting named "Donor" ranks above every service page whose name only contains those letters in order.
- */
 describe("CommandPalette - what an exact name outranks", () => {
   it("puts the setting named Donor above the service pages that only fuzzily contain those letters", async () => {
     accessFile()
@@ -590,7 +560,6 @@ describe("CommandPalette - one row lights up, not every row that reads alike", (
   })
 })
 
-/** On a phone the palette is a bottom sheet. jsdom shows which shell mounted, not how it looks. */
 describe("CommandPalette - the shell is a sheet on a phone", () => {
   it("is a centred dialog on a desktop", async () => {
     window.innerWidth = 1024

@@ -6,13 +6,9 @@ import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
 import { t } from "@/lib/texts"
 
-/** The pieces of the chrome: toggle, mark, trail and search. None has a border of its own. */
-
-/** A ghost control. Every button in the chrome has this shape. */
 export const CONTROL =
   "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
 
-/** The motion shared by the column, the island's surface and the dock. */
 export const MOTION = "duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:duration-0"
 
 /**
@@ -51,11 +47,7 @@ export function NavToggle({
   )
 }
 
-/**
- * The mark and the word "Steward", linking to Overview.
- *
- * It has no left padding, so the mark starts on the line where every label starts.
- */
+/** It has no left padding, so the mark starts on the line where every label starts. */
 export function Brand({ onFollow, version }: { onFollow?: () => void; version: boolean }) {
   return (
     <Link
@@ -68,11 +60,7 @@ export function Brand({ onFollow, version }: { onFollow?: () => void; version: b
   )
 }
 
-/**
- * The mark and the word "Steward", drawn in the column's head and in the phone's dock.
- *
- * With `version`, the release shows under the word. A build without a release, such as the dev server's, shows none.
- */
+/** A build without a release, such as the dev server's, shows no version. */
 export function BrandFace({ version }: { version: boolean }) {
   const release = import.meta.env.VITE_VERSION
   return (
@@ -127,7 +115,6 @@ export function openCommandPalette() {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))
 }
 
-/** A button that looks like a field, so the chrome has no second input. */
 export function SearchButton() {
   return (
     <button type="button" onClick={openCommandPalette} aria-label={t("steward.shell.search-pages")} className={CONTROL}>

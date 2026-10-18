@@ -12,9 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { t } from "@/lib/texts"
 
-/**
- * The picture of the signed-in person, or their initials when `discordAvatarUrl` is not on record.
- */
 export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: string; className?: string }) {
   const [broken, setBroken] = useState(false)
   const size = className ?? "size-control"
@@ -36,7 +33,6 @@ export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: s
   )
 }
 
-/** Returns the first letters of a name as written, without capitalising them. */
 export function initials(name: string | undefined): string {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return "?"
@@ -44,11 +40,7 @@ export function initials(name: string | undefined): string {
   return words[0].slice(0, 1) + words[1].slice(0, 1)
 }
 
-/**
- * Shows until when a step-up holds, and a control that ends it at once.
- *
- * The row disappears within one tick of `useNow` after the step-up runs out. The server refuses later changes, not this row.
- */
+/** The row disappears within one tick of `useNow` after the step-up runs out. */
 export function StepUpHolding({ until }: { until: string | undefined }) {
   const end = useEndStepUp()
   const now = useNow()

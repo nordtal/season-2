@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { breadcrumbsFor } from "@/app/shell"
 
-/**
- * A malformed URL segment is shown as it arrived and does not blank the page.
- *
- * `decodeURIComponent` throws on `/services/%`. The test covers the header's `try`/`catch`.
- */
+/** `decodeURIComponent` throws on `/services/%`. The test covers the header's `try`/`catch`. */
 describe("breadcrumbsFor", () => {
   it("is just Overview at the root", () => {
     expect(breadcrumbsFor("/")).toEqual([{ label: "Overview", href: "/" }])
@@ -29,7 +25,6 @@ describe("breadcrumbsFor", () => {
   })
 
   it("survives a malformed escape and shows the segment as it arrived", () => {
-    // A throw during render would blank the whole screen.
     expect(() => breadcrumbsFor("/services/%")).not.toThrow()
     expect(breadcrumbsFor("/services/%").at(-1)).toEqual({
       label: "%",

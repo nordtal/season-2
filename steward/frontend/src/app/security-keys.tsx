@@ -37,9 +37,6 @@ export function useSecurityKeyActions(me: Me | undefined) {
 
   return {
     keys,
-    /**
-     * Returns whether `/api/me` has answered. `keys` is empty before the answer and for an account without a key.
-     */
     waiting: me === undefined,
     add,
     rename,
@@ -52,7 +49,6 @@ export function useSecurityKeyActions(me: Me | undefined) {
     setNewLabel,
     removing,
     relyingPartyId: me?.relyingPartyId ?? "nordtal.eu",
-    /** The last factor cannot be removed. The server refuses it too. */
     onlyFactor: keys.length === 1 && !me?.authenticator,
     startAdding() {
       add.reset()
@@ -71,21 +67,15 @@ export function useSecurityKeyActions(me: Me | undefined) {
     closeAdding: () => setAdding(false),
     closeRenaming: () => setRenaming(null),
     closeRemoving: () => setRemoving(null),
-    /** Returns whether one of the three dialogs is open, so the popover steps aside. */
     get asking() {
       return adding || renaming !== null || removing !== null
     },
   }
 }
 
-/**
- * The number of placeholder rows shown while `/api/me` loads. One key is common, and two are recommended.
- */
 const WAITING_KEYS = [0, 1]
 
-/**
- * Lists the registered keys. A missing backup answer is not a no, so only a definite no asks for a second key.
- */
+/** A missing backup answer is not a no, so only a definite no asks for a second key. */
 export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   const { keys } = state
   const onlyOneAndItIsPhysical = keys.length === 1 && keys[0].backedUp === false
@@ -166,9 +156,6 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   )
 }
 
-/**
- * The three dialogs, mounted outside the popover because a closing popover unmounts its dialogs.
- */
 export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
   const { add, rename, remove } = state
 

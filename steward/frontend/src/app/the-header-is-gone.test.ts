@@ -20,9 +20,7 @@ function shellSources(): Array<{ file: string; text: string }> {
     }))
 }
 
-/**
- * The test reads the sources, because jsdom cannot see a top bar. On a phone the sidebar collapses and search stays.
- */
+/** jsdom cannot see a top bar, so the test reads the sources. */
 describe("the header is gone and does not grow back", () => {
   it("reads the sources, so an empty result means something", () => {
     const sources = shellSources()
@@ -72,7 +70,6 @@ describe("the header is gone and does not grow back", () => {
   })
 
   it("does not grow a second shell back behind a query parameter", () => {
-    /** There is exactly one shell frame, and no query parameter selects another. */
     const offenders = shellSources()
       .filter(({ text }) => /export function Shell[A-Z]\b/.test(text))
       .map(({ file }) => file)

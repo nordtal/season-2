@@ -22,8 +22,6 @@ import { t } from "@/lib/texts"
 
 /**
  * A confirm button that holds for the default step-up length, with a menu of the longer holds the server offers.
- *
- * The security key dialogs and the authenticator app dialogs both use it.
  */
 export function HoldSplitButton({
   holds,
@@ -36,9 +34,7 @@ export function HoldSplitButton({
   holds: StepUpHold[]
   onHold: (length?: StepUpLength) => void
   disabled: boolean
-  /** Makes this the form's submit button, so Enter in a field holds the default length. */
   submit?: boolean
-  /** Draws the button as the second choice. */
   secondary?: boolean
   children: React.ReactNode
 }) {
@@ -81,9 +77,6 @@ export function HoldSplitButton({
   )
 }
 
-/**
- * The input for the six digits an authenticator app shows. It accepts the code suggested by a phone keyboard.
- */
 export function CodeInput({
   id,
   value,
@@ -116,7 +109,6 @@ export function CodeInput({
   )
 }
 
-/** The "or" between the security key and the authenticator app. */
 export function OrDivider() {
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -127,14 +119,10 @@ export function OrDivider() {
   )
 }
 
-/**
- * Returns whether the typed text can be a code. The confirm button stays disabled until it can.
- */
 export function looksLikeACode(code: string): boolean {
   return /^\d{6}$/.test(code.replace(/ /g, ""))
 }
 
-/** The actions behind the authenticator app row of the account popover and its two dialogs. */
 export type AuthenticatorActions = ReturnType<typeof useAuthenticatorActions>
 
 export function useAuthenticatorActions(me: Me | undefined) {
@@ -156,9 +144,6 @@ export function useAuthenticatorActions(me: Me | undefined) {
     setCode,
     enrolling,
     removing,
-    /**
-     * Opens the dialog and requests a new secret. The request needs a step-up when the account already has a factor.
-     */
     startEnrolling: () => {
       setCode("")
       finish.reset()
@@ -177,9 +162,6 @@ export function useAuthenticatorActions(me: Me | undefined) {
   }
 }
 
-/**
- * The authenticator app row of the account popover. It shows a remove control, or an Add button when the installation offers an app.
- */
 export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) {
   if (!state.app && !state.offered) return null
   return (
@@ -245,11 +227,7 @@ export function AuthenticatorAppDialogs({ state }: { state: AuthenticatorActions
   )
 }
 
-/**
- * The dialog that sets up an authenticator app. It shows a QR code and the key as text, and the app counts as set up once the admin enters one code from it.
- *
- * The dialog requests the secret when it opens. A step-up comes first if the account already has a factor.
- */
+/** Sets up an authenticator app. It counts as set up once the admin enters one code from it. */
 export function EnrolDialog({ state }: { state: AuthenticatorActions }) {
   const { start, finish, code, setCode } = state
   const onClose = state.closeEnrolling
@@ -318,7 +296,6 @@ export function EnrolDialog({ state }: { state: AuthenticatorActions }) {
   )
 }
 
-/** Splits the key into groups of four characters. */
 function grouped(secret: string): string {
   return secret.replace(/(.{4})(?=.)/g, "$1 ")
 }

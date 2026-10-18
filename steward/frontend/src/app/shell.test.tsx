@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Shell } from "@/app/shell"
 
 /**
- * Tests which page `/api/me` selects: sign-in on a 401, `DoorIsStuck` on a fault, setup without a key.
- *
  * jsdom cannot carry the router that the signed-in branch needs, so the test does not render that branch.
  */
 
@@ -19,7 +17,6 @@ function answer(status: number, body: unknown): Response {
 
 let fetched: ReturnType<typeof vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>>
 
-/** Turns retries off. `useMe` already sets `retry: false`, and the test client matches it. */
 function draw() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -29,10 +26,8 @@ function draw() {
   )
 }
 
-/** Finds the sign-in page by the one element only it has. */
 const signInButton = () => screen.queryByRole("link", { name: /Sign in with Discord/ })
 
-/** Finds the stuck page by the sentence that says the session is not the problem. */
 const stuckDoor = () => screen.queryByText(/not an expired session/)
 
 beforeEach(() => {
@@ -76,7 +71,6 @@ describe("Shell - the answer that means the session is gone", () => {
 })
 
 describe("Shell - every other answer is a fault, not a missing session", () => {
-  /** The statuses 500, 502, 429 and 403. Signing in again fixes none of them. */
   const faults: Array<[number, string]> = [
     [500, "Internal error."],
     [502, "steward is not answering."],
@@ -118,7 +112,6 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("offers to ask again, and asking again is a second request", async () => {
-    // The retry button is the one action that can help.
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -142,12 +135,10 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 })
 
-/** Finds the setup page by the one sentence only it has. */
 function setupPage() {
   return screen.queryByText(/One more thing: your security key/)
 }
 
-/** Returns a signed-in `/api/me` answer with the given security keys. */
 function signedIn(keys: unknown) {
   return {
     signedIn: true,
@@ -165,7 +156,6 @@ describe("Shell - signed in, and still not in", () => {
     draw()
 
     await waitFor(() => expect(setupPage()).not.toBeNull())
-    /** Without a key every other route answers 403, so the shell is not drawn. */
     expect(screen.queryByRole("navigation")).toBeNull()
     expect(signInButton()).toBeNull()
     expect(stuckDoor()).toBeNull()

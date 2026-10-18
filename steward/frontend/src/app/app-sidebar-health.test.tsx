@@ -9,7 +9,6 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { asElement } from "@/lib/test-elements"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
-/** A route the test links to and never draws. */
 const nothing = () => null
 
 function json(body: unknown): Response {
@@ -33,7 +32,6 @@ function service(over: Record<string, unknown> = {}) {
   }
 }
 
-/** The sidebar under a router that resolves every place it links to. */
 function draw(fetchImpl: ReturnType<typeof vi.fn>) {
   vi.stubGlobal("fetch", fetchImpl)
 
@@ -64,7 +62,6 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
   )
 }
 
-/** The `<a>` of one service row, found by its visible label. */
 function row(name: string): HTMLElement {
   return asElement(screen.getByText(name).closest("a"))
 }
@@ -93,16 +90,13 @@ describe("NavList - the health dot on a service row", () => {
 
     await waitFor(() => expect(within(row("limbo")).getByLabelText("unhealthy")).toBeTruthy())
 
-    // A healthy row draws no dot.
     expect(within(row("smp")).queryByLabelText(/./)).toBeNull()
 
-    // The sidebar sends one `/api/services` request, not one per row.
     const calls = fetchImpl.mock.calls.filter(([url]) => url === "/api/services")
     expect(calls.length).toBe(1)
   })
 
   it("never shows the fine colour before the query has answered", async () => {
-    /** Until `/api/services` answers, every row shows a neutral mark. */
     const fetchImpl = vi.fn<(url: string) => Promise<Response>>((url: string) =>
       url === "/api/topology" ? Promise.resolve(json(NETWORK_MAP)) : new Promise<Response>(() => {}),
     )

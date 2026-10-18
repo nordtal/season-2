@@ -15,11 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { t } from "@/lib/texts"
 
-/**
- * The one page that an account without a second factor can reach. It fills the window, because nothing behind it would load.
- *
- * A key is the first offer. An authenticator app is the other, when the installation has a key to keep its secret.
- */
+/** Nothing behind this page would load without a second factor, so it fills the window. */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
   const register = useRegisterKey()
@@ -69,7 +65,6 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                   maxLength={64}
                   autoComplete="off"
                 />
-                {/* The name lets the admin tell which of two keys remains. */}
               </div>
 
               <Button type="submit" size="lg" disabled={!supported || register.isPending}>

@@ -1,17 +1,19 @@
-/** Whether this browser can subscribe to push at all; Safari needs 16.4. */
+/** Returns whether this browser can subscribe to push at all. Safari needs 16.4. */
 export function pushSupported(): boolean {
   return (
     typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window
   )
 }
 
-/** Registers `/sw.js`, safe to call early since registering asks for no permission. */
+/** Registers `/sw.js`. It is safe to call early, because registering asks for no permission. */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null
   return navigator.serviceWorker.register("/sw.js")
 }
 
-/** The VAPID public key from `/api/web-push/public-key` as the `Uint8Array` `applicationServerKey` wants. */
+/**
+ * Converts the VAPID public key from `/api/web-push/public-key` into the `Uint8Array` that `applicationServerKey` wants.
+ */
 export function urlBase64ToUint8Array(base64Url: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4)
   const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/")
@@ -22,9 +24,9 @@ export function urlBase64ToUint8Array(base64Url: string): Uint8Array<ArrayBuffer
 }
 
 /**
- * Subscribes this browser, called straight from the button's `onClick`.
+ * Subscribes this browser. The button's `onClick` calls it directly.
  *
- * iOS only asks for permission inside a genuine tap, so the key is passed in rather than awaited.
+ * iOS asks for permission only inside a genuine tap, so the key is passed in and not awaited.
  */
 export async function subscribeToPush(publicKey: string): Promise<PushSubscriptionJSON> {
   const registration = await navigator.serviceWorker.ready
@@ -35,7 +37,9 @@ export async function subscribeToPush(publicKey: string): Promise<PushSubscripti
   return subscription.toJSON()
 }
 
-/** Unsubscribes this browser from the push service and returns the endpoint for Steward's own table. */
+/**
+ * Unsubscribes this browser from the push service and returns the endpoint for Steward's own table.
+ */
 export async function unsubscribeFromPush(): Promise<string | null> {
   if (!("serviceWorker" in navigator)) return null
   const registration = await navigator.serviceWorker.ready
@@ -46,7 +50,9 @@ export async function unsubscribeFromPush(): Promise<string | null> {
   return endpoint
 }
 
-/** The endpoint this browser is subscribed with, or null, for the button's own state. */
+/**
+ * Returns the endpoint that this browser is subscribed with, or null. The button uses it for its own state.
+ */
 export async function currentPushEndpoint(): Promise<string | null> {
   if (!("serviceWorker" in navigator)) return null
   const registration = await navigator.serviceWorker.getRegistration()

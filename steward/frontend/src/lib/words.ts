@@ -1,4 +1,6 @@
-/** Abbreviations kept upper case, the same list as steward's `Labels.of` and the spec module's `SettingLabels.of`. */
+/**
+ * Abbreviations that stay upper case. It is the same list as Steward's `Labels.of` and the spec module's `SettingLabels.of`.
+ */
 const ACRONYMS = new Set([
   "api",
   "db",
@@ -23,10 +25,14 @@ const ACRONYMS = new Set([
   "xp",
 ])
 
-/** A brand spelled with one lower-case letter in front, `bStats`, is one word and keeps its case. */
+/**
+ * A brand spelled with one lower-case letter in front, such as `bStats`, is one word and keeps its case.
+ */
 const BRAND = /^[a-z][A-Z][a-z]+$/
 
-/** Parts already split on separators, as one sentence case name; a change of case also splits words. */
+/**
+ * Returns parts that were already split on separators as one name in sentence case. A change of case also splits words.
+ */
 export function sentenceOf(parts: string[], keepBrands = false): string {
   const words: string[] = []
   let brandFirst = false
@@ -51,7 +57,9 @@ export function sentenceOf(parts: string[], keepBrands = false): string {
   return brandFirst ? joined : joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
-/** "smp config" reads "SMP Config": every word capitalised, an acronym or a brand left as it is. */
+/**
+ * Returns "smp config" as "SMP Config": every word is capitalised, and an acronym or a brand stays as it is.
+ */
 function capitalCase(sentence: string): string {
   return sentence
     .split(" ")
@@ -59,7 +67,9 @@ function capitalCase(sentence: string): string {
     .join(" ")
 }
 
-/** Drops a word that only repeats the one before it: `voicechat/voicechat-server` is one name. */
+/**
+ * Drops a word that only repeats the one before it, so `voicechat/voicechat-server` is one name.
+ */
 function withoutRepeats(sentence: string): string {
   return sentence
     .split(" ")
@@ -67,7 +77,7 @@ function withoutRepeats(sentence: string): string {
     .join(" ")
 }
 
-/** The names the services go by where a person reads them, as on the plugins tab. */
+/** The names that the services go by where a person reads them, as on the plugins tab. */
 const SERVICE_TITLES: Record<string, string> = {
   smp: "SMP",
   "hunger-games": "Hunger Games",
@@ -85,7 +95,9 @@ export function serviceTitle(service: string): string {
   return SERVICE_TITLES[service] ?? capitalCase(sentenceOf(service.split(/[-_.\s]+/)) || service)
 }
 
-/** A path under a service's volume in Capital Case, without its extension or repeated words. */
+/**
+ * Returns a path under a service's volume in Capital Case, without its extension or repeated words.
+ */
 export function fileTitle(path: string): string {
   const withoutExtension = path.replace(/\.[a-z0-9]+$/i, "")
   const sentence = sentenceOf(withoutExtension.split(/[-_./]+/), true)

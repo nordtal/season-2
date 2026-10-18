@@ -4,9 +4,9 @@ import type { ReloadOutcome } from "@/lib/api"
 import { message } from "@/lib/texts"
 
 /**
- * The one toast a save produces, typed by when `reload` says the change takes effect.
+ * Shows the one toast that a save produces, typed by when `reload` says the change takes effect.
  *
- * `undefined` is an older document, shown as `APPLIED`.
+ * `undefined` is an older document and is shown as `APPLIED`.
  */
 export function announceSave(label: string, reload: ReloadOutcome | undefined, fallbackDescription: string) {
   if (!reload || reload.status === "APPLIED") {

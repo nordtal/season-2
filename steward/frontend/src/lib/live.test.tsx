@@ -14,7 +14,9 @@ function wrap(client: QueryClient) {
   )
 }
 
-/** Two live queries on different topics and one that is not live, each counting its reads. */
+/**
+ * Mounts two live queries on different topics and one query that is not live, each counting its reads.
+ */
 function mountQueries(client: QueryClient) {
   const reads = { runs: 0, people: 0, plain: 0 }
   renderHook(

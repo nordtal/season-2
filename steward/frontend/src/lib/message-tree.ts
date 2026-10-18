@@ -1,12 +1,11 @@
 /**
- * The browser's reading of a message text: Java's `Parser` line by line, into the tree `NodeJson` writes.
+ * The browser's reading of a message text: Java's `Parser` line by line, into the tree that `NodeJson` writes.
  *
- * It exists once, for the editor, which has to read a text while it is typed. Steward's own texts arrive parsed, and
- * whether a text is right is still the server's `MessageCheck`. `web-target.json` holds both parsers to one tree.
+ * It exists once, for the editor, which has to read a text while it is typed. Steward's own texts arrive parsed. The server's `MessageCheck` still decides whether a text is right. `web-target.json` holds both parsers to one tree.
  */
 import type { TextNode } from "@/lib/texts"
 
-/** A text that cannot be read, and where: `at` counts characters from 0, as the caret does. */
+/** A text that cannot be read, and where. `at` counts characters from 0, as the caret does. */
 export class UnreadableText extends Error {
   readonly at: number
 
@@ -17,9 +16,9 @@ export class UnreadableText extends Error {
 }
 
 /**
- * The tree of `text`, or {@link UnreadableText} where it cannot be read; `markup` reads MiniMessage tags too.
+ * Returns the tree of `text`, or throws {@link UnreadableText} where it cannot be read. `markup` also reads MiniMessage tags.
  *
- * `plural` names the number a `#` stands for, for a text that is a plural's case.
+ * `plural` names the number that a `#` stands for, for a text that is a plural's case.
  */
 export function parseText(text: string, markup: boolean, plural: string | null = null): TextNode[] {
   const reader = new Reader(text, markup)
@@ -28,7 +27,7 @@ export function parseText(text: string, markup: boolean, plural: string | null =
   return nodes
 }
 
-/** The tree of `text`, or `null` while it cannot be read. */
+/** Returns the tree of `text`, or `null` while it cannot be read. */
 export function readText(text: string, markup: boolean, plural: string | null = null): TextNode[] | null {
   try {
     return parseText(text, markup, plural)
@@ -39,13 +38,15 @@ export function readText(text: string, markup: boolean, plural: string | null = 
 }
 
 /**
- * One piece of syntax the reader passed, `from` inclusive and `to` exclusive: what the source editor colours.
+ * One piece of syntax that the reader passed, `from` inclusive and `to` exclusive. The source editor colours it.
  *
  * A tag's marks include the values in its arguments, which have marks of their own as well.
  */
 export type Mark = { from: number; to: number; kind: "value" | "choice" | "tag" | "escape" | "pound"; node?: TextNode }
 
-/** The syntax of `text` as far as it reads, and where reading stopped, `null` when it read to the end. */
+/**
+ * Returns the syntax of `text` as far as it reads, and where reading stopped, or `null` when it read to the end.
+ */
 export function marksOf(text: string, markup: boolean): { marks: Mark[]; error: number | null } {
   const reader = new Reader(text, markup)
   try {
@@ -61,7 +62,9 @@ const LETTER = /\p{L}/u
 const DIGIT = /\p{Nd}/u
 const TAG_NAME = /[a-zA-Z0-9_-]/
 
-/** Java's `Character.isWhitespace`: the controls it counts and every space but the non-breaking ones. */
+/**
+ * Java's `Character.isWhitespace`: the controls it counts and every space except the non-breaking ones.
+ */
 function isSpace(c: string): boolean {
   const code = c.charCodeAt(0)
   return (
@@ -320,7 +323,7 @@ class Reader {
     this.marks.push({ from, to: this.at, kind, node })
   }
 
-  /** Notes a value from `from` to where the reader stands, and hands it back. */
+  /** Notes a value from `from` to where the reader stands and returns it. */
   private value(from: number, node: TextNode): TextNode {
     this.mark(from, "value", node)
     return node
@@ -337,9 +340,9 @@ class Reader {
 }
 
 /**
- * `nodes` written back as a text that reads to the same tree: the editor's way from a changed tree to the source.
+ * Returns `nodes` written back as a text that reads to the same tree. The editor uses it to get from a changed tree to the source.
  *
- * `plural` names the number a `#` stands for where the nodes sit in a plural's case, so a literal `#` is escaped there.
+ * `plural` names the number that a `#` stands for where the nodes sit in a plural's case, so a literal `#` is escaped there.
  */
 export function writeText(nodes: TextNode[], markup: boolean, plural: string | null = null): string {
   return nodes.map((node) => written(node, markup, plural)).join("")
@@ -366,19 +369,21 @@ function escaped(text: string, markup: boolean, inPlural: boolean): string {
   })
 }
 
-/** A bare word stays bare; anything else is quoted, its values written in and its braces escaped. */
+/**
+ * A bare word stays bare. Anything else is quoted, with its values written in and its braces escaped.
+ */
 function argument(parts: TextNode[]): string {
   if (parts.length === 1 && typeof parts[0] === "string" && /^[A-Za-z0-9_#.-]+$/.test(parts[0])) return parts[0]
   const inner = argumentText(parts)
-  // An argument read from double quotes may hold a single one, which it keeps.
+  // An argument read from double quotes may hold a single quote, which it keeps.
   const quote = /(^|[^\\])'/.test(inner) ? '"' : "'"
   return `${quote}${inner}${quote}`
 }
 
 /**
- * A tag argument's parts as the text inside its quotes: literals as they stand, braces escaped, values as written.
+ * Returns a tag argument's parts as the text inside its quotes: literals as they stand, braces escaped, values as written.
  *
- * A hover's argument is a text of its own, which this reads back to its tree; a click's is the value it carries.
+ * A hover's argument is a text of its own, which this reads back to its tree. A click's argument is the value it carries.
  */
 export function argumentText(parts: TextNode[]): string {
   return parts

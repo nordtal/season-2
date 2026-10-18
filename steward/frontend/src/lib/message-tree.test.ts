@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 import { marksOf, parseText, readText, UnreadableText, writeText } from "@/lib/message-tree"
 import type { TextNode } from "@/lib/texts"
 
-/** The vectors Java's parser is held to, so both read a text to one tree. */
+/** The vectors that Java's parser is held to, so both parsers read a text to one tree. */
 type Vector = { text: string; markup?: boolean; nodes: TextNode[] }
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..")

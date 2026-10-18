@@ -47,9 +47,9 @@ function encodePath(file: string): string {
 }
 
 /**
- * Saves a group of settings, naming the revision the form was drawn from.
+ * Saves a group of settings and names the revision that the form was drawn from.
  *
- * A save against an older revision is answered 409 instead of overwriting.
+ * A save against an older revision is answered with 409 and does not overwrite.
  */
 export function useSaveConfig(file: string) {
   const client = useQueryClient()
@@ -66,7 +66,9 @@ export function useSaveConfig(file: string) {
       void client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {
-      /** A 409 means the cached copy and its revision are stale, so the group is read again. */
+      /**
+       * A 409 means that the cached copy and its revision are stale, so the group is read again.
+       */
       if (failure instanceof ApiError && failure.status === 409) {
         void client.invalidateQueries({ queryKey: keys.config(file) })
       }
@@ -74,7 +76,9 @@ export function useSaveConfig(file: string) {
   })
 }
 
-/** What each jar of ours says of itself: whose settings it holds and the custom editor of a group, if any. */
+/**
+ * What each jar of ours says about itself: whose settings it holds and the custom editor of a group, if any.
+ */
 export function useDescriptors(enabled = true) {
   return useQuery({
     queryKey: keys.descriptors,
@@ -84,7 +88,9 @@ export function useDescriptors(enabled = true) {
   })
 }
 
-/** Every text of every bundle the network's jars ship, each once, with the services that show it. */
+/**
+ * Every text of every bundle that the network's jars ship, each once, with the services that show it.
+ */
 export function useMessageTexts(enabled = true) {
   return useQuery({
     queryKey: keys.messageTexts,
@@ -94,9 +100,9 @@ export function useMessageTexts(enabled = true) {
 }
 
 /**
- * Saves overrides of any texts of any bundles at once; the second of two edits wins.
+ * Saves overrides of any texts of any bundles at once. The second of two edits wins.
  *
- * The answer is every text as it now reads, with placeholder warnings and `reload`, and replaces the cache entry.
+ * The answer is every text as it now reads, with placeholder warnings and `reload`, and it replaces the cache entry.
  */
 export function useSaveMessageTexts() {
   const client = useQueryClient()
@@ -119,7 +125,9 @@ export function useMessageExamples() {
   })
 }
 
-/** The tones a text names by tag with their default colours, and the styles each value kind offers. */
+/**
+ * The tones that a text names by tag with their default colours, and the styles that each value kind offers.
+ */
 export function useMessageSyntax() {
   return useQuery({
     queryKey: keys.messageSyntax,
@@ -128,7 +136,9 @@ export function useMessageSyntax() {
   })
 }
 
-/** Every override no process shows, because a release changed its original or the validator refuses it. */
+/**
+ * Every override that no process shows, because a release changed its original or the validator refuses it.
+ */
 export function useMessageFallbacks(enabled = true) {
   return useQuery({
     queryKey: keys.messageFallbacks,
@@ -138,7 +148,9 @@ export function useMessageFallbacks(enabled = true) {
   })
 }
 
-/** What the one validator says of `text` as `key` of `bundle`; the editor asks once typing pauses. */
+/**
+ * What the one validator says about `text` as `key` of `bundle`. The editor asks once typing pauses.
+ */
 export function useMessageCheck(bundle: string, key: string, text: string | null) {
   return useQuery({
     queryKey: keys.messageCheck(bundle, key, text ?? ""),
@@ -152,7 +164,9 @@ export function useMessageCheck(bundle: string, key: string, text: string | null
   })
 }
 
-/** The resource pack's named glyphs; static files next to the page, so no API call and no session. */
+/**
+ * The resource pack's named glyphs. They are static files next to the page, so there is no API call and no session.
+ */
 export function useGlyphs() {
   return useQuery({
     queryKey: keys.glyphs,
@@ -168,7 +182,7 @@ export function useGlyphs() {
 /**
  * Every one of the given groups of settings, fetched only while `enabled`.
  *
- * Keys are shared with {@link useConfig}, so a group already loaded costs nothing a second time.
+ * The keys are shared with {@link useConfig}, so a group that is already loaded costs nothing a second time.
  */
 export function useConfigDocuments(files: string[], enabled: boolean) {
   return useQueries({
@@ -182,9 +196,9 @@ export function useConfigDocuments(files: string[], enabled: boolean) {
 }
 
 /**
- * What the servers know of the game, for the pickers: about a megabyte, so it is read again only when it changes.
+ * What the servers know about the game, for the pickers. It is about a megabyte, so it is read again only when it changes.
  *
- * Only the live topic refreshes it, never a timer or a focus.
+ * Only the live topic refreshes it, never a timer or a focus event.
  */
 export function useGameData(enabled = true) {
   return useQuery({

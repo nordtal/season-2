@@ -1,25 +1,35 @@
 import type { MessageEntry, MessageSurface } from "@/lib/api"
 
-/** Where the Translations page lists a text, and the pills and previews that say where it appears. */
+/**
+ * Where the Translations page lists a text, and the pills and previews that say where it appears.
+ */
 
 /** Every place a text can be shown, in order, with where it is, as `/api/messages` names them. */
 export type Places = Record<string, MessageSurface>
 
-/** A group of the Translations page: where a text appears, or the building blocks every other text is made of. */
+/**
+ * A group of the Translations page: the surface where a text appears, or the building blocks that every other text is made of.
+ */
 export type TextGroup = MessageSurface | "VALUES"
 
 /** The groups in the order the page lists them. */
 export const TEXT_GROUPS: readonly TextGroup[] = ["GAME", "DISCORD", "STEWARD", "VALUES"]
 
-/** The bundles of the words other texts are built from, `Messages.VALUES` and `Messages.TERMS` on the server. */
+/**
+ * The bundles of the words that other texts are built from, `Messages.VALUES` and `Messages.TERMS` on the server.
+ */
 const BUILDING_BLOCKS = new Set(["values", "terms"])
 
-/** Whether a text is a building block, a word other texts put in, rather than a text of its own place. */
+/**
+ * Returns whether a text is a building block, a word that other texts put in, and not a text of its own place.
+ */
 export function isBuildingBlock(entry: MessageEntry): boolean {
   return BUILDING_BLOCKS.has(entry.bundle)
 }
 
-/** The group a text is listed in: the building blocks apart, every other by where its first place is. */
+/**
+ * Returns the group a text is listed in. Building blocks have their own group. Every other text goes by where its first place is.
+ */
 export function groupOf(entry: MessageEntry, places: Places): TextGroup {
   if (isBuildingBlock(entry)) return "VALUES"
   const first = entry.shown[0]
@@ -28,10 +38,14 @@ export function groupOf(entry: MessageEntry, places: Places): TextGroup {
   return entry.format === "DISCORD_MARKDOWN" ? "DISCORD" : entry.format === "PLAIN" ? "STEWARD" : "GAME"
 }
 
-/** One pill of a text: a place it is shown, or a whole surface when it is shown in every place there. */
+/**
+ * One pill of a text: a place it is shown, or a whole surface when it is shown in every place there.
+ */
 export type Pill = { kind: "place"; place: string } | { kind: "surface"; surface: MessageSurface }
 
-/** A text's pills in the order of its places, each surface it fills once instead of every one of its places. */
+/**
+ * Returns a text's pills in the order of its places. A surface that the text fills in full is one pill and not one per place.
+ */
 export function pillsOf(entry: MessageEntry, places: Places): Pill[] {
   const shown = new Set(entry.shown)
   const filled = new Set<MessageSurface>()
@@ -54,9 +68,9 @@ export function pillsOf(entry: MessageEntry, places: Places): Pill[] {
 }
 
 /**
- * The places a text is previewed as, one preview each; `undefined` is the neutral one.
+ * Returns the places a text is previewed as, one preview each. `undefined` is the neutral one.
  *
- * A building block is one neutral preview, since it only ever appears inside another text.
+ * A building block has one neutral preview, because it only appears inside another text.
  */
 export function previewPlacesOf(entry: MessageEntry): Array<string | undefined> {
   return isBuildingBlock(entry) || entry.shown.length === 0 ? [undefined] : entry.shown

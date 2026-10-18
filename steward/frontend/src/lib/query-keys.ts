@@ -1,15 +1,15 @@
-/** The cache key of every query, in one place so a write can name exactly what it makes stale. */
+/** The cache key of every query, in one place, so a write can name exactly what it makes stale. */
 
 export const SECOND = 1000
 
-/** What the journal is narrowed to; an absent or empty part matches every entry. */
+/** What the journal is narrowed to. An absent or empty part matches every entry. */
 export type JournalFilter = {
   action?: string
   /** A Discord id, matched exactly. */
   subject?: string
   /** A payment reference, matched exactly. */
   reference?: string
-  /** The least days an entry grants or books, as typed. */
+  /** The least number of days that an entry grants or books, as typed. */
   minDays?: string
 }
 
@@ -25,7 +25,7 @@ export const keys = {
   backups: ["backups"] as const,
   schedule: ["schedule"] as const,
   runs: (limit: number) => ["runs", limit] as const,
-  /** Under "runs", so asking for a run and cancelling one refresh it with the list. */
+  /** Under "runs", so asking for a run and cancelling one refresh it together with the list. */
   activeRun: ["runs", "active"] as const,
   run: (id: string) => ["run", id] as const,
   available: ["available"] as const,

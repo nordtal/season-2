@@ -18,7 +18,9 @@ import {
   takePendingTextJump,
 } from "@/lib/settings-search"
 
-/** Search over the settings, per service and across all of them; a secret's value must never be findable. */
+/**
+ * Search over the settings, per service and across all of them. A secret's value must never be findable.
+ */
 
 function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
@@ -203,7 +205,9 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
   })
 
   it("matches the German translation, and only for the German language", () => {
-    /** A synthetic marker rather than German prose, since `language.test.ts` scans fixtures too. */
+    /**
+     * A synthetic marker rather than German prose, because `language.test.ts` scans fixtures too.
+     */
     const e = messageEntry({
       texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
       key: "grave.decay.announce",
@@ -254,7 +258,7 @@ describe("searchMessagesAcross", () => {
         }),
       ),
     ]
-    /** One hit per language, since each opens a different tab. */
+    /** One hit per language, because each opens a different tab. */
     const hits = searchMessagesAcross(texts, "grave.decay")
     expect(hits.map((hit) => hit.language).toSorted()).toEqual(["de", "en"])
   })
@@ -295,7 +299,7 @@ function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ConfigDocu
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {
-  /** Config search alone finds nothing for this text; with the texts it finds it. */
+  /** Config search alone finds nothing for this text. With the texts it finds it. */
   it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
     const configDoc = configDocument(loc, [
@@ -356,7 +360,7 @@ describe("pending text jump", () => {
     unsubscribe()
     setPendingTextJump({ id: "smp/b", language: "en" })
     expect(seen).toEqual(["notified"]) // unsubscribed: no second notification
-    takePendingTextJump() // clean up, so this jump does not leak into a later test
+    takePendingTextJump() // Cleans up, so this jump does not leak into a later test.
   })
 })
 
@@ -383,7 +387,9 @@ describe("rankValue - a name outranks a mention, and a subsequence is not a matc
   })
 
   it("refuses the service page that only contains those letters in order", () => {
-    /** "donor" is a subsequence of "window and console … restart", which cmdk's default filter matched. */
+    /**
+     * "donor" is a subsequence of "window and console … restart", which cmdk's default filter matched.
+     */
     expect(rankValue(smpPage, "donor")).toBe(0)
   })
 

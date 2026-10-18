@@ -4,7 +4,9 @@ import type { GameData } from "@/lib/api"
 import { words } from "@/lib/query-fixtures"
 import { choiceFor, gameChoices, gameKey, guildChoices, namespacesOf, registryOf } from "@/lib/references"
 
-/** The catalogue read as choices: keys, names, icons, the advancement tree, and nothing refused. */
+/**
+ * The catalogue read as choices: keys, names, icons, the advancement tree, and nothing refused.
+ */
 
 const GAME: GameData = {
   version: "26.2",

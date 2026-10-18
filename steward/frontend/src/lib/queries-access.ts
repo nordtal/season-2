@@ -16,10 +16,12 @@ import { live, nextChange } from "@/lib/live"
 import { keys, type JournalFilter } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 
-/** The roster, its payments, periods and journal, and every change an admin makes to somebody's access. */
+/**
+ * The roster, its payments, periods and journal, and every change that an admin makes to somebody's access.
+ */
 
 /**
- * Asks the bot for an access change and reads its row again on every change of the requests until it has settled.
+ * Asks the bot for an access change and reads its row again on every change of the requests, until the request has reached a final state.
  *
  * Only the bot can apply the role, send the direct message and post the admin note.
  */
@@ -35,7 +37,7 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, un
         throw new Error(typeof said === "string" ? said : t("steward.failure.bot-failed"))
       }
       if (row.status === "EXPIRED") {
-        // EXPIRED means the bot never picked the row up, so nothing changed.
+        // EXPIRED means that the bot never picked the row up, so nothing changed.
         throw new Error(t("steward.failure.bot-silent"))
       }
       await change.arrived
@@ -64,9 +66,9 @@ export function usePayments(enabled = true) {
 }
 
 /**
- * The payment requests still waiting to be paid, for settling one by hand.
+ * Returns the payment requests that still wait to be paid, for settling one by hand.
  *
- * Not a filter over `usePayments`, which is a page with a limit.
+ * It is not a filter over `usePayments`, which is a page with a limit.
  */
 export function useOpenPayments(enabled = true) {
   return useQuery({
@@ -77,7 +79,9 @@ export function useOpenPayments(enabled = true) {
   })
 }
 
-/** One person's requests, from their own route, so a page of everybody's cannot cut theirs off. */
+/**
+ * Returns one person's requests, from their own route, so a page of everybody's requests cannot cut them off.
+ */
 export function usePersonPayments(discordId: string) {
   return useQuery({
     queryKey: keys.personPayments(discordId),
@@ -111,7 +115,9 @@ export function useJournal(filter: JournalFilter, enabled = true) {
   })
 }
 
-/** Everything an access change can move: the roster, the periods, the payments and the journal. */
+/**
+ * Refreshes everything that an access change can move: the roster, the periods, the payments and the journal.
+ */
 function afterAccessChange(client: ReturnType<typeof useQueryClient>) {
   void client.invalidateQueries({ queryKey: keys.people })
   void client.invalidateQueries({ queryKey: ["grants"] })
@@ -119,7 +125,7 @@ function afterAccessChange(client: ReturnType<typeof useQueryClient>) {
   void client.invalidateQueries({ queryKey: ["journal"] })
 }
 
-/** A grant, at most 365 days. Resolves with the end of the period the bot wrote. */
+/** A grant of at most 365 days. It resolves with the end of the period that the bot wrote. */
 export function useGrantAccess() {
   const client = useQueryClient()
   return useMutation({
@@ -154,7 +160,9 @@ export function useUnlink() {
   })
 }
 
-/** Makes a member of the guild an admin below the one signed in. Decided here, not by the bot. */
+/**
+ * Makes a member of the guild an admin below the one who is signed in. Steward decides this, not the bot.
+ */
 export function useGrantAdmin() {
   const client = useQueryClient()
   return useMutation({
@@ -163,7 +171,9 @@ export function useGrantAdmin() {
   })
 }
 
-/** Takes admin from somebody below the one signed in, and from everybody below them. */
+/**
+ * Takes admin rights from somebody below the one who is signed in, and from everybody below them.
+ */
 export function useRevokeAdmin() {
   const client = useQueryClient()
   return useMutation({
@@ -196,12 +206,14 @@ export function useEnforcePack() {
   })
 }
 
-/** Books a payment by hand; `outcome` is `BOOKED`, `NOT_OPEN` (then `was` says what it is) or `UNKNOWN`. */
+/**
+ * Books a payment by hand. `outcome` is `BOOKED`, `NOT_OPEN` (then `was` says what the state is) or `UNKNOWN`.
+ */
 export function useSettle() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (reference: string) => {
-      // steward books it in one transaction and answers; the bot is told and only reacts.
+      // steward books the payment in one transaction and answers. The bot is told and only reacts.
       const result = await api<Settled>("/api/access/settle", { method: "POST", body: { reference } })
       return {
         outcome: result.outcome ?? "UNKNOWN",

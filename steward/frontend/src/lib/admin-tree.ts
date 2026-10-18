@@ -1,7 +1,7 @@
 /**
- * The admin tree: every admin names who granted them, the root names nobody.
+ * The admin tree: every admin names who granted them admin rights, and the root names nobody.
  *
- * The server decides every revocation; this only hides the button where it would refuse.
+ * The server decides every revocation. This code only hides the button where the server would refuse.
  */
 export type AdminNode = {
   discordId: string
@@ -9,7 +9,9 @@ export type AdminNode = {
   adminGrantedBy?: string | null
 }
 
-/** Everybody strictly below `me`, the admins `me` may revoke; empty when `me` is no admin. */
+/**
+ * Returns everybody strictly below `me`, the admins that `me` may revoke. The set is empty when `me` is no admin.
+ */
 export function adminsBelow(people: readonly AdminNode[], me: string | undefined): Set<string> {
   const below = new Set<string>()
   if (!me) return below

@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, api, onSecondFactorRequired, rememberCsrf } from "@/lib/api"
 
-/** The browser half of the step-up: a stale key's 403 opens the dialog and the same request goes again, once. */
+/**
+ * The browser half of the step-up: the 403 for a stale key opens the dialog, and then the same request goes again, once.
+ */
 
 function headerRecord(headers: RequestInit["headers"]): Record<string, string> {
   if (headers === undefined || headers instanceof Headers || Array.isArray(headers)) {
@@ -26,7 +28,7 @@ const REFUSED = {
   body: { error: "Hold your security key again.", code: "SECOND_FACTOR_REQUIRED" },
 }
 
-/** The two refusals that are not a stale key and must never open the dialog. */
+/** The two refusals that are not a stale key and never open the dialog. */
 const NO_KEY_AT_ALL = {
   status: 403,
   body: { error: "This account has no security key.", code: "SECOND_FACTOR_MISSING" },
@@ -35,7 +37,9 @@ const SIGNED_OUT = { status: 401, body: { error: "Sign in." } }
 
 type Answer = { status: number; body: unknown }
 
-/** A fetch answering a prepared list in order and recording each request, since every assertion is about the second. */
+/**
+ * A fetch that answers from a prepared list in order and records each request, because every assertion is about the second request.
+ */
 function fetchAnswering(...answers: Answer[]) {
   const calls: Array<{ path: string; init: RequestInit }> = []
   const spy = vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(
@@ -79,7 +83,9 @@ describe("the step-up retry", () => {
     expect(held).toHaveBeenCalledTimes(1)
     expect(calls).toHaveLength(2)
 
-    /** The same request, method, body and CSRF token, not a fresh GET of the same path. */
+    /**
+     * The second request has the same method, body and CSRF token. It is not a new GET of the same path.
+     */
     expect(calls[1].path).toBe("/api/announcements")
     expect(calls[1].init.method).toBe("POST")
     expect(calls[1].init.body).toBe(JSON.stringify({ command: "season phase" }))
@@ -93,7 +99,9 @@ describe("the step-up retry", () => {
 
     await expect(api("/api/announcements", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError)
 
-    /** A refusal surviving a successful ceremony is something else, and a third attempt would hide it. */
+    /**
+     * A refusal after a successful ceremony is something else, and a third attempt would hide it.
+     */
     expect(held).toHaveBeenCalledTimes(1)
     expect(calls).toHaveLength(2)
   })
@@ -123,7 +131,9 @@ describe("the step-up retry", () => {
   it("is a plain 403 when nothing has installed a handler", async () => {
     const calls = fetchAnswering(REFUSED)
 
-    /** Without a way to hold a key, a 403 stays a 403, which is what every other test runs under. */
+    /**
+     * Without a way to hold a key, a 403 stays a 403. Every other test runs under this condition.
+     */
     const refusal = await rejectionOf(api("/api/announcements", { method: "POST", body: {} }))
     expect(refusal.needsTheKeyAgain).toBe(true)
     expect(calls).toHaveLength(1)
@@ -143,7 +153,9 @@ describe("the step-up retry", () => {
     expect(second.isSignedOut).toBe(true)
     expect(signedOut).toHaveLength(1)
 
-    /** One needs registration and the other Discord, so a key dialog could not answer either. */
+    /**
+     * One refusal needs registration and the other needs Discord, so a key dialog could answer neither.
+     */
     expect(held).not.toHaveBeenCalled()
   })
 })

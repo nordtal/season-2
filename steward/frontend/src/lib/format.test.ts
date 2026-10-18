@@ -14,13 +14,15 @@ import {
 } from "@/lib/format"
 
 /**
- * The formatters held against the shapes the file promises.
+ * The formatters against the shapes that the file promises.
  *
- * `NOTHING` is an escaped en dash, since a typed hyphen would fail for a reason the diff hides.
+ * `NOTHING` is an escaped en dash, because a typed hyphen would fail for a reason that the diff hides.
  */
 const NOTHING = "\u2013"
 
-/** Every formatter takes null, undefined, NaN and both infinities, since the API sends all four. */
+/**
+ * Every formatter takes null, undefined, NaN and both infinities, because the API sends all four.
+ */
 const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
 
 describe("bytes", () => {
@@ -61,7 +63,7 @@ describe("bytes", () => {
 
 describe("percent", () => {
   it("prints a whole number when no decimals were asked for", () => {
-    /** Intl defaults to three fraction digits, which a zero decimal call must not print. */
+    /** Intl defaults to three fraction digits, which a call with zero decimals must not print. */
     expect(percent(87.4567, 0)).toBe("87 %")
     expect(percent(0, 0)).toBe("0 %")
     expect(percent(100, 0)).toBe("100 %")
@@ -79,7 +81,7 @@ describe("percent", () => {
   })
 
   it("honours a decimal count other than zero or one", () => {
-    /** A decimal count other than 0 or 1 must be honoured, not read as 1. */
+    /** A decimal count other than 0 or 1 must be honoured and not read as 1. */
     expect(percent(12.3456, 2)).toBe("12.35 %")
   })
 
@@ -161,7 +163,7 @@ describe("parseInstant", () => {
 })
 
 describe("dateTime and clock", () => {
-  /** The en-GB shape is pinned rather than the digits, which depend on the machine's time zone. */
+  /** The test pins the en-GB shape and not the digits, which depend on the machine's time zone. */
   const LOCALE_DATE_TIME = /^\d{1,2} \w+ \d{4}, \d{2}:\d{2}$/
   const LOCALE_CLOCK = /^\d{2}:\d{2}:\d{2}$/
 
@@ -221,7 +223,7 @@ describe("relative", () => {
   })
 })
 
-/** The dialog's three fields; showing the value is the duration kind's, in `texts`. */
+/** The dialog's three fields. The duration kind shows the value, in `texts`. */
 describe("splitPlaytime", () => {
   it("drops seconds rather than rounding, so a value read back is the value written", () => {
     expect(splitPlaytime(3_659)).toEqual({ days: 0, hours: 1, minutes: 0 })

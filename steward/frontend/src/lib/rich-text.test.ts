@@ -82,7 +82,7 @@ describe("a Minecraft text", () => {
   })
 })
 
-/** The runs of `text` as a preview draws them, each value's example taken from `examples`. */
+/** The runs of `text` as a preview draws them, with each value's example taken from `examples`. */
 function drawn(text: string, examples: Record<string, string>, format: Format = "MINIMESSAGE"): Run[] {
   return branchesOf(read(text, format), format, TONES, (name) => examples[name] ?? name)
 }

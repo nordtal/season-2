@@ -4,7 +4,9 @@ export type ParsedLine =
   | { kind: "parsed"; time: string; level: Level; source: string; text: string }
   | { kind: "raw"; text: string }
 
-/** The timestamp Docker puts in front of every line, like `2026-09-23T21:43:12.726838683Z `. */
+/**
+ * The timestamp that Docker puts in front of every line, like `2026-09-23T21:43:12.726838683Z `.
+ */
 const DOCKER_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z /
 
 const PAPER = /^\[(\d{2}:\d{2}:\d{2})\] \[[^\]]*\/(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\](?: \[([^\]]+)\])?: (.*)$/s
@@ -16,7 +18,9 @@ const POSTGRES_FOLLOW_UP = new Set(["DETAIL", "HINT", "STATEMENT", "CONTEXT", "Q
 /** Paper's plugin prefix, `[voicechat] text`, which sits inside the message. */
 const PLUGIN_PREFIX = /^\[([A-Za-z0-9_.$\- ]{1,120})\] (.*)$/s
 
-/** The line without Docker's own timestamp in front, i.e. what the service itself wrote. */
+/**
+ * Returns the line without Docker's own timestamp in front, that is, what the service itself wrote.
+ */
 export function stripDockerStamp(line: string): string {
   return line.replace(DOCKER_STAMP, "")
 }
@@ -26,7 +30,9 @@ function lastComponent(logger: string): string {
   return dot < 0 ? logger : logger.slice(dot + 1)
 }
 
-/** Every word either regex can capture in that position, mapped to the five levels this file draws. */
+/**
+ * Every word that either regex can capture in that position, mapped to the five levels that this file draws.
+ */
 const WORD_LEVEL: Record<string, Level> = {
   TRACE: "TRACE",
   DEBUG: "DEBUG",
@@ -41,9 +47,9 @@ function level(word: string): Level {
 }
 
 /**
- * One console line from Paper, Velocity, Logback or postgres, split into time, level, source and text.
+ * Splits one console line from Paper, Velocity, Logback or postgres into time, level, source and text.
  *
- * The source is the `[plugin]` prefix or the logger's last component; a line that fits no form stays raw.
+ * The source is the `[plugin]` prefix or the last component of the logger. A line that fits no form stays raw.
  */
 export function parseLogLine(line: string): ParsedLine {
   const text = stripDockerStamp(line)
@@ -84,7 +90,9 @@ export function parseLogLine(line: string): ParsedLine {
   return { kind: "raw", text }
 }
 
-/** A raw line that carries on the one before it, so a stack trace keeps the colour of its error. */
+/**
+ * Returns whether a raw line continues the one before it, so a stack trace keeps the colour of its error.
+ */
 export function continuesPrevious(raw: string): boolean {
   return /^\s/.test(raw) || raw.startsWith("at ") || raw.startsWith("Caused by")
 }

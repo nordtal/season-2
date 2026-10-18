@@ -6,14 +6,18 @@ import { assert, describe, expect, it } from "vitest"
 
 import { SEASON_PHASES } from "@/lib/season-phases"
 
-/** Nothing here may name a phase `SeasonPhase.java` does not declare; the names are read off its source text. */
+/**
+ * Nothing here may name a phase that `SeasonPhase.java` does not declare. The test reads the names from its source text.
+ */
 const here = path.dirname(fileURLToPath(import.meta.url))
 const javaSource = path.join(here, "../../../../common/src/main/java/eu/nordtal/season/common/SeasonPhase.java")
 
-/** Every enum constant `SeasonPhase.java` declares, read off the source rather than remembered. */
+/**
+ * Returns every enum constant that `SeasonPhase.java` declares, read from the source and not remembered.
+ */
 function realPhaseNames(): string[] {
   const text = readFileSync(javaSource, "utf8")
-    /** Blank every javadoc block whole, since a constant's doc can name another constant. */
+    /** Blank every javadoc block whole, because a constant's doc can name another constant. */
     .replace(/\/\*[\s\S]*?\*\//g, " ")
 
   const bodyStart = text.indexOf("enum SeasonPhase")
@@ -21,7 +25,9 @@ function realPhaseNames(): string[] {
     throw new Error(`${javaSource} no longer declares "enum SeasonPhase" - has it moved or renamed?`)
   }
   const braceAt = text.indexOf("{", bodyStart)
-  /** The constant list ends at the first ";" after the brace, as long as no constant has a body. */
+  /**
+   * The constant list ends at the first ";" after the brace, as long as no constant has a body.
+   */
   const semicolonAt = text.indexOf(";", braceAt)
   const constantsBlock = text.slice(braceAt + 1, semicolonAt)
 
@@ -31,7 +37,9 @@ function realPhaseNames(): string[] {
 describe("season-phases.ts against SeasonPhase.java", () => {
   it("actually read the enum and found names, so an empty list means the parser broke", () => {
     const names = realPhaseNames()
-    /** Not a hardcoded five, so a moved or renamed SeasonPhase.java fails here instead of passing empty. */
+    /**
+     * Not a hardcoded five, so a moved or renamed SeasonPhase.java fails here and does not pass empty.
+     */
     expect(names.length).toBeGreaterThan(0)
     expect(names).toContain("PRE_LAUNCH")
     expect(names).toContain("MAINTENANCE")
@@ -39,7 +47,9 @@ describe("season-phases.ts against SeasonPhase.java", () => {
 
   it("has a label for every phase the backend actually has", () => {
     const real = new Set(realPhaseNames())
-    /** `Set<string>`, since the names read at run time are plain strings and `tsc -b` rejects the narrower type. */
+    /**
+     * `Set<string>`, because the names read at run time are plain strings and `tsc -b` rejects the narrower type.
+     */
     const listed = new Set<string>(SEASON_PHASES.map((phase) => phase.name))
     const missing = [...real].filter((name) => !listed.has(name))
 

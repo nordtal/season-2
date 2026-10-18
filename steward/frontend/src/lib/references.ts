@@ -5,18 +5,22 @@ import { sentenceOf } from "@/lib/words"
 /**
  * What a setting's value names, read against the servers' game catalogue or the guild, as plain data.
  *
- * Nothing here refuses a value: the game checks it, and an id nobody lists is shown as unknown, never replaced.
+ * Nothing here refuses a value. The game checks it, and an id that nobody lists is shown as unknown and never replaced.
  */
 
-/** One thing a picker offers: the value it writes, the name it shows, and where it hangs in a tree. */
+/**
+ * One thing that a picker offers: the value it writes, the name it shows, and where it hangs in a tree.
+ */
 export type Choice = {
   id: string
   name: string
   /** The item whose icon stands for it, if the catalogue has one. */
   icon?: string
-  /** Its depth in a tree, 0 for a root; only an advancement has one. */
+  /** Its depth in a tree, 0 for a root. Only an advancement has one. */
   depth?: number
-  /** An advancement's frame, `task`, `goal` or `challenge`, and the line its tooltip shows under its title. */
+  /**
+   * An advancement's frame (`task`, `goal` or `challenge`) and the line that its tooltip shows under its title.
+   */
   frame?: string
   description?: string
   /** A Discord channel's kind, which its row draws as an icon. */
@@ -27,11 +31,13 @@ export type Choice = {
 export type Choices = {
   choices: Choice[]
   tags: GameTag[]
-  /** The game registry they come from, which draws a choice without an item by its generic icon. */
+  /**
+   * The game registry that the choices come from. A choice without an item is drawn with the registry's generic icon.
+   */
   registry?: string
   /** Advancements are offered as their tree. */
   tree: boolean
-  /** Set when nothing can be listed, and the value is typed instead. */
+  /** Set when nothing can be listed. The value is then typed. */
   unavailable?: string
 }
 
@@ -51,20 +57,24 @@ const REGISTRY: Partial<Record<ReferenceKind, string>> = {
   DAMAGE_TYPE: "damage_type",
 }
 
-/** The kinds that name no game registry, so the catalogue is neither fetched nor written to for them. */
+/**
+ * The kinds that name no game registry, so the catalogue is neither fetched nor written to for them.
+ */
 const NOT_GAME = new Set<ReferenceKind>(["COLOUR", "DISCORD_CHANNEL", "DISCORD_USER"])
 
-/** Whether a reference names something in the game, whose value is then a game key. */
+/** Returns whether a reference names something in the game. Its value is then a game key. */
 export function isGameReference(reference: ConfigReference): boolean {
   return !NOT_GAME.has(reference.to)
 }
 
-/** Whether `kind` is drawn by the colour control rather than a list. */
+/** Returns whether the colour control draws `kind` and not a list. */
 export function isColour(reference: ConfigReference | undefined): boolean {
   return reference?.to === "COLOUR"
 }
 
-/** A value as the key the catalogue files it under: lower case, `minecraft` where it names no namespace. */
+/**
+ * Returns a value as the key under which the catalogue files it: lower case, with `minecraft` where it names no namespace.
+ */
 export function gameKey(value: string): string {
   const trimmed = value.trim().toLowerCase()
   return trimmed === "" || trimmed.includes(":") ? trimmed : MINECRAFT + trimmed
@@ -77,9 +87,9 @@ export function nameOfId(id: string): string {
 }
 
 /**
- * The registry a reference reads, or none where it is no game registry.
+ * Returns the registry that a reference reads, or none where it is no game registry.
  *
- * A statistic's subject is the registry that statistic counts, read off its sibling's value.
+ * A statistic's subject is the registry that the statistic counts, read from its sibling's value.
  */
 export function registryOf(reference: ConfigReference, game: GameData | undefined, sibling?: string): string | null {
   if (reference.to !== "SUBJECT") return REGISTRY[reference.to] ?? null
@@ -89,15 +99,17 @@ export function registryOf(reference: ConfigReference, game: GameData | undefine
 }
 
 /**
- * Whether a reference has nothing to name for the value its sibling holds: a subject of a statistic kept per nothing.
+ * Returns whether a reference has nothing to name for the value that its sibling holds, such as the subject of a statistic kept per nothing.
  *
- * Before the catalogue has arrived it is not known, so the field stays.
+ * Before the catalogue has arrived this is not known, so the field stays.
  */
 export function namesNothing(reference: ConfigReference, game: GameData | undefined, sibling?: string): boolean {
   return reference.to === "SUBJECT" && game?.version !== undefined && registryOf(reference, game, sibling) === null
 }
 
-/** The slot standing for an entry: its own id for an item, a block or a patterned advancement, else its icon item or egg. */
+/**
+ * Returns the slot that stands for an entry: its own id for an item, a block or a patterned advancement, else its icon item or egg.
+ */
 function iconOf(registry: string, entry: GameEntry, items: ReadonlySet<string>): string | undefined {
   const candidates =
     registry === "advancement"
@@ -110,7 +122,9 @@ function iconOf(registry: string, entry: GameEntry, items: ReadonlySet<string>):
   return candidates.find((id): id is string => id !== undefined && items.has(id))
 }
 
-/** An advancement tree flattened in order, holding only those with a display, children by name under parents. */
+/**
+ * Returns an advancement tree flattened in order. It holds only advancements with a display, and children by name under their parents.
+ */
 function advancementTree(entries: GameEntry[], items: ReadonlySet<string>): Choice[] {
   const shown = entries.filter((entry) => entry.frame !== undefined)
   const ids = new Set(shown.map((entry) => entry.id))
@@ -149,7 +163,7 @@ function nameOf(entry: GameEntry): string {
   return entry.text?.trim() || nameOfId(entry.id)
 }
 
-/** What a game registry offers, by name, without the entries `except` leaves out. */
+/** Returns what a game registry offers, by name, without the entries that `except` leaves out. */
 export function gameChoices(game: GameData | undefined, registry: string | null, except: string[] = []): Choices {
   if (!game?.version)
     return {
@@ -180,7 +194,7 @@ export function gameChoices(game: GameData | undefined, registry: string | null,
   return { choices, tags, tree: false, registry }
 }
 
-/** What a guild's channel list offers, channels under their category. */
+/** Returns what a guild's channel list offers: channels under their category. */
 export function guildChoices(list: GuildList | undefined): Choices {
   if (!list)
     return {
@@ -196,7 +210,7 @@ export function guildChoices(list: GuildList | undefined): Choices {
       tree: false,
       unavailable: list.reason ? message(list.reason) : t("steward.said.guild-not-listed"),
     }
-  /** A category holds channels and is never one a message goes to. */
+  /** A category holds channels and is never a place where a message goes. */
   const choices = list.entries
     .filter((entry) => entry.type !== 4)
     .map((entry): Choice => {
@@ -210,7 +224,7 @@ export function guildChoices(list: GuildList | undefined): Choices {
   return { choices, tags: [], tree: false }
 }
 
-/** The people Steward knows, by their Discord name. */
+/** The people that Steward knows, by their Discord name. */
 export function peopleChoices(people: Person[] | undefined): Choices {
   if (!people)
     return {
@@ -230,7 +244,9 @@ export function peopleChoices(people: Person[] | undefined): Choices {
   }
 }
 
-/** The choice a stored value names, matched as a game key where the choices are keys. */
+/**
+ * Returns the choice that a stored value names, matched as a game key where the choices are keys.
+ */
 export function choiceFor(choices: Choice[], value: string): Choice | undefined {
   const exact = choices.find((choice) => choice.id === value)
   if (exact) return exact
@@ -238,7 +254,7 @@ export function choiceFor(choices: Choice[], value: string): Choice | undefined 
   return choices.find((choice) => choice.id === key)
 }
 
-/** The choices matching `query` by name or id, in any case. */
+/** Returns the choices that match `query` by name or id, in any case. */
 export function matching(choices: Choice[], query: string): Choice[] {
   const needle = query.trim().toLowerCase()
   if (!needle) return choices
@@ -247,7 +263,7 @@ export function matching(choices: Choice[], query: string): Choice[] {
   )
 }
 
-/** The namespaces among the choices' ids, `minecraft` first. */
+/** Returns the namespaces among the choices' ids, `minecraft` first. */
 export function namespacesOf(choices: Choice[]): string[] {
   const found = new Set<string>()
   for (const choice of choices) if (choice.id.includes(":")) found.add(choice.id.slice(0, choice.id.indexOf(":")))

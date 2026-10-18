@@ -18,7 +18,9 @@ import {
   type Typed,
 } from "@/lib/texts"
 
-/** The vectors Java's own test reads too, so the browser and every other target agree on each choice made. */
+/**
+ * The vectors that Java's own test also reads, so the browser and every other target make each choice the same way.
+ */
 type Vector = { text: string; nodes: TextNode[]; args: Record<string, Typed>; plain: string }
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..")
@@ -87,7 +89,9 @@ describe("the web target", () => {
   })
 })
 
-/** A span outside a message is the duration kind too, so a table cell and a sentence read alike. */
+/**
+ * A span outside a message is the duration kind too, so a table cell and a sentence read alike.
+ */
 describe("span", () => {
   const NOTHING = "\u2013"
   const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]

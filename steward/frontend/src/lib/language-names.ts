@@ -1,7 +1,7 @@
 /**
- * Display names for the `languages` tags in the bot's `access` group, one per message bundle the repo ships.
+ * Display names for the `languages` tags in the bot's `access` group, one per message bundle that the repository ships.
  *
- * An unknown tag falls back to itself, which beats a wrong guess at a name.
+ * An unknown tag is shown as itself, which is better than a wrong guess at a name.
  */
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",

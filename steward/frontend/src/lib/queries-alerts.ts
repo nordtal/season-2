@@ -14,7 +14,9 @@ import { live } from "@/lib/live"
 import { currentPushEndpoint, subscribeToPush, unsubscribeFromPush } from "@/lib/push"
 import { SECOND, keys } from "@/lib/query-keys"
 
-/** What is wrong, and how it reaches an admin: alerts, their preferences, and this browser's push subscription. */
+/**
+ * What is wrong, and how it reaches an admin: alerts, their preferences, and this browser's push subscription.
+ */
 
 /** What steward found wrong, judged on the server against the one set of thresholds. */
 export function useAlerts(enabled = true) {
@@ -40,7 +42,7 @@ export function useAvatarBaseUrl(enabled = true) {
 /**
  * The VAPID public key, fetched before any button that needs it is tapped.
  *
- * iOS opens the permission dialog only while the tap is on the call stack; see `lib/push.ts`.
+ * iOS opens the permission dialog only while the tap is on the call stack. See `lib/push.ts`.
  */
 export function useWebPushPublicKey(enabled = true) {
   return useQuery({
@@ -65,7 +67,7 @@ export function useWebPushSubscription(enabled = true) {
 /**
  * Subscribes this browser to push, then registers the subscription with the server.
  *
- * Takes the key from {@link useWebPushPublicKey}, so nothing awaits a fetch first.
+ * It takes the key from {@link useWebPushPublicKey}, so nothing awaits a fetch first.
  */
 export function useSubscribeWebPush() {
   const client = useQueryClient()
@@ -82,7 +84,7 @@ export function useSubscribeWebPush() {
   })
 }
 
-/** Unsubscribes this browser, both from the push service and from Steward's own table. */
+/** Unsubscribes this browser from the push service and from Steward's own table. */
 export function useUnsubscribeWebPush() {
   const client = useQueryClient()
   return useMutation({
@@ -103,7 +105,7 @@ export function useUnsubscribeWebPush() {
 /**
  * Forgets one browser of this account.
  *
- * When it is this browser, its push subscription is torn down too, or its button would still read "On".
+ * When it is this browser, the mutation also removes its push subscription, or its button would still read "On".
  */
 export function useForgetWebPushDevice() {
   const client = useQueryClient()
@@ -122,7 +124,7 @@ export function useForgetWebPushDevice() {
   })
 }
 
-/** Every browser this account has subscribed, not just this one. */
+/** Every browser that this account has subscribed, not only this one. */
 export function useWebPushDevices(enabled = true) {
   return useQuery({
     queryKey: keys.webPushDevices,
@@ -131,7 +133,7 @@ export function useWebPushDevices(enabled = true) {
   })
 }
 
-/** On which channels this account wants each kind of alert, defaults included. */
+/** On which channels this account wants each kind of alert, with the defaults included. */
 export function useAlertPreferences(enabled = true) {
   return useQuery({
     queryKey: keys.alertPreferences,
@@ -140,7 +142,9 @@ export function useAlertPreferences(enabled = true) {
   })
 }
 
-/** Sets one switch, writing the answer into the cache so the switch does not spring back during a refetch. */
+/**
+ * Sets one switch and writes the answer into the cache, so the switch does not spring back during a refetch.
+ */
 export function useSetAlertPreference() {
   const client = useQueryClient()
   return useMutation({

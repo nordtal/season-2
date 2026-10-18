@@ -10,12 +10,16 @@ export type { Topic }
 /** How often a live query is read regardless, in case the stream missed something. */
 export const RECONCILE = 60_000
 
-/** The options that make a query live: read again when one of its topics changes, and once a minute anyway. */
+/**
+ * Returns the options that make a query live: it is read again when one of its topics changes, and once a minute anyway.
+ */
 export function live(...topics: Topic[]) {
   return { meta: { topics }, refetchInterval: RECONCILE } as const
 }
 
-/** The topics a query in the cache follows, from the `meta` that {@link live} put there. */
+/**
+ * Returns the topics that a query in the cache follows, from the `meta` that {@link live} put there.
+ */
 function topicsOf(query: Query): readonly unknown[] {
   const topics: unknown = query.meta?.topics
   return Array.isArray(topics) ? topics : []
@@ -23,16 +27,16 @@ function topicsOf(query: Query): readonly unknown[] {
 
 const waiting = new Set<(topic: Topic) => void>()
 
-/** A listener that hears nothing, until the promise below puts the real one in its place. */
+/** A listener that hears nothing, until the promise below replaces it with the real one. */
 const ignore = () => undefined
 
-/** A wait for one topic's next change; {@link stop} ends it early. */
+/** A wait for the next change of one topic. {@link stop} ends it early. */
 export type Change = { arrived: Promise<void>; stop: () => void }
 
 /**
  * Waits for the next change of `topic`, or a minute when none comes.
  *
- * Asked before the read it follows, so a change between the read and the wait is not missed.
+ * It registers before the read it follows, so a change between the read and the wait is not missed.
  */
 export function nextChange(topic: Topic, within = RECONCILE): Change {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -50,7 +54,9 @@ export function nextChange(topic: Topic, within = RECONCILE): Change {
   return { arrived, stop: () => heard(topic) }
 }
 
-/** Hands one change to the cache and to whoever waits for it; the stream's handler, exported for tests. */
+/**
+ * Passes one change to the cache and to whoever waits for it. It is the stream's handler, exported for tests.
+ */
 export function announce(client: ReturnType<typeof useQueryClient>, topic: Topic) {
   void client.invalidateQueries({ predicate: (query) => topicsOf(query).includes(topic) })
   for (const heard of waiting) heard(topic)
@@ -63,7 +69,7 @@ function isTopicChange(value: unknown): value is { topic: Topic } {
 /**
  * Holds the one live stream while somebody is signed in, and turns each change into a refetch of its queries.
  *
- * Every reconnect reads every live query again, since a change may have passed while the stream was down.
+ * Every reconnect reads every live query again, because a change may have passed while the stream was down.
  */
 export function useLiveStream(enabled: boolean) {
   const client = useQueryClient()

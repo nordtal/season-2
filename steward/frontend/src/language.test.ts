@@ -28,9 +28,6 @@ type Rules = {
 
 const rules: Rules = JSON.parse(readFileSync(path.join(repository, "steward/language-rules.json"), "utf8"))
 
-/**
- * Returns every word of three letters or more in the values of a message bundle, never in its keys.
- */
 function bundleWords(file: string): Set<string> {
   const words = new Set<string>()
   for (const line of readFileSync(path.join(bundle, file), "utf8").split("\n")) {
@@ -58,11 +55,7 @@ function forbidden(): string[] {
 
 const ALSO_ENGLISH = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
 
-/**
- * Returns whether a word is German by stem: a derived word plus a German ending, or a prefix of a derived compound.
- *
- * The endings are German only, so `stopped` is not `stoppe` plus `d`.
- */
+/** The endings are German only, so `stopped` is not `stoppe` plus `d`. */
 export function isGerman(word: string, german: Set<string>): boolean {
   const lower = word.toLowerCase()
   if (ALSO_ENGLISH.has(lower)) return false
@@ -78,9 +71,7 @@ export function isGerman(word: string, german: Set<string>): boolean {
   return false
 }
 
-/**
- * Matches a word as a reader sees it: `_` and digits join it, so `NORDTAL_STEWARD_CONFIG_DIR` is not `dir`.
- */
+/** `_` and digits join a word, so `NORDTAL_STEWARD_CONFIG_DIR` is not `dir`. */
 const WORD = /(?<![\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\wÄÖÜäöüß])/g
 
 const SHAPES = rules.shapes.map((shape) => new RegExp(shape, "i"))
@@ -89,16 +80,9 @@ const ABBREVIATION = new RegExp(`(${rules.abbreviations.join("|")})`)
 
 const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
 
-/**
- * The exemptions: this file and the palette's search synonyms, which are typed and never printed.
- *
- * Everything else imports the German synonym from there, so it stays inside the scan.
- */
+/** Everything else imports the German synonym from there, so it stays inside the scan. */
 const EXEMPT = new Set([path.join(here, "language.test.ts"), path.join(frontend, "src", "app", "run-search-terms.ts")])
 
-/**
- * Returns everything that a reader of this interface can reach: its sources, its page and its build file.
- */
 function scanned(): string[] {
   const files: string[] = [path.join(frontend, "index.html"), path.join(frontend, "vite.config.ts")]
   const walk = (directory: string) => {
@@ -131,7 +115,6 @@ function offences(guilty: (line: string) => boolean): string[] {
 
 const matching = (pattern: RegExp) => (line: string) => pattern.test(line)
 
-/** Derived once, because the code asks it for every line of every source file. */
 const GERMAN = new Set(forbidden())
 
 function germanWords(line: string): boolean {
@@ -151,10 +134,8 @@ describe("nothing in Steward is German", () => {
   })
 
   it("knows a German word by its stem, not only by the form the bot happens to use", () => {
-    /** Inflection, compounding and shape: the three ways to extend a derived list. */
     expect(isGerman("Befehle", GERMAN), "inflection: the list only says Befehl").toBe(true)
     expect(isGerman("Konfiguration", GERMAN), "compounding: the list only says Konfigurationsdateien").toBe(true)
-    /** No stem or ending derives this word, so it is in the rules file by hand. */
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 
     /**

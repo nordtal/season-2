@@ -6,12 +6,9 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** The theme: the only files that name a colour of their own. */
 const THEME = new Set(["index.css", "brand.gen.css"])
 
-/**
- * A colour named outside the theme: a hex or functional value, a white or black utility, or Tailwind's palette.
- */
+/** A colour named outside the theme. */
 const OWN_COLOUR = [
   /#[0-9a-fA-F]{3,8}\b/,
   /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/,
@@ -19,7 +16,7 @@ const OWN_COLOUR = [
   /-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/,
 ]
 
-/** Files whose colours are content and not interface, each with what it draws. */
+/** Files whose colours are content, each with what it draws. */
 const EXEMPT = new Map<string, string>([
   ["lib/rich-text.ts", "Minecraft's chat colours"],
   ["components/steward/message-preview.tsx", "Minecraft's white, the colour of unstyled game text"],
@@ -71,7 +68,7 @@ describe("only the theme's colours", () => {
     )
   })
 
-  /** An exemption for a file that names no colour any more fails, so the list cannot only grow. */
+  /** An exemption for a clean file fails, so the list cannot only grow. */
   it("has no exemption for a file that is clean or gone", () => {
     const stale: string[] = []
     for (const [relative, reason] of EXEMPT) {
@@ -87,7 +84,7 @@ describe("only the theme's colours", () => {
     expect(stale).toEqual([])
   })
 
-  /** Without this, a broken path or pattern would make the rule above pass by finding nothing. */
+  /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the sources and finds the theme's colours", () => {
     expect(sourceFiles(source).length).toBeGreaterThan(100)
     expect(

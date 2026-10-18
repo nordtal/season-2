@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** The query that turns a table row into a card, as `index.css` spells it. */
 const STACKED_RULE = "@container (width < --theme(--container-rows))"
 
 /**
@@ -13,11 +12,7 @@ const STACKED_RULE = "@container (width < --theme(--container-rows))"
  *
  * They only prove that a rule is still written. A change to a width needs a picture from `ui-shots`.
  */
-/**
- * Returns every double-quoted string in the sources that has the shape of a Tailwind class list, `cn(…)` and `cva(…)` included.
- *
- * Comments are stripped first, because a comment that explains a grid is not a grid.
- */
+/** Comments are stripped first, because a comment that explains a grid is not a grid. */
 function everyClassAttribute(directory: string): Array<{ file: string; classes: string }> {
   const found: Array<{ file: string; classes: string }> = []
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -40,9 +35,6 @@ function everyClassAttribute(directory: string): Array<{ file: string; classes: 
   return found
 }
 
-/**
- * Returns the static class lists of every text field, including the primitives' own. `type` attributes that are not text are skipped.
- */
 function everyTextField(directory: string): Array<{ file: string; tag: string; classes: string }> {
   const found: Array<{ file: string; tag: string; classes: string }> = []
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -65,11 +57,7 @@ function everyTextField(directory: string): Array<{ file: string; tag: string; c
   return found
 }
 
-/**
- * Returns every `<a>` and router `<Link>` whose only child is an icon, with its class list and whether a `Button asChild` wraps it.
- *
- * An icon is a self-closing element named `…Icon` or `…Mark`.
- */
+/** An icon is a self-closing element named `…Icon` or `…Mark`. */
 function everyIconLink(directory: string): Array<{ file: string; tag: string; classes: string; wrapped: boolean }> {
   const found: Array<{ file: string; tag: string; classes: string; wrapped: boolean }> = []
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

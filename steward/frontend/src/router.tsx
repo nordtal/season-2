@@ -16,7 +16,7 @@ import { OverviewPage } from "@/pages/overview"
 import { AlertsPage } from "@/pages/alerts"
 
 /**
- * The route tree, written out, because a generated `routeTree.gen.ts` in src/ would keep `viteBuild` out of date.
+ * The route tree, written out, because a generated `routeTree.gen.ts` would keep `viteBuild` out of date.
  */
 
 const rootRoute = createRootRoute({
@@ -26,16 +26,14 @@ const rootRoute = createRootRoute({
 
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
-  /**
-   * The open tab and file live in the URL, so a reload stays on them and Ctrl-K can land on a tab.
-   */
+  /** The open tab and file live in the URL, so a reload stays on them. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/services/$name",
     component: ServicePage,
     validateSearch: serviceSearch,
   }),
-  /** Operations is Updates and Backups. The two old addresses redirect and do not 404. */
+  /** Operations is Updates and Backups. The two old addresses redirect. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations",
@@ -56,21 +54,17 @@ const routes = [
     path: "/operations/updates/$id",
     component: UpdateRunPage,
   }),
-  /** The list page, which the report page's "Backups" crumb links to. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups",
     component: BackupsPage,
   }),
-  /** The id is a run's, and the page lists that run's archives. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups/$id",
     component: BackupRunDetailPage,
   }),
-  /**
-   * There is no `/configuration` or `/settings`. Files are cards on their service's page, and the account is the popover.
-   */
+  /** Files are cards on their service's page, and the account is the popover. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/season",
@@ -84,12 +78,11 @@ const routes = [
     validateSearch: translationsSearch,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
-  /** The id is the person's Discord id, which every surface already carries. */
   createRoute({ getParentRoute: () => rootRoute, path: "/access/$id", component: PersonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
-  // The run page's layouts on real runs, loaded apart. It goes once one is picked.
+  // The run page's layouts on real runs, loaded apart.
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/designs/run-page",

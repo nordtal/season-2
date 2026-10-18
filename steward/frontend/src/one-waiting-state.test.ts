@@ -7,9 +7,7 @@ import { assert, describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Every view that loads data waits through `QueryState`, the one skeleton approach.
- *
- * Only `Loading` is guarded. `isPending` and `Failure` also serve mutations, where they are honest.
+ * Every view that loads data waits through `QueryState`. Only `Loading` is guarded, because `isPending` and `Failure` also serve mutations.
  */
 const QUERIES = /from "@\/lib\/queries"/
 const GATE = /from "@\/components\/steward\/query-state"/
@@ -103,7 +101,7 @@ function sourceFiles(directory: string): string[] {
   return found
 }
 
-/** Only `.tsx`, because a `.ts` file has no layout for a skeleton to be. */
+/** A `.ts` file has no layout for a skeleton. */
 function views(): { relative: string; text: string }[] {
   return sourceFiles(source).map((file) => ({
     relative: path.relative(source, file),
@@ -151,9 +149,7 @@ describe("one waiting state, and it is QueryState", () => {
     )
   })
 
-  /**
-   * Without this, a broken path or extension would make both rules above pass by finding nothing.
-   */
+  /** A broken path would make both rules above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const all = views()
     expect(all.length).toBeGreaterThan(40)

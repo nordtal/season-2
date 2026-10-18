@@ -11,7 +11,7 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  */
 const RAW = /from\s+"@\/components\/ui\/(dialog|alert-dialog|drawer)"/
 
-/** The files that may import a raw dialog, each with its reason. An exemption applies per file. */
+/** The files that may import a raw dialog, each with its reason. */
 const ALLOWED = new Map<string, string>([
   [
     path.join("components", "ui", "responsive-dialog.tsx"),
@@ -32,7 +32,6 @@ function sourceFiles(directory: string): string[] {
   return found
 }
 
-/** The primitives themselves, which import nothing of the kind and are not call sites either. */
 const PRIMITIVES = new Set(
   ["dialog.tsx", "alert-dialog.tsx", "drawer.tsx"].map((name) => path.join("components", "ui", name)),
 )

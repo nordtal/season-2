@@ -7,9 +7,7 @@ import { describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * A page learns about a change from the live stream. The only timed read left is the minute's reconciliation.
- *
- * So every `refetchInterval` names `RECONCILE`, and nothing that talks to Steward waits on a timer of its own.
+ * A page learns about a change from the live stream, so every `refetchInterval` names `RECONCILE`.
  */
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

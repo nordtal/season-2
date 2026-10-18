@@ -8,7 +8,6 @@ import config from "../vite.config"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
-/** Matches a path passed to `api()`, the one function in this frontend that calls `fetch`. */
 const CALL = /\bapi(?:<[^>]*>)?\(\s*[`"'](\/[^`"']*)/g
 
 /** Matches a real navigation. `<Link to=...>` is the router and never leaves the browser. */
@@ -23,7 +22,6 @@ function sources(directory: string): string[] {
   })
 }
 
-/** Returns the first segment of a path. An entry for `/api` proxies `/api/services/smp`. */
 function prefixOf(calledPath: string): string {
   return `/${calledPath.split("/")[1] ?? ""}`
 }
@@ -44,9 +42,7 @@ function called(): Map<string, string> {
   return found
 }
 
-/**
- * `npm run dev` proxies every prefix that the interface calls. A missing prefix gets Vite's HTML fallback with a 200.
- */
+/** A missing prefix gets Vite's HTML fallback with a 200. */
 describe("the dev server", () => {
   it("proxies every prefix the interface calls", () => {
     const proxy = config.server?.proxy ?? {}

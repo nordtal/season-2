@@ -6,11 +6,11 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** No middle dot separates anything in the interface. An ellipsis and an arrow are fine. */
+/** No middle dot separates anything in the interface. */
 const MIDDLE_DOT = /·/
 
 /**
- * Files that may use a middle dot, each with its reason. The map is empty and stays, so the next exemption has a place.
+ * Files that may use a middle dot, each with its reason. The map is empty and stays for the next exemption.
  */
 const EXEMPT = new Map<string, string>([])
 
@@ -54,16 +54,14 @@ describe("no middle dot as a separator", () => {
     )
   })
 
-  /**
-   * Without this, a broken path or extension would make the rule above pass by finding nothing.
-   */
+  /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const files = sourceFiles(source)
     expect(files.length).toBeGreaterThan(30)
     expect(files.some((f) => f.endsWith("app/sign-in.tsx"))).toBe(true)
   })
 
-  /** An exemption for a file that is already clean fails, so the list cannot only grow. */
+  /** An exemption for a clean file fails, so the list cannot only grow. */
   it("has no exemption for a file that is already clean or gone", () => {
     const stale: string[] = []
     for (const [relative, reason] of EXEMPT) {

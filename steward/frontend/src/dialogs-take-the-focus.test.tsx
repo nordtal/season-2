@@ -58,11 +58,7 @@ const CASES = [
   { shape: "dialog", width: 1024 },
 ].flatMap((size) => [false, true].flatMap((alert) => [false, true].map((field) => ({ ...size, alert, field }))))
 
-/**
- * Every dialog goes through `responsive-dialog.tsx`, so these four roots in both shapes are every dialog there is.
- *
- * On a phone a field that keeps the focus keeps the keyboard open over the sheet.
- */
+/** On a phone a field that keeps the focus keeps the keyboard open over the sheet. */
 describe("a dialog that opens over a focused field takes the focus", () => {
   it.each(CASES)("$shape, alert $alert, a field of its own $field", ({ width, alert, field }) => {
     window.innerWidth = width

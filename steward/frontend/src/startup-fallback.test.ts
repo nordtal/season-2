@@ -7,13 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asElement } from "@/lib/test-elements"
 
-/**
- * The inline script in `index.html` that reports a failed startup, run as it ships and not as a copy.
- */
+/** The inline script in `index.html` that reports a failed startup, run as it ships. */
 
 const indexHtml = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../index.html"), "utf8")
 
-/** Returns the one inline, non-module `<script>`. A `type="module"` one never matches. */
+/** Returns the one inline, non-module `<script>`. */
 function inlineScriptSource(): string {
   const match = indexHtml.match(/<script>([\s\S]*?)<\/script>/)
   if (!match) {
@@ -23,7 +21,6 @@ function inlineScriptSource(): string {
 }
 
 function runInlineScript(): void {
-  /** Run in the global context, as a browser runs an inline script. */
   runInThisContext(inlineScriptSource())
 }
 
@@ -44,9 +41,7 @@ describe("index.html's inline startup reporter", () => {
     document.body.innerHTML =
       '<div id="startup-fallback"><p id="startup-fallback-message">Steward has not started yet.</p></div>'
     reload = vi.fn<() => void>()
-    /**
-     * jsdom's `reload()` does nothing, so the test replaces it to record whether it was asked for.
-     */
+    /** jsdom's `reload()` does nothing, so the test records whether it was asked for. */
     Object.defineProperty(window, "location", {
       value: { reload },
       writable: true,
@@ -66,7 +61,6 @@ describe("index.html's inline startup reporter", () => {
 
     expect(reload).toHaveBeenCalledTimes(1)
     expect(window.sessionStorage.getItem("steward:reloaded-after-startup-error")).toBe("1")
-    // The silent path: nothing is written over the sentence already there.
     expect(message()).toBe("Steward has not started yet.")
   })
 
@@ -98,9 +92,7 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(first)
     expect(reload).toHaveBeenCalledTimes(1)
 
-    /**
-     * A fresh run of the same script stands in for the reload, on the state that the first left behind.
-     */
+    /** A fresh run of the script stands in for the reload. */
     const second = document.createElement("script")
     second.src = "http://localhost/assets/index-deadbeef.js"
     fireResourceError(second)

@@ -44,7 +44,7 @@ describe("no bordered card around a phone table", () => {
     )
   })
 
-  /** Without this, a broken path or pattern would make the rule above pass by finding nothing. */
+  /** A broken path would make the rule above pass by finding nothing. */
   it("actually finds both halves in the sources", () => {
     const files = sourceFiles(source).map((file) => readFileSync(file, "utf8"))
     expect(files.filter((text) => TABLE.test(text)).length).toBeGreaterThan(3)

@@ -1,9 +1,6 @@
 package eu.nordtal.season.papercommon.menu;
 
-/**
- * Where a chest slot is, in the window's own pixels. The pack's panels are drawn on this grid.
- * A cell's origin is its top-left shadow pixel, one up and left of the item area.
- */
+/** The pixel position of a chest slot in the window. A cell's origin is its top-left shadow pixel. */
 public final class SlotGeometry {
 
     /** The x of slot column 0's cell. */
@@ -20,17 +17,14 @@ public final class SlotGeometry {
 
     private SlotGeometry() {}
 
-    /** Returns the x of column {@code column}'s cell. */
     public static int x(final int column) {
         return ORIGIN_X + column * PITCH;
     }
 
-    /** Returns the y of row {@code row}'s cell. */
     public static int y(final int row) {
         return ORIGIN_Y + row * PITCH;
     }
 
-    /** Returns the raw slot index of ({@code column}, {@code row}) in a chest inventory. */
     public static int slot(final int column, final int row) {
         if (column < 0 || column >= COLUMNS || row < 0) {
             throw new IllegalArgumentException("no slot at column " + column + ", row " + row);
@@ -38,12 +32,10 @@ public final class SlotGeometry {
         return row * COLUMNS + column;
     }
 
-    /** Returns the column of raw slot {@code slot}. */
     public static int column(final int slot) {
         return slot % COLUMNS;
     }
 
-    /** Returns the row of raw slot {@code slot}. */
     public static int row(final int slot) {
         return slot / COLUMNS;
     }

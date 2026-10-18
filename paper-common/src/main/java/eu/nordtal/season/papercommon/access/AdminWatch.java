@@ -16,9 +16,8 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 
 /**
- * Keeps a Paper server's operators in step with {@code discord_user.admin} while people are online.
- *
- * It re-reads on the process's {@link SignalHub}; reads run on the hub's thread, the apply on the main thread.
+ * Keeps a server's operators equal to {@code discord_user.admin}.
+ * It reads on the hub's thread and applies on the main thread.
  */
 public final class AdminWatch implements AutoCloseable {
 
@@ -27,17 +26,10 @@ public final class AdminWatch implements AutoCloseable {
     private final AdminOperators operators;
     private final Logger logger;
 
-    /** The admin set as of the last refresh, read by Brigadier's {@code requires} on the main thread. */
     private volatile Set<UUID> known = Set.of();
 
     private volatile boolean running = true;
 
-    /**
-     * @param plugin    the owning plugin, for the scheduler
-     * @param access    where the admin set is read from
-     * @param operators what grants and removes operator
-     * @param logger    the plugin logger
-     */
     public AdminWatch(
             final Plugin plugin, final AccessReader access, final AdminOperators operators, final Logger logger) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -46,21 +38,16 @@ public final class AdminWatch implements AutoCloseable {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** Re-reads the admin set on every signal of {@code signals}; the hub's connect is the first read. */
     public void listen(final SignalHub signals) {
         signals.on(Channel.ADMIN, "the admin roster", this::refresh);
     }
 
-    /**
-     * Returns whether this account was an admin as of the last refresh.
-     *
-     * A set lookup; it answers {@code false} until the first read, so an unreachable database hands out no admin.
-     */
+    /** Returns whether the account was an admin at the last refresh. It is false until the first read. */
     public boolean isAdmin(final UUID mcUuid) {
         return known.contains(mcUuid);
     }
 
-    /** Reads the admin set and applies it; never call this on the main thread. */
+    /** Reads the admin set and applies it. Never call it on the main thread. */
     public void refresh() {
         if (!running) {
             return;
@@ -69,7 +56,7 @@ public final class AdminWatch implements AutoCloseable {
         try {
             admins = access.adminMinecraftAccounts();
         } catch (final RuntimeException failure) {
-            // Not fatal: an unreachable database must not cost operators who already hold their flag.
+            // The operators who already hold the flag stay.
             logger.warn("Could not read the admin roster; operators are unchanged until the next signal", failure);
             return;
         }
@@ -77,14 +64,12 @@ public final class AdminWatch implements AutoCloseable {
         try {
             PaperScheduler.of(plugin).onMain(() -> apply(admins));
         } catch (final RejectedExecutionException shuttingDown) {
-            // The plugin was disabled between the read and the hop; the next enable sweep fixes it.
+            // The next enable sweeps it.
             logger.debug("Dropped an admin refresh because the plugin is no longer enabled");
         }
     }
 
-    /** Applies the set on the main thread: who is online, who of them is an admin, and what changes. */
     private void apply(final Set<UUID> admins) {
-        // Copied once: `known` is what isAdmin, and therefore Brigadier's requires, answers from.
         final Set<UUID> snapshot = Set.copyOf(admins);
         known = snapshot;
         final Set<UUID> online = new HashSet<>();

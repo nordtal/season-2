@@ -21,31 +21,23 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A plugin's heads-up display: the boss bar lines it declares, kept per player, and the one clock that draws them.
- *
- * Main thread only. Surfaces that change more slowly, such as the boards, ride the same clock through {@link #every}.
- */
+/** A plugin's boss bar lines, kept per player, and the one clock that draws them. Call it on the main thread only. */
 public final class Hud implements Listener {
 
-    /** Four times a second: fast enough that an arrow tracks a turning player. */
     public static final Duration FRAME = Duration.ofMillis(250);
 
     private final Plugin plugin;
     private final Identities identities;
 
-    /** Top to bottom, in the order declared. */
     private final List<HudLine> lines = new ArrayList<>();
 
     private final List<Cadence> cadences = new ArrayList<>();
 
-    /** Each player's bar per line, null where the line is hidden for them. */
     private final Map<UUID, @Nullable BossBar[]> bars = new HashMap<>();
 
     private long frame;
     private Scheduler.@Nullable Task task;
 
-    /** Work that runs every {@code frames}th frame. */
     private record Cadence(long frames, Runnable work) {}
 
     public Hud(final Plugin plugin, final Identities identities) {
@@ -53,24 +45,21 @@ public final class Hud implements Listener {
         this.identities = identities;
     }
 
-    /** Adds a line below every line declared before it. */
     public void declare(final HudLine line) {
         lines.add(line);
     }
 
-    /** Runs {@code work} on this clock every {@code period}, rounded up to whole frames. */
     public void every(final Duration period, final Runnable work) {
         cadences.add(new Cadence(Math.max(1, Math.ceilDiv(period.toMillis(), FRAME.toMillis())), work));
     }
 
-    /** Starts the clock, once the plugin declared what it shows; a plugin that declared nothing has none. */
+    /** Starts the clock. A plugin that declared no line has none. */
     public void start() {
         if (task == null && (!lines.isEmpty() || !cadences.isEmpty())) {
             task = PaperScheduler.of(plugin).onMainEvery(FRAME, FRAME, this::frame);
         }
     }
 
-    /** Stops the clock and takes every bar off the screen. */
     public void stop() {
         if (task != null) {
             task.cancel();

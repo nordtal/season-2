@@ -8,9 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
 /**
- * {@link AdminOperators.Ops} against the running server, the two Bukkit calls {@code :common} cannot make.
- *
- * Uses {@code getOfflinePlayer}, since the quit handler de-ops somebody who has already left.
+ * {@link AdminOperators.Ops} on the running server.
+ * It uses {@code getOfflinePlayer}, because the quit handler removes the operator after the player left.
  */
 public final class BukkitOps implements AdminOperators.Ops {
 
@@ -24,7 +23,6 @@ public final class BukkitOps implements AdminOperators.Ops {
         return Bukkit.getOperators().stream().map(OfflinePlayer::getUniqueId).collect(Collectors.toUnmodifiableSet());
     }
 
-    /** Returns the applier every Paper plugin builds at enable. */
     public static AdminOperators create() {
         return new AdminOperators(new BukkitOps());
     }

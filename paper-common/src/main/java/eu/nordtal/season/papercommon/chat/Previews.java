@@ -24,32 +24,26 @@ import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Shows an admin's player a text they are trying for a key, in its language and as this server renders the key.
- * A title, a subtitle or an action bar is shown there; every other place a key is shown, a menu or a sidebar, only
- * has the text as a chat line, since drawing it would mean opening that place.
+ * Shows an admin's player a text for a key, in the player's language and as this server renders the key.
+ * A title, a subtitle or an action bar is shown there. Every other place a key appears receives a chat line.
  */
 public final class Previews {
 
     private final Function<UUID, @Nullable Player> online;
     private final MessageRenderer renderer;
 
-    /**
-     * @param online   the player of a UUID on this server, or {@code null} for one who is not here
-     * @param renderer the plugin's, so a name and a tone are drawn as this server draws them
-     */
     public Previews(final Function<UUID, @Nullable Player> online, final MessageRenderer renderer) {
         this.online = Objects.requireNonNull(online, "online");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
     }
 
-    /** Shows the preview to the player, refused while they are not on this server. */
     public Answer show(final PlayerId player, final MessagePreview preview) {
         final Player reader = online.apply(player.value());
         if (reader == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
         final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
-        // Painted as the key's own service paints it, which need not be this server.
+        // The key's own service paints the text, and that need not be this server.
         final Component text = preview.colours().isEmpty()
                 ? renderer.format(viewer, preview.message(), preview.text())
                 : renderer.format(viewer, preview.message(), preview.text(), paletteOf(preview.colours()));
@@ -62,7 +56,7 @@ public final class Previews {
         return Answer.done(MESSAGES.admin().previewShown());
     }
 
-    /** The tones by their tags as a palette; a tone missing or unreadable keeps its default. */
+    /** Returns the tones as a palette. A missing or unreadable tone keeps its default. */
     private static Palette paletteOf(final Map<String, String> colours) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {

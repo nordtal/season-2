@@ -5,12 +5,13 @@ import java.util.List;
 import java.util.Locale;
 import org.bukkit.entity.Player;
 
-/** One boss bar line a plugin declares on its {@link Hud}: what the line says to one player right now. */
+/** One boss bar line of a {@link Hud}. */
 @FunctionalInterface
 public interface HudLine {
 
     /**
-     * Returns the line's pills for {@code player}, in {@code locale}; none hides the bar. Main thread, every frame.
+     * Returns the pills for {@code player} in {@code locale}, or none to hide the bar.
+     * Called on the main thread every frame.
      */
     List<Pill> render(Player player, Locale locale);
 }

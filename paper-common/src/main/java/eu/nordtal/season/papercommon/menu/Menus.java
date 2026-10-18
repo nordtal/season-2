@@ -11,11 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-/**
- * The one listener every {@link Menu} goes through: its sounds on open and close, and its clicks.
- *
- * A player's own chest never reaches a menu, because only a menu is its inventory's holder.
- */
+/** The listener for every {@link Menu}: sounds on open and close, and clicks. */
 public final class Menus implements Listener {
 
     private final PaperUser.Chime chime;
@@ -24,7 +20,6 @@ public final class Menus implements Listener {
         this.chime = chime;
     }
 
-    /** Refuses the click unless the menu leaves that slot free, then lets it answer a click on its own slots. */
     @EventHandler
     public void onClick(final InventoryClickEvent event) {
         if (!(event.getInventory().getHolder() instanceof Menu menu)) {
@@ -44,7 +39,6 @@ public final class Menus implements Listener {
         if (sound != null) {
             chime.play(player, sound);
         }
-        // A next menu is an open, not a redraw, and the open closes this one.
         final Menu next = click.open();
         if (next != null) {
             next.open(player);
@@ -68,7 +62,7 @@ public final class Menus implements Listener {
         }
     }
 
-    /** Tells every menu still open that the plugin stops, on the main thread, since Paper disconnects players later. */
+    /** Tells every open menu on the main thread that the plugin stops. */
     public void stopAll() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             if (player.getOpenInventory().getTopInventory().getHolder() instanceof Menu menu) {

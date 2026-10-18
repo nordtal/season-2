@@ -29,13 +29,12 @@ import org.bukkit.damage.DamageType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reads what this server knows of the game into one {@link GameCatalogue}: every registry the pickers offer.
- *
- * English is the server's own en_us; recipe advancements, thousands that nobody picks, are left out.
+ * Reads every registry that the pickers offer into one {@link GameCatalogue}.
+ * English is the server's en_us.
+ * Recipe advancements are left out.
  */
 public final class GameDataExport {
 
-    /** What a death message's player and killer are rendered as, so the cause reads as a sentence. */
     private static final List<Component> DEATH_ARGUMENTS =
             List.of(Component.text("Someone"), Component.text("something"));
 
@@ -45,7 +44,7 @@ public final class GameDataExport {
 
     private GameDataExport() {}
 
-    /** Reads every registry; on the main thread, once the server has finished loading its datapacks. */
+    /** Reads every registry on the main thread, after the server has loaded its datapacks. */
     public static GameCatalogue read(final Server server, final Consumer<String> warn) {
         final Map<String, List<GameCatalogue.Entry>> registries = new LinkedHashMap<>();
         final Map<String, List<GameCatalogue.Tag>> tags = new LinkedHashMap<>();
@@ -87,7 +86,7 @@ public final class GameDataExport {
     private static List<GameCatalogue.Entry> damageTypes(final Registry<DamageType> registry) {
         return registry.stream()
                 .map(type -> {
-                    // A damage type's key is its death message's suffix; the message is what names it.
+                    // A damage type is named by its death message, whose key suffix is the type's key.
                     final String key = "death.attack." + type.getTranslationKey();
                     return GameCatalogue.Entry.named(type.getKey().toString(), key, textOf(key, DEATH_ARGUMENTS));
                 })
@@ -114,7 +113,6 @@ public final class GameDataExport {
         return found;
     }
 
-    /** Every statistic by the key a setting names it with, with its vanilla translation key where it is known. */
     private static List<GameCatalogue.Entry> statistics(final Consumer<String> warn) {
         final Map<Statistic, String> vanilla = vanillaStatistics(warn);
         final List<GameCatalogue.Entry> entries = new ArrayList<>();
@@ -143,9 +141,8 @@ public final class GameDataExport {
     }
 
     /**
-     * Bukkit's statistics by the vanilla id the server's language names them with, such as {@code minecraft:mined}.
-     *
-     * The API has no translation key for a statistic, so the server's own mapping is read; without it, none.
+     * Returns the statistics by their vanilla id, for example {@code minecraft:mined}.
+     * The API has no translation key, so this reads the server's mapping.
      */
     private static Map<Statistic, String> vanillaStatistics(final Consumer<String> warn) {
         final Map<Statistic, String> ids = new HashMap<>();
@@ -167,7 +164,6 @@ public final class GameDataExport {
         return ids;
     }
 
-    /** Every advancement that is not a recipe's, with what its tree and its card need. */
     private static List<GameCatalogue.Entry> advancements(final Iterator<Advancement> all) {
         final List<GameCatalogue.Entry> entries = new ArrayList<>();
         all.forEachRemaining(advancement -> {
@@ -206,9 +202,8 @@ public final class GameDataExport {
     }
 
     /**
-     * A statistic's English: the game's own where it is a name, such as {@code Times Mined}.
-     *
-     * The game words two as sentences with the mob in them ("You killed %s %s"); those are named after the key.
+     * Returns the English name of a statistic, for example {@code Times Mined}.
+     * A statistic that the game words as a sentence takes its name from the key.
      */
     private static @Nullable String statisticText(final Statistic statistic, final @Nullable String key) {
         final String text = textOf(key, List.of());
@@ -219,7 +214,7 @@ public final class GameDataExport {
         return Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
 
-    /** The English the server's language gives {@code key}, or none when it has no text for it. */
+    /** Returns the English text of {@code key} in the server's language, or null if it has none. */
     private static @Nullable String textOf(final @Nullable String key, final List<Component> arguments) {
         if (key == null) {
             return null;

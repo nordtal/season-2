@@ -10,13 +10,11 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 /**
- * The one way Paper code runs work later or elsewhere: the server's scheduler, told durations and never ticks.
- *
- * As a {@link Scheduler} it runs work off the main thread; the {@code onMain} methods run it on the main thread.
+ * Runs Paper work later or elsewhere, by durations and never by ticks.
+ * As a {@link Scheduler} it runs off the main thread.
  */
 public final class PaperScheduler implements Scheduler {
 
-    /** One server tick, for what a game measures in ticks. */
     public static final Duration TICK = Duration.ofMillis(50);
 
     private final Plugin plugin;
@@ -25,7 +23,7 @@ public final class PaperScheduler implements Scheduler {
         this.plugin = plugin;
     }
 
-    /** Returns the scheduler of {@code plugin}, whose work the server calls off when the plugin is disabled. */
+    /** Returns the scheduler of {@code plugin}. The server cancels its work when the plugin is disabled. */
     public static PaperScheduler of(final Plugin plugin) {
         return new PaperScheduler(plugin);
     }
@@ -40,22 +38,18 @@ public final class PaperScheduler implements Scheduler {
         return submit(() -> Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, work, ticks(delay)));
     }
 
-    /** Runs {@code work} on the main thread at the next tick. */
     public void onMain(final Runnable work) {
         final var _ = submit(() -> Bukkit.getScheduler().runTask(plugin, work));
     }
 
-    /** Runs {@code work} on the main thread once {@code delay} has passed, unless cancelled first. */
     public Task onMainAfter(final Duration delay, final Runnable work) {
         return submit(() -> Bukkit.getScheduler().runTaskLater(plugin, work, ticks(delay)));
     }
 
-    /** Runs {@code work} on the main thread after {@code delay} and then every {@code period}, at least a tick. */
     public Task onMainEvery(final Duration delay, final Duration period, final Runnable work) {
         return submit(() -> Bukkit.getScheduler().runTaskTimer(plugin, work, ticks(delay), Math.max(1, ticks(period))));
     }
 
-    /** Returns the main thread as a {@link Scheduler}, for code written against one whose work must run there. */
     public Scheduler mainThread() {
         return new Scheduler() {
             @Override
@@ -75,12 +69,10 @@ public final class PaperScheduler implements Scheduler {
         };
     }
 
-    /** Returns {@code duration} in whole ticks, rounded up so that nothing runs early. */
     static long ticks(final Duration duration) {
         return Math.ceilDiv(Math.max(0, duration.toMillis()), TICK.toMillis());
     }
 
-    /** Hands {@code scheduling} to the server; a disabled plugin is refused the way any stopped scheduler refuses. */
     private static Task submit(final Supplier<BukkitTask> scheduling) {
         try {
             return scheduling.get()::cancel;

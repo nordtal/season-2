@@ -9,9 +9,8 @@ import org.bukkit.Statistic;
 import org.bukkit.entity.EntityType;
 
 /**
- * Reads what a setting names in the game: a namespaced key such as {@code minecraft:oak_log}, as Steward writes it.
- *
- * A Bukkit name such as {@code OAK_LOG} reads as the same key, so a value typed by hand still resolves.
+ * Reads what a setting names in the game.
+ * The setting is a namespaced key such as {@code minecraft:oak_log} or a Bukkit name such as {@code OAK_LOG}.
  */
 public final class GameKeys {
 
@@ -19,13 +18,13 @@ public final class GameKeys {
 
     private GameKeys() {}
 
-    /** Returns {@code name} as a namespaced key in lower case, {@code minecraft} where it names no namespace. */
+    /** Returns {@code name} as a lower-case namespaced key, with {@code minecraft} if it names no namespace. */
     public static String key(final String name) {
         final String trimmed = name.trim().toLowerCase(Locale.ROOT);
         return trimmed.isEmpty() || trimmed.indexOf(':') >= 0 ? trimmed : MINECRAFT + trimmed;
     }
 
-    /** Returns the material a setting names; empty for an unknown or a legacy one. */
+    /** Returns the material a setting names, or empty if it is unknown or legacy. */
     public static Optional<Material> material(final String name) {
         final String key = key(name);
         if (!key.startsWith(MINECRAFT)) {
@@ -36,14 +35,12 @@ public final class GameKeys {
         return material == null || material.isLegacy() ? Optional.empty() : Optional.of(material);
     }
 
-    /** Returns the item a setting names as game content, which the client names in its reader's language. */
     public static GameContent item(final String name) {
         return material(name)
                 .map(material -> GameContent.of(material.translationKey()))
                 .orElseGet(() -> new GameContent(key(name), key(name)));
     }
 
-    /** Returns the statistic a setting names. */
     public static Optional<Statistic> statistic(final String name) {
         final String key = key(name);
         return Arrays.stream(Statistic.values())
@@ -51,7 +48,6 @@ public final class GameKeys {
                 .findFirst();
     }
 
-    /** Returns the entity type a setting names; never {@code UNKNOWN}. */
     public static Optional<EntityType> entity(final String name) {
         final String key = key(name);
         return Arrays.stream(EntityType.values())

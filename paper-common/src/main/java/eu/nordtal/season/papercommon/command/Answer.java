@@ -4,10 +4,10 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import java.util.Objects;
 
-/** What an admin action answers, the same whether the console typed it or another process asked for it. */
+/** The answer to an admin action, from the console or another process. */
 public sealed interface Answer {
 
-    /** Carried out. */
+    /** The action was carried out. */
     record Done(MessageRef message) implements Answer {
 
         public Done {
@@ -15,7 +15,7 @@ public sealed interface Answer {
         }
     }
 
-    /** Refused, which is an answer and not a fault. */
+    /** The action was refused. */
     record Refused(Refusal refusal) implements Answer {
 
         public Refused {
@@ -23,7 +23,7 @@ public sealed interface Answer {
         }
     }
 
-    /** Failed while it was carried out; the log says why. */
+    /** The action failed. The log says why. */
     record Failed(MessageRef message) implements Answer {
 
         public Failed {
@@ -31,17 +31,14 @@ public sealed interface Answer {
         }
     }
 
-    /** Returns a done answer. */
     static Answer done(final MessageRef message) {
         return new Done(message);
     }
 
-    /** Returns a refused answer. */
     static Answer refused(final Refusal refusal) {
         return new Refused(refusal);
     }
 
-    /** Returns a failed answer. */
     static Answer failed(final MessageRef message) {
         return new Failed(message);
     }

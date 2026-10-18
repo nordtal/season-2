@@ -97,15 +97,14 @@ public final class Evacuation {
     /** Reads the update row and moves the players when the countdown has ended. It never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> running;
-        final List<RunProgress.Step> steps;
         try {
             held = heldServices(updates.holds());
             running = updates.running();
-            steps = running.map(updates::stepsOf).orElseGet(List::of);
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
+        final List<RunProgress.Step> steps = steps(running);
 
         final Set<String> next = notYetReplaced(imminent(running), steps);
         if (next.isEmpty()) {
@@ -215,6 +214,19 @@ public final class Evacuation {
     /** Returns the services that the request stops. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
+    }
+
+    /**
+     * Reads the steps of the run, none when the read fails.
+     * A newer agent can write a step name this build lacks; every moving service then still counts.
+     */
+    private List<RunProgress.Step> steps(final Optional<UpdateRequest> running) {
+        try {
+            return running.map(updates::stepsOf).orElseGet(List::of);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not read the steps of the run; every moving service counts", failure);
+            return List.of();
+        }
     }
 
     /** Keeps the highest percentage of the run. */

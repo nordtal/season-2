@@ -508,4 +508,36 @@ class WaitingBookTest {
 
         assertFalse(book.anyQueued());
     }
+
+    @Test
+    void aQueuedPlayerHeldForAnotherReasonLeavesTheQueue() {
+        final WaitingBook book = book();
+        final UUID held = UUID.randomUUID();
+        final UUID admin = UUID.randomUUID();
+        for (final UUID uuid : List.of(player, held, admin)) {
+            book.entered(uuid);
+            book.packApplied(uuid);
+            book.ready(uuid);
+        }
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(held, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(admin, PLAYABLE, false, true, "smp", false, false).action());
+
+        assertEquals(
+                WaitingDecision.show(WaitReason.MAINTENANCE),
+                book.decide(held, SeasonPhase.MAINTENANCE, false, true, "smp", false, false));
+        clock.advance(Duration.ofSeconds(3));
+
+        assertEquals(
+                Action.RELEASE,
+                book.decide(admin, SeasonPhase.MAINTENANCE, true, true, "smp", false, false)
+                        .action(),
+                "a player kept back by maintenance does not keep the head of the queue");
+    }
 }

@@ -260,6 +260,8 @@ public final class WaitingBook {
                     packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
                 session.settledAt = null;
+                // A player held back for another reason would otherwise keep the head of the queue.
+                queue.leave(uuid);
                 if (reason.get() == session.shown) {
                     return WaitingDecision.idle();
                 }

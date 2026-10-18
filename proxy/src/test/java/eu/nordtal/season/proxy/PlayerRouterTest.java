@@ -12,17 +12,24 @@ class PlayerRouterTest {
 
     @Test
     void aMoveOntoSmpGoesThroughTheWaitingRoom() {
-        assertEquals("limbo", PlayerRouter.viaWaitingRoom("smp", servers, Set.of("limbo", "smp")));
+        assertEquals("limbo", PlayerRouter.viaWaitingRoom("smp", "hunger-games", servers, Set.of("limbo", "smp")));
     }
 
     @Test
     void withoutAWaitingRoomTheMoveGoesStraightThere() {
-        assertEquals("smp", PlayerRouter.viaWaitingRoom("smp", servers, Set.of("smp")));
+        assertEquals("smp", PlayerRouter.viaWaitingRoom("smp", "hunger-games", servers, Set.of("smp")));
+    }
+
+    @Test
+    void aPlayerAlreadyOnSmpStaysThere() {
+        // The phase change resolves to smp for everybody; those on it would otherwise queue again.
+        assertEquals("smp", PlayerRouter.viaWaitingRoom("smp", "smp", servers, Set.of("limbo", "smp")));
     }
 
     @Test
     void otherServersAreNotQueued() {
         assertEquals(
-                "hunger-games", PlayerRouter.viaWaitingRoom("hunger-games", servers, Set.of("limbo", "hunger-games")));
+                "hunger-games",
+                PlayerRouter.viaWaitingRoom("hunger-games", "smp", servers, Set.of("limbo", "hunger-games")));
     }
 }

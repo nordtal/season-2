@@ -248,6 +248,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                         player,
                         viaWaitingRoom(
                                 Objects.requireNonNull(decision.server(), "CONNECT always carries a server"),
+                                player.getCurrentServer()
+                                        .map(on -> on.getServerInfo().getName())
+                                        .orElse(null),
                                 routing.servers(),
                                 available),
                         state.locale());
@@ -261,9 +264,16 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
     /**
      * Returns the waiting room for a move onto {@code smp}, whose queue lets the player on; otherwise the server.
-     * Without a registered {@code limbo} the player goes straight there.
+     * Without a registered {@code limbo} the player goes straight there, and a player on the server stays.
      */
-    static String viaWaitingRoom(final String server, final PhaseServers servers, final Set<String> available) {
+    static String viaWaitingRoom(
+            final String server,
+            final @Nullable String current,
+            final PhaseServers servers,
+            final Set<String> available) {
+        if (server.equals(current)) {
+            return server;
+        }
         final String limbo = servers.limbo();
         return server.equals(servers.smp()) && available.contains(limbo) ? limbo : server;
     }

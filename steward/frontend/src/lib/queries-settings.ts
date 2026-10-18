@@ -8,6 +8,7 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
+  type Layouts,
   type MessageChanges,
   type MessageSaveResult,
   type MessageTexts,
@@ -78,6 +79,14 @@ export function useMessageTexts(enabled = true) {
   return useQuery({
     queryKey: keys.messageTexts,
     queryFn: () => api<MessageTexts>("/api/messages"),
+    enabled,
+  })
+}
+
+export function useLayouts(enabled = true) {
+  return useQuery({
+    queryKey: keys.layouts,
+    queryFn: () => api<Layouts>("/api/layouts"),
     enabled,
   })
 }

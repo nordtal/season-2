@@ -447,7 +447,7 @@ function Hotbar() {
   )
 }
 
-function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
+export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   return (
     <>
       {runs.map((run, index) => {
@@ -500,6 +500,61 @@ function author(children: ReactNode) {
   )
 }
 
+/** A button as Discord draws it: blurple for the bot's own, grey for a link. */
+export function DiscordButton({ children, link = false }: { children: ReactNode; link?: boolean }) {
+  return (
+    <span
+      className="inline-flex h-8 items-center gap-1.5 rounded-[3px] px-4 text-sm font-medium text-white"
+      style={{ background: link ? "#4e5058" : "#5865f2" }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/** A closed select as Discord draws it, showing its placeholder. */
+export function DiscordSelect({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn("flex h-10 max-w-[400px] items-center justify-between rounded-[4px] px-3 text-sm", className)}
+      style={{ background: "#1e1f22", color: "#949ba4" }}
+    >
+      <span className="truncate">{children}</span>
+      <CaretDownIcon aria-hidden className="size-4 shrink-0" />
+    </div>
+  )
+}
+
+function DiscordSurface({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn("flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)}
+      style={{ background: "#313338", color: "#dbdee1" }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** A message of the bot as Discord draws it in a channel, under the bot's mark and name. */
+export function DiscordMessage({ children, className }: { children: ReactNode; className?: string }) {
+  return <DiscordSurface className={className}>{author(children)}</DiscordSurface>
+}
+
+/** A modal as Discord draws it over the channel. */
+export function DiscordModal({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <DiscordSurface className={className}>
+      <div
+        className="mx-auto flex w-full max-w-[440px] flex-col gap-4 rounded-md p-4"
+        style={{ background: "#2b2d31" }}
+      >
+        {children}
+      </div>
+    </DiscordSurface>
+  )
+}
+
 function DiscordPreview({
   runs,
   shown,
@@ -512,14 +567,7 @@ function DiscordPreview({
   className?: string
 }) {
   const body = <DiscordRuns runs={runs} fill={fill} />
-  const surface = (children: ReactNode) => (
-    <div
-      className={cn("flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)}
-      style={{ background: "#313338", color: "#dbdee1" }}
-    >
-      {children}
-    </div>
-  )
+  const surface = (children: ReactNode) => <DiscordSurface className={className}>{children}</DiscordSurface>
   switch (shown) {
     case "DISCORD_EMBED":
     case "DISCORD_EMBED_HEADING": {
@@ -543,34 +591,19 @@ function DiscordPreview({
       return surface(
         author(
           <div className="mt-2 flex flex-wrap gap-2">
-            <span
-              className="inline-flex h-8 items-center rounded-[3px] px-4 text-sm font-medium text-white"
-              style={{ background: "#5865f2" }}
-            >
-              {body}
-            </span>
+            <DiscordButton>{body}</DiscordButton>
           </div>,
         ),
       )
     case "DISCORD_MODAL":
-      return surface(
-        <div className="mx-auto w-full max-w-[440px] rounded-md p-4" style={{ background: "#2b2d31" }}>
+      return (
+        <DiscordModal className={className}>
           <div className="text-xl font-semibold text-white">{body}</div>
-          <div className="mt-4 h-10 rounded-[3px]" style={{ background: "#1e1f22" }} />
-        </div>,
+          <div className="h-10 rounded-[3px]" style={{ background: "#1e1f22" }} />
+        </DiscordModal>
       )
     case "DISCORD_SELECT":
-      return surface(
-        author(
-          <div
-            className="mt-2 flex h-10 max-w-[400px] items-center justify-between rounded-[4px] px-3 text-sm"
-            style={{ background: "#1e1f22", color: "#949ba4" }}
-          >
-            <span className="truncate">{body}</span>
-            <CaretDownIcon aria-hidden className="size-4 shrink-0" />
-          </div>,
-        ),
-      )
+      return surface(author(<DiscordSelect className="mt-2">{body}</DiscordSelect>))
     case "DISCORD_CHANNEL":
       return surface(
         <div className="w-full max-w-60 rounded-[4px] p-2" style={{ background: "#2b2d31" }}>

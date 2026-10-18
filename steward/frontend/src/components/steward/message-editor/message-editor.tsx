@@ -61,6 +61,11 @@ export type MessageEditorProps = {
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
   previews?: Record<string, MessagePreviewTarget>
+  /** The language shown, held by the caller; without it the editor holds its own. */
+  language?: Language
+  onLanguage?: (language: Language) => void
+  /** Whether the text is drawn in each of its places under the field, with a button that sends it. */
+  placePreviews?: boolean
 }
 
 /**
@@ -81,8 +86,13 @@ export function MessageEditor({
   onTakeOver,
   takingOver,
   previews,
+  language: held,
+  onLanguage,
+  placePreviews = true,
 }: MessageEditorProps) {
-  const [language, setLanguage] = useState<Language>(ENGLISH)
+  const [own, setOwn] = useState<Language>(ENGLISH)
+  const language = held ?? own
+  const setLanguage = onLanguage ?? setOwn
   const [variant, setVariant] = useState(0)
   const [source, setSource] = useState(false)
   const ref = useLanding(highlight)
@@ -103,7 +113,8 @@ export function MessageEditor({
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
   if (seenSeq.current !== highlight?.seq) {
     seenSeq.current = highlight?.seq
-    if (highlight?.language) setLanguage(highlight.language)
+    // A caller that holds the language sets it for the jump itself.
+    if (highlight?.language && held === undefined) setOwn(highlight.language)
   }
 
   const typed = draft?.[language]
@@ -127,8 +138,8 @@ export function MessageEditor({
   const shownAt = previewPlacesOf(entry)
 
   const overridden = (tab: Language) => {
-    const own = draft?.[tab]
-    return own === null ? false : own !== undefined ? true : overrideOf(entry, tab) !== undefined
+    const drafted = draft?.[tab]
+    return drafted === null ? false : drafted !== undefined ? true : overrideOf(entry, tab) !== undefined
   }
   const empty = (tab: Language) => packagedOf(entry, tab).length === 0 && !overridden(tab)
   const fallback = fallbacks.find((candidate) => candidate.language === language)
@@ -302,7 +313,7 @@ export function MessageEditor({
           ))}
         </ul>
       ) : null}
-      {drawn !== null ? (
+      {drawn !== null && placePreviews ? (
         <div className={cn("grid grid-cols-1 gap-3", shownAt.length > 1 && "lg:grid-cols-2")}>
           {shownAt.map((place) => (
             <PlacePreview

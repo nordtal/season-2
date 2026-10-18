@@ -11,7 +11,7 @@ export type Places = Record<string, MessageSurface>
  */
 export type TextGroup = MessageSurface | "VALUES"
 
-export const TEXT_GROUPS: readonly TextGroup[] = ["GAME", "DISCORD", "STEWARD", "VALUES"]
+export const TEXT_GROUPS: readonly TextGroup[] = ["DISCORD", "GAME", "STEWARD", "VALUES"]
 
 /**
  * The bundles of the words other texts are built from, `Messages.VALUES` and `Messages.TERMS` on the server.

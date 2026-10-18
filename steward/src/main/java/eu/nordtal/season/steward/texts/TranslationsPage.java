@@ -26,6 +26,9 @@ public interface TranslationsPage {
     @Name("No texts")
     MessageRef none();
 
+    @Name("Texts of a layout")
+    MessageRef parts();
+
     /** The place where a text appears, or the building blocks. */
     enum Group {
         GAME,

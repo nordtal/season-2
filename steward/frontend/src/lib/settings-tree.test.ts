@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { ConfigEntry, MessageEntry, MessageSurface, MessageText } from "@/lib/api"
+import { view } from "@/pages/translations.fixtures"
 import { humanFileName } from "@/components/steward/config-controls"
 import {
   ancestorsOf,
@@ -144,11 +145,11 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual([
+      "[Discord > Direct message]",
+      "  access/dm.granted",
       "[In game > Smp > Graves]",
       "  smp/smp.grave.decay",
       "  smp/smp.grave.limit",
-      "[Discord > Direct message]",
-      "  access/dm.granted",
       "[Steward & Admin > Page]",
       "  steward/page.title",
     ])
@@ -175,11 +176,11 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual([
+      "[Discord]",
+      "  smp/welcome",
       "[In game > Command]",
       "  proxy/command.unknown",
       "  paper-common/command.unknown",
-      "[Discord]",
-      "  smp/welcome",
     ])
   })
 
@@ -189,6 +190,33 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward & Admin]", "  smp/other"])
+  })
+
+  it("lists a declared layout as one leaf under its area, beside the texts of that topic it does not show", () => {
+    const tree = textsTree(
+      [
+        text({ key: "contribution.title", bundle: "access", section: ["Contribution"], shown: ["DISCORD_MESSAGE"] }),
+        text({ key: "contribution.button", bundle: "access", section: ["Contribution"], shown: ["DISCORD_BUTTON"] }),
+        text({ key: "contribution.thanks", bundle: "access", section: ["Contribution"], shown: ["DISCORD_MESSAGE"] }),
+        text({ key: "welcome", shown: ["CHAT"] }),
+      ],
+      PLACES,
+      [
+        view({ name: "contribution", area: "Contribution" }, [
+          "access/contribution.title",
+          "access/contribution.button",
+        ]),
+      ],
+    )
+
+    expect(shape(tree)).toEqual([
+      "[Discord > Contribution]",
+      "  layout:access/contribution",
+      "  access/contribution.thanks",
+      "[In game]",
+      "  smp/welcome",
+    ])
+    expect(ancestorsOf(tree, "access/contribution.button")).toEqual(["DISCORD:@Contribution"])
   })
 
   it("shows a message by its name, or by its last segment made readable", () => {
@@ -208,7 +236,7 @@ describe("walking a tree", () => {
   })
 
   it("names the branches to open for a key, outermost first", () => {
-    expect(ancestorsOf(tree, "smp/a.b.two")).toEqual(["GAME:a", "GAME:a.b"])
+    expect(ancestorsOf(tree, "smp/a.b.two")).toEqual(["GAME:@A", "GAME:a.b"])
     expect(ancestorsOf(tree, "smp/d")).toEqual([])
     expect(ancestorsOf(tree, "missing")).toBeNull()
   })

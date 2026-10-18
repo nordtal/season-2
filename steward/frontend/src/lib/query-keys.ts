@@ -44,6 +44,7 @@ export const keys = {
   config: (file: string) => ["config", file] as const,
   guildChannels: ["guild-channels"] as const,
   messageTexts: ["message-texts"] as const,
+  layouts: ["layouts"] as const,
   descriptors: ["descriptors"] as const,
   gameData: ["game-data"] as const,
   messageExamples: ["message-examples"] as const,

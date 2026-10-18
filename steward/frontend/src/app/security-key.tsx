@@ -16,9 +16,9 @@ import { Label } from "@/components/ui/label"
 import { t } from "@/lib/texts"
 
 /**
- * The one page an account with no second factor can reach, the whole window since nothing behind it would load.
+ * The one page that an account without a second factor can reach. It fills the window, because nothing behind it would load.
  *
- * A key is the first offer; an authenticator app is the other while the installation has a key to keep its secret.
+ * A key is the first offer. An authenticator app is the other, when the installation has a key to keep its secret.
  */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
@@ -69,7 +69,7 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                   maxLength={64}
                   autoComplete="off"
                 />
-                {/* A name, since the label later has to answer which of two keys is still there. */}
+                {/* The name lets the admin tell which of two keys remains. */}
               </div>
 
               <Button type="submit" size="lg" disabled={!supported || register.isPending}>
@@ -117,7 +117,9 @@ export function SecurityKeyPage({ me }: { me: Me }) {
   )
 }
 
-/** A name guessed from the device, offered only as a placeholder so nobody gets three keys called "iPhone". */
+/**
+ * A name guessed from the device. It is only a placeholder, so nobody ends up with three keys called "iPhone".
+ */
 function suggestedLabel(): string {
   if (typeof navigator === "undefined") return t("steward.keys.my-key")
   const agent = navigator.userAgent

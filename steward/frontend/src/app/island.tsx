@@ -6,16 +6,18 @@ import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
 import { t } from "@/lib/texts"
 
-/** The chrome's pieces: the toggle, the mark, the trail and the search, none with a border of its own. */
+/** The pieces of the chrome: toggle, mark, trail and search. None has a border of its own. */
 
-/** A ghost control, the one shape every button in the chrome has. */
+/** A ghost control. Every button in the chrome has this shape. */
 export const CONTROL =
   "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
 
-/** The one motion of the frame, shared by the column, the island's surface and the dock. */
+/** The motion shared by the column, the island's surface and the dock. */
 export const MOTION = "duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:duration-0"
 
-/** The navigation toggle; on a phone it turns into a cross, since there it is the only way to close. */
+/**
+ * The navigation toggle. On a phone it turns into a cross, because there it is the only way to close the navigation.
+ */
 export function NavToggle({
   shown,
   onToggle,
@@ -50,9 +52,9 @@ export function NavToggle({
 }
 
 /**
- * The mark and the word "Steward", leading to Overview.
+ * The mark and the word "Steward", linking to Overview.
  *
- * No left padding, so the mark starts on the line where every label starts.
+ * It has no left padding, so the mark starts on the line where every label starts.
  */
 export function Brand({ onFollow, version }: { onFollow?: () => void; version: boolean }) {
   return (
@@ -67,9 +69,9 @@ export function Brand({ onFollow, version }: { onFollow?: () => void; version: b
 }
 
 /**
- * The mark and the word "Steward", as the column's head and the phone's dock both draw them.
+ * The mark and the word "Steward", drawn in the column's head and in the phone's dock.
  *
- * With `version`, the release folds out beneath the word; a build without one, the dev server's, shows none.
+ * With `version`, the release shows under the word. A build without a release, such as the dev server's, shows none.
  */
 export function BrandFace({ version }: { version: boolean }) {
   const release = import.meta.env.VITE_VERSION
@@ -93,7 +95,9 @@ export function BrandFace({ version }: { version: boolean }) {
   )
 }
 
-/** The page's path after the mark, the ancestors shrinking first so a tight trail still ends on the page. */
+/**
+ * The path of the page after the mark. The ancestors shrink first, so a tight trail still ends on the page.
+ */
 export function Trail({ crumbs }: { crumbs: Crumb[] }) {
   return (
     <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
@@ -123,7 +127,7 @@ export function openCommandPalette() {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))
 }
 
-/** A button that looks like a place to type, since a real input would be a second one. */
+/** A button that looks like a field, so the chrome has no second input. */
 export function SearchButton() {
   return (
     <button type="button" onClick={openCommandPalette} aria-label={t("steward.shell.search-pages")} className={CONTROL}>

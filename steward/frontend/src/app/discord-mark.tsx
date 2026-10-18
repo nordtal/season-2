@@ -1,4 +1,6 @@
-/** Discord's logo from simple-icons (CC0), filled with `currentColor` so it follows the button's colour. */
+/**
+ * Discord's logo from simple-icons (CC0). It is filled with `currentColor`, so it takes the button's colour.
+ */
 export function DiscordMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>

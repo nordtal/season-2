@@ -20,55 +20,69 @@ import { t } from "@/lib/texts"
 export { breadcrumbsFor } from "@/app/breadcrumbs"
 
 /**
- * The shell: a fixed viewport with one scrolling column, and navigation from `app/frames.tsx`.
+ * The shell: a fixed viewport with one scrolling column and the navigation from `app/frames.tsx`.
  *
- * Its height is `--app-height`, measured by `lib/app-frame.ts`, and every edge gives back its safe area inset.
+ * Its height is `--app-height`, which `lib/app-frame.ts` measures. Every edge keeps clear of its safe area inset.
  */
 export function Shell() {
   const me = useMe()
   const isMobile = useIsMobile()
 
-  /** Draws nothing until `/api/me` answers, so no sidebar of 401ing pages flashes up first. */
+  /** Draws nothing until `/api/me` answers, so no sidebar of pages that answer 401 flashes up. */
   if (me.isPending) return <SignInPage loading />
 
-  /** Only a 401 is the signed out state; any other failure is a fault and must not draw the sign in page. */
+  /**
+   * Only a 401 means signed out. Any other failure is a fault and does not draw the sign-in page.
+   */
   const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError && me.error.isSignedOut
   if (signedOut) return <SignInPage me={me.data} />
 
-  /** A failed `/api/me` also withholds the shell, since the CSRF token arrives with it. */
+  /**
+   * A failed `/api/me` also withholds the shell, because the CSRF token arrives with that answer.
+   */
   if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
 
-  /** An account without a second factor reaches only `/api/me`, so the setup page is the only one that answers. */
+  /**
+   * An account without a second factor can reach only `/api/me`, so only the setup page can load.
+   */
   if ((me.data.keys?.length ?? 0) === 0 && !me.data.authenticator) return <SecurityKeyPage me={me.data} />
 
-  /** A session that has used no factor here is refused everywhere else; `verified` is per session. */
+  /** Every other route refuses a session that has used no factor. `verified` is per session. */
   if (!me.data.verified) return <HoldKeyPage me={me.data} />
 
   return <SignedIn me={me.data} isMobile={isMobile} />
 }
 
-/** Everything past the four doors, apart from {@link Shell} since it reads the router and they do not. */
+/**
+ * Everything after the four checks above. It is separate from {@link Shell} because it reads the router.
+ */
 function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
-  /** Here, past the key, since `/api/live` answers only a session that holds one. */
+  /**
+   * This runs after the key check, because `/api/live` answers only a session that holds a key.
+   */
   useLiveStream(true)
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
-        /** The provider writes this cookie but never reads it, so reading it keeps a collapsed sidebar collapsed. */
+        /**
+         * The provider writes this cookie and never reads it, so this call reads it to keep a collapsed sidebar collapsed.
+         */
         defaultOpen={sidebarDefaultOpen(document.cookie)}
       >
         <AppFrame me={me} />
-        {/* Bottom centre on a phone, where a corner toast covers a control; one Toaster, as `toast()` reaches all. */}
+        {/* On a phone the toasts are at the bottom centre, where a corner toast would cover a control. One Toaster serves every `toast()` call. */}
         <Toaster position={isMobile ? "bottom-center" : "bottom-right"} richColors closeButton />
         <CommandPalette />
-        {/* Inside the shell, since the setup and key pages call nothing that could ask for it. */}
+        {/* It is inside the shell, because the setup and key pages call nothing that could ask for a step-up. */}
         <StepUp />
       </SidebarProvider>
     </TooltipProvider>
   )
 }
 
-/** `/api/me` failed with something other than a 401, and {@link Failure} names which service answered. */
+/**
+ * Shown when `/api/me` failed with something other than a 401. {@link Failure} names the service that answered.
+ */
 function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">

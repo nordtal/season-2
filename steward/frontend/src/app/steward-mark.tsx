@@ -1,14 +1,14 @@
 /**
- * The mark, the same `pack.png` a player sees as the server icon, used as favicon and home screen icon too.
+ * The mark. It is the `pack.png` that players see as the server icon, and it is also the favicon and the home screen icon.
  *
- * `public/icon.png` is a copy held by `MarkIsTheServerIconTest`. It is only ever downscaled, so no `image-rendering`.
+ * `public/icon.png` is a copy that `MarkIsTheServerIconTest` holds. The image is only scaled down, so it sets no `image-rendering`.
  */
 export function StewardMark({
   className,
   round = false,
 }: {
   className?: string
-  /** Drawn as a circle, where it stands for the bot as a Discord avatar. */
+  /** Draws the mark as a circle, for the bot's Discord avatar. */
   round?: boolean
 }) {
   return (
@@ -19,7 +19,7 @@ export function StewardMark({
       width={128}
       height={128}
       className={className}
-      /** The interface's own radius, since an unrounded square beside rounded cards reads as a sticker. */
+      /** Uses the interface's own radius, so the square matches the rounded cards beside it. */
       style={{ borderRadius: round ? "50%" : "var(--radius-sm)" }}
     />
   )

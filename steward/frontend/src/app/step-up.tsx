@@ -20,18 +20,18 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The step-up in front of a change that needs one, after which the same request goes again.
+ * The step-up in front of a change that needs one. The same request is sent again afterwards.
  *
- * It offers the factors the account has, the key first and the app's code below it. One step-up holds for the first of `stepUpHolds`; the split button's menu offers the longer ones for this touch only.
+ * It offers the factors of the account: the key first, then the app's code. One step-up holds for the first value of `stepUpHolds`. The split button's menu offers the longer values for this step-up only.
  *
- * Safari opens the key dialog only on a fresh tap; a failed ceremony fails the original request with it.
+ * Safari opens the key dialog only on a fresh tap. A failed ceremony fails the original request.
  */
 export function StepUp() {
   const me = useMe()
   const [asking, setAsking] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  /** The promise `api()` is parked on, in a ref since nothing draws it. */
+  /** The promise that `api()` waits on. It is in a ref, because nothing draws it. */
   const pending = useRef<{ resolve: () => void; reject: (cause: Error) => void } | null>(null)
 
   const settle = useCallback((outcome: Error | null) => {
@@ -48,14 +48,14 @@ export function StepUp() {
     onSecondFactorRequired(
       () =>
         new Promise<void>((resolve, reject) => {
-          /** A second refusal replaces the first waiter, which is rejected rather than left spinning. */
+          /** A second refusal replaces the first waiter and rejects it. */
           pending.current?.reject(new Error(t("steward.keys.another-first")))
           pending.current = { resolve, reject }
           setFailure(null)
           setAsking(true)
         }),
     )
-    /** Uninstalled on unmount, so `api()` never waits on a dialog no longer drawn. */
+    /** Removes the listener on unmount, so `api()` never waits on a dialog that is not drawn. */
     return () => onSecondFactorRequired(null)
   }, [])
 
@@ -72,7 +72,7 @@ export function StepUp() {
     setFailure(null)
     try {
       await holdTheKey(length)
-      /** Refetched, since the shell is drawn from `verifiedAt`. */
+      /** Refetches, because the shell is drawn from `verifiedAt`. */
       await me.refetch()
       settle(null)
     } catch (refused) {
@@ -132,7 +132,7 @@ export function StepUp() {
           </p>
         ) : null}
 
-        {/* The key first, as the stronger factor; the app's code below it when the account has one. */}
+        {/* The key comes first as the stronger factor. The app's code follows when the account has one. */}
         {hasKeys ? (
           <HoldSplitButton holds={holds} onHold={(length) => void hold(length)} disabled={!ready}>
             <FingerprintIcon aria-hidden />

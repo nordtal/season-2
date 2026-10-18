@@ -36,20 +36,22 @@ import { shownOf } from "@/lib/message-text"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
-/** Four rows while the documents are read. */
+/** The number of placeholder hits shown while the documents load. */
 const WAITING_HITS = [0, 1, 2, 3]
 
-/** How many settings hits the palette shows, since cmdk draws every item it is handed. */
+/** The number of settings hits the palette shows. cmdk draws every item it gets. */
 const MAX_SETTINGS_HITS = 30
 
-/** A stable identity for "nothing loaded yet", so a memo keyed on it does not recompute every render. */
+/**
+ * An empty list with a fixed identity, so a memo that depends on it does not recompute on every render.
+ */
 const NO_CONFIGS: ConfigLocation[] = []
 const NO_TEXTS: MessageText[] = []
 
 /**
- * A run's search text: number, kind, outcome, absolute time and the kind's extra search terms.
+ * Returns the search text of a run: number, kind, outcome, absolute time and the kind's search terms.
  *
- * `dateTime`, not `relative`, since a relative time would match different text from one render to the next.
+ * It uses `dateTime`, because a `relative` time changes between renders.
  */
 function runSearchValue(run: Run): string {
   return searchValue(
@@ -64,45 +66,51 @@ function runSearchValue(run: Run): string {
 }
 
 /**
- * The search dialog on Ctrl+K and ⌘K: every route, every run, and every setting and message.
+ * The search dialog on Ctrl+K and ⌘K. It searches routes, runs, settings and messages.
  *
- * Runs, configs and texts are only fetched while the dialog is open.
+ * It fetches runs, configs and texts only while it is open.
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
-  /** Controlled only so the Settings group knows what was typed; the other groups use cmdk's filter. */
+  /**
+   * The palette controls the search state itself, because the Settings group needs the typed text. The other groups use cmdk's filter.
+   */
   const [search, setSearch] = React.useState("")
   const navigate = useNavigate()
   const groups = useNavigation()
   const runs = useRuns(20, open).data ?? []
 
-  /** Every config file's documents, fetched once the palette is open and something is typed. */
+  /**
+   * Fetches the documents of every config file once the palette is open and something is typed.
+   */
   const locations = useConfigs(open).data ?? NO_CONFIGS
   const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
   const documents = useConfigDocuments(paths, open && search.trim().length > 0)
 
-  /** The texts, the second supplier of the same search, gated the same way. */
+  /** Fetches the texts under the same condition. */
   const textsQuery = useMessageTexts(open && search.trim().length > 0)
   const texts = textsQuery.data?.texts ?? NO_TEXTS
 
-  /** While documents are still on the wire, the settings group shows a waiting shape, not "Nothing found.". */
+  /**
+   * While the documents load, the settings group shows placeholders instead of "Nothing found.".
+   */
   const reading =
     open && search.trim().length > 0 && (documents.some((query) => query.isPending) || textsQuery.isPending)
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
     const configPairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
-    /** Ranked before `MAX_SETTINGS_HITS` cuts the list, so cmdk gets the best thirty, not the first. */
+    /** Ranks the hits before `MAX_SETTINGS_HITS` cuts the list, so cmdk gets the best hits. */
     return rankHits(searchSettingsAndMessages(configPairs, texts, search), search)
   }, [locations, documents, texts, search])
 
-  /** The listener is registered once, so it reads `open` through a ref. */
+  /** The key listener is registered once, so it reads `open` through a ref. */
   const openRef = React.useRef(open)
   React.useEffect(() => {
     openRef.current = open
   }, [open])
 
-  /** Clears a stale query on reopening, during render, since this component never unmounts. */
+  /** Clears the old query on reopening during render, because the component never unmounts. */
   const [wasOpen, setWasOpen] = React.useState(open)
   if (wasOpen !== open) {
     setWasOpen(open)
@@ -113,7 +121,9 @@ export function CommandPalette() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "k") return
       if (!event.metaKey && !event.ctrlKey) return
-      /** A Ctrl+K typed into a field stays the browser's, except in the palette's own input, where it closes. */
+      /**
+       * Ctrl+K in a text field stays with the browser. In the palette's own input it closes the palette.
+       */
       if (!openRef.current && isEditable(event.target)) return
       event.preventDefault()
       setOpen((previous) => !previous)
@@ -129,13 +139,13 @@ export function CommandPalette() {
       title={t("steward.shell.search")}
       description={t("steward.shell.jump")}
       label={t("steward.shell.search-label")}
-      // A substring match ranking a name above a mention; the text is in `keywords`, as `value` is the identity.
+      // Ranks a name above a mention. The text is in `keywords`, because `value` is the row's identity.
       filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
-      // The dialog half only: on a phone the sheet is the full width at the bottom edge.
+      // Applies to the dialog only. On a phone the sheet is full width at the bottom edge.
       className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
     >
       <CommandInput
-        /** A sheet focuses itself rather than its first field, so the field takes it. */
+        /** A sheet focuses itself, so this field takes the focus. */
         autoFocus
         value={search}
         onValueChange={setSearch}
@@ -152,7 +162,9 @@ export function CommandPalette() {
                 return (
                   <CommandItem
                     key={entry.id}
-                    /** The label first, so a row named what was typed ranks above one that only mentions it. */
+                    /**
+                     * Starts the value with the label, so a row named like the query ranks above a row that only mentions it.
+                     */
                     value={`page-${group.id}-${entry.id}`}
                     keywords={[
                       searchValue(
@@ -201,8 +213,8 @@ export function CommandPalette() {
             </CommandGroup>
           </>
         ) : null}
-        {/* The settings search, only once something is typed, since the list is not a small fixed set. */}
-        {/* Plain divs outside any group, since cmdk would filter a waiting `CommandItem` away. */}
+        {/* The settings search shows only once something is typed. */}
+        {/* These are plain divs outside any group, because cmdk filters out a placeholder `CommandItem`. */}
         {reading && settingsHits.length === 0 ? (
           <>
             <CommandSeparator />
@@ -220,7 +232,7 @@ export function CommandPalette() {
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/* Setting and text hits together; a setting opens its group, a text the Translations page. */}
+            {/* Settings hits and text hits share one group. A setting opens its group, and a text opens the Translations page. */}
             <CommandGroup heading={t("steward.shell.settings")}>
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 if (hit.kind === "config") {
@@ -233,7 +245,7 @@ export function CommandPalette() {
                       onSelect={() => {
                         setOpen(false)
                         setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                        // The network's own groups sit on the season page, every other on its service's.
+                        // The network's groups are on the season page. The groups of every other service are on that service's page.
                         void (service === NETWORK
                           ? navigate({ to: "/season", search: { file: hit.location.path } })
                           : navigate({
@@ -278,7 +290,7 @@ export function CommandPalette() {
   )
 }
 
-/** The right-hand side of a hit: its service or bundle, then the value or text, cut short. */
+/** The right side of a hit: the service or bundle, then the value or text, shortened. */
 function HitDetail({ where, text }: { where: string; text: string | null | undefined }) {
   const flat = (text ?? "").replace(/\s+/g, " ").trim()
   const short = flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
@@ -290,7 +302,7 @@ function HitDetail({ where, text }: { where: string; text: string | null | undef
   )
 }
 
-/** Whether the key went to something somebody is typing in. */
+/** Returns whether the key press went to a field that is being typed in. */
 function isEditable(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true

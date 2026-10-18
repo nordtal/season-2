@@ -1,9 +1,15 @@
-/** The German search word, spelled out only here since this is the one file `language.test.ts` exempts. */
+/**
+ * The German search word. It is written out only in this file, which `language.test.ts` exempts.
+ */
 export const GERMAN_BACKUP_SYNONYM = "sicherung"
 
-/** Words a person might type for a run's kind besides its own name; they are matched, never rendered. */
+/**
+ * Words a person might type for a run's kind besides its name. They are matched and never shown.
+ */
 export const RUN_KIND_SEARCH_TERMS: Record<string, string[]> = {
-  /** "archive" as on the static Backup page entry, so a backup run answers to the same words as the page. */
+  /**
+   * "archive" is also a search word of the static Backup page entry, so a backup run and the page answer to the same words.
+   */
   BACKUP: ["backup", GERMAN_BACKUP_SYNONYM, "dump", "report", "archive"],
   UPDATE: ["update"],
   RESTART: ["restart"],

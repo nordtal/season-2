@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Shell } from "@/app/shell"
 
 /**
- * Which of the doors `/api/me` opens: sign in on a 401, `DoorIsStuck` on a fault, setup without a key.
+ * Tests which page `/api/me` selects: sign-in on a 401, `DoorIsStuck` on a fault, setup without a key.
  *
- * The signed in branch needs a router that jsdom cannot carry, so it is not rendered here.
+ * jsdom cannot carry the router that the signed-in branch needs, so the test does not render that branch.
  */
 
 function answer(status: number, body: unknown): Response {
@@ -19,7 +19,7 @@ function answer(status: number, body: unknown): Response {
 
 let fetched: ReturnType<typeof vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>>
 
-/** Retries off: `useMe` sets `retry: false` itself, and this keeps the client honest about it. */
+/** Turns retries off. `useMe` already sets `retry: false`, and the test client matches it. */
 function draw() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -29,10 +29,10 @@ function draw() {
   )
 }
 
-/** The sign-in page, identified by the one thing only it has. */
+/** Finds the sign-in page by the one element only it has. */
 const signInButton = () => screen.queryByRole("link", { name: /Sign in with Discord/ })
 
-/** The stuck door, identified by the sentence that says it is not a session problem. */
+/** Finds the stuck page by the sentence that says the session is not the problem. */
 const stuckDoor = () => screen.queryByText(/not an expired session/)
 
 beforeEach(() => {
@@ -63,7 +63,9 @@ describe("Shell - the answer that means the session is gone", () => {
   })
 
   it("accuses nobody at all while the answer is still on its way", async () => {
-    /** Neither door, so no sidebar of 401ing pages flashes up before the answer. */
+    /**
+     * While the answer is pending, neither page shows, so no sidebar of pages that answer 401 flashes up.
+     */
     fetched.mockImplementation(() => new Promise<Response>(() => {}))
     draw()
 
@@ -74,7 +76,7 @@ describe("Shell - the answer that means the session is gone", () => {
 })
 
 describe("Shell - every other answer is a fault, not a missing session", () => {
-  /** 500, 502, 429 and 403, none of which signing in again would fix. */
+  /** The statuses 500, 502, 429 and 403. Signing in again fixes none of them. */
   const faults: Array<[number, string]> = [
     [500, "Internal error."],
     [502, "steward is not answering."],
@@ -105,7 +107,9 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("shows it for a failure that is not an ApiError at all", async () => {
-    /** A body that is not an object makes `useMe` throw a TypeError, which the `instanceof` half catches. */
+    /**
+     * A body that is not an object makes `useMe` throw a TypeError, which the `instanceof` check catches.
+     */
     fetched.mockResolvedValue(answer(200, null))
     draw()
 
@@ -114,7 +118,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("offers to ask again, and asking again is a second request", async () => {
-    // The one action that can help.
+    // The retry button is the one action that can help.
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -128,7 +132,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("keeps the shell out of the way even though the pages could report it themselves", async () => {
-    /** The CSRF token arrives with this answer, so without it every write would be refused. */
+    /** The CSRF token arrives with this answer. Without it every write is refused. */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -138,12 +142,12 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 })
 
-/** The setup page, identified by the one sentence only it has. */
+/** Finds the setup page by the one sentence only it has. */
 function setupPage() {
   return screen.queryByText(/One more thing: your security key/)
 }
 
-/** A signed-in session-info answer carrying the given security keys. */
+/** Returns a signed-in `/api/me` answer with the given security keys. */
 function signedIn(keys: unknown) {
   return {
     signedIn: true,
@@ -161,14 +165,14 @@ describe("Shell - signed in, and still not in", () => {
     draw()
 
     await waitFor(() => expect(setupPage()).not.toBeNull())
-    /** Without a key every other route is a 403, so no shell is drawn. */
+    /** Without a key every other route answers 403, so the shell is not drawn. */
     expect(screen.queryByRole("navigation")).toBeNull()
     expect(signInButton()).toBeNull()
     expect(stuckDoor()).toBeNull()
   })
 
   it("does not draw it for somebody who is not signed in at all", async () => {
-    /** `keys` is absent when signed out, so the key gate must come after the signed out branch. */
+    /** `keys` is absent when signed out, so the key check must follow the signed-out check. */
     fetched.mockResolvedValue(answer(200, { signedIn: false }))
     draw()
 
@@ -185,7 +189,9 @@ describe("Shell - signed in, and still not in", () => {
   })
 
   it("does not draw it when the request failed and nobody knows about any keys", async () => {
-    /** `me.data` is undefined here, and a key gate defaulting to zero would ask for a key on every 500. */
+    /**
+     * `me.data` is undefined here. A key check that defaults to zero keys would ask for a key on every 500.
+     */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 

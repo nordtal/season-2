@@ -6,17 +6,19 @@ import { HealthDot } from "@/components/steward/status"
 import { SkeletonText } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/** Four rows while the services are read, about as many as Paper and the entry have. */
+/** The number of placeholder rows shown while the services load. */
 const WAITING_ROWS = [0, 1, 2, 3]
 
 /**
- * The list of places, held by the desktop's column and the phone's dock alike.
+ * The list of places, shared by the desktop column and the phone dock.
  *
- * Every row is a `size-control` box and a label, so icons and labels align with the toggle above.
+ * Every row is a `size-control` box and a label.
  */
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  /** Decided across the whole navigation, since two entries can match and only the longer is meant. */
+  /**
+   * `activeEntryId` runs over the whole navigation, because two entries can match and the longer one wins.
+   */
   const groups = useNavigation()
   const active = activeEntryId(pathname, groups)
   const services = useServices()
@@ -41,7 +43,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             </div>
           ) : null}
           <ul className="flex flex-col">
-            {/* The service rows are the served topology's, so they wait for it as rows of their own shape. */}
+            {/* The service rows come from the topology, so they show placeholders of their own until it loads. */}
             {group.id === "services" && topology.isPending
               ? WAITING_ROWS.map((index) => (
                   <li key={index} className="flex min-h-control items-center pr-3">
@@ -53,7 +55,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             {group.entries.map((entry) => {
               const isActive = entry.id === active
               /**
-               * Only the container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
+               * Only service rows have a dot. The service name comes from the params that `navigation.ts` sets.
                */
               const service =
                 group.id === "services"
@@ -84,16 +86,16 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
   )
 }
 
-/** Substitutes `$name`-style segments, so one entry can describe a parameterised route. */
+/** Replaces `$name`-style segments with the values from `params`. */
 export function resolveHref(to: string, params?: Record<string, string>) {
   if (!params) return to
   return Object.entries(params).reduce((path, [key, value]) => path.replace(`$${key}`, encodeURIComponent(value)), to)
 }
 
 /**
- * The single entry a path lights up: the longest fixed part wins across the whole navigation.
+ * Returns the id of the one entry that matches a path. The entry with the longest fixed part wins.
  *
- * A route matches by its fixed part, so "Backups" stays selected on a backup run's page.
+ * A route matches by its fixed part, so Backups stays selected on a backup run's page.
  */
 export function activeEntryId(
   pathname: string,
@@ -115,7 +117,9 @@ export function activeEntryId(
   return best
 }
 
-/** Everything before a route's first parameter: `/operations/updates/$id` is `/operations/updates`. */
+/**
+ * Returns everything before the first parameter of a route. For `/operations/updates/$id` that is `/operations/updates`.
+ */
 function fixedPart(to: string) {
   const parameter = to.indexOf("/$")
   return parameter === -1 ? to : to.slice(0, parameter)

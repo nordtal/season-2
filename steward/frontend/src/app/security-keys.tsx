@@ -19,7 +19,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { t } from "@/lib/texts"
 
-/** The key list's state and its three dialogs, kept above the popover so an open dialog outlives it. */
+/**
+ * The state and the three dialogs of the key list. They are held above the popover, so an open dialog outlives the popover.
+ */
 export type SecurityKeyActions = ReturnType<typeof useSecurityKeyActions>
 
 export function useSecurityKeyActions(me: Me | undefined) {
@@ -35,7 +37,9 @@ export function useSecurityKeyActions(me: Me | undefined) {
 
   return {
     keys,
-    /** Whether `/api/me` has answered, since `keys` is empty both before that and for an account with no key. */
+    /**
+     * Returns whether `/api/me` has answered. `keys` is empty before the answer and for an account without a key.
+     */
     waiting: me === undefined,
     add,
     rename,
@@ -48,7 +52,7 @@ export function useSecurityKeyActions(me: Me | undefined) {
     setNewLabel,
     removing,
     relyingPartyId: me?.relyingPartyId ?? "nordtal.eu",
-    /** The last factor cannot be removed; the server refuses it too. */
+    /** The last factor cannot be removed. The server refuses it too. */
     onlyFactor: keys.length === 1 && !me?.authenticator,
     startAdding() {
       add.reset()
@@ -67,17 +71,21 @@ export function useSecurityKeyActions(me: Me | undefined) {
     closeAdding: () => setAdding(false),
     closeRenaming: () => setRenaming(null),
     closeRemoving: () => setRemoving(null),
-    /** Whether any of the three questions is on screen, which tells a popover to get out of the way. */
+    /** Returns whether one of the three dialogs is open, so the popover steps aside. */
     get asking() {
       return adding || renaming !== null || removing !== null
     },
   }
 }
 
-/** Two rows while `/api/me` is read. One key is the common case, two the recommended one. */
+/**
+ * The number of placeholder rows shown while `/api/me` loads. One key is common, and two are recommended.
+ */
 const WAITING_KEYS = [0, 1]
 
-/** The registered keys; an absent backup answer is not a no, so only a definite no asks for a second key. */
+/**
+ * Lists the registered keys. A missing backup answer is not a no, so only a definite no asks for a second key.
+ */
 export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   const { keys } = state
   const onlyOneAndItIsPhysical = keys.length === 1 && keys[0].backedUp === false
@@ -158,7 +166,9 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   )
 }
 
-/** The three dialogs, mounted where a closing popover cannot take them with it. */
+/**
+ * The three dialogs, mounted outside the popover because a closing popover unmounts its dialogs.
+ */
 export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
   const { add, rename, remove } = state
 
@@ -259,7 +269,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      {/* A question first, since the wrong one of two keys looks like the right one until the name is read. */}
+      {/* The dialog asks first, because the wrong one of two keys looks like the right one until the admin reads the name. */}
       <AskThenAct
         open={state.removing !== null}
         onOpenChange={(open) => open || state.closeRemoving()}

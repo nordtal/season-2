@@ -4,7 +4,9 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Button } from "@/components/ui/button"
 import { t } from "@/lib/texts"
 
-/** Any address that is not a route, with the way back to the overview; Ctrl+K reaches every other page. */
+/**
+ * The page for an address that is not a route. It links to the overview, and Ctrl+K reaches every other page.
+ */
 export function NotFoundPage() {
   return (
     <div className="flex flex-col items-start gap-6">

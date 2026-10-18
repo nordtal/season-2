@@ -14,10 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { t } from "@/lib/texts"
 
 /**
- * Signed in with no factor used yet this session; the whole window, and the only way past is a factor.
+ * The page for a signed-in session that has used no factor yet. It fills the window, and a factor is the only way past it.
  *
- * The key comes first, the app's code below it when the account has one. There is no skip: every `/api` route answers
- * 403 until one of them is done.
+ * The key comes first, and the authenticator app's code below it when the account has an app. There is no skip: every `/api` route answers 403 until one factor is done.
  */
 export function HoldKeyPage({ me }: { me: Me }) {
   const hold = useHoldKey()

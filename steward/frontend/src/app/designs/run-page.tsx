@@ -23,9 +23,9 @@ import { ASKS, StageBadge, Was, runSeconds, summaryOf } from "@/pages/operations
 import { type Stage, type StageItem, type Verdict, stageName, stagesOf } from "@/app/designs/run-stages"
 
 /**
- * Four layouts of the run page on real runs: a successful update, the newest failed run and a backup.
+ * Four layouts of the run page, drawn on real runs: a successful update, the newest failed run and a backup.
  *
- * `?run=` shows any other run and `?layout=` one layout alone. The run page draws the one picked; this page goes then.
+ * `?run=` shows another run, and `?layout=` shows one layout alone. This page goes away when the run page draws the chosen layout.
  */
 export function RunPageDesigns() {
   const runs = useRuns(80)
@@ -104,12 +104,12 @@ function Proposals({ id, layout }: { id: string; layout: string }) {
   )
 }
 
-/* The run as a whole, shared by every layout. */
+/* The parts shared by every layout. */
 
 /**
- * Kind and outcome on one line, who, when and how long under it: the four facts that are about the run.
+ * Shows kind and outcome on one line, and under it who started the run, when, and for how long.
  *
- * The earliest start shows only when it was not the moment of asking, and records about the run follow.
+ * The earliest start shows only when it differs from the moment of asking. Records about the run follow.
  */
 function Header({ run }: { run: Run }) {
   const Icon = KIND_ICON[run.kind] ?? TERM_ICON.update
@@ -151,7 +151,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** A run with no stage to draw: nothing to do, an unreadable report, or none yet. */
+/**
+ * Shown for a run with no stage to draw: nothing to do, an unreadable report, or no report yet.
+ */
 function NoStages({ run }: { run: Run }) {
   return (
     <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -161,7 +163,7 @@ function NoStages({ run }: { run: Run }) {
   )
 }
 
-/* How a stage went, as a mark, a colour and a word, so colour never carries it alone. */
+/* Each verdict has a mark, a colour and a word, so colour is never the only signal. */
 
 const VERDICT_COLOUR: Record<Verdict, string> = {
   done: "text-success",
@@ -173,7 +175,7 @@ const VERDICT_COLOUR: Record<Verdict, string> = {
   "not-reached": "text-muted-foreground",
 }
 
-/** Each kind's icon, the one its ask button carries. */
+/** The icon of each kind, the same one its ask button uses. */
 const KIND_ICON: Partial<Record<string, typeof TERM_ICON.update>> = ASKS
 
 const OUTCOME_VERDICT: Record<RunOutcome, Verdict> = {
@@ -201,17 +203,17 @@ function verdictWord(verdict: Verdict): string {
   return t("run.outcome", { outcome: verdict })
 }
 
-/** Whether a stage has anything to show beyond its word. */
+/** Returns whether a stage has anything to show besides its word. */
 function loud(stage: Stage): boolean {
   return stage.records.length > 0 || stage.items.length > 0
 }
 
-/* What a stage holds: its records, then its services. */
+/* The content of a stage: its records, then its services. */
 
 /**
- * A stage's records, one line per outcome and wording, with every service it was about as a pill.
+ * Shows the records of a stage, one line per outcome and wording, with each service as a pill.
  *
- * Two standbys made ready are one line with two names, not two lines saying the same.
+ * Two standbys made ready are one line with two names.
  */
 function Records({ records }: { records: RunNote[] }) {
   const lines = new Map<string, { note: RunNote; services: string[] }>()
@@ -247,7 +249,9 @@ function Records({ records }: { records: RunNote[] }) {
   )
 }
 
-/** A stage's services: changes per service under Install, the reason beside a failed start, otherwise names. */
+/**
+ * Shows the services of a stage. Install shows the changes per service, a failed start shows the reason, and other stages show names.
+ */
 function Items({ stage }: { stage: Stage }) {
   if (stage.items.length === 0) return null
   if (stage.key === "INSTALL") return <Installs items={stage.items} />
@@ -270,9 +274,9 @@ function Items({ stage }: { stage: Stage }) {
 }
 
 /**
- * What a stage installed: one row per service with its version jumps, then each told change once with its services.
+ * Shows what a stage installed: one row per service with its version jumps, then each change once with its services.
  *
- * Nine services whose image was out of date are one line with nine names. A change never made is muted.
+ * Nine services with an outdated image are one line with nine names. A change that was not made is muted.
  */
 function Installs({ items }: { items: StageItem[] }) {
   const told = new Map<string, { words: string; services: string[]; undone: boolean }>()
@@ -314,7 +318,9 @@ function Installs({ items }: { items: StageItem[] }) {
   )
 }
 
-/** A service's version jumps; the artefact is named only when it is not the service itself. */
+/**
+ * Shows the version jumps of a service. The artefact is named only when it is not the service itself.
+ */
 function Jumps({ item }: { item: StageItem }) {
   return (
     <>
@@ -357,7 +363,9 @@ function Content({ stage }: { stage: Stage }) {
   )
 }
 
-/* A: Rail. One vertical line down the run; a quiet stage is a dot and its name, a loud one opens below its name. */
+/*
+ * A: Rail. One vertical line runs down the run. A quiet stage is a dot and its name. A loud stage opens below its name.
+ */
 
 function Rail({ run }: { run: Run }) {
   const stages = stagesOf(run)
@@ -396,7 +404,9 @@ function Rail({ run }: { run: Run }) {
   )
 }
 
-/* B: Ledger. One row per stage with its count; a row opens in place, a failed or warned one is open already. */
+/*
+ * B: Ledger. One row per stage with its count. A row opens in place, and a failed or warned row starts open.
+ */
 
 function Ledger({ run }: { run: Run }) {
   const stages = stagesOf(run)
@@ -446,14 +456,16 @@ function Ledger({ run }: { run: Run }) {
   )
 }
 
-/** A row's count: its services, or its records when it has none, or its word. */
+/** Returns the count of a row: its services, else its records, else its word. */
 function countOf(stage: Stage): string {
   if (stage.verdict !== "done") return verdictWord(stage.verdict)
   if (stage.items.length > 0) return String(stage.items.length)
   return String(stage.records.length)
 }
 
-/* C: Headline. What the run did in large type, every stage as a strip of marks, then only the stages that speak. */
+/*
+ * C: Headline. The run's result in large type, every stage as a strip of marks, then only the stages that have something to show.
+ */
 
 function Headline({ run }: { run: Run }) {
   const stages = stagesOf(run)
@@ -509,9 +521,9 @@ function Headline({ run }: { run: Run }) {
 }
 
 /**
- * The headline: what the run moved, saved and failed, or, when it failed before installing anything, why.
+ * Returns the headline: what the run moved, saved and failed, or why it failed before installing anything.
  *
- * Counting a run that stopped at its release would report the changes it only planned.
+ * A run that stopped at its release would otherwise report the changes it only planned.
  */
 function leadOf(run: Run, stages: Stage[]): string[] {
   const failedAt = stages.find((stage) => stage.verdict === "failed")
@@ -521,9 +533,11 @@ function leadOf(run: Run, stages: Stage[]): string[] {
   return why.length > 0 ? why : summaryOf(run)
 }
 
-/* D: Matrix. Services down, the stages that touch them across; what is about no one service stands above. */
+/*
+ * D: Matrix. Services are rows and the stages that touch them are columns. Stages that belong to no service are above.
+ */
 
-/** The stages a service row has a cell in. */
+/** The stages in which a service row has a cell. */
 const SERVICE_STAGES = ["STOP", "BACKUP", "INSTALL", "START"] as const
 
 function Matrix({ run }: { run: Run }) {

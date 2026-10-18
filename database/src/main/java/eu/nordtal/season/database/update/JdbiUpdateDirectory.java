@@ -297,6 +297,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         return recorder;
     }
 
+    @Override
+    public List<RunProgress.Step> stepsOf(final UpdateRequest run) {
+        return recorder.steps(run.id());
+    }
+
     /** Returns a failed report with one note that says why. */
     private static UpdateReport failedFor(final MessageRef why) {
         return UpdateReport.at(UpdateReport.Stage.FAILED)

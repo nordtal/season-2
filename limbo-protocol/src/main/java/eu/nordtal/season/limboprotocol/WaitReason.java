@@ -25,6 +25,9 @@ public enum WaitReason {
      */
     HELD,
 
+    /** The player waits for the next free slot onto {@code smp}, which takes one player per interval. */
+    QUEUE,
+
     /** The proxy has sent no reason yet. */
     UNKNOWN;
 

@@ -45,6 +45,9 @@ public final class WaitingBook {
 
         /** The reason on the screen of the player. */
         private @Nullable WaitReason shown;
+
+        /** The percentage sent with {@link #shown}, {@code -1} for none. */
+        private int percent = -1;
     }
 
     private final boolean packOffered;
@@ -52,6 +55,9 @@ public final class WaitingBook {
     private final Duration readyGrace;
     private final ProxyRole role;
     private final Clock clock;
+
+    /** Lets the released players onto {@code smp} one at a time. */
+    private final AccessQueue queue;
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -64,7 +70,9 @@ public final class WaitingBook {
             final Duration applyTimeout,
             final Duration readyGrace,
             final ProxyRole role,
+            final AccessQueue queue,
             final Clock clock) {
+        this.queue = Objects.requireNonNull(queue, "queue");
         this.packOffered = packOffered;
         this.applyTimeout = Objects.requireNonNull(applyTimeout, "applyTimeout");
         this.readyGrace = Objects.requireNonNull(readyGrace, "readyGrace");
@@ -94,6 +102,7 @@ public final class WaitingBook {
             session.settledAt = null;
             session.shown = null;
         }
+        queue.leave(uuid);
     }
 
     /** Returns {@code true} once per session. The caller sends the pack offer then. */
@@ -162,6 +171,7 @@ public final class WaitingBook {
             session.backendDown = destination;
             session.backendDownUntil = clock.instant().plus(RELEASE_RETRY);
         }
+        queue.refund(uuid);
     }
 
     public boolean isWaiting(final UUID uuid) {
@@ -177,6 +187,31 @@ public final class WaitingBook {
     /** Deletes the state of the player. */
     public void forget(final UUID uuid) {
         sessions.remove(uuid);
+        queue.leave(uuid);
+    }
+
+    /**
+     * Records the percentage of the running update for a player who sees its screen.
+     *
+     * @return {@code true} when the player sees the update screen with another number, so the caller sends it
+     */
+    public boolean claimProgress(final UUID uuid, final int percent) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return false;
+        }
+        synchronized (session) {
+            if (session.shown != WaitReason.UPDATE || session.percent == percent) {
+                return false;
+            }
+            session.percent = percent;
+            return true;
+        }
+    }
+
+    /** Returns whether a released player waits for a slot onto {@code smp}. */
+    public boolean anyQueued() {
+        return queue.isWaiting();
     }
 
     /** Returns the number of sessions. */
@@ -225,16 +260,18 @@ public final class WaitingBook {
                     packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
                 session.settledAt = null;
+                // A player held back for another reason would otherwise keep the head of the queue.
+                queue.leave(uuid);
                 if (reason.get() == session.shown) {
                     return WaitingDecision.idle();
                 }
                 session.shown = reason.get();
+                session.percent = -1;
                 return WaitingDecision.show(reason.get());
             }
 
             if (session.ready) {
-                session.waiting = false;
-                return WaitingDecision.release(true);
+                return release(session, uuid, destination, true);
             }
 
             final Instant now = clock.instant();
@@ -246,9 +283,22 @@ public final class WaitingBook {
                 return WaitingDecision.idle();
             }
 
-            session.waiting = false;
-            return WaitingDecision.release(false);
+            return release(session, uuid, destination, false);
         }
+    }
+
+    /** Releases the player unless the queue onto the destination holds them back. */
+    private WaitingDecision release(
+            final Session session, final UUID uuid, final String destination, final boolean ready) {
+        if (!queue.mayGo(uuid, destination)) {
+            if (session.shown == WaitReason.QUEUE) {
+                return WaitingDecision.idle();
+            }
+            session.shown = WaitReason.QUEUE;
+            return WaitingDecision.show(WaitReason.QUEUE);
+        }
+        session.waiting = false;
+        return WaitingDecision.release(ready);
     }
 
     private boolean timedOut(final Session session) {

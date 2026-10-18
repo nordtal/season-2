@@ -4,15 +4,20 @@ import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import eu.nordtal.season.database.update.RunProgress;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.proxy.PhaseServers;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +36,9 @@ public final class Evacuation {
     private final UpdateDirectory updates;
     private final PhaseServers servers;
 
+    /** When this proxy started. */
+    private final Instant started;
+
     /** Informs the players when they return. */
     private final Homecoming homecoming;
     /** The servers that an update run stops or is about to stop. */
@@ -42,6 +50,12 @@ public final class Evacuation {
     /** The players whose move to the waiting room Velocity has not answered yet. */
     private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
 
+    /** How far the run that moves players is, held at its highest. */
+    private volatile OptionalInt progress = OptionalInt.empty();
+
+    /** The run {@link #progress} belongs to. */
+    private long progressRun;
+
     /** Whether the warning about the missing waiting room was logged. */
     private volatile boolean warnedAboutWaitingRoom;
 
@@ -50,12 +64,14 @@ public final class Evacuation {
             final Logger logger,
             final UpdateDirectory updates,
             final PhaseServers servers,
-            final Homecoming homecoming) {
+            final Homecoming homecoming,
+            final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
+        this.started = clock.instant();
     }
 
     /** Returns whether an update run stops or has stopped the server. */
@@ -66,6 +82,11 @@ public final class Evacuation {
     /** Returns whether an update run stops or has stopped any server. */
     public boolean isAnyMoving() {
         return !moving.isEmpty();
+    }
+
+    /** Returns how far the run that has moved players is, or empty when nothing is known. */
+    public OptionalInt progress() {
+        return progress;
     }
 
     /** Returns whether an admin keeps the server stopped. */
@@ -83,10 +104,12 @@ public final class Evacuation {
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
+        final List<RunProgress.Step> steps = steps(running);
 
-        final Set<String> next = imminent(running);
+        final Set<String> next = notYetReplaced(imminent(running), steps);
         if (next.isEmpty()) {
             moving = Set.of();
+            progress = OptionalInt.empty();
             warnedAboutWaitingRoom = false;
             return;
         }
@@ -108,11 +131,18 @@ public final class Evacuation {
                         servers.limboStandby());
             }
             moving = Set.of();
+            progress = OptionalInt.empty();
             return;
         }
 
         moving = next;
-        evacuate(next, room, running.orElseThrow().id());
+        final UpdateRequest run = running.orElseThrow();
+        track(run, steps);
+        if (startedByTheRun(started, run)) {
+            // The proxy this one replaced moved the players already; the rooms may be gone by now.
+            return;
+        }
+        evacuate(next, room, run.id());
     }
 
     /**
@@ -153,9 +183,57 @@ public final class Evacuation {
         return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
+    /** Returns the higher of the two, so a step row that appears late never lowers the shown percentage. */
+    static OptionalInt higher(final OptionalInt held, final OptionalInt now) {
+        if (held.isEmpty()) {
+            return now;
+        }
+        if (now.isEmpty()) {
+            return held;
+        }
+        return OptionalInt.of(Math.max(held.getAsInt(), now.getAsInt()));
+    }
+
+    /** Returns the moving services whose health check after the replacement has not passed yet. */
+    static Set<String> notYetReplaced(final Set<String> moving, final List<RunProgress.Step> steps) {
+        final Set<String> left = new HashSet<>(moving);
+        for (final RunProgress.Step step : steps) {
+            if (step.kind() == RunStep.Kind.VERIFY
+                    && (step.outcome() == RunStep.Outcome.DONE || step.outcome() == RunStep.Outcome.WARNING)) {
+                left.remove(step.service());
+            }
+        }
+        return Set.copyOf(left);
+    }
+
+    /** Returns whether this proxy started after the countdown of the run ended, so the run started it. */
+    static boolean startedByTheRun(final Instant started, final UpdateRequest run) {
+        return run.countdownEnd() != null && started.isAfter(run.countdownEnd());
+    }
+
     /** Returns the services that the request stops. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
+    }
+
+    /**
+     * Reads the steps of the run, none when the read fails.
+     * A newer agent can write a step name this build lacks; every moving service then still counts.
+     */
+    private List<RunProgress.Step> steps(final Optional<UpdateRequest> running) {
+        try {
+            return running.map(updates::stepsOf).orElseGet(List::of);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not read the steps of the run; every moving service counts", failure);
+            return List.of();
+        }
+    }
+
+    /** Keeps the highest percentage of the run. */
+    private void track(final UpdateRequest run, final List<RunProgress.Step> steps) {
+        final OptionalInt now = RunProgress.percent(steps, run.moving());
+        progress = run.id() == progressRun ? higher(progress, now) : now;
+        progressRun = run.id();
     }
 
     /** Stores the number of moved players. A failed write is logged. */

@@ -2,6 +2,7 @@ package eu.nordtal.season.limbo;
 
 import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Key;
 import eu.nordtal.season.messages.spec.MessageSpec;
@@ -37,8 +38,15 @@ public interface LimboMessages {
             @Name("Update")
             Screen update();
 
+            @Name("Update title with progress")
+            @Key("update-progress")
+            MessageRef updateProgress(@Arg("percent") long percent);
+
             @Name("Server stopped")
             Screen held();
+
+            @Name("Next in line")
+            Screen queue();
 
             @Name("Maintenance")
             Screen maintenance();
@@ -54,6 +62,7 @@ public interface LimboMessages {
                     case MAINTENANCE -> maintenance();
                     case UPDATE -> update();
                     case HELD -> held();
+                    case QUEUE -> queue();
                     case UNKNOWN -> unknown();
                 };
             }

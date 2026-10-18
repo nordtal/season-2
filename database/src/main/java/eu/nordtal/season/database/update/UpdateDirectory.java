@@ -5,6 +5,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
@@ -232,6 +233,11 @@ public interface UpdateDirectory {
      */
     default void putBack(final String row, final MessageRef why) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
+    }
+
+    /** Returns the steps of the run in the order they began, none when the database cannot say. */
+    default List<RunProgress.Step> stepsOf(final UpdateRequest run) {
+        return List.of();
     }
 
     /** Returns where the steps and facts of a run are written. */

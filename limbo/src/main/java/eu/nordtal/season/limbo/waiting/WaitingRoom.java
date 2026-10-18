@@ -7,6 +7,7 @@ import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -36,6 +37,9 @@ public final class WaitingRoom {
     private final WaitingWorld world;
 
     private final Map<UUID, WaitReason> shown = new ConcurrentHashMap<>();
+
+    /** The percentage of the running update, for the players who see its title. */
+    private final Map<UUID, Integer> percents = new ConcurrentHashMap<>();
 
     private Scheduler.@Nullable Task refresh;
 
@@ -76,9 +80,19 @@ public final class WaitingRoom {
         show(player, WaitReason.UNKNOWN, true);
     }
 
-    /** Shows the title of the reason. The title fades in when the player saw another reason before. */
-    public void show(final Player player, final WaitReason reason) {
-        show(player, reason, shown.get(player.getUniqueId()) != reason);
+    /**
+     * Shows the title of the reason. The title fades in when the player saw another reason before.
+     *
+     * @param percent how far the running update is, {@code null} when the proxy sent no number
+     */
+    public void show(final Player player, final WaitReason reason, final @Nullable Integer percent) {
+        final boolean fade = shown.get(player.getUniqueId()) != reason;
+        if (percent == null) {
+            percents.remove(player.getUniqueId());
+        } else {
+            percents.put(player.getUniqueId(), percent);
+        }
+        show(player, reason, fade);
     }
 
     private void show(final Player player, final WaitReason reason, final boolean fade) {
@@ -92,8 +106,12 @@ public final class WaitingRoom {
 
         final LimboMessages.Limbo.Screen screen =
                 LimboMessages.MESSAGES.limbo().waiting().of(reason);
+        final Integer percent = reason == WaitReason.UPDATE ? percents.get(player.getUniqueId()) : null;
+        final MessageRef title = percent == null
+                ? screen.title()
+                : LimboMessages.MESSAGES.limbo().waiting().updateProgress(percent);
         player.showTitle(Title.title(
-                Lines.joined(renderer.format(locale, screen.title())),
+                Lines.joined(renderer.format(locale, title)),
                 Lines.joined(renderer.format(locale, screen.subtitle())),
                 times));
     }
@@ -111,6 +129,7 @@ public final class WaitingRoom {
             refresh = null;
         }
         shown.clear();
+        percents.clear();
     }
 
     /** Sends the current title of the player again, without a fade. */
@@ -121,6 +140,7 @@ public final class WaitingRoom {
     /** Deletes the reason stored for the player. */
     public void forget(final UUID uuid) {
         shown.remove(uuid);
+        percents.remove(uuid);
     }
 
     /** Returns the reason shown to each player. */

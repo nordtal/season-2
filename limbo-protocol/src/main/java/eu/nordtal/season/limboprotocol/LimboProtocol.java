@@ -42,8 +42,12 @@ public final class LimboProtocol {
      * A decoded message.
      *
      * @param reason the reason of a {@link Type#WAIT}, {@code null} for {@link Type#READY}
+     * @param percent how far the update run is, from 0 to 100, {@code null} when the proxy sent no number
      */
-    public record Message(Type type, @Nullable WaitReason reason) {
+    public record Message(
+            Type type,
+            @Nullable WaitReason reason,
+            @Nullable Integer percent) {
 
         public Message {
             Objects.requireNonNull(type, "type");
@@ -52,16 +56,32 @@ public final class LimboProtocol {
                         "WAIT is the only message with a reason, got " + type + " / " + reason);
             }
         }
+
+        public Message(final Type type, final @Nullable WaitReason reason) {
+            this(type, reason, null);
+        }
     }
 
     /** Returns a {@link Type#WAIT} message with the reason. */
     public static byte[] wait(final WaitReason reason) {
+        return wait(reason, null);
+    }
+
+    /**
+     * Returns a {@link Type#WAIT} message with the reason and how far the update run is.
+     *
+     * @param percent from 0 to 100, or {@code null} for none; a receiver without the field ignores it
+     */
+    public static byte[] wait(final WaitReason reason, final @Nullable Integer percent) {
         Objects.requireNonNull(reason, "reason");
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream(16);
         try (DataOutputStream out = new DataOutputStream(bytes)) {
             out.writeByte(VERSION);
             out.writeByte(TYPE_WAIT);
             out.writeUTF(reason.name());
+            if (percent != null) {
+                out.writeByte(Math.clamp(percent, 0, 100));
+            }
         } catch (final IOException impossible) {
             throw new UncheckedIOException(impossible);
         }
@@ -95,7 +115,12 @@ public final class LimboProtocol {
                 return Optional.empty();
             }
             return switch (in.readByte()) {
-                case TYPE_WAIT -> WaitReason.parse(in.readUTF()).map(reason -> new Message(Type.WAIT, reason));
+                case TYPE_WAIT -> {
+                    final Optional<WaitReason> reason = WaitReason.parse(in.readUTF());
+                    final int percent = in.available() > 0 ? in.readUnsignedByte() : -1;
+                    yield reason.map(
+                            known -> new Message(Type.WAIT, known, percent >= 0 && percent <= 100 ? percent : null));
+                }
                 case TYPE_READY -> Optional.of(new Message(Type.READY, null));
                 default -> Optional.empty();
             };

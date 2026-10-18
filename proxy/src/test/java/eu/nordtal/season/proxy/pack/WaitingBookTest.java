@@ -34,7 +34,11 @@ class WaitingBookTest {
     private final UUID player = UUID.randomUUID();
 
     private WaitingBook book() {
-        return new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, clock);
+        return new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, queue(clock), clock);
+    }
+
+    private static AccessQueue queue(final java.time.Clock clock) {
+        return new AccessQueue("smp", () -> Duration.ofSeconds(3), clock);
     }
 
     private Action decide(final WaitingBook book) {
@@ -241,6 +245,31 @@ class WaitingBookTest {
     }
 
     @Test
+    void anUpdatePercentIsSentEachTimeItChanges() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        assertEquals(
+                WaitingDecision.show(WaitReason.UPDATE),
+                book.decide(player, PLAYABLE, false, true, DESTINATION, true, false));
+
+        assertTrue(book.claimProgress(player, 10), "the first number has to reach the screen");
+        assertFalse(book.claimProgress(player, 10), "the tick runs every second; the same number is not resent");
+        assertTrue(book.claimProgress(player, 12));
+    }
+
+    @Test
+    void aPercentBelongsToTheUpdateScreenOnly() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        assertEquals(Action.SHOW, decide(book));
+
+        assertFalse(book.claimProgress(player, 10), "the pack screen has no number");
+    }
+
+    @Test
     void aChangedTitleIsSent() {
         final WaitingBook book = book();
         book.entered(player);
@@ -275,7 +304,8 @@ class WaitingBookTest {
 
     @Test
     void aDisabledPackShortensTheWait() {
-        final WaitingBook book = new WaitingBook(false, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, clock);
+        final WaitingBook book =
+                new WaitingBook(false, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, queue(clock), clock);
         book.entered(player);
         book.ready(player);
         clock.advance(APPLY_TIMEOUT.multipliedBy(10));
@@ -296,7 +326,8 @@ class WaitingBookTest {
         assertEquals(Action.TIMED_OUT, decide(timing));
 
         final MutableClock second = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
-        final WaitingBook applied = new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, second);
+        final WaitingBook applied =
+                new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, queue(second), second);
         applied.entered(player);
         applied.claimOffer(player);
         applied.packApplied(player);
@@ -403,5 +434,110 @@ class WaitingBookTest {
         book.forget(player);
         assertEquals(0, book.size(), "the map would otherwise grow for the life of the process");
         assertFalse(book.isWaiting(player));
+    }
+
+    // the queue onto smp
+
+    @Test
+    void theSecondPlayerOntoSmpWaitsForTheNextSlot() {
+        final WaitingBook book = book();
+        final UUID other = UUID.randomUUID();
+        for (final UUID uuid : List.of(player, other)) {
+            book.entered(uuid);
+            book.packApplied(uuid);
+            book.ready(uuid);
+        }
+
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                WaitingDecision.show(WaitReason.QUEUE),
+                book.decide(other, PLAYABLE, false, true, "smp", false, false),
+                "two players onto smp in the same moment");
+        assertEquals(
+                Action.IDLE,
+                book.decide(other, PLAYABLE, false, true, "smp", false, false).action(),
+                "the queue text is sent once");
+        assertTrue(book.anyQueued());
+
+        clock.advance(Duration.ofSeconds(3));
+        assertEquals(
+                Action.RELEASE,
+                book.decide(other, PLAYABLE, false, true, "smp", false, false).action());
+        assertFalse(book.anyQueued());
+    }
+
+    @Test
+    void aFailedReleaseOntoSmpGivesTheSlotToTheNext() {
+        final WaitingBook book = book();
+        final UUID other = UUID.randomUUID();
+        for (final UUID uuid : List.of(player, other)) {
+            book.entered(uuid);
+            book.packApplied(uuid);
+            book.ready(uuid);
+        }
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, false, true, "smp", false, false).action());
+
+        book.releaseFailed(player, "smp");
+
+        assertEquals(
+                Action.RELEASE,
+                book.decide(other, PLAYABLE, false, true, "smp", false, false).action());
+    }
+
+    @Test
+    void aPlayerWhoLeavesDropsOutOfTheQueue() {
+        final WaitingBook book = book();
+        final UUID other = UUID.randomUUID();
+        for (final UUID uuid : List.of(player, other)) {
+            book.entered(uuid);
+            book.packApplied(uuid);
+            book.ready(uuid);
+        }
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(other, PLAYABLE, false, true, "smp", false, false).action());
+
+        book.forget(other);
+
+        assertFalse(book.anyQueued());
+    }
+
+    @Test
+    void aQueuedPlayerHeldForAnotherReasonLeavesTheQueue() {
+        final WaitingBook book = book();
+        final UUID held = UUID.randomUUID();
+        final UUID admin = UUID.randomUUID();
+        for (final UUID uuid : List.of(player, held, admin)) {
+            book.entered(uuid);
+            book.packApplied(uuid);
+            book.ready(uuid);
+        }
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(held, PLAYABLE, false, true, "smp", false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(admin, PLAYABLE, false, true, "smp", false, false).action());
+
+        assertEquals(
+                WaitingDecision.show(WaitReason.MAINTENANCE),
+                book.decide(held, SeasonPhase.MAINTENANCE, false, true, "smp", false, false));
+        clock.advance(Duration.ofSeconds(3));
+
+        assertEquals(
+                Action.RELEASE,
+                book.decide(admin, SeasonPhase.MAINTENANCE, true, true, "smp", false, false)
+                        .action(),
+                "a player kept back by maintenance does not keep the head of the queue");
     }
 }

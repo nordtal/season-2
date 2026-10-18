@@ -15,9 +15,14 @@ import org.junit.jupiter.api.Test;
 /** That no timer of the proxy reads database state, which is the signal hub's job and nobody else's. */
 class ProxyTimersTest {
 
-    /** What repeats on a clock: writes, the head count of a standby, a sweep of memory and the readiness beat. */
+    /** What repeats on a clock: writes, the head count of a standby, sweeps of memory and the readiness beat. */
     private static final Set<String> CLOCK_DRIVEN = Set.of(
-            "onlineWriter::tick", "writer::flushAll", "packs::sweep", "standbyReturn::check", "readiness::refresh");
+            "onlineWriter::tick",
+            "writer::flushAll",
+            "packs::sweep",
+            "packs::sweepBusy",
+            "standbyReturn::check",
+            "readiness::refresh");
 
     private static final Pattern EVERY = Pattern.compile("scheduler\\s*\\.every\\([^;]*?(\\w+::\\w+)\\)\\s*;");
 

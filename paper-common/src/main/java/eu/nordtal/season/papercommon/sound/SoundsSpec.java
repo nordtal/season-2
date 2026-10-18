@@ -74,7 +74,7 @@ public interface SoundsSpec {
         return DefaultSounds.SELECT;
     }
 
-    /** Going somewhere: the balloon, the duel arena, a spawn tower. */
+    /** Going somewhere: the duel arena, a spawn tower. */
     @Order(8)
     @Name("Travel")
     @Key("travel")

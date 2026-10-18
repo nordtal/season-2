@@ -71,6 +71,7 @@ public final class ApiTypes {
         Files.writeString(TARGET, render(), StandardCharsets.UTF_8);
         Files.writeString(BrandCss.TARGET, BrandCss.render(), StandardCharsets.UTF_8);
         TextTypes.main(args);
+        TextPages.main(args);
     }
 
     private void reach(final Class<?> type) {

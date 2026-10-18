@@ -1,4 +1,5 @@
 import type { MessageEntry, MessageSurface } from "@/lib/api"
+import pageMap from "@/lib/text-pages.gen.json"
 
 /**
  * Where the Translations page lists a text, and the pills and previews that say where it appears.
@@ -65,4 +66,29 @@ export function pillsOf(entry: MessageEntry, places: Places): Pill[] {
  */
 export function previewPlacesOf(entry: MessageEntry): Array<string | undefined> {
   return isBuildingBlock(entry) || entry.shown.length === 0 ? [undefined] : entry.shown
+}
+
+const PAGES: Record<string, string[]> = pageMap.texts
+
+const ANSWERS = new Set(pageMap.answers)
+
+/** The order of the page groups: the shell's texts first, the router's pages, then the texts of several pages. */
+export const PAGE_GROUPS: readonly string[] = [...pageMap.pages, "several"]
+
+/**
+ * Returns the Steward pages one of Steward's own texts is on, as `TextPages` found them at build time. `every` stands for the shell's texts. Any other bundle's text is on none.
+ */
+export function pagesOf(entry: MessageEntry): string[] {
+  return entry.bundle === "steward" ? (PAGES[entry.key] ?? []) : []
+}
+
+/** Returns the page group a text of Steward's is listed under: its one page, or `several`. */
+export function pageGroupOf(entry: MessageEntry): string | undefined {
+  const pages = pagesOf(entry)
+  return pages.length > 1 ? "several" : pages[0]
+}
+
+/** Returns whether only the server answers with this text, which Steward then shows as a toast. */
+export function isAnswer(entry: MessageEntry): boolean {
+  return entry.bundle === "steward" && ANSWERS.has(entry.key)
 }

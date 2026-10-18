@@ -34,7 +34,7 @@ import {
 } from "@/lib/queries"
 import { branchesOf, formatOf, parse, type Run } from "@/lib/rich-text"
 import { humanise, messageLeafMatches, messageName, textId, textsTree } from "@/lib/settings-tree"
-import { groupOf, pillsOf, previewPlacesOf, type Places } from "@/lib/text-places"
+import { groupOf, isAnswer, pageGroupOf, pagesOf, pillsOf, previewPlacesOf, type Places } from "@/lib/text-places"
 import { Failure } from "@/components/steward/query-state"
 import { SaveDraft } from "@/components/steward/group-draft"
 import { Badge } from "@/components/ui/badge"
@@ -411,6 +411,7 @@ function TextPreview({ entry, language = ENGLISH, ...shared }: Shared & { entry:
       fill={drawn.fill}
       glyphs={glyphs.data ?? []}
       tones={shared.tones}
+      answer={isAnswer(entry)}
     />
   )
 }
@@ -485,7 +486,7 @@ function TextPage({
     <div className="flex flex-col gap-6">
       <PageTitle
         group={groupOf(entry, shared.places)}
-        area={entry.section[0] ?? humanise(entry.key.split(".")[0])}
+        area={pageAreaOf(entry)}
         name={messageName(entry)}
         onClose={onClose}
       />
@@ -502,20 +503,32 @@ function TextPage({
   )
 }
 
+/** The area a text is listed under: the page group of one of Steward's own texts, else its top section. */
+function pageAreaOf(entry: MessageEntry): string {
+  const page = pageGroupOf(entry)
+  return page === undefined
+    ? (entry.section[0] ?? humanise(entry.key.split(".")[0]))
+    : t("steward.shell.page", { page })
+}
+
+/** A text's places, and the pages of one of Steward's texts that is on several. */
 function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
   const pills = pillsOf(entry, places)
-  if (pills.length === 0) return null
+  const pages = pagesOf(entry)
+  const labels = [
+    ...pills.map((pill) =>
+      pill.kind === "place"
+        ? t("steward.message-editor.place", { place: choice(pill.place) })
+        : t("steward.texts.group", { group: choice(pill.surface) }),
+    ),
+    ...(pages.length > 1 ? pages.map((page) => t("steward.shell.page", { page })) : []),
+  ]
+  if (labels.length === 0) return null
   return (
     <span aria-label={t("steward.texts.shown-in")} className="flex flex-wrap gap-1">
-      {pills.map((pill) => (
-        <Badge
-          key={pill.kind === "place" ? pill.place : pill.surface}
-          variant="outline"
-          className="h-4 px-1.5 text-[0.625rem] text-muted-foreground"
-        >
-          {pill.kind === "place"
-            ? t("steward.message-editor.place", { place: choice(pill.place) })
-            : t("steward.texts.group", { group: choice(pill.surface) })}
+      {labels.map((label) => (
+        <Badge key={label} variant="outline" className="h-4 px-1.5 text-[0.625rem] text-muted-foreground">
+          {label}
         </Badge>
       ))}
     </span>

@@ -81,7 +81,7 @@ public interface Shell {
     @Name("Pages")
     MessageRef pages();
 
-    /** A page of the navigation with its name and description. */
+    /** A page of the navigation, or a group of pages that Steward's texts are listed under. */
     enum Page {
         OVERVIEW,
         SERVICES,
@@ -94,6 +94,9 @@ public interface Shell {
         ANNOUNCEMENTS,
         ACCESS,
         PAYMENTS,
-        JOURNAL
+        JOURNAL,
+        DESIGNS,
+        EVERY,
+        SEVERAL
     }
 }

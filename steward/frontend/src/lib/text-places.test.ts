@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { MessageEntry, MessageSurface } from "@/lib/api"
-import { groupOf, pillsOf, previewPlacesOf } from "@/lib/text-places"
+import { groupOf, isAnswer, pageGroupOf, pagesOf, pillsOf, previewPlacesOf } from "@/lib/text-places"
 
 const PLACES: Record<string, MessageSurface> = {
   CHAT: "GAME",
@@ -60,5 +60,32 @@ describe("the group and the previews of a text", () => {
 
   it("make a game term a building block too", () => {
     expect(groupOf(entry({ bundle: "terms", shown: ["CHAT", "STEWARD"] }), PLACES)).toBe("VALUES")
+  })
+})
+
+describe("the page a text of Steward's is on", () => {
+  it("is the one page whose code names it", () => {
+    expect(pageGroupOf(entry({ bundle: "steward", key: "steward.alerts.all-clear" }))).toBe("alerts")
+  })
+
+  it("is every page for a text the shell names", () => {
+    expect(pageGroupOf(entry({ bundle: "steward", key: "steward.shell.pages" }))).toBe("every")
+  })
+
+  it("lists a text of several pages under several, keeping each page", () => {
+    const changed = entry({ bundle: "steward", key: "steward.form.changed" })
+    expect(pageGroupOf(changed)).toBe("several")
+    expect(pagesOf(changed)).toEqual(["updates", "backups"])
+  })
+
+  it("places a server answer with the page whose API answers it", () => {
+    const answer = entry({ bundle: "steward", key: "steward.answer.no-backup" })
+    expect(pageGroupOf(answer)).toBe("backups")
+    expect(isAnswer(answer)).toBe(true)
+    expect(isAnswer(entry({ bundle: "steward", key: "steward.alerts.all-clear" }))).toBe(false)
+  })
+
+  it("is none for another bundle's text of the same key", () => {
+    expect(pagesOf(entry({ bundle: "smp", key: "steward.alerts.all-clear" }))).toEqual([])
   })
 })

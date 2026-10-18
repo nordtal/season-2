@@ -986,7 +986,6 @@ export type TextArgs = {
     status: Arg["number"]
   }
   "steward.failure.log-lost": Record<string, never>
-  "steward.failure.no-points": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
   "steward.failure.try-again": Record<string, never>
@@ -1361,11 +1360,7 @@ export type TextArgs = {
     run: Arg["number"]
   }
   "steward.operations.cancelled-note": Record<string, never>
-  "steward.operations.cannot-copy": Record<string, never>
   "steward.operations.changes": Record<string, never>
-  "steward.operations.command-copied": Record<string, never>
-  "steward.operations.copied": Record<string, never>
-  "steward.operations.copy": Record<string, never>
   "steward.operations.duration": Record<string, never>
   "steward.operations.entered": {
     kind: Arg["text"]

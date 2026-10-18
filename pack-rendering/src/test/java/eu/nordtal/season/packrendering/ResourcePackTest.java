@@ -259,10 +259,6 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                // item/ holds the balloon's model textures; everything else under textures/ exists for a font.
-                if (relative.startsWith("item/")) {
-                    return;
-                }
                 if (!referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);
                 }

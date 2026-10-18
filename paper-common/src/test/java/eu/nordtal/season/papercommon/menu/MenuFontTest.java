@@ -30,7 +30,7 @@ class MenuFontTest {
 
     private static final String ASSETS = RepositoryRoot.packAssets();
 
-    /** The pill's inset inside its slot cell, the same two pixels a balloon card is inset by. */
+    /** The pill's inset inside its slot cell, in pixels. */
     private static final int INSET = 2;
 
     private static final int FURNITURE_HEIGHT = SlotGeometry.PITCH - 2 * INSET;

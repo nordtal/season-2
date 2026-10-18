@@ -12,10 +12,6 @@ final class DefaultSmp {
             region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
-    static final List<BalloonSpec> BALLOONS = List.of(
-            balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
-            balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
-
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
@@ -27,15 +23,6 @@ final class DefaultSmp {
             List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
     static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
-
-    static final SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
-
-    static final SpawnPointSpec BALLOON_SPAWN_POINT_NETHER = spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
-
-    static final SpawnPointSpec BALLOON_SPAWN_POINT_END = spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
-
-    static final BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
-            balloonSpawnPoints(BALLOON_SPAWN_POINT_NORDTAL, BALLOON_SPAWN_POINT_NETHER, BALLOON_SPAWN_POINT_END);
 
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
@@ -124,25 +111,6 @@ final class DefaultSmp {
         return Specs.createUnsafe(SpawnRegionSpec.class, values);
     }
 
-    private static BalloonSpec balloon(
-            final String world,
-            final int minX,
-            final int minY,
-            final int minZ,
-            final int maxX,
-            final int maxY,
-            final int maxZ) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("world", world);
-        values.put("min-x", minX);
-        values.put("min-y", minY);
-        values.put("min-z", minZ);
-        values.put("max-x", maxX);
-        values.put("max-y", maxY);
-        values.put("max-z", maxZ);
-        return Specs.createUnsafe(BalloonSpec.class, values);
-    }
-
     private static BoardSpec board(
             final String kind, final String world, final double x, final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();
@@ -194,26 +162,6 @@ final class DefaultSmp {
         values.put("skin-name", skinName);
         values.put("name", name);
         return Specs.createUnsafe(NpcSpec.class, values);
-    }
-
-    private static SpawnPointSpec spawnPoint(
-            final double x, final double y, final double z, final float yaw, final float pitch) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("x", x);
-        values.put("y", y);
-        values.put("z", z);
-        values.put("yaw", yaw);
-        values.put("pitch", pitch);
-        return Specs.createUnsafe(SpawnPointSpec.class, values);
-    }
-
-    private static BalloonSpawnPointsSpec balloonSpawnPoints(
-            final SpawnPointSpec nordtal, final SpawnPointSpec nether, final SpawnPointSpec end) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("nordtal", nordtal);
-        values.put("nether", nether);
-        values.put("end", end);
-        return Specs.createUnsafe(BalloonSpawnPointsSpec.class, values);
     }
 
     private static FirstJoinSpawnSpec firstJoinSpawn(

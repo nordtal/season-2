@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.travel;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -17,17 +18,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.PortalCreateEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Refuses Nether portals until {@code Unlock.NETHER} is unlocked.
- * Refuses eyes of ender in End portal frames.
+ * Refuses Nether portals until {@code Unlock.NETHER} is unlocked, and End portals until {@code Unlock.END} is.
  */
 public final class PortalGate implements Listener {
+
+    private static final int REFUSAL_COOLDOWN_TICKS = 100;
 
     private final Plugin plugin;
     private final Worlds worlds;
@@ -86,38 +87,26 @@ public final class PortalGate implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onEyeOfEnder(final PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND || event.getClickedBlock() == null) {
-            return;
-        }
-        if (event.getClickedBlock().getType() != Material.END_PORTAL_FRAME) {
-            return;
-        }
-        if (event.getItem() == null || event.getItem().getType() != Material.ENDER_EYE) {
-            return;
-        }
-        event.setCancelled(true);
-        event.getPlayer()
-                .sendMessage(renderer.format(
-                        identities.languageOf(event.getPlayer().getUniqueId()),
-                        MESSAGES.smp().portal().endInactive()));
-        sounds.play(event.getPlayer(), Feedback.REFUSED);
-    }
-
-    @EventHandler(ignoreCancelled = true)
     public void onPortal(final PlayerPortalEvent event) {
         final WorldRole from = worlds.roleOf(event.getFrom().getWorld()).orElse(null);
         if (from == null) {
             return;
         }
 
-        if (!season.isUnlocked(Unlock.NETHER) && from.hasVanillaPortalLinking()) {
-            event.setCancelled(true);
-            event.getPlayer()
-                    .sendMessage(renderer.format(
-                            identities.languageOf(event.getPlayer().getUniqueId()),
-                            MESSAGES.smp().portal().netherLocked()));
-            sounds.play(event.getPlayer(), Feedback.REFUSED);
+        final boolean endPortal = event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL;
+        if (endPortal && from != WorldRole.END && !season.isUnlocked(Unlock.END)) {
+            refuse(event, MESSAGES.smp().portal().endLocked());
+        } else if (!endPortal && !season.isUnlocked(Unlock.NETHER) && from.hasVanillaPortalLinking()) {
+            refuse(event, MESSAGES.smp().portal().netherLocked());
         }
+    }
+
+    private void refuse(final PlayerPortalEvent event, final MessageRef why) {
+        event.setCancelled(true);
+        final Player player = event.getPlayer();
+        // A player standing in a refused portal tries it again every tick; the cooldown spaces the refusals.
+        player.setPortalCooldown(REFUSAL_COOLDOWN_TICKS);
+        player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), why));
+        sounds.play(player, Feedback.REFUSED);
     }
 }

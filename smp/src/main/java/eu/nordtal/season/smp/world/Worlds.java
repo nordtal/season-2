@@ -1,8 +1,6 @@
 package eu.nordtal.season.smp.world;
 
-import eu.nordtal.season.smp.config.BalloonSpawnPointsSpec;
 import eu.nordtal.season.smp.config.SmpSpec;
-import eu.nordtal.season.smp.config.SpawnPointSpec;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -32,20 +30,6 @@ public final class Worlds {
     public String nameOf(final WorldRole role) {
         // The constructor puts every WorldRole into the map, so a lookup never misses.
         return Objects.requireNonNull(names.get(role));
-    }
-
-    /**
-     * Returns the configured point where the balloon puts a player in that world.
-     *
-     * The caller passes it to {@code LandingSite#findSafeAt}.
-     */
-    public SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
-        final BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
-        return switch (role) {
-            case NORDTAL -> points.nordtal();
-            case NETHER -> points.nether();
-            case END -> points.end();
-        };
     }
 
     public Optional<World> world(final WorldRole role) {

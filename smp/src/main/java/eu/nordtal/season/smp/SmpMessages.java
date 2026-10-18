@@ -54,45 +54,6 @@ public interface SmpMessages {
             MessageRef end();
         }
 
-        Balloon balloon();
-
-        @Name("Balloon")
-        @Shown(Display.GUI)
-        interface Balloon {
-
-            @Name("Title")
-            MessageRef title();
-
-            @Name("Open")
-            MessageRef open();
-
-            @Name("Here")
-            MessageRef here();
-
-            @Name("Locked")
-            MessageRef locked(@Arg("milestone") MilestoneContext milestone);
-
-            @Name("Locked hint")
-            MessageRef lockedHint();
-
-            @Name("Card")
-            MessageRef card(@Arg("world") String world);
-
-            @Name("Card locked")
-            MessageRef cardLocked(@Arg("world") String world);
-
-            @Name("Locked unknown")
-            MessageRef lockedUnknown();
-
-            @Name("Travelled")
-            @Shown(Display.CHAT)
-            MessageRef travelled(@Arg("world") String world);
-
-            @Name("Unavailable")
-            @Shown(Display.CHAT)
-            MessageRef unavailable();
-        }
-
         Portal portal();
 
         @Name("Portal")
@@ -101,8 +62,8 @@ public interface SmpMessages {
             @Name("Nether locked")
             MessageRef netherLocked();
 
-            @Name("End inactive")
-            MessageRef endInactive();
+            @Name("End locked")
+            MessageRef endLocked();
         }
 
         Protect protect();

@@ -57,6 +57,10 @@ function text(over: Partial<MessageEntry> & { key: string }): MessageText {
   return { entry: message({ shown: ["CHAT"], ...over }), path: "smp/smp", services: ["smp"], previews: {} }
 }
 
+function steward(key: string, section: string[]): MessageText {
+  return text({ key, bundle: "steward", section: ["Steward", ...section], shown: ["STEWARD"] })
+}
+
 function shape<L>(nodes: TreeNode<L>[], depth = 0): string[] {
   return nodes.flatMap((node) =>
     node.kind === "leaf"
@@ -152,6 +156,25 @@ describe("the texts as a tree", () => {
       "  smp/smp.grave.limit",
       "[Steward & Admin > Page]",
       "  steward/page.title",
+    ])
+  })
+
+  it("lists Steward's own texts under the page they are on, the shell's first and those of several pages last", () => {
+    const tree = textsTree(
+      [
+        steward("steward.form.changed", ["Forms"]),
+        steward("steward.alerts.all-clear", ["Alerts page"]),
+        steward("steward.shell.pages", ["Shell"]),
+      ],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual([
+      "[Every page > Shell]",
+      "  steward/steward.shell.pages",
+      "[Alerts > Alerts page]",
+      "  steward/steward.alerts.all-clear",
+      "[Several pages > Forms]",
+      "  steward/steward.form.changed",
     ])
   })
 

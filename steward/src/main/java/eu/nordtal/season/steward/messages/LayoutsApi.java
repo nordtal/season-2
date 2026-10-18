@@ -13,6 +13,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.layout.Element;
 import eu.nordtal.season.messages.spec.layout.Layout;
 import eu.nordtal.season.messages.spec.layout.LayoutCheck;
+import eu.nordtal.season.messages.spec.layout.LayoutMerge;
 import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.spec.layout.Part;
 import eu.nordtal.season.messages.text.MessageCheck;
@@ -87,11 +88,24 @@ public final class LayoutsApi {
      *
      * @param entry   the declaration with its packaged structure, the values its texts may name and every key it shows
      * @param hash    the SHA-256 of the packaged layout, which a rebuild records as written over
-     * @param rebuild the stored rebuild with the elements the code fills in, or {@code null} for none
-     * @param stale   whether the rebuild was written over another packaged layout than the jar ships now
+     * @param rebuild   the stored rebuild with the elements the code fills in, carried over to the packaged layout the
+     *                  jar ships now, or {@code null} for none
+     * @param adapted   what carrying the rebuild over changed, empty when it was written over this packaged layout
+     * @param fallbacks the added texts the validator refuses now, which show their values' replacement words
      */
     public record LayoutView(
-            LayoutSchema.Entry entry, String hash, @Nullable Layout rebuild, boolean stale) {}
+            LayoutSchema.Entry entry,
+            String hash,
+            @Nullable Layout rebuild,
+            List<LayoutMerge.Adaptation> adapted,
+            List<AddedFallback> fallbacks) {}
+
+    /**
+     * An added text the validator refuses, as a release that removed a value it names makes it.
+     *
+     * @param problems what the validator refuses, messages of the {@code check} bundle
+     */
+    public record AddedFallback(String language, String text, List<MessageRef> problems) {}
 
     /**
      * What a save answers.
@@ -282,14 +296,22 @@ public final class LayoutsApi {
             final Layout layout = entry.layout();
             final String hash = LayoutSchema.hash(layout);
             final LayoutStore.StoredLayout rebuild = rebuilds.get(id);
-            views.add(
-                    rebuild == null
-                            ? new LayoutView(entry, hash, null, false)
-                            : new LayoutView(
-                                    entry,
-                                    hash,
-                                    layout.rebuilt(rebuild.parts(), rebuild.links()),
-                                    !rebuild.replaced().equals(hash)));
+            if (rebuild == null) {
+                views.add(new LayoutView(entry, hash, null, List.of(), List.of()));
+                return;
+            }
+            final LayoutMerge.Merged merged =
+                    LayoutMerge.merge(layout, rebuild.parts(), rebuild.links(), rebuild.replaced());
+            final List<AddedFallback> fallbacks = new ArrayList<>();
+            for (final Map<String, String> texts : merged.layout().addedTexts()) {
+                texts.forEach((language, text) -> {
+                    final List<MessageRef> problems = errors(text, entry);
+                    if (!problems.isEmpty()) {
+                        fallbacks.add(new AddedFallback(language, text, problems));
+                    }
+                });
+            }
+            views.add(new LayoutView(entry, hash, merged.layout(), merged.adaptations(), fallbacks));
         });
         return new Layouts(
                 store != null,
@@ -297,6 +319,14 @@ public final class LayoutsApi {
                 LayoutSchema.buildingBlocks(packaged.values()),
                 MessagesApi.languages(settings),
                 tiers());
+    }
+
+    /** What the validator refuses in an added text of the layout's entry, empty when it takes it. */
+    private static List<MessageRef> errors(final String text, final LayoutSchema.Entry entry) {
+        return MessageCheck.check(text, entry.values(), MessageCheck.Mode.OVERRIDE).stream()
+                .filter(MessageCheck.Problem::error)
+                .map(MessageCheck.Problem::text)
+                .toList();
     }
 
     /** The price tiers as the network's settings name them now, cheapest first; none when they cannot be read. */

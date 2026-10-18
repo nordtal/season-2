@@ -3,7 +3,7 @@ package eu.nordtal.season.discordbot;
 import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.LayoutSchema;
+import eu.nordtal.season.messages.spec.layout.LayoutMerge;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,13 +38,14 @@ public final class StoredLayouts {
 
     /**
      * Returns the layout as it is drawn: its stored rebuild, else {@code declared}.
-     * A rebuild written over another declaration than this jar's is set aside.
+     * A rebuild written over another declaration than this jar's is carried over to it.
      */
     public Layout applied(final Layout declared) {
         final LayoutStore.StoredLayout rebuild = rebuilds.get(declared.bundle() + "/" + declared.name());
-        return rebuild == null || !rebuild.replaced().equals(LayoutSchema.hash(declared))
+        return rebuild == null
                 ? declared
-                : declared.rebuilt(rebuild.parts(), rebuild.links());
+                : LayoutMerge.merge(declared, rebuild.parts(), rebuild.links(), rebuild.replaced())
+                        .layout();
     }
 
     /**

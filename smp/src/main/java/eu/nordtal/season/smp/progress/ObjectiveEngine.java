@@ -47,9 +47,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The spine of the season: crediting progress, finishing objectives, paying out and unlocking milestones.
- *
- * Runs off the main thread. A credit with the finish and payout it causes is one transaction, joined by every DAO.
+ * Credits objectives, completes them, pays their aura and spins and unlocks milestones.
+ * Its methods run off the main thread.
+ * A credit, the completion it causes and the payout run in one transaction.
  */
 public final class ObjectiveEngine implements Contributions {
 
@@ -58,7 +58,6 @@ public final class ObjectiveEngine implements Contributions {
     private final TrackDao rows;
     private final ProgressDao progress;
     private final AuraDao aura;
-    /** The milestone track, as a supplier, because a settings change replaces it. */
     private final Supplier<MilestoneTrack> track;
 
     private final SeasonState season;
@@ -70,20 +69,20 @@ public final class ObjectiveEngine implements Contributions {
     private final WorldEffects effects;
     private final Announcer announcer;
 
-    /** How the milestone title sits on the screen: in fast, held long because it arrives unannounced, out slowly. */
+    /** The fade in, stay and fade out of the milestone title. */
     private static final Title.Times CEREMONY =
             Title.Times.times(Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
 
-    /** What one transaction did: how much it credited, and the objective it finished, if it finished one. */
+    /** The result of one transaction: the amount credited and the objective it completed, if any. */
     private record Settled(long credited, @Nullable Finished finished) {
 
         static final Settled NOTHING = new Settled(0L, null);
     }
 
-    /** An objective this engine finished and paid out, whose announcement waits for the commit. */
+    /** An objective completed in a transaction, announced after the commit. */
     private record Finished(String milestoneKey, String objectiveKey) {}
 
-    /** @param jdbi the plugin's one Jdbi, whose transactions the {@link PrizeSource}'s writes join */
+    /** @param jdbi the {@code Jdbi} whose transactions the writes of {@link PrizeSource} join */
     public ObjectiveEngine(
             final Plugin plugin,
             final Jdbi jdbi,
@@ -125,7 +124,7 @@ public final class ObjectiveEngine implements Contributions {
         return settled.credited();
     }
 
-    /** Forecasts each spin share by {@link Payout}'s split over everybody's contributions so far. */
+    /** Computes the spin share of each row with {@link Payout#shareOf} over the contributions so far. */
     @Override
     public List<OwnContributionRow> ownContributions(final String milestoneKey, final DiscordId discordId) {
         final Optional<Milestone> milestone = track.get().milestone(milestoneKey);
@@ -153,12 +152,11 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Counts a holder of this advancement once towards the active milestone's gate naming it; blocking, so async.
+     * Adds 1 to the participation gate of the active milestone that names {@code advancement}.
+     * It blocks on the database.
      *
-     * @param discordId who holds it
-     * @param advancement the advancement held
-     * @param completedBy the player who holds it; only changes the finishing sound
-     * @return 1, or 0 when the gate names another advancement, is finished or counts this player already
+     * @param completedBy the player who holds the advancement, which selects the sound of a milestone unlock
+     * @return 1, or 0 when no such gate exists, the gate is completed or already counts {@code discordId}
      */
     public long creditAdvancement(
             final DiscordId discordId, final NamespacedKey advancement, final @Nullable UUID completedBy) {
@@ -169,7 +167,7 @@ public final class ObjectiveEngine implements Contributions {
         return settled.credited();
     }
 
-    /** Inside the caller's transaction: counts the holder once towards the gate, finishing it on the last one. */
+    /** Adds 1 to the gate in the transaction of the caller and completes the gate when it reaches its target. */
     private Settled countUnder(final String milestoneKey, final DiscordId discordId, final NamespacedKey advancement) {
         final Optional<ObjectiveRow> gate = track.get()
                 .milestone(milestoneKey)
@@ -189,7 +187,7 @@ public final class ObjectiveEngine implements Contributions {
         return new Settled(1L, null);
     }
 
-    /** Inside the caller's transaction: adds what the objective still takes, finishing it when that fills it. */
+    /** Adds {@code delta} to the objective and completes it at its target, in the transaction of the caller. */
     private Settled creditUnder(
             final String milestoneKey, final DiscordId discordId, final String objectiveKey, final long delta) {
         final Optional<ObjectiveRow> row = rows.objective(milestoneKey, objectiveKey);
@@ -213,21 +211,16 @@ public final class ObjectiveEngine implements Contributions {
         return new Settled(advance.credited(), null);
     }
 
-    /**
-     * Finishes one objective and pays its budgets out, in one transaction, off the main thread.
-     *
-     * The admin escape hatch calls it too, which is why the completion guard is in SQL.
-     */
+    /** Completes the objective and pays its budgets in one transaction. */
     public void finishObjective(
             final String milestoneKey, final ObjectiveRow objective, final @Nullable UUID completedBy) {
         final Settled settled = jdbi.inTransaction(handle -> new Settled(0L, complete(milestoneKey, objective)));
         afterCommit(settled, completedBy);
     }
 
-    /** Inside the caller's transaction: marks the objective finished and pays it out, or null when another did. */
+    /** Completes and pays the objective in the transaction of the caller, or returns null if it was completed. */
     private @Nullable Finished complete(final String milestoneKey, final ObjectiveRow objective) {
         if (progress.completeObjective(objective.id()) == 0) {
-            // Somebody else's delivery completed it a moment ago and has already paid everyone.
             return null;
         }
 
@@ -246,9 +239,8 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * After the commit: announces a finished objective and unlocks its milestone if it was the last.
-     *
-     * Logged, never thrown, because the credit it follows holds and a caller must not hand its items back.
+     * Announces the completed objective and checks its milestone.
+     * It logs a {@code RuntimeException} and does not rethrow it.
      */
     private void afterCommit(final Settled settled, final @Nullable UUID completedBy) {
         final Finished finished = settled.finished();
@@ -257,7 +249,7 @@ public final class ObjectiveEngine implements Contributions {
         }
         try {
             announceObjective(finished.objectiveKey());
-            // After the commit, so two objectives finished at once each see the other's completion.
+            // Runs after the commit so that two objectives completed at once see each other.
             checkMilestone(finished.milestoneKey(), completedBy);
         } catch (final RuntimeException failure) {
             plugin.getLogger()
@@ -270,9 +262,8 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Splits an objective's aura and spin budgets among everyone who worked on it, by {@link Payout}'s arithmetic.
-     *
-     * Both are scaled down when the target was not reached, so the escape hatch never beats doing the work.
+     * Splits the aura and spin budgets of the objective among its contributors with {@link Payout}.
+     * Both budgets are scaled by {@link Payout#scaled} to the amount reached.
      */
     private void payOut(final ObjectiveRow objective, final Objective definition, final String milestoneKey) {
         final List<ContributionRow> contributors = progress.contributionsOf(objective.id());
@@ -287,7 +278,7 @@ public final class ObjectiveEngine implements Contributions {
         final int auraBudget = Payout.scaled(definition.auraBudget(), objective.amount(), objective.target());
         final int spinBudget = Payout.scaled(definition.spinBudget(), objective.amount(), objective.target());
 
-        // In one order by player, so two payouts in flight lock the same rows in the same order and never deadlock.
+        // Paying in the order of the player id makes concurrent payouts lock rows in the same order.
         for (final Payout.Share share : byPlayer(Payout.split(auraBudget, objective.target(), contributions))) {
             aura.addAura(
                     DiscordId.of(share.contributorId()), share.total(), new AuraCause.Contribution(objective.id()));
@@ -300,7 +291,7 @@ public final class ObjectiveEngine implements Contributions {
                         + " contributor(s) out of " + auraBudget + " aura and " + spinBudget + " spins");
     }
 
-    /** Returns the shares worth paying, by player id. */
+    /** Returns the shares with a positive total, sorted by player id. */
     private static List<Payout.Share> byPlayer(final List<Payout.Share> shares) {
         return shares.stream()
                 .filter(share -> share.total() > 0)
@@ -308,7 +299,7 @@ public final class ObjectiveEngine implements Contributions {
                 .toList();
     }
 
-    /** Unlocks the milestone if every one of its objectives is now finished, off the main thread. */
+    /** Unlocks the milestone when it has objectives and all of them are completed. */
     public void checkMilestone(final String milestoneKey, final @Nullable UUID completedBy) {
         final List<ObjectiveRow> objectives = rows.objectivesOf(milestoneKey);
         if (objectives.isEmpty() || !objectives.stream().allMatch(ObjectiveRow::completed)) {
@@ -318,12 +309,11 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Completes a milestone and activates the next in one transaction, then hands out what it unlocks, off main.
-     *
-     * The row and its {@code pg_notify} are one statement, so no announcement goes out for an unlock not held.
+     * Completes the milestone, activates the next one and applies the unlock of the milestone.
+     * It does nothing when the milestone is not {@code ACTIVE}.
      */
     public void unlockMilestone(final String milestoneKey, final @Nullable UUID completedBy) {
-        // One snapshot for the whole transition; separate reads of the supplier could disagree mid-reload.
+        // One read of the supplier, because a reload can replace the track between two reads.
         final MilestoneTrack now = track.get();
         final boolean unlocked = jdbi.inTransaction(handle -> {
             if (rows.completeMilestone(milestoneKey).isEmpty()) {
@@ -340,14 +330,13 @@ public final class ObjectiveEngine implements Contributions {
         final Milestone milestone = now.milestone(milestoneKey).orElse(null);
         PaperScheduler.of(plugin).onMain(() -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
-                // Animated, unlike the one applied at start: the wall crawling outwards is the ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
             }
             announceMilestone(milestoneKey, completedBy, milestone == null ? Unlock.NOTHING : milestone.unlock());
         });
     }
 
-    /** Announces a finished objective to everybody, without a sound, so the milestone's own sound keeps its weight. */
+    /** Sends the completion of the objective to every online player, without a sound. */
     private void announceObjective(final String objectiveKey) {
         PaperScheduler.of(plugin).onMain(() -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
@@ -359,12 +348,10 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Tells everybody the milestone is finished, with a different sound for whoever finished it.
-     *
-     * An admin completion passes null, so nobody is congratulated for a command.
+     * Announces the unlocked milestone on Discord and to every online player.
+     * The player {@code completedBy} hears {@code BIG_SUCCESS} and everybody else {@code NETWORK_EVENT}.
      */
     private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
-        // Discord first, off this thread, one row per language.
         announcer.announce(locale -> {
             final MilestoneContext milestone =
                     new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));

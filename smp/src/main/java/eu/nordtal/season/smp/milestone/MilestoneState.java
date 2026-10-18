@@ -3,24 +3,22 @@ package eu.nordtal.season.smp.milestone;
 import java.util.Optional;
 
 /**
- * Where one milestone stands, mirroring {@code smp_milestone.state}'s CHECK constraint.
+ * The values {@code smp_milestone.state} allows.
  *
- * Exactly one milestone is {@link #ACTIVE} at a time; the engine enforces that, not the schema.
+ * The engine keeps at most one milestone {@link #ACTIVE}, the schema does not.
  */
 public enum MilestoneState {
 
-    /** Not yet reachable: an earlier milestone in the file is still open. */
+    /** An earlier milestone in the file is not unlocked. */
     LOCKED,
 
-    /** The one milestone whose objectives are being worked on. */
+    /** The objectives of the milestone count progress. */
     ACTIVE,
 
-    /** Finished and paid out. */
+    /** The milestone has unlocked. */
     UNLOCKED;
 
-    /**
-     * Parses a {@code smp_milestone.state} value, falling back to {@link #LOCKED}, the state that assumes the least.
-     */
+    /** Parses a {@code smp_milestone.state} value and returns {@link #LOCKED} for any other value. */
     public static MilestoneState fromDatabase(final String name) {
         return parse(name).orElse(LOCKED);
     }

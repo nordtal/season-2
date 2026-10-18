@@ -8,14 +8,13 @@ import java.util.function.Consumer;
 import net.kyori.adventure.text.format.TextColor;
 
 /**
- * The fourteen colours a player's name is drawn in: one per {@link Prestige} tier, and the admin colour over them all.
- *
- * Each default reads at 6:1 or better against black, and the hues sweep from teal to gold so tiers differ in hue.
+ * The name colour of each {@link Prestige} tier and the admin colour.
+ * Each default colour has a contrast ratio of at least 6:1 against black.
  */
 public final class PrestigeColours {
 
     private static final List<TextColor> DEFAULT_TIERS = List.of(
-            required("#5fbfae"), // 1 teal: a crest nobody has worn for long
+            required("#5fbfae"), // 1 teal
             required("#5ea9d6"), // 2 sky blue
             required("#6f93e0"), // 3 cornflower
             required("#8f83e6"), // 4 periwinkle
@@ -27,10 +26,10 @@ public final class PrestigeColours {
             required("#dbb043"), // 10 gold
             required("#e8d35a"), // 11 bright gold
             required("#f0dc70"), // 12 radiant gold
-            required("#fff6d8") // 13 legend: the brightest and warmest of the fourteen
+            required("#fff6d8") // 13 legend
             );
 
-    /** Vanilla's {@code NamedTextColor.RED} as a hex string, at least 60 RGB units from every tier's colour. */
+    /** The hex string of {@code NamedTextColor.RED}. */
     private static final TextColor DEFAULT_ADMIN = required("#ff5555");
 
     public static final PrestigeColours DEFAULTS = new PrestigeColours(DEFAULT_TIERS, DEFAULT_ADMIN);
@@ -44,13 +43,11 @@ public final class PrestigeColours {
     }
 
     /**
-     * Parses the {@code colours} block of the {@code prestige} group, replacing a bad value with its default.
+     * Parses the hex strings of the {@code colours} block of the {@code prestige} group.
+     * A blank or invalid value becomes its default colour and is reported to {@code problems}.
      *
-     * @param declaredTiers exactly {@link Prestige#TIER_COUNT} hex strings, tier 1 first
-     * @param declaredAdmin the admin colour's hex string
-     * @param problems       where each replaced value is reported once
-     * @throws IllegalArgumentException if {@code declaredTiers} does not have exactly {@link Prestige#TIER_COUNT}
-     *     entries
+     * @param declaredTiers the tier colours, tier 1 first
+     * @throws IllegalArgumentException when {@code declaredTiers} does not have {@link Prestige#TIER_COUNT} entries
      */
     public static PrestigeColours parse(
             final List<String> declaredTiers, final String declaredAdmin, final Consumer<String> problems) {
@@ -72,9 +69,10 @@ public final class PrestigeColours {
     }
 
     /**
-     * Returns a tier's colour.
+     * Returns the colour of {@code tier}.
      *
-     * @param tier between {@link Prestige#MINIMUM_TIER} and {@link Prestige#TIER_COUNT}
+     * @throws IllegalArgumentException when {@code tier} is below {@link Prestige#MINIMUM_TIER} or above
+     *     {@link Prestige#TIER_COUNT}
      */
     public TextColor tier(final int tier) {
         if (tier < Prestige.MINIMUM_TIER || tier > Prestige.TIER_COUNT) {
@@ -84,7 +82,6 @@ public final class PrestigeColours {
         return tiers.get(tier - 1);
     }
 
-    /** Returns the colour that wins over every tier. */
     public TextColor admin() {
         return admin;
     }

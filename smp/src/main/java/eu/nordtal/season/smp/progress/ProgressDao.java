@@ -12,18 +12,13 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * What contributing writes: an objective's amount, who put in how much, and the one completion.
- *
- * A JDBI SqlObject, never called from the main thread; {@link ObjectiveEngine} runs it inside its transactions.
+ * Writes the amounts, contributions and completion of objectives.
+ * It is never called from the main thread, and {@link ObjectiveEngine} calls it inside its transactions.
  */
 @Notifies(Channel.SMP)
 public interface ProgressDao {
 
-    /**
-     * Adds to an objective's collected amount, atomically in SQL.
-     *
-     * Not clamped to the target: over-collection is real, and clamping would throw away somebody's items.
-     */
+    /** Adds {@code delta} to {@code smp_objective.amount} without a cap at the target. */
     @SqlQuery("""
             WITH updated AS (UPDATE smp_objective SET amount = amount + :delta WHERE id = :id RETURNING id)
             SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM updated) AS notified
@@ -41,9 +36,10 @@ public interface ProgressDao {
             @Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId, @Bind("amount") long amount);
 
     /**
-     * Counts one player towards an unfinished gate, once, and adds 1 to its amount only for a player not counted yet.
+     * Inserts a contribution of 1 and adds 1 to {@code smp_objective.amount}.
+     * It does nothing when the player has a contribution or the objective is completed.
      *
-     * @return the gate's new amount, or empty when this player already counts or the gate is finished
+     * @return the new amount, or empty when nothing was added
      */
     @SqlQuery("""
             WITH counted AS (
@@ -73,11 +69,7 @@ public interface ProgressDao {
     @RegisterConstructorMapper(ContributionRow.class)
     List<ContributionRow> contributionsOf(@Bind("objectiveId") UUID objectiveId);
 
-    /**
-     * What one player has put into each objective of one milestone.
-     *
-     * A left join, so an untouched objective comes back at zero instead of shortening the menu's list.
-     */
+    /** Returns one row per objective of the milestone, with {@code mine} zero where the player has no contribution. */
     @SqlQuery("""
             SELECT obj.key               AS key,
                    coalesce(con.amount, 0) AS mine,
@@ -91,7 +83,6 @@ public interface ProgressDao {
     List<OwnAmountRow> ownContributions(
             @Bind("milestoneKey") String milestoneKey, @Bind("discordId") DiscordId discordId);
 
-    /** Everybody's positive contribution to every objective of one milestone, for forecasting a share. */
     @SqlQuery("""
             SELECT obj.key AS key, con.discord_id AS discordId, con.amount AS amount
             FROM smp_objective obj
@@ -102,9 +93,9 @@ public interface ProgressDao {
     List<KeyedContributionRow> contributionsUnder(@Bind("milestoneKey") String milestoneKey);
 
     /**
-     * Marks an objective finished, once.
+     * Sets {@code smp_objective.completed} when it is unset.
      *
-     * The {@code completed IS NULL} guard lets only one of two simultaneous deliveries go on to pay anybody.
+     * @return 1 for the one call that set it, 0 otherwise
      */
     @SqlQuery("""
             WITH updated AS (

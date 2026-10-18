@@ -10,27 +10,20 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The milestone track's rows: which milestone stands where, and each objective's stored progress.
- *
- * A JDBI SqlObject, never called from the main thread; the credits that move an objective are {@code ProgressDao}'s.
+ * Reads and writes {@code smp_milestone} and {@code smp_objective}.
+ * It is never called from the main thread.
  */
 @Notifies(Channel.SMP)
 public interface TrackDao {
 
-    /**
-     * The keys of every milestone that is finished.
-     *
-     * What each unlocked lives in the {@code milestones} group, checked against these by {@code TrackValidation}.
-     */
+    /** Returns the keys of the milestones in state {@code UNLOCKED}. */
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'UNLOCKED' ORDER BY key")
     List<String> completedMilestoneKeys();
 
-    /** Every milestone row, for {@code TrackValidation}, which needs the whole set to see a rename. */
     @SqlQuery("SELECT key, state FROM smp_milestone ORDER BY key")
     @RegisterConstructorMapper(StoredProgress.StoredMilestone.class)
     List<StoredProgress.StoredMilestone> storedMilestones();
 
-    /** Every objective row, with the type and target it was created under. See {@link #storedMilestones}. */
     @SqlQuery("""
             SELECT milestone_key              AS milestoneKey,
                    key                        AS key,
@@ -47,11 +40,6 @@ public interface TrackDao {
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'ACTIVE' LIMIT 1")
     Optional<String> activeMilestoneKey();
 
-    /**
-     * Every objective of one milestone, with its progress.
-     *
-     * Rows rather than a ratio: the board names each objective, the HUD averages them.
-     */
     @SqlQuery("""
             SELECT obj.id                        AS id,
                    obj.key                       AS key,
@@ -79,9 +67,9 @@ public interface TrackDao {
             @Bind("milestoneKey") String milestoneKey, @Bind("objectiveKey") String objectiveKey);
 
     /**
-     * Finishes a milestone and sends {@code pg_notify} in the same statement.
+     * Sets the milestone to {@code UNLOCKED} and sends a notification in the same statement.
      *
-     * Returns empty unless the milestone was the active one, so two callers at once are safe and no unlock skips ahead.
+     * @return the key, or empty when the milestone was not {@code ACTIVE}
      */
     @SqlQuery("""
             UPDATE smp_milestone
@@ -91,9 +79,7 @@ public interface TrackDao {
             """)
     Optional<String> completeMilestone(@Bind("key") String key);
 
-    /**
-     * Writes a milestone row this database has never seen, idempotently, so an appended milestone appears on reload.
-     */
+    /** Inserts the milestone row when it does not exist. */
     @SqlUpdate("""
             INSERT INTO smp_milestone (key, state)
             VALUES (:key, :state)
@@ -101,11 +87,7 @@ public interface TrackDao {
             """)
     void ensureMilestone(@Bind("key") String key, @Bind("state") String state);
 
-    /**
-     * Makes sure the objective the file declares has a row, with the file's target.
-     *
-     * Never touches {@code amount} or {@code completed}; {@code TrackValidation} has already approved the target.
-     */
+    /** Inserts the objective row, or sets {@code target} and {@code type} of the existing row. */
     @SqlUpdate("""
             INSERT INTO smp_objective (milestone_key, key, type, target)
             VALUES (:milestoneKey, :key, :type, :target)
@@ -118,10 +100,10 @@ public interface TrackDao {
             @Bind("target") long target);
 
     /**
-     * Starts the track over once for every fresh start the phase stamped since the last one.
-     * Milestones locked, objectives emptied, contributions gone, the marker set, in one statement; aura stays.
+     * Resets the track when {@code season_phase.fresh_start} is set and {@code smp_reset.applied} is unset or older.
+     * It sets every milestone to {@code LOCKED}, every objective to zero and deletes {@code smp_contribution}.
      *
-     * @return 1 when this call started the track over, 0 when there was nothing to do
+     * @return 1 when it reset the track, 0 otherwise
      */
     @SqlQuery("""
             WITH due AS (
@@ -160,7 +142,7 @@ public interface TrackDao {
             """)
     int activateMilestone(@Bind("key") String key);
 
-    /** Activates {@code key} only while nothing is active and {@code completed} milestones are still unlocked. */
+    /** Activates {@code key} when no milestone is active and exactly {@code completed} milestones are unlocked. */
     @SqlQuery("""
             WITH updated AS (
                 UPDATE smp_milestone SET state = 'ACTIVE'

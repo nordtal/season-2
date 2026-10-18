@@ -11,9 +11,8 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the track has handed out so far, held in memory so the main thread can ask without touching the database.
- *
- * Refreshed asynchronously and read from anywhere: volatile fields suffice, as one refresh behind is harmless.
+ * Holds the unlocks, the border diameter and the active milestone in memory.
+ * The methods that refresh it run asynchronously, and every reader may run on any thread.
  */
 public final class SeasonState {
 
@@ -23,33 +22,24 @@ public final class SeasonState {
     private volatile Active active = Active.UNREAD;
 
     /**
-     * The active milestone and its objectives' progress, as one value so a reader never mixes two milestones.
+     * The active milestone and the progress of its objectives.
      *
-     * @param key the active milestone's key, or null once the track has run out
-     * @param objectives its objectives with their progress, never null
-     * @param unread whether nothing has been read from the database yet
+     * @param key the key of the active milestone, or null when no milestone is active
+     * @param unread whether {@link SeasonState} has not been refreshed yet
      */
     public record Active(@Nullable String key, List<ObjectiveRow> objectives, boolean unread) {
 
-        /** No milestone, because the last one is done. */
+        /** No milestone is active. */
         public static final Active NONE = new Active(null, List.of(), false);
 
-        /**
-         * Not read yet: what the state holds between enable and the first refresh.
-         *
-         * Distinct from {@link #NONE}, so a surface read after a restart never claims the track is finished.
-         */
+        /** The value before the first {@link SeasonState#refreshActive}. */
         public static final Active UNREAD = new Active(null, List.of(), true);
 
         public Active {
             objectives = List.copyOf(objectives);
         }
 
-        /**
-         * How far this milestone is, as the mean of its objectives.
-         *
-         * The mean, not the total: targets differ wildly, and each objective weighs the same.
-         */
+        /** Returns the mean of {@code ObjectiveRow#ratio} over the objectives, or 0 without objectives. */
         public double progress() {
             return objectives.isEmpty()
                     ? 0.0
@@ -61,13 +51,12 @@ public final class SeasonState {
     }
 
     /**
-     * Recomputes from the completed milestone keys and the track that defines them.
-     *
-     * A completed key the track no longer declares contributes nothing; {@code TrackValidation} reports it at load.
+     * Sets the unlocks and the border diameter from the milestones in {@code completed}.
+     * It ignores a key that {@code track} does not contain.
      */
     public void refresh(final List<String> completed, final MilestoneTrack track) {
         final Set<Unlock> found = EnumSet.noneOf(Unlock.class);
-        // The first milestone's border holds from the start of the track, before anything is unlocked.
+        // The border of the first milestone applies before any milestone unlocks.
         int border = track.first()
                 .filter(first -> first.unlock() == Unlock.BORDER)
                 .map(Milestone::borderDiameter)
@@ -82,7 +71,6 @@ public final class SeasonState {
                 border = Math.max(border, milestone.borderDiameter());
             }
         }
-        // Takes the largest border any completed milestone asked for.
         this.unlocked = Collections.unmodifiableSet(found);
         this.borderDiameter = border;
         this.completedKeys = List.copyOf(completed);
@@ -96,7 +84,7 @@ public final class SeasonState {
         return unlocked.contains(unlock);
     }
 
-    /** The border every completed milestone adds up to, or 0 when none has moved it yet. */
+    /** Returns the largest border diameter of the completed milestones, or 0 without one. */
     public int borderDiameter() {
         return borderDiameter;
     }
@@ -105,12 +93,10 @@ public final class SeasonState {
         return completedKeys;
     }
 
-    /** Records which milestone is being worked on and how far each of its objectives has got. */
     public void refreshActive(final @Nullable String key, final List<ObjectiveRow> objectives) {
         this.active = new Active(key, objectives, false);
     }
 
-    /** The active milestone and its progress, in one read so the name and the bar always agree. */
     public Active active() {
         return active;
     }

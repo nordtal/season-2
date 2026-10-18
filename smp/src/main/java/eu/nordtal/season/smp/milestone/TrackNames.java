@@ -8,14 +8,10 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Statistic;
 
-/**
- * Refuses a track naming an item, statistic, entity or advancement this server does not have.
- *
- * The hand-in and the statistic poller read names through {@link GameKeys} too, so a name passed here is found there.
- */
+/** Checks the names of items, statistics, entities and advancements in a track against the running server. */
 public final class TrackNames {
 
-    /** What only a running server can answer about a name. */
+    /** The queries of {@link TrackNames} that need a running server. */
     public interface Server {
 
         boolean isItem(Material material);
@@ -24,7 +20,6 @@ public final class TrackNames {
 
         boolean hasAdvancement(NamespacedKey key);
 
-        /** Returns the answers of the server this plugin runs on. */
         static Server running() {
             return new Server() {
                 @Override
@@ -47,7 +42,7 @@ public final class TrackNames {
 
     private TrackNames() {}
 
-    /** Returns every name the track uses that this server does not have, empty when all of them resolve. */
+    /** Returns a problem for every name in the track that the server does not have. */
     public static List<TrackValidation.Problem> validate(final MilestoneTrack track, final Server server) {
         final List<TrackValidation.Problem> problems = new ArrayList<>();
         for (final Milestone milestone : track.milestones()) {

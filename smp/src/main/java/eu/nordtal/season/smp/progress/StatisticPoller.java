@@ -9,7 +9,6 @@ import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
-import eu.nordtal.season.smp.milestone.TrackNames;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -23,17 +22,15 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Counts {@code STATISTIC} objectives by polling each player's vanilla statistics and crediting the difference.
- *
- * The first read of a session is only a baseline; reads run on the main thread, crediting async.
+ * Credits {@code STATISTIC} objectives with the increase of the vanilla statistics of online players.
+ * It reads on the main thread and credits asynchronously.
+ * The first read of a statistic per player is a baseline and credits nothing.
  */
 public final class StatisticPoller {
 
-    /** Every five seconds: fast enough to feel live, slow enough that nobody notices the reads. */
     private static final Duration PERIOD = Duration.ofSeconds(5);
 
     private final Plugin plugin;
-    /** The milestone track, as a supplier, because a settings change replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final ObjectiveEngine engine;
@@ -41,7 +38,7 @@ public final class StatisticPoller {
 
     private final Map<UUID, Map<String, Long>> baselines = new HashMap<>();
 
-    /** The track the baselines were sampled under; a changed track resets them, as a key may now mean more. */
+    /** The track of the last poll. A different track clears {@code baselines}. */
     private @Nullable MilestoneTrack sampledUnder;
 
     private Scheduler.@Nullable Task task;
@@ -106,7 +103,6 @@ public final class StatisticPoller {
         final Long previous = forPlayer.put(objective.key(), now);
 
         if (previous == null || now <= previous) {
-            // First read of the session, or a statistic that went backwards; nothing honest to credit either way.
             return;
         }
         final long delta = now - previous;
@@ -117,7 +113,6 @@ public final class StatisticPoller {
         PaperScheduler.of(plugin).execute(() -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
     }
 
-    /** Sums the statistic across every subject the objective names. */
     private long read(final Player player, final Objective objective) {
         final Statistic statistic = statisticOf(objective);
         if (statistic == null) {
@@ -135,7 +130,6 @@ public final class StatisticPoller {
         return total;
     }
 
-    /** Reads one subject, which {@link TrackNames} made sure this server has before the track was taken. */
     private long readOne(final Player player, final Statistic statistic, final String subject) {
         return switch (statistic.getType()) {
             case BLOCK, ITEM ->
@@ -154,7 +148,6 @@ public final class StatisticPoller {
         return GameKeys.statistic(objective.statistic()).orElse(null);
     }
 
-    /** Which milestone is accepting progress, pushed in by the async sweep so {@link #poll} never queries. */
     private volatile Optional<String> activeMilestone = Optional.empty();
 
     public void setActiveMilestone(final Optional<String> key) {

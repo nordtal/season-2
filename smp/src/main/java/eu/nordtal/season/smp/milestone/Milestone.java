@@ -6,13 +6,13 @@ import java.util.Optional;
 import org.bukkit.NamespacedKey;
 
 /**
- * One milestone of the track, as the milestone file defines it; all its objectives must complete before it unlocks.
+ * A milestone of the track as the milestone file defines it.
  *
- * @param key the YAML key and {@code smp_milestone.key}; renaming one is refused by {@link TrackValidation}
- * @param unlock what finishing it hands the community
- * @param borderDiameter the Nordtal border as a diameter, used only with {@link Unlock#BORDER}
- * @param adminUnlocked whether an admin opens it rather than its objectives
- * @param objectives every objective, in file order; empty for the two opening milestones
+ * @param key the YAML key and {@code smp_milestone.key}
+ * @param unlock what the milestone does when it unlocks
+ * @param borderDiameter the border diameter, read only with {@link Unlock#BORDER}
+ * @param adminUnlocked whether an admin unlocks the milestone instead of its objectives
+ * @param objectives the objectives in file order
  */
 public record Milestone(
         String key, Unlock unlock, int borderDiameter, boolean adminUnlocked, List<Objective> objectives) {
@@ -23,14 +23,12 @@ public record Milestone(
         objectives = objectives == null ? List.of() : List.copyOf(objectives);
     }
 
-    /** Returns the objective with this key, if this milestone declares it. */
     public Optional<Objective> objective(final String key) {
         return objectives.stream()
                 .filter(objective -> objective.key().equals(key))
                 .findFirst();
     }
 
-    /** Returns the participation gate that names this advancement, if this milestone has one. */
     public Optional<Objective> gateFor(final NamespacedKey advancement) {
         return objectives.stream()
                 .filter(Objective::isParticipationGate)
@@ -39,9 +37,6 @@ public record Milestone(
                 .findFirst();
     }
 
-    /**
-     * Returns whether this milestone has nothing to finish, so the engine unlocks it once active unless an admin must.
-     */
     public boolean hasNoObjectives() {
         return objectives.isEmpty();
     }

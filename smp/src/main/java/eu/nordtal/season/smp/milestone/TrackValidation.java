@@ -6,15 +6,15 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Whether a reloaded milestone file may replace the running one.
- *
- * It refuses whatever would orphan stored progress, and must allow lowering a live target, the finest escape hatch.
+ * Checks a reloaded milestone file against the stored progress.
+ * It refuses a file that leaves stored progress without a milestone or objective.
+ * It accepts a lower target for an objective that has not completed.
  */
 public final class TrackValidation {
 
     private TrackValidation() {}
 
-    /** One reason a reload was refused, worded to go straight into a command's reply. */
+    /** A reason to refuse a reload, worded for the reply of a command. */
     public record Problem(
             @Nullable String milestoneKey, @Nullable String objectiveKey, String message) {
 
@@ -25,7 +25,6 @@ public final class TrackValidation {
         @Override
         public String toString() {
             if (milestoneKey == null) {
-                // Nothing in the file to point at: the track as a whole is the problem.
                 return message;
             }
             if (objectiveKey == null) {
@@ -36,11 +35,9 @@ public final class TrackValidation {
     }
 
     /**
-     * Checks a track against what the database holds, reporting every problem rather than the first.
+     * Compares {@code track} with {@code progress}.
      *
-     * @param track    the track just parsed out of the file
-     * @param progress the rows currently in {@code smp_milestone} and {@code smp_objective}
-     * @return every problem, in the order found; empty means the file may replace the running one
+     * @return every problem in the order found, empty when the file may replace the running track
      */
     public static List<Problem> validate(final MilestoneTrack track, final StoredProgress progress) {
         Objects.requireNonNull(track, "track");
@@ -63,7 +60,6 @@ public final class TrackValidation {
         for (final StoredProgress.StoredObjective stored : progress.objectives()) {
             final var milestone = track.milestone(stored.milestoneKey());
             if (milestone.isEmpty()) {
-                // Already reported above as a missing milestone.
                 continue;
             }
 
@@ -94,14 +90,13 @@ public final class TrackValidation {
                                 + "; changing it to " + objective.target() + " would rewrite the "
                                 + "arithmetic behind aura that is already in the ledger."));
             }
-            // A target change on a LIVE objective is deliberately not a problem.
         }
 
         problems.addAll(orderProblems(track, progress));
         return List.copyOf(problems);
     }
 
-    /** The unlocked milestones have to stay a prefix of the file's order. */
+    /** Returns a problem for every milestone that is not unlocked and is before an unlocked one in the file. */
     private static List<Problem> orderProblems(final MilestoneTrack track, final StoredProgress progress) {
         final List<Problem> problems = new ArrayList<>();
 

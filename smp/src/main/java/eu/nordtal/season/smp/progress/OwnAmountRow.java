@@ -1,10 +1,8 @@
 package eu.nordtal.season.smp.progress;
 
 /**
- * What one player has put into one objective, beside its target, with zero for one never touched.
+ * The contribution of one player to the objective {@code key}.
  *
- * @param key the objective's key inside its milestone
- * @param mine this player's {@code smp_contribution.amount}, or zero
- * @param target the objective's target
+ * @param mine the {@code smp_contribution.amount} of the player, zero without a row
  */
 public record OwnAmountRow(String key, long mine, long target) {}

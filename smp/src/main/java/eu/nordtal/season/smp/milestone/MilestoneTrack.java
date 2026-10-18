@@ -6,11 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * The whole track, in file order, and the only thing that knows what comes after what.
- *
- * The database stores no order; after the last milestone there are none, and new ones are appended to the file.
- */
+/** The milestones in file order. The file gives the only order, the database stores none. */
 public final class MilestoneTrack {
 
     private final List<Milestone> milestones;
@@ -19,8 +15,7 @@ public final class MilestoneTrack {
     /**
      * Creates the track.
      *
-     * @param milestones the milestones in file order, with unique keys
-     * @throws IllegalArgumentException on a duplicate key
+     * @throws IllegalArgumentException when two milestones have the same key
      */
     public MilestoneTrack(final List<Milestone> milestones) {
         this.milestones = List.copyOf(Objects.requireNonNull(milestones, "milestones"));
@@ -35,28 +30,25 @@ public final class MilestoneTrack {
         this.indexByKey = Map.copyOf(index);
     }
 
-    /** Returns every milestone, in file order. */
     public List<Milestone> milestones() {
         return milestones;
     }
 
-    /** Returns how many milestones there are. */
     public int size() {
         return milestones.size();
     }
 
-    /** Returns the milestone with this key, if the file declares it. */
     public Optional<Milestone> milestone(final String key) {
         final Integer position = indexByKey.get(key);
         return position == null ? Optional.empty() : Optional.of(milestones.get(position));
     }
 
-    /** Returns the position of this key in the file, or {@code -1} if the file does not declare it. */
+    /** Returns the position of {@code key} in the file, or {@code -1} when the file has no such key. */
     public int positionOf(final String key) {
         return indexByKey.getOrDefault(key, -1);
     }
 
-    /** Returns the milestone after this one, or empty at the end of the track, which is a real state. */
+    /** Returns the milestone after {@code key}, or empty when {@code key} is unknown or last. */
     public Optional<Milestone> after(final String key) {
         final int position = positionOf(key);
         if (position < 0 || position + 1 >= milestones.size()) {
@@ -65,22 +57,19 @@ public final class MilestoneTrack {
         return Optional.of(milestones.get(position + 1));
     }
 
-    /** Returns the milestone the track starts at, or empty for an empty file. */
     public Optional<Milestone> first() {
         return milestones.isEmpty() ? Optional.empty() : Optional.of(milestones.get(0));
     }
 
     /**
-     * Returns the milestone that should be active: the first one in file order that is not completed.
+     * Returns the first milestone in file order whose key is not in {@code completed}.
      *
-     * @param completed the keys of every completed milestone
-     * @return empty once every milestone is completed
+     * @return empty when every milestone is in {@code completed}
      */
     public Optional<Milestone> next(final java.util.Collection<String> completed) {
         return milestones.stream().filter(m -> !completed.contains(m.key())).findFirst();
     }
 
-    /** Returns every milestone key, in file order. */
     public List<String> keys() {
         return milestones.stream().map(Milestone::key).toList();
     }

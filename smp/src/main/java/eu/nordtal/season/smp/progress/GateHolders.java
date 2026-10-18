@@ -20,22 +20,20 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Counts the players who already hold the active milestone's gate advancement, however long ago they earned it.
- *
- * Reads everyone online when the active gate changes and a player on join, on the main thread; credits run off it.
+ * Credits the participation gate of the active milestone to players who already have its advancement.
+ * It checks every online player when the gate changes and each player who joins.
+ * It reads the server on the main thread and credits on {@code async}.
  */
 public final class GateHolders implements Listener {
 
-    /** What the count reads from the running server, always on the main thread. */
+    /** The reads of {@link GateHolders} from the server, on the main thread. */
     public interface Server {
 
-        /** Returns every player online now. */
         Collection<UUID> online();
 
-        /** Returns whether this player is online with every criterion of the advancement done. */
+        /** Returns whether the player is online and has completed every criterion of the advancement. */
         boolean holds(UUID player, NamespacedKey advancement);
 
-        /** Returns the server this plugin runs on. */
         static Server running() {
             return new Server() {
                 @Override
@@ -57,7 +55,6 @@ public final class GateHolders implements Listener {
         }
     }
 
-    /** The active milestone and the track it was last read under, replaced whole so no reader mixes two. */
     private record Gate(
             Optional<String> milestone, @Nullable MilestoneTrack track) {}
 
@@ -71,10 +68,9 @@ public final class GateHolders implements Listener {
     private volatile Gate gate = new Gate(Optional.empty(), null);
 
     /**
-     * Creates the count.
+     * Creates the listener.
      *
-     * @param track the milestone track, as a supplier, because a settings change replaces it
-     * @param discordIds whose Discord account an online player's credit goes to; read on the main thread
+     * @param discordIds the Discord account of a player, read on the main thread
      */
     public GateHolders(
             final Supplier<MilestoneTrack> track,
@@ -91,7 +87,7 @@ public final class GateHolders implements Listener {
         this.engine = engine;
     }
 
-    /** Takes the active milestone as the async refresh read it, and reads everyone online when its gate changed. */
+    /** Sets the active milestone and checks every online player when the milestone or the track changed. */
     public void setActiveMilestone(final Optional<String> key) {
         final Gate now = new Gate(key, track.get());
         final Gate before = gate;
@@ -106,7 +102,7 @@ public final class GateHolders implements Listener {
         joined(event.getPlayer().getUniqueId());
     }
 
-    /** Counts a player who has just joined, on the main thread. */
+    /** Checks one player, on the main thread. */
     public void joined(final UUID player) {
         count(List.of(player));
     }

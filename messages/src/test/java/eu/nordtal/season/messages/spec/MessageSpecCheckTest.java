@@ -139,6 +139,31 @@ class MessageSpecCheckTest {
         MessageRef line(@Arg("text") @Takes("values/*") @Example("admin/run.why") MessageRef text);
     }
 
+    @MessageSpec("taking-whole")
+    @Shown(Display.DISCORD_EMBED)
+    interface TakingABundleWrongly {
+
+        @Name("Line")
+        MessageRef line(@Arg("text") @Takes("taking-whole/*") @Example("taking-whole/absent") MessageRef text);
+
+        @Name("Other line")
+        MessageRef other(@Arg("text") @Takes("not a bundle/*") @Example("not a bundle/line") MessageRef text);
+
+        @Name("Shared line")
+        MessageRef shared(
+                @Arg("text") @Takes({"taking-whole/*", "values/*"}) @Example("values/someone") MessageRef text);
+    }
+
+    @Test
+    void aWholeBundleIsNamedAsOneAndItsOwnExampleIsAKeyItDeclares() {
+        // shared previews a key of the other bundle it takes, which is no problem.
+        assertEquals(
+                List.of(
+                        "line: @Example names taking-whole/absent, which this bundle does not declare",
+                        "other: @Takes names not a bundle/*, which is not bundle/*"),
+                MessageSpecCheck.problems(TakingABundleWrongly.class));
+    }
+
     @Test
     void aValueThatTakesAWholeBundleIsPreviewedAsAKeyOfIt() {
         assertTrue(

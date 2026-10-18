@@ -3,28 +3,20 @@ package eu.nordtal.season.displaytags;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a name tag does when a block sits between the viewer and the tag.
- *
- * A text display is either hidden or at full brightness; {@link #VANILLA} draws two to show a faint name instead.
+ * What a name tag does when a block is between the viewer and the tag.
+ * A text display is hidden or at full brightness, so {@link #VANILLA} draws two.
  */
 public enum SeeThroughMode {
-    /** The name disappears behind the first block; the setting's {@code false}. */
+    /** The name disappears behind the first block: the setting {@code false}. */
     NEVER,
 
-    /** The name is drawn through every block at full opacity; the setting's {@code true}. */
+    /** The name is drawn through every block at full opacity: the setting {@code true}. */
     ALWAYS,
 
-    /**
-     * The name is drawn through blocks, but dimmed, as a vanilla name tag is.
-     */
+    /** The name is drawn through blocks and dimmed, as a vanilla name tag is. */
     VANILLA;
 
-    /**
-     * Reads the value of the {@code see-through} setting, in any case.
-     *
-     * @param value the configured value
-     * @return the mode, or {@code null} if the value is not one of the three
-     */
+    /** Returns the mode of the {@code see-through} value in any case, or {@code null} if it is none of the three. */
     public static @Nullable SeeThroughMode parse(final @Nullable String value) {
         if (value == null) {
             return null;
@@ -38,7 +30,6 @@ public enum SeeThroughMode {
         return null;
     }
 
-    /** Returns the value of the {@code see-through} setting that stands for this mode. */
     public String configValue() {
         return switch (this) {
             case NEVER -> "false";

@@ -17,7 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/** Every player's name tag as packet-only text displays, run by the plugin that hosts it. */
+/** The name tag of every player as packet-only text displays. */
 public final class DisplayTags {
     private static @Nullable DisplayTags running;
 
@@ -32,9 +32,8 @@ public final class DisplayTags {
     }
 
     /**
-     * Starts the name tags for {@code host}, from its {@code nametags} group.
-     *
-     * @throws IllegalArgumentException naming the first value of {@code settings} that cannot be used
+     * Starts the name tags for {@code host} from its {@code nametags} group.
+     * Throws {@link IllegalArgumentException} naming the first unusable value.
      */
     public static DisplayTags start(final Plugin host, final NameTagConfigurationSpec settings) {
         final DisplayTags tags = new DisplayTags(host);
@@ -48,18 +47,16 @@ public final class DisplayTags {
     }
 
     /**
-     * Refuses a {@code nametags} group no name tag can be drawn from.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
+     * Refuses a {@code nametags} group that cannot draw a name tag.
+     * Throws {@link IllegalArgumentException} naming the first wrong value.
      */
     public static void check(final NameTagConfigurationSpec settings) {
         new NameTagConfiguration().load(settings);
     }
 
-    /** Takes changed settings: every tag is dropped and drawn again from them. */
     public void reload(final NameTagConfigurationSpec settings) {
         this.nameTagScheduler.end();
-        // Drops the old tags instead of only despawning them, clearing entries the new settings might not recreate.
+        // Dropping the tags clears entries that the new settings may not recreate.
         this.removeAllNameTags();
         this.config.load(settings);
         for (final Player player : Bukkit.getOnlinePlayers()) {
@@ -68,10 +65,9 @@ public final class DisplayTags {
         this.nameTagScheduler.start();
     }
 
-    /** Stops the scheduler and removes every tag, restoring the vanilla one for its viewers. */
     public void stop() {
         this.nameTagScheduler.end();
-        // A display exists only on the client, so a viewer who never reconnects would keep seeing it.
+        // A display exists on the client only, so a viewer who never reconnects would keep seeing it.
         this.removeAllNameTags();
         running = null;
     }
@@ -82,7 +78,6 @@ public final class DisplayTags {
         }
     }
 
-    /** Returns the running instance, for the tags it draws. */
     public static DisplayTags get() {
         return Objects.requireNonNull(running, "DisplayTags has not started");
     }
@@ -95,7 +90,6 @@ public final class DisplayTags {
         return this.nameTagManager;
     }
 
-    /** Returns the plugin that hosts the name tags, which owns their tasks and listeners. */
     public Plugin host() {
         return this.host;
     }

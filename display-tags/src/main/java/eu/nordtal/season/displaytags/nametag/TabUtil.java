@@ -8,9 +8,8 @@ import me.neznamy.tab.api.event.player.PlayerLoadEvent;
 import me.neznamy.tab.api.nametag.NameTagManager;
 
 /**
- * Hides the vanilla name tag through the TAB plugin when TAB handles name tags, so the two do not fight over teams.
- *
- * Every call into TAB's API sits in {@link Hook}, so a missing or incompatible TAB fails there and is caught here.
+ * Hides the vanilla name tag through TAB if TAB handles name tags.
+ * Every call into TAB is in {@link Hook}, so a missing or incompatible TAB fails there.
  */
 public final class TabUtil {
     private static boolean available;
@@ -45,11 +44,7 @@ public final class TabUtil {
         }
     }
 
-    /**
-     * Whether TAB is present and currently handling name tags.
-     *
-     * When this returns {@code true}, DisplayTags must leave the scoreboard teams alone.
-     */
+    /** Whether TAB is present and handles name tags. If so, DisplayTags leaves the scoreboard teams alone. */
     public static boolean managesNameTags() {
         if (!available) return false;
 
@@ -63,7 +58,7 @@ public final class TabUtil {
 
     private static final class Hook {
         static void registerNameTagHider(final DisplayTags plugin) {
-            // TAB only creates its event bus once it has finished loading, so this can be null.
+            // TAB creates its event bus after it has loaded, so this can be null.
             final EventBus eventBus = TabAPI.getInstance().getEventBus();
             if (eventBus == null) {
                 plugin.getLogger()

@@ -3,16 +3,12 @@ package eu.nordtal.season.displaytags;
 import org.bukkit.Color;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Shared parsing helpers used by both the plugin and its API.
- */
+/** Parsing helpers for the plugin and its API. */
 public class Util {
     /**
-     * Parses a name tag background setting into the packed ARGB value the display entity expects.
-     *
-     * @param background {@code "default"}, {@code "transparent"}, a hex colour such as
-     *                   {@code "#FFFFFF"}, or {@code null} (treated the same as {@code "default"})
-     * @return the packed ARGB value
+     * Parses a background setting into the packed ARGB value of the display entity.
+     * The setting is {@code "default"} (also for null), {@code "transparent"}
+     * or a hex colour such as {@code "#FFFFFF"}.
      */
     public static Integer parseDisplayBackground(final @Nullable String background) {
         if (background == null || background.equalsIgnoreCase("default")) return 1073741824;

@@ -5,9 +5,7 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * Fired before a name tag's display spawns for a single viewer.
- */
+/** Fired before a name tag's display spawns for one viewer. */
 public class NameTagSpawnEvent extends Event implements Cancellable {
     private static final HandlerList HANDLER_LIST = new HandlerList();
     private boolean cancelled;
@@ -15,32 +13,19 @@ public class NameTagSpawnEvent extends Event implements Cancellable {
     private final PlayerNameTag tag;
     private final Player viewer;
 
-    /**
-     * @param tag    the name tag being spawned
-     * @param viewer the viewer it is spawned for
-     */
     public NameTagSpawnEvent(final PlayerNameTag tag, final Player viewer) {
         this.tag = tag;
         this.viewer = viewer;
     }
 
-    /**
-     * @return the name tag being spawned
-     */
     public PlayerNameTag getNameTag() {
         return this.tag;
     }
 
-    /**
-     * @return the viewer the name tag is spawned for
-     */
     public Player getViewer() {
         return this.viewer;
     }
 
-    /**
-     * @return the handler list for this event, as required by Bukkit's event system
-     */
     public static HandlerList getHandlerList() {
         return HANDLER_LIST;
     }

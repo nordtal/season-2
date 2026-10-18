@@ -62,18 +62,11 @@ public class NameTagConfiguration {
         return this.textShadow;
     }
 
-    /**
-     * What the name tag does behind a block.
-     */
     public SeeThroughMode getSeeThrough() {
         return Objects.requireNonNull(this.seeThrough, "load() has not run");
     }
 
-    /**
-     * The text opacity applied while a player is sneaking.
-     *
-     * {@code -1} means "fully opaque", which disables the effect.
-     */
+    /** The text opacity while a player is sneaking. {@code -1} means fully opaque and disables the effect. */
     public int getSneakTextOpacity() {
         return this.sneakTextOpacity;
     }
@@ -102,7 +95,6 @@ public class NameTagConfiguration {
         return Objects.requireNonNull(this.scale, "load() has not run");
     }
 
-    /** Reads an enum-valued setting, naming the allowed values when it does not match. */
     private static <E extends Enum<E>> E parse(final Class<E> type, final String key, final @Nullable String value) {
         if (value != null) {
             try {
@@ -120,11 +112,7 @@ public class NameTagConfiguration {
                 key + ": '" + value + "' is not a valid value. Available values: " + allowed + ".");
     }
 
-    /**
-     * Reads {@code see-through}.
-     *
-     * Accepts the booleans as {@code "true"} or {@code "false"}.
-     */
+    /** Reads {@code see-through}. The booleans {@code "true"} and {@code "false"} are accepted. */
     private static SeeThroughMode parseSeeThrough(final @Nullable String value) {
         final SeeThroughMode mode = SeeThroughMode.parse(value);
         if (mode != null) {
@@ -137,11 +125,7 @@ public class NameTagConfiguration {
                 + "blocks).");
     }
 
-    /**
-     * Validates the background setting at load time.
-     *
-     * A bad value is refused here instead of only surfacing later while a player's name tag is built.
-     */
+    /** Refuses a bad background at load time. */
     private static void parseBackground(final String background) {
         try {
             Util.parseDisplayBackground(background);
@@ -155,11 +139,7 @@ public class NameTagConfiguration {
         return new Vector(spec.x(), spec.y(), spec.z());
     }
 
-    /**
-     * Text opacity is sent as a single byte.
-     *
-     * Anything outside of -1 (fully opaque) and 0-255 would wrap around into a nonsensical value.
-     */
+    /** Limits the text opacity to -1 (fully opaque) or 0 to 255, because the opacity is sent as one byte. */
     private static int clampOpacity(final int opacity) {
         if (opacity < 0) {
             return -1;

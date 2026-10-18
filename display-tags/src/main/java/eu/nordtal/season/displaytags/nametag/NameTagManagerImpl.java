@@ -13,7 +13,7 @@ public class NameTagManagerImpl implements NameTagManager {
 
     @Override
     public PlayerNameTag createNameTag(final Player player) {
-        // The previous tag has to go first, otherwise its display entities linger and the name tag appears twice.
+        // Without removing the previous tag first, its display entities remain and the name appears twice.
         this.removeNameTag(player);
 
         final PlayerNameTag tag = new PlayerNameTagImpl(player);
@@ -32,7 +32,6 @@ public class NameTagManagerImpl implements NameTagManager {
 
     @Override
     public Collection<PlayerNameTag> getAll() {
-        // ConcurrentHashMap's view iterates weakly, so callers may create or remove tags while walking it.
         return Collections.unmodifiableCollection(this.tags.values());
     }
 
@@ -46,7 +45,7 @@ public class NameTagManagerImpl implements NameTagManager {
         final NameTagRemoveEvent event = new NameTagRemoveEvent(tag);
         event.callEvent();
 
-        // Despawn first, restore afterwards, or the viewer would briefly see both the vanilla name and the display.
+        // The viewer would briefly see both names if the tag were restored first.
         tag.despawnForViewers();
         if (tag instanceof PlayerNameTagImpl impl) {
             impl.restoreVanillaNameTags();

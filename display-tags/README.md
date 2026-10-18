@@ -1,9 +1,11 @@
 # display-tags
 
-Every player's name tag as a packet-only text display, which smp starts with its `nametags`
-settings group. `DisplayTags` runs it; other code reaches the tags through `NameTagManager` and
-the `NameTag*Event`s. PacketEvents must be installed on the server; TAB is used when present.
-The text is whatever smp writes onto a tag; the settings only shape how it looks.
+`display-tags` draws the name tag of every player as a packet-only text display. smp starts it with
+its `nametags` settings group. `DisplayTags` runs it, and other code uses the tags through
+`NameTagManager` and the `NameTag*Event`s. smp writes the text of a tag, and the settings shape
+only its look.
 
-It is a fork of [DisplayTags](https://github.com/imskeptical/DisplayTags) (MIT), whose notice the
-repository's [NOTICE](../NOTICE) carries.
+PacketEvents must be installed on the server. `display-tags` uses TAB if it is present.
+
+`display-tags` is a fork of [DisplayTags](https://github.com/imskeptical/DisplayTags) (MIT). The
+[NOTICE](../NOTICE) of the repository carries its notice.

@@ -8,11 +8,7 @@ import java.util.List;
 import org.bukkit.util.Vector;
 
 public class DisplayWrapper extends EntityWrapper {
-    /**
-     * Entity metadata indices of {@code net.minecraft.world.entity.Display}.
-     *
-     * PacketEvents names none of them, so re-check them against the server's accessors when Minecraft changes.
-     */
+    /** Entity metadata indices of {@code net.minecraft.world.entity.Display}. PacketEvents names none of them. */
     private static final int INDEX_TRANSLATION = 11;
 
     private static final int INDEX_SCALE = 12;

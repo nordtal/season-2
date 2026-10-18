@@ -2,11 +2,7 @@ package eu.nordtal.season.displaytags.wrapper.display;
 
 import java.util.Locale;
 
-/**
- * The text alignment of a text display, sent as style flags rather than as this value.
- *
- * The values match {@code Display$TextDisplay$Align}: CENTER = 0, LEFT = 1, RIGHT = 2.
- */
+/** The alignment of a text display, sent as style flags. The values match {@code Display$TextDisplay$Align}. */
 public enum TextAlignment {
     CENTER(0),
     LEFT(1),

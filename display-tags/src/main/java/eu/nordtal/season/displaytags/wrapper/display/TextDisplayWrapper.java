@@ -10,8 +10,7 @@ import net.kyori.adventure.text.Component;
 public class TextDisplayWrapper extends DisplayWrapper {
     /**
      * Entity metadata indices of {@code net.minecraft.world.entity.Display$TextDisplay}.
-     *
-     * PacketEvents names none of them, so re-check them against the server's accessors when Minecraft changes.
+     * PacketEvents names none of them.
      */
     private static final int INDEX_TEXT = 23;
 
@@ -21,9 +20,9 @@ public class TextDisplayWrapper extends DisplayWrapper {
     private static final int INDEX_STYLE_FLAGS = 27;
 
     /**
-     * Bit masks of the style flags at {@link #INDEX_STYLE_FLAGS}; both alignment bits clear means centred.
-     *
-     * The default-background flag (4) goes unused, since the background colour is sent explicitly.
+     * Bit masks of the style flags at {@link #INDEX_STYLE_FLAGS}.
+     * Both alignment bits clear means centred.
+     * The default-background flag (4) is unused.
      */
     private static final int FLAG_SHADOW = 0x01;
 

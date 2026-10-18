@@ -8,6 +8,7 @@ import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
 import eu.nordtal.season.messages.Messages;
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +20,9 @@ import org.junit.jupiter.api.Test;
 /** The contribution and link messages, drawn from their layouts. */
 class ManagedMessagesTest {
 
-    private static final LayoutRenderer RENDERER =
-            new LayoutRenderer(DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN)));
+    private static final LayoutRenderer RENDERER = new LayoutRenderer(
+            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN)),
+            StoredLayoutsStandIn.none());
 
     @Test
     void theContributionMessageListsEachTierOverItsBannerWithTheBuyButtonUnderIt() {

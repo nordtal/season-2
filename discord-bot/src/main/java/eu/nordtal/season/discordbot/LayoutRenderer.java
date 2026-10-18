@@ -31,10 +31,11 @@ import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.utils.FileUpload;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws a Discord layout as a Components V2 message, from its declaration and what the code fills in.
+ * Draws a Discord layout, or the rebuild stored over it, as a Components V2 message with what the code fills in.
  * It keeps to Discord's limits: a data list loses its last items to a "+N" line, a block per language its last
  * languages, and whatever still does not fit is cut.
  */
@@ -117,21 +118,32 @@ public final class LayoutRenderer {
      *
      * @param components  its top-level components
      * @param attachments the names of the files its {@code attachment://} images name, which the message uploads
+     * @param uploads     the stored images its {@code upload://} images show, which the message uploads too
      */
-    public record Drawn(List<MessageTopLevelComponent> components, List<String> attachments) {}
+    public record Drawn(
+            List<MessageTopLevelComponent> components, List<String> attachments, List<FileUpload> uploads) {}
 
     private final DiscordRenderer messages;
+    private final StoredLayouts stored;
 
-    public LayoutRenderer(final DiscordRenderer messages) {
+    public LayoutRenderer(final DiscordRenderer messages, final StoredLayouts stored) {
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.stored = Objects.requireNonNull(stored, "stored");
     }
 
     /**
-     * Draws {@code layout} in {@code locale}.
+     * Draws {@code declared}, or the rebuild stored over it, in {@code locale}.
      *
      * @throws IllegalArgumentException if the filling misses an element or fills one as another kind
      */
-    public Drawn render(final Layout layout, final Filling filling, final Locale locale) {
+    public Drawn render(final Layout declared, final Filling filling, final Locale locale) {
+        final Layout layout = stored.applied(declared);
+        final Map<String, FileUpload> uploads = new LinkedHashMap<>();
+        for (final Part part : layout.allParts()) {
+            for (final String address : Objects.requireNonNullElse(part.media(), List.<String>of())) {
+                stored.upload(address).ifPresent(upload -> uploads.putIfAbsent(address, upload));
+            }
+        }
         final Map<String, Integer> items = new HashMap<>();
         final Map<String, Integer> languages = new HashMap<>();
         for (final Element element : layout.elements()) {
@@ -148,11 +160,11 @@ public final class LayoutRenderer {
                             filled(filling, element.id(), FilledLanguages.class)
                                     .languages()
                                     .size());
-                case BUTTON, SELECT -> {}
+                case BUTTON, SELECT, LINK -> {}
             }
         }
         while (true) {
-            final Pass pass = new Pass(layout, filling, items, languages);
+            final Pass pass = new Pass(layout, filling, items, languages, uploads);
             final List<MessageTopLevelComponent> drawn = pass.top(locale);
             if (pass.components > COMPONENTS && fewer(languages)) {
                 continue;
@@ -160,7 +172,7 @@ public final class LayoutRenderer {
             if (pass.wanted > TEXT && fewer(items)) {
                 continue;
             }
-            return new Drawn(pass.fit(drawn), attachments(layout));
+            return new Drawn(pass.fit(drawn), attachments(layout), List.copyOf(uploads.values()));
         }
     }
 
@@ -201,6 +213,7 @@ public final class LayoutRenderer {
         private final Filling filling;
         private final Map<String, Integer> items;
         private final Map<String, Integer> languages;
+        private final Map<String, FileUpload> uploads;
         private final List<Integer> counts = new ArrayList<>();
         private int components;
         private int wanted;
@@ -210,11 +223,13 @@ public final class LayoutRenderer {
                 final Layout layout,
                 final Filling filling,
                 final Map<String, Integer> items,
-                final Map<String, Integer> languages) {
+                final Map<String, Integer> languages,
+                final Map<String, FileUpload> uploads) {
             this.layout = layout;
             this.filling = filling;
             this.items = items;
             this.languages = languages;
+            this.uploads = uploads;
         }
 
         List<MessageTopLevelComponent> top(final Locale locale) {
@@ -289,6 +304,7 @@ public final class LayoutRenderer {
                     components++;
                     yield MediaGallery.of(Objects.requireNonNullElse(part.media(), List.<String>of()).stream()
                             .limit(MediaGallery.MAX_ITEMS)
+                            .map(this::url)
                             .map(MediaGalleryItem::fromUrl)
                             .toList());
                 }
@@ -309,8 +325,8 @@ public final class LayoutRenderer {
             } else {
                 components++;
                 accessory = Thumbnail.fromUrl(
-                        Objects.requireNonNull(part.media(), "a section has neither button nor thumbnail")
-                                .getFirst());
+                        url(Objects.requireNonNull(part.media(), "a section has neither button nor thumbnail")
+                                .getFirst()));
             }
             return Section.of(accessory, texts);
         }
@@ -331,9 +347,14 @@ public final class LayoutRenderer {
 
         private Button button(final String id, final Locale locale, final @Nullable String tag) {
             components++;
+            final Element element = element(id);
+            if (element.kind() == Element.Kind.LINK) {
+                return Button.link(
+                        Objects.requireNonNull(element.url(), "a link button opens no address"),
+                        cut(added(locale, Objects.requireNonNull(element.labels(), "a link button has no label")), 80));
+            }
             final String customId = filled(filling, id, FilledButton.class).id() + (tag == null ? "" : tag);
-            return Button.primary(
-                    customId, cut(format(locale, element(id).keys().getFirst(), Map.of()), 80));
+            return Button.primary(customId, cut(format(locale, element.keys().getFirst(), Map.of()), 80));
         }
 
         private StringSelectMenu select(final String id, final Locale locale) {
@@ -365,7 +386,9 @@ public final class LayoutRenderer {
                     lines.addAll(list(line.list(), locale));
                     continue;
                 }
-                final String text = format(locale, Objects.requireNonNull(line.key(), "a line names no key"), Map.of());
+                final String text = line.texts() != null
+                        ? added(locale, line.texts())
+                        : format(locale, Objects.requireNonNull(line.key(), "a line names no key"), Map.of());
                 lines.add(
                         line.style() == null
                                 ? text
@@ -399,6 +422,25 @@ public final class LayoutRenderer {
                     .filter(element -> element.id().equals(id))
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("the layout declares no element " + id));
+        }
+
+        /** The address Discord is sent for an image: a stored image as the attachment the message uploads. */
+        private String url(final String address) {
+            final FileUpload upload = uploads.get(address);
+            return upload == null ? address : ATTACHMENT + upload.getName();
+        }
+
+        /**
+         * An editor's added text in the reader's language, else in the default one, else in the first it has.
+         * It is written and filled as the layout's first key, which shares its bundle's way of writing.
+         */
+        private String added(final Locale locale, final Map<String, String> texts) {
+            final String text = texts.getOrDefault(
+                    Locales.tag(locale),
+                    texts.getOrDefault(
+                            Locales.DEFAULT_TAG, texts.values().iterator().next()));
+            final String key = layout.keys().getFirst();
+            return messages.format(locale, new MessageRef(key.substring(key.indexOf('/') + 1), filling.values()), text);
         }
 
         /** A key's text, as {@code bundle/key}, filled with the layout's values and then {@code own}. */

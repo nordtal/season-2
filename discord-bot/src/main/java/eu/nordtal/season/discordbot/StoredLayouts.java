@@ -2,8 +2,11 @@ package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import net.dv8tion.jda.api.utils.FileUpload;
@@ -17,22 +20,31 @@ public final class StoredLayouts {
     private final LayoutStore store;
     private volatile Map<String, LayoutStore.StoredLayout> rebuilds = Map.of();
 
-    StoredLayouts(final LayoutStore store) {
+    public StoredLayouts(final LayoutStore store) {
         this.store = store;
     }
 
     /** Reads the rebuilds of {@code bundles} as {@code hub} connects and on every change, before the hub starts. */
     void follow(final Collection<String> bundles, final SignalHub hub) {
-        store.follow(bundles, hub, read -> {
-            final Map<String, LayoutStore.StoredLayout> byId = new LinkedHashMap<>();
-            read.forEach(rebuild -> byId.put(rebuild.bundle() + "/" + rebuild.layout(), rebuild));
-            rebuilds = Map.copyOf(byId);
-        });
+        store.follow(bundles, hub, this::hold);
     }
 
-    /** Returns the stored rebuild of a layout, or empty where its declaration applies. */
-    public Optional<LayoutStore.StoredLayout> rebuild(final String bundle, final String layout) {
-        return Optional.ofNullable(rebuilds.get(bundle + "/" + layout));
+    /** Holds {@code read} as every rebuild there is. */
+    void hold(final List<LayoutStore.StoredLayout> read) {
+        final Map<String, LayoutStore.StoredLayout> byId = new LinkedHashMap<>();
+        read.forEach(rebuild -> byId.put(rebuild.bundle() + "/" + rebuild.layout(), rebuild));
+        rebuilds = Map.copyOf(byId);
+    }
+
+    /**
+     * Returns the layout as it is drawn: its stored rebuild, else {@code declared}.
+     * A rebuild written over another declaration than this jar's is set aside.
+     */
+    public Layout applied(final Layout declared) {
+        final LayoutStore.StoredLayout rebuild = rebuilds.get(declared.bundle() + "/" + declared.name());
+        return rebuild == null || !rebuild.replaced().equals(LayoutSchema.hash(declared))
+                ? declared
+                : declared.rebuilt(rebuild.parts(), rebuild.links());
     }
 
     /**

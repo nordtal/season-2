@@ -8,6 +8,7 @@ import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.Mark;
+import eu.nordtal.season.discordbot.StoredLayouts;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.layout.Element;
@@ -65,9 +66,9 @@ final class OnboardingMessage {
     private final GuildLanguages languages;
     private final LayoutRenderer renderer;
 
-    OnboardingMessage(final GuildLanguages languages, final DiscordRenderer messages) {
+    OnboardingMessage(final GuildLanguages languages, final DiscordRenderer messages, final StoredLayouts layouts) {
         this.languages = languages;
-        this.renderer = new LayoutRenderer(messages);
+        this.renderer = new LayoutRenderer(messages, layouts);
     }
 
     /** Posts or edits both messages; an empty channel id means that message is not kept. */

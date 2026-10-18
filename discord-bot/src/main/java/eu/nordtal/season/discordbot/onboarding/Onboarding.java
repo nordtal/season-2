@@ -11,6 +11,7 @@ import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.discordbot.AlertOnce;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
+import eu.nordtal.season.discordbot.StoredLayouts;
 import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.config.OnboardingSpec;
@@ -93,6 +94,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             final Jdbi jdbi,
             final Consumer<Alert> alerts,
             final DiscordRenderer messages,
+            final StoredLayouts layouts,
             final Executor lane) {
         this.jda = jda;
         this.guildId = guildId;
@@ -104,7 +106,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         this.records = new Records(jdbi);
         this.alerts = new AlertOnce(alerts);
         this.channels = new LockedChannels(this.alerts);
-        this.message = new OnboardingMessage(languages, messages);
+        this.message = new OnboardingMessage(languages, messages, layouts);
         this.managed = new ManagedMessage(jda, jdbi);
         this.lane = lane;
         this.choices = Choices.of(languages, setting.get());

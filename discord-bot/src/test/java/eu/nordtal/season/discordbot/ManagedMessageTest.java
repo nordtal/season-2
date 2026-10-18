@@ -16,8 +16,8 @@ class ManagedMessageTest {
 
     @Test
     void theEditSetsComponentsV2EmptiesTheEmbedsAndReplacesTheImages() {
-        try (MessageEditData edit =
-                ManagedMessage.edit(new LayoutRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of("link.png")))) {
+        try (MessageEditData edit = ManagedMessage.edit(
+                new LayoutRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of("link.png"), List.of()))) {
             final DataObject sent = edit.toData();
 
             assertAll(

@@ -167,7 +167,7 @@ public class AccessBot implements AutoCloseable {
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
-            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
+            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.layouts(), wiring);
 
             this.signals = finishStartup(
                     databaseConfig, settings, accessConfig, core, wiring, phases, updates, botConfig.stewardUrl());
@@ -364,6 +364,7 @@ public class AccessBot implements AutoCloseable {
                 database.jdbi(),
                 admin::alert,
                 core.messages(),
+                core.layouts(),
                 lane);
     }
 
@@ -438,11 +439,12 @@ public class AccessBot implements AutoCloseable {
             final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
+            final StoredLayouts layouts,
             final DiscordWiring wiring) {
         // First: every reconcile below reads a role it found or created.
         wiring.onboarding().resolveRoles();
-        new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
-        new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
+        new ManagedMessages(jda, languages, tiers, messages, layouts, database.jdbi()).publishAll();
+        new RegisterMessages(jda, languages, messages, layouts, database.jdbi()).publishAll();
         wiring.guildState().reconcile();
         wiring.channels().publish();
         wiring.roles().reconcile();

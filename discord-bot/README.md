@@ -52,7 +52,9 @@ The container runs the jar baked into its image; the whole deployment is in [../
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `LayoutRenderer`: draws a declared layout as a Components V2 message within Discord's limits. The managed
-  messages declare their layouts beside the code that fills them.
+  messages declare their layouts beside the code that fills them. Where Steward stores a rebuild written over
+  the jar's layout (`StoredLayouts`, re-read on `nordtal_messages`), the next publish draws the rebuild, and
+  its uploaded images are sent as attachments.
 - `Mark`: the one set of emojis every embed and the admin log take their status and action marks from.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.

@@ -28,7 +28,7 @@ A line stays only if its reader needs it at that place. Everything else goes.
 Every sentence that stays passes each of these tests:
 
 - **Subject:** it names its subject by its one name: a component, class, file, setting, table or
-  command as the code names it, a game term as the glossary below names it. A player text names
+  command as the code names it, a game term as the `terms` bundle names it. A player text names
   game terms only, never a component.
 - **Fact:** its verb states what that subject does, holds, reads, writes, requires or refuses. A
   rewrite never states more than the code does: a fact it cannot check against the code stays as it
@@ -84,23 +84,12 @@ still fails. Each pattern below shows a sentence that fails and one that passes.
 Before a rewrite is done, each sentence is read on its own: if a reader would ask "who?", "what
 is that?" or "what does that mean here?", it is written again.
 
-### Glossary
+### Game terms
 
-The one name of each game term, in English and German. A text uses no other word for it, and a new
-term is added here before a text uses it.
-
-| term                 | Deutsch       | meaning                                                        |
-| -------------------- | ------------- | -------------------------------------------------------------- |
-| access               | Zugang        | the right to join the servers for a paid or granted period     |
-| contribution channel | Beitragskanal | the Discord channel where a member pays for access             |
-| Hunger Games         | Hunger Games  | the season's start event, played in teams                      |
-| milestone            | Meilenstein   | a step on the SMP's milestone track                            |
-| network              | Netzwerk      | all Nordtal servers behind the proxy                           |
-| period               | Zeitraum      | a span of days of access bought at once                        |
-| phase                | Phase         | the season's current stage, which decides which server is open |
-| season               | Saison        | one year of Nordtal, set up from scratch                       |
-| SMP                  | SMP           | the survival server                                            |
-| waiting room         | Warteraum     | the server every player joins first and waits on               |
+The `terms` bundle of `messages` (`TermMessages`) holds the one name of each game term in English
+and German, and Steward's Translations page lists it with the building blocks. A text uses no other
+word for a term. A new term is declared there before a text uses it. `check` refuses a text that
+writes a word `TermMessages.SYNONYMS` lists for a term.
 
 ## Comments
 

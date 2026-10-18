@@ -134,6 +134,10 @@ export type TextArgs = {
   "alert.words": {
     text: Arg["text"]
   }
+  "check.synonym": {
+    word: Arg["text"]
+    term: Arg["text"]
+  }
   "check.syntax.attribute-missing": {
     name: Arg["text"]
     at: Arg["number"]

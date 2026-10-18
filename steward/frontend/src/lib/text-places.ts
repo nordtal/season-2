@@ -11,12 +11,12 @@ export type TextGroup = MessageSurface | "VALUES"
 /** The groups in the order the page lists them. */
 export const TEXT_GROUPS: readonly TextGroup[] = ["GAME", "DISCORD", "STEWARD", "VALUES"]
 
-/** The bundle of the words other texts are built from, `Messages.VALUES` on the server. */
-const VALUES = "values"
+/** The bundles of the words other texts are built from, `Messages.VALUES` and `Messages.TERMS` on the server. */
+const BUILDING_BLOCKS = new Set(["values", "terms"])
 
 /** Whether a text is a building block, a word other texts put in, rather than a text of its own place. */
 export function isBuildingBlock(entry: MessageEntry): boolean {
-  return entry.bundle === VALUES
+  return BUILDING_BLOCKS.has(entry.bundle)
 }
 
 /** The group a text is listed in: the building blocks apart, every other by where its first place is. */

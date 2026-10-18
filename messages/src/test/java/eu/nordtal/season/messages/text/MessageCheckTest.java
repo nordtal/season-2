@@ -168,4 +168,19 @@ class MessageCheckTest {
         assertEquals(List.of(), packaged("<click:open_url:'{reason}'><u>Discord</u></click> {winner.name} {n}"));
         assertEquals(List.of(), packaged("<click:open_url:'{reason}'>Discord</click> {reason} {winner.name} {n}"));
     }
+
+    @Test
+    void anotherWordForAGameTermIsRefusedInABundleAndAWarningInAnOverride() {
+        assertEquals(
+                List.of(
+                        "the text writes Lobby for the game term waiting-room, which it names as the terms bundle does"),
+                packaged("{winner.name} waits in the Lobby {n}"));
+        refused(packaged("{winner.name} {n} <hover:show_text:'Staffel 2'>here</hover>"), "season");
+        assertEquals(
+                List.of(false),
+                MessageCheck.check("{winner.name} {n} Staffel", CHAT, Mode.OVERRIDE).stream()
+                        .map(MessageCheck.Problem::error)
+                        .toList());
+        assertEquals(List.of(), packaged("{winner.name} {n} Lobbyist, Saison 2, {reason}"));
+    }
 }

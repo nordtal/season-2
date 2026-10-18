@@ -16,7 +16,7 @@ final class TextServices {
      * A building block, or a text that names no place, stays with every service that ships it.
      */
     static boolean shows(final String service, final String bundle, final List<String> shown) {
-        if (bundle.equals(Messages.VALUES) || shown.isEmpty()) {
+        if (bundle.equals(Messages.VALUES) || bundle.equals(Messages.TERMS) || shown.isEmpty()) {
             return true;
         }
         final Display.Surface draws = surfaceOf(service);

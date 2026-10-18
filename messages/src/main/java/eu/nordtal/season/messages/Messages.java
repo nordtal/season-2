@@ -49,6 +49,9 @@ public final class Messages {
     /** The bundle of the words values are shown with, under every other. */
     public static final String VALUES = "values";
 
+    /** The bundle of the one name of each game term, which {@code TermMessages} declares. */
+    public static final String TERMS = "terms";
+
     /** The bundles, least specific first, by name: {@code smp} for {@code messages/smp}. */
     private final List<String> bundles;
 

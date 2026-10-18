@@ -57,4 +57,8 @@ describe("the group and the previews of a text", () => {
     expect(groupOf(value, PLACES)).toBe("VALUES")
     expect(previewPlacesOf(value)).toEqual([undefined])
   })
+
+  it("make a game term a building block too", () => {
+    expect(groupOf(entry({ bundle: "terms", shown: ["CHAT", "STEWARD"] }), PLACES)).toBe("VALUES")
+  })
 })

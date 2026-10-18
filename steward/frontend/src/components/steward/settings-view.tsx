@@ -203,6 +203,7 @@ function NodeList<L>({
   renderLeaf,
   list,
   cards,
+  nested,
 }: {
   nodes: TreeNode<L>[]
   isOpen: (id: string) => boolean
@@ -212,6 +213,7 @@ function NodeList<L>({
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   list?: boolean
   cards?: boolean
+  nested?: boolean
 }) {
   const groups: Array<TreeLeaf<L>[] | TreeBranch<L>> = []
   for (const node of nodes) {
@@ -232,12 +234,13 @@ function NodeList<L>({
             <div
               key={`leaves-${group[0].id}`}
               className={cn(
-                // A leaf's text starts where a branch's label does: past the caret's column, at every depth.
                 cards
-                  ? "grid grid-cols-1 gap-3 py-2 pl-6 md:grid-cols-2"
+                  ? "grid grid-cols-1 gap-3 py-2 md:grid-cols-2"
                   : list
-                    ? "flex flex-col pl-6"
-                    : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2 pl-8",
+                    ? "flex flex-col"
+                    : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
+                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field.
+                nested && (cards || list ? "pl-6" : "pl-8"),
               )}
             >
               {group.map((leaf) => (
@@ -290,6 +293,7 @@ function NodeList<L>({
                   renderLeaf={renderLeaf}
                   list={list}
                   cards={cards}
+                  nested
                 />
               </div>
             ) : null}

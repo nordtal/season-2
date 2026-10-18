@@ -247,6 +247,16 @@ describe("headings and explanations", () => {
     expect(screen.queryByText("agent.limits.retry.max-attempts")).toBeNull()
   })
 
+  it("starts the first level at the search field and indents a section's fields past its caret", async () => {
+    draw(<Settings service="steward" />)
+    await open("Steward")
+    await screen.findByText("Max attempts")
+    const run = '[class*="minmax(13rem,1fr)"]'
+
+    expect(screen.getByText("Max attempts").closest(run)?.className).toContain("pl-8")
+    expect(screen.getByText("Silent").closest(run)?.className).not.toMatch(/\bpl-/)
+  })
+
   it("closes a section on a click, and the fields in it go", async () => {
     draw(<Settings service="steward" />)
     await open("Steward")

@@ -2,7 +2,7 @@ package eu.nordtal.season.smp.wheel;
 
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -55,7 +55,7 @@ public final class WheelGui extends Menu {
     private final List<ItemStack> icons;
     private final SmpSounds sounds;
     private final Consumer<Player> payout;
-    private final MenuDocument document;
+    private final GameDocument document;
 
     /** It is null when the player has no spin left. */
     private final @Nullable Runnable again;
@@ -79,7 +79,7 @@ public final class WheelGui extends Menu {
         this.payout = payout;
         this.again = again;
         this.document =
-                new MenuDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(spinsLeft));
+                new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(spinsLeft));
 
         this.inventory = frame(
                 WheelPanel.ROWS,

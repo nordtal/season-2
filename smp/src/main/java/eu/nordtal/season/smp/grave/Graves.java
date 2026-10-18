@@ -5,7 +5,7 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.PlayerContext;
@@ -380,7 +380,7 @@ public final class Graves {
     private GraveWindow window(final GraveRow row, final Locale locale) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
-        final MenuDocument document = new MenuDocument(
+        final GameDocument document = new GameDocument(
                 renderer,
                 documents.applied(GraveWindow.DOCUMENT),
                 Viewer.of(locale),
@@ -411,7 +411,7 @@ public final class Graves {
     }
 
     /** Returns the head of the dead player. Its lore holds the time and the place of death. */
-    private static ItemStack head(final GraveRow row, final MenuDocument document) {
+    private static ItemStack head(final GraveRow row, final GameDocument document) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         final UUID owner = row.ownerUuid();
         final String name =

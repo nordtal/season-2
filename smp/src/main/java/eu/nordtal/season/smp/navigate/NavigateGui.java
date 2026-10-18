@@ -3,7 +3,7 @@ package eu.nordtal.season.smp.navigate;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -48,7 +48,7 @@ public final class NavigateGui extends Menu {
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
-    private final MenuDocument document;
+    private final GameDocument document;
     private final Navigation navigation;
     private final List<NavigationTarget> targets;
     private final int page;
@@ -91,7 +91,7 @@ public final class NavigateGui extends Menu {
         this.navigation = navigation;
         this.targets = targets;
         this.page = NavigatePage.clamp(page, targets.size());
-        this.document = new MenuDocument(
+        this.document = new GameDocument(
                 renderer,
                 documents.applied(DOCUMENT),
                 Viewer.of(locale),

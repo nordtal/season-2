@@ -5,10 +5,10 @@ import eu.nordtal.season.database.access.AccessReader;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.discordrendering.DocumentRenderer.Reply;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
 import java.util.List;
@@ -127,7 +127,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Registering a {} team failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });
@@ -186,7 +186,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Inviting a {} partner failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });
@@ -195,7 +195,7 @@ public final class RegisterFlow extends ListenerAdapter {
     private void invite(final EntitySelectInteractionEvent event, final Locale locale, final User partner) {
         if (partner.isBot()) {
             event.getHook()
-                    .editOriginal(reply(locale, Reply.of(Replies.INVITE_UNAVAILABLE)))
+                    .editOriginal(reply(locale, Sent.of(Replies.INVITE_UNAVAILABLE)))
                     .queue();
             return;
         }
@@ -240,7 +240,7 @@ public final class RegisterFlow extends ListenerAdapter {
                                 "Could not open a DM with {} for an invite ({})", partner.getId(), failure.toString()));
     }
 
-    private MessageEditData reply(final Locale locale, final Reply<?> text) {
+    private MessageEditData reply(final Locale locale, final Sent<?> text) {
         return documents.reply(locale, text).edit();
     }
 
@@ -256,7 +256,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Answering a {} invite failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });

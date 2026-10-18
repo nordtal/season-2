@@ -2,7 +2,7 @@ package eu.nordtal.season.smp.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.smp.menu.PanelWalk;
 import java.util.List;
 import java.util.Locale;
@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 /** The client draws a lore line as one row and never wraps it, so a long item list has to be many lines. */
 class WantedItemsTest {
 
-    private static final MenuDocument DOCUMENT =
+    private static final GameDocument DOCUMENT =
             PanelWalk.document(HandInGui.DOCUMENT, Locale.ENGLISH, new HandInGui.Window(5));
 
     @Test

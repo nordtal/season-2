@@ -11,7 +11,7 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Viewer;
@@ -219,8 +219,8 @@ public final class DocumentsApi {
     private static MenuDrawing menu(
             final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
         final DocumentDeclaration declaration = packaged.declaration();
-        final MenuDocument document =
-                new MenuDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
+        final GameDocument document =
+                new GameDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
         final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
         for (final Slot slot : declaration.slots()) {
             if (slot.type() == Slot.Type.LIST) {
@@ -239,7 +239,7 @@ public final class DocumentsApi {
                     .map(declared -> Value.examples(declared.values()))
                     .orElse(Map.of());
             if (part.type() == Part.Type.ITEM) {
-                final MenuDocument.Drawn drawn = document.itemOf(slot, entry, lists);
+                final GameDocument.Drawn drawn = document.itemOf(slot, entry, lists);
                 final List<String> lines = new ArrayList<>();
                 lines.add(mini.serialize(named(drawn.name())));
                 drawn.lore().forEach(line -> lines.add(mini.serialize(named(line))));

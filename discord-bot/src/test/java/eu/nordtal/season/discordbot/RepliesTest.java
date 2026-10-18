@@ -3,6 +3,7 @@ package eu.nordtal.season.discordbot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.messages.document.Sent;
 import java.util.List;
 import java.util.Locale;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -28,9 +29,7 @@ class RepliesTest {
     void aReplyIsFilledWithItsValues() {
         assertEquals(
                 "The payment link is still missing. Your reference is **NTABC123**.",
-                RENDERER.reply(
-                                Locale.ENGLISH,
-                                new DocumentRenderer.Reply<>(Replies.PURCHASE_SLOW, new Replies.Reference("NTABC123")))
+                RENDERER.reply(Locale.ENGLISH, new Sent<>(Replies.PURCHASE_SLOW, new Replies.Reference("NTABC123")))
                         .text()
                         .substring(0, 66));
     }

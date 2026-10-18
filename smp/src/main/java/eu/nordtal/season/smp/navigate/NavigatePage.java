@@ -1,6 +1,6 @@
 package eu.nordtal.season.smp.navigate;
 
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.Messages;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +46,7 @@ public final class NavigatePage {
             final double x,
             final double y,
             final double z,
-            final MenuDocument document) {
+            final GameDocument document) {
         if (!target.isIn(world)) {
             return document.label("other-world");
         }
@@ -64,7 +64,7 @@ public final class NavigatePage {
             final double y,
             final double z,
             final Optional<NavigationTarget> active,
-            final MenuDocument document,
+            final GameDocument document,
             final Messages messages,
             final Locale locale) {
         final List<NavigatePanel.Entry> out = new ArrayList<>();

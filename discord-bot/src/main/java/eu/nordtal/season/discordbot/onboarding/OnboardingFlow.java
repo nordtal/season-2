@@ -11,6 +11,7 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import java.util.List;
 import java.util.Locale;
@@ -130,7 +131,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                         "{} chose the language {}, which was not given or leaves no region to offer",
                         member.getId(),
                         tag);
-                hook.editOriginal(reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
+                hook.editOriginal(reply(reads, Sent.of(Replies.ONBOARDING_FAILED)))
                         .queue();
             }
         }
@@ -148,7 +149,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         hook.editOriginal(
                         Answer.after(given, given, false) == Answer.SAVED && language.isPresent()
                                 ? saved(reads, language.get(), region.orElseThrow())
-                                : reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
+                                : reply(reads, Sent.of(Replies.ONBOARDING_FAILED)))
                 .queue();
     }
 
@@ -167,12 +168,10 @@ public final class OnboardingFlow extends ListenerAdapter {
 
     private MessageEditData saved(final Locale reads, final Role language, final Role region) {
         return reply(
-                reads,
-                new DocumentRenderer.Reply<>(
-                        Replies.ONBOARDING_SAVED, new Replies.Saved(language.getName(), region.getName())));
+                reads, new Sent<>(Replies.ONBOARDING_SAVED, new Replies.Saved(language.getName(), region.getName())));
     }
 
-    private MessageEditData reply(final Locale reads, final DocumentRenderer.Reply<?> text) {
+    private MessageEditData reply(final Locale reads, final Sent<?> text) {
         return documents.reply(reads, text).edit();
     }
 
@@ -196,7 +195,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         if (spoken.isEmpty() || regions.isEmpty()) {
             log.warn("{} wanted to choose, but no language or no region has a role yet", member.getId());
             event.reply(documents
-                            .reply(locale, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED))
+                            .reply(locale, Sent.of(Replies.ONBOARDING_FAILED))
                             .create())
                     .setEphemeral(true)
                     .queue();
@@ -240,7 +239,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             if (language.isEmpty() || region.isEmpty()) {
                 log.warn("{} chose {} and {}, of which one has no role", member.getId(), tag, zone);
                 event.getHook()
-                        .editOriginal(reply(asked, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
+                        .editOriginal(reply(asked, Sent.of(Replies.ONBOARDING_FAILED)))
                         .queue();
                 return;
             }
@@ -252,7 +251,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     .editOriginal(
                             given
                                     ? saved(reads, language.get(), region.get())
-                                    : reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
+                                    : reply(reads, Sent.of(Replies.ONBOARDING_FAILED)))
                     .queue();
         });
     }

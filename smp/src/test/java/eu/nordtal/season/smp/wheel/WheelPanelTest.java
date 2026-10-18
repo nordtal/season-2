@@ -3,7 +3,7 @@ package eu.nordtal.season.smp.wheel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
@@ -202,7 +202,7 @@ class WheelPanelTest {
     void theWheelPromisesNoSpinForAShare() {
         final List<String> promising = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {
-            final MenuDocument document = wheel(language);
+            final GameDocument document = wheel(language);
             final List<String> lines = new ArrayList<>(PanelWalk.lines(document.item("hub")));
             lines.add(document.label("rule-top"));
             lines.add(document.label("rule-bottom"));
@@ -222,7 +222,7 @@ class WheelPanelTest {
     @Test
     void theRealRuleLinesNeverNeedTruncation() {
         for (final String language : new String[] {"en", "de"}) {
-            final MenuDocument document = wheel(language);
+            final GameDocument document = wheel(language);
             final String top = document.label("rule-top");
             final String bottom = document.label("rule-bottom");
             final List<Run> runs = PanelWalk.runs(PanelWalk.surface(
@@ -281,7 +281,7 @@ class WheelPanelTest {
     private static final int WINNER = 0xFF48484F;
     private static final int FRAME = 0xFFFFFF;
 
-    private static MenuDocument wheel(final String language) {
+    private static GameDocument wheel(final String language) {
         return PanelWalk.document(WheelGui.DOCUMENT, Locale.forLanguageTag(language), new WheelGui.Window(7));
     }
 

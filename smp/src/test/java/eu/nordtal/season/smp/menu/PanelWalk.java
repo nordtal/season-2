@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.RepositoryRoot;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Viewer;
@@ -105,8 +105,8 @@ public final class PanelWalk {
             Messages.load(PanelWalk.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN));
 
     /** The packaged document of {@code spec} in {@code locale}, for asserting what a menu draws. */
-    public static MenuDocument document(final DocumentSpec<?> spec, final Locale locale, final Record values) {
-        return new MenuDocument(
+    public static GameDocument document(final DocumentSpec<?> spec, final Locale locale, final Record values) {
+        return new GameDocument(
                 RENDERER,
                 Documents.packaged(PanelWalk.class.getClassLoader(), spec.namespace())
                         .get(spec.name()),
@@ -115,7 +115,7 @@ public final class PanelWalk {
     }
 
     /** The plain text of every line of {@code drawn}, its name first. */
-    public static List<String> lines(final MenuDocument.Drawn drawn) {
+    public static List<String> lines(final GameDocument.Drawn drawn) {
         final List<String> out = new ArrayList<>();
         out.add(PlainTextComponentSerializer.plainText().serialize(drawn.name()));
         drawn.lore()

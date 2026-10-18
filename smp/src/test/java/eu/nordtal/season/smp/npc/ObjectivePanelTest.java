@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
@@ -338,7 +338,7 @@ class ObjectivePanelTest {
     void theRealShareLinesNeverNeedTruncation() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         for (final String language : new String[] {"en", "de"}) {
-            final MenuDocument document = PanelWalk.document(
+            final GameDocument document = PanelWalk.document(
                     ObjectiveGui.DOCUMENT,
                     Locale.forLanguageTag(language),
                     new ObjectiveGui.Window(new MilestoneContext("The Nether"), 1, 4, 999, 999, true));

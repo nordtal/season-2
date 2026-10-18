@@ -17,6 +17,7 @@ import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.access.payment.Purchases;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
@@ -282,17 +283,13 @@ public final class PurchaseFlow extends ListenerAdapter {
                 edit(
                         hook,
                         documents.reply(
-                                locale,
-                                new DocumentRenderer.Reply<>(
-                                        Replies.PURCHASE_REFUSED, new Replies.Refused(refusal.passes()))));
+                                locale, new Sent<>(Replies.PURCHASE_REFUSED, new Replies.Refused(refusal.passes()))));
             }
             case GIVE_UP -> {
                 edit(
                         hook,
                         documents.reply(
-                                locale,
-                                new DocumentRenderer.Reply<>(
-                                        Replies.PURCHASE_SLOW, new Replies.Reference(request.reference()))));
+                                locale, new Sent<>(Replies.PURCHASE_SLOW, new Replies.Reference(request.reference()))));
                 log.warn("Request {} had no tab after {}", request.reference(), PaymentWait.LIMIT);
             }
             case WAITING -> {}

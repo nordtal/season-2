@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.discordbot.Replies;
-import eu.nordtal.season.discordrendering.DocumentRenderer.Reply;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
+import eu.nordtal.season.messages.document.Sent;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +21,7 @@ class RegisterRepliesTest {
 
     @Test
     void everyRefusedRegistrationHasItsOwnReply() {
-        final Set<Reply<?>> replies = new HashSet<>();
+        final Set<Sent<?>> replies = new HashSet<>();
         for (final RegistrationResult.Status status : RegistrationResult.Status.values()) {
             if (status != RegistrationResult.Status.REGISTERED) {
                 replies.add(RegisterReplies.registration(new RegistrationResult(status, null)));
@@ -34,18 +34,17 @@ class RegisterRepliesTest {
     @Test
     void aRefusedTeamIsToldItsReasonAndARegisteredOneIsAnsweredByItsButton() {
         assertEquals(
-                Reply.of(Replies.REGISTER_NAME_TAKEN), RegisterReplies.registration(RegistrationResult.nameTaken()));
+                Sent.of(Replies.REGISTER_NAME_TAKEN), RegisterReplies.registration(RegistrationResult.nameTaken()));
         assertEquals(
-                Reply.of(Replies.REGISTER_INVALID_NAME),
-                RegisterReplies.registration(RegistrationResult.invalidName()));
-        assertEquals(Reply.of(Replies.REGISTER_CLOSED), RegisterReplies.registration(RegistrationResult.closed()));
+                Sent.of(Replies.REGISTER_INVALID_NAME), RegisterReplies.registration(RegistrationResult.invalidName()));
+        assertEquals(Sent.of(Replies.REGISTER_CLOSED), RegisterReplies.registration(RegistrationResult.closed()));
         assertThrows(
                 IllegalArgumentException.class, () -> RegisterReplies.registration(RegistrationResult.registered(ID)));
     }
 
     @Test
     void everyInvitationStatusHasAReplyAndOnlyNotRegisteredSharesOne() {
-        final Set<Reply<?>> replies = new HashSet<>();
+        final Set<Sent<?>> replies = new HashSet<>();
         for (final InviteResult.Status status : InviteResult.Status.values()) {
             replies.add(RegisterReplies.invitation(new InviteResult(status, null, null, null), PARTNER));
         }
@@ -55,7 +54,7 @@ class RegisterRepliesTest {
 
     @Test
     void anInviterWhoIsNotTheOwnerIsToldSoWhetherOrNotTheyAreOnATeam() {
-        final Reply<?> notOwner = Reply.of(Replies.INVITE_NOT_OWNER);
+        final Sent<?> notOwner = Sent.of(Replies.INVITE_NOT_OWNER);
 
         assertEquals(notOwner, RegisterReplies.invitation(InviteResult.notRegistered(), PARTNER));
         assertEquals(notOwner, RegisterReplies.invitation(InviteResult.notOwner(), PARTNER));
@@ -64,13 +63,13 @@ class RegisterRepliesTest {
     @Test
     void aSentInviteNamesThePartner() {
         assertEquals(
-                new Reply<>(Replies.INVITE_SENT, new Replies.Partner(PARTNER)),
+                new Sent<>(Replies.INVITE_SENT, new Replies.Partner(PARTNER)),
                 RegisterReplies.invitation(InviteResult.invited(ID, ID, "Red_Fox"), PARTNER));
     }
 
     @Test
     void aClosedRoundIsNamedTheSameWayInEveryStep() {
-        final Reply<?> closed = Reply.of(Replies.REGISTER_CLOSED);
+        final Sent<?> closed = Sent.of(Replies.REGISTER_CLOSED);
 
         assertEquals(closed, RegisterReplies.invitation(InviteResult.closed(), PARTNER));
         assertEquals(closed, RegisterReplies.answer(AnswerResult.closed(), true));
@@ -79,7 +78,7 @@ class RegisterRepliesTest {
     @Test
     void anAnswerToAnInviteThatIsGoneSaysSo() {
         assertEquals(
-                Reply.of(Replies.INVITE_NO_LONGER_PENDING), RegisterReplies.answer(AnswerResult.notPending(), false));
+                Sent.of(Replies.INVITE_NO_LONGER_PENDING), RegisterReplies.answer(AnswerResult.notPending(), false));
     }
 
     @Test
@@ -87,10 +86,10 @@ class RegisterRepliesTest {
         final Replies.Team team = new Replies.Team(new TeamContext("Red_Fox"));
 
         assertEquals(
-                new Reply<>(Replies.INVITE_ACCEPTED, team),
+                new Sent<>(Replies.INVITE_ACCEPTED, team),
                 RegisterReplies.answer(AnswerResult.answered(ID, "Red_Fox"), true));
         assertEquals(
-                new Reply<>(Replies.INVITE_DECLINED, team),
+                new Sent<>(Replies.INVITE_DECLINED, team),
                 RegisterReplies.answer(AnswerResult.answered(ID, "Red_Fox"), false));
     }
 
@@ -99,9 +98,8 @@ class RegisterRepliesTest {
         final TeamContext team = new TeamContext("Red_Fox");
         final Replies.Answer answer = new Replies.Answer(PARTNER, team);
 
+        assertEquals(new Sent<>(Replies.INVITE_OWNER_ACCEPTED, answer), RegisterReplies.ownerNote(true, PARTNER, team));
         assertEquals(
-                new Reply<>(Replies.INVITE_OWNER_ACCEPTED, answer), RegisterReplies.ownerNote(true, PARTNER, team));
-        assertEquals(
-                new Reply<>(Replies.INVITE_OWNER_DECLINED, answer), RegisterReplies.ownerNote(false, PARTNER, team));
+                new Sent<>(Replies.INVITE_OWNER_DECLINED, answer), RegisterReplies.ownerNote(false, PARTNER, team));
     }
 }

@@ -818,6 +818,13 @@ export type TextArgs = {
     document: Arg["text"]
     problem: Arg["text"]
   }
+  "steward.answer.draft-not-message": {
+    document: Arg["text"]
+  }
+  "steward.answer.draft-refused": {
+    document: Arg["text"]
+    problem: Arg["text"]
+  }
   "steward.answer.draft-undrawable": {
     document: Arg["text"]
     reason: Arg["text"]

@@ -2,6 +2,8 @@ package eu.nordtal.season.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
@@ -100,6 +102,55 @@ class DocumentRendererTest {
                 case MENU -> throw new AssertionError("the bot ships no menu");
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
+        }
+    }
+
+    @Test
+    void aDraftIsSentAsTheMessageMembersReceiveAndNothingElseIs() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            switch (each.declaration().shape()) {
+                case MESSAGE ->
+                    assertFalse(
+                            renderer.message(each, languages, Locale.GERMAN)
+                                    .getComponents()
+                                    .isEmpty(),
+                            each.declaration().id());
+                case PLAIN ->
+                    assertFalse(
+                            renderer.message(each, languages, Locale.GERMAN)
+                                    .getContent()
+                                    .isBlank(),
+                            each.declaration().id());
+                case MODAL, CHANNEL_NAME, MENU ->
+                    assertThrows(
+                            IllegalArgumentException.class,
+                            () -> renderer.message(each, languages, Locale.GERMAN),
+                            each.declaration().id());
+            }
+        }
+    }
+
+    @Test
+    void aSentDraftCarriesItsUploadedImage() {
+        final StoredDocuments stored = StoredDocumentsStandIn.holding(
+                List.of(), List.of(new DocumentStore.Image(7, "image/png", new byte[] {1})));
+        final Documents.Packaged draft =
+                new Documents.Packaged(packaged("link-success").declaration(), Document.decode("""
+                        {"parts": [
+                          {"type": "TEXT", "lines": [{"text": {"en": "Read first", "de": "Zuerst"}}]},
+                          {"type": "GALLERY", "media": ["upload://7"]}]}"""));
+
+        try (var sent = StoredDocumentsStandIn.renderer(stored)
+                .message(draft, List.of(Locale.ENGLISH, Locale.GERMAN), Locale.GERMAN)) {
+            assertTrue(
+                    sent.toData().toString().contains("Zuerst"), sent.toData().toString());
+            assertEquals(
+                    List.of("upload-7.png"),
+                    sent.getFiles().stream().map(FileUpload::getName).toList());
         }
     }
 

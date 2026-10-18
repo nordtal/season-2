@@ -630,6 +630,12 @@ public final class Web {
                 ctx -> GameActions.answer(ctx, commands.preview(ctx, stack.messagePreview(ctx))),
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_TO_ONESELF);
+        // Sends a whole drafted Discord document to the admin alone, as a direct message of the bot.
+        cfg.routes.post(
+                "/api/document-preview",
+                ctx -> GameActions.answer(ctx, commands.preview(ctx, stack.documentPreview(ctx))),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_TO_ONESELF);
     }
 
     private void registerConfigRoutes(final JavalinConfig cfg) {

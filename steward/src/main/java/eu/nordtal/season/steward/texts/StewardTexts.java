@@ -319,6 +319,12 @@ public interface StewardTexts {
             @Name("Document refused")
             MessageRef documentRefused(@Arg("document") String document, @Arg("problem") String problem);
 
+            @Name("Draft not sent")
+            MessageRef draftRefused(@Arg("document") String document, @Arg("problem") String problem);
+
+            @Name("Draft not a message")
+            MessageRef draftNotMessage(@Arg("document") String document);
+
             @Name("Image refused")
             MessageRef imageRefused(@Arg("mebibytes") int mebibytes);
 

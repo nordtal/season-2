@@ -205,6 +205,11 @@ public final class StackApi implements AutoCloseable {
         return messages.preview(ctx);
     }
 
+    /** Returns the preview of {@code POST /api/document-preview}. */
+    public MessagePreview documentPreview(final Context ctx) {
+        return documents.preview(ctx);
+    }
+
     /** Registers the topics for the service table, the host, the topology and the settings. */
     public void watch(final LiveFeed live) {
         live.watch(Topic.SERVICES, this::serviceTable);

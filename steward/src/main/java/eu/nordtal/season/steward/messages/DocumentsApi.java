@@ -5,6 +5,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -141,15 +142,7 @@ public final class DocumentsApi {
      * It refuses a draft the renderer cannot draw, such as a section with neither button nor thumbnail.
      */
     public void render(final Context ctx) {
-        final DocumentDraft draft;
-        try {
-            draft = Json.decode(ctx.body(), DocumentDraft.class);
-        } catch (final RuntimeException malformed) {
-            throw new RequestRefused(400, ANSWER.notJson());
-        }
-        if (draft == null || draft.declaration() == null || draft.document() == null || draft.language() == null) {
-            throw new RequestRefused(400, ANSWER.empty());
-        }
+        final DocumentDraft draft = draftOf(ctx);
         final List<Locale> languages =
                 MessagesApi.languages(settings).stream().map(Locales::parse).toList();
         final @Nullable String drawn;
@@ -174,6 +167,52 @@ public final class DocumentsApi {
                 components,
                 DocumentCheck.COMPONENTS,
                 problems));
+    }
+
+    /**
+     * {@code POST /api/document-preview} reads a {@link DocumentDraft} for the bot to send to the admin alone.
+     * It refuses a draft that no message holds, one a save would refuse and one the renderer cannot draw.
+     */
+    public MessagePreview preview(final Context ctx) {
+        final DocumentDraft draft = draftOf(ctx);
+        final DocumentDeclaration declaration = draft.declaration();
+        final DocumentSpec.Shape shape = declaration.shape();
+        if (shape != DocumentSpec.Shape.MESSAGE && shape != DocumentSpec.Shape.PLAIN) {
+            throw new RequestRefused(400, ANSWER.draftNotMessage(declaration.id()));
+        }
+        final List<String> problems;
+        try {
+            problems = DocumentCheck.errors(declaration, draft.document(), MessageCheck.Mode.OVERRIDE);
+        } catch (final RuntimeException unreadable) {
+            throw new RequestRefused(
+                    400, ANSWER.draftRefused(declaration.id(), String.valueOf(unreadable.getMessage())));
+        }
+        if (!problems.isEmpty()) {
+            throw new RequestRefused(400, ANSWER.draftRefused(declaration.id(), problems.getFirst()));
+        }
+        final Documents.Packaged packaged = new Documents.Packaged(declaration, draft.document());
+        final List<Locale> languages =
+                MessagesApi.languages(settings).stream().map(Locales::parse).toList();
+        try {
+            renderer(languages).documents().preview(packaged, languages, Locales.parse(draft.language()));
+        } catch (final RuntimeException undrawable) {
+            throw new RequestRefused(
+                    422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
+        }
+        return MessagePreview.of(packaged, draft.language());
+    }
+
+    private static DocumentDraft draftOf(final Context ctx) {
+        final DocumentDraft draft;
+        try {
+            draft = Json.decode(ctx.body(), DocumentDraft.class);
+        } catch (final RuntimeException malformed) {
+            throw new RequestRefused(400, ANSWER.notJson());
+        }
+        if (draft == null || draft.declaration() == null || draft.document() == null || draft.language() == null) {
+            throw new RequestRefused(400, ANSWER.empty());
+        }
+        return draft;
     }
 
     /** Draws a menu with the game's renderer, every value, entry and data list item at its declared example. */

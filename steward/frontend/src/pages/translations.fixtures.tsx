@@ -107,7 +107,7 @@ export type Around = {
   problems?: (draft: DocumentDraft) => DocumentProblem[]
   /** Answers a document's save, at its path under `/api/documents/`, with the list it leaves. */
   saveDocument?: (path: string, document: Document) => DocumentList
-  /** Answers a preview's body with the request's name. */
+  /** Answers the body of a text's or a document's preview with the request's name. */
   preview?: (body: unknown) => string
   /** What became of each request, by name. */
   commands?: Record<string, CommandRun>
@@ -140,7 +140,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     if (url.startsWith("/api/message-check?")) {
       return json(around.check?.(new URL(url, "http://steward").searchParams.get("text") ?? "") ?? [])
     }
-    if (url === "/api/message-preview" && around.preview) {
+    if ((url === "/api/message-preview" || url === "/api/document-preview") && around.preview) {
       return json({ id: around.preview(JSON.parse(init?.body ?? "")), status: "PENDING" })
     }
     const command = url.startsWith("/api/commands/") ? around.commands?.[url.slice("/api/commands/".length)] : null

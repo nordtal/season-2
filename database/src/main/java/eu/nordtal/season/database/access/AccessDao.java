@@ -11,10 +11,10 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The SQL surface of the access system; {@link AccessDirectory} is the API. */
+/** The SQL of the access system. {@link AccessDirectory} is its API. */
 interface AccessDao {
 
-    /** Ensures a row exists for this Discord account without touching an existing one. */
+    /** Creates the row of a Discord account if it is missing. */
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id)
             VALUES (:discordId)
@@ -54,11 +54,7 @@ interface AccessDao {
             """)
     void setDonor(@Bind("discordId") DiscordId discordId, @Bind("donor") boolean donor);
 
-    /**
-     * Sets total play time to an absolute number of seconds.
-     * Unlike the proxy's additive flush this overrides the value, so an account online right now keeps ticking up from
-     * it.
-     */
+    /** Sets the total play time to an absolute value. Unlike the additive flush of the proxy, it overrides. */
     @SqlUpdate("""
             INSERT INTO player_playtime (discord_id, seconds, updated)
             VALUES (:discordId, :seconds, now())
@@ -71,7 +67,7 @@ interface AccessDao {
     @SqlQuery("SELECT donor FROM discord_user WHERE discord_id = :discordId")
     Optional<Boolean> donor(@Bind("discordId") DiscordId discordId);
 
-    /** Writes all three Discord-observed fields at once, each with its own {@code now()} timestamp. */
+    /** Writes the three Discord-observed fields at once, each with its own {@code now()}. */
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, discord_username, discord_username_updated,
                                        discord_display_name, discord_display_name_updated,
@@ -92,11 +88,7 @@ interface AccessDao {
             @Bind("displayName") String displayName,
             @Bind("avatarUrl") String avatarUrl);
 
-    /**
-     * Clears the cached name and avatar of an account that left or was banned.
-     *
-     * {@code discord_username} is kept: it is the account's own name, so it goes stale rather than wrong.
-     */
+    /** Clears the cached name and avatar of an account that left or was banned. {@code discord_username} stays. */
     @SqlUpdate("""
             UPDATE discord_user
             SET discord_display_name = NULL, discord_display_name_updated = now(),
@@ -106,7 +98,6 @@ interface AccessDao {
             """)
     void clearGuildProfile(@Bind("discordId") DiscordId discordId);
 
-    /** Returns what was last observed about this account's Discord profile, empty for no such row. */
     @SqlQuery("""
             SELECT discord_username, discord_username_updated,
                    discord_display_name, discord_display_name_updated,
@@ -117,21 +108,15 @@ interface AccessDao {
     @RegisterRowMapper(DiscordProfileMapper.class)
     Optional<DiscordProfile> discordProfile(@Bind("discordId") DiscordId discordId);
 
-    /** Returns every Discord account that currently holds the admin flag. */
     @SqlQuery("SELECT discord_id FROM discord_user WHERE admin")
     java.util.Set<String> adminDiscordIds();
 
-    /** Returns the Minecraft account of every admin who has one linked. */
     @SqlQuery("SELECT l.mc_uuid FROM discord_user u"
             + " JOIN account_link l ON l.discord_id = u.discord_id"
             + " WHERE u.admin")
     java.util.Set<UUID> adminMinecraftAccounts();
 
-    /**
-     * Returns the newest open payment of this account, if any.
-     *
-     * Read only: nothing outside the bot writes {@code payment_request}.
-     */
+    /** Returns the newest open payment of this account. It only reads. */
     @SqlQuery("SELECT reference, days, amount_cents, donation_cents,"
             + " (bunq_tab_id IS NOT NULL) AS has_tab, created"
             + " FROM payment_request"
@@ -147,9 +132,9 @@ interface AccessDao {
     Optional<DiscordId> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
 
     /**
-     * Writes the 1:1 link, or does nothing if either side is already taken.
+     * Writes the 1:1 link, or nothing if either side is taken.
      *
-     * @return 1 when the link was written, 0 otherwise
+     * @return 1 if written, 0 otherwise
      */
     @SqlUpdate("""
             INSERT INTO account_link (discord_id, mc_uuid)
@@ -162,9 +147,9 @@ interface AccessDao {
     int unlink(@Bind("discordId") DiscordId discordId);
 
     /**
-     * Writes the Minecraft name last seen at login, keyed by the account.
+     * Writes the Minecraft name last seen at login.
      *
-     * @return how many rows were touched, {@code 0} when {@code mcUuid} is not linked
+     * @return the rows touched, 0 if {@code mcUuid} is not linked
      */
     @SqlUpdate("""
             UPDATE account_link
@@ -173,14 +158,13 @@ interface AccessDao {
             """)
     int setMinecraftName(@Bind("mcUuid") java.util.UUID mcUuid, @Bind("name") String name);
 
-    /** Returns what was last observed about the Minecraft account linked to this Discord id. */
     @SqlQuery("SELECT mc_name, mc_name_updated FROM account_link WHERE discord_id = :discordId")
     @RegisterRowMapper(MinecraftProfileMapper.class)
     Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") DiscordId discordId);
 
     /**
-     * Appends a grant starting at {@code max(now(), smp_start, current valid_until)}, computed on PostgreSQL's clock.
-     * Periods are never summed, and a day is exactly 24 hours whatever the session's time zone.
+     * Appends a grant starting at {@code max(now(), smp_start, current valid_until)} on PostgreSQL's clock.
+     * Periods are never summed. A day is exactly 24 hours in any session time zone.
      */
     @SqlQuery("""
             INSERT INTO access_grant (discord_id, valid_from, valid_until, source, payment_request_id)
@@ -207,9 +191,9 @@ interface AccessDao {
             @Bind("paymentRequestId") @Nullable UUID paymentRequestId);
 
     /**
-     * Revokes the whole remaining run of access, not one grant, which keeps the live grants contiguous.
+     * Revokes the whole remaining run of access, which keeps the live grants contiguous.
      *
-     * @return how many grants were revoked
+     * @return the grants revoked
      */
     @SqlUpdate("""
             UPDATE access_grant
@@ -229,10 +213,7 @@ interface AccessDao {
     @RegisterRowMapper(AccessGrantMapper.class)
     java.util.List<AccessGrant> grantsOf(@Bind("discordId") DiscordId discordId);
 
-    /**
-     * Returns the proxy's whole login state in one statement.
-     * It always returns one row: an unlinked account is a row of nulls.
-     */
+    /** Returns the whole login state of the proxy in one statement. An unlinked account is a row of nulls. */
     @SqlQuery("""
             SELECT cast(:mcUuid AS uuid)                                    AS mc_uuid,
                    link.discord_id,
@@ -277,13 +258,12 @@ interface AccessDao {
     @RegisterRowMapper(PlayerIdentityMapper.class)
     List<PlayerIdentity> identities(@Bind("mcUuids") UUID[] mcUuids);
 
-    /** Returns the language a Discord account chose, empty where it chose none or is unknown. */
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId AND locale IS NOT NULL")
     Optional<String> languageOf(@Bind("discordId") DiscordId discordId);
 
     /**
-     * Issues a code for one Minecraft account, or returns the one already live.
-     * A collision with another account's code violates the primary key; the caller retries.
+     * Issues a code for one Minecraft account or returns the live one.
+     * A collision with the code of another account violates the primary key, and the caller retries.
      */
     @SqlQuery("""
             WITH upsert AS (
@@ -302,11 +282,9 @@ interface AccessDao {
     @RegisterRowMapper(LinkCodeMapper.class)
     LinkCode upsertLinkCode(@Bind("code") String code, @Bind("mcUuid") UUID mcUuid, @Bind("expires") Instant expires);
 
-    /** Returns the Minecraft account the code was issued for, empty when unknown or expired. */
     @SqlQuery("SELECT mc_uuid FROM link_code WHERE code = :code AND expires > now()")
     Optional<UUID> mcUuidForActiveCode(@Bind("code") String code);
 
-    /** Deletes a code once it has been redeemed. */
     @SqlUpdate("DELETE FROM link_code WHERE code = :code")
     int deleteLinkCode(@Bind("code") String code);
 }

@@ -12,7 +12,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/** Maps a row of {@link RosterDao#people(int)}, reading every point in time through {@link OffsetDateTime}. */
+/** Maps a row of {@link PersonDao#people(int)}, reading timestamps through {@link OffsetDateTime}. */
 public final class PersonMapper implements RowMapper<Person> {
 
     @Override
@@ -36,7 +36,7 @@ public final class PersonMapper implements RowMapper<Person> {
                 instant(rs, "discord_avatar_url_updated"),
                 rs.getString("mc_name"),
                 instant(rs, "mc_name_updated"),
-                // getObject, since getLong answers 0 for NULL and zero is a real play time.
+                // getObject, as getLong answers 0 for NULL and zero is a real play time.
                 rs.getObject("playtime_seconds", Long.class),
                 rs.getString("admin_granted_by"),
                 instant(rs, "admin_granted_at"),
@@ -44,7 +44,6 @@ public final class PersonMapper implements RowMapper<Person> {
                 instant(rs, "pack_exempt_at"));
     }
 
-    /** Converts a {@code timestamptz} column without the JVM's default time zone. */
     static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();

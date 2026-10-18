@@ -17,11 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Tests the resource pack exemption against a real PostgreSQL, through to the row the proxy's login query returns.
- *
- * Skipped when no Docker daemon is reachable.
- */
+/** Tests the resource pack exemption against PostgreSQL, through to the row of the login query of the proxy. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PackExemptionsIntegrationTest {
 

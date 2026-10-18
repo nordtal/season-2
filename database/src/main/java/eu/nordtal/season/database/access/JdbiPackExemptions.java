@@ -6,7 +6,6 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-/** The only implementation of {@link PackExemptions}. */
 final class JdbiPackExemptions implements PackExemptions {
 
     private final Jdbi jdbi;

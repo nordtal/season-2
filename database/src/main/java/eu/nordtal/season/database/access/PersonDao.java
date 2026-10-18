@@ -7,10 +7,10 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
-/** The roster's people, one row each with link, access and profile; {@link AccessReader} is the API. */
+/** The people of the roster, one row each with link, access and profile. {@link AccessReader} is the API. */
 interface PersonDao {
 
-    /** The columns and joins of a {@link Person}, shared so the two queries below cannot drift. */
+    /** The columns and joins of a {@link Person}, shared so the two queries cannot differ. */
     String PERSON_SELECTION = """
             SELECT usr.discord_id,
                    usr.member_state,
@@ -49,11 +49,7 @@ interface PersonDao {
                 ) access ON true
             """;
 
-    /**
-     * Returns everyone the bot knows with their link and access, one row per person.
-     *
-     * {@code discord_id} breaks ties on {@code updated} so a page is stable across calls.
-     */
+    /** Returns everyone the bot knows, one row per person. {@code discord_id} breaks ties on {@code updated}. */
     @SqlQuery(PERSON_SELECTION + """
             ORDER BY usr.updated DESC, usr.discord_id
             LIMIT :limit
@@ -61,7 +57,7 @@ interface PersonDao {
     @RegisterRowMapper(PersonMapper.class)
     List<Person> people(@Bind("limit") int limit);
 
-    /** Returns the one row {@link #people(int)} would print for a single account, for {@code /api/me}. */
+    /** Returns the row of {@link #people(int)} for one account, for {@code /api/me}. */
     @SqlQuery(PERSON_SELECTION + """
             WHERE usr.discord_id = :discordId
             """)

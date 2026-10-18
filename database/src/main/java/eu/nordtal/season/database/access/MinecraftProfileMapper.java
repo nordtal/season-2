@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps the two profile-cache columns of an {@code account_link} row. */
 public final class MinecraftProfileMapper implements RowMapper<MinecraftProfile> {
 
     @Override

@@ -4,15 +4,14 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The Minecraft name {@code proxy} last saw at login for a linked account, a cache with a timestamp.
- * A name is not a key: Mojang lets a released name pass to another account.
+ * The Minecraft name that {@code proxy} last saw at login for a linked account, a cache with a timestamp.
+ * A name is not a key: Mojang lets another account take a released name.
  *
- * @param name        the Minecraft name last seen at login, {@code null} if never observed
- * @param nameUpdated when {@code name} was last written, {@code null} together with it
+ * @param nameUpdated when {@code name} was last written, null together with it
  */
 public record MinecraftProfile(
         @Nullable String name, @Nullable Instant nameUpdated) {
 
-    /** Both fields empty, the answer for an unlinked account or one nobody has seen join yet. */
+    /** Both fields empty, for an unlinked account or one that never joined. */
     public static final MinecraftProfile EMPTY = new MinecraftProfile(null, null);
 }

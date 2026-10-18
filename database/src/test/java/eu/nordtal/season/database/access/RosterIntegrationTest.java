@@ -24,11 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises the roster reads of {@link AccessReader} and {@link PaymentRequests} against the real migrations.
- *
- * The joins and the aggregate on the database clock have no in-JVM stand-in; tests skip without Docker.
- */
+/** Exercises the roster reads of {@link AccessReader} and {@link PaymentRequests} against the real migrations. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RosterIntegrationTest {
 
@@ -49,7 +45,7 @@ class RosterIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
+        // TRUNCATE ... CASCADE keeps the migration applied once per class and starts every test empty.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
                 + "player_playtime, discord_user CASCADE");
         directory = AccessReader.using(dataSource, Clock.systemUTC());
@@ -141,7 +137,7 @@ class RosterIntegrationTest {
     @Test
     void aRevokedGrantIsNotActiveButKeepsItsEnd() {
         person(DiscordId.of(ALICE));
-        // Revoked inside its own window: login says no while the list still shows the period's end.
+        // Revoked inside its own window: login says no and the list still shows the end of the period.
         grant(DiscordId.of(ALICE), "-1 days", "+29 days", true);
 
         final Person alice = directory.people(10).getFirst();
@@ -199,7 +195,7 @@ class RosterIntegrationTest {
 
     @Test
     void theDiscordAndMinecraftProfileCacheRideAlongToo() {
-        // The identity columns come in the same statement as people(), not one round trip per person.
+        // The identity columns come in the same statement as people().
         person(DiscordId.of(ALICE));
         execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_username = 'alice#0', "
@@ -250,7 +246,7 @@ class RosterIntegrationTest {
 
     @Test
     void personOfIsTheSameRowPeopleWouldPrint() {
-        // Read by discord id rather than by paging the roster, compared against people().
+        // Read by discord id and compared against people().
         person(DiscordId.of(ALICE));
         execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
@@ -373,17 +369,13 @@ class RosterIntegrationTest {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
     }
 
-    /** Moves a person's {@code updated} column, which is what {@code people} orders by. */
+    /** Moves the {@code updated} column of a person, which orders {@code people}. */
     private static void touched(final DiscordId discordId, final String interval) {
         execute("UPDATE discord_user SET updated = now() + interval '" + interval + "' WHERE discord_id = '" + discordId
                 + "'");
     }
 
-    /**
-     * Writes one {@code access_grant} row with a window relative to the database's clock.
-     *
-     * Raw SQL, since {@code AccessDirectory#grantAccess} appends and cannot express a window that already ended.
-     */
+    /** Writes one {@code access_grant} row with a window relative to the database clock, in raw SQL. */
     private static void grant(final DiscordId discordId, final String from, final String until, final boolean revoked) {
         execute("""
                 INSERT INTO access_grant (discord_id, valid_from, valid_until, source, revoked)

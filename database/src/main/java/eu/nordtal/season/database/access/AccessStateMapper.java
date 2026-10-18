@@ -11,9 +11,8 @@ import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Maps the single row the login query returns, where every column but {@code mc_uuid} may be null.
- *
- * {@code member_state} stays {@code null} for an unlinked account instead of reading as {@code LEFT}.
+ * Maps the row of the login query, in which every column but {@code mc_uuid} may be null.
+ * {@code member_state} is null for an unlinked account, not {@code LEFT}.
  */
 public final class AccessStateMapper implements RowMapper<AccessState> {
 

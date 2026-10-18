@@ -29,7 +29,7 @@ public final class PlayerIdentityMapper implements RowMapper<PlayerIdentity> {
                 rs.getLong("playtime_seconds"));
     }
 
-    /** A zone this JVM does not know reads as none, so the network's applies rather than a login failing. */
+    /** Reads a zone that this JVM does not know as none, so the network's applies and a login does not fail. */
     private static @Nullable ZoneId zone(final @Nullable String stored) {
         if (stored == null) {
             return null;

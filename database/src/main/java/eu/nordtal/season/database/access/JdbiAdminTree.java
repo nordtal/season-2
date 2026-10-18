@@ -12,15 +12,12 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-/**
- * The only implementation of {@link AdminTree}.
- * Every write takes one transaction-scoped advisory lock first, so its separate checks cannot race another write.
- */
+/** Implements {@link AdminTree}. Every write takes an advisory lock first, so its checks cannot race. */
 final class JdbiAdminTree implements AdminTree {
 
     private static final String LOCK = "SELECT pg_advisory_xact_lock(hashtext('nordtal_admin_tree'))";
 
-    /** Everybody strictly below {@code :actor}. The tree has no cycle: a grant needs a non-admin. */
+    /** Selects everybody strictly below {@code :actor}. The tree has no cycle, as a grant needs a non-admin. */
     private static final String BELOW = """
             WITH RECURSIVE below (discord_id) AS (
                 SELECT discord_id FROM discord_user WHERE admin AND admin_granted_by = :actor
@@ -33,7 +30,7 @@ final class JdbiAdminTree implements AdminTree {
             SELECT EXISTS (SELECT 1 FROM below WHERE discord_id = :target)
             """;
 
-    /** Clears {@code :target} and everybody below it, notifying once per account. */
+    /** Clears {@code :target} and everybody below it and notifies once per account. */
     private static final String DROP_BRANCH = """
             WITH RECURSIVE branch (discord_id, depth) AS (
                 SELECT discord_id, 0 FROM discord_user WHERE discord_id = :target AND admin

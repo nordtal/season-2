@@ -6,19 +6,14 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One person as a list shows them; {@code accessUntil} counts revoked grants and {@code accessActive} does not.
+ * One person as a list shows them. {@code accessUntil} counts revoked grants, {@code accessActive} does not.
  *
- * @param memberState     {@code MEMBER}, {@code LEFT} or {@code BANNED}; text, so a hand-written value shows
- * @param updated         when the row last changed, what {@link RosterDirectory#people(int)} orders by
- * @param minecraftUuid   the linked Minecraft account, {@code null} when there is no link
- * @param linked          when that link was written, {@code null} when there is no link
- * @param accessUntil     the latest {@code valid_until} of any grant, revoked included; {@code null} if none
- * @param accessActive    whether a non-revoked grant covers this instant
- * @param playtimeSeconds total online time, {@code null} when the account has never been online
- * @param adminGrantedBy  the admin who granted this one, {@code null} for the root and for non-admins
- * @param adminGrantedAt  when this account became an admin, {@code null} unless it is one
- * @param packExemptBy    the admin who let this account play without the resource pack, {@code null} unless one did
- * @param packExemptAt    when that happened, {@code null} unless it did
+ * @param memberState {@code MEMBER}, {@code LEFT} or {@code BANNED}, as text so a hand-written value shows
+ * @param updated when the row last changed, which {@link AccessReader#people(int)} orders by
+ * @param accessUntil the latest {@code valid_until} of any grant, revoked ones included. Null if none
+ * @param playtimeSeconds the total online time, null if the account was never online
+ * @param adminGrantedBy the admin who granted this one, null for the root and for non-admins
+ * @param packExemptBy the admin who let this account play without the resource pack, null unless one did
  */
 public record Person(
         DiscordId discordId,

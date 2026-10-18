@@ -8,75 +8,70 @@ import javax.sql.DataSource;
 
 /**
  * Who is an admin, as a tree of grants decided in Steward.
- * An admin revokes only somebody strictly below them, with their whole branch; grants are rate limited, revocations are
- * not.
+ * An admin revokes only somebody strictly below them, with their whole branch.
+ * Grants are rate limited, revocations are not.
  */
 public interface AdminTree {
 
-    /** How many grants all admins together may make in one hour. */
+    /** The grants that all admins together may make in one hour. */
     int GRANTS_PER_HOUR = 3;
 
-    /** Returns a tree over a pool the caller owns. */
+    /** Returns a tree that borrows {@code dataSource}. */
     static AdminTree using(final DataSource dataSource) {
         return new JdbiAdminTree(dataSource);
     }
 
-    /** Returns whether this account is an admin right now. */
     boolean isAdmin(DiscordId discordId);
 
     /**
-     * Makes this account the root, but only while nobody at all is an admin.
-     * Steward asks it only for the one account its {@code discord.root-id} names.
+     * Makes this account the root, only while nobody is an admin.
+     * Steward asks it only for the account that {@code discord.root-id} names.
      *
-     * @return whether this account is now the root; false when anybody already was an admin
+     * @return whether this account is the root now
      */
     boolean claimRootIfNobody(DiscordId discordId);
 
     /**
      * Makes {@code target} an admin below {@code actor}.
      *
-     * @return what happened; nothing is written unless it is {@link Grant#GRANTED}
+     * @return what happened. Nothing is written unless it is {@link Grant#GRANTED}
      */
     Grant grant(String actor, String target);
 
     /**
-     * Takes admin from {@code target} and from everybody below it, on behalf of {@code actor}.
+     * Removes admin from {@code target} and everybody below it, for {@code actor}.
      *
-     * @return what happened; nothing is written unless it is {@link Revocation.Outcome#REVOKED}
+     * @return what happened. Nothing is written unless it is {@link Revocation.Outcome#REVOKED}
      */
     Revocation revoke(String actor, String target);
 
     /**
-     * Takes admin from this account and its whole branch, as leaving or being banned from the guild does.
+     * Removes admin from this account and its branch, as leaving or being banned from the guild does.
      *
-     * @return every account that stopped being an admin, empty when this one was not one
+     * @return the accounts that stopped being admins, empty if this one was none
      */
     Set<String> dropWithBranch(DiscordId discordId);
 
-    /** Returns every admin with their granter, root first, then in the order they were granted. */
+    /** Returns every admin with the granter, root first, then in grant order. */
     List<Admin> admins();
 
-    /**
-     * One admin and where they sit.
-     *
-     * @param grantedBy null for the root
-     */
+    /** One admin and the granter, which is null for the root. */
     record Admin(DiscordId discordId, String grantedBy, Instant grantedAt) {}
 
-    /** The answer to {@link #grant(String, String)}. */
+    /** The result of {@link #grant(String, String)}. */
     enum Grant {
         GRANTED,
-        /** The one granting is not an admin (any more). */
+        /** The granter is not an admin. */
         ACTOR_NOT_ADMIN,
         ALREADY_ADMIN,
-        /** The target is not a member of the guild as the bot last saw it, or unknown to it. */
+        /** The target is not a member of the guild as the bot last saw it, or the bot does not know it. */
         NOT_A_MEMBER,
         /** {@value AdminTree#GRANTS_PER_HOUR} grants were made in the last hour. */
         RATE_LIMITED
     }
 
     /**
-     * The answer to {@link #revoke(String, String)}.
+     * The result of {@link #revoke(String, String)}.
      *
      * @param removed every account that stopped being an admin, the target first
      */
@@ -87,7 +82,7 @@ public interface AdminTree {
             ACTOR_NOT_ADMIN,
             /** Nobody revokes themselves, not even the root. */
             SELF,
-            /** The target is not strictly below the one revoking, or not an admin at all. */
+            /** The target is not strictly below the revoker, or is no admin. */
             NOT_BELOW
         }
 

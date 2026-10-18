@@ -21,11 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises the link-code lifecycle against a real PostgreSQL: issue, repeat, expiry, redemption, 1:1.
- *
- * Skips itself when no Docker daemon is reachable.
- */
+/** Exercises the link-code lifecycle against PostgreSQL: issue, repeat, expiry, redemption and 1:1. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LinkCodeIntegrationTest {
 
@@ -125,7 +121,7 @@ class LinkCodeIntegrationTest {
 
     @Test
     void redeemingSomebodyElsesCodeStillLinksItToWhoeverTypesItIn() {
-        // A code is bound to no Discord account until redeemed; this proves the mechanics, not the entropy.
+        // A code is bound to no Discord account until redeemed. This proves the mechanics, not the entropy.
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
         final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(OTHER_DISCORD_ID), code.code());
@@ -183,7 +179,7 @@ class LinkCodeIntegrationTest {
         assertTrue(
                 directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code()).linked());
 
-        // A second Minecraft account's code, redeemed by the already-linked Discord account.
+        // The code of a second Minecraft account, redeemed by the already linked Discord account.
         final LinkCode secondCode = directory.issueLinkCode(OTHER_MC_UUID, Duration.ofMinutes(10));
         final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), secondCode.code());
 
@@ -195,7 +191,7 @@ class LinkCodeIntegrationTest {
                 "the first link must survive the second, rejected attempt");
     }
 
-    /** Moves a code and its {@code created} into the past, so the expiry check constraint still holds. */
+    /** Moves a code and its {@code created} into the past, so the expiry constraint holds. */
     private static void expireCode(final UUID mcUuid) {
         execute("""
                 UPDATE link_code

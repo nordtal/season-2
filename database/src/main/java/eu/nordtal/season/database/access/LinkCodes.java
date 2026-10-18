@@ -4,8 +4,7 @@ import java.security.SecureRandom;
 
 /**
  * Generates the four-character codes shown on the login screen.
- * The 31-symbol alphabet is safe only together with the bot's {@code RedemptionLimit}; collisions are retried by the
- * caller.
+ * The 31-symbol alphabet is safe only with the bot's {@code RedemptionLimit}. The caller retries collisions.
  */
 final class LinkCodes {
 

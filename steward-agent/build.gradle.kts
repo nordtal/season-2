@@ -11,6 +11,7 @@ application.mainClass.set("eu.nordtal.season.stewardagent.StewardAgent")
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/dev.env.example")
+    readsTree("deploy/caddy")
     reads("deploy/jvm/Dockerfile")
     reads("deploy/jvm/entrypoint.sh")
     reads("deploy/minecraft/Dockerfile")

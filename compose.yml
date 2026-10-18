@@ -9,7 +9,7 @@
 # This file is baked into steward-agent's image, the only service allowed to create containers.
 # Caddy's config is inline at the foot for the same reason: the agent cannot see host files.
 #
-# Every image of ours is the release's, tagged with its version: NORDTAL_RELEASE, which steward-agent
+# Every image of ours but Caddy's is the release's, tagged with its version: NORDTAL_RELEASE, which steward-agent
 # sets to its own on every compose command, so the agent's release is the stack's. `build:` blocks are
 # for local development. Only the plugins and Paper/Velocity are files, which runs install.
 #
@@ -616,7 +616,8 @@ services:
     build:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
-    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
+    # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:3f8f98ea7eba
     restart: unless-stopped
     # `steward` for the interface, `default` for the proxies.
     networks: ["steward", "default"]

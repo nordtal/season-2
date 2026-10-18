@@ -36,7 +36,10 @@ public interface StewardSpec {
     @NoExplanationNeeded
     BackupSpec backup();
 
-    /** Stays off until a time is set. Then it asks for a whole-network update on the chosen days, with the countdown of a manual update. */
+    /**
+     * Stays off until a time is set.
+     * Then it asks for a whole-network update on the chosen days, with the countdown of a manual update.
+     */
     @Order(18)
     @Name("Update schedule")
     @Key("update")

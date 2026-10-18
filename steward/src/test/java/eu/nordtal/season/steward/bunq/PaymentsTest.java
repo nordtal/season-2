@@ -43,7 +43,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests a pass against a stand-in for steward-bunq and a database, as the Steward role. A booking happens completely or not at all. */
+/**
+ * Tests a pass against a stand-in for steward-bunq and a database, as the Steward role.
+ * A booking happens completely or not at all.
+ */
 class PaymentsTest {
 
     private static final String TOKEN = "bank-token";

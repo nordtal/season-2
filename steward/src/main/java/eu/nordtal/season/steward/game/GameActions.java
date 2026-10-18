@@ -159,7 +159,10 @@ public final class GameActions {
         return new Refused(refusal.reason(), refusal.message());
     }
 
-    /** {@code GET /api/hunger-games/round} answers the open round. The count covers members in state OWNER or ACCEPTED. */
+    /**
+     * {@code GET /api/hunger-games/round} answers the open round.
+     * The count covers members in state OWNER or ACCEPTED.
+     */
     public void round(final Context ctx) {
         ctx.json(readRound());
     }

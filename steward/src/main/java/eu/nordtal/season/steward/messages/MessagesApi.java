@@ -73,9 +73,8 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code PUT /api/messages} writes the override of each named language as rows.
-     * A {@code null} resets an override. A validator warning is answered, and a validator error is a 400 that writes
-     * nothing.
+     * {@code PUT /api/messages} writes the override of each named language as rows, and a {@code null} resets one.
+     * A validator error is a 400 that writes nothing.
      *
      * @return the bundles a row was written for, in the order the body names them
      */
@@ -209,8 +208,8 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code GET /api/message-syntax} answers the tones with their default colours and the kinds with their sorted
-     * styles.
+     * {@code GET /api/message-syntax} answers the tones with their default colours.
+     * It also answers the kinds with their sorted styles.
      */
     public void syntax(final Context ctx) {
         final Map<String, String> tones = new LinkedHashMap<>();

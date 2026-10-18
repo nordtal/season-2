@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Tests {@code public-url}, which leaves the process as the Discord redirect URI. Discord answers a wrong value with {@code invalid_request}. */
+/**
+ * Tests {@code public-url}, which leaves the process as the Discord redirect URI.
+ * Discord answers a wrong value with {@code invalid_request}.
+ */
 class PublicUrlTest {
 
     @Test

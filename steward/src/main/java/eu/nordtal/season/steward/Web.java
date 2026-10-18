@@ -197,7 +197,9 @@ public final class Web {
 
     private final Scheduler scheduler;
 
-    /** The lane that runs the alert routing, the failed runs and the alert poll one at a time, since they share state. */
+    /**
+     * The lane that runs the alert routing, the failed runs and the alert poll one at a time, since they share state.
+     */
     private final Executor alertLane;
 
     /** The session sweep and the alert poll, which {@link #stop()} cancels. */

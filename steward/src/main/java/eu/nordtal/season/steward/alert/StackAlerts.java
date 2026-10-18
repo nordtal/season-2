@@ -93,7 +93,10 @@ public final class StackAlerts {
         }
     }
 
-    /** Returns true for a service stopped against its purpose, failing its health check or failed. A service with purpose MOVING is never down. */
+    /**
+     * Returns true for a service stopped against its purpose, failing its health check or failed.
+     * A service with purpose MOVING is never down.
+     */
     public static boolean down(final StackReading.Service service) {
         if (service.purpose() == StackReading.Purpose.MOVING) {
             return false;
@@ -200,7 +203,10 @@ public final class StackAlerts {
         newest.forEach((series, at) -> stale(reading, series, at, thresholds, now, alerts));
     }
 
-    /** Adds an alert when the newest file of the series is too old. The dump is DOWN. A volume is DOWN when a service on it is down, else WARN. */
+    /**
+     * Adds an alert when the newest file of the series is too old.
+     * The dump is DOWN. A volume is DOWN when a service on it is down, else WARN.
+     */
     private static void stale(
             final StackReading reading,
             final String series,

@@ -17,7 +17,10 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/** Holds the settings of Steward. Each value is checked once at load, so a bad value names its key and group at startup. */
+/**
+ * Holds the settings of Steward.
+ * Each value is checked once at load, so a bad value names its key and group at startup.
+ */
 public final class StewardSettings {
 
     public static final String SERVICE = "steward";

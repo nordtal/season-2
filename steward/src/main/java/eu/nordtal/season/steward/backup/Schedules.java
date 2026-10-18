@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Holds the nightly backup clock and the update clock, which {@link #arm()} rebuilds from the {@code steward} group. */
+/** Holds the nightly backup clock and the update clock, which {@link #arm()} rebuilds from the {@code steward}
+ * group. */
 public final class Schedules implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(Schedules.class);

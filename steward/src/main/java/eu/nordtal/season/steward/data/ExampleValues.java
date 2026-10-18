@@ -24,7 +24,10 @@ public final class ExampleValues {
         this.dataSource = dataSource;
     }
 
-    /** Returns the example values by type and property, with the account of the asking admin as the player if it has one. */
+    /**
+     * Returns the example values by type and property.
+     * The player is the account of the asking admin, if it has one.
+     */
     public Map<String, Map<String, String>> of(final DiscordId discordId, final String displayName) {
         final Map<String, Map<String, String>> answer = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection()) {

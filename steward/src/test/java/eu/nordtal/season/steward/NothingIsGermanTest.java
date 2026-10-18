@@ -25,8 +25,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that steward, steward-agent, steward-bunq, the admin texts, their deploy script and the compose file
- * contain no German.
+ * Checks that no German is in the steward modules.
+ * They are steward, steward-agent, steward-bunq, the admin texts, their deploy script and the compose file.
  *
  * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
  */

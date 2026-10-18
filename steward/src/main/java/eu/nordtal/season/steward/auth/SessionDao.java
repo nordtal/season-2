@@ -22,7 +22,10 @@ public interface SessionDao {
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
-    /** Returns the OAuth state and sets it to NULL in the same statement. The self-join returns the value from before the update. */
+    /**
+     * Returns the OAuth state and sets it to NULL in the same statement.
+     * The self-join returns the value from before the update.
+     */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET oauth_state = NULL
@@ -71,7 +74,9 @@ public interface SessionDao {
             """)
     int startCeremony(@Bind("id") String id, @Bind("request") String request);
 
-    /** Returns the stored WebAuthn request once, within ten minutes of its start, as {@link #consumeState} does for the state. */
+    /**
+     * Returns the stored WebAuthn request once, within ten minutes of its start, as {@link #consumeState} does.
+     */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET webauthn_request = NULL,

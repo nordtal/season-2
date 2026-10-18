@@ -7,7 +7,10 @@ import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.spec.schema.SchemaWriter;
 import org.junit.jupiter.api.Test;
 
-/** Tests that {@code @Secret} marks the credentials of {@code steward.yml}, where {@code ConfigEntry.isSecretKey} only guesses from the name. */
+/**
+ * Tests that {@code @Secret} marks the credentials of {@code steward.yml}.
+ * {@code ConfigEntry.isSecretKey} only guesses from the name.
+ */
 class SchemaSecretsTest {
 
     @Test

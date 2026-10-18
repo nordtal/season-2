@@ -8,7 +8,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** Tests that recreating a service is a run, that an update can confirm local builds and that a long actor is truncated. */
+/**
+ * Tests that recreating a service is a run, that an update can confirm local builds and that a long actor is truncated.
+ */
 class RecreateRunTest extends WebTestSupport {
 
     @Test

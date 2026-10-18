@@ -9,7 +9,10 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
-/** Calls steward-bunq on the internal network, which alone holds the key and the bunq SDK. Every amount is in whole euro cents. */
+/**
+ * Calls steward-bunq on the internal network, which alone holds the key and the bunq SDK.
+ * Every amount is in whole euro cents.
+ */
 @Slf4j
 public final class Bank {
 
@@ -46,7 +49,10 @@ public final class Bank {
             this.refusal = refusal;
         }
 
-        /** Reads the answer of steward-bunq. No body means it did not answer. A 503 with a body means its key is missing. */
+        /**
+         * Reads the answer of steward-bunq.
+         * No body means it did not answer. A 503 with a body means its key is missing.
+         */
         static TabRefused of(final InternalClient.Failure failure) {
             final BankWire.Refused said = refusedIn(failure.body());
             if (said == null) {

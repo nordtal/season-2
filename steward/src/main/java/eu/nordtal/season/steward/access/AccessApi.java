@@ -84,7 +84,9 @@ public final class AccessApi {
         UNKNOWN
     }
 
-    /** The answer of {@code POST /api/access/settle}, with {@code days} and {@code until} if booked, else {@code was}. */
+    /**
+     * The answer of {@code POST /api/access/settle}, with {@code days} and {@code until} if booked, else {@code was}.
+     */
     public record Settled(
             SettleOutcome outcome,
             @Nullable Integer days,

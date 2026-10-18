@@ -74,7 +74,8 @@ public final class Authenticators {
     public record Checked(Outcome outcome, @Nullable Instant lockedUntil) {}
 
     /**
-     * Checks {@code code} against the enrolment ({@code confirming}) or the confirmed app and records its step on a match.
+     * Checks {@code code} against the enrolment ({@code confirming}) or the confirmed app.
+     * A match records its step.
      * The recording is one guarded update, so a code sent twice counts once.
      */
     public Checked check(final DiscordId discordId, final String code, final boolean confirming) {

@@ -28,7 +28,11 @@ import java.util.regex.Matcher;
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-/** Runs the payment handling. A pass expires requests, answers the bank inbox, matches payments by tab and by reference and books them through {@link Bookings}. */
+/**
+ * Runs the payment handling.
+ * A pass expires requests, answers the bank inbox, matches payments by tab and by reference
+ * and books them through {@link Bookings}.
+ */
 @Slf4j
 public final class Payments {
 

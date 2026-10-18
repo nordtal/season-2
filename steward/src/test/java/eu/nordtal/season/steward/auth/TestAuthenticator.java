@@ -139,7 +139,9 @@ public final class TestAuthenticator {
         return GSON.toJson(credential);
     }
 
-    /** Builds the attestation object of a self-asserted registration: {@code {fmt: "none", attStmt: {}, authData: …}}. */
+    /**
+     * Builds the attestation object of a self-asserted registration: {@code {fmt: "none", attStmt: {}, authData: …}}.
+     */
     private byte[] attestationObject(final String relyingPartyId) {
         return CBORObject.NewMap()
                 .Add("fmt", "none")
@@ -148,7 +150,10 @@ public final class TestAuthenticator {
                 .EncodeToBytes();
     }
 
-    /** Builds the authenticator data: rpIdHash, flags, signCount, a zero aaguid, credentialIdLength, credentialId and the COSE public key. */
+    /**
+     * Builds the authenticator data.
+     * It holds rpIdHash, flags, signCount, a zero aaguid, credentialIdLength, credentialId and the COSE public key.
+     */
     private byte[] authenticatorData(final String relyingPartyId) {
         final byte[] cose = coseKey();
         final ByteBuffer data = ByteBuffer.allocate(32 + 1 + 4 + 16 + 2 + credentialId.length + cose.length);

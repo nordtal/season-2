@@ -51,7 +51,8 @@ public final class SettingsApi {
         ctx.json(documentOf(groupOf(ctx)).document(null));
     }
 
-    /** Writes the changed values as rows when the revision matches. The response is the group, with {@code reload} saying whether the change applies at once. */
+    /** Writes the changed values as rows when the revision matches. The response is the group, with {@code reload}
+     * saying whether the change applies at once. */
     public void save(final Context ctx, final Actor actor) {
         final SettingStore.Group group = groupOf(ctx);
         final JsonObject body = bodyOf(ctx.body());

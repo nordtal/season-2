@@ -218,7 +218,10 @@ public final class WebAuthn {
 
     public record Held(String label, boolean userVerified) {}
 
-    /** Holds {@code parked}, the library's JSON to store, and {@code forBrowser}, the same request for {@code navigator.credentials}. */
+    /**
+     * Holds the library's JSON to store ({@code parked}).
+     * {@code forBrowser} is the same request for {@code navigator.credentials}.
+     */
     public record Ceremony(String parked, String forBrowser) {}
 
     public record Registered(ByteArray credentialId, String label, boolean userVerified, boolean backedUp) {}

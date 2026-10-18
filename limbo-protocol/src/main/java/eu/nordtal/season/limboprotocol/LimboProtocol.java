@@ -11,15 +11,16 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The {@code nordtal:limbo} plugin-message channel: its name, wire format, encoder and decoder.
- * A message is a version byte, a type byte and a body; the proxy must reject one arriving from a player connection.
+ * Encodes and decodes the messages of the {@code nordtal:limbo} plugin channel.
+ * A message is a version byte, a type byte and a body.
+ * The proxy rejects a message that arrives from a player connection.
  */
 public final class LimboProtocol {
 
-    /** The channel both sides register. */
+    /** The name of the channel. */
     public static final String CHANNEL = "nordtal:limbo";
 
-    /** The only version that exists. A message carrying anything else is dropped. */
+    /** The only version. {@link #decode} drops a message with another version. */
     public static final byte VERSION = 1;
 
     private static final byte TYPE_WAIT = 1;
@@ -27,22 +28,20 @@ public final class LimboProtocol {
 
     private LimboProtocol() {}
 
-    /** The two things either side can say. */
+    /** The message types. */
     public enum Type {
 
-        /** Proxy to {@code limbo}: show this reason's title until told otherwise. */
+        /** The proxy tells {@code limbo} to show the title of a reason. */
         WAIT,
 
-        /** {@code limbo} to the proxy: this player has arrived and finished loading. */
+        /** {@code limbo} tells the proxy that the player has arrived and finished loading. */
         READY
     }
 
     /**
-     * One decoded message.
+     * A decoded message.
      *
-     * @param type   which message it is
-     * @param reason the reason a {@link Type#WAIT} carries; always {@code null} for
-     *               {@link Type#READY}
+     * @param reason the reason of a {@link Type#WAIT}, {@code null} for {@link Type#READY}
      */
     public record Message(Type type, @Nullable WaitReason reason) {
 
@@ -55,7 +54,7 @@ public final class LimboProtocol {
         }
     }
 
-    /** Returns the bytes telling the backend holding the player what the waiting room should say. */
+    /** Returns a {@link Type#WAIT} message with the reason. */
     public static byte[] wait(final WaitReason reason) {
         Objects.requireNonNull(reason, "reason");
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream(16);
@@ -64,13 +63,12 @@ public final class LimboProtocol {
             out.writeByte(TYPE_WAIT);
             out.writeUTF(reason.name());
         } catch (final IOException impossible) {
-            // ByteArrayOutputStream does no I/O; rethrown so a change cannot return half a message.
             throw new UncheckedIOException(impossible);
         }
         return bytes.toByteArray();
     }
 
-    /** Returns the bytes {@code limbo} sends once the player is in the waiting room and loaded. */
+    /** Returns a {@link Type#READY} message. */
     public static byte[] ready() {
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream(2);
         try (DataOutputStream out = new DataOutputStream(bytes)) {
@@ -83,10 +81,10 @@ public final class LimboProtocol {
     }
 
     /**
-     * Reads a message off the wire and never throws, since the bytes come from a socket.
+     * Decodes a payload and never throws.
      *
-     * @param data the payload of the plugin message, may be {@code null}
-     * @return the message, or empty when the payload is truncated or names an unknown version, type or reason
+     * @return the message, or empty when the payload is {@code null}, truncated or has an unknown version, type or
+     * reason
      */
     public static Optional<Message> decode(final byte @Nullable [] data) {
         if (data == null || data.length < 2) {

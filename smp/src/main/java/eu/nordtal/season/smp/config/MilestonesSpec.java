@@ -11,15 +11,10 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/**
- * The {@code milestones} group: the track, reloadable, while the progress lives in the database.
- *
- * One record shape serves all three objective types, and each objective carries the aura and spins it pays out.
- */
+/** The {@code milestones} group. It holds the track, and the database holds the progress. */
 @ConfigSpec
 public interface MilestonesSpec {
 
-    /** The file's order is the season's order. */
     @Order(1)
     @Name("Milestones")
     @Key("milestones")
@@ -28,11 +23,10 @@ public interface MilestonesSpec {
         return DefaultTrack.LIST;
     }
 
-    /** One milestone of the track. */
     @ConfigSpec
     interface MilestoneEntry {
 
-        /** The primary key in smp_milestone. */
+        /** The key is the primary key in {@code smp_milestone}. */
         @Order(1)
         @Name("ID")
         @Key("key")
@@ -62,7 +56,6 @@ public interface MilestonesSpec {
             return 0;
         }
 
-        /** Opened by an admin rather than by objectives. */
         @Order(4)
         @Name("Unlocked by admin")
         @Key("admin-unlocked")
@@ -71,7 +64,7 @@ public interface MilestonesSpec {
             return false;
         }
 
-        /** All must finish. Exactly one is an ADVANCEMENT, the gate. */
+        /** A milestone finishes when all its objectives finish. Exactly one is an ADVANCEMENT objective, the gate. */
         @Order(5)
         @Name("Objectives")
         @Key("objectives")
@@ -81,11 +74,10 @@ public interface MilestonesSpec {
         }
     }
 
-    /** One objective; which of the fields below apply depends on {@code type}. */
     @ConfigSpec
     interface ObjectiveEntry {
 
-        /** Unique within its milestone. Never rename one with progress. */
+        /** The key is unique within its milestone. A key with progress must not be renamed. */
         @Order(1)
         @Name("ID")
         @Key("key")
@@ -106,7 +98,7 @@ public interface MilestonesSpec {
             return "HAND_IN";
         }
 
-        /** What this objective is for, such as gathering; never read by the engine, it keeps categories apart. */
+        /** The engine does not read {@code role}. */
         @Order(3)
         @Name("Role")
         @Key("role")
@@ -115,9 +107,7 @@ public interface MilestonesSpec {
             return "";
         }
 
-        /**
-         * Lowering this on a live objective is always allowed; changing it on one that already completed is refused.
-         */
+        /** The target of a live objective may be lowered. The target of a completed objective is refused. */
         @Order(4)
         @Name("Target")
         @Key("target")
@@ -126,7 +116,6 @@ public interface MilestonesSpec {
             return 1L;
         }
 
-        /** Times reached over target when an admin closes it. */
         @Order(5)
         @Name("Aura budget")
         @Key("aura-budget")
@@ -135,7 +124,6 @@ public interface MilestonesSpec {
             return 0;
         }
 
-        /** The extra wheel spins it pays out, the same way as its aura. */
         @Order(6)
         @Name("Spin budget")
         @Key("spin-budget")
@@ -144,7 +132,7 @@ public interface MilestonesSpec {
             return 0;
         }
 
-        /** Any one counts. An unknown item stops the plugin. */
+        /** An unknown item stops the plugin. */
         @Order(7)
         @Name("Items")
         @Key("items")
@@ -155,12 +143,10 @@ public interface MilestonesSpec {
             return List.of();
         }
 
-        /** Summed across players; one that grows by time online is not offered. */
         @Order(8)
         @Name("Statistic")
         @Key("statistic")
         @NoExplanationNeeded
-        // A statistic that grows while a player only stays online would pay everybody for being there.
         @Refers(
                 value = Refers.To.STATISTIC,
                 except = {
@@ -174,7 +160,6 @@ public interface MilestonesSpec {
             return "";
         }
 
-        /** The materials or entity types the statistic is summed over. */
         @Order(9)
         @Name("Subjects")
         @Key("subjects")

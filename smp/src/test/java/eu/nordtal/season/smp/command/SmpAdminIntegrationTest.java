@@ -25,12 +25,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** The track actions an admin takes on the console or through Steward, refused against the track as it stands. */
 class SmpAdminIntegrationTest {
 
     private static DataSource dataSource;
 
-    /** What reached the running track, as {@code objective <milestone>/<key>} or {@code milestone <key>}. */
     private final List<String> reached = new ArrayList<>();
 
     private SmpAdmin admin;

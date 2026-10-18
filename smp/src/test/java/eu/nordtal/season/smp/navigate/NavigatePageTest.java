@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** What one page of {@code /navigate} contains, which is the half of that menu a test can hold. */
 class NavigatePageTest {
 
     private static final Messages MESSAGES =
@@ -39,7 +38,7 @@ class NavigatePageTest {
     void aStalePageIsClamped() {
         assertEquals(0, NavigatePage.clamp(-1, 12));
         assertEquals(2, NavigatePage.clamp(9, 12));
-        // What actually happens: somebody on page three sees a list one shorter than the button was drawn for.
+        // A player on page three sees a list one entry shorter than the button was drawn for.
         assertEquals(1, NavigatePage.clamp(2, 7));
     }
 
@@ -70,7 +69,7 @@ class NavigatePageTest {
     void theDistanceIsWhatItSays() {
         final NavigationTarget target = NavigationTarget.poi(UUID.randomUUID(), "Mine", WORLD, 30, 64, 40);
         assertEquals("50 m", NavigatePage.distance(target, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
-        // Height counts. A POI at the bottom of a shaft is not "0 m away" from the surface.
+        // Height counts, so a point at the bottom of a shaft is not 0 m away from the surface.
         final NavigationTarget below = NavigationTarget.poi(UUID.randomUUID(), "Shaft", WORLD, 0, 4, 0);
         assertEquals("60 m", NavigatePage.distance(below, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
     }
@@ -106,7 +105,7 @@ class NavigatePageTest {
         assertEquals(Glyphs.GUI_ROW_ICON_DEATH, NavigatePanel.icon(NavigationTarget.Kind.LAST_DEATH));
         assertEquals(Glyphs.GUI_ROW_ICON_POI, NavigatePanel.icon(NavigationTarget.Kind.POI));
 
-        // A POI's label IS its name; the two built-in kinds carry a message key, printed raw if this branch drops.
+        // The label of a point is its name. The two built-in kinds have a message key.
         assertEquals(
                 "Baeckerei",
                 NavigatePage.label(

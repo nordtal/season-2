@@ -6,7 +6,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One landing point, without a world: the {@link eu.nordtal.season.smp.world.WorldRole} it is filed under names it. */
+/** The {@link eu.nordtal.season.smp.world.WorldRole} key of a landing point names its world. */
 @ConfigSpec
 public interface SpawnPointSpec {
 

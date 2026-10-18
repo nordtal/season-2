@@ -18,9 +18,9 @@ import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 /**
- * Walks the deposit screen and holds it against the tray the pack drew.
+ * Walks the deposit window and compares it with the tray that the pack draws.
  *
- * {@link #theTrayCoversEverySlotAPlayerCanFill} matters most: a gap is a slot that silently looks outside the tray.
+ * {@link #theTrayCoversEverySlotAPlayerCanFill} matters most, because a gap is a slot outside the tray.
  */
 class HandInPanelTest {
 
@@ -54,7 +54,7 @@ class HandInPanelTest {
                         + " under the confirm button, one shorter and the bottom row of the deposit"
                         + " area is bare panel");
 
-        // And the slot map agrees with the picture, in both directions.
+        // The slot map agrees with the picture in both directions.
         for (int slot = 0; slot < HandInPanel.ROWS * SlotGeometry.COLUMNS; slot++) {
             assertEquals(
                     SlotGeometry.row(slot) < HandInPanel.DEPOSIT_ROWS, HandInPanel.isDeposit(slot), "slot " + slot);
@@ -114,7 +114,7 @@ class HandInPanelTest {
 
     @Test
     void thetwoFootersLineUp() {
-        // These two windows are the same footer with a different sentence; nothing else compares the two directly.
+        // The two windows have the same footer with a different sentence, and no other test compares them.
         final Run needed = PanelWalk.textRuns(
                         PanelWalk.runs(surface("808 still needed", "Hand in")),
                         Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW))
@@ -173,7 +173,6 @@ class HandInPanelTest {
 
     @Test
     void theAffirmingPlateIsItsOwn() {
-        // The one button here that cannot be undone must not share /navigate's stop-plate picture for that reason.
         assertTrue(!Glyphs.GUI_ROW_BUTTON_CONFIRM.equals(Glyphs.GUI_ROW_BUTTON_WIDE));
         final BufferedImage confirm = PanelWalk.image("row_button_confirm.png");
         assertEquals(HandInPanel.CONFIRM_WIDTH, confirm.getWidth());

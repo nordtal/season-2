@@ -2,9 +2,5 @@ package eu.nordtal.season.smp.navigate;
 
 import java.util.UUID;
 
-/**
- * One point of interest as it is stored.
- *
- * {@code createdBy} is a credit, not a permission: anyone may create one and admins may delete any.
- */
+/** A stored POI. {@code createdBy} names the creator and grants no right to the POI. */
 public record PoiRow(UUID id, String name, String world, int x, int y, int z, String createdBy) {}

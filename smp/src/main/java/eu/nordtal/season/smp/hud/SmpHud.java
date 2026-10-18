@@ -22,9 +22,9 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 /**
- * The SMP's two lines on its {@code Hud}: dimension and milestone, and the target while {@code /navigate} is on.
+ * The two HUD lines of the SMP: dimension and milestone, and the target while {@code /navigate} is on.
  *
- * The second line is hidden rather than emptied; there is no season countdown, as the season has no end date.
+ * The second line is hidden when it has no target. The SMP has no season countdown.
  */
 public final class SmpHud {
 
@@ -40,18 +40,16 @@ public final class SmpHud {
         this.messages = messages;
     }
 
-    /** Declares the two lines, status above navigation. */
     public void declareOn(final Hud hud) {
         hud.declare(this::statusLine);
         hud.declare(this::navigateLine);
     }
 
-    /** The world's pill, then the milestone's, or the world's alone once the track has run out. */
     List<Pill> statusLine(final Player player, final Locale locale) {
         final String dimension =
                 worlds.roleOf(player.getWorld()).map(WorldRole::glyph).orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
 
-        // One read, so the name and the percentage are always the same milestone's.
+        // Reads once, so the name and the percentage belong to the same milestone.
         final SeasonState.Active active = season.active();
         if (active.key() == null) {
             return List.of(Pill.of(dimension, worldName(player, locale)));
@@ -66,19 +64,18 @@ public final class SmpHud {
                 Pill.of(messages.format(locale, MESSAGES.smp().hud().progress(percent))));
     }
 
-    /** The target's pill, led by the arrow to it, then the distance's; nothing while no target is set. */
     List<Pill> navigateLine(final Player player, final Locale locale) {
         final Optional<NavigationTarget> wanted = navigation.of(player.getUniqueId());
         if (wanted.isEmpty()) {
             return List.of();
         }
         final NavigationTarget target = wanted.get();
-        // Non-null exactly when kind() is POI: NavigationTarget.poi() is the only factory that supplies one.
+        // Non-null when kind() is POI, because NavigationTarget.poi() is the only factory that sets it.
         final String label = target.kind() == NavigationTarget.Kind.POI
                 ? Objects.requireNonNull(target.label())
                 : messages.format(locale, target.name());
 
-        // A target in another world has no bearing worth drawing.
+        // A target in another world has no direction.
         if (!target.isIn(player.getWorld().getName())) {
             return List.of(
                     Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, label),

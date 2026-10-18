@@ -24,9 +24,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Gates Nether portals on the milestone, sends every farm world portal to spawn and keeps End portals dark.
- *
- * The worlds are named {@code nordtal} and {@code nordtal_nether} so Bukkit pairs them for the 1:8 mapping.
+ * Refuses Nether portals until {@code Unlock.NETHER} is unlocked.
+ * Refuses eyes of ender in End portal frames.
  */
 public final class PortalGate implements Listener {
 
@@ -52,7 +51,6 @@ public final class PortalGate implements Listener {
         this.sounds = sounds;
     }
 
-    /** A Nether portal frame only lights once the milestone has been finished. */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     public void onPortalCreate(final PortalCreateEvent event) {
         if (event.getReason() != PortalCreateEvent.CreateReason.FIRE) {
@@ -76,7 +74,7 @@ public final class PortalGate implements Listener {
         }
     }
 
-    /** Clears the fire a refused ignition left standing, next tick, since this tick's call stack would undo it. */
+    /** Removes the fire of a refused ignition on the next tick. */
     private void putOutTheFire(final PortalCreateEvent event) {
         final World world = event.getWorld();
         final java.util.List<org.bukkit.block.BlockState> blocks = java.util.List.copyOf(event.getBlocks());
@@ -87,7 +85,6 @@ public final class PortalGate implements Listener {
                         .forEach(block -> block.setType(Material.AIR, false)));
     }
 
-    /** An End portal frame never takes an eye. */
     @EventHandler(ignoreCancelled = true)
     public void onEyeOfEnder(final PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND || event.getClickedBlock() == null) {
@@ -115,7 +112,6 @@ public final class PortalGate implements Listener {
         }
 
         if (!season.isUnlocked(Unlock.NETHER) && from.hasVanillaPortalLinking()) {
-            // Belt and braces: a pre-existing portal must not become a way past the milestone.
             event.setCancelled(true);
             event.getPlayer()
                     .sendMessage(renderer.format(

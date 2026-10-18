@@ -30,9 +30,9 @@ import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
 /**
- * The four spawns, protected by a handful of event handlers over a list of boxes.
+ * Protects the four spawn regions with event handlers over a list of boxes.
  *
- * Building, fire, fluids and every {@link Container} are blocked; doors and switches stay free, and admins are exempt.
+ * It blocks building, fire, fluids and every {@link Container}. Doors and switches stay usable, and admins are exempt.
  */
 public final class ProtectionListener implements Listener {
 
@@ -129,7 +129,7 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onFlow(final BlockFromToEvent event) {
-        // Only the destination matters: a river outside may not run in; a source inside was placed there by an admin.
+        // Only the target block counts. A source block inside a box stays.
         if (inside(Objects.requireNonNull(event.getToBlock().getLocation()))) {
             event.setCancelled(true);
         }
@@ -137,7 +137,7 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityExplode(final EntityExplodeEvent event) {
-        // Only the blocks inside a box are spared; cancelling the whole explosion would also stop it hurting players.
+        // Removes only the blocks inside a box. The explosion still hurts players.
         event.blockList().removeIf(block -> inside(Objects.requireNonNull(block.getLocation())));
     }
 
@@ -151,7 +151,6 @@ public final class ProtectionListener implements Listener {
                 location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
-    /** Whether this player must be stopped here, telling them why once when they are. */
     private boolean deny(final Player player, final Block block) {
         if (!inside(Objects.requireNonNull(block.getLocation()))
                 || identities.of(player.getUniqueId()).admin()) {

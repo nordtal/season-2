@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** That the smp's sounds answer every category out of the box, and that an admin's blank key silences one. */
 class SmpSoundsTest {
 
     private static final Group<SoundsSpec> SOUNDS =
@@ -33,7 +32,6 @@ class SmpSoundsTest {
                 "a shipped default that the parser has to correct is a default that was never checked");
         for (final Feedback category : Feedback.values()) {
             if (category == Feedback.STAGING) {
-                // Silent on purpose: a staged moment's sound has no chime to borrow yet.
                 assertTrue(
                         sounds.isSilent(category),
                         "STAGING is no longer silent out of the box, which is a decision and not a tidy-up");
@@ -43,7 +41,6 @@ class SmpSoundsTest {
         }
     }
 
-    /** A blank key an admin stores is picked up on the one {@code SmpSounds} every listener already holds. */
     @Test
     void aBlankedKeySilencesItsCategoryOnTheRunningInstance() throws Exception {
         final Setting<SoundsSpec> handle = store.settings("smp").load(SOUNDS);

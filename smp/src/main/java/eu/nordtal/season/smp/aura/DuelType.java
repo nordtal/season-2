@@ -2,7 +2,7 @@ package eu.nordtal.season.smp.aura;
 
 import java.util.Optional;
 
-/** Which of the two platforms a duel started on, and therefore which loadout both fighters get. */
+/** The platform a duel starts on. It decides the loadout of both fighters. */
 public enum DuelType {
     SWORD,
     BOW;

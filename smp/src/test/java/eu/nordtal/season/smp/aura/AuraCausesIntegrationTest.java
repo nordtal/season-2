@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** Every aura change records its cause as typed values in the row of its reason, against a real PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuraCausesIntegrationTest {
 

@@ -15,9 +15,9 @@ import net.kyori.adventure.text.format.ShadowColor;
 import org.junit.jupiter.api.Test;
 
 /**
- * Asserts that nothing composed out of a {@code nordtal:} font is drawn with vanilla's text shadow.
+ * Asserts that nothing composed from a {@code nordtal:} font is drawn with the vanilla text shadow.
  *
- * The shadow costs no advance but seams every tile boundary, which only the pixels show; the boss bar is exempt.
+ * The shadow adds no advance and seams every tile boundary, which only the pixels show. The boss bar is exempt.
  */
 class GlyphShadowTest {
 
@@ -63,7 +63,7 @@ class GlyphShadowTest {
                         + " flatten the one piece of the window a player actually reads");
     }
 
-    /** That no renderer names a boss bar any other way is {@code :architecture}'s rule. */
+    /** The rule {@code :architecture} enforces is that no renderer names a boss bar any other way. */
     @Test
     void aBossBarLineCarriesNoShadow() {
         assertNoShadowOnFont(
@@ -79,7 +79,6 @@ class GlyphShadowTest {
         assertNoShadowOnFont(surface, Glyphs.FONT_GUI, "MenuTitle.Canvas.build");
     }
 
-    /** Asserts that each component naming {@code font} sets {@link ShadowColor#none()} in its own style. */
     private static void assertNoShadowOnFont(final Component root, final String font, final String what) {
         int seen = 0;
         for (final Component component : root.iterable(ComponentIteratorType.DEPTH_FIRST)) {

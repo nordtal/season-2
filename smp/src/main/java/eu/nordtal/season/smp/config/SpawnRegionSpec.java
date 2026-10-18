@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One protected box. */
 @ConfigSpec
 public interface SpawnRegionSpec {
 

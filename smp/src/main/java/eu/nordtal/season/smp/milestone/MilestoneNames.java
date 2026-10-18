@@ -5,16 +5,12 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 import eu.nordtal.season.messages.Messages;
 import java.util.Locale;
 
-/**
- * What a milestone is called, for a player.
- *
- * A milestone without a shipped name, and every objective, shows its config key.
- */
+/** Resolves the name a player sees for a milestone. */
 public final class MilestoneNames {
 
     private MilestoneNames() {}
 
-    /** Returns the milestone's name in {@code locale}, or {@code key} itself. */
+    /** Returns the name of the milestone in {@code locale}, or {@code key} when no name exists. */
     public static String of(final Messages messages, final Locale locale, final String key) {
         return MESSAGES.smp()
                 .milestoneName(key)

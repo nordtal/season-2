@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 
-/** The wheel's weighted draw, asserted with a seeded {@link Random}. */
 class PrizeDrawTest {
 
     @Test
@@ -27,7 +26,6 @@ class PrizeDrawTest {
 
     @Test
     void theDistributionFollowsTheWeights() {
-        // 70 / 26 / 4, which is roughly the intended common / uncommon / rare split.
         final List<Integer> weights = List.of(70, 26, 4);
         final Random random = new Random(20260901L);
         final int[] hits = new int[3];

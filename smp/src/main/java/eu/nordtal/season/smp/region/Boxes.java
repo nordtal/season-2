@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * An ordered list of {@link Box} entries, asked which one holds a position.
+ * An ordered list of {@link Box} entries.
  *
- * The first hit in configuration order wins, so a small box carved out of a large one goes first.
+ * The first box in configuration order that holds a position wins, so a box inside a larger box goes first.
  */
 public final class Boxes {
 
@@ -16,7 +16,6 @@ public final class Boxes {
         this.boxes = List.copyOf(boxes);
     }
 
-    /** The first box containing the position, if any. */
     public Optional<Box> at(final String world, final int x, final int y, final int z) {
         for (final Box box : boxes) {
             if (box.contains(world, x, y, z)) {
@@ -30,7 +29,6 @@ public final class Boxes {
         return at(world, x, y, z).isPresent();
     }
 
-    /** Every box in the given world, in configuration order. */
     public List<Box> in(final String world) {
         return boxes.stream().filter(box -> box.world().equals(world)).toList();
     }

@@ -18,11 +18,6 @@ import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests running a staging: the order, the spacing, the cancel, and the sound that is not played.
- *
- * Whether it looks right on a client is not answerable here.
- */
 class CinematicsTest {
 
     private static final Component A = Component.text("a");
@@ -39,7 +34,7 @@ class CinematicsTest {
         assertTrue(cinematics.start(
                 player, Cinematic.builder().frame(A, 5).frame(B, 10).frame(C, 1).build(), stage));
 
-        // The first frame is shown inside start(), without waiting for the scheduler.
+        // {@code start()} shows the first frame without waiting for the scheduler.
         assertEquals(List.of(A), stage.shown);
 
         clock.advanceTo(4);
@@ -98,7 +93,7 @@ class CinematicsTest {
 
     @Test
     void cancellingSomethingThatIsNotRunningDoesNothingAtAll() {
-        // A quit handler cancels for every player, most of whom have no staging running.
+        // A quit handler cancels for every player, and most players have no staging running.
         cinematics.cancel(player);
         assertEquals(0, stage.cleared);
     }
@@ -185,7 +180,7 @@ class CinematicsTest {
 
     @Test
     void aBlankKeyInTheSoundConfigurationPlaysNothing() {
-        // A blank FeedbackSounds key means silence; tested here because the decision needs no Player.
+        // A blank {@code FeedbackSounds} key plays no sound. The test needs no {@code Player} for that.
         final List<String> problems = new ArrayList<>();
         final SoundStage silent = new SoundStage(configured("", problems));
         final SoundStage audible = new SoundStage(configured("minecraft:ui.button.click", problems));
@@ -216,7 +211,6 @@ class CinematicsTest {
         return FeedbackSounds.parse(declared, problems::add);
     }
 
-    /** What a Paper module's surface does with a sound, without the Paper. */
     private static final class SoundStage extends RecordingStage {
 
         private final FeedbackSounds sounds;
@@ -235,7 +229,6 @@ class CinematicsTest {
         }
     }
 
-    /** A surface that writes down what it was told to draw. */
     private static class RecordingStage implements CinematicStage {
 
         private final List<Component> shown = new ArrayList<>();
@@ -268,10 +261,8 @@ class CinematicsTest {
         }
     }
 
-    /** A scheduler with a hand-turned clock; {@link #advanceTo} runs everything due up to that tick, in order. */
     private static final class FakeScheduler implements Scheduler {
 
-        /** A plain class rather than a record: the cancelled flag is the one thing that changes. */
         private static final class Scheduled {
 
             private final long at;
@@ -301,7 +292,7 @@ class CinematicsTest {
 
         private void advanceTo(final long tick) {
             now = tick;
-            // A copy, because a task may schedule another one.
+            // The loop iterates over a copy, because a task may schedule another task.
             for (final Scheduled scheduled : List.copyOf(pending)) {
                 if (!scheduled.cancelled && scheduled.at <= tick) {
                     pending.remove(scheduled);

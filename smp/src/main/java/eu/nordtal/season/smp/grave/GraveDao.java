@@ -10,7 +10,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The graves' rows, keyed by the owner's {@code discord_id}; a JDBI SqlObject, never called from the main thread. */
+/** Reads and writes the table {@code smp_grave}. Blocking, so call it off the main thread only. */
 public interface GraveDao {
 
     @SqlUpdate("""
@@ -26,7 +26,6 @@ public interface GraveDao {
             @Bind("contents") byte[] contents,
             @Bind("experience") int experience);
 
-    /** Every grave that still holds something, read at start so the displays can be put back. */
     @SqlQuery("""
             SELECT grave.id            AS id,
                    grave.owner_id      AS ownerId,
@@ -46,11 +45,7 @@ public interface GraveDao {
     @RegisterRowMapper(GraveRowMapper.class)
     List<GraveRow> openGraves();
 
-    /**
-     * Marks a grave emptied, once.
-     *
-     * The {@code looted IS NULL} guard credits the experience exactly once when two people empty it together.
-     */
+    /** Marks a grave as looted and returns its id. Returns empty if it was already looted. */
     @SqlQuery("""
             UPDATE smp_grave
             SET looted = now(), looted_by = :lootedBy
@@ -59,18 +54,14 @@ public interface GraveDao {
             """)
     Optional<UUID> markGraveLooted(@Bind("id") UUID id, @Bind("lootedBy") @Nullable String lootedBy);
 
-    /**
-     * Writes back what is left in a half emptied grave, or a restart would hand the contents out again.
-     *
-     * {@code looted IS NULL}, so a late close cannot refill a grave somebody else finished.
-     */
+    /** Replaces the contents of a grave that is not looted. Returns the number of updated rows. */
     @SqlUpdate("UPDATE smp_grave SET contents = :contents WHERE id = :id AND looted IS NULL")
     int updateGraveContents(@Bind("id") UUID id, @Bind("contents") byte[] contents);
 
     /**
-     * Deletes every grave older than {@code hours}, by its own {@code created}, and says which ones went.
+     * Deletes the graves that are not looted and older than {@code hours}, and returns them.
      *
-     * @param hours how long a grave may stand; positive, since 0 means this is never called
+     * @param hours the maximum age in hours, greater than 0
      */
     @SqlQuery("""
             DELETE FROM smp_grave

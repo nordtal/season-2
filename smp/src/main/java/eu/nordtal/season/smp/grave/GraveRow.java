@@ -3,11 +3,7 @@ package eu.nordtal.season.smp.grave;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * One grave as it is stored.
- *
- * A class rather than a record so the {@code serializeItemsAsBytes} contents are cloned on the way out.
- */
+/** A grave row of the database. {@link #contents()} returns a copy of the serialized items. */
 public final class GraveRow {
 
     private final UUID id;

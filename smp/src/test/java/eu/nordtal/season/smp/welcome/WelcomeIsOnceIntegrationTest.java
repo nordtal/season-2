@@ -28,9 +28,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * The season's opening moment happens exactly once per player, against a real PostgreSQL.
+ * The opening moment of the season happens exactly once per player, against a real PostgreSQL.
  *
- * "Once" is one {@code INSERT ... ON CONFLICT} whose second call affects no rows; skips itself without Docker.
+ * One {@code INSERT ... ON CONFLICT} implements once, and its second call affects no rows. The test skips itself
+ * without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WelcomeIsOnceIntegrationTest {
@@ -69,7 +70,6 @@ class WelcomeIsOnceIntegrationTest {
 
     @Test
     void thereIsNoRowToStartWith() {
-        // smp_player gets a row only when somebody EARNS something; the INSERT half is the easy one to lose.
         assertEquals(0, rows(DiscordId.of(PLAYER)));
         assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));
         assertEquals(1, rows(DiscordId.of(PLAYER)));
@@ -101,7 +101,7 @@ class WelcomeIsOnceIntegrationTest {
 
     @Test
     void onlyOneOfTwoSimultaneousJoinsWins() throws Exception {
-        // A reconnect inside a second, or a proxy moving somebody twice mid-lookup: both joins race the same claim.
+        // Both joins race for the same claim.
         final int racers = 8;
         final ExecutorService pool = Executors.newFixedThreadPool(racers);
         final CyclicBarrier together = new CyclicBarrier(racers);

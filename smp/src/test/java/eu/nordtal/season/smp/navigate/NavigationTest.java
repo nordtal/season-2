@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Who is navigating where, and who has stopped; nobody navigating is the normal state. */
 class NavigationTest {
 
     private final Navigation navigation = new Navigation();
@@ -31,7 +30,7 @@ class NavigationTest {
         assertFalse(navigation.isNavigating(player));
     }
 
-    /** A POI that is deleted takes every arrow pointing into its world with it. */
+    /** Deleting a point of interest removes every arrow that points into its world. */
     @Test
     void clearingAWorldDropsOnlyTheTargetsInIt() {
         final UUID other = UUID.randomUUID();

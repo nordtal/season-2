@@ -7,7 +7,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One advancement and what it pays. */
 @ConfigSpec
 public interface AdvancementAwardSpec {
 

@@ -7,29 +7,28 @@ import org.bukkit.block.Block;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Finds somewhere in a world that a person can be put down without dying.
+ * Finds a spot in a world where a player can stand safely.
  *
- * Searches a square spiral out from a point for safe ground under two blocks of air, on the main thread.
+ * It searches a square spiral outward from a point for safe ground under two blocks of air. Main thread only.
  */
 public final class LandingSite {
 
-    /** How far out to look before giving up. Well inside any world border this server sets. */
     private static final int MAX_RADIUS = 256;
 
     private LandingSite() {}
 
-    /** The first safe spot at or near the world centre, or the world spawn when the search finds nothing. */
+    /** Returns the first safe spot near the world centre, or the world spawn when the search finds none. */
     public static Location find(final World world) {
         final Location found = find(world, 0, 0);
         return found == null ? world.getSpawnLocation() : found;
     }
 
-    /** The same search around a given column, or null when nothing is found within {@link #MAX_RADIUS}. */
+    /** Returns the first safe spot around a column, or null when none lies within {@link #MAX_RADIUS}. */
     public static @Nullable Location find(final World world, final int centreX, final int centreZ) {
         for (int radius = 0; radius <= MAX_RADIUS; radius += 4) {
             for (int dx = -radius; dx <= radius; dx += 4) {
                 for (int dz = -radius; dz <= radius; dz += 4) {
-                    // Only the ring: smaller radii already covered the inside.
+                    // Only the ring, because smaller radii are already searched.
                     if (radius > 0 && Math.abs(dx) != radius && Math.abs(dz) != radius) {
                         continue;
                     }
@@ -44,16 +43,16 @@ public final class LandingSite {
     }
 
     /**
-     * A spot a player can be put down at, as close to {@code preferred} as possible.
+     * Returns a spot as close to {@code preferred} as possible.
      *
-     * {@code preferred} itself when habitable, else the nearest safe column, else {@code preferred} again.
+     * The result is {@code preferred} when it is safe, else the nearest safe column, else {@code preferred}.
      */
     public static Location safeAt(final World world, final Location preferred) {
         return findSafeAt(world, preferred).orElse(preferred);
     }
 
     /**
-     * The same search, for a caller that is allowed to say no: empty when no column within {@link #MAX_RADIUS} fits.
+     * Returns the same spot as the search above, or empty when no column within {@link #MAX_RADIUS} fits.
      */
     public static java.util.Optional<Location> findSafeAt(final World world, final Location preferred) {
         if (fits(world, preferred)) {
@@ -62,7 +61,7 @@ public final class LandingSite {
         return java.util.Optional.ofNullable(find(world, preferred.getBlockX(), preferred.getBlockZ()));
     }
 
-    /** Whether two air blocks stand at this spot over good ground; a liquid is passable but never fits. */
+    /** Returns whether two air blocks stand over solid ground at this spot. A liquid never fits. */
     private static boolean fits(final World world, final Location at) {
         final Block feet = world.getBlockAt(at.getBlockX(), at.getBlockY(), at.getBlockZ());
         final Block head = feet.getRelative(0, 1, 0);
@@ -72,7 +71,7 @@ public final class LandingSite {
 
     private static @Nullable Location safeColumn(final World world, final int x, final int z) {
         final Block highest = world.getHighestBlockAt(x, z);
-        // An empty column would otherwise answer with solid bedrock at the world floor, which is the absence of a site.
+        // An empty column has bedrock at the world floor, which is no site.
         if (highest.getY() <= world.getMinHeight() + 4) {
             return null;
         }
@@ -84,7 +83,7 @@ public final class LandingSite {
         if (!above.getType().isAir() || !head.getType().isAir()) {
             return null;
         }
-        // Centre of the block, looking south, so nobody lands inside a wall corner.
+        // The centre of the block, facing south.
         return new Location(world, x + 0.5, highest.getY() + 1, z + 0.5);
     }
 

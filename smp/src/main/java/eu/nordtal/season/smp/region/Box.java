@@ -1,9 +1,9 @@
 package eu.nordtal.season.smp.region;
 
 /**
- * One axis-aligned box in one world, inclusive on both corners.
+ * An axis-aligned box in one world. Both corners are inside the box.
  *
- * It backs both {@code spawn-regions} and {@code balloons}, neither of which needs claims or ownership.
+ * It backs {@code spawn-regions} and {@code balloons}.
  */
 public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
 
@@ -17,16 +17,11 @@ public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY
         }
     }
 
-    /** Whether the given block position is inside this box, corners included. */
     public boolean contains(final String world, final int x, final int y, final int z) {
         return this.world.equals(world) && x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ;
     }
 
-    /**
-     * The horizontal distance from a point to this box's centre, ignoring height.
-     *
-     * Balloon placement uses it: outside radius 10 and inside 21.5 of the border centre.
-     */
+    /** Returns the horizontal distance from a point to the centre of this box, ignoring height. */
     public double horizontalDistanceFrom(final double centreX, final double centreZ) {
         final double dx = (minX + maxX) / 2.0 - centreX;
         final double dz = (minZ + maxZ) / 2.0 - centreZ;

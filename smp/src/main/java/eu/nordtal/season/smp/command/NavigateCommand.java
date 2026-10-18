@@ -36,9 +36,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * {@code /navigate} and {@code /poi}; every database call runs off the main thread.
+ * The commands {@code /navigate} and {@code /poi}. Every database call runs off the main thread.
  *
- * POIs are public and unlimited; only the creator or an admin may delete one.
+ * Every player may add a POI. Only its creator or an admin may delete it.
  */
 public final class NavigateCommand {
 
@@ -79,14 +79,12 @@ public final class NavigateCommand {
     public LiteralCommandNode<CommandSourceStack> poi() {
         return Commands.literal("poi")
                 .requires(source -> source.getSender() instanceof Player)
-                // Every node below answers when typed on its own.
                 .executes(this::poiHelp)
                 .then(subcommand(Sub.ADD, this::addPoi))
                 .then(subcommand(Sub.REMOVE, this::removePoi))
                 .build();
     }
 
-    /** One {@code /poi} subcommand: the literal, its name argument, and its own usage line. */
     private LiteralArgumentBuilder<CommandSourceStack> subcommand(
             final Sub sub, final Command<CommandSourceStack> action) {
         return Commands.literal(sub.literal)
@@ -95,7 +93,7 @@ public final class NavigateCommand {
                         .executes(action));
     }
 
-    /** What {@code /poi} takes; both the tree and the help are built from this, so the usage cannot go stale. */
+    /** The {@code /poi} subcommands. The command tree and the help text both read it. */
     private enum Sub {
         ADD("add"),
         REMOVE("remove");
@@ -106,7 +104,6 @@ public final class NavigateCommand {
             this.literal = literal;
         }
 
-        /** Returns the usage, as in {@code /poi add <name>}. */
         String usage() {
             return "/poi " + literal + " <name>";
         }
@@ -119,7 +116,6 @@ public final class NavigateCommand {
         }
     }
 
-    /** Answers {@code /poi} typed alone, with the adapter's own help keys, since this tree is built by hand. */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final PaperUser user = user(context);
         user.reply(PaperCommonMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
@@ -138,7 +134,7 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** Returns whoever typed it, with the admin flag from the cache, since this runs on the main thread. */
+    /** Returns the sender as a user. The admin flag comes from the cache, because this runs on the main thread. */
     private PaperUser user(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
         return PaperUser.of(
@@ -235,7 +231,7 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** Sends a message and its sound in one hop to the main thread, so they never land a tick apart. */
+    /** Sends the message and the sound in one main-thread task. */
     private void tell(final Player player, final Component message, final Feedback feedback) {
         PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {

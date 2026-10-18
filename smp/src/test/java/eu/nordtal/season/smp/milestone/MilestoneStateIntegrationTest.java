@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** The milestone state machine against the real {@code smp_milestone_state_check}. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MilestoneStateIntegrationTest {
     private static DataSource dataSource;
@@ -72,7 +71,7 @@ class MilestoneStateIntegrationTest {
         assertEquals(List.of("waiting"), activeKeys());
     }
 
-    /** The track was read with one milestone done; a reset in between must not let a later one become active. */
+    /** A reset after the track was read with one milestone done does not make a later milestone active. */
     @Test
     void anActivationReadBeforeAResetDoesNothing() {
         dao.activateMilestone("waiting");
@@ -88,7 +87,6 @@ class MilestoneStateIntegrationTest {
 
     @Test
     void objectiveRowsAreEnsured() {
-        // Progress needs the smp_objective row; this is the insert that creates it.
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         assertEquals(1, dao.objectivesOf("departure").size(), "one row, however often the file is read");

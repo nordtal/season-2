@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One board's anchor: which board, where it hangs, and which way it faces. */
 @ConfigSpec
 public interface BoardSpec {
 
@@ -58,7 +57,6 @@ public interface BoardSpec {
         return 0.0f;
     }
 
-    /** The client owns the font's per-character widths. */
     @Order(7)
     @Name("Width")
     @Key("width")

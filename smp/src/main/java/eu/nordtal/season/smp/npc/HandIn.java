@@ -5,24 +5,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * What a hand-in takes, worked out without a server: only wanted items, and no more than still needed.
- *
- * Material names and counts rather than {@code ItemStack}, so the one place that takes items is unit-tested.
- */
+/** Decides which offered stacks a hand-in takes. It works on material names and counts and needs no server. */
 public final class HandIn {
 
-    /** One stack as it sits in the deposit screen: which slot, what material, how many. */
     public record Offered(int slot, String material, int amount) {}
 
-    /** What to do with one slot: keep {@code taken} of it, leave the rest with the player. */
     public record Take(int slot, int taken, int returned) {}
 
     /**
-     * The verdict on a whole deposit.
-     *
-     * @param accepted how much counts towards the objective
-     * @param takes    one entry per slot that gives something up
+     * @param accepted the amount that counts towards the objective
+     * @param takes    one entry per slot that gives up items
      */
     public record Result(long accepted, List<Take> takes) {
 
@@ -34,11 +26,11 @@ public final class HandIn {
     private HandIn() {}
 
     /**
-     * Sorts a deposit into what is taken and what stays.
+     * Takes only wanted items, and never more than {@code stillNeeded} in total.
      *
-     * @param offered     everything in the deposit screen; empty slots are not listed
+     * @param offered     the stacks in the deposit screen, without empty slots
      * @param wanted      the items the objective accepts, as keys or Bukkit names
-     * @param stillNeeded how much the objective is still short of its target
+     * @param stillNeeded the amount the objective lacks to reach its target
      */
     public static Result sort(final List<Offered> offered, final Set<String> wanted, final long stillNeeded) {
         final List<Take> takes = new ArrayList<>();

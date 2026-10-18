@@ -1,34 +1,32 @@
 package eu.nordtal.season.smp.aura;
 
 /**
- * What went into {@code smp_aura_event.reason}, which exists so a leaderboard position can always be explained.
+ * The values of {@code smp_aura_event.reason}.
  *
- * The column has no CHECK constraint, so a new source is a constant here and an old one still reads back.
+ * The column has no CHECK constraint, so a new source adds a constant and old rows stay readable.
  */
 public enum AuraReason {
 
-    /** Won a duel; the loser paid exactly this, so a duel only moves aura between two people. */
+    /** The winner of a duel. The loser pays the same amount. */
     DUEL_WIN,
 
-    /** Lost a duel, or disconnected during one. */
+    /** The loser of a duel, or a player who disconnected during one. */
     DUEL_LOSS,
 
-    /** An ordinary death, anywhere except the duel arena. */
+    /** A death anywhere except the duel arena. */
     DEATH,
 
-    /** A death by one of the configured "embarrassing" causes, which costs more. */
+    /** A death by a configured listed cause, which costs more. */
     DEATH_LISTED,
 
     /** A share of an objective's aura budget, paid when the objective completes. */
     CONTRIBUTION,
 
-    /** One of the curated advancements, once per player. */
+    /** A curated advancement, booked once per player. */
     ADVANCEMENT,
 
-    /** An admin booked it by hand. */
     ADMIN;
 
-    /** Returns the string written to {@code smp_aura_event.reason}, which is {@code varchar(32)}. */
     public String stored() {
         return name();
     }

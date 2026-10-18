@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** The objective board's bar, which must never show full early or empty after a contribution. */
+/** The objective board bar never shows full early and never shows empty after a contribution. */
 class ProgressBarTest {
 
     @Test
@@ -34,7 +34,7 @@ class ProgressBarTest {
         assertEquals(0, ProgressBar.percent(0.001), "though the number beside it may honestly still say zero");
     }
 
-    /** A target lowered below the collected amount is an escape hatch the concept keeps. */
+    /** A target lowered below the collected amount is an escape hatch that the concept keeps. */
     @Test
     void moreThanFullIsFullAndNotWider() {
         assertEquals("██████████", ProgressBar.of(1.7, 10));

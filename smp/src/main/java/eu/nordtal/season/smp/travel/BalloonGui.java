@@ -31,9 +31,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The travel GUI a balloon opens: tooltips, clicks and the teleport around {@link BalloonMenu} and {@link TravelPanel}.
- *
- * Every card slot holds a {@link BlankItem} whose tooltip names its card; locked destinations stay in place, shaded.
+ * The travel menu of a balloon. {@link BalloonMenu} lays out its cards and {@link TravelPanel} draws them.
+ * Each card slot holds a {@link BlankItem} whose tooltip names the card. A locked destination keeps its place.
  */
 public final class BalloonGui extends Menu {
 
@@ -83,9 +82,8 @@ public final class BalloonGui extends Menu {
         }
     }
 
-    /** The invisible item under a card: the world's name, and one or two lines on its state. */
+    /** Returns the tooltip item of a card: the world name and one or two lines on its state. */
     private ItemStack tooltip(final BalloonMenu.Entry entry, final Locale locale) {
-        // The world's name is a parameter and the colour is the bundle's.
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
         final String destination = renderer.raw().format(locale, MESSAGES.smp().world(entry.destination()));
         final Component name = renderer.format(
@@ -112,7 +110,6 @@ public final class BalloonGui extends Menu {
         return BlankItem.of(name, lore);
     }
 
-    /** The name of the milestone that opens a destination, or the raw key when the track has none. */
     private String milestoneName(final WorldRole role, final Locale locale) {
         final Unlock needed = role == WorldRole.NETHER ? Unlock.NETHER : Unlock.END;
         final Optional<Milestone> milestone = track.milestones().stream()
@@ -124,7 +121,7 @@ public final class BalloonGui extends Menu {
         return MilestoneNames.of(renderer.raw(), locale, milestone.get().key());
     }
 
-    /** Sends the player to the card's world, or says why not; the jump plays its own sound. */
+    /** The teleport plays its own sound. */
     @Override
     protected MenuClick click(final Player player, final int slot) {
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -155,10 +152,9 @@ public final class BalloonGui extends Menu {
         return MenuClick.nothing();
     }
 
-    /** The jump itself, via {@code LandingSite#findSafeAt}, which never falls back to an unsafe point. */
+    /** Teleports the player to a point that {@code LandingSite#findSafeAt} finds. It never uses an unsafe point. */
     private void teleportToBalloon(
             final Player player, final Locale locale, final BalloonMenu.Entry entry, final World destination) {
-        // Read before the teleport: it is all anybody left at the balloon sees.
         final org.bukkit.Location from = Objects.requireNonNull(player.getLocation());
         final SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
         final org.bukkit.Location target =

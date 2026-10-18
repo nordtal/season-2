@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
-/** Every write the boards and the HUD draw signals on {@link Channel#SMP}, so the surfaces need no poll. */
 class SurfaceSignalIntegrationTest {
 
     private static DataSource dataSource;

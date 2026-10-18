@@ -2,7 +2,7 @@ package eu.nordtal.season.smp.port;
 
 import org.bukkit.entity.Player;
 
-/** Whether a player stands in a duel arena, where a death is the duel's business and nobody else's. */
+/** Tells whether a player is in a duel arena. */
 public interface Arenas {
 
     /** Main thread only. */

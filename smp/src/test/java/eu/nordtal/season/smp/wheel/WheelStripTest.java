@@ -11,9 +11,9 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /**
- * The wheel's animation: the strip lands on the prize already won, for every pool size and winner.
+ * The strip ends on the prize already won, for every pool size and every winner.
  *
- * Each case runs against {@link WheelPanel#shape()} and the old nine-and-four, whose centre has a left neighbour.
+ * Each case runs against {@link WheelPanel#shape()} and against the old shape of nine and four cells.
  */
 class WheelStripTest {
 
@@ -58,7 +58,7 @@ class WheelStripTest {
         }
     }
 
-    /** From three prizes up, because a pool of two cannot avoid a duplicate beside the winner. */
+    /** A pool of two prizes cannot avoid a duplicate beside the winner, so this case starts at three prizes. */
     @Test
     void neighboursDiffer() {
         for (final WheelStrip.Shape shape : SHAPES) {
@@ -86,7 +86,6 @@ class WheelStripTest {
                 for (int winner = 0; winner < poolSize; winner++) {
                     final int[] last = WheelStrip.landingOn(poolSize, winner, new Random(winner), shape)
                             .cells(WheelStrip.steps() - 1);
-                    // Cell 0 has no left neighbour; guarded, not skipped, since the right one is what the eye follows.
                     if (shape.centre() > 0) {
                         assertNotEquals(
                                 winner,
@@ -146,7 +145,6 @@ class WheelStripTest {
 
     @Test
     void aShapeHasToBeAbleToRestSomewhere() {
-        // Refused where the shape is built, not where a frame is drawn, so the failure names the wrong surface.
         assertThrows(IllegalArgumentException.class, () -> new WheelStrip.Shape(0, 0));
         assertThrows(IllegalArgumentException.class, () -> new WheelStrip.Shape(12, 12));
         assertThrows(IllegalArgumentException.class, () -> new WheelStrip.Shape(12, -1));

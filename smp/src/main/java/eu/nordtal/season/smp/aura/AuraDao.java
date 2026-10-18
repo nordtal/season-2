@@ -14,14 +14,13 @@ import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The aura book: every balance and the reason for each change, which every feature that pays or takes aura writes.
+ * The aura ledger: every balance and the reason of every change. Every feature that pays or takes aura writes it.
  *
- * A JDBI SqlObject, never called from the main thread.
+ * A JDBI SqlObject. Never call it from the main thread.
  */
 @Notifies(Channel.SMP)
 public interface AuraDao {
 
-    /** Books an aura change, its audit row and the typed values of its cause together. */
     @Transaction
     default void addAura(final DiscordId discordId, final int delta, final AuraCause cause) {
         bumpAura(discordId, delta);
@@ -75,9 +74,9 @@ public interface AuraDao {
     void recordAdmin(@Bind("event") UUID event, @Bind("kind") String kind, @Bind("id") @Nullable String id);
 
     /**
-     * The highest aura, most first.
+     * Returns the players with the highest aura, highest first.
      *
-     * Only players with an {@code account_link} are listed, since the board shows Minecraft players.
+     * It lists only players with an {@code account_link}.
      */
     @SqlQuery("""
             SELECT link.mc_uuid AS mcUuid,

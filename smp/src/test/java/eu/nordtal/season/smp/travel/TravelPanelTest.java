@@ -26,15 +26,14 @@ import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link TravelPanel}'s geometry against the panel the pack actually draws.
+ * Compares the geometry of {@link TravelPanel} with the panel that the pack draws.
  *
- * It finds each card in the PNG by colour and checks each overlay's ascent and advance in {@code gui.json}.
+ * The test finds each card in the PNG by colour and checks the ascent and advance of each overlay in {@code gui.json}.
  */
 class TravelPanelTest {
 
     private static final Path ASSETS = RepositoryRoot.pack().resolve("assets/nordtal");
 
-    /** The three cards' colours (fill, outline, highlight), as the panel PNG paints them. */
     private static final Map<WorldRole, List<Integer>> COLOURS = Map.of(
             WorldRole.NORDTAL, List.of(rgb(82, 168, 84), rgb(44, 108, 48), rgb(140, 210, 136)),
             WorldRole.NETHER, List.of(rgb(206, 66, 58), rgb(136, 34, 30), rgb(242, 140, 120)),
@@ -73,7 +72,6 @@ class TravelPanelTest {
         rows.forEach((glyph, row) -> {
             final JsonObject provider = providers.get(glyph.codePointAt(0));
             assertTrue(provider != null, "U+%X is not in gui.json".formatted(glyph.codePointAt(0)));
-            // A glyph's top sits at the title baseline (13) minus its ascent.
             assertEquals(
                     TravelPanel.y(row),
                     13 - provider.get("ascent").getAsInt(),
@@ -153,7 +151,6 @@ class TravelPanelTest {
                 .count();
     }
 
-    /** The whole composition as one string: the root's own text and every descendant's, in order. */
     private static String plain(final Component component) {
         final StringBuilder out = new StringBuilder();
         if (component instanceof TextComponent text) {

@@ -9,7 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the world {@code compose.yml} tells Paper to generate is the world this plugin looks for.
+ * The world that {@code compose.yml} tells Paper to generate is the world this plugin looks for.
  *
  * A mismatch leaves the datapacks unloaded and the season world vanilla for good.
  */

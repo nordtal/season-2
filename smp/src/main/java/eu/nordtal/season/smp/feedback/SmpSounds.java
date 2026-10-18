@@ -13,13 +13,11 @@ import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 
 /**
- * The one place in {@code smp} that names a sound to Bukkit, on the main thread.
- *
- * {@code :common} cannot reference Paper, and {@code :architecture} allows no second call site.
+ * The only class in {@code smp} that names a sound to Bukkit. It runs on the main thread.
  */
 public final class SmpSounds {
 
-    /** Volatile because a settings change swaps the whole registry while players are clicking. */
+    /** The sound registry. {@link #reload} replaces it as a whole. */
     private volatile FeedbackSounds sounds;
 
     private final Consumer<String> problems;
@@ -29,15 +27,14 @@ public final class SmpSounds {
         this.problems = problems;
     }
 
-    /** Reads the {@code sounds} group. */
     public static SmpSounds of(final SoundsSpec spec, final Consumer<String> problems) {
         return new SmpSounds(parse(spec, problems), problems);
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds} group, after the settings signal.
+     * Reads {@code spec} again after a settings change.
      *
-     * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
+     * A category that {@link FeedbackSounds#failed} switched off plays again until it throws again.
      */
     public void reload(final SoundsSpec spec) {
         this.sounds = parse(spec, problems);
@@ -53,11 +50,7 @@ public final class SmpSounds {
         return FeedbackSounds.parse(declared, problems);
     }
 
-    /**
-     * Which config entry belongs to which category.
-     *
-     * No {@code default}, so a new {@link Feedback} category does not compile until it has a sound.
-     */
+    /** The switch has no {@code default}, so a new {@link Feedback} category does not compile without a sound. */
     private static SoundsSpec.SoundSpec specOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {
             case SMALL_SUCCESS -> spec.smallSuccess();
@@ -75,28 +68,25 @@ public final class SmpSounds {
         };
     }
 
-    /** Plays {@code category} for one player, where they are standing. Main thread. */
     public void play(final Player player, final Feedback category) {
-        // One read of the volatile field for lookup and failure; a reload could swap registries between two reads.
+        // Reads the field once, so lookup and failure use the same registry.
         final FeedbackSounds current = sounds;
         final FeedbackSound sound = current.sound(category);
         if (sound == null || player == null || !player.isOnline()) {
             return;
         }
         try {
-            // MASTER rather than a themed category.
             final Location at = Objects.requireNonNull(player.getLocation());
             player.playSound(at, sound.key(), SoundCategory.MASTER, sound.volume(), sound.pitch());
         } catch (final RuntimeException exception) {
-            // A malformed key is refused at load, so reaching here means the platform disagreed.
             current.failed(category, exception, problems);
         }
     }
 
     /**
-     * Plays {@code category} at {@code location} for everyone in range, not for one player.
+     * Plays {@code category} at {@code location} to every player in range.
      *
-     * A throw silences the category, as in {@link #play}.
+     * A thrown exception switches the category off, as in {@link #play}.
      */
     public void playAt(final Location location, final Feedback category) {
         final FeedbackSounds current = sounds;
@@ -111,7 +101,6 @@ public final class SmpSounds {
         }
     }
 
-    /** Whether this category will play nothing, so a caller can skip work it would only discard. */
     public boolean isSilent(final Feedback category) {
         return sounds.isSilent(category);
     }

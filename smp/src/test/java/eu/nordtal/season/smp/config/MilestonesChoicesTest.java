@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The track's two fixed-word fields are offered in the config editor as exactly the enum the plugin reads. */
 class MilestonesChoicesTest {
 
     private static final SchemaNode MILESTONE =

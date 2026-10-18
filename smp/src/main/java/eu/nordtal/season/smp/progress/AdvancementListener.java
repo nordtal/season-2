@@ -24,9 +24,8 @@ import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Advancements, which feed {@code ADVANCEMENT} objectives and, separately, the curated aura awards.
- *
- * An objective counts each player once; an award pays 2 to 10 aura and has nothing to do with the track.
+ * Credits {@code ADVANCEMENT} objectives and pays the aura of the configured advancement awards.
+ * It ignores advancements whose key contains {@code /recipes/}.
  */
 public final class AdvancementListener implements Listener {
 
@@ -37,7 +36,6 @@ public final class AdvancementListener implements Listener {
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
-    /** The curated award list, flattened once at construction. */
     private final Map<String, Integer> awards = new HashMap<>();
 
     public AdvancementListener(
@@ -64,7 +62,6 @@ public final class AdvancementListener implements Listener {
         final Player player = event.getPlayer();
         final String key = event.getAdvancement().getKey().toString().toLowerCase(Locale.ROOT);
 
-        // Recipes are advancements too, and there are hundreds; nobody gets paid for unlocking a wooden pickaxe recipe.
         if (key.contains("/recipes/")) {
             return;
         }

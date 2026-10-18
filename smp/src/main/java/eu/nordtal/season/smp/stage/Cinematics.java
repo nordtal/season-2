@@ -10,13 +10,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runs a {@link Cinematic} for one player at a time and can stop it.
- *
- * A second staging for the same player is refused rather than queued; {@link #cancel} clears the screen exactly once.
+ * Runs one {@link Cinematic} per player at a time.
+ * A second start for the same player returns {@code false}. {@link #cancel} clears the screen once.
  */
 public final class Cinematics {
 
-    /** One player's run, compared by identity so two runs are never equal. */
     private static final class Run {
 
         private final List<Scheduler.Task> handles;
@@ -38,18 +36,17 @@ public final class Cinematics {
 
     private final Scheduler scheduler;
 
-    /** Concurrent because a cancel arrives from wherever a player leaves. */
     private final Map<UUID, Run> running = new ConcurrentHashMap<>();
 
-    /** Creates the runner; every frame after the first, and the end, run on {@code scheduler}, on the main thread. */
     public Cinematics(final Scheduler scheduler) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
 
     /**
-     * Starts a staging unless this player already has one; the first frame, sound and effect happen in this call.
+     * Starts a staging unless the player already has one.
+     * The first frame, the sound and the effect happen in this call.
      *
-     * @return whether this call started it
+     * @return whether this call started the staging
      */
     public boolean start(final UUID who, final Cinematic cinematic, final CinematicStage stage) {
         Objects.requireNonNull(who, "who");
@@ -57,7 +54,6 @@ public final class Cinematics {
         Objects.requireNonNull(stage, "stage");
 
         final Run run = new Run(new ArrayList<>(), stage);
-        // putIfAbsent: the check and the claim are one step.
         if (running.putIfAbsent(who, run) != null) {
             return false;
         }
@@ -77,7 +73,7 @@ public final class Cinematics {
                 cues.getFirst().frame().ticks());
         for (final Cinematic.Cue cue : cues.subList(1, cues.size())) {
             run.handles().add(scheduler.after(PaperScheduler.TICK.multipliedBy(cue.atTick()), () -> {
-                // A cancel may have cleared the screen; a late frame must not reopen it.
+                // A frame after a cancel shows nothing.
                 if (running.get(who) == run) {
                     stage.show(
                             cue.frame().image(),
@@ -90,12 +86,10 @@ public final class Cinematics {
         return true;
     }
 
-    /** Returns whether this player is in the middle of a staging. */
     public boolean isRunning(final UUID who) {
         return running.containsKey(who);
     }
 
-    /** Stops this player's staging, if any, and clears their screen. */
     public void cancel(final UUID who) {
         final Run run = running.remove(who);
         if (run != null) {
@@ -103,14 +97,12 @@ public final class Cinematics {
         }
     }
 
-    /** Stops every staging, for a plugin's disable. */
     public void cancelAll() {
         for (final UUID who : List.copyOf(running.keySet())) {
             cancel(who);
         }
     }
 
-    /** Ends a run at its last frame, the same as a cancel from the screen's point of view. */
     private void finish(final UUID who, final Run run) {
         if (running.remove(who, run)) {
             stop(run);

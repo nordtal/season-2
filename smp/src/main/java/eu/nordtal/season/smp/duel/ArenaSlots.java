@@ -4,11 +4,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Which height an arena gets, and which are free.
- *
- * Arenas stack upwards from the configured base, handed out lowest first and returned when a duel ends.
- */
+/** Slots stack upwards from the configured base Y. */
 public final class ArenaSlots {
 
     private final int limit;
@@ -28,7 +24,7 @@ public final class ArenaSlots {
         this.spacing = spacing;
     }
 
-    /** The lowest free slot, or empty when every arena is in use and the next duel has to queue. */
+    /** Returns empty when every slot is taken. */
     public Optional<Integer> claim() {
         for (int slot = 0; slot < limit; slot++) {
             if (taken.add(slot)) {
@@ -42,7 +38,6 @@ public final class ArenaSlots {
         taken.remove(slot);
     }
 
-    /** The height of a slot's floor. */
     public int yOf(final int slot) {
         return baseY + slot * spacing;
     }

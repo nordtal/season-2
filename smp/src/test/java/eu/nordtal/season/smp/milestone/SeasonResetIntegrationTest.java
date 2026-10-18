@@ -14,7 +14,6 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** smp starts its track over itself, once for every fresh start the phase stamped, and as its own role. */
 class SeasonResetIntegrationTest {
 
     private Jdbi owner;

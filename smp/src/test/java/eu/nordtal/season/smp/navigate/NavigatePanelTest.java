@@ -17,7 +17,6 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/** Walks {@code /navigate}'s composed window with the pack's own advances, through {@link PanelWalk}. */
 class NavigatePanelTest {
 
     private static final List<NavigatePanel.Entry> THREE = List.of(

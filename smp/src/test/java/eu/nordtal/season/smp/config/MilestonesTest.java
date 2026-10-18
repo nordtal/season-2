@@ -18,7 +18,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
-/** That the milestone track is stored as one value and read back whole, two levels of nesting deep. */
 class MilestonesTest {
 
     private static final Group<MilestonesSpec> MILESTONES =
@@ -26,7 +25,6 @@ class MilestonesTest {
 
     private final MemorySettingStore store = new MemorySettingStore();
 
-    /** What an admin stored, taken by the next load. */
     private final Map<String, Object> values = new LinkedHashMap<>();
 
     private MilestonesSpec load() throws SettingsException {
@@ -37,7 +35,6 @@ class MilestonesTest {
     void theStoredTrackReadsBackAsTheWholeTrack() throws Exception {
         final MilestonesSpec written = load();
 
-        // A SECOND load, over the whole track stored as the one value it is.
         values.put("milestones", Specs.gsonBuilder().create().toJson(written.milestones()));
         final MilestonesSpec reread = load();
         final MilestoneTrack track = Milestones.read(reread).track();
@@ -57,7 +54,7 @@ class MilestonesTest {
         assertEquals(Unlock.BORDER, foothold.unlock());
         assertEquals(99, foothold.borderDiameter());
 
-        // A HAND_IN's item list is the deepest thing in the file: strings, in an objective, in a milestone, in a list.
+        // The item list of a HAND_IN is the deepest value in the file.
         final var logs = foothold.objective("logs").orElseThrow();
         assertEquals(ObjectiveType.HAND_IN, logs.type());
         assertEquals(2048L, logs.target());
@@ -77,7 +74,6 @@ class MilestonesTest {
     void theTrackMatchesTheTableInTheConcept() throws Exception {
         final MilestoneTrack track = Milestones.read(load()).track();
 
-        // The track, column by column. The numbers are allowed to change; this is what makes a retune deliberate.
         assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
         assertEquals(43, track.milestone("departure").orElseThrow().borderDiameter());
         assertEquals(400, track.milestone("settlement").orElseThrow().borderDiameter());
@@ -91,7 +87,6 @@ class MilestonesTest {
                 track.milestone("nether").orElseThrow().borderDiameter(),
                 "the Nether and the End carry no border step - the dimension is the reward");
 
-        // Each objective's aura and spin budget, the same for every objective of one milestone.
         assertEquals(
                 List.of(
                         List.of(),
@@ -114,7 +109,7 @@ class MilestonesTest {
     void everyMilestoneWithObjectivesCarriesExactlyOneParticipationGate() throws Exception {
         final MilestoneTrack track = Milestones.read(load()).track();
 
-        // ADVANCEMENT is the only type counting distinct players, the only one three people cannot finish alone.
+        // ADVANCEMENT is the only type that counts distinct players, so three players cannot finish it alone.
         assertEquals(
                 List.of(10L, 10L, 8L, 8L, 6L, 5L),
                 track.milestones().stream()
@@ -164,7 +159,7 @@ class MilestonesTest {
 
     @Test
     void aMilestoneWithNoParticipationGateStopsTheLoad() throws Exception {
-        // The easiest way to make the whole track soloable, and nothing else would notice.
+        // This is the easiest change that makes the whole track soloable, and no other test would notice it.
         writeTrack("""
                 milestones:
                   - key: foothold
@@ -188,7 +183,7 @@ class MilestonesTest {
 
     @Test
     void aHandInWithNoItemsStopsTheLoad() throws Exception {
-        // An objective nothing can be handed in for is a milestone that could never unlock.
+        // An objective that nothing can be handed in for makes the milestone impossible to unlock.
         writeTrack("""
                 milestones:
                   - key: foothold
@@ -220,7 +215,7 @@ class MilestonesTest {
 
     @Test
     void aNegativeSpinBudgetStopsTheLoad() throws Exception {
-        // A negative budget would take spins away from everybody who worked on the objective.
+        // A negative budget would take spins away from every player who worked on the objective.
         writeTrack("""
                 milestones:
                   - key: foothold
@@ -246,7 +241,7 @@ class MilestonesTest {
 
     @Test
     void aLeftoverFieldFromAnotherTypeStopsTheLoad() throws Exception {
-        // A half-finished type change: HAND_IN became STATISTIC and the item list stayed, silently counting nothing.
+        // A half-finished type change, where HAND_IN became STATISTIC and the item list stayed, counts nothing.
         writeTrack("""
                 milestones:
                   - key: foothold
@@ -276,7 +271,6 @@ class MilestonesTest {
         assertTrue(error.getMessage().contains("belongs to"), error.getMessage());
     }
 
-    /** Stores every top-level value of {@code yaml} as Steward would, the track as one JSON value. */
     private void writeTrack(final String yaml) {
         final Map<String, Object> parsed = new Yaml().load(yaml);
         parsed.forEach(

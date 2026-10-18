@@ -11,11 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Everything a duel borrows from a player, so that all of it can be given back.
- *
- * Not persisted, and not a record: a record would hand out the saved arrays themselves.
- */
+/** SavedState is not persisted. */
 public final class SavedState {
 
     private final Location location;
@@ -66,18 +62,12 @@ public final class SavedState {
                 new ArrayList<>(player.getActivePotionEffects()));
     }
 
-    /**
-     * Puts a player back as they were, except at {@code where} instead of where they stood.
-     *
-     * @param player the fighter
-     * @param where where to put them
-     */
+    /** A null {@code where} teleports to the saved location. */
     public void restore(final Player player, final @Nullable Location where) {
         restoreWithout(player);
         player.teleport(where == null ? location : where);
     }
 
-    /** Puts a player back exactly as they were. */
     public void restore(final Player player) {
         restoreWithout(player);
         player.teleport(location);
@@ -101,7 +91,6 @@ public final class SavedState {
         effects.forEach(player::addPotionEffect);
     }
 
-    /** Empties a player out for the arena, leaving them ready for a loadout. */
     public static void clear(final Player player) {
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[4]);

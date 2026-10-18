@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Where a duel arena is built, and that two are never built in the same place. */
 class ArenaSlotsTest {
 
     @Test

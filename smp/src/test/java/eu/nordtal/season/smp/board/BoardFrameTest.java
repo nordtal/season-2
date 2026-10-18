@@ -23,17 +23,11 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds {@link BoardFrame} against the advances the client derives from the pack, walking each composed string.
- *
- * Whether it looks like a board needs a client.
- */
 class BoardFrameTest {
 
     private static final String FONT = RepositoryRoot.packAssets() + "/nordtal/font/board.json";
     private static final String ASSETS = RepositoryRoot.packAssets();
 
-    /** Code point to how far the cursor moves after drawing it, the way the client computes it. */
     private static final Map<Integer, Integer> ADVANCES = advances();
 
     private static final int[] WIDTHS = {BoardFrame.MIN_WIDTH, 100, 180, BoardFrame.MAX_WIDTH};
@@ -121,7 +115,6 @@ class BoardFrameTest {
         for (final int width : WIDTHS) {
             final Component board = BoardFrame.render(width, Component.text("t"), List.of(Component.text("body")));
             final List<String> lines = frameLines(board);
-            // top border, title, divider, one body line, bottom border
             assertEquals(5, lines.size());
 
             final int expected = BoardFrame.CONTENT_X + width + BoardFrame.EDGE_V_WIDTH;
@@ -224,10 +217,8 @@ class BoardFrameTest {
                         + " is not a taste question.");
     }
 
-    /** A composed string walked with a cursor, the way the client lays it out. */
     private record Walk(int cursor, int end, Map<Integer, Integer> firstDrawnAt, List<String> unknown) {
 
-        /** Returns where the first of these code points was drawn. */
         int drawnAt(final int... codePoints) {
             for (final int codePoint : codePoints) {
                 final Integer at = firstDrawnAt.get(codePoint);
@@ -256,7 +247,6 @@ class BoardFrameTest {
             }
             if (advance > 0 && !isSpace(codePoint)) {
                 firstDrawnAt.putIfAbsent(codePoint, cursor);
-                // One past the rightmost painted pixel: the advance without Minecraft's separator.
                 end = Math.max(end, cursor + advance - 1);
             }
             cursor += advance;
@@ -284,9 +274,8 @@ class BoardFrameTest {
             final String file = provider.get("file").getAsString();
             final int height = provider.get("height").getAsInt();
             final BufferedImage image = read(texture(file));
-            // Every board glyph is drawn 1:1 at its provider's height.
             assertEquals(height, image.getHeight(), file + " is not drawn at its provider's height");
-            // Rightmost column with alpha, plus the column itself, plus Minecraft's one-pixel separator.
+            // The rightmost column with alpha, plus the column itself, plus the one-pixel separator of Minecraft.
             final int advance = rightmost(image) + 2;
             for (final JsonElement row : provider.getAsJsonArray("chars")) {
                 row.getAsString().codePoints().forEach(codePoint -> out.put(codePoint, advance));
@@ -330,7 +319,6 @@ class BoardFrameTest {
         }
     }
 
-    /** Returns every line of a rendered board, as the frame text that opens it. */
     private static List<String> frameLines(final Component board) {
         final List<Component> parts = new ArrayList<>();
         flatten(board, parts);
@@ -354,7 +342,6 @@ class BoardFrameTest {
         return lines;
     }
 
-    /** Returns the frame half of one row, everything that names {@code nordtal:board}. */
     private static String frameTextOf(final Component component) {
         final List<Component> parts = new ArrayList<>();
         flatten(component, parts);

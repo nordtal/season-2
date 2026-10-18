@@ -6,18 +6,18 @@ import java.util.Optional;
 import org.bukkit.NamespacedKey;
 
 /**
- * One objective of one milestone, as the milestone file defines it; {@code smp_objective} holds its progress.
+ * An objective of a milestone as the milestone file defines it.
  *
- * @param key unique within its milestone and what stored progress is matched by, so renaming one is refused
+ * @param key the key, unique within the milestone
  * @param type how progress is measured
- * @param role what it is for; never read by the engine, only by a person reviewing a diff
- * @param target what has to be reached; for {@code ADVANCEMENT}, a count of distinct players
- * @param items for {@code HAND_IN}: the item names any of which count
- * @param statistic for {@code STATISTIC}: the Bukkit statistic name, e.g. {@code MINE_BLOCK}
- * @param subjects for {@code STATISTIC}: the materials or entity types the statistic is summed over
- * @param advancement for {@code ADVANCEMENT}: the advancement key, e.g. {@code minecraft:story/mine_diamond}
- * @param auraBudget the aura paid out exactly among its contributors when it completes
- * @param spinBudget the extra wheel spins paid out the same way
+ * @param role a note for a reviewer of the file
+ * @param target the amount that completes the objective, a count of distinct players for {@code ADVANCEMENT}
+ * @param items for {@code HAND_IN}: the item names that count
+ * @param statistic for {@code STATISTIC}: the Bukkit statistic name, for example {@code MINE_BLOCK}
+ * @param subjects for {@code STATISTIC}: the materials or entity types the statistic sums over
+ * @param advancement for {@code ADVANCEMENT}: the advancement key, for example {@code minecraft:story/mine_diamond}
+ * @param auraBudget the aura divided among the contributors when the objective completes
+ * @param spinBudget the wheel spins divided among the contributors when the objective completes
  */
 public record Objective(
         String key,
@@ -41,12 +41,12 @@ public record Objective(
         advancement = advancement == null ? "" : advancement;
     }
 
-    /** Returns the advancement this objective names, empty when the name is blank or not a key. */
+    /** Returns the key in {@code advancement}, empty when {@code advancement} is not a valid key. */
     public Optional<NamespacedKey> advancementKey() {
         return Optional.ofNullable(NamespacedKey.fromString(advancement));
     }
 
-    /** Returns whether this objective counts distinct players: the milestone's one participation gate. */
+    /** Returns whether the type is {@code ADVANCEMENT}, the participation gate of the milestone. */
     public boolean isParticipationGate() {
         return type == ObjectiveType.ADVANCEMENT;
     }

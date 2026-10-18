@@ -20,17 +20,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-/**
- * Stepping into a balloon opens the travel GUI.
- *
- * The GUI opens once on entering the box, not on every step inside it.
- */
+/** The menu opens once when a player enters a box. */
 public final class BalloonListener implements Listener {
 
     private final Boxes balloons;
     private final Worlds worlds;
     private final SeasonState season;
-    /** The milestone track as a supplier, because a settings change replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final MessageRenderer renderer;
@@ -38,7 +33,6 @@ public final class BalloonListener implements Listener {
     private final SmpSounds sounds;
     private final WorldEffects effects;
 
-    /** Who is currently standing in a balloon, so entry is an edge and not a state. */
     private final Map<UUID, Boolean> inside = new ConcurrentHashMap<>();
 
     public BalloonListener(

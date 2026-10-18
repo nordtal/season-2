@@ -7,7 +7,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One item with an amount: a prize of the wheel, or a piece of a duel loadout. */
+/** A wheel prize and a duel loadout entry both use WheelPrizeSpec. */
 @ConfigSpec
 public interface WheelPrizeSpec {
 

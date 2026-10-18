@@ -3,20 +3,11 @@ package eu.nordtal.season.smp.config;
 import eu.nordtal.season.settings.Checks;
 import eu.nordtal.season.smp.board.BoardFrame;
 
-/**
- * Every rule about what a valid value of smp's settings is.
- *
- * The track and sounds groups are separate from {@code config} so a reload can re-read them.
- */
 public final class SmpSettings {
 
     private SmpSettings() {}
 
-    /**
-     * Refuses a track whose structure is broken; its names and stored progress are checked where it is taken.
-     *
-     * @throws IllegalArgumentException listing every problem
-     */
+    /** Throws {@link IllegalArgumentException} for a broken structure. It checks neither names nor stored progress. */
     public static void checkMilestones(final MilestonesSpec config) {
         final Milestones.Result result = Milestones.read(config);
         if (!result.problems().isEmpty()) {
@@ -24,16 +15,9 @@ public final class SmpSettings {
         }
     }
 
-    /**
-     * Refuses a {@code config} group the season cannot run on.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
     public static void check(final SmpSpec config) {
-        // Whether the world exists is checked at enable, after {@code Worlds#bootstrap} creates it.
         Checks.requireText("world-nordtal", config.worldNordtal());
         Checks.requireText("first-join-spawn: world", config.firstJoinSpawn().world());
-        // {@code AdminWatch} floors this at one second.
         Checks.requirePositive("nether-border-diameter", config.netherBorderDiameter());
         Checks.requirePositive("end-border-diameter", config.endBorderDiameter());
         Checks.requirePositive("border-expansion-blocks-per-second", config.borderExpansionBlocksPerSecond());
@@ -47,7 +31,6 @@ public final class SmpSettings {
             throw new IllegalArgumentException("duel-stake must not be negative");
         }
         if (config.graveMaxAgeHours() < 0) {
-            // Zero means "never decays", so it cannot double as the error case.
             throw new IllegalArgumentException(
                     "grave-max-age-hours must not be negative. 0 is how decay is turned off; a "
                             + "negative number is not a shorter way of saying that");

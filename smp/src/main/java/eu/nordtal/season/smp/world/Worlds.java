@@ -13,9 +13,9 @@ import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
 
 /**
- * The SMP's four worlds: finding them, creating the ones that are missing, and holding their borders.
+ * Finds, creates and holds the borders of the four worlds of the SMP.
  *
- * A created world lands under {@code <level-name>/dimensions/}, so ask {@link World#getWorldFolder()} for its folder.
+ * A created world is stored under {@code <level-name>/dimensions/}. Use {@link World#getWorldFolder()} for its folder.
  */
 public final class Worlds {
 
@@ -30,14 +30,14 @@ public final class Worlds {
     }
 
     public String nameOf(final WorldRole role) {
-        // Every WorldRole is put in the map in the constructor above, so a lookup never misses.
+        // The constructor puts every WorldRole into the map, so a lookup never misses.
         return Objects.requireNonNull(names.get(role));
     }
 
     /**
-     * Where the balloon puts a player down in that world, a configured point rather than the world spawn.
+     * Returns the configured point where the balloon puts a player in that world.
      *
-     * The caller puts it through {@code LandingSite#findSafeAt}.
+     * The caller passes it to {@code LandingSite#findSafeAt}.
      */
     public SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
         final BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
@@ -48,12 +48,10 @@ public final class Worlds {
         };
     }
 
-    /** The loaded world for a role, if it is loaded at all. */
     public Optional<World> world(final WorldRole role) {
         return Optional.ofNullable(Bukkit.getWorld(names.get(role)));
     }
 
-    /** Which of the four a world is, or empty for anything else on the server. */
     public Optional<WorldRole> roleOf(final World world) {
         if (world == null) {
             return Optional.empty();
@@ -71,7 +69,7 @@ public final class Worlds {
     }
 
     /**
-     * Loads or creates the three worlds that are not Nordtal, which is never created because it carries the spawn.
+     * Loads or creates the three worlds other than Nordtal. It never creates Nordtal, which holds the spawn.
      *
      * @return the Nordtal world, or empty when it does not exist
      */
@@ -94,7 +92,6 @@ public final class Worlds {
         Bukkit.createWorld(new WorldCreator(name).environment(environment));
     }
 
-    /** Puts every fixed border in place and centres Nordtal's, whose size {@link #expandNordtal} sets. */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
@@ -113,10 +110,10 @@ public final class Worlds {
     }
 
     /**
-     * Sets Nordtal's border, animating the change when it is a growth.
+     * Sets the border of Nordtal and animates it when it grows.
      *
      * @param diameter the new diameter
-     * @param animate false when putting the border back after a restart, true on a real unlock
+     * @param animate false when restoring the border after a restart, true on a real unlock
      */
     public void expandNordtal(final int diameter, final boolean animate) {
         world(WorldRole.NORDTAL).ifPresent(world -> {
@@ -128,7 +125,7 @@ public final class Worlds {
                 border.setSize(diameter);
                 return;
             }
-            // Seconds for the WALL to travel, so half the diameter change: a border grows from both sides at once.
+            // The travel time in seconds is half the diameter change, because the border grows on both sides.
             final double travel = (diameter - current) / 2.0;
             final long seconds =
                     Math.max(1L, Math.round(travel / Math.max(0.0001, config.borderExpansionBlocksPerSecond())));

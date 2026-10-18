@@ -9,11 +9,10 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** The {@code config} group: everything about the SMP that is neither the track nor a database credential. */
+/** The {@code config} group holds every SMP setting except the track and the database credentials. */
 @ConfigSpec
 public interface SmpSpec {
 
-    /** Nothing is pre-generated; a milestone unlock only moves the border. */
     @Order(1)
     @Name("Nordtal world")
     @Key("world-nordtal")
@@ -38,7 +37,6 @@ public interface SmpSpec {
         return "nordtal_the_end";
     }
 
-    /** Several times larger than the 1:8 mapping requires, leaving room for a milestone appended later. */
     @Order(6)
     @Name("Nether border diameter")
     @Key("nether-border-diameter")
@@ -55,7 +53,6 @@ public interface SmpSpec {
         return 2000;
     }
 
-    /** Every radius is measured from here; moving it shifts them all. */
     @Order(8)
     @Name("Border centre X")
     @Key("border-centre-x")
@@ -64,7 +61,6 @@ public interface SmpSpec {
         return 106;
     }
 
-    /** Every radius is measured from here; moving it shifts them all. */
     @Order(9)
     @Name("Border centre Z")
     @Key("border-centre-z")
@@ -73,7 +69,6 @@ public interface SmpSpec {
         return 88;
     }
 
-    /** At the default the final edge takes 15 to 30 minutes. */
     @Order(10)
     @Name("Border expansion speed (blocks per second)")
     @Key("border-expansion-blocks-per-second")
@@ -82,7 +77,6 @@ public interface SmpSpec {
         return 1.5;
     }
 
-    /** Checked at enable. */
     @Order(14)
     @Name("Required datapacks")
     @Key("required-datapacks")
@@ -91,7 +85,6 @@ public interface SmpSpec {
         return List.of("Terralith", "Dungeons and Taverns");
     }
 
-    /** Where the balloon boxes stand. */
     @Order(19)
     @Name("Balloons")
     @Key("balloons")
@@ -100,7 +93,6 @@ public interface SmpSpec {
         return DefaultSmp.BALLOONS;
     }
 
-    /** Rendered per viewer; does not scale to a hundred players. */
     @Order(20)
     @Name("Boards")
     @Key("boards")
@@ -109,7 +101,7 @@ public interface SmpSpec {
         return DefaultSmp.BOARDS;
     }
 
-    /** type picks the loadout both fighters get. */
+    /** The {@code type} of a duel platform selects the loadout of both fighters. */
     @Order(21)
     @Name("Duel platforms")
     @Key("duel-platforms")
@@ -118,7 +110,6 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_PLATFORMS;
     }
 
-    /** Height of the lowest stacked arena, well above anything players build. */
     @Order(22)
     @Name("Duel arena base Y")
     @Key("duel-arena-base-y")
@@ -127,7 +118,6 @@ public interface SmpSpec {
         return 200;
     }
 
-    /** Otherwise stacked arenas overlap. */
     @Order(23)
     @Name("Duel arena spacing")
     @Key("duel-arena-spacing")
@@ -136,7 +126,6 @@ public interface SmpSpec {
         return 16;
     }
 
-    /** Half the arena's floor: big enough for a bow duel, small enough that neither fighter can run. */
     @Order(24)
     @Name("Duel arena radius")
     @Key("duel-arena-radius")
@@ -145,7 +134,7 @@ public interface SmpSpec {
         return 7;
     }
 
-    /** Boxes that spin the wheel on right-click; spinning never costs aura, it is recognition, not currency. */
+    /** A spin costs no aura. */
     @Order(25)
     @Name("Wheel regions")
     @Key("wheel-regions")
@@ -154,7 +143,7 @@ public interface SmpSpec {
         return DefaultSmp.WHEEL_REGIONS;
     }
 
-    /** The clickable figure in the tavern, a Mannequin. */
+    /** The NPC is a Mannequin. */
     @Order(26)
     @Name("NPC")
     @Key("npc")
@@ -163,7 +152,7 @@ public interface SmpSpec {
         return DefaultSmp.NPC;
     }
 
-    /** Inclusive on both corners; the first match wins. */
+    /** Both corners of a region are inclusive. The first matching region applies. */
     @Order(27)
     @Name("Spawn regions")
     @Key("spawn-regions")
@@ -172,7 +161,6 @@ public interface SmpSpec {
         return DefaultSmp.SPAWN_REGIONS;
     }
 
-    /** Subtracted at the point of use. */
     @Order(28)
     @Name("Death penalty")
     @Key("death-penalty")
@@ -189,7 +177,7 @@ public interface SmpSpec {
         return 20;
     }
 
-    /** Self-inflicted deaths that cost the higher penalty. Mobs, the border and starvation do not. */
+    /** Mobs, the border and starvation do not cost the listed death penalty. */
     @Order(30)
     @Name("Listed death causes")
     @Key("death-causes-listed")
@@ -209,7 +197,6 @@ public interface SmpSpec {
                 "minecraft:stalagmite");
     }
 
-    /** The winner takes exactly what the loser pays. */
     @Order(31)
     @Name("Duel stake")
     @Key("duel-stake")
@@ -226,7 +213,7 @@ public interface SmpSpec {
         return 3;
     }
 
-    /** Pays once per player. Anything outside 2 to 10 is refused. */
+    /** Each award pays once per player. An aura outside 2 to 10 is refused. */
     @Order(33)
     @Name("Advancement awards")
     @Key("advancement-awards")
@@ -235,7 +222,6 @@ public interface SmpSpec {
         return DefaultSmp.ADVANCEMENT_AWARDS;
     }
 
-    /** The rare band is about one spin in twenty-five. */
     @Order(37)
     @Name("Wheel prizes")
     @Key("wheel-prizes")
@@ -244,7 +230,6 @@ public interface SmpSpec {
         return DefaultSmp.WHEEL_PRIZES;
     }
 
-    /** What both duelists are given, identical for both; no enchantments and no healing on purpose. */
     @Order(38)
     @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
@@ -253,7 +238,6 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    /** The bow duel's loadout; no crossbow on purpose, because its reload time turns the fight into cover. */
     @Order(39)
     @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
@@ -262,9 +246,6 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
 
-    // Feedback sounds live in the reloadable the sounds group; see SoundsSpec.
-
-    /** Not the boxes above. */
     @Order(42)
     @Name("Balloon spawn points")
     @Key("balloon-spawn-points")
@@ -273,7 +254,7 @@ public interface SmpSpec {
         return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
 
-    /** Claimed once against smp_player.welcome_shown. */
+    /** {@code smp_player.welcome_shown} records the first join. */
     @Order(43)
     @Name("First join spawn")
     @Key("first-join-spawn")
@@ -282,7 +263,6 @@ public interface SmpSpec {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
 
-    /** How long a grave stands before it and everything in it decays. */
     @Order(44)
     @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")

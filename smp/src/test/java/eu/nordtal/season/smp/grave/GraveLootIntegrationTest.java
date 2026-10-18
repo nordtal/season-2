@@ -20,9 +20,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * Closing a grave, against a real PostgreSQL running the real migrations.
+ * Closes a grave, against a real PostgreSQL with the real migrations.
  *
- * It pins {@code smp_grave.looted_by} at 32 characters, a discord id; skips itself without Docker.
+ * The test pins {@code smp_grave.looted_by} at 32 characters, the length of a Discord id. It skips itself without
+ * Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GraveLootIntegrationTest {
@@ -56,13 +57,13 @@ class GraveLootIntegrationTest {
                 dao.markGraveLooted(graveId, LOOTER).isPresent(), "a grave closed by a linked looter has to be marked");
         assertEquals(LOOTER, scalar("SELECT looted_by FROM smp_grave WHERE id = '" + graveId + "'"));
 
-        // The guard is WHERE looted IS NULL; it makes the experience refund happen exactly once, however reopened.
+        // The guard {@code WHERE looted IS NULL} makes the experience refund happen exactly once.
         assertTrue(
                 dao.markGraveLooted(graveId, LOOTER).isEmpty(),
                 "a grave already looted must not be marked a second time");
     }
 
-    /** A grave is open to anyone, not only whoever died into it: {@code markGraveLooted} checks no owner. */
+    /** Any player can open a grave, because {@code markGraveLooted} checks no owner. */
     @Test
     void aStrangerMayEmptyAnyonesGrave() {
         assertTrue(
@@ -83,7 +84,7 @@ class GraveLootIntegrationTest {
 
     @Test
     void aPartialLootIsPersisted() {
-        // The plugin's map is process memory; the enable-time restore reads the row, so a restart must not double-pay.
+        // The restore at enable time reads the row.
         assertEquals(
                 1,
                 dao.updateGraveContents(graveId, new byte[] {1, 2, 3}),
@@ -99,7 +100,6 @@ class GraveLootIntegrationTest {
 
     @Test
     void anOldGraveDecays() {
-        // The time is given rather than waited for: `created` is the clock, so backdating the row backdates the grave.
         execute("UPDATE smp_grave SET created = now() - interval '25 hours' WHERE id = '" + graveId + "'");
         final UUID fresh = UUID.randomUUID();
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience)" + " VALUES ('" + fresh
@@ -125,7 +125,7 @@ class GraveLootIntegrationTest {
 
     @Test
     void alreadyLootedStays() {
-        // Who-took-what is not a grave standing in the world; without the `looted IS NULL` guard it vanishes early.
+        // Without the guard {@code looted IS NULL} the grave disappears early.
         dao.markGraveLooted(graveId, LOOTER);
         execute("UPDATE smp_grave SET created = now() - interval '400 hours' WHERE id = '" + graveId + "'");
 
@@ -135,7 +135,6 @@ class GraveLootIntegrationTest {
 
     @Test
     void eachGraveExpiresOnItsOwn() {
-        // Dying again while an old grave stands makes parallel graves, each with its own countdown, none tidied up.
         final UUID second = UUID.randomUUID();
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience, created)"
                 + " VALUES ('" + second + "', '" + OWNER + "', 'nordtal', 4, 5, 6, '\\x00', 0,"
@@ -151,7 +150,6 @@ class GraveLootIntegrationTest {
                 "the younger grave of the same player is untouched - two deaths are two graves");
     }
 
-    /** The hologram's countdown needs {@code openGraves} to hand back {@code created} as a {@code timestamptz}. */
     @Test
     void openGravesCarryWhenTheyWereMade() {
         final GraveRow row = dao.openGraves().stream()

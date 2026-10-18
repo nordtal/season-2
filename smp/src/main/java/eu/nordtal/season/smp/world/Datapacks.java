@@ -9,13 +9,12 @@ import org.bukkit.Bukkit;
 /**
  * Checks that the world-generation datapacks are installed and enabled, and stops the plugin when they are not.
  *
- * Datapacks are server-global and read once at start, so installing them is the container entrypoint's job.
+ * The container entrypoint installs the datapacks, because the server reads them once at start.
  */
 public final class Datapacks {
 
     private Datapacks() {}
 
-    /** What the check found: the packs still missing, and what was actually enabled. */
     public record Result(List<String> missing, List<String> enabled) {
 
         public Result {
@@ -27,16 +26,15 @@ public final class Datapacks {
             return missing.isEmpty();
         }
 
-        /** One line for the log, naming what was wanted and what is there. */
         public String describe() {
             return "missing " + missing + "; enabled packs are " + enabled;
         }
     }
 
     /**
-     * Matches each required name against the enabled packs, case-insensitively, as a substring.
+     * Matches each required name against the enabled packs as a case-insensitive substring.
      *
-     * A substring, because Paper reports {@code file/<filename>} and the filename carries the version.
+     * Paper reports {@code file/<filename>}, and the filename contains the version.
      */
     public static Result check(final List<String> required) {
         final List<String> enabled = new ArrayList<>();

@@ -6,16 +6,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * Whether a milestone file is internally coherent, before it is compared to the database.
- *
- * Names of items, statistics and advancements are {@link TrackNames}' to check, and budget arithmetic is not checked.
- */
+/** Checks a milestone file for contradictions within the file. {@link TrackNames} checks the names. */
 public final class TrackShape {
 
     private TrackShape() {}
 
-    /** Returns every problem in the file, empty when it is a coherent track. */
+    /** Returns every problem in {@code milestones}. */
     public static List<TrackValidation.Problem> validate(final List<Milestone> milestones) {
         Objects.requireNonNull(milestones, "milestones");
         final List<TrackValidation.Problem> problems = new ArrayList<>();
@@ -84,7 +80,6 @@ public final class TrackShape {
                 problems.add(new TrackValidation.Problem(milestone.key(), key, "has a negative aura or spin budget."));
             }
             if (objective.role().isBlank()) {
-                // Never read by the engine, and required anyway.
                 problems.add(new TrackValidation.Problem(
                         milestone.key(),
                         key,
@@ -100,7 +95,6 @@ public final class TrackShape {
         }
 
         if (!milestone.objectives().isEmpty() && participationGates != 1) {
-            // A file edit dropping the participation gate is the easiest way to make the whole track soloable.
             problems.add(new TrackValidation.Problem(
                     milestone.key(),
                     null,
@@ -137,7 +131,6 @@ public final class TrackShape {
                 }
                 forbid(problems, milestone, objective, !objective.items().isEmpty(), "items");
                 forbid(problems, milestone, objective, !objective.advancement().isBlank(), "advancement");
-                // `subjects` may legitimately be empty.
             }
             case ADVANCEMENT -> {
                 if (objective.advancement().isBlank()) {
@@ -159,7 +152,6 @@ public final class TrackShape {
             final boolean present,
             final String field) {
         if (present) {
-            // A field belonging to another type is almost always a half-finished type change.
             problems.add(new TrackValidation.Problem(
                     milestone.key(),
                     objective.key(),

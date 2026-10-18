@@ -8,42 +8,29 @@ import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 
-/**
- * Draws {@code /navigate}'s surface: five destinations, one per chest row, and a row of controls.
- *
- * Five per page so the names stay readable; the geometry must match the pack, as {@code NavigatePanelTest} asserts.
- */
+/** {@code NavigatePanelTest} checks that the geometry matches the resource pack. */
 public final class NavigatePanel {
 
-    /** The window is always six rows, whether there is one destination or forty. */
     public static final int ROWS = MenuTitle.MAX_ROWS;
 
-    /** Destinations per page: the five rows above the control row. */
     public static final int ENTRIES_PER_PAGE = ROWS - 1;
 
-    /** The chest row the controls sit on. */
     public static final int CONTROL_ROW = ROWS - 1;
 
-    /** Pixels between a row's furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    /** A full-width row plate: the slot area, inset on both sides. */
     public static final int PILL_X = SlotGeometry.ORIGIN_X + INSET;
 
     public static final int PILL_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH - 2 * INSET;
 
-    /** The kind icon, three pixels inside the pill. */
     private static final int ICON_X = PILL_X + 3;
 
     private static final int ICON_SIZE = 8;
 
-    /** The name starts one pixel past the icon's box, which is where a button's label starts too. */
     private static final int NAME_X = ICON_X + ICON_SIZE + 5;
 
-    /** Where the distance's right edge lands: x 164. */
     private static final int DISTANCE_RIGHT = PILL_X + PILL_WIDTH - 3;
 
-    /** How much clear space is kept between a name and the distance beside it. */
     private static final int NAME_GAP = 4;
 
     private static final int STOP_X = PILL_X;
@@ -56,7 +43,7 @@ public final class NavigatePanel {
     private static final int PAGE_X = SlotGeometry.x(7);
     private static final int NEXT_X = SlotGeometry.x(8) + INSET;
 
-    /** The three cells the stop plate covers; each carries the same tooltip and the same click. */
+    /** The slots under the stop plate. They share one tooltip and one click. */
     public static final List<Integer> STOP_SLOTS = List.of(
             SlotGeometry.slot(0, CONTROL_ROW), SlotGeometry.slot(1, CONTROL_ROW), SlotGeometry.slot(2, CONTROL_ROW));
 
@@ -66,7 +53,6 @@ public final class NavigatePanel {
 
     private NavigatePanel() {}
 
-    /** The three kinds of destination, and the pictogram each is drawn with. */
     public static String icon(final NavigationTarget.Kind kind) {
         return switch (kind) {
             case WORLD_SPAWN -> Glyphs.GUI_ROW_ICON_SPAWN;
@@ -76,24 +62,24 @@ public final class NavigatePanel {
     }
 
     /**
-     * One drawn destination.
+     * One destination row.
      *
      * @param icon     one of {@code Glyphs.GUI_ROW_ICON_*}
-     * @param name     the destination's name, folded and shortened here
-     * @param distance what stands at the right edge: a distance, or "another world"
-     * @param active   whether this is the destination the player is currently being pointed at
+     * @param name     the destination name, which the panel folds and shortens
+     * @param distance the text at the right edge of the row
+     * @param active   whether the player is pointed to this destination
      */
     public record Entry(String icon, String name, String distance, boolean active) {}
 
     /**
-     * The whole surface, as the inventory title.
+     * Returns the window as an inventory title.
      *
-     * @param title    the readable window title, already translated
-     * @param entries  up to {@link #ENTRIES_PER_PAGE} destinations, top row first
-     * @param stop     the stop button's label, short enough for 52 pixels
-     * @param page     what stands between the two page buttons, e.g. {@code 2/3}
-     * @param hasPrev  whether there is a page before this one
-     * @param hasNext  whether there is a page after this one
+     * @param title   the window title, already translated
+     * @param entries up to {@link #ENTRIES_PER_PAGE} destinations, top row first
+     * @param stop    the label of the stop button, at most 52 pixels wide
+     * @param page    the text between the page buttons, such as {@code 2/3}
+     * @param hasPrev whether a page precedes this one
+     * @param hasNext whether a page follows this one
      */
     public static Component title(
             final Component title,
@@ -110,7 +96,6 @@ public final class NavigatePanel {
 
         for (int row = 0; row < entries.size(); row++) {
             final Entry entry = entries.get(row);
-            // Order matters and is draw order: the plate first, then everything that sits on it.
             canvas.rowArt(Glyphs.GUI_ROW_PILL, row, PILL_X, null);
             canvas.rowArt(entry.icon(), row, ICON_X, MenuPalette.INK);
 
@@ -125,7 +110,7 @@ public final class NavigatePanel {
                 canvas.rowTextRight(distance, row, DISTANCE_RIGHT, MenuPalette.SOFT);
             }
 
-            // Last, so nothing is drawn over the frame.
+            // The frame of the active destination is drawn last.
             if (entry.active()) {
                 canvas.rowArt(Glyphs.GUI_ROW_FRAME, row, PILL_X, null);
             }
@@ -147,7 +132,7 @@ public final class NavigatePanel {
         return canvas.build(title);
     }
 
-    /** One page button, drawn greyed when there is no page on that side, so a control never vanishes. */
+    /** Draws a page button, greyed when {@code enabled} is false. */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
         canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF, CONTROL_ROW, x, null);

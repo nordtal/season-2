@@ -22,11 +22,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one already won.
- *
- * Every way out calls {@code finish}, a one-shot latch that pays; "again" is live only once the wheel stops.
- */
+/** Every end of the spin calls {@code finish}, which pays out once. The "again" button works after the wheel stops. */
 public final class WheelGui extends Menu {
 
     private final Inventory inventory;
@@ -37,18 +33,12 @@ public final class WheelGui extends Menu {
     private final MessageRenderer renderer;
     private final Locale locale;
 
-    /** What to run when the player asks for another spin, or null while there is none to give. */
+    /** It is null when the player has no spin left. */
     private final @Nullable Runnable again;
 
     private final AtomicBoolean finished = new AtomicBoolean();
     private Scheduler.@Nullable Task task;
 
-    /**
-     * Builds the window for one spin.
-     *
-     * @param spinsLeft how many spins the player has after this one, which is what the hub shows
-     * @param again runs another spin, or null when this player has none left
-     */
     public WheelGui(
             final MessageRenderer renderer,
             final Locale locale,
@@ -86,44 +76,35 @@ public final class WheelGui extends Menu {
         draw(0);
     }
 
-    /** Opens the window and runs the animation, on the main thread. */
+    /** Main thread only. */
     public void start(final Plugin plugin, final Player player) {
         open(player);
         step(plugin, player, 0);
     }
 
-    /** Runs another spin if the click hit the "again" button and the wheel has stopped. */
     @Override
     protected MenuClick click(final Player player, final int slot) {
         if (!WheelPanel.AGAIN_SLOTS.contains(slot)) {
             return MenuClick.nothing();
         }
         if (!finished.get() || again == null) {
-            // Still spinning, or nothing left to spin with.
             return MenuClick.refused();
         }
-        // The new spin opens its own window, closing this one.
         again.run();
         return MenuClick.nothing();
     }
 
-    /** A window closed before the wheel stopped still pays out, without the strike. */
     @Override
     protected void closed(final Player player) {
         finish(player, false);
     }
 
-    /** A wheel still spinning at shutdown pays out now, since the spin was spent before the first frame. */
     @Override
     protected void stopped(final Player player) {
         finish(player, false);
     }
 
-    /**
-     * Ends the spin exactly once: stops the animation, and pays.
-     *
-     * @param celebrate whether the player is still watching, so the strike plays
-     */
+    /** Only the first call acts. */
     private void finish(final Player player, final boolean celebrate) {
         if (!finished.compareAndSet(false, true)) {
             return;
@@ -159,7 +140,6 @@ public final class WheelGui extends Menu {
             if (next < WheelStrip.steps()) {
                 step(plugin, player, next);
             } else {
-                // The last delay is the beat after the wheel stops, not a gap before a frame.
                 finish(player, true);
             }
         });

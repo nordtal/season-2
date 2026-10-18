@@ -2,26 +2,22 @@ package eu.nordtal.season.smp.milestone;
 
 import java.util.Optional;
 
-/**
- * What finishing a milestone hands the community.
- *
- * The Nether and the End carry no border step: the dimension is the reward.
- */
+/** What a milestone does when it unlocks. */
 public enum Unlock {
 
-    /** Moves the Nordtal world border to the milestone's {@code border-diameter}. */
+    /** Sets the Nordtal world border to the {@code border-diameter} of the milestone. */
     BORDER,
 
-    /** Lights the Nether: Nordtal portals ignite and the balloon's entry stops being greyed out. */
+    /** Opens the Nether. */
     NETHER,
 
-    /** Opens the End, which is entered by balloon; a stronghold's portal stays inactive. */
+    /** Opens the End. */
     END,
 
-    /** Nothing at all; only the opening milestones {@code waiting} and {@code departure}. */
+    /** Does nothing. */
     NOTHING;
 
-    /** Parses a milestone file value, empty for anything else. */
+    /** Parses a milestone file value, ignoring case, and returns empty for any other value. */
     public static Optional<Unlock> parse(final String name) {
         if (name == null || name.isBlank()) {
             return Optional.empty();

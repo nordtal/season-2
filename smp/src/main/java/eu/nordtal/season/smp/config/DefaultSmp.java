@@ -5,98 +5,64 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The lists the {@code config} group defaults to; placeholders until the spawn is built.
- *
- * {@code Specs.createUnsafe} applies no defaults, so every key of a spec has to appear in its map.
- */
+/** The default lists of the {@code config} group. Every spec built here sets every key. */
 final class DefaultSmp {
 
-    /** One box per world with a balloon. */
     static final List<SpawnRegionSpec> SPAWN_REGIONS = List.of(
             region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
-    /**
-     * One balloon per world that has one; the End has none.
-     *
-     * Nordtal's box sits at radius ~15 of the border centre, between the 10 and 21.5 that {@code start()} checks.
-     */
     static final List<BalloonSpec> BALLOONS = List.of(
             balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
             balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
 
-    /** Both in Nordtal, inside radius 10 of the border centre. */
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
-    /** Both 3 x 3 and inside radius 10 of the border centre. */
     static final List<DuelPlatformSpec> DUEL_PLATFORMS = List.of(
             platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
             platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
 
-    /** Inside radius 10 with everything else social. */
     static final List<SpawnRegionSpec> WHEEL_REGIONS =
             List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
-    /** Inside radius 10 with everything else social. */
     static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
 
-    /**
-     * Landing points around the border centres; the Nether's Y is 32, since 64 there is as likely rock as air.
-     *
-     * {@code LandingSite#findSafeAt} is what keeps a wrong one from killing anybody.
-     */
     static final SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
 
     static final SpawnPointSpec BALLOON_SPAWN_POINT_NETHER = spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
 
     static final SpawnPointSpec BALLOON_SPAWN_POINT_END = spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
 
-    /** The three of them together, which is what the top-level key answers with. */
     static final BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
             balloonSpawnPoints(BALLOON_SPAWN_POINT_NORDTAL, BALLOON_SPAWN_POINT_NETHER, BALLOON_SPAWN_POINT_END);
 
-    /** On Nordtal's border centre; the world name is written out, since a spec default cannot read another key. */
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
-
-    /** Twenty-two advancements across the four bands described in {@link SmpSpec#advancementAwards()}. */
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
-            // 2: the first hours, worth noticing rather than rewarding.
             award("minecraft:story/mine_stone", 2),
             award("minecraft:story/upgrade_tools", 2),
             award("minecraft:story/smelt_iron", 2),
             award("minecraft:story/iron_tools", 2),
             award("minecraft:husbandry/plant_seed", 2),
             award("minecraft:husbandry/breed_an_animal", 2),
-
-            // 4: a first real project, such as diamonds, a bed or a working farm.
             award("minecraft:story/mine_diamond", 4),
             award("minecraft:story/shiny_gear", 4),
             award("minecraft:story/enchant_item", 4),
             award("minecraft:husbandry/make_a_sign_glow", 4),
             award("minecraft:adventure/trade", 4),
-
-            // 6: a real trip, each needing the Nether.
             award("minecraft:nether/root", 6),
             award("minecraft:nether/obtain_blaze_rod", 6),
             award("minecraft:nether/find_fortress", 6),
             award("minecraft:nether/obtain_crying_obsidian", 6),
             award("minecraft:adventure/kill_a_mob", 6),
-
-            // 8: a project measured in evenings, mostly a group one.
             award("minecraft:end/root", 8),
             award("minecraft:nether/obtain_ancient_debris", 8),
             award("minecraft:adventure/hero_of_the_village", 8),
             award("minecraft:end/find_end_city", 8),
-
-            // 10: the two that take a season.
             award("minecraft:end/kill_dragon", 10),
             award("minecraft:nether/netherite_armor", 10));
 
-    /** The wheel's pool; the common band is about 70 % of spins, uncommon 26 %, rare one in twenty-five. */
     static final List<WheelPrizeSpec> WHEEL_PRIZES = List.of(
-            // Common: useful, never decisive. Total weight 700.
             item("minecraft:cooked_beef", 32, 120),
             item("minecraft:oak_log", 64, 110),
             item("minecraft:coal", 32, 110),
@@ -105,16 +71,12 @@ final class DefaultSmp {
             item("minecraft:oak_sapling", 16, 60),
             item("minecraft:bread", 32, 60),
             item("minecraft:glass", 64, 50),
-
-            // Uncommon: pleasant, still ordinary. Total weight 260.
             item("minecraft:iron_ingot", 32, 70),
             item("minecraft:redstone", 64, 50),
             item("minecraft:lapis_lazuli", 32, 40),
             item("minecraft:enchanted_book", 1, 40),
             item("minecraft:golden_apple", 4, 30),
             item("minecraft:experience_bottle", 16, 30),
-
-            // Rare: occasionally needed, hated to farm. Total weight 40.
             item("minecraft:ancient_debris", 2, 12),
             item("minecraft:shulker_shell", 2, 10),
             item("minecraft:end_crystal", 2, 8),
@@ -122,7 +84,6 @@ final class DefaultSmp {
             item("minecraft:elytra", 1, 3),
             item("minecraft:totem_of_undying", 1, 3));
 
-    /** Iron and no enchantments: aim and timing over about a minute. */
     static final List<WheelPrizeSpec> DUEL_LOADOUT_SWORD = List.of(
             item("minecraft:iron_sword", 1, 1),
             item("minecraft:shield", 1, 1),
@@ -132,7 +93,6 @@ final class DefaultSmp {
             item("minecraft:iron_boots", 1, 1),
             item("minecraft:cooked_beef", 8, 1));
 
-    /** Lighter armour than the sword loadout, so a hit matters and a miss costs. */
     static final List<WheelPrizeSpec> DUEL_LOADOUT_BOW = List.of(
             item("BOW", 1, 1),
             item("minecraft:arrow", 64, 1),
@@ -183,7 +143,6 @@ final class DefaultSmp {
         return Specs.createUnsafe(BalloonSpec.class, values);
     }
 
-    /** One default board; every key the spec declares has to appear in this map. */
     private static BoardSpec board(
             final String kind, final String world, final double x, final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();

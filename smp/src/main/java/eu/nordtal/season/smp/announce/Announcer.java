@@ -17,12 +17,12 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
- * Sends the SMP's lines into the Discord announcement channels: one request in the bot's inbox for every language.
- * Each language's message is rendered by the bot. Fire and forget on the async executor: the request keeps an hour.
+ * Sends announcements to the Discord announcement channels as one bot request with a message per language.
+ * It runs on the async executor and does not wait for the bot.
  */
 public final class Announcer {
 
-    /** How long a request waits for the bot before it is abandoned: a restart, not an outage. */
+    /** The time a request waits in the bot's inbox before it expires. */
     public static final Duration KEEP = Duration.ofHours(1);
 
     private final Inbox<BotRequest> bot;
@@ -30,7 +30,6 @@ public final class Announcer {
     private final Executor async;
     private final BiConsumer<String, Throwable> warn;
 
-    /** @param locales the languages the plugin loaded, which are the network's */
     public Announcer(
             final Inbox<BotRequest> bot,
             final List<Locale> locales,
@@ -43,16 +42,15 @@ public final class Announcer {
     }
 
     /**
-     * Sends a message whose values depend on the language, such as a milestone's name.
+     * Sends one announcement with a message per language.
      *
-     * @param message what to send, asked once per language, from the database bundle's {@code announcement} section
+     * @param message returns the message for a language, from the {@code announcement} section of the database bundle
      */
     public void announce(final Function<Locale, MessageRef> message) {
         Objects.requireNonNull(message, "message");
         async.execute(() -> {
             final BotRequest.Announce announcement = announcement(message);
             try {
-                // Nobody asked: the network announces its own progress.
                 bot.submit(announcement, Actor.STEWARD, Schedule.within(KEEP));
             } catch (final RuntimeException failure) {
                 warn.accept("could not send the announcement " + announcement.messages(), failure);
@@ -60,7 +58,6 @@ public final class Announcer {
         });
     }
 
-    /** Returns the announcement with one message per language, visible for the test. */
     BotRequest.Announce announcement(final Function<Locale, MessageRef> message) {
         final Map<String, MessageRef> messages = new LinkedHashMap<>();
         for (final Locale locale : locales) {

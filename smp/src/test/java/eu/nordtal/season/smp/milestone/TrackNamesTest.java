@@ -12,7 +12,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.junit.jupiter.api.Test;
 
-/** A track naming what the server does not have is refused, with the name in the reason. */
 class TrackNamesTest {
 
     private static final Set<NamespacedKey> ADVANCEMENTS = Set.of(
@@ -23,7 +22,6 @@ class TrackNamesTest {
             NamespacedKey.minecraft("adventure/hero_of_the_village"),
             NamespacedKey.minecraft("nether/netherite_armor"));
 
-    /** A server on which water is no item, a diamond no block, and only the default track's advancements exist. */
     private static final TrackNames.Server SERVER = new TrackNames.Server() {
         @Override
         public boolean isItem(final Material material) {

@@ -2,9 +2,9 @@ package eu.nordtal.season.smp.port;
 
 import eu.nordtal.season.common.id.DiscordId;
 
-/** The wheel's side of a contribution: handing out the extra spins an objective's spin budget pays. */
+/** Grants the wheel spins of an objective's spin budget. */
 public interface PrizeSource {
 
-    /** Grants {@code spins} extra spins; blocking, and part of the caller's transaction when one is open. */
+    /** Grants {@code spins} extra spins. It blocks and joins the open transaction of the caller. */
     void grant(DiscordId discordId, int spins);
 }

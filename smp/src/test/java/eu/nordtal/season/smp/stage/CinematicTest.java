@@ -8,7 +8,6 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/** Tests the arithmetic of a staging: which picture appears on which tick, and how long it lasts. */
 class CinematicTest {
 
     private static final Component A = Component.text("a");
@@ -44,7 +43,6 @@ class CinematicTest {
 
     @Test
     void aStagingWithNoFramesIsRefusedRatherThanRunAsAnEmptyEffect() {
-        // An empty sequence would leave the player blind and silent; it fails when built.
         assertThrows(IllegalArgumentException.class, () -> Cinematic.builder().build());
     }
 

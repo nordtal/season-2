@@ -43,9 +43,8 @@ import eu.nordtal.season.smp.wheel.WheelListener;
 import java.time.Duration;
 
 /**
- * Everything {@link SmpPlugin#start()} wires up once its refusals have passed.
- *
- * It only returns values: NullAway's initializer check cannot follow a field assignment into another class.
+ * Creates the parts that {@link SmpPlugin#start()} wires after its refusals have passed.
+ * The methods return their parts, because NullAway cannot follow a field assignment into another class.
  */
 final class SmpStart {
 
@@ -59,7 +58,7 @@ final class SmpStart {
                         plugin.renderer().raw())
                 .declareOn(plugin.hud());
 
-        // Discord announcements: one request in the bot's inbox with every language, fire and forget.
+        // Sends one request with every language to the bot's inbox and does not wait.
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
                 plugin.renderer().raw().locales(),
@@ -71,7 +70,7 @@ final class SmpStart {
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
 
     static Surfaces wireEffectsAndSurfaces(final SmpPlugin plugin, final SmpSpec config) {
-        // One instance: whichever object stamped a rocket must be the one {@code WorldEffects#onDamage} asks.
+        // All users share one instance. {@code WorldEffects#onDamage} must ask the object that marked the rocket.
         final WorldEffects effects = new WorldEffects(plugin);
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
 
@@ -95,7 +94,6 @@ final class SmpStart {
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
         final SystemLines systemLines = plugin.systemLines();
 
-        // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
         plugin.getServer().getPluginManager().registerEvents(cinematics, plugin);
         final SeasonWelcome welcome = new SeasonWelcome(
@@ -133,7 +131,6 @@ final class SmpStart {
                 plugin.worlds,
                 plugin.identities(),
                 plugin.renderer(),
-                // The wheel holds the extra spins an objective's spin budget pays.
                 new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
                 plugin.sounds,
                 effects,
@@ -163,10 +160,9 @@ final class SmpStart {
                 effects,
                 config,
                 plugin.clock());
-        // Also immediately on start, so graves do not outlive their decay across downtime.
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         scheduler.every(Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(config.graveMaxAgeHours()));
-        // Every second on the main thread, but it writes only near expiry.
+        // Runs every second on the main thread. It writes only near expiry.
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
         final Duels duels = new Duels(
                 plugin,
@@ -227,7 +223,7 @@ final class SmpStart {
     }
 
     static SpawnNpc wireNpc(final SmpPlugin plugin, final SmpSpec config) {
-        // The only way a {@code HAND_IN} objective can be fulfilled.
+        // A {@code HAND_IN} objective is fulfilled only through this NPC.
         final SpawnNpc npc = new SpawnNpc(plugin, config);
         npc.spawn();
         plugin.getServer()
@@ -243,14 +239,12 @@ final class SmpStart {
                                 plugin.renderer(),
                                 plugin.sounds),
                         plugin);
-        // Only keeps the figure standing against damage.
         plugin.getServer().getPluginManager().registerEvents(new NpcProtection(npc), plugin);
         return npc;
     }
 
     static BalloonDisplay restoreGravesAndRegisterWorld(
             final SmpPlugin plugin, final Boxes balloons, final Boxes regions, final WorldEffects effects) {
-        // Graves outlive a restart, so they are read back once the world is up.
         plugin.graves.restore();
         plugin.getServer()
                 .getPluginManager()
@@ -269,7 +263,6 @@ final class SmpStart {
                                 plugin.sounds,
                                 effects),
                         plugin);
-        // One item display per configured box.
         final BalloonDisplay balloonDisplay = new BalloonDisplay(plugin, balloons);
         balloonDisplay.spawn();
         plugin.getServer()

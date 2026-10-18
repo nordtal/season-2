@@ -7,10 +7,10 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Somewhere {@code /navigate} can point at: the world spawn, the last death, or a public POI, never a player.
+ * A target of {@code /navigate}: the world spawn, the last death or a public POI.
  *
- * @param id the POI's id, or null for the two built-in kinds
- * @param label a POI's name, or {@code null} for the built-in kinds, which are named by {@link #name()}
+ * @param id    the POI id, or null for a built-in kind
+ * @param label the POI name, or {@code null} for a built-in kind, whose name is {@link #name()}
  */
 public record NavigationTarget(
         Kind kind, @Nullable UUID id, @Nullable String label, String world, int x, int y, int z) {
@@ -34,7 +34,6 @@ public record NavigationTarget(
         return new NavigationTarget(Kind.POI, id, name, world, x, y, z);
     }
 
-    /** What a destination is called: a POI's own name, or the built-in kind's message. */
     public MessageRef name() {
         return switch (kind) {
             case WORLD_SPAWN -> MESSAGES.smp().navigate().worldSpawn();
@@ -43,7 +42,6 @@ public record NavigationTarget(
         };
     }
 
-    /** Whether this target is in the world the player is standing in. */
     public boolean isIn(final String worldName) {
         return world.equals(worldName);
     }

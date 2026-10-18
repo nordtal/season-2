@@ -5,7 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Who is currently navigating where; not persisted, so a relog ends it. */
+/** Maps each navigating player to a target. Nothing is persisted. */
 public final class Navigation {
 
     private final Map<UUID, NavigationTarget> active = new ConcurrentHashMap<>();
@@ -26,7 +26,6 @@ public final class Navigation {
         return active.containsKey(player);
     }
 
-    /** Drops every navigation pointing into a world, so no arrow points at a deleted POI. */
     public void clearWorld(final String world) {
         active.entrySet().removeIf(entry -> entry.getValue().isIn(world));
     }

@@ -29,34 +29,29 @@ import net.kyori.adventure.text.TextComponent;
 /**
  * Rebuilds a composed menu surface the way the client lays it out, so a test can contradict a panel.
  *
- * It walks the cursor from {@code gui.json} and {@link MenuFont}'s table, shared by every panel's test.
+ * It walks the cursor from {@code gui.json} and the table of {@link MenuFont}. Every panel test shares it.
  */
 public final class PanelWalk {
 
     private static final Path ROOT = RepositoryRoot.path();
-    /** The assembled pack's assets, which the build names in {@code nordtal.pack}: the row fonts are generated. */
     private static final String ASSETS = RepositoryRoot.packAssets();
 
-    /** The advances of {@code nordtal:gui}, derived from that font's own file and its PNGs. */
     private static final Map<Integer, Integer> GUI_ADVANCES = guiAdvances();
 
     private PanelWalk() {}
 
-    /** One drawn thing: its font, its payload, where the payload starts after leading shifts, and its width. */
     public record Run(String font, String content, int x, int advance, String whole) {
 
-        /** Where this run's right edge lands. */
         public int end() {
             return x + advance;
         }
     }
 
-    /** The painted half of a composed title, without the readable half, which this JVM cannot measure. */
+    /** The painted part of a composed title, without the readable part, which this JVM cannot measure. */
     public static Component surface(final Component title) {
         return title.children().get(0);
     }
 
-    /** Every run of a surface, in draw order, with the cursor resolved. */
     public static List<Run> runs(final Component surface) {
         final List<Run> out = new ArrayList<>();
         final int[] cursor = {MenuTitle.ANCHOR_X};
@@ -64,7 +59,6 @@ public final class PanelWalk {
         return out;
     }
 
-    /** The first run drawing exactly {@code content} in {@code font}. */
     public static Run find(final List<Run> runs, final String font, final String content) {
         return runs.stream()
                 .filter(run -> run.font().equals(font) && run.content().equals(content))
@@ -73,7 +67,6 @@ public final class PanelWalk {
                         () -> new AssertionError("nothing draws U+%X in %s".formatted(content.codePointAt(0), font)));
     }
 
-    /** The readable runs of one row, in draw order. */
     public static List<Run> textRuns(final List<Run> runs, final String font) {
         return runs.stream()
                 .filter(run -> run.font().equals(font))
@@ -82,7 +75,6 @@ public final class PanelWalk {
                 .toList();
     }
 
-    /** Every code point one font resolves, straight out of its own file. */
     public static Set<Integer> declared(final String font) {
         final String file =
                 Glyphs.FONT_GUI.equals(font) ? "gui.json" : "gui_r" + font.charAt(font.length() - 1) + ".json";
@@ -100,12 +92,11 @@ public final class PanelWalk {
         return out;
     }
 
-    /** One of the pack's menu textures, read back. */
     public static BufferedImage image(final String name) {
         return read(ROOT.resolve(ASSETS + "/nordtal/textures/ui/gui/" + name));
     }
 
-    /** One of {@code smp}'s message bundles, for asserting what a drawn string may contain. */
+    /** A message bundle of {@code smp}, for asserting what a drawn string may contain. */
     public static Properties bundle(final String language) {
         final Properties properties = new Properties();
         final Path path = ROOT.resolve("smp/src/main/resources/messages/smp/" + language + ".properties");
@@ -148,7 +139,6 @@ public final class PanelWalk {
         return (codePoint >= 0xFF001 && codePoint <= 0xFF128) || (codePoint >= 0xFF801 && codePoint <= 0xFF928);
     }
 
-    /** The advance of one code point in one font, taken from the pack and never from the code. */
     private static int advance(final String font, final int codePoint) {
         if (Glyphs.FONT_GUI.equals(font)) {
             return GUI_ADVANCES.getOrDefault(codePoint, 0);

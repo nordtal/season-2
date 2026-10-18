@@ -25,7 +25,7 @@ import java.util.Set;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** Stores rebuilt layouts and their images against a real PostgreSQL running the real migrations. */
+/** Stores rebuilt layouts and their images against PostgreSQL and the real migrations. */
 class LayoutStoreIntegrationTest {
 
     private static final Actor ADMIN = Actor.person(DiscordId.of("123456789012345678"));

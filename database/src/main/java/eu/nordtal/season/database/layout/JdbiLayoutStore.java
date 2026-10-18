@@ -19,7 +19,6 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link LayoutStore}; it borrows the pool it is given and owns nothing. */
 final class JdbiLayoutStore implements LayoutStore {
 
     private final Jdbi jdbi;
@@ -28,7 +27,7 @@ final class JdbiLayoutStore implements LayoutStore {
         this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
     }
 
-    /** One {@code layout_part} row, with what its other tables hold for it. */
+    /** One {@code layout_part} row with the rows of its other tables. */
     private static final class Row {
         final Part.Type type;
         final @Nullable String accent;
@@ -120,7 +119,6 @@ final class JdbiLayoutStore implements LayoutStore {
         return parts;
     }
 
-    /** Adds each text block's lines to its part, with the texts an editor added. */
     private static void lines(
             final Handle handle, final List<String> bundles, final Map<String, Map<Integer, Row>> parts) {
         final Map<String, Map<String, String>> texts = new HashMap<>();
@@ -150,7 +148,6 @@ final class JdbiLayoutStore implements LayoutStore {
                 .list();
     }
 
-    /** Adds each row's elements and each image to its part. */
     private static void placed(
             final Handle handle, final List<String> bundles, final Map<String, Map<Integer, Row>> parts) {
         handle.createQuery("SELECT bundle, layout, part, element FROM layout_row_element"
@@ -173,7 +170,6 @@ final class JdbiLayoutStore implements LayoutStore {
                 .list();
     }
 
-    /** The part {@code part} of the layout {@code id}, which the rows of its tables always follow. */
     private static Row row(final Map<String, Map<Integer, Row>> parts, final String id, final int part) {
         return Objects.requireNonNull(Objects.requireNonNull(parts.get(id), id).get(part), id);
     }
@@ -240,7 +236,7 @@ final class JdbiLayoutStore implements LayoutStore {
         });
     }
 
-    /** Writes a tree's parts in the order they are read back, each before the parts it holds. */
+    /** Writes the parts of a tree in read-back order, each before its children. */
     private static final class Writer {
         private final Handle handle;
         private final String bundle;
@@ -337,7 +333,7 @@ final class JdbiLayoutStore implements LayoutStore {
         });
     }
 
-    /** Deletes the rebuild; every table of its rows follows {@code layout_override} by cascade. */
+    /** Deletes the rebuild. The other tables follow {@code layout_override} by cascade. */
     private static void delete(final Handle handle, final String bundle, final String layout) {
         handle.createUpdate("DELETE FROM layout_override WHERE bundle = :bundle AND layout = :layout")
                 .bind("bundle", bundle)
@@ -345,7 +341,7 @@ final class JdbiLayoutStore implements LayoutStore {
                 .execute();
     }
 
-    /** Committed with the rows, so nobody re-reads before they are there. */
+    /** Sends the signal in the transaction that wrote the rows. */
     private static void signal(final Handle handle, final String bundle) {
         handle.createQuery("SELECT pg_notify('nordtal_messages', :bundle) IS NULL")
                 .bind("bundle", bundle)

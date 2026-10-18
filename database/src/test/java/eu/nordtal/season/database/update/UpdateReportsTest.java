@@ -276,7 +276,8 @@ class UpdateReportsTest {
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(), null)
                         .failed(UpdateReport.Facts.notBack(
                                 UpdateReport.Back.NO, 5L, new UpdateReport.Facts.Seen(null, null, null))))));
-        assertTrue(told.contains("\"said\":\"not healthy within 5 minutes (no container for it in the project)\""), told);
+        assertTrue(
+                told.contains("\"said\":\"not healthy within 5 minutes (no container for it in the project)\""), told);
         assertTrue(told.contains("\"back\":\"NO\""), told);
     }
 

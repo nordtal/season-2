@@ -55,9 +55,8 @@ public final class HandInGui extends Menu {
         // Shows the first wanted material as a sample item.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
 
-        final ItemStack button = BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().handin().confirm()),
-                neededLines(renderer, locale));
+        final ItemStack button =
+                BlankItem.of(renderer.format(locale, MESSAGES.smp().handin().confirm()), neededLines(renderer, locale));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 

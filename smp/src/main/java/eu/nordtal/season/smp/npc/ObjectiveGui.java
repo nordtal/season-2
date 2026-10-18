@@ -225,8 +225,8 @@ public final class ObjectiveGui extends Menu {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
         } else if (definition.type() == ObjectiveType.HAND_IN) {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().clickToHandIn()));
-            lore.addAll(WantedItems.lines(
-                    renderer, locale, definition.items() == null ? List.of() : definition.items()));
+            lore.addAll(
+                    WantedItems.lines(renderer, locale, definition.items() == null ? List.of() : definition.items()));
         } else {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }

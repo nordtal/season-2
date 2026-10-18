@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 /** The client draws a lore line as one row and never wraps it, so a long item list has to be many lines. */
 class WantedItemsTest {
 
-    private final MessageRenderer renderer = MessageRenderer.of(Messages.load(
-            WantedItemsTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN));
+    private final MessageRenderer renderer = MessageRenderer.of(
+            Messages.load(WantedItemsTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN));
 
     @Test
     void everyWantedItemGetsALineOfItsOwn() {
@@ -24,9 +24,7 @@ class WantedItemsTest {
                 List.of("nordtal:one", "nordtal:two", "nordtal:three", "nordtal:four", "nordtal:five"));
 
         assertEquals(5, lines.size());
-        assertEquals(
-                "nordtal:one",
-                PlainTextComponentSerializer.plainText().serialize(lines.getFirst()));
+        assertEquals("nordtal:one", PlainTextComponentSerializer.plainText().serialize(lines.getFirst()));
     }
 
     @Test

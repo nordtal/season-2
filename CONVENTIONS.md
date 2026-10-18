@@ -38,7 +38,7 @@ Every sentence that stays passes each of these tests:
   heart). Code names keep their names; a rename is a code change of its own.
 - **Short:** the shortest common word that is exact, one statement per sentence, no filler
   ("please", "currently", "in order to"). German and English follow the same tests, and German
-  addresses the player as *du*.
+  addresses the player as _du_.
 - **Full sentence:** subject, verb and object are written out. A table cell, a diagram label, a
   heading, a commit title, a button and a title in an interface may be a noun phrase. An
   instruction is an imperative sentence (`Run it on a host with Docker.`).
@@ -54,18 +54,18 @@ every text that uses it.
 The one name of each game term, in English and German. A text uses no other word for it, and a new
 term is added here before a text uses it.
 
-| term                 | Deutsch          | meaning                                                         |
-| -------------------- | ---------------- | --------------------------------------------------------------- |
-| access               | Zugang           | the right to join the servers for a paid or granted period      |
-| contribution channel | Beitragskanal    | the Discord channel where a member pays for access              |
-| Hunger Games         | Hunger Games     | the season's start event, played in teams                       |
-| milestone            | Meilenstein      | a step on the SMP's milestone track                             |
-| network              | Netzwerk         | all Nordtal servers behind the proxy                            |
-| period               | Zeitraum         | a span of days of access bought at once                         |
-| phase                | Phase            | the season's current stage, which decides which server is open  |
-| season               | Saison           | one year of Nordtal, set up from scratch                        |
-| SMP                  | SMP              | the survival server                                             |
-| waiting room         | Warteraum        | the server every player joins first and waits on                |
+| term                 | Deutsch       | meaning                                                        |
+| -------------------- | ------------- | -------------------------------------------------------------- |
+| access               | Zugang        | the right to join the servers for a paid or granted period     |
+| contribution channel | Beitragskanal | the Discord channel where a member pays for access             |
+| Hunger Games         | Hunger Games  | the season's start event, played in teams                      |
+| milestone            | Meilenstein   | a step on the SMP's milestone track                            |
+| network              | Netzwerk      | all Nordtal servers behind the proxy                           |
+| period               | Zeitraum      | a span of days of access bought at once                        |
+| phase                | Phase         | the season's current stage, which decides which server is open |
+| season               | Saison        | one year of Nordtal, set up from scratch                       |
+| SMP                  | SMP           | the survival server                                            |
+| waiting room         | Warteraum     | the server every player joins first and waits on               |
 
 ## Comments
 

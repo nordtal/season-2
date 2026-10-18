@@ -1,4 +1,4 @@
-// Shared by every module: Java 25, UTF-8, JUnit, the group and the repo-wide version.
+// Applies to every module: Java 25, UTF-8, JUnit, the group and the version of the repository.
 
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.RepositoryRootTestInputs
@@ -33,7 +33,7 @@ dependencies {
     "testRuntimeOnly"(libs.junit.platform.launcher)
 }
 
-// A test reading a file at the repository root declares it, or Gradle skips it after an edit.
+// A test that reads a file at the repository root declares it. Otherwise Gradle skips the test after an edit.
 val repositoryRootTestInputs =
     extensions.create<RepositoryRootTestInputs>("repositoryRootTestInputs", rootProject.layout.projectDirectory)
 
@@ -63,11 +63,11 @@ tasks.named<Test>("test") {
     )
 }
 
-// Read outside the task block, where the<SourceSetContainer>() would resolve against the task.
+// Read outside the task block, because there the<SourceSetContainer>() would resolve against the task.
 val sourceDirectoriesOfEverySourceSet = the<SourceSetContainer>().map { it.allSource.srcDirs }
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
-// Catches a source file Git ignores but the local build still compiles; see CheckSourcesTracked.
+// Fails on a source file that Git ignores and the local build still compiles (see CheckSourcesTracked).
 val checkSourcesTracked =
     tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
         sourceDirectories.from(sourceDirectoriesOfEverySourceSet)

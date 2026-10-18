@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    // Convention plugins apply these, so build-logic needs them on its own classpath.
+    // The convention plugins apply these, so build-logic needs them on its own classpath.
     implementation(libs.plugins.shadow.marker())
     implementation(
         libs.plugins.run.paper
@@ -12,7 +12,7 @@ dependencies {
     implementation(libs.plugins.spotless.marker())
     implementation(libs.plugins.errorprone.marker())
 
-    // Makes `the<LibrariesForLibs>()` resolve inside precompiled script plugins.
+    // Lets `the<LibrariesForLibs>()` resolve inside precompiled script plugins.
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
 }
 

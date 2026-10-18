@@ -8,10 +8,9 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
-/** Fails when a tracked file spells a season number other than the one in gradle.properties. */
+/** Fails when a tracked file spells a season number that differs from the one in gradle.properties. */
 @DisableCachingByDefault(because = "Which files Git tracks is not a declarable input")
 abstract class CheckSeasonNames : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 

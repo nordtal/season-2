@@ -1,11 +1,11 @@
-// A library against the Paper API, shaded by the plugins that consume it.
-// Code belongs here only if it needs a Paper type; everything else goes in the shared module that owns it.
+// A library against the Paper API. The plugins that use it shade it.
+// Code belongs here only when it needs a Paper type. Everything else goes into the shared module that owns it.
 
 import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {
     id("nordtal.java-base")
-    // java-library, so the shared modules are on this module's API rather than hidden behind it.
+    // java-library puts the shared modules on the API of this module instead of hiding them.
     id("java-library")
 }
 
@@ -19,6 +19,6 @@ dependencies {
     "compileOnly"(libs.paper.api)
     "api"(project(":pack-rendering"))
 
-    // On the test classpath for the plain-value parts of the API, never to start a server.
+    // On the test classpath for the plain-value parts of the API. Tests never start a server.
     "testImplementation"(libs.paper.api)
 }

@@ -12,19 +12,17 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
-/** The comment rules of CONVENTIONS.md for sources Checkstyle does not read, such as TypeScript. */
+/** Checks the comment rules of CONVENTIONS.md in sources that Checkstyle does not read, such as TypeScript. */
 @DisableCachingByDefault(because = "Cheaper to run than to cache")
 abstract class CheckCommentShape : DefaultTask() {
-    /** The files to check. */
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sources: ConfigurableFileCollection
 
-    /** Paths in the report are relative to it. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** False only reports the count, while the module does not pass yet. */
+    /** When false, the task reports only the number of findings. */
     @get:Internal
     abstract val enforced: Property<Boolean>
 

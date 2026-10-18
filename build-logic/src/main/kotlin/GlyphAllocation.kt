@@ -4,15 +4,15 @@ import groovy.json.JsonSlurper
 import java.io.File
 
 /**
- * `resource-pack/glyphs.json`, read and checked: every font, the code points it allocates and the art behind them.
+ * The model of `resource-pack/glyphs.json`: every font, its code points and its art. The class reads and checks the file.
  *
- * Everything the build writes about glyphs is derived from this one model, so a rule broken here fails the build
- * before any of it is written. The file's shape is documented in `resource-pack/README.md`.
+ * Everything that the build writes about glyphs derives from this model, so a broken rule fails the build
+ * before the build writes anything. `resource-pack/README.md` documents the shape of the file.
  */
 class GlyphAllocation private constructor(
     val fonts: List<Font>,
 ) {
-    /** One font file, or six when [rows] is set: `{row}` in [id] is the row, and each row sits [pitch] lower. */
+    /** One font file, or six when [rows] is set. `{row}` in [id] is the row, and each row sits [pitch] lower than the previous row. */
     class Font(
         val id: String,
         val rows: Int?,
@@ -24,14 +24,12 @@ class GlyphAllocation private constructor(
         val blocks: List<Block>,
         val lists: List<GlyphList>,
     ) {
-        /** The font ids this entry writes, row 0 first. */
         val ids: List<String> get() = rows?.let { count -> (0 until count).map { id.replace(ROW, "$it") } } ?: listOf(id)
 
-        /** Every glyph of every block, in file order. */
         val glyphs: List<Glyph> get() = blocks.flatMap { it.glyphs }
     }
 
-    /** A `space` provider entry: the cursor moves by [advance] and nothing is drawn. */
+    /** A `space` provider entry. It moves the cursor by [advance] and draws nothing. */
     class Space(
         val codePoint: Int,
         val advance: Int,
@@ -39,9 +37,9 @@ class GlyphAllocation private constructor(
     )
 
     /**
-     * A run of code points, [range], with one title; what it does not use is reserved for its growth.
+     * A run of code points, [range], with one title. The block reserves the code points that it does not use.
      *
-     * A block with a [texture] is one sheet: its glyphs are the cells of one row, or [chars] lists its rows of
+     * A block with a [texture] is one sheet. Its glyphs are the cells of one row, or [chars] lists its rows of
      * ordinary characters, which have no range.
      */
     class Block(
@@ -66,14 +64,13 @@ class GlyphAllocation private constructor(
         val about: String?,
     )
 
-    /** A Java list of the glyphs that name it, in file order. */
+    /** A Java list of the glyphs that name it, in the order of the file. */
     class GlyphList(
         val constant: String,
         val about: String?,
     )
 
     companion object {
-        /** The font whose glyphs a message names as `<glyph:name>`. */
         const val DEFAULT_FONT = "minecraft:default"
 
         private const val ROW = "{row}"
@@ -84,7 +81,6 @@ class GlyphAllocation private constructor(
         private val NAME = Regex("""[a-z0-9]+(-[a-z0-9]+)*""")
         private val CODE = Regex("""[0-9A-F]{2,5}""")
 
-        /** Reads [file], or fails with every rule it breaks. */
         fun read(file: File): GlyphAllocation {
             val problems = mutableListOf<String>()
             val root = Node(JsonSlurper().parse(file), file.name, problems)
@@ -204,7 +200,7 @@ class GlyphAllocation private constructor(
             return range
         }
 
-        /** The rules that span more than one entry, once every entry has been read. */
+        /** The rules that span more than one entry. They run after every entry has been read. */
         private fun check(
             file: String,
             fonts: List<Font>,
@@ -302,7 +298,7 @@ class GlyphAllocation private constructor(
         }
     }
 
-    /** One JSON object and where it is, for messages that say which entry broke which rule. */
+    /** A JSON object with its place, so that a message says which entry breaks which rule. */
     private class Node(
         value: Any?,
         private val where: String,
@@ -313,7 +309,6 @@ class GlyphAllocation private constructor(
         private val map: Map<String, Any?> =
             value as? Map<String, Any?> ?: emptyMap<String, Any?>().also { problem("is not an object") }
 
-        /** The same object, named in messages by [name] instead of its index. */
         fun named(name: String) = Node(map, "$parent > $name", problems, parent)
 
         fun problem(text: String) {

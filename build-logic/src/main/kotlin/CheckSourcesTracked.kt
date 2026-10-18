@@ -11,26 +11,26 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Fails when a file Gradle compiles is a file Git does not have.
+ * Fails when Gradle compiles a file that Git does not have.
  *
- * An ignored file leaves `git status` clean and only breaks CI, usually through an unanchored `.gitignore` pattern.
+ * An ignored file leaves `git status` clean and breaks only CI. The usual cause is an unanchored `.gitignore` pattern.
  */
 @DisableCachingByDefault(
     because = "Its result depends on .gitignore and the index, neither of which is a declarable input",
 )
 abstract class CheckSourcesTracked : DefaultTask() {
-    /** Source directories of this project. */
+    /** The source directories of this project. */
     @get:Internal
     abstract val sourceDirectories: ConfigurableFileCollection
 
-    /** The checkout root; `git` runs there, and pathspecs are relative to it. */
+    /** The root of the checkout, where `git` runs. The pathspecs are relative to it. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
     init {
         group = "verification"
         description = "Fails when a source file is ignored by Git and therefore missing from the repository."
-        // Git's ignore files and index cannot be declared as inputs, so the task always runs.
+        // The ignore files and the index of Git cannot be declared as inputs, so the task always runs.
         outputs.upToDateWhen { false }
     }
 
@@ -65,7 +65,7 @@ abstract class CheckSourcesTracked : DefaultTask() {
         )
     }
 
-    /** The paths under [pathspecs] that are untracked and ignored; a tracked file matching a rule is fine. */
+    /** Returns the paths under [pathspecs] that are untracked and ignored. A tracked file that matches a rule is fine. */
     private fun ignoredFilesUnder(
         root: File,
         pathspecs: List<String>,

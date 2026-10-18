@@ -1,4 +1,4 @@
-// A standalone JVM application, shipped as a fat jar and an image from deploy/jvm/Dockerfile.
+// A standalone JVM application. It ships as a fat jar and as an image from deploy/jvm/Dockerfile.
 
 plugins {
     id("nordtal.shaded")
@@ -12,12 +12,12 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
                 .getByType<JavaApplication>()
                 .mainClass
                 .get()
-        // The release a process was built as; steward-agent tells its release from it.
+        // The release that the process was built as. steward-agent reads its release from it.
         attributes["Implementation-Version"] = project.version.toString()
     }
 }
 
-// What deploy/jvm/Dockerfile copies, under one name: an earlier version's jar is never a second candidate.
+// The jar that deploy/jvm/Dockerfile copies, under one name, so that the jar of an earlier version is never a second candidate.
 val imageContext =
     tasks.register<Sync>("imageContext") {
         group = "distribution"
@@ -32,7 +32,7 @@ tasks.named("assemble") {
     dependsOn(imageContext)
 }
 
-// One logging configuration for every service. A module's own logback.xml would be a duplicate and fail the copy.
+// One logging configuration for every service. A logback.xml in a module would be a duplicate and fail the copy.
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("deploy/jvm/logback.xml"))
 }

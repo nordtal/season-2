@@ -6,13 +6,12 @@ import java.io.File
 import javax.imageio.ImageIO
 
 /**
- * How far every glyph of one font moves the cursor, derived from the font file and its PNGs the way the client does.
+ * The distance that each glyph of one font moves the cursor, derived from the font file and its PNGs as the client derives it.
  *
- * A `space` provider's number, or a bitmap cell's rightmost alpha column plus two, scaled by
- * `height / cellHeight`. The first provider to declare a code point wins.
+ * The advance of a `space` provider is its number. The advance of a bitmap cell is its rightmost alpha column plus two,
+ * scaled by `height / cellHeight`. The first provider that declares a code point wins.
  */
 object GlyphAdvances {
-    /** @return code point to advance for the font [font], whose textures resolve against [assets] */
     fun of(
         font: File,
         assets: File,
@@ -48,7 +47,7 @@ object GlyphAdvances {
         return table
     }
 
-    /** Resolves `namespace:path/to.png` against the pack's `assets`; no colon means `minecraft`. */
+    /** Resolves `namespace:path/to.png` against the `assets` of the pack. Without a colon, the namespace is `minecraft`. */
     fun texture(
         assets: File,
         id: String,
@@ -57,7 +56,7 @@ object GlyphAdvances {
         return assets.resolve(namespace).resolve("textures").resolve(id.substringAfter(':'))
     }
 
-    /** The rightmost column of the cell with any alpha, relative to the cell, or -1. */
+    /** Returns the rightmost column of the cell that has any alpha, counted from the cell, or -1. */
     private fun rightmost(
         image: BufferedImage,
         x0: Int,

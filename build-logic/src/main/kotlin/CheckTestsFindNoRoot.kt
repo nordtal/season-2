@@ -9,16 +9,14 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Fails when a test source under [pathspecs] names the build definition to find the repository root itself.
- * `RepositoryRoot` in `:common`'s test fixtures is the one place that does.
+ * Fails when a test source under [pathspecs] names the build definition to find the repository root.
+ * Only `RepositoryRoot` in the test fixtures of `:common` may do that.
  */
 @DisableCachingByDefault(because = "Which files Git tracks is not a declarable input")
 abstract class CheckTestsFindNoRoot : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** Git pathspecs relative to the root, `:(exclude)` entries included. */
     @get:Internal
     abstract val pathspecs: ListProperty<String>
 
@@ -55,10 +53,10 @@ abstract class CheckTestsFindNoRoot : DefaultTask() {
             .orEmpty()
 
     companion object {
-        /** The file whose presence marks the root. */
+        /** The file that marks the root. */
         const val MARKER = "settings.gradle.kts"
 
-        /** The one test fixture allowed to look for it. */
+        /** The only test fixture that may look for it. */
         const val HELPER = "common/src/testFixtures/java/eu/nordtal/season/common/RepositoryRoot.java"
     }
 }

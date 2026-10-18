@@ -9,11 +9,11 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
 /**
- * Writes `nordtal-plugin.json` into [target], the descriptor steward-agent reads out of a jar.
+ * Writes `nordtal-plugin.json` into [target]. steward-agent reads this descriptor from a jar.
  *
- * The id is the service the module publishes its settings under; [editors] names, per group, the custom editor
- * Steward draws it with instead of the form built from its schema. [followsMessages] offers its bundles for editing.
- * A jar built outside a release says [local], which Steward shows and an update run asks about before replacing it.
+ * The id is the service that the module publishes its settings under. [editors] names, per group, the custom editor
+ * that Steward draws instead of the form from the schema. [followsMessages] offers the bundles for editing.
+ * A jar built outside a release sets [local]. Steward shows it, and an update run asks before it replaces the jar.
  */
 abstract class WritePluginDescriptor : DefaultTask() {
     @get:Input
@@ -53,7 +53,7 @@ abstract class WritePluginDescriptor : DefaultTask() {
     }
 
     private companion object {
-        /** Module, group and editor names: quotes and backslashes are all JSON needs. */
+        /** Escapes module, group and editor names. They need only quotes and backslashes escaped for JSON. */
         fun quoted(text: String): String = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
     }
 }

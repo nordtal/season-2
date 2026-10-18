@@ -1,18 +1,17 @@
 package eu.nordtal.season.build
 
 /**
- * Whether a Minecraft client appears to be running on this machine.
+ * Tells whether a Minecraft client seems to run on this machine.
  *
- * A guess from the process table; on Windows, which hides arguments, from the Java executable's path.
+ * The answer is a guess from the process table. On Windows, which hides arguments, it comes from the path of the Java executable.
  */
 object MinecraftProcesses {
     private val JAVA = setOf("java", "javaw", "java.exe", "javaw.exe")
 
-    /** Main classes of a client: vanilla, and Fabric's or Quilt's Knot, which a launcher may start with a system Java. */
+    /** The main classes of a client: vanilla, and Knot of Fabric or Quilt, which a launcher can start with a system Java. */
     private val CLIENTS = listOf("net.minecraft.client.main.Main", ".knot.KnotClient")
     private val LAUNCHERS = listOf("minecraft", "modrinth", "norisk", "prismlauncher", "multimc", "curseforge")
 
-    /** @return true when some Java process looks like a Minecraft client */
     fun running(): Boolean {
         val own = ProcessHandle.current().pid()
         return ProcessHandle.allProcesses().anyMatch { process ->

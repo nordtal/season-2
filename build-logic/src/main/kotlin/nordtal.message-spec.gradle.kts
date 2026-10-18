@@ -1,17 +1,15 @@
-// Writes messages/<bundle>/schema.json from each of the module's message specs, and layouts.json beside it from
-// the module's Discord layouts, for steward to show.
-// The classpath is the resource source directories, since processed resources would be a cycle, and the
-// dependencies at runtime, whose jars carry the check bundle a refusal is told in.
+// Writes messages/<bundle>/schema.json from each message spec of the module, and layouts.json beside it from
+// the Discord layouts of the module, for steward to show.
+// The classpath holds the resource source directories, because processed resources would form a cycle, and the
+// runtime dependencies, whose jars carry the check bundle that words a refusal.
 
 plugins {
     java
 }
 
 interface MessageSpecExtension {
-    /** The fully qualified names of the module's @MessageSpec interfaces, one per bundle it ships. */
     val specClasses: ListProperty<String>
 
-    /** The fully qualified names of the classes that declare the module's layouts as static final fields. */
     val layoutClasses: ListProperty<String>
 }
 
@@ -30,7 +28,7 @@ val messageSchema =
         inputs.property("layoutClasses", messageSpec.layoutClasses)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)
         outputs.dir(schemaDirectory)
-        // Locals, not the script's own properties: a lambda reaching the script cannot be cached.
+        // Local variables, not properties of the script, because a lambda that reaches the script cannot be cached.
         val specClasses = messageSpec.specClasses
         val layoutClasses = messageSpec.layoutClasses
         val output = schemaDirectory

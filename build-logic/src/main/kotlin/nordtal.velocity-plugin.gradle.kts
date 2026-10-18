@@ -1,4 +1,4 @@
-// The Velocity plugin; velocity-api is also the processor that writes velocity-plugin.json.
+// The Velocity plugin. velocity-api is also the processor that writes velocity-plugin.json.
 
 import org.gradle.accessors.dm.LibrariesForLibs
 
@@ -18,7 +18,7 @@ dependencies {
     "implementation"(project(":message-rendering"))
 }
 
-// The version class that @Plugin reads is a template in src/main/templates, expanded with gradle.properties.
+// The version class that @Plugin reads is a template in src/main/templates. The build expands it with gradle.properties.
 val generateTemplates =
     tasks.register<Copy>("generateTemplates") {
         val props = mapOf("version" to project.version.toString())

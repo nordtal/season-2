@@ -17,14 +17,14 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 
-/** The routes the real service registers, asked of a running one rather than read out of its source. */
+/** The routes of a running service, not read from its source. */
 final class RouteTable {
 
     private RouteTable() {}
 
-    /** Starts the service with no database and no agent: every route is registered before either is asked. */
+    /** Starts the service with no database and no agent. It registers every route before it asks for either. */
     static Javalin start() {
-        // Every section at its default; a @ConfigSpec leaves the getters abstract otherwise.
+        // Every section has its default, because a @ConfigSpec leaves the getters abstract otherwise.
         final WebSpec config = new WebSpec() {
             @Override
             public DiscordSpec discord() {
@@ -46,7 +46,6 @@ final class RouteTable {
                 return new WebPushSpec() {};
             }
         };
-        // An agent nobody runs: registering a route asks it nothing.
         final AgentClient agent =
                 new AgentClient(new InternalClient("steward-agent", "http://127.0.0.1:1", "", Duration.ofSeconds(1)));
         final StackApi stack = new StackApi(
@@ -67,15 +66,13 @@ final class RouteTable {
                         NetworkSettings.defaultLanguages(),
                         Clock.systemUTC(),
                         TestScheduler.SHARED)
-                // Port 0: the OS picks a free one, so this does not collide with another instance running.
                 .start(0);
     }
 
-    /** Returns every endpoint of the running service, without the filters, which decide nothing of their own. */
     static List<Endpoint> endpoints(final Javalin app) {
         return app.unsafe.internalRouter.allHttpHandlers().stream()
                 .map(parsed -> parsed.endpoint)
-                // BEFORE and AFTER are filters with no decision of their own; `guard` is one of them.
+                // BEFORE and AFTER are filters with no decision of their own, such as `guard`.
                 .filter(endpoint -> !endpoint.method.equals(HandlerType.BEFORE)
                         && !endpoint.method.equals(HandlerType.BEFORE_MATCHED)
                         && !endpoint.method.equals(HandlerType.AFTER)

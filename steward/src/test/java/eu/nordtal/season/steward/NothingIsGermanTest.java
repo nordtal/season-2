@@ -25,13 +25,13 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Nothing in steward, steward-agent, steward-bunq, the admin texts, their deploy script or the compose file is German.
+ * Checks that steward, steward-agent, steward-bunq, the admin texts, their deploy script and the compose file
+ * contain no German.
  *
  * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
  */
 class NothingIsGermanTest {
 
-    /** What Steward is: its processes, the script that puts them on a host, the compose file. */
     private static final List<String> TREES =
             List.of("steward/src", "steward-agent/src", "steward-bunq/src", "internal-api/src");
 
@@ -48,19 +48,15 @@ class NothingIsGermanTest {
     private static final String BUNDLE = "discord-bot/src/main/resources/messages/access/";
     private static final String RULES = "steward/language-rules.json";
 
-    /** The files whose subject is German, exempted by file name and no wider, since Steward edits the bot's bundles. */
+    /** The files whose subject is German, exempted by exact file name, because Steward edits the bot's bundles. */
     private static final Set<String> ABOUT_GERMAN =
             Set.of("NothingIsGermanTest.java", "MessageBundlesTest.java", "MessagesApiIntegrationTest.java");
 
-    /** Three or more letters, German ones included; two-letter words are noise in both languages. */
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
 
-    /**
-     * The same word, but only where a reader would see one, so {@code _} and a digit are part of it as in {@code \b}.
-     */
+    /** The same word, but only where a reader sees one, so {@code _} and a digit belong to it as in {@code \b}. */
     private static final Pattern SOURCE_WORD = Pattern.compile("(?<![\\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\\wÄÖÜäöüß])");
 
-    /** The hand-kept half of the rule; the rest of the list is computed. */
     private record Rules(
             List<String> alsoEnglish,
             List<String> extra,
@@ -74,7 +70,7 @@ class NothingIsGermanTest {
     @Test
     void theListHasASource() {
         final Set<String> forbidden = forbidden();
-        // A guard that silently stops guarding is worse than none: this fires if the bundle moves or the parse breaks.
+        // Fails if the bundle moves or the parse breaks, so the guard cannot go empty unseen.
         assertTrue(
                 forbidden.size() > 150,
                 "only " + forbidden.size() + " German words were derived from " + BUNDLE
@@ -100,7 +96,7 @@ class NothingIsGermanTest {
         assertTrue(isGerman("Konfiguration", german), "compounding: the list only says Konfigurationsdateien");
         assertTrue(isGerman("Sperre", german), "Sperre is in language-rules.json by hand");
 
-        // `started` and `stopped` extend the German `starte` and `stoppe` by an English `d`, not a listed tail.
+        // `started` and `stopped` extend the German `starte` and `stoppe` by an English `d`, not by a listed tail.
         for (final String word : List.of(
                 "Configuration",
                 "Commands",
@@ -139,7 +135,6 @@ class NothingIsGermanTest {
                         + " pattern rather than a place in the list.");
     }
 
-    /** German-only bundle words, minus what is also English, plus what leaked and is in no bundle. */
     private static Set<String> forbidden() {
         final Rules rules = rules();
         final Set<String> allowed = lowercased(rules.alsoEnglish());
@@ -159,7 +154,6 @@ class NothingIsGermanTest {
         return forbidden;
     }
 
-    /** Every word in the values of a message bundle, lowercased. Never in its keys. */
     private static Set<String> bundleWords(final String name) {
         final Path file = RepositoryRoot.path().resolve(BUNDLE + name);
         assertTrue(
@@ -180,7 +174,6 @@ class NothingIsGermanTest {
         return words;
     }
 
-    /** Parsed once, since every word of every scanned line asks. */
     private static final Rules RULES_FILE = rules();
 
     private static final Set<String> ALSO_ENGLISH = lowercased(RULES_FILE.alsoEnglish());
@@ -200,9 +193,9 @@ class NothingIsGermanTest {
     }
 
     /**
-     * Whether one word out of a source file is German, by stem as well as equality.
+     * Returns whether a word of a source file is German, by stem as well as equality.
      *
-     * A derived word plus a German ending is inflection; a derived word continued is compounding.
+     * A derived word plus a German ending is inflection. A derived word continued is compounding.
      */
     private static boolean isGerman(final String word, final Set<String> german) {
         final Rules rules = RULES_FILE;
@@ -228,7 +221,6 @@ class NothingIsGermanTest {
         return false;
     }
 
-    /** Every line holding a word this rule calls German. */
     private static List<String> offences(final Set<String> german) {
         return scan(line -> {
             final Matcher matcher = SOURCE_WORD.matcher(line);
@@ -256,7 +248,6 @@ class NothingIsGermanTest {
                             + " test was scanning nothing. Fix the path rather than the assertion.");
             try (Stream<Path> walk = Files.walk(directory)) {
                 walk.filter(Files::isRegularFile)
-                        // The sources, and the English-only bundles of Steward's own texts beside them.
                         .filter(path -> path.getFileName().toString().endsWith(".java")
                                 || path.getFileName().toString().endsWith(".properties"))
                         .filter(path ->

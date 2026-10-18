@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** The game actions and announcements, and the requests they become. */
+/** Tests the game actions and announcements, and the requests they become. */
 class RosterApiTest extends WebTestSupport {
 
     @Test
@@ -63,7 +63,7 @@ class RosterApiTest extends WebTestSupport {
         final AuditDirectory journal = AuditDirectory.using(WebFixture.postgres.dataSource());
         final PaymentRequests payments = new PaymentRequests(WebFixture.postgres.dataSource());
         final DiscordId payer = DiscordId.of("700000000000000003");
-        // One open request per person, so the second payment is someone else's.
+        // A person has one open request, so the second payment belongs to someone else.
         final PaymentRequest route = payments.open(payer, 30, 500, 0, 24);
         final PaymentRequest other = payments.open(DiscordId.of("700000000000000004"), 30, 500, 0, 24);
         for (final PaymentRequest settled : List.of(route, other)) {
@@ -87,7 +87,6 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** The reference each journal line a query answers names, as its message carries it. */
     private static List<String> references(final String query) throws Exception {
         final HttpResponse<String> answer = get(query);
         assertEquals(200, answer.statusCode(), answer.body());
@@ -113,11 +112,9 @@ class RosterApiTest extends WebTestSupport {
             final String id =
                     GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString();
 
-            // Reading the row back through the endpoint the browser polls proves the round trip.
             final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
             assertEquals("PENDING", outcome.get("status").getAsString());
 
-            // A web request is a person's, by Discord id, and carries its typed parameters and nothing else.
             final java.util.Map<String, String> row = row(id);
             assertEquals("UNLOCK_MILESTONE", row.get("kind"));
             assertEquals("PERSON", row.get("actor_kind"));
@@ -198,7 +195,6 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** Returns the request a web action wrote, named as the browser was told, with its kind's row as its payload. */
     private static java.util.Map<String, String> row(final String id) throws Exception {
         final String[] name = id.split(":", -1);
         final java.util.Map<String, String> row = new java.util.HashMap<>();
@@ -235,9 +231,9 @@ class RosterApiTest extends WebTestSupport {
     }
 
     /**
-     * The service pages ask for what they act on, never by command name.
+     * Tests that the pages ask for a service by what they act on, never by command name.
      *
-     * The whole track is read; only the active milestone and its open objectives can be acted on.
+     * The whole track is read. Only the active milestone and its open objectives can be acted on.
      */
     @Test
     void gameActionsAreRowsWithoutACommandName() throws Exception {
@@ -297,7 +293,7 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** The start carries whether the admin confirmed it, which the server needs below the recommended minimum. */
+    /** The start request holds whether the admin confirmed it. The server needs that below the recommended minimum. */
     @Test
     void theHungerGamesStartIsARowSayingWhetherItWasConfirmed() throws Exception {
         assertEquals("{}", get("/api/hunger-games/round").body());
@@ -315,7 +311,6 @@ class RosterApiTest extends WebTestSupport {
                     "START_GAME",
                     "{\"confirmed\":true}");
 
-            // The round takes its game's state once one is under way.
             seed.execute("UPDATE registration SET state = 'CLOSED'");
             seed.game(registration, "RUNNING");
             assertEquals(
@@ -331,7 +326,7 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** One form, one request with every language, and nothing written while any language is missing its text. */
+    /** One form sends one request with every language, and nothing is written while a language lacks its text. */
     @Test
     void anAnnouncementIsOneRequestWithEveryLanguage() throws Exception {
         final long before = count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'");
@@ -381,7 +376,7 @@ class RosterApiTest extends WebTestSupport {
 
     @Test
     void anArgumentThatIsNotASingleValueIsRefused() throws Exception {
-        // getAsString() on a JsonArray or JsonObject throws, which Javalin turns into a 500, not a 400.
+        // getAsString() on a JsonArray or JsonObject throws, and Javalin turns that into a 500, not a 400.
         final long before = commandRequestCount();
 
         final HttpResponse<String> asList = post("/api/smp/milestone", "{\"key\": [\"a\", \"b\"]}");
@@ -390,7 +385,7 @@ class RosterApiTest extends WebTestSupport {
         final HttpResponse<String> asObject = post("/api/smp/milestone", "{\"key\": {\"a\": 1}}");
         assertEquals(400, asObject.statusCode(), asObject.body());
 
-        // Neither of them is a row: a 400 that had already written the request would be the same bug.
+        // Neither is a row, because a 400 that had already written the request would be the same bug.
         assertEquals(before, commandRequestCount(), "a refused command was written into the inbox anyway");
     }
 
@@ -404,7 +399,7 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    /** A stale key is refused as the SMP refuses it: 409, its reason, and the database bundle's sentence. */
+    /** A stale key is refused as the SMP refuses it: 409, its reason and the sentence of the database bundle. */
     private static void assertRefused(final HttpResponse<String> answer, final Refusal refusal) {
         assertEquals(409, answer.statusCode(), answer.body());
         final JsonObject body = GSON.fromJson(answer.body(), JsonObject.class);

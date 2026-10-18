@@ -10,10 +10,10 @@ import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
-/** The season's dates, curves and phase, as the interface reads and writes them. */
+/** Tests the dates, curves and phase of the season as the interface reads and writes them. */
 class SeasonApiTest extends WebTestSupport {
 
-    /** Any {@code which} outside the two dates is refused, rather than overwriting launch. */
+    /** Any {@code which} outside the two dates is refused instead of overwriting launch. */
     @Test
     void aSeasonDateNeedsAName() throws Exception {
         final String at = "\"at\":\"" + SOON + "\"";
@@ -23,7 +23,6 @@ class SeasonApiTest extends WebTestSupport {
         assertEquals(400, post("/api/season/date", "{" + at + "}").statusCode());
         assertEquals(
                 400, post("/api/season/date", "{" + at + ",\"which\":\"\"}").statusCode());
-        // The two it does know still work.
         assertEquals(
                 200,
                 post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
@@ -32,7 +31,7 @@ class SeasonApiTest extends WebTestSupport {
                 post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
     }
 
-    /** A null {@code at} clears a date, a real state the start page reads; a blank one is still refused. */
+    /** A null {@code at} clears a date, which the start page reads. A blank one is still refused. */
     @Test
     void aSeasonDateCanBeRemoved() throws Exception {
         final String at = "\"at\":\"" + SOON + "\"";
@@ -64,11 +63,10 @@ class SeasonApiTest extends WebTestSupport {
 
         assertEquals("host", answer.get("subject").getAsString());
         assertTrue(answer.has("points"), answer.toString());
-        // Nothing has sampled into this database, so the answer is no points, not a fabricated line.
         assertEquals(0, answer.getAsJsonArray("points").size());
     }
 
-    /** The page's shortest range is two minutes, which a whole number of hours cannot ask for. */
+    /** The shortest range of the page is two minutes, which a whole number of hours cannot ask for. */
     @Test
     void aCurveSpansTheMinutesAsked() throws Exception {
         final Instant before = Instant.now();

@@ -17,7 +17,7 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/** The servers' catalogues as one, and a version's icons, to signed-in admins only and cached for good. */
+/** Checks that signed-in admins get the servers' catalogues as one, and a version's icons, cached for good. */
 class GameDataApiTest extends WebTestSupport {
 
     private static final byte[] SHEET = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};

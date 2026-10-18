@@ -8,7 +8,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** Recreating a service is a run like any other, an update can confirm local builds, and a truncated actor. */
+/** Tests that recreating a service is a run, that an update can confirm local builds and that a long actor is truncated. */
 class RecreateRunTest extends WebTestSupport {
 
     @Test
@@ -57,9 +57,9 @@ class RecreateRunTest extends WebTestSupport {
     }
 
     /**
-     * Every path into {@code journal_entry.actor_id}, a {@code varchar(32)}, signed in with a 32-character nickname.
+     * Exercises every path into {@code journal_entry.actor_id} ({@code varchar(32)}) with a 32-character nickname.
      *
-     * {@code PhaseDao}'s explicit cast truncates rather than refusing, so that path asserts the value, not the status.
+     * {@code PhaseDao}'s explicit cast truncates instead of refusing, so that path asserts the value, not the status.
      */
     @Test
     void aLongDisplayNameIsNotAnOverflow() throws Exception {
@@ -67,7 +67,6 @@ class RecreateRunTest extends WebTestSupport {
         final String longName = "Archibald Fotheringay-Chumleighs";
         assertEquals(19, snowflake.length(), "a Discord snowflake is 17 to 19 digits");
         assertEquals(32, longName.length(), "32 is the longest nickname Discord accepts");
-        // What "name (id)" would have produced, against the column's width.
         assertEquals(54, (longName + " (" + snowflake + ")").length());
 
         memberId.set(snowflake);
@@ -76,7 +75,6 @@ class RecreateRunTest extends WebTestSupport {
             final HttpClient browser = browser();
             signIn(browser);
             assertLongNameSurvivesSignIn(browser, longName);
-            // A different account, so a different key: every /api call below is behind the gate.
             registerAKey(browser, new TestAuthenticator(), "Archibald's key");
             assertAnnouncementAndRecreateNameTheirAsker(browser, snowflake);
             assertAccessGrantAndRevokeAreJournalled(browser, snowflake);
@@ -131,7 +129,7 @@ class RecreateRunTest extends WebTestSupport {
 
     private void assertAccessGrantAndRevokeAreJournalled(final HttpClient browser, final String snowflake)
             throws Exception {
-        // 3. and 4. Giving access and taking it away; the bot journals those, this side writes the request.
+        // 3. and 4. Giving and taking away access: the bot journals those, and this side writes the request.
         assertEquals(
                 202,
                 post(browser, "/api/access/grant", "{\"discordId\":\"555000000000000001\",\"days\":30}")
@@ -170,7 +168,7 @@ class RecreateRunTest extends WebTestSupport {
                         .statusCode());
         assertEquals(snowflake, actorOf("SET_SMP_START"));
 
-        // START_EVENT and never SMP: setSmpStart refuses once the season is already in SMP.
+        // START_EVENT and never SMP: setSmpStart refuses when the season is already in SMP.
         try {
             assertEquals(
                     200,

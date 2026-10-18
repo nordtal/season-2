@@ -12,19 +12,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-/** What steward's API answers and reads, the roots {@link ApiTypes} writes TypeScript types from. */
+/** The roots that {@link ApiTypes} writes TypeScript types from: what steward's API answers and reads. */
 final class ApiRoots {
 
-    /** The records and enums a route answers or reads; whatever they hold is reached from them. */
+    /** The records and enums that routes answer or read. {@link ApiTypes} reaches everything they hold. */
     static final List<Class<?>> ROOTS = Stream.of(
                     List.<Class<?>>of(LiveEvent.class, DiscordApi.Guild.class), StewardWire.ROOTS)
             .flatMap(List::stream)
             .toList();
 
-    /** Maps a route builds without a record, under the name the frontend reads them by. */
     static final Map<String, Type> ALIASES = aliases();
 
-    /** Types whose own simple name would say too little or collide. */
     static final Map<Class<?>, String> NAMES = names();
 
     private ApiRoots() {}
@@ -41,7 +39,6 @@ final class ApiRoots {
     private static Map<String, Type> aliases() {
         final Map<String, Type> aliases = new LinkedHashMap<>();
         aliases.put("AlertPreferences", new TypeToken<Map<AlertType, Map<AlertChannel, Boolean>>>() {}.getType());
-        // An example value per context type and property, from real data.
         aliases.put("MessageExamples", new TypeToken<Map<String, Map<String, String>>>() {}.getType());
         return aliases;
     }

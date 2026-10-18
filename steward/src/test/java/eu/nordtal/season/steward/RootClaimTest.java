@@ -11,9 +11,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Who may become the root of an empty admin tree: the account {@code discord.root-id} names, and nobody else.
+ * Tests who may become the root of an empty admin tree: the account {@code discord.root-id} names, and nobody else.
  *
- * Every test starts from a tree with nobody in it, as after a fresh install or the restore of an early dump.
+ * Every test starts from a tree with nobody in it.
  */
 class RootClaimTest extends WebFixture {
 
@@ -71,7 +71,7 @@ class RootClaimTest extends WebFixture {
         assertFalse(me.has("signInUnavailable"), me.toString());
     }
 
-    /** The sign-in of one Discord account, as far as the callback's answer. */
+    /** Signs in one Discord account, as far as the answer of the callback. */
     private static HttpResponse<String> signInAs(final String discordId) throws Exception {
         memberId.set(discordId);
         final HttpClient browser = WebTestSupport.browser();

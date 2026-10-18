@@ -23,14 +23,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** The one live stream: a write somebody signals reaches a reader as a change of its topic. */
+/** Checks the one live stream: a write that somebody signals reaches a reader as a change of its topic. */
 class LiveStreamTest extends WebTestSupport {
 
     private static SignalHub hub;
 
     @BeforeAll
     static void listen() {
-        // The production hub over the steward role, so a channel steward cannot LISTEN on fails here.
+        // The production hub runs under the steward role, so a channel steward cannot LISTEN on fails here.
         hub = SignalHub.open(
                 postgres.jdbcUrl(),
                 DatabaseRole.STEWARD.roleName(),
@@ -54,7 +54,6 @@ class LiveStreamTest extends WebTestSupport {
             final BufferedReader lines =
                     new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             assertTrue(readUntil(lines, "text/event-stream"), "the stream did not open");
-            // The first pass after a reader arrives records every version without announcing any.
             Thread.sleep(2_500);
 
             assertEquals(
@@ -92,7 +91,6 @@ class LiveStreamTest extends WebTestSupport {
         }
     }
 
-    /** {@code /api/live} over a socket this test can really close, with the signed-in cookie. */
     private static Socket openTheStream() throws Exception {
         final String cookies = ((CookieManager) http.cookieHandler().orElseThrow())
                 .getCookieStore().getCookies().stream()

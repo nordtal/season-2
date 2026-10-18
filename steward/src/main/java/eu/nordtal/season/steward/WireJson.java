@@ -15,12 +15,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The JSON steward's API speaks: {@link DatabaseJson}'s codec, with the enums the browser spells in lowercase.
- * The TypeScript types read {@link #LOWERCASE} too; a message travels typed, as {@link MessageJson} writes it.
+ * The JSON codec of steward's API: {@link DatabaseJson}'s codec, with the enums of {@link #LOWERCASE} in lowercase.
  */
 public final class WireJson {
 
-    /** The enums written and read as their constant in lowercase. */
+    /** The enums that the codec writes and reads in lowercase. */
     public static final List<Class<? extends Enum<?>>> LOWERCASE =
             List.of(AlertType.class, AlertChannel.class, Alert.Level.class);
 
@@ -28,12 +27,12 @@ public final class WireJson {
 
     private WireJson() {}
 
-    /** Returns the one codec of steward's routes. */
+    /** Returns the codec of steward's routes. */
     public static Gson gson() {
         return GSON;
     }
 
-    /** Returns how a constant is spelled on the wire. */
+    /** Returns how the wire spells a constant. */
     public static String spelled(final Enum<?> constant) {
         return LOWERCASE.contains(constant.getDeclaringClass())
                 ? constant.name().toLowerCase(Locale.ROOT)

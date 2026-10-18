@@ -14,7 +14,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The exceptions this service turns into a response shape of its own, rather than a bare 500. */
+/** The exceptions that get their own response instead of a bare 500. */
 public final class ErrorHandlers {
 
     private static final Logger log = LoggerFactory.getLogger(ErrorHandlers.class);
@@ -24,13 +24,13 @@ public final class ErrorHandlers {
     /**
      * Installs the handlers.
      *
-     * @param texts Steward's bundles with the admins' overrides, which a {@link RequestRefused} is rendered from
-     * @param database the database bundle with the admins' overrides, which a {@link Refused} is worded in
+     * @param texts Steward's bundles with the admins' overrides, which render a {@link RequestRefused}
+     * @param database the database bundle with the admins' overrides, which words a {@link Refused}
      */
     public static void install(final JavalinConfig cfg, final Messages texts, final Messages database) {
         Objects.requireNonNull(texts, "texts");
         Objects.requireNonNull(database, "database");
-        // The page recovers from SECOND_FACTOR_REQUIRED: it runs the ceremony and retries the request.
+        // The page recovers from SECOND_FACTOR_REQUIRED by running the ceremony and retrying the request.
         cfg.routes.exception(RequestRefused.class, (refused, ctx) -> {
             final Map<String, Object> body = new LinkedHashMap<>();
             body.put("error", texts.format(Locales.DEFAULT, refused.why()));
@@ -43,7 +43,6 @@ public final class ErrorHandlers {
             ctx.status(refused.status()).json(body);
         });
 
-        // A refused write is an answer: 409 with the reason to branch on and the sentence to show.
         cfg.routes.exception(
                 Refused.class,
                 (refused, ctx) -> ctx.status(409)
@@ -54,7 +53,7 @@ public final class ErrorHandlers {
                                 "code",
                                 refused.reason().name())));
 
-        // An internal service refused or did not answer; the agent's own refusal says whether Docker was the cause.
+        // The agent's own refusal says whether Docker caused the failure.
         cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
             log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
             final AgentWire.Refusal refusal = AgentClient.refusal(failure)

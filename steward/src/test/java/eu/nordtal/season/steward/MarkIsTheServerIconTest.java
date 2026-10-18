@@ -18,9 +18,9 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds the frontend's icons to {@code resource-pack/src/pack.png}, which a Vite build cannot read itself.
+ * Checks the frontend's icons against {@code resource-pack/src/pack.png}, which a Vite build cannot read.
  *
- * The 512 icon repeats each pixel four times, nearest neighbour like {@code ServerIcon}, to keep the pixel art clean.
+ * The 512 icon repeats each pixel four times (nearest neighbour, like {@code ServerIcon}).
  */
 class MarkIsTheServerIconTest {
 

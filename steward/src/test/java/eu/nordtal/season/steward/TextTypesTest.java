@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** The frontend's packaged texts and their types are the ones the bundles give, so a test renders what ships. */
+/** Checks that the packaged texts and their types are the ones the bundles give, so a test renders what ships. */
 class TextTypesTest {
 
     @Test

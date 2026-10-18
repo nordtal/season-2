@@ -88,29 +88,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Nordtal Steward, the web interface: every route the browser calls, behind one gate.
+ * The web interface: every route the browser calls, behind one gate.
  *
- * Creating a container is not here; only steward-agent may.
+ * This class creates no container. Only steward-agent does.
  */
 public final class Web {
 
     private static final Logger log = LoggerFactory.getLogger(Web.class);
 
-    /** Where this request's session is parked once it has been read, so it is looked up once. */
+    /** The request attribute that holds the session once it is read. */
     private static final String PARKED = "steward.session";
 
-    /** The command that prints a fresh VAPID keypair for the {@code web} group, named in a refusal below. */
+    /** The command that prints a new VAPID keypair for the {@code web} group, named in a refusal. */
     public static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
 
     private final WebSpec config;
 
-    /** Whether PostgreSQL answers right now, for the health route; false without a database. */
+    /** Tells the health route whether PostgreSQL answers. It is false without a database. */
     private final BooleanSupplier databaseAnswers;
 
-    /** Services, logs, the console, config files, the host, backups and plugins. */
     private final StackApi stack;
 
-    /** Signed-in browsers; null only in a test that signs nobody in. */
+    /** The signed-in browsers. It is null only in a test that signs nobody in. */
     private final @Nullable Sessions sessions;
 
     private final SecondFactor secondFactor;
@@ -120,15 +119,15 @@ public final class Web {
 
     private final PushEndpoints push;
 
-    /** Measures the stack and raises what changed; null only in a test without a database. */
+    /** Measures the stack and raises what changed. It is null only in a test without a database. */
     private final @Nullable AlertMonitor alertMonitor;
 
-    /** Sends every raised alert on its way; null only in a test without a database. */
+    /** Sends every raised alert. It is null only in a test without a database. */
     private final @Nullable AlertRouter alertRouter;
 
     private final AlertRoutes alerts;
 
-    /** The names of the guild's channels as discord-bot published them, so an id can be picked rather than typed. */
+    /** The names of the guild's channels as discord-bot published them. */
     private final DiscordApi guild;
 
     private final CommandApi commands;
@@ -141,7 +140,7 @@ public final class Web {
     private final RosterRoutes roster;
 
     private final Settings settings;
-    /** Who may sign in; null only in a test without a database. */
+    /** Decides who may sign in. It is null only in a test without a database. */
     private final @Nullable AdminTree admins;
 
     private final @Nullable AdminApi adminApi;
@@ -163,24 +162,24 @@ public final class Web {
 
     private final Metrics metrics;
 
-    /** What the servers know of the game, which the pickers draw from. */
+    /** The game data of the servers, which the pickers draw from. */
     private final GameDataRoutes gameData;
 
     /** The servers' command trees, which the console suggests from. */
     private final ConsoleCommands consoleCommands;
 
-    /** The browser's one live stream, which every page's data follows. */
+    /** The one live stream that every page follows. */
     private final LiveFeed live;
 
-    /** The page's own texts, which the browser renders and an admin's override changes at once. */
+    /** The page's own texts. An admin's override changes them at once. */
     private final WebTexts texts = WebTexts.load();
 
-    /** The database bundle in the network's languages: a refused write and a server's refusal. */
+    /** The database bundle in the network's languages. It words a refused write and a server's refusal. */
     private final Messages database;
 
     private final @Nullable MessageOverrideStore overrides;
 
-    /** The channels whose signals can change what a page shows; see {@link #listen}. */
+    /** The channels whose signals can change what a page shows. See {@link #listen}. */
     private static final List<Channel> LIVE_CHANNELS = List.of(
             Channel.UPDATE,
             Channel.SERVER,
@@ -198,17 +197,17 @@ public final class Web {
 
     private final Scheduler scheduler;
 
-    /** The alert routing, the failed runs and the alert poll, one at a time: they share what they last saw. */
+    /** The lane that runs the alert routing, the failed runs and the alert poll one at a time, since they share state. */
     private final Executor alertLane;
 
-    /** The session sweep and the alert poll, cancelled at {@link #stop()}. */
+    /** The session sweep and the alert poll, which {@link #stop()} cancels. */
     private final List<Scheduler.Task> timed = new ArrayList<>();
 
     private Javalin app;
 
     /**
-     * @param agentOffered whether an agent token is configured; without one no recreate button is drawn
-     * @param languages the network's, which the database bundle is loaded in
+     * @param agentOffered whether an agent token is configured. Without one the page draws no recreate button
+     * @param languages the network's languages, which the database bundle is loaded in
      */
     public Web(
             final WebSpec config,
@@ -302,7 +301,7 @@ public final class Web {
                 : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), credentials);
     }
 
-    /** What each topic of the live stream reads: the same reads the routes answer with. */
+    /** Maps each topic of the live stream to the reads that its routes answer with. */
     private LiveFeed watchLive(final @Nullable Data data, final Clock clock) {
         final LiveFeed live = new LiveFeed(Waiting.on(clock), scheduler);
         stack.watch(live);
@@ -347,7 +346,7 @@ public final class Web {
             @Nullable AlertRouter router,
             @Nullable AlertPreferences preferences) {}
 
-    /** The one alert path: measured here, raised as rows, routed to push and the admin channel. */
+    /** Measures the stack, raises alerts as rows and routes them to push and the admin channel. */
     private AlertWiring wireAlerts(
             final WebSpec config,
             final Supplier<Thresholds> thresholds,
@@ -378,9 +377,9 @@ public final class Web {
     }
 
     /**
-     * Routes alerts and raises failed runs in the alert lane whenever the hub rings; before the hub's start.
+     * Routes alerts and raises failed runs in the alert lane whenever the hub rings, before the hub's start.
      *
-     * Each pass reads everything again, so a missed or doubled signal costs nothing.
+     * Each pass reads everything again, so a missed or doubled signal changes nothing.
      */
     public void listen(final SignalHub hub) {
         final MessageOverrideStore store = overrides;
@@ -396,28 +395,27 @@ public final class Web {
         if (monitor != null) {
             hub.on(Channel.UPDATE, "failed runs", () -> alertLane.execute(monitor::runs));
         }
-        // Not SMP: play moves the track many times a minute, and the hub's minute covers it.
         for (final Channel channel : LIVE_CHANNELS) {
             hub.on(channel, "the live stream", live::ring);
         }
     }
 
-    /** Fails the route when this instance has no database. */
+    /** Returns the sessions, or fails the route when this instance has no database. */
     private Sessions sessions() {
         return Objects.requireNonNull(sessions, "this route needs sessions, which this instance has none of");
     }
 
-    /** Fails the route when this instance has no database. */
+    /** Returns the admins, or fails the route when this instance has no database. */
     private AdminTree admins() {
         return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
     }
 
-    /** Fails the route when this instance has no database. */
+    /** Returns the admin API, or fails the route when this instance has no database. */
     private AdminApi adminApi() {
         return Objects.requireNonNull(adminApi, "this route needs adminApi, which this instance has none of");
     }
 
-    /** {@link #packExemptionApi}, for the routes that only exist once a database does. */
+    /** Returns {@link #packExemptionApi}, or fails the route when this instance has no database. */
     private PackExemptionApi packExemptionApi() {
         return Objects.requireNonNull(
                 packExemptionApi, "this route needs packExemptionApi, which this instance has none of");
@@ -425,14 +423,14 @@ public final class Web {
 
     public Javalin start(final int port) {
         app = Javalin.create(cfg -> {
-                    // Javalin refuses a body above a megabyte; an uploaded layout image may be larger.
+                    // Javalin's default refuses a body above a megabyte, and a layout image may be larger.
                     cfg.http.maxRequestSize = LayoutsApi.IMAGE_BYTES;
                     configureFrontend(cfg);
                     registerAuthCore(cfg);
                     registerLiveRoute(cfg);
                     registerSecondFactorAndKeys(cfg);
                     registerWebPushRoutes(cfg);
-                    // Before the update routes: its /api/updates/available must come before /api/updates/{id}.
+                    // Registers before the update routes: /api/updates/available must precede /api/updates/{id}.
                     stack.register(cfg, caller());
                     registerAgentRoutes(cfg);
                     registerMetricsRoute(cfg);
@@ -454,7 +452,6 @@ public final class Web {
                 .start(port);
 
         if (sessions != null) {
-            // An expired session is refused by the lookup regardless; the sweep only tidies.
             timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
         }
         final AlertMonitor monitor = alertMonitor;
@@ -473,33 +470,33 @@ public final class Web {
         cfg.jsonMapper(new JavalinGson(WireJson.gson(), true));
         cfg.startup.showJavalinBanner = false;
 
-        // The built frontend, which Gradle packs into the jar under /web.
+        // Gradle packs the built frontend into the jar under /web.
         cfg.staticFiles.add(staticFiles -> {
             staticFiles.hostedPath = "/";
             staticFiles.directory = "/web";
             staticFiles.location = Location.CLASSPATH;
-            // Static files bypass cfg.routes, so `guard` cannot read a Gate off them; set here instead.
+            // `guard` reads no Gate off static files, so this sets the roles.
             staticFiles.roles = Set.of(Gate.ANYONE);
         });
-        // Unmatched paths fall through to index.html so the client-side router can own them.
+        // Unmatched paths serve index.html, which the client-side router handles.
         cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
-        // The only hook that sees both static files and the single-page fallback.
+        // This hook sees both static files and the single-page fallback.
         cfg.routes.after(Gatekeeper::cacheHeaders);
     }
 
     private void registerAuthCore(final JavalinConfig cfg) {
         cfg.routes.get("/api/health", this::health, Gate.ANYONE);
-        // `guard` reads `ctx.routeRoles()` per HTTP method, so HEAD needs its own registration too.
+        // `guard` reads `ctx.routeRoles()` per HTTP method, so HEAD needs its own registration.
         cfg.routes.head("/api/health", this::health, Gate.ANYONE);
 
         cfg.routes.get("/api/me", profile::whoAmI, Gate.ANYONE);
-        // Before signing in too: the sign-in page reads its words from it.
+        // Open before sign-in, because the sign-in page reads its words from it.
         cfg.routes.get("/api/texts", texts::serve, Gate.ANYONE);
 
-        // Runs in front of every matched endpoint and asks it what it requires; see Gate.
+        // Checks the Gate of every matched endpoint before it runs; see Gate.
         cfg.routes.beforeMatched(gatekeeper::guard);
-        // Behind every matched endpoint: the journal line of a route marked Journaled; see Journaling.
+        // Writes the journal line of a route marked Journaled after every matched endpoint; see Journaling.
         cfg.routes.afterMatched(journal::write);
 
         cfg.routes.get("/auth/login", authFlow::login, Gate.ANYONE);
@@ -507,7 +504,7 @@ public final class Web {
         cfg.routes.post(
                 "/auth/logout",
                 ctx -> {
-                    // SameSite=Lax still allows a top-level POST, so the CSRF token check applies here too.
+                    // SameSite=Lax allows a top-level POST, so the CSRF token check applies here too.
                     sessions().end(ctx.cookie(Sessions.COOKIE));
                     ctx.removeCookie(Sessions.COOKIE, "/");
                     ctx.status(204);
@@ -516,7 +513,7 @@ public final class Web {
                 Unjournaled.OWN_SESSION);
     }
 
-    /** One stream for every page: a topic and its new version whenever what a route answers has changed. */
+    /** Registers the live stream: a topic and its new version whenever the answer of a route changes. */
     private void registerLiveRoute(final JavalinConfig cfg) {
         cfg.routes.sse(
                 "/api/live",
@@ -532,7 +529,7 @@ public final class Web {
     }
 
     private void registerSecondFactorAndKeys(final JavalinConfig cfg) {
-        // A door cannot ask for the key it exists to hand out.
+        // These routes issue the key, so they cannot require it.
         cfg.routes.post(
                 "/auth/webauthn/register/start",
                 secondFactor::beginRegistration,
@@ -554,7 +551,7 @@ public final class Web {
                 Gate.SIGNED_IN,
                 Journaled.as(JournalAction.HELD_KEY));
 
-        // The key list itself is part of /api/me, not a route of its own.
+        // The key list is part of /api/me, not a route of its own.
         cfg.routes.put(
                 "/api/keys/{id}", secondFactor::renameKey, Gate.KEY_HELD, Journaled.as(JournalAction.RENAME_KEY));
         cfg.routes.delete(
@@ -590,7 +587,6 @@ public final class Web {
     }
 
     private void registerAgentRoutes(final JavalinConfig cfg) {
-        // Not the update door either: this recreates one container, and only the agent may.
         cfg.routes.get("/api/agent", deployments::state, Gate.KEY_HELD);
     }
 
@@ -616,17 +612,17 @@ public final class Web {
     }
 
     private void registerCommandAndGameRoutes(final JavalinConfig cfg) {
-        // A request in a server's inbox, not a connection to a server: the interface holds none.
+        // The route reads a request in a server's inbox. The interface holds no connection to a server.
         cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
 
-        // The same rows as above, asked for by what they act on rather than by command name.
+        // These routes read the same rows by their target instead of by command name.
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
         cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
-        // A text an admin is trying, shown to them alone by whichever process shows its key.
+        // Sends the text an admin is trying to that admin alone, through the process that shows its key.
         cfg.routes.post(
                 "/api/message-preview",
                 ctx -> GameActions.answer(ctx, commands.preview(ctx, stack.messagePreview(ctx))),
@@ -635,12 +631,12 @@ public final class Web {
     }
 
     private void registerConfigRoutes(final JavalinConfig cfg) {
-        // The example values depend on which admin is asking.
+        // The example values depend on the asking admin.
         cfg.routes.get("/api/message-examples", profile::messageExamples, Gate.KEY_HELD);
     }
 
     private void registerDiscordAndSettingsRoutes(final JavalinConfig cfg) {
-        // An unreachable Discord answers available: false and a typed id, never a failure.
+        // With Discord unreachable the route answers available: false and a typed id, not a failure.
         cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
         cfg.routes.get("/api/settings", settings::get, Gate.KEY_HELD);
         cfg.routes.get("/api/game-data", gameData::read, Gate.KEY_HELD);
@@ -658,7 +654,7 @@ public final class Web {
     }
 
     private void registerAccessRoutes(final JavalinConfig cfg) {
-        // Each of these is one request in the bot's inbox, which the bot carries out; see AccessApi.
+        // Each route writes one request into the bot's inbox, and the bot carries it out; see AccessApi.
         cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
@@ -666,7 +662,7 @@ public final class Web {
         cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
-        // Admin is decided here, not by the bot: AdminApi writes it directly.
+        // AdminApi writes the admin grant directly, not the bot.
         cfg.routes.post(
                 "/api/admins/grant",
                 ctx -> adminApi().grant(ctx),
@@ -702,7 +698,7 @@ public final class Web {
     }
 
     private void registerFallbackRoutes(final JavalinConfig cfg) {
-        // Registered last and greedy: without them an unmatched call falls through as a 500, not a 404.
+        // These routes register last. Without them an unmatched call returns 500 instead of 404.
         cfg.routes.get(
                 "/api/<path>",
                 ctx -> {
@@ -717,16 +713,16 @@ public final class Web {
                 Gate.ANYONE);
     }
 
-    /** Open to anyone: whether the database and steward-agent answer, and a 503 when either does not. */
+    /** Answers 200 when the database and steward-agent answer and 503 otherwise. Anyone may call it. */
     private void health(final Context ctx) {
         final Health health = new Health(databaseAnswers.getAsBoolean(), stack.agentReachable());
         ctx.status(health.database() && health.agent() ? 200 : 503).json(health);
     }
 
-    /** {@code GET /api/health}, open to anyone, so it carries these two booleans and nothing else. */
+    /** The body of {@code GET /api/health}, which anyone may call. It holds these two booleans only. */
     public record Health(boolean database, boolean agent) {}
 
-    /** Who is asking, as the stack routes need it: the actor a row records, and whether the session still holds. */
+    /** Returns who is asking: the actor a row records, and whether the session still holds. */
     private Caller caller() {
         return new Caller() {
             @Override
@@ -744,7 +740,7 @@ public final class Web {
         };
     }
 
-    /** Who is asking, or the answer the filter would have given. */
+    /** Returns the session of the request, or throws the 401 that the filter would give. */
     private Sessions.Session requireSession(final Context ctx) {
         return session(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
     }
@@ -753,7 +749,7 @@ public final class Web {
         return session(ctx).map(Sessions.Session::account);
     }
 
-    /** This request's session, read once and then parked on the request attribute {@link #PARKED}. */
+    /** Returns the session of this request, read once and kept in the request attribute {@link #PARKED}. */
     private Optional<Sessions.Session> session(final Context ctx) {
         if (sessions == null) {
             return Optional.empty();
@@ -763,7 +759,7 @@ public final class Web {
             return parked;
         }
         Optional<Sessions.Session> found = sessions().find(ctx.cookie(Sessions.COOKIE));
-        // Re-read on every request: a revocation ends the session at its next request, not later.
+        // The admin check runs on every request, so a revocation ends the session at its next request.
         if (found.isPresent()
                 && found.get().signedIn()
                 && admins != null
@@ -779,7 +775,7 @@ public final class Web {
         return found;
     }
 
-    /** Ends every log follow before Jetty, since a follow closed after Jetty stopped loops in its error handling. */
+    /** Ends every log follow before Jetty stops, because a follow closed afterwards loops in its error handling. */
     public void stop() {
         timed.forEach(Scheduler.Task::cancel);
         live.close();

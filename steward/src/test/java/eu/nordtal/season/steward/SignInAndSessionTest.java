@@ -17,15 +17,15 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * Signing in against the stand-in Discord, the session it leaves behind, and admin grants.
+ * Tests signing in against the stand-in Discord, the session it leaves behind, and admin grants.
  *
- * The flow is real end to end, from state parameter to CSRF token; only {@code discord.com} is stood in for.
+ * The flow is real from state parameter to CSRF token. Only {@code discord.com} is stood in for.
  */
 class SignInAndSessionTest extends WebTestSupport {
 
     @Test
     void theBundleIsReadableWithoutASession() throws Exception {
-        // `guard` runs on `beforeMatched`, which also runs in front of static files with no Gate.
+        // `guard` runs on `beforeMatched`, which also runs before static files that have no Gate.
         final HttpClient stranger = browser();
         final HttpResponse<String> page = get(stranger, "/");
 
@@ -34,14 +34,12 @@ class SignInAndSessionTest extends WebTestSupport {
                 page.body().contains("<div id=\"root\""),
                 "that should be index.html, not an error page: " + page.body());
 
-        // The deep path a reload lands on, which takes the SPA fallback rather than the file handler.
         final HttpResponse<String> deep = get(stranger, "/operations/updates/27");
         assertEquals(200, deep.statusCode(), "reloading a deep link must land on the page it names: " + deep.body());
 
-        // A file next to it, because the browser asks for these before anybody clicks anything.
         assertEquals(200, get(stranger, "/favicon.ico").statusCode());
 
-        // The fallback is a greedy route; a real asset still has to arrive as itself, not as index.html.
+        // The fallback is a greedy route, and a real asset still has to arrive as itself, not as index.html.
         final String index = page.body();
         final int asset = index.indexOf("/assets/");
         assertTrue(asset > 0, "index.html should reference a built asset: " + index);
@@ -50,7 +48,6 @@ class SignInAndSessionTest extends WebTestSupport {
         assertEquals(200, built.statusCode(), assetPath);
         assertFalse(built.body().contains("<div id=\"root\""), assetPath + " came back as the page instead of itself");
 
-        // A hashed bundle never changes under its own name, so it caches forever.
         assertEquals(
                 List.of("max-age=31536000, immutable"),
                 built.headers().allValues("Cache-Control"),
@@ -67,26 +64,24 @@ class SignInAndSessionTest extends WebTestSupport {
                 "a client-side route falls back to the same document and needs the same header: "
                         + deep.headers().map());
 
-        // An endpoint that does not exist answers 404, not 200 with HTML, or a JSON caller reports a parse error.
+        // An endpoint that does not exist answers 404, not 200 with HTML.
         assertEquals(404, get(stranger, "/api/there-is-no-such-thing").statusCode());
     }
 
     @Test
     void signedOutIsNotHalfway() throws Exception {
-        // A browser with its own empty cookie jar, which is what "signed out" actually is.
         final HttpClient stranger = browser();
 
         assertEquals(401, get(stranger, "/api/services").statusCode());
 
         final JsonObject me = GSON.fromJson(get(stranger, "/api/me").body(), JsonObject.class);
         assertFalse(me.get("signedIn").getAsBoolean());
-        // Configured here, so nothing is missing; DiscordAuthTest covers the deployment where something is.
         assertFalse(me.has("signInUnavailable"), me.toString());
     }
 
     @Test
     void theRegistrationDoorAnswersTheRightRefusal() throws Exception {
-        // The two register routes are outside /api/*, so the filter never sees them and repeats its checks by hand.
+        // The two register routes are outside /api/*, so the filter does not see them and they repeat its checks.
         final HttpClient stranger = browser();
         for (final String path : new String[] {"/auth/webauthn/register/start", "/auth/webauthn/register/finish"}) {
             final HttpResponse<String> refused = stranger.send(
@@ -106,7 +101,6 @@ class SignInAndSessionTest extends WebTestSupport {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
         assertEquals("1", me.get("id").getAsString());
-        // The nickname from the guild, not the username: the name the other admins know them by.
         assertEquals("Ally", me.get("name").getAsString());
         assertEquals(
                 "a-client-secret",
@@ -120,7 +114,7 @@ class SignInAndSessionTest extends WebTestSupport {
 
     @Test
     void whoAmICarriesTheDiscordAvatar() throws Exception {
-        // "1" was never mirrored a Discord profile, so the answer must not carry the field at all.
+        // "1" never mirrored a Discord profile, so the answer must not carry the field.
         final JsonObject withoutAPicture = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         assertFalse(withoutAPicture.has("discordAvatarUrl"), withoutAPicture.toString());
 
@@ -137,21 +131,20 @@ class SignInAndSessionTest extends WebTestSupport {
                     withAPicture.get("discordAvatarUrl").getAsString(),
                     withAPicture.toString());
         } finally {
-            // Every other test in this class signs in as "1" and expects the fallback state; this row is the root.
+            // Every other test in this class signs in as "1" and expects the fallback state, and this row is the root.
             try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var clearIt = connection.prepareStatement(
                             "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
                 clearIt.executeUpdate();
             }
         }
-        // NULL, not empty text, is what the schema writes for a row without a picture (V21).
         final JsonObject cleared = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         assertFalse(cleared.has("discordAvatarUrl"), cleared.toString());
     }
 
     @Test
     void theCookieSurvivesTheAppBeingClosed() throws Exception {
-        // Asserted on the wire, not on a setter: Jetty's defaults are wrong for a home-screen web app.
+        // The assertion is on the wire, not on a setter, because Jetty's defaults are wrong for a home-screen web app.
         final HttpClient browser = browser();
         final HttpResponse<String> login = get(browser, "/auth/login");
         final String state = stateFrom(login);
@@ -179,7 +172,6 @@ class SignInAndSessionTest extends WebTestSupport {
                 cookie.contains("Secure"),
                 cookie + " is marked Secure on a plain http request, so a local sign-in cannot finish");
 
-        // The other half of the same decision, which is the one the deployment runs.
         final HttpClient throughCaddy = browser();
         final HttpResponse<String> behindTls = throughCaddy.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/auth/login"))
@@ -202,7 +194,7 @@ class SignInAndSessionTest extends WebTestSupport {
 
     @Test
     void theSessionOutlivesTheProcess() throws Exception {
-        // The whole reason steward_session exists: a restart must not sign everybody out.
+        // A restart must not sign everybody out, which is why steward_session exists.
         final HttpClient browser = browser();
         signIn(browser);
         assertTrue(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
@@ -233,7 +225,6 @@ class SignInAndSessionTest extends WebTestSupport {
                 after,
                 "the id that was in the browser before anybody proved who they were is now a " + "signed-in session");
 
-        // The old one is gone, so it can no longer be a valid cookie for anybody.
         final HttpClient planted = browser();
         final HttpResponse<String> withTheOldId = planted.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/me"))
@@ -266,7 +257,6 @@ class SignInAndSessionTest extends WebTestSupport {
 
     @Test
     void withoutAGrantNobodyGetsIn() throws Exception {
-        // Not signIn(): that helper makes the account an admin first, and this one must not be.
         memberId.set("880000000000000001");
         memberNick.set("Stranger");
         try {
@@ -350,7 +340,6 @@ class SignInAndSessionTest extends WebTestSupport {
     }
 
     private void assertRevokingCascadesAndRefuses() throws Exception {
-        // One of them granted below the first, so revoking the first takes both.
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var below = connection.prepareStatement("UPDATE discord_user"
                         + " SET admin_granted_by = '881000000000000001'"
@@ -418,7 +407,7 @@ class SignInAndSessionTest extends WebTestSupport {
 
     @Test
     void signingOutIsNotSomethingAnotherSiteCanDo() throws Exception {
-        // /auth/logout is not under /api/*, so the write-guarding filter does not see it; a token check stands in.
+        // /auth/logout is outside /api/*, so the write-guarding filter does not see it and a token check stands in.
         final HttpClient browser = browser();
         signIn(browser);
 

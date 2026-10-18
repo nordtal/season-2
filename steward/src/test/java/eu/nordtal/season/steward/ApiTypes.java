@@ -32,13 +32,12 @@ import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Writes the TypeScript types of steward's API from the Java records its routes answer and read.
+ * Writes the TypeScript types of steward's API from the records its routes answer and read.
  *
- * Run by {@code :steward:generateApiTypes}; {@code ApiTypesTest} fails while the committed file differs.
+ * {@code :steward:generateApiTypes} runs it. {@code ApiTypesTest} fails while the committed file differs.
  */
 public final class ApiTypes {
 
-    /** Where the frontend reads them, relative to the steward module. */
     static final Path TARGET = Path.of("frontend/src/lib/api.gen.ts");
 
     private static final int WIDTH = 120;
@@ -49,7 +48,7 @@ public final class ApiTypes {
 
     private ApiTypes() {}
 
-    /** The whole file, one type per record or enum reachable from {@link ApiRoots#ROOTS}, in the order reached. */
+    /** The whole file: one type per record or enum reachable from {@link ApiRoots#ROOTS}, in the order reached. */
     static String render() {
         final ApiTypes types = new ApiTypes();
         ApiRoots.ROOTS.forEach(types::reach);
@@ -68,7 +67,6 @@ public final class ApiTypes {
         return out.toString();
     }
 
-    /** Writes the file into the frontend, the one build step behind it. */
     public static void main(final String[] args) throws IOException {
         Files.writeString(TARGET, render(), StandardCharsets.UTF_8);
         Files.writeString(BrandCss.TARGET, BrandCss.render(), StandardCharsets.UTF_8);
@@ -88,7 +86,6 @@ public final class ApiTypes {
         pending.add(type);
     }
 
-    /** A type written out under a name of its own, for a map the routes build without a record. */
     private String aliased(final java.lang.reflect.Type type) {
         if (type instanceof Class<?> plain) {
             return named(plain);
@@ -150,7 +147,6 @@ public final class ApiTypes {
         }
     }
 
-    /** A type inside a list or a map, where a null is written out rather than left away. */
     private String typeOf(final AnnotatedType annotated) {
         final String plain = plainTypeOf(annotated);
         return annotated.isAnnotationPresent(Nullable.class) ? plain + " | null" : plain;
@@ -178,7 +174,6 @@ public final class ApiTypes {
         return named(type);
     }
 
-    /** An element of a list, in parentheses when it is a union, so the brackets bind to all of it. */
     private String elementOf(final AnnotatedType element) {
         final String inner = typeOf(element);
         return inner.contains(" | ") ? "(" + inner + ")" : inner;
@@ -217,7 +212,7 @@ public final class ApiTypes {
             return "MessageRef";
         }
         if (type == AgentWire.Note.class) {
-            // The wire's copy of a run's note, which the wire cannot import; drawn by the same view, so one type.
+            // The wire cannot import a run's note, so it holds a copy. Both are drawn as one type.
             return named(sameShape(type, UpdateReport.Note.class));
         }
         if (type == JsonObject.class) {
@@ -233,7 +228,7 @@ public final class ApiTypes {
         throw new IllegalStateException("no wire shape for " + type);
     }
 
-    /** {@code original}, once {@code copy} is checked to carry the same components under the same names. */
+    /** Returns {@code original} after checking that {@code copy} has the same components with the same names. */
     private static Class<?> sameShape(final Class<?> copy, final Class<?> original) {
         final List<String> copied = componentNames(copy);
         if (!copied.equals(componentNames(original))) {
@@ -248,7 +243,6 @@ public final class ApiTypes {
                 .toList();
     }
 
-    /** An enum's constants as a union of strings, broken one per line when it would not fit. */
     private static String union(final Class<?> type, final int indent) {
         final List<String> names = new ArrayList<>();
         for (final Object constant : type.getEnumConstants()) {

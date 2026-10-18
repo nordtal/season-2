@@ -40,21 +40,19 @@ import java.util.stream.Stream;
 import org.slf4j.LoggerFactory;
 
 /**
- * The real interface on this machine, against a scratch database and stand-ins, signed in as an invented admin.
+ * Runs the real interface on this machine against a scratch database and stand-ins, signed in as an invented admin.
  *
- * For looking at pages: nothing reaches the live database, Discord, bunq or the Docker daemon.
+ * Nothing reaches the live database, Discord, bunq or the Docker daemon.
  */
 public final class StewardPreview {
 
-    /** The invented admin the preview signs in as; no Discord account has this id. */
     static final String ADMIN = "100000000000000001";
 
     private static final String ADMIN_NAME = "Preview";
 
-    /** Who owns the objects of a dump taken on a deployment, as compose.yml names the database user. */
     private static final String DUMP_OWNER = "nordtal";
 
-    /** A one-shot that ran and a standby at rest, beside the stand-in's smp, so their pages can be looked at. */
+    /** A one-shot that ran and a standby at rest, beside the stand-in's smp, so their pages show. */
     private static final com.google.gson.JsonObject RESTING =
             com.google.gson.JsonParser.parseString("""
                     {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
@@ -62,7 +60,6 @@ public final class StewardPreview {
                        "labels": {"eu.nordtal.standby-of": "proxy"}}}
                     """).getAsJsonObject();
 
-    /** Sealing the authenticator apps of one run, drawn fresh at every start. */
     private static final String PREVIEW_TOTP_KEY = previewTotpKey();
 
     private StewardPreview() {}
@@ -74,14 +71,14 @@ public final class StewardPreview {
     }
 
     /**
-     * {@code [--port N] [--dump FILE] [--state FILE] [--jars DIR]}; runs until it is stopped.
+     * Runs {@code [--port N] [--dump FILE] [--state FILE] [--jars DIR]} until it is stopped.
      *
      * @param args the port to serve on, a dump to restore instead of the empty schema, where the cookie goes, and a
      *     directory of {@code <service>/<jar>} whose bundles the Translations page lists
      */
     public static void main(final String[] args) throws Exception {
         final Options options = Options.of(args);
-        // Gone until this run is signed in, so whoever waits for the file never reads the last run's cookie.
+        // Deleted until this run is signed in, so a waiting reader never gets the cookie of the last run.
         Files.deleteIfExists(options.state());
         final Path scratch = Files.createTempDirectory("steward-preview");
         final TestDatabase postgres =
@@ -119,7 +116,7 @@ public final class StewardPreview {
                 signals.start();
                 admit(data, discord);
                 final String session = signIn(config.publicUrl());
-                // The key counts as just held for as long as this runs, so no change asks for it again.
+                // The key counts as just held while this runs, so no change asks for it again.
                 final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
                 scheduler.every(
                         Duration.ZERO,
@@ -130,7 +127,6 @@ public final class StewardPreview {
                         + " (" + ADMIN + "). Cookie " + Sessions.COOKIE + "=" + session + ", Playwright state in "
                         + options.state().toAbsolutePath() + ". Stop it to throw everything away.");
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> forget(options.state()), "preview-shutdown"));
-                // Until the process is stopped.
                 new CountDownLatch(1).await();
             } finally {
                 web.stop();
@@ -138,23 +134,22 @@ public final class StewardPreview {
         }
     }
 
-    /** Gives the stand-in agent the stopped containers and the jars the preview shows. */
+    /** Gives the stand-in agent the stopped containers and the jars that the preview shows. */
     private static void furnish(final AgentStandIn agent) throws IOException {
         agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
         agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
-        // A plugin jar built outside a release, so the stack shows a local build.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
                 "{\"id\": \"smp\", \"local\": true}",
                 java.util.Map.of());
-        // smp's descriptor where the agent reads it, so the track is drawn by the editor smp's jar names.
+        // smp's descriptor sits where the agent reads it, so the editor draws the track that smp's jar names.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
                 "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}",
                 java.util.Map.of());
     }
 
-    /** {@link #RESTING}, and each service of {@code jars} the stand-in's compose.yml does not name yet. */
+    /** {@link #RESTING}, and each service of {@code jars} that the compose.yml of the stand-in does not name yet. */
     private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars) throws IOException {
         final JsonObject services = RESTING.deepCopy();
         if (jars == null) {
@@ -186,7 +181,6 @@ public final class StewardPreview {
         }
     }
 
-    /** The hub steward opens on the stack, so a write somebody signals reaches an open page as it does there. */
     private static SignalHub signalsOf(final DatabaseSpec steward) {
         return SignalHub.open(
                 steward.jdbcUrl(),
@@ -197,7 +191,6 @@ public final class StewardPreview {
                 LoggerFactory.getLogger(StewardPreview.class));
     }
 
-    /** Deletes the cookie file as the process ends, since the JVM does not wait for {@code main} to unwind. */
     private static void forget(final Path state) {
         try {
             Files.deleteIfExists(state);
@@ -206,7 +199,6 @@ public final class StewardPreview {
         }
     }
 
-    /** The stack routes as {@code serve} builds them, over the stand-in agent. */
     private static StackApi stackOf(
             final Steward.Configs configs,
             final AgentClient client,
@@ -216,7 +208,7 @@ public final class StewardPreview {
         return Steward.buildStack(configs.config(), client, database, data, configs.zone(), scheduler);
     }
 
-    /** Makes the invented admin the stand-in's member, and an admin: the root of an empty tree, else below the root. */
+    /** Makes the invented admin a member of the stand-in and an admin, the root of an empty tree or else below it. */
     private static void admit(final Data data, final StandInDiscord discord) throws Exception {
         discord.memberId.set(ADMIN);
         discord.memberNick.set(ADMIN_NAME);
@@ -228,7 +220,7 @@ public final class StewardPreview {
         }
     }
 
-    /** Signs in and registers a software key the way a browser does, and returns the session cookie's value. */
+    /** Signs in and registers a software key like a browser, and returns the value of the session cookie. */
     private static String signIn(final String base) throws Exception {
         final CookieManager cookies = new CookieManager();
         final HttpClient browser =
@@ -286,7 +278,6 @@ public final class StewardPreview {
         return response;
     }
 
-    /** Writes the cookie as Playwright's {@code storageState}, which a browser context loads as it is. */
     private static void writeState(final Path state, final String session) throws IOException {
         final JsonObject cookie = new JsonObject();
         cookie.addProperty("name", Sessions.COOKIE);
@@ -306,7 +297,6 @@ public final class StewardPreview {
         Files.writeString(state, root.toString());
     }
 
-    /** The scratch database as steward logs in to it, under its own role. */
     private static DatabaseSpec asSteward(final TestDatabase postgres) {
         return new DatabaseSpec() {
             @Override
@@ -326,7 +316,6 @@ public final class StewardPreview {
         };
     }
 
-    /** The {@code web} group for {@code http://localhost:<port>}, with the stand-in Discord and no Web Push. */
     private static WebSpec config(final int port, final StandInDiscord discord) {
         return new WebSpec() {
             @Override
@@ -359,7 +348,7 @@ public final class StewardPreview {
                 return new AvatarSpec() {};
             }
 
-            // A key of this run only, so an authenticator app can be added and used here and dies with it.
+            // A key that lives for this run only, so an authenticator app can be added and used here.
             @Override
             public String totpKey() {
                 return PREVIEW_TOTP_KEY;
@@ -374,7 +363,6 @@ public final class StewardPreview {
 
     private static final String USAGE = "usage: [--port N] [--dump FILE] [--state FILE] [--jars DIR]";
 
-    /** What the command line asked for. */
     private record Options(
             int port,
             @org.jspecify.annotations.Nullable Path dump,

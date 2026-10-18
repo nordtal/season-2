@@ -2,7 +2,7 @@ package eu.nordtal.season.steward;
 
 import io.javalin.http.Context;
 
-/** The {@code limit} query parameter of a list route, which every one of them reads the same way. */
+/** The {@code limit} query parameter that every list route reads. */
 public final class QueryLimit {
 
     private QueryLimit() {}

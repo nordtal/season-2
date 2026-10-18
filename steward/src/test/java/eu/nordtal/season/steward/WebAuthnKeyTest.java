@@ -10,7 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** Registering and holding a security key, and the write gate that needs one held recently. */
+/** Tests registering and holding a security key, and the write gate that needs a recently held key. */
 class WebAuthnKeyTest extends WebTestSupport {
 
     @Test
@@ -21,13 +21,12 @@ class WebAuthnKeyTest extends WebTestSupport {
             final HttpClient browser = browser();
             signIn(browser);
 
-            // The sign-in worked. This is not a refused Discord login and must not look like one.
             final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
             assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
             assertEquals(0, me.getAsJsonArray("keys").size(), me.toString());
             assertFalse(me.get("verified").getAsBoolean(), me.toString());
 
-            // 403 rather than 401: 401 becomes the sign-in page, and this person already came from Discord.
+            // 403, not 401, because 401 becomes the sign-in page and this person already came from Discord.
             final HttpResponse<String> refused = get(browser, "/api/services");
             assertEquals(403, refused.statusCode(), refused.body());
             assertEquals(
@@ -35,7 +34,7 @@ class WebAuthnKeyTest extends WebTestSupport {
                     GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
                     "the interface cannot tell this apart from an ordinary refusal: " + refused.body());
 
-            // Including the ones that write: a missing key is not a read-only mode.
+            // This covers the routes that write too, because a missing key is not a read-only mode.
             assertEquals(
                     403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         } finally {
@@ -101,7 +100,7 @@ class WebAuthnKeyTest extends WebTestSupport {
                     finishRegistration(browser, key.register(started.body(), ORIGIN), "Once")
                             .statusCode());
 
-            // A different authenticator answering the same challenge: the library refuses a re-registered credential.
+            // A different authenticator answers the same challenge, and the library refuses a re-registered credential.
             final HttpResponse<String> again =
                     finishRegistration(browser, new TestAuthenticator().register(started.body(), ORIGIN), "Twice");
             assertEquals(400, again.statusCode(), again.body());
@@ -126,7 +125,7 @@ class WebAuthnKeyTest extends WebTestSupport {
             signIn(browser);
 
             final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
-            // A subdomain of the relying party, not a stranger's domain, is the case the id actually creates.
+            // A subdomain of the relying party, not a stranger's domain, is the case the id creates.
             final String answer = new TestAuthenticator().register(started.body(), "https://bluemap.nordtal.eu");
 
             final HttpResponse<String> refused = finishRegistration(browser, answer, "From next door");
@@ -162,7 +161,7 @@ class WebAuthnKeyTest extends WebTestSupport {
                     .register(
                             started.body(),
                             ORIGIN,
-                            // 32 bytes of somebody else's choosing; the shape is right but the value was never issued.
+                            // 32 bytes of somebody else's choosing: the shape is right, but the value was never issued.
                             "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8");
 
             final HttpResponse<String> refused = finishRegistration(browser, answer, "Invented");
@@ -175,7 +174,7 @@ class WebAuthnKeyTest extends WebTestSupport {
 
     @Test
     void aSecondKeyNeedsTheFirst() throws Exception {
-        // A second session of an account that already has a key: it gets past the gate but may not register one.
+        // A second session of an account that already has a key gets past the gate but may not register one.
         final HttpClient stolen = browser();
         signIn(stolen);
         assertFalse(
@@ -194,7 +193,7 @@ class WebAuthnKeyTest extends WebTestSupport {
 
     @Test
     void discordAloneIsNotEnough() throws Exception {
-        // The same account as everywhere else in this class, so it has a key: a cookie past the redirect only.
+        // The same account as elsewhere in this class, so it has a key. The cookie is past the redirect only.
         final HttpClient fresh = browser();
         signIn(fresh);
 
@@ -203,7 +202,6 @@ class WebAuthnKeyTest extends WebTestSupport {
         assertFalse(me.get("verified").getAsBoolean(), "a fresh session started out verified");
         assertFalse(me.getAsJsonArray("keys").isEmpty(), "this account should have a key already");
 
-        // Reading is refused too.
         for (final String path :
                 new String[] {"/api/services", "/api/people", "/api/journal", "/api/updates", "/api/setting-groups"}) {
             final HttpResponse<String> refused = get(fresh, path);
@@ -233,7 +231,6 @@ class WebAuthnKeyTest extends WebTestSupport {
         final String answer = authenticator.assertion(started.body(), ORIGIN);
 
         assertEquals(200, finishAssertion(browser, answer).statusCode());
-        // The same bytes again; the column was emptied in the same statement that read it, so nothing matches.
         final HttpResponse<String> replayed = finishAssertion(browser, answer);
         assertEquals(400, replayed.statusCode(), replayed.body());
         assertTrue(
@@ -248,7 +245,6 @@ class WebAuthnKeyTest extends WebTestSupport {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
 
-        // A key this service has never seen, answering a challenge it really was issued: only the lookup matters.
         final HttpResponse<String> refused =
                 finishAssertion(browser, new TestAuthenticator().assertion(started.body(), ORIGIN));
         assertEquals(400, refused.statusCode(), refused.body());
@@ -267,7 +263,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         final HttpResponse<String> refused =
                 finishAssertion(browser, authenticator.assertion(started.body(), "https://bluemap.nordtal.eu"));
 
-        // The relying party id spans nordtal.eu, but the ORIGIN check is narrower, to this one address.
+        // The relying party id spans nordtal.eu, but the ORIGIN check allows this one address only.
         assertEquals(400, refused.statusCode(), refused.body());
         assertFalse(
                 GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
@@ -287,22 +283,19 @@ class WebAuthnKeyTest extends WebTestSupport {
 
         heldLongAgo(browser);
 
-        // Reading is KEY_HELD: the key was held in this session, and that does not expire.
         assertEquals(200, get(browser, "/api/services").statusCode());
 
         final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}");
         assertEquals(403, refused.statusCode(), refused.body());
         final JsonObject body = GSON.fromJson(refused.body(), JsonObject.class);
         assertEquals("SECOND_FACTOR_REQUIRED", body.get("code").getAsString(), refused.body());
-        // `retryable` tells the interface to open the dialog and retry, rather than draw a red box.
+        // `retryable` tells the interface to open the dialog and retry instead of drawing a red box.
         assertTrue(body.get("retryable").getAsBoolean(), refused.body());
-        // The sentence is the bundle's, rendered with its typed value, not a literal of the route.
         assertEquals(
                 "This is one of the things Steward asks for the key before doing, and this session's step-up has"
                         + " ended.",
                 body.get("error").getAsString());
 
-        // Holding it again lets the same request through: "one tap, not two" as the server sees it.
         holdTheKey(browser, authenticator);
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         settleOpenRuns();
@@ -315,7 +308,6 @@ class WebAuthnKeyTest extends WebTestSupport {
         holdTheKey(browser, authenticator);
         heldLongAgo(browser);
 
-        // Four writes.
         final String[][] writes = {
             {"/api/updates", "{\"kind\":\"UPDATE\"}"},
             {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
@@ -356,7 +348,6 @@ class WebAuthnKeyTest extends WebTestSupport {
 
         assertEquals(200, delete(browser, "/api/keys/" + id).statusCode());
         assertFalse(get(browser, "/api/me").body().contains("My old phone"));
-        // The first key is untouched, so the account still works afterwards.
         assertEquals(200, get(browser, "/api/services").statusCode());
     }
 
@@ -365,7 +356,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         final HttpClient browser = browser();
         signIn(browser);
         holdTheKey(browser, authenticator);
-        // A credential id is handed to every browser that starts a sign-in, so a stranger can hold it too.
+        // Every browser that starts a sign-in receives a credential id, so a stranger can hold it too.
         final HttpResponse<String> refused = delete(browser, "/api/keys/" + new TestAuthenticator().credentialId());
         assertEquals(404, refused.statusCode(), refused.body());
     }
@@ -376,7 +367,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         signIn(browser);
         holdTheKey(browser, authenticator);
         heldLongAgo(browser);
-        // A stolen session that could add an authenticator would have made itself permanent.
+        // A stolen session that could add an authenticator would be permanent.
         assertEquals(
                 403,
                 delete(browser, "/api/keys/" + authenticator.credentialId()).statusCode());

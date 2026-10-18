@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Steward's blue is the brand tone the game and the bot paint, written from it. */
+/** Checks that Steward's blue is the brand tone, written from it. */
 class BrandCssTest {
 
     @Test

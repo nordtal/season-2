@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** How long one step-up holds, chosen per step-up and kept by the server, and ending it early. */
+/** Tests how long one step-up holds, which the server keeps per step-up, and ending it early. */
 class StepUpTest extends WebTestSupport {
 
     @Test
@@ -57,7 +57,6 @@ class StepUpTest extends WebTestSupport {
         holdTheKey(browser, authenticator, "SIX_HOURS");
         settleOpenRuns();
 
-        // Five hours on, a six-hour step-up still holds.
         shiftStepUp(browser, Duration.ofHours(5));
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         settleOpenRuns();
@@ -106,7 +105,6 @@ class StepUpTest extends WebTestSupport {
         }
     }
 
-    /** How long this browser's step-up was granted for, as the row records it. */
     private static Duration heldFor(final HttpClient browser) throws Exception {
         final String csrf = csrfOf(browser);
         try (var connection = WebFixture.postgres.dataSource().getConnection();
@@ -120,7 +118,6 @@ class StepUpTest extends WebTestSupport {
         }
     }
 
-    /** Moves this browser's step-up back by {@code by}, as if that much time had passed. */
     private static void shiftStepUp(final HttpClient browser, final Duration by) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.prepareStatement("UPDATE steward_session SET verified_at = verified_at"

@@ -211,16 +211,28 @@ class ArchitectureTest {
     }
 
     @Test
-    void neitherTheBotNorStewardRendersForMinecraft() {
+    void theBotNeverRendersForMinecraft() {
         noClasses()
                 .that()
-                .resideInAnyPackage("eu.nordtal.season.discordbot..", "eu.nordtal.season.steward..")
+                .resideInAPackage("eu.nordtal.season.discordbot..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
                         "net.kyori.adventure..",
                         "eu.nordtal.season.messagerendering..",
                         "eu.nordtal.season.packrendering..")
+                .check(classes);
+    }
+
+    @Test
+    void stewardDrawsMenusWithTheGamesRendererButNeverThePack() {
+        noClasses()
+                .that()
+                .resideInAPackage("eu.nordtal.season.steward..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("eu.nordtal.season.packrendering..")
+                .because("a menu's preview is drawn by the game's own renderer, and the pack is built elsewhere")
                 .check(classes);
     }
 

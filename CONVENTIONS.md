@@ -192,8 +192,8 @@ run `git config core.hooksPath .githooks` once per clone.
     else.
   - Only `NetworkTime` reads the wall clock; every other class is handed the process's clock.
   - `:messages` has no Adventure; `:message-rendering` and `:pack-rendering` add Adventure, which
-    both platforms provide. Neither `discord-bot` nor Steward depends on Adventure or on either
-    renderer.
+    both platforms provide. `discord-bot` depends on neither Adventure nor either renderer. Steward
+    draws a menu's preview with `:message-rendering` and never depends on `:pack-rendering`.
   - No Paper plugin reads an identity outside pre-login or a hub refresh; database work leaves the main thread.
   - A Paper plugin and the proxy render through their base's one `MessageRenderer` (`NordtalPlugin`,
     `ProxyPlugin`); no other class there builds one.

@@ -9,13 +9,13 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One journal entry before it is written: what happened, who did it, whom it concerns and its typed values.
+ * One journal entry before it is written.
  *
- * @param action  what the journal files it under and filters by
- * @param actor   who did it: a person, Steward on its own, the host or the bot
- * @param subject the person it concerns, where there is one
- * @param mcUuid  the Minecraft account it concerned, where there is one
- * @param detail  its values, such as {@code new AccessGranted(30, until)}; {@code null} for an action with none
+ * @param action the action the journal files it under and filters by
+ * @param actor who acted: a person, Steward, the host or the bot
+ * @param subject the person it concerns, if any
+ * @param mcUuid the Minecraft account it concerns, if any
+ * @param detail its values, such as {@code new AccessGranted(30, until)}. Null if it has none
  */
 public record AuditLine(
         JournalAction action,
@@ -29,12 +29,11 @@ public record AuditLine(
         Objects.requireNonNull(actor, "actor");
     }
 
-    /** Returns the line this entry reads as, rendered from its values. */
     public MessageRef line() {
         return JournalDetail.line(action, detail);
     }
 
-    /** Returns an entry about nobody in particular. */
+    /** Returns an entry without a subject. */
     public static AuditLine of(final JournalAction action, final Actor actor, final @Nullable JournalDetail detail) {
         return new AuditLine(action, actor, null, null, detail);
     }

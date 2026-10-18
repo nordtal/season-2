@@ -39,12 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises {@link AuditDirectory} against a real PostgreSQL running the real migrations.
- *
- * Only PostgreSQL can say whether every detail comes back from its family's table and whether it accepts the
- * null-switched predicates; the tests skip themselves without Docker.
- */
+/** Exercises {@link AuditDirectory} against PostgreSQL with the real migrations. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuditDirectoryIntegrationTest {
 
@@ -319,7 +314,7 @@ class AuditDirectoryIntegrationTest {
                 () -> execute("INSERT INTO journal_entry (action, actor_kind) VALUES ('SETTLE', 'STEWARD')"));
     }
 
-    /** One detail of every kind, both sides of each that may leave a value out, with the action it is under. */
+    /** One detail of every kind, with both sides of each that may omit a value. */
     private static Map<JournalDetail, JournalAction> everyDetail(
             final UUID tab, final UUID byHand, final long update, final long restore, final long removal) {
         final Map<JournalDetail, JournalAction> written = new LinkedHashMap<>();
@@ -374,7 +369,7 @@ class AuditDirectoryIntegrationTest {
         return written;
     }
 
-    /** Three entries about Alice, one about Bob, two of which share an action. */
+    /** Three entries about Alice and one about Bob, two of which share an action. */
     private void seedFourEntries() {
         final Actor admin = Actor.person(DiscordId.of(ADMIN));
         entry(JournalAction.LINK, Actor.STEWARD, ALICE, "-4 minutes");
@@ -383,7 +378,7 @@ class AuditDirectoryIntegrationTest {
         entry(JournalAction.REVOKE_ACCESS, admin, ALICE, "-1 minutes");
     }
 
-    /** Writes an entry without values and moves it back in time, so the order does not hang on the clock's grain. */
+    /** Writes an entry without values and moves it back in time, so the order does not depend on the clock. */
     private void entry(final JournalAction action, final Actor actor, final String subject, final String ago) {
         directory.record(AuditLine.about(action, actor, DiscordId.of(subject), null));
         execute("UPDATE journal_entry SET occurred = now() + interval '" + ago + "' WHERE occurred = now()"
@@ -403,7 +398,7 @@ class AuditDirectoryIntegrationTest {
         return entries.stream().map(AuditEntry::action).toList();
     }
 
-    /** Writes a paid payment request and returns its id; {@code matchedCents} is null for a booking by hand. */
+    /** Writes a paid payment request and returns its id. {@code matchedCents} is null for a booking by hand. */
     private static UUID payment(
             final String reference,
             final String person,

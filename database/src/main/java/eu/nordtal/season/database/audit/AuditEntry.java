@@ -8,14 +8,13 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One row of {@code journal_entry} with its values, serialised straight to JSON for Steward to render.
+ * One row of {@code journal_entry} with its values, serialised to JSON for Steward.
  *
- * @param occurred when it happened, by the database's clock
- * @param action   what happened
- * @param actor    who did it: a person, Steward on its own, the host or the bot
- * @param subject  the person the entry is about, {@code null} when there is no one person
- * @param mcUuid   the Minecraft account for link and unlink, {@code null} otherwise
- * @param line     the line rendered from its values when it was read
+ * @param occurred the database's time of the entry
+ * @param actor who acted: a person, Steward, the host or the bot
+ * @param subject the person it is about, null if none
+ * @param mcUuid the Minecraft account of a link or unlink, null otherwise
+ * @param line the line rendered from its values when it was read
  */
 public record AuditEntry(
         UUID id,

@@ -6,11 +6,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * One row of {@code online_player}: a player the proxy saw connected at {@code updated}.
+ * One row of {@code online_player}: a player that the proxy saw connected.
  *
- * @param name    the name last seen on the connection; a cached observation, never a key
- * @param subject the compose service the player was on, or {@code null} while no backend has them yet
- * @param updated when the proxy last saw them connected
+ * @param name the name last seen, a cached observation, never a key
+ * @param subject the compose service of the player, null while no backend has them
  */
 public record OnlinePlayer(UUID uuid, String name, String subject, Instant updated) {
 
@@ -26,7 +25,7 @@ public record OnlinePlayer(UUID uuid, String name, String subject, Instant updat
         }
     }
 
-    /** Returns the service this player is on, empty when the proxy has them but no backend does. */
+    /** Returns the service of the player, empty while no backend has them. */
     public Optional<String> on() {
         return Optional.ofNullable(subject);
     }

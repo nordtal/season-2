@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link OnlineRoster}; it borrows the pool it is given and owns nothing. */
 final class JdbiRoster implements OnlineRoster {
 
     private final OnlineRosterDao dao;
@@ -28,19 +27,19 @@ final class JdbiRoster implements OnlineRoster {
     @Override
     public void replace(final Collection<Presence> connected) {
         Objects.requireNonNull(connected, "connected");
-        // One instant for the whole write: the prune deletes what is older, so rows must agree on now.
+        // One instant for the whole write, as the prune deletes what is older.
         final OffsetDateTime now = clock.instant().atOffset(ZoneOffset.UTC);
         final List<OnlineRosterDao.BoundPresence> rows = new ArrayList<>(connected.size());
         final Set<UUID> seen = new HashSet<>();
         for (final Presence presence : connected) {
             Objects.requireNonNull(presence, "presence");
             if (!seen.add(presence.uuid())) {
-                // An UPSERT would let a duplicate win silently; a proxy reporting an account twice is a bug.
+                // A duplicate is a proxy bug, which an upsert would hide.
                 throw new IllegalArgumentException("the same player appears twice in one write: " + presence.uuid());
             }
             rows.add(new OnlineRosterDao.BoundPresence(presence.uuid(), presence.name(), presence.subject(), now));
         }
-        // An empty roster means nobody is connected, and the prune makes the table say so.
+        // An empty roster empties the table.
         dao.replace(rows, now);
     }
 

@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Objects;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link OnlineDirectory}; it borrows the pool it is given and owns nothing. */
 final class JdbiOnline implements OnlineDirectory {
 
     private final OnlineDao dao;

@@ -4,11 +4,10 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * One row of {@code online_count}, as read back.
+ * One row of {@code online_count}.
  *
- * @param subject the compose service name, or {@code "proxy"} for the proxy's own total
- * @param players how many players the proxy counted for it at {@code updated}
- * @param updated when proxy wrote this row, which decides whether the count is still worth showing
+ * @param subject a compose service name, or {@code "proxy"} for the proxy's total
+ * @param updated when the proxy wrote the row, which decides whether the count is still shown
  */
 public record OnlineCount(String subject, int players, Instant updated) {
 

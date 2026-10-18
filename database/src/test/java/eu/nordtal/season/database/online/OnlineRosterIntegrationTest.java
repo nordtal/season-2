@@ -21,7 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** Exercises {@link OnlineRoster}'s upsert and prune against a real PostgreSQL. */
+/** Exercises the upsert and prune of {@link OnlineRoster} against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OnlineRosterIntegrationTest {
 

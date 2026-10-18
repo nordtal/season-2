@@ -92,7 +92,6 @@ export function TreeView<L>({
   const setQuery = outside?.onQuery ?? setOwnQuery
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const opened = useOpened(file)
-  const top = useRef<HTMLDivElement>(null)
   const ownSearch = useRef<HTMLDivElement>(null)
   const search = outside?.at ?? ownSearch
   const [appliedSeq, setAppliedSeq] = useState(-1)
@@ -145,7 +144,7 @@ export function TreeView<L>({
   const isOpen = (id: string) => (query.trim() ? true : (opened[id] ?? !closedByDefault))
 
   return (
-    <div ref={top} className="flex scroll-mt-4 flex-col gap-3">
+    <div className="flex flex-col gap-3">
       {outside ? null : (
         <FilterBar ref={ownSearch}>
           <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
@@ -171,11 +170,10 @@ export function TreeView<L>({
         {scrolledAway ? (
           <Button
             type="button"
-            variant="ghost"
             size="icon"
             aria-label={t("steward.settings.back-to-top")}
-            className="pointer-events-auto rounded-full bg-background/90 backdrop-blur"
-            onClick={() => (outside?.at ?? top).current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="pointer-events-auto rounded-full shadow-sm"
+            onClick={(event) => scrollPageToTop(event.currentTarget)}
           >
             <ArrowUpIcon aria-hidden />
           </Button>
@@ -184,6 +182,12 @@ export function TreeView<L>({
       </PinnedRow>
     </div>
   )
+}
+
+/** The page scrolls inside the shell's scroll area; without one, the window scrolls. */
+function scrollPageToTop(from: Element) {
+  const page = from.closest('[data-slot="scroll-area-viewport"]') ?? window
+  page.scrollTo({ top: 0, behavior: "smooth" })
 }
 
 export function PinnedRow({ children }: { children: ReactNode }) {

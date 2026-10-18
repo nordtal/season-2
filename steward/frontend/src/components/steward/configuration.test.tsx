@@ -517,6 +517,47 @@ describe("the arrow back to the top", () => {
     act(() => report?.([{ isIntersecting: false }]))
     expect(screen.getByRole("button", { name: "Back to the top" })).toBeTruthy()
   })
+
+  it("scrolls the page's scroll area to its very top, not to the file", async () => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        callback: (entries: Array<{ isIntersecting: boolean }>) => void
+        constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+          this.callback = callback
+        }
+        observe() {
+          this.callback([{ isIntersecting: false }])
+        }
+        disconnect() {}
+        unobserve() {}
+      },
+    )
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "steward/steward": {
+          ...location({ path: "steward/steward", name: "steward" }),
+          revision: "r1",
+          restartRequired: false,
+          entries: [entry({ path: "port", key: "port", value: "8080" })],
+        },
+      }),
+    )
+    draw(
+      <div data-slot="scroll-area-viewport">
+        <Settings service="steward" />
+      </div>,
+    )
+    await open("Steward")
+    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')!
+    const scrollTo = vi.fn<(options?: ScrollToOptions) => void>()
+    Object.defineProperty(viewport, "scrollTo", { value: scrollTo })
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back to the top" }))
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" })
+  })
 })
 
 describe("discarding a group's draft", () => {

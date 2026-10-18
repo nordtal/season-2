@@ -5,13 +5,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The local season 2 network: the same compose.yml, Dockerfiles and steward production runs, on local jars.
+ * The local season 2 network. It runs the compose.yml, the Dockerfiles and the steward of production with local jars.
  *
- * Runs as {@code sh gradlew -q :dev:run --args="<command>"} on any OS with Java and Docker.
+ * Run it as {@code sh gradlew -q :dev:run --args="<command>"} on any operating system with Java and Docker.
  */
 public final class Dev {
 
-    /** What {@code help} prints; {@code DevTest} holds every command of {@link #run} to a line here. */
+    /** The text that {@code help} prints. {@code DevTest} checks that every command of {@link #run} has a line here. */
     static final String HELP = """
             The local season 2 network, on locally built jars.
 
@@ -45,7 +45,6 @@ public final class Dev {
         }
     }
 
-    /** Runs one command, as named in {@link #HELP}, against the checkout at {@code root}. */
     static void run(final Path root, final Terminal terminal, final List<String> args) {
         final String command = args.isEmpty() ? "help" : args.getFirst();
         final List<String> rest = args.isEmpty() ? List.of() : args.subList(1, args.size());

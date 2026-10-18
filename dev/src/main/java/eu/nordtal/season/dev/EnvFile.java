@@ -15,9 +15,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * An environment file as compose reads it: {@code NAME=value} lines, comments, one layer of quotes.
+ * An environment file as compose reads it: {@code NAME=value} lines, comments and one layer of quotes.
  *
- * It is never sourced, and no value is ever printed.
+ * The class never sources the file and never prints a value.
  */
 final class EnvFile {
 
@@ -25,9 +25,7 @@ final class EnvFile {
 
     private static final String OWNER_ONLY = "rw-------";
 
-    /**
-     * A container runs as its own uid, which on Linux is not the developer's, so a service's file is read by all.
-     */
+    /** A container runs as its own uid, so everyone can read the file of a service. */
     private static final String READABLE = "rw-r--r--";
 
     private final Path file;
@@ -43,7 +41,6 @@ final class EnvFile {
         this.mode = mode;
     }
 
-    /** A service's own {@code secrets.env} on a developer's machine, which holds a test application's secrets. */
     static EnvFile readableByItsService(final Path file) {
         return new EnvFile(file, READABLE);
     }
@@ -56,7 +53,6 @@ final class EnvFile {
         return Files.isRegularFile(file);
     }
 
-    /** @return the value of the last assignment of {@code name}, unquoted; empty when there is none */
     Optional<String> value(final String name) {
         String found = null;
         for (final String line : lines()) {
@@ -68,14 +64,12 @@ final class EnvFile {
         return Optional.ofNullable(found);
     }
 
-    /** @return whether {@code name} carries a value somebody gave it: not blank, not {@code REPLACE_ME} */
     boolean isSet(final String name) {
         return value(name)
                 .filter(value -> !value.isBlank() && !value.contains("REPLACE_ME"))
                 .isPresent();
     }
 
-    /** Writes {@code name=value} over every assignment of it, or appends one; the file keeps its mode. */
     void set(final String name, final String value) {
         final List<String> out = new ArrayList<>();
         boolean replaced = false;
@@ -94,7 +88,6 @@ final class EnvFile {
         write(out);
     }
 
-    /** @return the line numbers, from one, of every uncommented line still holding {@code REPLACE_ME} */
     List<Integer> replaceMeLines() {
         final List<Integer> numbers = new ArrayList<>();
         final List<String> lines = lines();
@@ -138,7 +131,7 @@ final class EnvFile {
         try {
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(mode));
         } catch (final UnsupportedOperationException e) {
-            // Windows has no POSIX modes; the directory's permissions apply.
+            // Windows has no POSIX modes, so the permissions of the directory apply.
         }
     }
 

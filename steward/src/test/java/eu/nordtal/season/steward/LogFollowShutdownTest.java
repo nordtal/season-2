@@ -34,8 +34,7 @@ class LogFollowShutdownTest extends WebTestSupport {
             final BufferedReader lines =
                     new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             String line;
-            while ((line = lines.readLine()) != null && !line.contains("still running")) {
-            }
+            while ((line = lines.readLine()) != null && !line.contains("still running")) {}
             assertTrue(line != null, "the follow ended before it was running");
             root.addAppender(warnings);
             web.stop();

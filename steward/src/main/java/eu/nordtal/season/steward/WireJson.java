@@ -9,7 +9,6 @@ import eu.nordtal.season.database.DatabaseJson;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
-import eu.nordtal.season.messages.MessageJson;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;

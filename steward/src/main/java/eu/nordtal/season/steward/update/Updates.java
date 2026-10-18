@@ -214,6 +214,7 @@ public final class Updates {
 
         @Nullable
         Long delaySeconds;
+
         java.util.@Nullable List<String> services;
         /** For an update: true confirms that the update replaces builds made on the host. */
         @Nullable

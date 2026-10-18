@@ -39,12 +39,14 @@ public final class MemorySettingStore implements SettingStore {
         return settings(service, Environment.of("NORDTAL_TEST").reading(variable -> null));
     }
 
-    /** Returns the settings of {@code service} in this store, with {@code environment}. */
     public DatabaseSettings settings(final String service, final Environment environment) {
         return DatabaseSettings.over(this, service, environment, LoggerFactory.getLogger(MemorySettingStore.class));
     }
 
-    /** Stores {@code value} at a path as an admin would, written as JSON; a string that is JSON goes in as it is. */
+    /**
+     * Stores {@code value} at a path as an admin would, written as JSON. A string that is JSON goes
+     * in as it is.
+     */
     public synchronized MemorySettingStore set(
             final String service, final String group, final String path, final Object value) {
         final String json = value instanceof final String text && looksLikeJson(text) ? text : GSON.toJson(value);
@@ -54,9 +56,11 @@ public final class MemorySettingStore implements SettingStore {
     }
 
     /**
-     * Returns {@code group} of {@code service} taken over {@code values}, stored as an admin would store them.
+     * Returns {@code group} of {@code service} loaded from {@code values}, stored as an admin would
+     * store them.
      *
-     * @throws SettingsException with the reason the check refused them, which a process would only record and start on
+     * @throws SettingsException with the reason the check refused them. A process would only record
+     *     it.
      */
     public <T> T checked(
             final String service, final eu.nordtal.season.settings.Group<T> group, final Map<String, ?> values)

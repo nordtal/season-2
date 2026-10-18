@@ -4,15 +4,14 @@ import eu.nordtal.season.messages.Tone;
 import java.util.EnumMap;
 import java.util.Map;
 
-/** The tone colours a group of {@link ColoursSpec} declares. */
 public final class Colours {
 
-    /** Every Paper and proxy service's group of tone colours; Steward reads it for the bundles of that service. */
+    /** The tone colours of every Paper and proxy service. */
     public static final Group<ColoursSpec> GROUP = Group.of("colours", ColoursSpec.class);
 
     private Colours() {}
 
-    /** Returns each tone's declared hex value; a new {@link Tone} stops this compiling until it has a key. */
+    /** Returns the hex value of each tone. A {@link Tone} without a key here does not compile. */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {

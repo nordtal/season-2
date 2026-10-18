@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Pins the matching rule the command gate rests on; each case is a real way past a string comparison. */
+/** Checks the matching rule of the command filter. Each case is a way past a plain string comparison. */
 class CommandAllowlistTest {
 
     private static final CommandAllowlist LIST = CommandAllowlist.parse(List.of("smp status", "msg", "hg ready"));
@@ -74,7 +74,7 @@ class CommandAllowlistTest {
 
     @Test
     void aRootIsVisibleWhenAnythingUnderItIsAllowed() {
-        // Completion filters work on root labels; hiding a subcommand is Brigadier's requires.
+        // Completion filters work on root labels. Brigadier's requires hides a subcommand.
         assertTrue(LIST.allowsRoot("smp"));
         assertTrue(LIST.allowsRoot("minecraft:smp"));
         assertTrue(LIST.allowsRoot("HG"));

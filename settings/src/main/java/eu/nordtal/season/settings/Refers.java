@@ -5,28 +5,23 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * What a setting's value names: an entry of a game registry, a colour or a Discord object, which Steward picks.
- *
- * On a list every entry names one. The value stays text the game checks; Steward never refuses an unknown one.
+/** Marks what the value of a setting names: an entry of a game registry, a colour or a Discord object.
+ * Steward offers a picker for it. On a list every entry names one. The value stays text, which the game checks.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Refers {
 
-    /** What the value names. */
     To value();
 
-    /** The key of a sibling whose value decides the registry, which {@link To#SUBJECT} needs. */
+    /** The key of the sibling whose value decides the registry. {@link To#SUBJECT} needs it. */
     String dependsOn() default "";
 
     /** Whether an empty value is a choice of its own, such as no channel at all. */
     boolean optional() default false;
 
-    /** The entries of the registry a picker leaves out, by their namespaced key. */
     String[] except() default {};
 
-    /** What a value names; a registry's constant is that registry's name in the game catalogue, lower case. */
     enum To {
         ITEM,
         BLOCK,
@@ -40,7 +35,6 @@ public @interface Refers {
         MOB_EFFECT,
         SOUND_EVENT,
         DAMAGE_TYPE,
-        /** A colour as {@code #rrggbb}. */
         COLOUR,
         DISCORD_CHANNEL,
         DISCORD_USER

@@ -8,15 +8,14 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/**
- * The network's {@code prestige} group: when each of the thirteen crests is reached, and the name colours.
+/** The network's {@code prestige} group: when each of the thirteen crests is reached, and the name colours.
  * Every name's card shows the crest, and smp paints names in the colours.
- * Hours and colours are sibling blocks with the same keys, so steward pairs them; {@code admin} sits beside both.
+ * Hours and colours are sibling blocks with the same keys, so steward pairs them.
  */
 @ConfigSpec
 public interface PrestigeSpec {
 
-    /** Overrides every prestige tier below, rather than being a fourteenth tier of its own. */
+    /** Overrides every tier below. It is no fourteenth tier. */
     @Order(1)
     @Name("Admin")
     @Key("admin")
@@ -42,7 +41,6 @@ public interface PrestigeSpec {
         return Specs.createDefault(TierColoursSpec.class);
     }
 
-    /** The hour each {@link eu.nordtal.season.database.access.Prestige} tier is reached at, in order. */
     @ConfigSpec
     interface TierHoursSpec {
 
@@ -151,7 +149,6 @@ public interface PrestigeSpec {
         }
     }
 
-    /** One colour per {@link eu.nordtal.season.database.access.Prestige} tier, in order. */
     @ConfigSpec
     interface TierColoursSpec {
 

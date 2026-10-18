@@ -11,7 +11,7 @@ import java.time.Duration;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** That {@code query-timeout-seconds} bounds a running query in a pool however the process opened it. */
+/** Checks that {@code query-timeout-seconds} bounds a running query in a pool however the process opened it. */
 class DatabaseQueryBoundIntegrationTest {
 
     private static final String SLOW = "select pg_sleep(3)";
@@ -20,7 +20,7 @@ class DatabaseQueryBoundIntegrationTest {
         return new DatabaseSpec() {
             @Override
             public String jdbcUrl() {
-                // The test URL spells socketTimeout=0 out, which would beat the pool's own setting.
+                // The test URL sets socketTimeout=0, which would override the pool's setting.
                 return database.jdbcUrl().replaceFirst("\\?.*", "");
             }
 

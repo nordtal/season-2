@@ -6,25 +6,21 @@ import eu.nordtal.season.database.setting.SettingStore;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The resource pack the proxy offers: {@code url} and {@code sha1} of its {@code pack} group, which an update run sets.
- *
- * Only the stored rows count, so a proxy that never had a pack reads as absent whatever its spec defaults to.
+/** The resource pack the proxy offers: {@code url} and {@code sha1} of its {@code pack} group.
+ * An update run sets them. Only stored rows count, so a proxy without a stored pack reads as absent
+ * whatever the spec defaults to.
  */
 public record PackState(@Nullable String url, @Nullable String sha1) {
 
-    /** The service whose settings hold the pack. */
     public static final String SERVICE = "proxy";
 
-    /** The group of that service which holds it. */
     public static final String GROUP = "pack";
 
-    /** Whether a pack was ever set: a hash is what the client is held to. */
+    /** Returns whether a pack is set. The hash decides, because the client is held to it. */
     public boolean present() {
         return sha1 != null;
     }
 
-    /** Reads the two values as stored. */
     public static PackState read(final SettingStore store) {
         return of(store.overrides(List.of(SERVICE)));
     }
@@ -48,7 +44,7 @@ public record PackState(@Nullable String url, @Nullable String sha1) {
         return new PackState(url, sha1);
     }
 
-    /** A stored JSON value as text, so a hash made only of digits stays the text it was. */
+    /** Returns a stored JSON value as text, so a hash of only digits stays text. */
     private static @Nullable String text(final String json) {
         final JsonElement value = JsonParser.parseString(json);
         if (!value.isJsonPrimitive()) {

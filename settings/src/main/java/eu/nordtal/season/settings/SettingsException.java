@@ -2,7 +2,7 @@ package eu.nordtal.season.settings;
 
 import java.io.Serial;
 
-/** A group of settings that could not be read, or whose check refused it; the message names which and why. */
+/** Signals a group of settings that could not be read or that its check refused. */
 public final class SettingsException extends Exception {
 
     @Serial
@@ -12,7 +12,7 @@ public final class SettingsException extends Exception {
         super(message, cause);
     }
 
-    /** A refusal recorded earlier, of which only the sentence is left. */
+    /** Creates the exception for a refusal recorded earlier, of which only the message is left. */
     public SettingsException(final String message) {
         super(message);
     }

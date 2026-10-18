@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** The season the network runs, which every message can name as {@code {season.number}} and {@code {season.name}}. */
 @ConfigSpec
 public interface SeasonSpec {
 
@@ -19,7 +18,6 @@ public interface SeasonSpec {
         return 2;
     }
 
-    /** The season's name as the server browser shows it. */
     @Order(2)
     @Name("Name")
     @Key("name")

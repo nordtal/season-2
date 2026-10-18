@@ -13,13 +13,11 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 /**
- * Overrides any value of a spec with an environment variable, which wins and is never written back.
- *
- * Its name is {@code <PREFIX>_<PATH>} upper-cased, dots and dashes as {@code _}; {@link #forSpec} refuses a clash.
+ * Overrides values of a spec with environment variables. A variable wins and is never written back.
+ * Its name is {@code <PREFIX>_<PATH>}, upper-cased, dots and dashes as {@code _}.
  */
 public final class EnvOverlay {
 
-    /** An empty value counts as unset, matching how the bot already treated POSTGRES_PASSWORD. */
     private final Map<String, SpecPaths.Leaf> byVariable;
 
     private final Function<String, String> environment;
@@ -33,13 +31,6 @@ public final class EnvOverlay {
     }
 
     /**
-     * Builds the overlay for a spec.
-     *
-     * @param specType    the spec interface
-     * @param prefix      the variable prefix, e.g. {@code NORDTAL}
-     * @param environment where variables are read from; {@link System#getenv(String)} in production
-     * @param gson        used to parse values whose type is not a plain scalar
-     * @return the built overlay
      * @throws IllegalStateException if two config paths map to the same variable name
      */
     public static EnvOverlay forSpec(
@@ -68,12 +59,8 @@ public final class EnvOverlay {
         return new EnvOverlay(byVariable, environment, gson);
     }
 
-    /**
-     * {@code nametags.text-shadow} + {@code NORDTAL} -> {@code NORDTAL_NAMETAGS_TEXT_SHADOW}.
-     *
-     * @param prefix the variable prefix, e.g. {@code NORDTAL}
-     * @param path the dotted config path
-     * @return the environment variable name for that path
+    /** Returns the variable name of a path.
+     * The path {@code nametags.text-shadow} with the prefix {@code NORDTAL} gives {@code NORDTAL_NAMETAGS_TEXT_SHADOW}.
      */
     public static String variableName(final String prefix, final String path) {
         final StringBuilder name = new StringBuilder(prefix.toUpperCase(Locale.ROOT));
@@ -88,9 +75,7 @@ public final class EnvOverlay {
     /**
      * Applies every variable that is set and non-blank to {@code spec}.
      *
-     * @param spec the spec instance to apply overrides to
-     * @return the config paths that were overridden, in file order. The <b>values are
-     * deliberately not returned or logged</b>: any one of them could be a secret.
+     * @return the overridden config paths in file order, never their values, which could be secrets
      */
     public List<String> applyTo(final Object spec) {
         final List<String> overridden = new ArrayList<>();
@@ -105,11 +90,6 @@ public final class EnvOverlay {
         return overridden;
     }
 
-    /**
-     * The variable name that overrides a given config path, for error messages and docs.
-     *
-     * @return every config path, keyed by the environment variable that overrides it
-     */
     public Map<String, SpecPaths.Leaf> variables() {
         return Map.copyOf(byVariable);
     }
@@ -127,7 +107,6 @@ public final class EnvOverlay {
             if (type == double.class || type == Double.class) return Double.parseDouble(raw);
             if (type.isEnum()) return parseEnum(type, raw, variable);
             if (List.class.isAssignableFrom(type) && isStringList(leaf)) {
-                // A comma-separated value is far friendlier in a docker-compose file than JSON.
                 return Arrays.stream(raw.split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
@@ -135,7 +114,7 @@ public final class EnvOverlay {
             }
             return gson.fromJson(raw, leaf.genericType());
         } catch (NumberFormatException | JsonSyntaxException e) {
-            // The value itself never appears in the message, since it could be a secret.
+            // The message omits the value because it could be a secret.
             throw new IllegalArgumentException(
                     variable + " cannot be read as " + type.getSimpleName() + " for config setting '" + leaf.path()
                             + "'.",
@@ -150,7 +129,7 @@ public final class EnvOverlay {
     }
 
     private static boolean parseBoolean(final String raw, final String variable) {
-        // Boolean.parseBoolean turns any typo into false; reject one instead of parsing silently.
+        // Boolean.parseBoolean turns any typo into false.
         final String value = raw.toLowerCase(Locale.ROOT);
         if (value.equals("true") || value.equals("yes") || value.equals("1")) return true;
         if (value.equals("false") || value.equals("no") || value.equals("0")) return false;

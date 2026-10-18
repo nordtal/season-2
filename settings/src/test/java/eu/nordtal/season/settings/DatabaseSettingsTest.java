@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** That a group is its spec's defaults, then what an admin stored, then the environment, and is published. */
+/** Checks that a group takes the spec's defaults, then the admin's values, then the environment, and is published. */
 class DatabaseSettingsTest {
 
     private static final Group<ExampleSpec> EXAMPLE = Group.of("example", ExampleSpec.class)

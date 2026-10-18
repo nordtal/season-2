@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** That a Paper process publishes its group under its own role, and takes an admin's change from Steward live. */
+/** Checks that a Paper process publishes its group under its own role and takes an admin's change from Steward. */
 class DatabaseSettingsIntegrationTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseSettingsIntegrationTest.class);

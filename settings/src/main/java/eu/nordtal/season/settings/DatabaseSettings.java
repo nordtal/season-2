@@ -13,10 +13,9 @@ import java.util.Set;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 
-/**
- * Settings in the database: the spec's defaults, then what an admin changed, then the environment.
- *
- * Every group is published with its schema at load, so Steward draws it; a refused change keeps the last values.
+/** Reads settings from the database.
+ * A group takes the spec's defaults, then the stored values, then the environment.
+ * A refused change keeps the last values.
  */
 public final class DatabaseSettings implements Settings {
 
@@ -33,20 +32,13 @@ public final class DatabaseSettings implements Settings {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /**
-     * Returns the settings of {@code service} in {@code store}.
-     *
-     * @param service the module that loads them, such as {@code smp}, which names its groups in the database
-     */
     public static DatabaseSettings over(
             final SettingStore store, final String service, final Environment environment, final Logger logger) {
         return new DatabaseSettings(store, service, environment, logger);
     }
 
-    /**
-     * Returns {@code group} of {@code service} as that service takes it at its start, without publishing anything.
-     *
-     * For a reader that shows another process's values: no environment applies, and refused rows give the defaults.
+    /** Returns {@code group} of {@code service} as that service takes it at its start.
+     * Nothing is published. No environment applies, and refused rows give the defaults.
      */
     public static <T> T current(final SettingStore store, final String service, final Group<T> group)
             throws SettingsException {
@@ -78,9 +70,7 @@ public final class DatabaseSettings implements Settings {
     }
 
     /**
-     * Calls {@code onChange} on the hub's thread whenever a stored value of this process changed; before its start.
-     *
-     * A reconciliation finds nothing changed and calls nothing, so this costs one read a minute.
+     * Calls {@code onChange} on the hub's thread whenever a stored value of this process changed.
      */
     public void listen(final SignalHub hub, final Runnable onChange) {
         hub.watch(
@@ -95,7 +85,6 @@ public final class DatabaseSettings implements Settings {
         return List.of(service, SettingStore.NETWORK);
     }
 
-    /** The spec's defaults under the group's own. */
     private static JsonObject defaultsOf(final Group<?> group) {
         final JsonObject defaults = SpecJson.defaults(group.spec());
         group.defaults().forEach((path, value) -> SpecJson.put(defaults, path, SpecJson.GSON.toJsonTree(value)));
@@ -103,9 +92,10 @@ public final class DatabaseSettings implements Settings {
     }
 
     /**
-     * Lays the stored rows over the defaults, then the environment, and checks the result.
+     * Applies the stored rows to the defaults, then the environment, and checks the result.
      *
-     * @param unknown told each stored path the group has no setting for, or keeps secret, which is skipped
+     * @param unknown receives each stored path the group has no setting for or keeps secret. Such a
+     *     row is skipped.
      */
     private static <T> T compose(
             final Group<T> group,
@@ -138,7 +128,6 @@ public final class DatabaseSettings implements Settings {
         }
     }
 
-    /** One group, as last taken. */
     private final class Stored<T> implements Setting<T> {
 
         private final Group<T> group;
@@ -154,7 +143,9 @@ public final class DatabaseSettings implements Settings {
             this.values = new ManagedSpecReference<>(group.spec(), this::reloadFromSpec, Stored::cannotSave);
         }
 
-        /** Takes the stored values, or the defaults when they are refused: a stored value never stops a start. */
+        /** Takes the stored values, or the defaults if the check refuses them.
+         * A stored value never stops a start.
+         */
         private void start() throws SettingsException {
             try {
                 values.set(compose(read()));
@@ -163,14 +154,12 @@ public final class DatabaseSettings implements Settings {
                 try {
                     values.set(compose(List.of()));
                 } catch (final SettingsException refusedWithout) {
-                    // The stored value is what to correct, so it is what the start names.
                     refusedStored.addSuppressed(refusedWithout);
                     throw refusedStored;
                 }
             }
         }
 
-        /** Returns the one instance this setting hands out, which reads through to the values of the last reload. */
         @Override
         public T get() {
             return values.get();

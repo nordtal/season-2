@@ -14,7 +14,7 @@ import eu.nordtal.season.spec.annotation.Key;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** That a published schema says what each value names, at every depth a spec can hold one. */
+/** Checks that a published schema says what each value names, at every depth. */
 class SpecJsonTest {
 
     @Test
@@ -122,7 +122,6 @@ class SpecJsonTest {
         }
     }
 
-    /** One objective of the track. */
     @ConfigSpec
     interface Objective {
 

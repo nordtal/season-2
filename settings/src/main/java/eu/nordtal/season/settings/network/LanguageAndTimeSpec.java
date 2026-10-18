@@ -8,11 +8,10 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** The languages the network speaks and the zone it tells time in, the defaults of a reader without their own. */
 @ConfigSpec
 public interface LanguageAndTimeSpec {
 
-    /** en, because only English is complete. */
+    /** Defaults to {@code en}, the only complete language. */
     @Order(1)
     @Name("Default language")
     @Key("default-language")
@@ -21,7 +20,7 @@ public interface LanguageAndTimeSpec {
         return Locales.DEFAULT_TAG;
     }
 
-    /** Lower case tags. Taken at the next start. */
+    /** Language tags in lower case. A change applies at the next start. */
     @Order(2)
     @Name("Languages")
     @Key("languages")
@@ -30,7 +29,7 @@ public interface LanguageAndTimeSpec {
         return List.of(Locales.DEFAULT_TAG, "de");
     }
 
-    /** An IANA name like Europe/Berlin. Taken at the next start. */
+    /** An IANA name such as {@code Europe/Berlin}. A change applies at the next start. */
     @Order(3)
     @Name("Default time zone")
     @Key("default-time-zone")

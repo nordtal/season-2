@@ -17,7 +17,7 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** Stores settings against a real PostgreSQL running the real migrations; skipped without Docker. */
+/** Stores settings against PostgreSQL and the real migrations. */
 class SettingStoreIntegrationTest {
 
     private static final String SCHEMA = "{\"kind\":\"MAP\"}";
@@ -65,7 +65,7 @@ class SettingStoreIntegrationTest {
     void aValueMayPrecedeItsGroupsFirstPublication() {
         final SettingStore store = SettingStore.using(TestDatabase.fresh().dataSource());
 
-        // The update run sets the proxy's pack before a proxy of this season has ever started.
+        // The update run sets the pack of the proxy before a proxy of this season has started.
         assertTrue(store.change("proxy", "pack", Map.of("sha1", "\"ab12\""), Actor.STEWARD, held -> true));
         store.publish("proxy", "pack", SCHEMA, "{}", List.of(), false);
 

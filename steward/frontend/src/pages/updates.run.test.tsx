@@ -21,7 +21,6 @@ const REPORT = {
       service: "proxy",
       state: "HEALTHY",
       changes: [
-        // As PlanReport writes it: the pair and not the filename.
         { artefact: "proxy", from: "0.9.3", to: "0.9.4" },
         {
           artefact: "resource-pack",

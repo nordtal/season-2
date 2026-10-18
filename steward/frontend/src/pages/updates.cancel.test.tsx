@@ -10,9 +10,7 @@ import type { Run } from "@/lib/api"
 import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * Asserts the sentence handed to sonner, because `<Toaster />` lives in the shell and this test renders one page.
- */
+/** Asserts the sentence handed to sonner, because `<Toaster />` lives in the shell. */
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn<(message: string) => void>(),
@@ -28,7 +26,6 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-/** A row as `/api/updates` answers with one. The caller says which run it is. */
 function run(over: Partial<Run> = {}): Run {
   return {
     id: 79,
@@ -39,7 +36,7 @@ function run(over: Partial<Run> = {}): Run {
     said: {},
     scope: [],
     requested: new Date().toISOString(),
-    // A minute ahead: the countdown that Steward has not picked up yet.
+    // A countdown that Steward has not picked up yet.
     scheduledFor: new Date(Date.now() + 60_000).toISOString(),
     moving: [],
     started: "",
@@ -81,7 +78,7 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
   return vi.fn<typeof fetch>(impl)
 }
 
-/** A route this test never draws and only routes to. */
+/** A route this test only routes to. */
 const nothing = () => null
 
 function draw() {
@@ -106,9 +103,7 @@ function draw() {
   )
 }
 
-/**
- * Returns the Cancel on a run's row, told apart from the "Cancel" that every dialog's own footer carries.
- */
+/** Returns the Cancel on a run's row, not the "Cancel" of every dialog's footer. */
 function cancelButtons() {
   return screen.queryAllByRole("button", { name: /^cancel$/i })
 }
@@ -140,9 +135,7 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 
   it("is gone once the run is actually under way", async () => {
-    /**
-     * Past `countdownEnd` Steward holds the lock and would answer "too late", so there is nothing to press.
-     */
+    /** Past `countdownEnd` Steward holds the lock and would answer "too late". */
     vi.stubGlobal(
       "fetch",
       backend([run({ status: "RUNNING", countdownEnd: new Date(Date.now() - 1000).toISOString() })]),

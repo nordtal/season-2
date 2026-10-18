@@ -39,9 +39,7 @@ export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
 
 type Tab = "console" | "settings" | "plugins"
 
-/**
- * Returns which tabs this service has, or `undefined` until they are known. A tab with nothing behind it is not there.
- */
+/** Returns which tabs this service has, or `undefined` until they are known. */
 export function useServiceTabs(name: string): Tab[] | undefined {
   const service = useService(name)
   const configs = useConfigs()
@@ -54,9 +52,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
   ]
 }
 
-/**
- * One service: a head with its actions and who is on it, and its tabs. Every service gets this page.
- */
+/** One service: a head with its actions and who is on it, and its tabs. */
 export function ServicePage() {
   const { name } = useParams({ from: "/services/$name" })
   const search = useSearch({ from: "/services/$name" })
@@ -86,9 +82,7 @@ export function ServicePage() {
       <Tabs
         value={tab}
         onValueChange={(next) =>
-          /**
-           * A tab change replaces the entry, so Back leaves the page and does not walk through the tabs.
-           */
+          /** A tab change replaces the entry, so Back leaves the page. */
           void navigate({
             search: (previous) =>
               next === "console"
@@ -135,7 +129,7 @@ export function ServicePage() {
         )}
 
         <TabsContent value="console" className="flex flex-col gap-6">
-          {/* An unknown service is a 404 from Steward, which names the service. */}
+          {/* An unknown service is a 404 from Steward. */}
           <QueryState query={service}>{(data) => <ServiceHead service={data} name={name} />}</QueryState>
           <ServiceConsole
             name={name}
@@ -143,7 +137,7 @@ export function ServicePage() {
             capacity={service.data?.logCapacity}
             offline={offline(run, name, service.data?.state)}
           />
-          {/* Their own area under the console and not the header, because the header's actions are about the container. */}
+          {/* Their own area under the console, because the header's actions are about the container. */}
           {name === "smp" ? <SmpActions /> : null}
           {name === "hunger-games" ? <HungerGamesActions /> : null}
           {name === "discord-bot" ? <AnnouncementForm /> : null}
@@ -168,9 +162,7 @@ export function ServicePage() {
 }
 
 /**
- * Shows Update, Take down or Start, and Recreate, each with its own symbol.
- *
- * Below `sm` the last two move into a menu that opens the buttons' own dialogs.
+ * Shows Update, Take down or Start, and Recreate. Below `sm` the last two move into a menu that opens the buttons' own dialogs.
  */
 function ServiceActions({
   name,
@@ -182,15 +174,13 @@ function ServiceActions({
   const [dialog, setDialog] = useState<"hold" | "recreate" | null>(null)
   const gate = useRecreateGate(name)
   const lock = useRunLock()
-  /**
-   * Take down and Start are one switch that follows `hold`. Neither is drawn while the row loads.
-   */
+  /** Take down and Start are one switch that follows `hold`. */
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
   const recreatable = name !== "steward-agent"
   const HoldIcon = hold === "START" ? TERM_ICON.start : TERM_ICON.down
   const holdLabel = hold ? t("steward.operations.ask", { kind: choice(hold) }) : ""
 
-  /** A one-shot and a standby are started by runs alone, so neither has a button of its own. */
+  /** A one-shot and a standby are started by runs alone. */
   if (service && resting(service)) return null
 
   /**
@@ -296,20 +286,17 @@ export function offline(run: Run | null, name: string, state: string | undefined
 }
 
 /**
- * Returns whether this service is one that a run starts on its own, a one-shot or a standby, and is not running now.
+ * Returns whether a run starts this service on its own, a one-shot or a standby, and it is not running now.
  */
 export function resting(service: NonNullable<ReturnType<typeof useService>["data"]>): boolean {
   return (service.oneShot === true || service.standby === true) && service.state !== "running"
 }
 
-/**
- * The head of a service page. It is exported for its test, because some fields must be absent and not zero.
- */
+/** The head of a service page, exported because some fields must be absent and not zero. */
 export function ServiceHead({
   service,
   name,
 }: {
-  /** Absent while `/api/services/{name}` is out, so each field draws its own shape. */
   service?: NonNullable<ReturnType<typeof useService>["data"]>
   name: string
 }) {
@@ -327,7 +314,7 @@ export function ServiceHead({
           {t("steward.operations.state")}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          {/* The hold is part of the state badge, the same reading that the sidebar and the network view draw. */}
+          {/* The hold is part of the state badge, as in the sidebar and the network view. */}
           {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
           {service ? <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} /> : null}
         </div>
@@ -344,7 +331,7 @@ export function ServiceHead({
         </span>
       </div>
       <div className="flex min-w-0 flex-col gap-2">
-        {/* The range belongs to the stats, so it sits in their header. It is as tall as the State label, so both start on one line. */}
+        {/* The range belongs to the stats. It is as tall as the State label, so both start on one line. */}
         <div className="flex h-4 items-center gap-3">
           <span className="text-xs font-medium font-heading text-muted-foreground">
             {t("steward.service-page.stats")}
@@ -372,7 +359,7 @@ export function ServiceHead({
             statClassName={INLINE.className}
             valueClassName={INLINE.valueClassName}
           />
-          {/* Only services with a volume have a number, because 0 bytes would be a claim. An old number says its age. */}
+          {/* Only services with a volume have a number, because 0 bytes would be a claim. */}
           {service?.diskBytes === undefined ? null : (
             <Stat
               label={t("steward.service-page.disk")}
@@ -387,9 +374,7 @@ export function ServiceHead({
   )
 }
 
-/**
- * The head of a one-shot or a standby: its state and, for a one-shot, how its last run ended, without curves.
- */
+/** The head of a one-shot or a standby: its state and, for a one-shot, how its last run ended. */
 function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
   const { lastRun } = service
   return (
@@ -418,9 +403,7 @@ function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useSe
   )
 }
 
-/**
- * A `Stat` on a service page: label, value and hint on one line, with the value no larger than the text on a phone.
- */
+/** A `Stat` on a service page, with the value no larger than the text on a phone. */
 const INLINE = {
   className: "flex-row items-baseline gap-1.5",
   valueClassName: "max-sm:text-sm",

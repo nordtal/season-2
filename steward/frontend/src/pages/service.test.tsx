@@ -20,7 +20,6 @@ const service = (over: Partial<Service> = {}): Service => ({
   ...over,
 })
 
-/** The head draws tooltips and reads two metric series. */
 function draw(node: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -42,7 +41,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** One flat row: State with the uptime under it, then CPU, RAM and Disk. */
 describe("ServiceHead - the number row", () => {
   it("draws State, CPU and RAM and nothing of what was dropped", () => {
     draw(<ServiceHead name="smp" service={service({ players: 3, cpuPercent: 12, memoryBytes: 2.9e9 })} />)
@@ -79,9 +77,6 @@ describe("ServiceHead - the number row", () => {
   })
 })
 
-/**
- * Both curves follow one range, picked beside the Stats heading. It is six hours until somebody picks another.
- */
 describe("ServiceHead - the range of the curves", () => {
   it("asks for six hours of CPU and RAM, counted in minutes", () => {
     draw(<ServiceHead name="smp" service={service()} />)
@@ -127,7 +122,7 @@ describe("ServiceHead - a service somebody is holding down", () => {
       />,
     )
 
-    /** One badge reads "held down", and not Docker's word in red with an explanation beside it. */
+    /** One badge reads "held down", not Docker's word in red. */
     expect(screen.queryByText("held down")).not.toBeNull()
     expect(screen.queryByText("exited")).toBeNull()
   })
@@ -145,9 +140,7 @@ describe("ServiceHead - a service somebody is holding down", () => {
   })
 })
 
-/**
- * A one-shot and a resting standby have nothing to chart, so the head says how they stand instead.
- */
+/** A one-shot and a resting standby have nothing to chart, so the head says how they stand. */
 const migrate = (exitCode: number) =>
   service({
     service: "migrate",

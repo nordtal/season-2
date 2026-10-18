@@ -11,25 +11,18 @@ import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-/** How many entries the journal route hands out unless asked for more. */
 const JOURNAL_LIMIT = 200
 
-/** Ten rows of nothing while the record is read. */
 const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 /**
- * The audit log.
- *
- * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
+ * The audit log. Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
-/** Returns an action as the admin bundle names it. */
 function actionLabel(action: JournalAction): string {
   return t("journal.action", { action: choice(action) })
 }
 
-/**
- * Returns whether a line has no values. Such a line says nothing its action does not, so the phone card leaves it out.
- */
+/** Returns whether a line has no values, so the phone card leaves it out. */
 function restatesAction(entry: JournalEntry): boolean {
   return Object.keys(entry.line.args ?? {}).length === 0
 }
@@ -42,15 +35,13 @@ function concernsAnother(entry: JournalEntry): boolean {
   return entry.mcUuid !== undefined
 }
 
-/**
- * Journal entries as rows, with ten waiting ones while `entries` is undefined. A person's page shows its own with it.
- */
+/** Journal entries as rows, with ten waiting ones while `entries` is undefined. */
 export function JournalTable({
   entries,
   concerns = true,
 }: {
   entries: JournalEntry[] | undefined
-  /** `false` on a person's page, where every entry concerns them and Detail needs the room. */
+  /** `false` on a person's page, where Detail needs the room. */
   concerns?: boolean
 }) {
   const columns = {
@@ -102,7 +93,7 @@ export function JournalTable({
             ))
           : entries.map((entry) => (
               <TableRow key={entry.id}>
-                {/* No `data-label`: on a phone the time and the action head the card as one line. */}
+                {/* No `data-label`: on a phone the time and action head the card. */}
                 <TableCell title={entry.occurred}>
                   <span className="flex flex-wrap items-baseline gap-x-3">
                     <span className="text-muted-foreground tnum">{dateTime(entry.occurred)}</span>
@@ -112,7 +103,7 @@ export function JournalTable({
                 <TableCell data-phone="off" className="font-medium" title={entry.action}>
                   {actionLabel(entry.action)}
                 </TableCell>
-                {/* A profile and never an id. No admin at all is Steward's own mark. */}
+                {/* A profile and never an id. No admin is Steward's own mark. */}
                 <TableCell data-label={columns.actor} className="text-muted-foreground">
                   <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                 </TableCell>
@@ -129,7 +120,6 @@ export function JournalTable({
                     ) : null}
                   </TableCell>
                 ) : null}
-                {/* The line, rendered from its key and typed values, wraps where TableCell would not. */}
                 <TableCell
                   data-label={columns.detail}
                   data-phone={restatesAction(entry) ? "off" : undefined}
@@ -144,13 +134,10 @@ export function JournalTable({
   )
 }
 
-/**
- * Every part of the filter, empty. The unfiltered query names each, so its key is the filtered one's while none is set.
- */
+/** Every part of the filter, empty, so the unfiltered query's key is the filtered one's. */
 const NO_FILTER = { action: "", subject: "", reference: "", minDays: "" }
 
 export function JournalPage() {
-  /** The unfiltered query, for the options. */
   const all = useJournal(NO_FILTER)
   const [action, setAction] = useState("")
   const [subject, setSubject] = useState("")
@@ -168,7 +155,7 @@ export function JournalPage() {
 
       <Panel title={t("steward.journal.entries")}>
         <FilterBar>
-          {/* An exact id, so it filters on Enter and not on every keystroke. */}
+          {/* An exact id, so it filters on Enter. */}
           <SearchField
             value={typed}
             onValueChange={setTyped}
@@ -177,7 +164,7 @@ export function JournalPage() {
             placeholder={t("steward.journal.exact-id")}
             inputClassName="font-mono"
           />
-          {/* A reference and a number of days are exact values too, so each filters on Enter. */}
+          {/* A reference and a number of days are exact too. */}
           <SearchField
             value={typedReference}
             onValueChange={setTypedReference}

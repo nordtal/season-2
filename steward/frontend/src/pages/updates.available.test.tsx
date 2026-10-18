@@ -97,9 +97,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/**
- * Shows what a run would install without running one. The forced re-read is a parameter on the same GET.
- */
+/** Shows what a run would install without running one. */
 describe("the available card", () => {
   it("names the jump rather than the filename and the version", async () => {
     vi.stubGlobal(
@@ -129,7 +127,7 @@ describe("the available card", () => {
   })
 
   it("leaves out everything a run would not touch", async () => {
-    /** Up-to-date rows are absent, so the states that are not work have their own tests below. */
+    /** Up-to-date rows are absent. */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -188,7 +186,6 @@ describe("the available card", () => {
     await screen.findByText("chunky")
     expect(screen.getByText("Notes")).toBeTruthy()
     expect(screen.getByText(/Somebodys-1\.0\.jar/)).toBeTruthy()
-    // The filter chip of the outcome, which only the run page's view draws.
     expect(screen.getByText("all 1")).toBeTruthy()
   })
 
@@ -229,7 +226,6 @@ describe("the available card", () => {
 
     await screen.findByText("packetevents")
     expect(screen.getByText("could not ask")).toBeTruthy()
-    // The line above the table, which is the part that a scanning reader sees.
     expect(screen.getByText(/incomplete/)).toBeTruthy()
   })
 
@@ -301,7 +297,7 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    /** The reason belongs in the title and the badge and not in a table cell. */
+    /** The reason belongs in the title and the badge. */
     expect(screen.queryByText(/no stable build/)).toBeNull()
     expect(
       document.querySelector('[title^="coreprotect has no stable build for Minecraft 26.2 on paper"]'),

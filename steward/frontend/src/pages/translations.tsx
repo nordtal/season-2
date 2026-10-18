@@ -13,16 +13,13 @@ import type { Target } from "@/components/steward/settings-view"
 import { TEXTS_FILE, TextsForm } from "@/components/steward/texts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-/** What `/translations` keeps in its URL: the service it is filtered to, if any. */
 export type TranslationsSearch = { service?: string }
 
 export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
   return typeof search.service === "string" && search.service !== "" ? { service: search.service } : {}
 }
 
-/**
- * The value of the filter's first choice. A service is named in lowercase, so none is called this.
- */
+/** The first choice of the filter. A service is named in lowercase, so none is called this. */
 const EVERY_SERVICE = "ALL"
 
 /** The service filter and the search share a width, and halve the row on a phone. */
@@ -31,7 +28,6 @@ const CONTROL_WIDTH = "min-w-0 flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto
 /** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
 
-/** The Translations page, with its filter kept in the URL's `?service=`. */
 export function TranslationsPage() {
   const search = useSearch({ from: "/translations" })
   const navigate = useNavigate({ from: "/translations" })
@@ -44,9 +40,7 @@ export function TranslationsPage() {
 }
 
 /**
- * Every text of every bundle, grouped by where it appears and then by topic, and filtered to one service if asked.
- *
- * A text that the command palette found is opened here, in the language it was found in.
+ * Every text of every bundle, grouped by where it appears and then by topic. A text that the command palette found is opened in the language it was found in.
  */
 export function Translations({
   service,
@@ -75,7 +69,7 @@ export function Translations({
   }, [])
 
   return (
-    // The editors and previews read best at a bounded width, which the title row keeps too.
+    // The editors and previews read best at a bounded width.
     <div className="flex max-w-5xl flex-col gap-6">
       <PageHeader
         ref={header}
@@ -101,7 +95,6 @@ export function Translations({
   )
 }
 
-/** Every service that shows a text, and none for every text in the network's palette. */
 function ServiceFilter({
   texts,
   service,

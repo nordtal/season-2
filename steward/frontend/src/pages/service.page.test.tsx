@@ -298,7 +298,6 @@ describe("offline", () => {
   })
 })
 
-/** The default that a held promise's resolver starts as, before a test settles it. */
 function noop(): void {}
 
 /**

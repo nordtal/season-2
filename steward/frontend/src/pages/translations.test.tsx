@@ -350,7 +350,6 @@ describe("the tree of a group", () => {
   })
 })
 
-/** Two texts, so opening one can be observed closing the other. */
 function twoKeys() {
   vi.stubGlobal(
     "fetch",
@@ -555,9 +554,6 @@ describe("a jump from the command palette", () => {
   })
 })
 
-/**
- * Returns whether the group takes a dimmed look from any disabled element inside it, a tool included.
- */
 const dimmedByAnyTool = (group: Element) => [...group.classList].some((name) => name.startsWith("has-disabled:"))
 
 describe("the editor's look", () => {
@@ -583,7 +579,6 @@ describe("the editor's look", () => {
   })
 })
 
-/** One plural text, Days, by the number n. */
 const days = () =>
   vi.stubGlobal(
     "fetch",

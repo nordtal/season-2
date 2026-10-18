@@ -27,9 +27,7 @@ export function seasonSearch(search: Record<string, unknown>): SeasonSearch {
 }
 
 /**
- * The season page: the phase, which decides who may join and where, its two dates, and the network's settings.
- *
- * Every process reads the phase from one row, so a switch applies on the next join. That is why it asks twice.
+ * The season page: the phase, which decides who may join and where, its two dates, and the network's settings. Every process reads the phase from one row, so a switch applies on the next join. That is why it asks twice.
  */
 export function SeasonPage() {
   const season = useSeason()
@@ -44,7 +42,7 @@ export function SeasonPage() {
         {(current) => (
           <>
             <PhaseCard season={current} />
-            {/* No button ends a season. Each one is a full rebuild, with nothing carried over. */}
+            {/* No button ends a season. Each one is a full rebuild. */}
             <DatesCard season={current} />
           </>
         )}
@@ -86,10 +84,9 @@ function PhaseCard({ season }: { season?: Season }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {/* Only while the dialog is shut. A refused switch keeps it open and repeats the refusal inside. */}
+        {/* Only while the dialog is shut. A refused switch repeats the refusal inside it. */}
         {change.error && asked === null ? <Failure error={change.error} /> : null}
 
-        {/* The five phases are static, so only which one is current waits. */}
         {PHASES.map((phase) => {
           const active = phase.name === season?.phase
           return (
@@ -122,7 +119,7 @@ function PhaseCard({ season }: { season?: Season }) {
         })}
       </CardContent>
 
-      {/* The reason is cleared with the dialog, or the next confirmation would send a cancelled one. */}
+      {/* Cleared with the dialog, or the next confirmation would send a cancelled one. */}
       <AskThenAct
         open={asked !== null}
         onOpenChange={(open) => {
@@ -187,10 +184,9 @@ function DateField({
 }: {
   which: "launch" | "smpStart"
   label: string
-  /** What removing this date leaves behind, where that is not obvious. */
   removal?: string
   at?: string
-  /** `at` is absent for two different reasons: no date is set, or none has arrived yet. */
+  /** `at` is absent when no date is set or none has arrived yet. */
   waiting?: boolean
 }) {
   const saved = toLocalInput(at)
@@ -199,9 +195,7 @@ function DateField({
   const dirty = local !== saved
   const [removing, setRemoving] = useState(false)
 
-  /**
-   * The field mounts before the answer, so it takes the saved value only while it is untouched.
-   */
+  /** The field mounts before the answer, so it takes the saved value only while untouched. */
   if (local === "" && saved !== "") setLocal(saved)
 
   return (
@@ -232,7 +226,7 @@ function DateField({
         >
           {t("steward.form.save")}
         </Button>
-        {/* Reset while something is typed and Remove otherwise, so the row never wraps on a phone. */}
+        {/* Reset while something is typed, Remove otherwise, so the row never wraps on a phone. */}
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
             {t("steward.form.reset")}
@@ -270,9 +264,6 @@ function DateField({
   )
 }
 
-/**
- * Returns a phase's name from the bundle, or the constant itself for one this page does not know.
- */
 function phaseName(phase: string): string {
   return t("steward.season.phase", { phase: choice(phase) })
 }
@@ -283,8 +274,6 @@ function pad(value: number): string {
 
 /**
  * Returns an instant as `datetime-local` wants it: local wall clock, no zone, minute precision.
- *
- * `toISOString().slice(0, 16)` would be UTC and off by the zone offset.
  */
 function toLocalInput(at?: string): string {
   if (!at) return ""

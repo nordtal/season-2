@@ -16,9 +16,7 @@ import { Button } from "@/components/ui/button"
 import { t } from "@/lib/texts"
 
 /**
- * The landing page: is something wrong, how full is the box, and where to go next.
- *
- * It is laid out for a phone first. Every tile links to the page that can act on it. Nothing here restarts anything.
+ * The landing page: is something wrong, how full is the box, and where to go next. Every tile links to the page that can act on it. Nothing here restarts anything.
  */
 export function OverviewPage() {
   const online = useOnline()
@@ -42,11 +40,10 @@ export function OverviewPage() {
   )
 }
 
-/** The quiet line under a figure, while the figure is still out. */
 const WAITING_HINT = <SkeletonText className="w-20 text-xs" />
 
 /**
- * Shows CPU, memory, disk, latest backup, drift and issues. The detail behind each lives on the Operations page.
+ * Shows CPU, memory, disk, latest backup, drift and issues. The detail lives on the Operations page.
  */
 function MetricRow() {
   const host = useHost()
@@ -120,7 +117,7 @@ function MetricRow() {
         ) : null}
       </MetricTile>
 
-      {/* `/operations/backups` holds what this number summarises, as `/alerts` does for the issues. */}
+      {/* `/operations/backups` holds what this number summarises. */}
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
         <Stat
           label={t("steward.overview.latest-backup")}
@@ -149,9 +146,7 @@ function MetricRow() {
 }
 
 /**
- * Shows the issue count that Steward judged, drawn like `Behind`: a count, and beneath it the names it is about.
- *
- * A settled `0` appears only once Steward has read the stack. A failed read shows the row's dash.
+ * Shows the issue count that Steward judged, with the names it is about. A settled `0` appears only once Steward has read the stack.
  */
 function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boolean; failed: boolean }) {
   if (alerts.length === 0) {
@@ -217,31 +212,24 @@ function MetricTile({
   )
 }
 
-/** Returns the host's core count, or the dash while the host has not said. */
 function cores(cpus: number | undefined): string {
   return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
 }
 
-/**
- * Returns the share of the host's memory in use now, or the dash while the host has not said its total.
- */
 function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number }) {
   if (!host.memoryTotalBytes) return "\u2013"
   return share(host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0), host.memoryTotalBytes)
 }
 
-/**
- * Returns a reading of the memory curve as the tile's number: a share of `total`, or bytes where no total is known.
- */
 function share(used: number, total: number | undefined): string {
   return total ? percent((used / total) * 100, 0) : bytes(used)
 }
 
-/** Four absent rows, the length that `useActions(5)` settles at once the season is running. */
+/** The length that `useActions(5)` settles at once the season is running. */
 const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
 
 /**
- * Shows the latest actions from `/api/actions`. Every actor is drawn through `Entity` and never as a raw snowflake.
+ * Shows the latest actions. Every actor is drawn through `Entity` and never as a raw snowflake.
  */
 function ActionsPanel() {
   const actions = useActions(5)
@@ -257,12 +245,9 @@ function ActionsPanel() {
       >
         {(list) => (
           <ul className="flex flex-col">
-            {/* Four while waiting, because `useActions(5)` all but always answers four. */}
             {(list ?? WAITING_ACTIONS).map((action, index) => (
               <ActionRow
-                /**
-                 * The feed has no id of its own, and position is stable because the list is never reordered here.
-                 */
+                /** The feed has no id of its own, and the list is never reordered here. */
                 key={index}
                 action={action}
                 now={now}

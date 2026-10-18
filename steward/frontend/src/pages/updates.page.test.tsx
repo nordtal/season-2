@@ -9,9 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { changesOf } from "@/lib/query-fixtures"
 
 /**
- * The Updates page is built like Backups, but its own.
- *
- * It saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
+ * The Updates page saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
  */
 
 function json(status: number, body: unknown): Response {
@@ -127,7 +125,7 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
   })
 }
 
-/** A route this test never draws and only routes to. */
+/** A route this test only routes to. */
 const nothing = () => null
 
 function draw() {

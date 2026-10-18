@@ -106,9 +106,7 @@ describe("PaymentsPage - one column for each field", () => {
   })
 })
 
-/**
- * Every Payments column is a field, so folding `Created` and `Donation` keeps the width at 1440px.
- */
+/** Every column is a field, so folding `Created` and `Donation` keeps the width at 1440px. */
 describe("PaymentsPage - the column budget fits the card at 1440px", () => {
   it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {
     vi.stubGlobal(

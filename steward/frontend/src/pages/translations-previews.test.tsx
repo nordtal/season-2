@@ -158,7 +158,6 @@ describe("the previews", () => {
     expect(within(await screen.findByRole("figure", { name: "Steward" })).getByText("Stopped")).toBeTruthy()
 
     await openKey("Online")
-    // The figure's text begins with its caption, the place's name.
     expect(screen.getByRole("figure", { name: "Steward" }).textContent).toBe("Steward1 player online")
   })
 

@@ -1,9 +1,9 @@
-// Steward's service worker: its alerts on a phone's lock screen.
+// Steward's service worker. It shows alerts on a phone's lock screen.
 //
-// Plain JavaScript under public/, since the browser fetches /sw.js before any bundle runs and Vite copies it as is.
+// Keep it plain JavaScript in public/. The browser fetches /sw.js before any bundle runs, and Vite copies it unchanged.
 
 self.addEventListener("install", () => {
-  // Takes over at once, not from the next reload.
+  // Activate at once instead of at the next reload.
   self.skipWaiting()
 })
 
@@ -20,7 +20,7 @@ self.addEventListener("push", (event) => {
   }
   const type = typeof data.type === "string" && data.type ? data.type : "alert"
   const level = typeof data.level === "string" ? data.level : "warn"
-  // Steward renders both lines from the admin bundle; a lock screen renders nothing itself.
+  // The admin bundle renders both lines of an alert. The lock screen renders none.
   const title = typeof data.title === "string" && data.title ? data.title : "Steward"
   const body = typeof data.body === "string" ? data.body : level
   const path = typeof data.path === "string" && data.path ? data.path : "/"
@@ -30,7 +30,7 @@ self.addEventListener("push", (event) => {
       body,
       icon: "/icon.png",
       badge: "/icon.png",
-      // One notification per type, replacing the last of that type, so a flapping service does not stack.
+      // A notification replaces the last one of the same type, so a flapping service shows one notification.
       tag: `steward-alert-${type}`,
       renotify: true,
       data: { path, type },

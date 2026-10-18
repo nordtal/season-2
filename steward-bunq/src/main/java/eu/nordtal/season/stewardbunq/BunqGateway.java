@@ -26,22 +26,15 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Everything this network does at bunq, and the only class that talks to a bank.
- *
- * EUR only: another currency is refused rather than converted, and never reaches steward.
- */
+/** The only class that calls bunq. It handles euros only and refuses any other currency. */
 @Slf4j
-// No HTTP timeout is set here: the SDK's own ApiClient already bounds every call at 30 seconds.
 public final class BunqGateway {
 
     private static final String CURRENCY = "EUR";
     private static final String DEVICE_DESCRIPTION = "nordtal steward-bunq";
 
-    /** The status string bunq's own API uses to close a tab. */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
-    /** bunq's UTC timestamp shape, the same pattern {@code BunqGsonBuilder} parses with. */
     private static final DateTimeFormatter TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]");
 
@@ -54,11 +47,6 @@ public final class BunqGateway {
 
     private boolean contextLoaded;
 
-    /**
-     * Creates the gateway, refusing half a credential and an account id that is not a number.
-     *
-     * @param contextPath where bunq's session for this device is kept, created on the first call
-     */
     public BunqGateway(final String apiKey, final String accountId, final Path contextPath) {
         final boolean key = !apiKey.isBlank();
         final boolean account = !accountId.isBlank();
@@ -82,12 +70,11 @@ public final class BunqGateway {
         }
     }
 
-    /** Returns whether there is an account behind this, and which. */
     public BankWire.Account account() {
         return new BankWire.Account(configured, accountId);
     }
 
-    /** Returns the one line this container says about bunq on every start, never containing the key. */
+    /** Returns the startup line, which never contains the key. */
     String startupLine() {
         if (configured) {
             return "bunq is ON: monetary account " + accountId + " is the one billed and polled, and this container"
@@ -98,7 +85,6 @@ public final class BunqGateway {
                 + " network is unaffected.";
     }
 
-    /** Writes {@link #startupLine()} at INFO when configured and at WARN when not. */
     public void logStartupLine() {
         if (configured) {
             log.info(startupLine());
@@ -113,7 +99,6 @@ public final class BunqGateway {
         }
     }
 
-    /** Thrown for a question to a bank this container has no key for. */
     public static final class NotConfigured extends IllegalStateException {
         NotConfigured() {
             super("bunq is not configured: set NORDTAL_STEWARD_BUNQ_API_KEY and NORDTAL_STEWARD_BUNQ_ACCOUNT_ID"
@@ -121,12 +106,7 @@ public final class BunqGateway {
         }
     }
 
-    /**
-     * Creates a bunq.me tab.
-     *
-     * @param amountCents what it asks for; the payer can edit it, so nothing downstream trusts it
-     * @param description what the payer and we both see, the {@code NT-XXXXXX} reference
-     */
+    /** Creates a bunq.me tab. The payer can edit {@code amountCents}, so no caller trusts it. */
     public BankWire.Tab createTab(final int amountCents, final String description) {
         requireConfigured();
         loadContext();
@@ -139,7 +119,7 @@ public final class BunqGateway {
         return new BankWire.Tab(tabId, tab.getBunqmeTabShareUrl());
     }
 
-    /** Closes a tab at bunq so it can no longer be paid, and says whether bunq accepted that. */
+    /** Cancels a tab and returns whether bunq accepted that. */
     public BankWire.Cancelled cancelTab(final long tabId) {
         requireConfigured();
         loadContext();
@@ -147,13 +127,12 @@ public final class BunqGateway {
             BunqMeTabApiObject.update(tabId, accountId, STATUS_CANCELLED);
             return new BankWire.Cancelled(true);
         } catch (final RuntimeException exception) {
-            // A tab already cancelled or paid answers with an error; neither is worth failing the caller for.
             log.warn("Could not cancel bunq.me tab {}: {}", tabId, exception.toString());
             return new BankWire.Cancelled(false);
         }
     }
 
-    /** Returns the incoming EUR payments that settled one tab, possibly none. */
+    /** Returns the incoming euro payments of one tab. */
     public List<BankWire.Payment> paymentsFor(final long tabId) {
         requireConfigured();
         loadContext();
@@ -165,7 +144,7 @@ public final class BunqGateway {
         return wire(inquiries.stream().map(BunqMeTabResultInquiryApiObject::getPayment));
     }
 
-    /** Returns the incoming EUR payments among the account's latest {@code count}, newest first. */
+    /** Returns the latest {@code count} incoming euro payments, newest first. */
     public List<BankWire.Payment> recentPayments(final int count) {
         requireConfigured();
         loadContext();
@@ -179,7 +158,7 @@ public final class BunqGateway {
                 .toList();
     }
 
-    /** Returns a payment as steward sees it, or {@code null} for one without an id, a readable time or euros in. */
+    /** Returns the payment, or {@code null} if it has no id, no readable time or is not incoming euros. */
     static BankWire.@Nullable Payment wire(final PaymentApiObject payment) {
         final Long id = payment.getId();
         final Integer cents = positiveEuroCents(payment);
@@ -191,7 +170,6 @@ public final class BunqGateway {
         return new BankWire.Payment(id, cents, created.toString(), description);
     }
 
-    /** Returns a payment's amount in cents, or {@code null} for anything outgoing or not in EUR. */
     private static @Nullable Integer positiveEuroCents(final PaymentApiObject payment) {
         final AmountObject amount = payment.getAmount();
         if (amount == null || !CURRENCY.equals(amount.getCurrency())) {
@@ -206,7 +184,6 @@ public final class BunqGateway {
         }
     }
 
-    /** Returns when bunq says a payment was created, or {@code null} if unreadable. */
     private static @Nullable Instant createdAt(final PaymentApiObject payment) {
         final String created = payment.getCreated();
         if (created == null || created.isBlank()) {
@@ -220,18 +197,13 @@ public final class BunqGateway {
         }
     }
 
-    /** Returns {@code cents} as bunq wants it, e.g. {@code "3.00"}, through BigDecimal and never a double. */
+    /** Returns {@code cents} as a decimal string such as {@code "3.00"}. */
     static String decimal(final int cents) {
         return BigDecimal.valueOf(cents)
                 .divide(CENTS_PER_EURO, 2, RoundingMode.UNNECESSARY)
                 .toPlainString();
     }
 
-    /**
-     * Returns a decimal amount as bunq returns it, in cents.
-     *
-     * @throws NumberFormatException if the value is not a decimal number
-     */
     static int cents(final String value) {
         return new BigDecimal(value.trim())
                 .multiply(CENTS_PER_EURO)
@@ -239,7 +211,7 @@ public final class BunqGateway {
                 .intValueExact();
     }
 
-    /** Loads or creates the bunq API context, once per process. */
+    /** Loads the bunq API context once per process. */
     private synchronized void loadContext() {
         if (contextLoaded) {
             return;

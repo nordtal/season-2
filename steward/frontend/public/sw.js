@@ -1,9 +1,6 @@
-// Steward's service worker. It shows alerts on a phone's lock screen.
-//
-// Keep it plain JavaScript in public/. The browser fetches /sw.js before any bundle runs, and Vite copies it unchanged.
+// Steward's service worker. It stays plain JavaScript in public/, because the browser fetches /sw.js before any bundle runs.
 
 self.addEventListener("install", () => {
-  // Activate at once instead of at the next reload.
   self.skipWaiting()
 })
 

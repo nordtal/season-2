@@ -5,13 +5,10 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** Why aura changed, as the typed values that explain a leaderboard position: its reason and a row of its own. */
 public sealed interface AuraCause {
 
-    /** Returns what goes into {@code smp_aura_event.reason}. */
     AuraReason reason();
 
-    /** A duel's stake, won or lost, on the platform it was fought on. */
     record Duel(boolean won, DuelType type) implements AuraCause {
         public Duel {
             Objects.requireNonNull(type, "type");
@@ -24,10 +21,10 @@ public sealed interface AuraCause {
     }
 
     /**
-     * A death away from the arena.
+     * A death outside the duel arena.
      *
      * @param reason     {@link AuraReason#DEATH} or {@link AuraReason#DEATH_LISTED}
-     * @param damageType the namespaced damage type, null when the server named none
+     * @param damageType the namespaced damage type, or null when the server names none
      */
     record Death(AuraReason reason, @Nullable String damageType) implements AuraCause {
         public Death {
@@ -37,7 +34,6 @@ public sealed interface AuraCause {
         }
     }
 
-    /** One of the curated advancements, by its namespaced key. */
     record Advancement(String key) implements AuraCause {
         public Advancement {
             Objects.requireNonNull(key, "key");
@@ -49,7 +45,6 @@ public sealed interface AuraCause {
         }
     }
 
-    /** A share of the aura budget of the objective with this id. */
     record Contribution(UUID objectiveId) implements AuraCause {
         public Contribution {
             Objects.requireNonNull(objectiveId, "objectiveId");
@@ -61,7 +56,6 @@ public sealed interface AuraCause {
         }
     }
 
-    /** A change an admin booked by hand. */
     record Admin(Actor actor) implements AuraCause {
         public Admin {
             Objects.requireNonNull(actor, "actor");

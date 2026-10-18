@@ -26,19 +26,18 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
- * The SMP's admin actions, the same whether the console typed them or Steward asked through the inbox.
+ * The admin actions of the SMP. The console and Steward, through the inbox, run the same actions.
  *
  * Every method reads the database, so none runs on the main thread.
  */
 public final class SmpAdmin {
 
-    /** What closing an objective or unlocking a milestone by hand does to the running track. */
     public interface Track {
 
-        /** Closes {@code objective} of {@code milestone} and pays out what was collected, with nobody behind it. */
+        /** Closes {@code objective} of {@code milestone} and pays out what was collected. No player is the actor. */
         void finishObjective(String milestone, ObjectiveRow objective);
 
-        /** Unlocks {@code milestone} and pays everybody who qualified, with nobody behind it. */
+        /** Unlocks {@code milestone} and pays every player who qualified. No player is the actor. */
         void unlockMilestone(String milestone);
     }
 
@@ -49,7 +48,6 @@ public final class SmpAdmin {
     private final AccessReader access;
     private final Logger logger;
 
-    /** An admin's view of the track and of access, with every date shown in the network's zone. */
     public SmpAdmin(
             final TrackDao rows,
             final AuraDao aura,
@@ -65,7 +63,6 @@ public final class SmpAdmin {
         this.logger = logger;
     }
 
-    /** Closes one open objective of the active milestone, paying out what was collected. */
     public Answer completeObjective(final String key) {
         final Optional<String> active = rows.activeMilestoneKey();
         if (active.isEmpty()) {
@@ -81,7 +78,6 @@ public final class SmpAdmin {
         return Answer.done(MESSAGES.smp().admin().objectiveCompleted(key, new MilestoneContext(active.get())));
     }
 
-    /** Unlocks the active milestone by hand and pays everybody who qualified. */
     public Answer unlockMilestone(final String key) {
         final Optional<String> active = rows.activeMilestoneKey();
         if (active.isEmpty()) {
@@ -95,7 +91,6 @@ public final class SmpAdmin {
         return Answer.done(MESSAGES.smp().admin().milestoneUnlocked(key));
     }
 
-    /** Adds or removes aura for an online player, recording that the console did it. */
     public Answer changeAura(final UUID player, final String name, final int delta) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player);
         if (discordId.isEmpty()) {
@@ -104,7 +99,7 @@ public final class SmpAdmin {
         try {
             aura.addAura(discordId.get(), delta, new AuraCause.Admin(Actor.HOST));
         } catch (final RuntimeException failure) {
-            // Its own answer: the transaction may have committed although its answer was lost.
+            // The transaction may have committed, so the answer says the result is unknown.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);
             return Answer.failed(
                     MESSAGES.smp().admin().auraUnknown(PlayerContext.of(PlayerId.of(player), name), delta));
@@ -113,12 +108,10 @@ public final class SmpAdmin {
         return Answer.done(MESSAGES.smp().admin().auraChanged(PlayerContext.of(PlayerId.of(player), name), delta));
     }
 
-    /** Tells the console whether somebody is linked, has access and is halfway through buying it. */
     public void showAccess(final PaperUser console, final UUID player, final String name) {
         final AccessState state = access.accessState(player);
         final DiscordId discordId = state.discordId();
         if (discordId == null) {
-            // An unlinked account should not have got past the proxy at all.
             console.reply(MESSAGES.smp().access().unlinked(PlayerContext.of(PlayerId.of(player), name)), Tone.BAD);
             return;
         }
@@ -139,7 +132,7 @@ public final class SmpAdmin {
         final Optional<OpenPayment> pending = access.openPayment(discordId);
         pending.ifPresentOrElse(
                 payment -> console.reply(
-                        // A request with no bunq tab is somebody who picked a number of days and never got as far.
+                        // A request without a bunq tab belongs to a player who chose a number of days only.
                         payment.hasTab()
                                 ? MESSAGES.smp()
                                         .access()

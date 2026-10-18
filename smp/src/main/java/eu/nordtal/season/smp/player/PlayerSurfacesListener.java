@@ -11,16 +11,16 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
+ * Handles join and quit: the operator grant, the surfaces and the language of the join line.
  *
- * An admin is a server operator from join to quit, through {@link AdminOperators}.
+ * {@code AdminOperators} makes an admin a server operator from join to quit.
  */
 public final class PlayerSurfacesListener implements Listener {
 
     private final Plugin plugin;
     private final PlayerSurfaces surfaces;
     private final SystemLines lines;
-    // The season's opening moment; a callback so this package does not depend on the welcome feature.
+    // Starts the opening moment. A callback keeps this package independent of the welcome feature.
     private final Consumer<Player> languageReady;
 
     public PlayerSurfacesListener(
@@ -36,13 +36,11 @@ public final class PlayerSurfacesListener implements Listener {
 
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
-        // Identities is already filled for this player.
         surfaces.refresh(event.getPlayer());
-        // Everybody else's ordering depends on who is online, and this player is new to that set.
+        // The order of the other players depends on who is online, and this player is new to that set.
         PaperScheduler.of(plugin).onMain(surfaces::refreshAll);
     }
 
-    /** Redraws a joined player's surfaces once every join handler ran, and says they arrived. */
     public void languageKnown(final Player player) {
         surfaces.refresh(player);
         lines.announceJoin(player);
@@ -50,9 +48,9 @@ public final class PlayerSurfacesListener implements Listener {
     }
 
     /**
-     * Fills in a nametag the moment DisplayTags creates one, on every path that creates it.
+     * Fills in a nametag when DisplayTags creates one.
      *
-     * A tag starts without text, so one created after the last refresh would otherwise stay empty.
+     * A tag has no text at creation, so one created after the last refresh stays empty without this handler.
      */
     @EventHandler
     public void onNameTagCreate(final NameTagCreateEvent event) {

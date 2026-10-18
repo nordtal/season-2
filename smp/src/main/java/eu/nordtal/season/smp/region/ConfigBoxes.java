@@ -6,7 +6,6 @@ import eu.nordtal.season.smp.config.SpawnRegionSpec;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Turns the box lists in the {@code config} group into {@link Boxes}. */
 public final class ConfigBoxes {
 
     private ConfigBoxes() {}
@@ -26,7 +25,6 @@ public final class ConfigBoxes {
         return new Boxes(boxes);
     }
 
-    /** The wheel of fortune's own box. */
     public static Boxes wheelRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SpawnRegionSpec region : config.wheelRegions()) {

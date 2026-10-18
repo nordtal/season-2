@@ -16,9 +16,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Draws a player onto the tab list and the nametag, which DisplayTags renders.
+ * Writes a player to the tab list and the nametag, which DisplayTags renders.
  *
- * Every nametag element describes the person looked at, so one content serves every viewer.
+ * A nametag shows the player looked at, so one content serves every viewer.
  */
 public final class PlayerSurfaces {
 
@@ -28,7 +28,7 @@ public final class PlayerSurfaces {
     private final TabList tabList;
     private final NameTagManager nameTags;
 
-    /** The network's limit, which the footer shows: no server has one of its own. */
+    /** The player limit of the network, shown in the footer. */
     private final PlayersSpec network;
 
     public PlayerSurfaces(
@@ -46,12 +46,11 @@ public final class PlayerSurfaces {
         this.tabList = new TabList(messages);
     }
 
-    /** Redraws one player everywhere they appear, on the main thread. */
+    /** Main thread only. */
     public void refresh(final Player player) {
         final PlayerIdentity identity = identities.of(player.getUniqueId());
         player.playerListName(composition.tabList(player.getName(), identity));
 
-        // Longest online first: the tab list's own alphabetical sort says nothing about anybody.
         player.setPlayerListOrder((int) Math.min(Integer.MAX_VALUE, identity.playtimeSeconds() / 60L));
 
         sendTabListFrame(player, identity);
@@ -59,7 +58,7 @@ public final class PlayerSurfaces {
         applyNameTag(player, identity);
     }
 
-    /** Redraws a player whose identity changed, on the main thread, if they are still online. */
+    /** Main thread only. */
     public void changed(final PlayerIdentity identity) {
         PaperScheduler.of(plugin).onMain(() -> {
             final Player player = Bukkit.getPlayer(identity.player().value());
@@ -74,28 +73,27 @@ public final class PlayerSurfaces {
     }
 
     /**
-     * Writes our composition onto a nametag DisplayTags has already created, never creating one.
+     * Writes the composition onto a nametag that DisplayTags has already created. It never creates one.
      *
-     * A tag created later starts without text; {@code onNameTagCreate} is the seam that fills it.
+     * A tag created later has no text. {@code onNameTagCreate} fills it.
      */
     private void applyNameTag(final Player player, final PlayerIdentity identity) {
         final PlayerNameTag tag = nameTags.getByPlayer(player);
         if (tag == null) {
-            // Between join and the client loading its world there is nothing to write to. The create event fills it in.
             return;
         }
         write(tag, player, identity);
     }
 
     /**
-     * Applies the composition to a tag DisplayTags has just created; call it from a {@code NameTagCreateEvent} handler.
+     * Writes the composition onto a tag that DisplayTags has just created.
+     * Call it from a {@code NameTagCreateEvent} handler.
      */
     public void applyTo(final PlayerNameTag tag) {
         final Player player = tag.getPlayer();
         write(tag, player, identities.of(player.getUniqueId()));
     }
 
-    /** Hands the composition to DisplayTags as MiniMessage, which is the format it parses. */
     private void write(final PlayerNameTag tag, final Player player, final PlayerIdentity identity) {
         final Component line = composition.nameTag(player.getName(), identity);
         tag.getData().setLines(List.of(MiniMessage.miniMessage().serialize(line)));
@@ -103,9 +101,9 @@ public final class PlayerSurfaces {
     }
 
     /**
-     * Draws the tab list's header and footer in the reader's own language.
+     * Writes the header and the footer of the tab list in the language of the reader.
      *
-     * The logo comes in as a placeholder from {@link Glyphs}, never a private-use character in a properties file.
+     * The logo is a placeholder from {@link Glyphs}, not a private-use character in a properties file.
      */
     private void sendTabListFrame(final Player player, final PlayerIdentity identity) {
         tabList.drawCounted(player, identity.language(), network);

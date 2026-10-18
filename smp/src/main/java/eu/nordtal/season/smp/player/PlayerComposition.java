@@ -13,33 +13,30 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 /**
- * What a player looks like on the tab list, the nametag and in chat.
+ * Builds the text of a player for the tab list, the nametag and chat.
  *
- * The nametag leaves out the aura, which changes too often for a packet to everyone in range.
+ * The nametag omits the aura.
  */
 public final class PlayerComposition {
 
-    /** The join line's colour, reused for positive aura. */
+    /** The colour of positive aura. It equals the colour of the join line. */
     private static final TextColor AURA_POSITIVE = Objects.requireNonNull(TextColor.fromHexString("#8ba888"));
 
-    /** The leave line's colour, for aura at zero or below. */
+    /** The colour of aura at zero or below. It equals the colour of the leave line. */
     private static final TextColor AURA_EMPTY = Objects.requireNonNull(TextColor.fromHexString("#a8888b"));
 
-    /** The donor star's colour: a warm amber, distinct from the prestige hues and readable on the dark tab list. */
     private static final TextColor DONOR = Objects.requireNonNull(TextColor.fromHexString("#f2b84b"));
 
     private final Supplier<Prestige> prestige;
 
-    /** A supplier, because a settings change replaces the colour table. */
+    /** Read on every call, because a settings change replaces the colour table. */
     private final Supplier<PrestigeColours> colours;
 
     public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
-        // A supplier: the prestige group is re-read on a settings change, so this table is asked for fresh each time.
         this.prestige = Objects.requireNonNull(prestige, "prestige");
         this.colours = Objects.requireNonNull(colours, "colours");
     }
 
-    /** All six, for the tab list. */
     public Component tabList(final String name, final PlayerIdentity identity) {
         return flag(identity.language())
                 .append(Component.text(" "))
@@ -50,7 +47,6 @@ public final class PlayerComposition {
                 .append(aura(identity.aura()));
     }
 
-    /** Everything except the aura, for the nametag DisplayTags renders. */
     public Component nameTag(final String name, final PlayerIdentity identity) {
         return flag(identity.language())
                 .append(Component.text(" "))
@@ -59,7 +55,6 @@ public final class PlayerComposition {
                 .append(crest(identity));
     }
 
-    /** Flag, name and crest, for a chat line. */
     public Component chatPrefix(final String name, final PlayerIdentity identity) {
         return flag(identity.language())
                 .append(Component.text(" "))
@@ -67,23 +62,21 @@ public final class PlayerComposition {
                 .append(crest(identity));
     }
 
-    /** The wearer's language as a flag glyph, not the viewer's. */
+    /** Returns the flag of the language of the player, not of the viewer. */
     private Component flag(final Locale locale) {
         return Component.text(LanguageFlags.of(locale)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /** The prestige colour, or the admin colour, which wins. */
     private Component name(final String name, final PlayerIdentity identity) {
         return Component.text(name).color(nameColour(identity)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Returns the admin colour when {@link PlayerIdentity#admin()} is set, otherwise the prestige tier's colour. */
+    /** Returns the admin colour for an admin, otherwise the colour of the prestige tier. */
     private TextColor nameColour(final PlayerIdentity identity) {
         final PrestigeColours palette = colours.get();
         return identity.admin() ? palette.admin() : palette.tier(tierOf(identity));
     }
 
-    /** Returns the tier {@link #crest} also draws. */
     private int tierOf(final PlayerIdentity identity) {
         return prestige.get().tierOf(identity.playtimeSeconds());
     }
@@ -101,7 +94,6 @@ public final class PlayerComposition {
         return out;
     }
 
-    /** The crest for the time spent here, never empty; its white texture takes the tier's colour, even for an admin. */
     private Component crest(final PlayerIdentity identity) {
         final int tier = tierOf(identity);
         return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1))
@@ -109,7 +101,6 @@ public final class PlayerComposition {
                 .decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Green when positive, red at zero or below, in the palette's colours to match the join and leave lines. */
     private Component aura(final int amount) {
         return Component.text(String.valueOf(amount))
                 .color(amount > 0 ? AURA_POSITIVE : AURA_EMPTY)

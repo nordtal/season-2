@@ -23,16 +23,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The one moment a player gets on their very first join of the season, and where they are first put down.
+ * Shows the opening moment on the first join of the season and moves the player to the first-join spawn.
  *
  * {@link WelcomeDao#claimWelcome} takes the flag before anything is shown, so the moment and the teleport happen once.
  */
 public final class SeasonWelcome {
 
-    /** How long each picture is on screen. */
     private static final int FRAME_TICKS = 20;
 
-    /** The placeholder sequence, marked and numbered so it is noticed and reported. */
     private static final List<String> PLACEHOLDER_FRAMES = List.of(
             "[ nordtal intro - placeholder 1/3 ]",
             "[ nordtal intro - placeholder 2/3 ]",
@@ -60,10 +58,9 @@ public final class SeasonWelcome {
         this.worlds = worlds;
     }
 
-    /** Called once per join, on the main thread, one tick after join once every join handler ran. */
+    /** Runs once per join on the main thread, one tick after the join and after every join handler. */
     public void onLanguageReady(final Player player) {
         final UUID uuid = player.getUniqueId();
-        // Identities is filled at pre-login by the plugin base, so this is a map read.
         final Optional<DiscordId> discordId = identities.discordIdOf(uuid);
         if (discordId.isEmpty()) {
             return;
@@ -71,18 +68,16 @@ public final class SeasonWelcome {
         final String name = player.getName();
         PaperScheduler.of(plugin).execute(() -> {
             if (!dao.claimWelcome(discordId.get())) {
-                // The ordinary answer on every join but the first.
                 return;
             }
             PaperScheduler.of(plugin).onMain(() -> show(uuid, name, discordId.get()));
         });
     }
 
-    /** The main-thread half, by UUID because the player may have reconnected since the claim. */
+    /** Shows the moment on the main thread. It takes the UUID, so it finds a player who reconnected. */
     private void show(final UUID uuid, final String name, final DiscordId discordId) {
         final Player player = Bukkit.getPlayer(uuid);
         if (player == null) {
-            // The one path that loses the moment with the flag already taken.
             plugin.getLogger()
                     .info(name + " left in the tick after their own join, so the season's"
                             + " opening moment was claimed but never shown. To give it back:"
@@ -90,13 +85,10 @@ public final class SeasonWelcome {
                             + discordId + "';");
             return;
         }
-        // Before the pictures, so the blindness starts where the player will stand rather than covering a teleport.
         placeAtFirstJoinSpawn(player, name);
-        // Still run from the locale callback: it fires once fully arrived, never mid-join.
         cinematics.start(player, cinematic());
     }
 
-    /** Puts the player at {@code first-join-spawn} via {@code safeAt}, since a first join has to end somewhere. */
     private void placeAtFirstJoinSpawn(final Player player, final String name) {
         final FirstJoinSpawnSpec spawn = config.firstJoinSpawn();
         final World world = Bukkit.getWorld(spawn.world());
@@ -112,21 +104,19 @@ public final class SeasonWelcome {
                 world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch())));
     }
 
-    /** What the moment is made of; the {@link Feedback#STAGING} sound ships blank. */
+    /** Returns the cinematic. The {@link Feedback#STAGING} sound is blank. */
     static Cinematic cinematic() {
         return Cinematic.builder()
                 .frames(frames(), FRAME_TICKS)
                 .sound(Feedback.STAGING)
-                // Blindness for exactly as long as the pictures run; the staging removes it on end, death and logout.
+                // The effect lasts as long as the pictures. The staging removes it on end, death and logout.
                 .effect(new Cinematic.Effect("minecraft:blindness", 0))
                 .build();
     }
 
-    /** The pictures, as plain text until the art arrives. */
     private static List<Component> frames() {
         final List<Component> frames = new ArrayList<>(PLACEHOLDER_FRAMES.size());
         for (final String frame : PLACEHOLDER_FRAMES) {
-            // Component.text, not MessageRenderer.
             frames.add(Component.text(frame));
         }
         return frames;

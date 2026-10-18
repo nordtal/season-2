@@ -55,7 +55,7 @@ class DatabaseRoleIntegrationTest {
             final boolean journals = role == DatabaseRole.STEWARD || role == DatabaseRole.DISCORD_BOT;
             cases.add(new Case(
                     role, "INSERT INTO journal_entry (action, actor_kind) VALUES ('LINK', 'STEWARD')", journals));
-        // The bot draws the card of an entry that steward wrote.
+            // The bot draws the card of an entry that steward wrote.
             cases.add(new Case(
                     role,
                     "SELECT e.id, b.days, r.payload, p.reference FROM journal_entry e"

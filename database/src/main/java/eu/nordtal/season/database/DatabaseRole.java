@@ -14,7 +14,6 @@ import org.jspecify.annotations.Nullable;
 
 /** A role the schema grants to. {@code V1} names it by the Flyway placeholder {@link #placeholder()}. */
 public enum DatabaseRole {
-
     DISCORD_BOT(Login.PASSWORD),
 
     PROXY(Login.PASSWORD),

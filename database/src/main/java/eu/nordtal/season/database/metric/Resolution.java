@@ -9,7 +9,6 @@ import java.time.temporal.ChronoUnit;
  * A new value needs a migration that widens the {@code CHECK}.
  */
 public enum Resolution {
-
     RAW,
 
     /** The mean of the {@link #RAW} samples of one UTC hour, at the hour's start. */

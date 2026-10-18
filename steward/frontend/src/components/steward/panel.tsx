@@ -4,7 +4,7 @@ import { cn } from "cn"
 /**
  * A named section without a `Card`'s border, shadow, corners and header grid.
  *
- * It never grows a border or shadow; a section that needs one is a `Card`.
+ * It never gets a border or shadow. A section that needs one is a `Card`.
  */
 export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (

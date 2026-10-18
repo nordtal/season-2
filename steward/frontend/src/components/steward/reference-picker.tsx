@@ -31,19 +31,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** How many rows a search draws at once; the rest wait for a narrower one. */
+/** How many rows a search draws at once. The rest wait for a narrower search. */
 const SHOWN = 200
 
 /** Radix refuses "" as an item value. */
 const ALL = "*"
 
-/** What stands for an entry the game draws no item for, by its registry. */
+/** The icon of an entry for which the game draws no item, by its registry. */
 const GENERIC: Record<string, Icon> = {
   statistic: TERM_ICON.statistic,
   advancement: TERM_ICON.advancement,
 }
 
-/** The choices for one reference, fetched from whichever directory it names, and only that one. */
+/** Fetches the choices for one reference from the directory that it names, and only that one. */
 function useChoices(
   reference: ConfigReference,
   sibling: string | undefined,
@@ -61,7 +61,9 @@ function useChoices(
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 
-/** What a choice is drawn with in front of its name: its item, its registry's generic icon, or a channel's kind. */
+/**
+ * What a choice is drawn with in front of its name: its item, its registry's generic icon, or a channel's kind.
+ */
 function Mark({
   choice,
   icons,
@@ -134,7 +136,9 @@ function Chip({
   )
 }
 
-/** What a setting names, read only: its chips, with the warning chip for a value nothing lists. */
+/**
+ * What a setting names, read only: its chips, with the warning chip for a value that nothing lists.
+ */
 export function ReferenceValues({
   reference,
   values,
@@ -146,7 +150,7 @@ export function ReferenceValues({
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
   if (pending) return <SkeletonText width="short" />
-  /** Nothing listed at all is no reason to mark every value unknown. */
+  /** When nothing is listed at all, the values are not marked unknown. */
   const listed = choices.choices.length > 0
   return (
     <span className="flex flex-wrap gap-1">
@@ -171,7 +175,9 @@ export function ReferenceValues({
   )
 }
 
-/** What a setting names, as small icons alone: the first `max`, then how many more; a name where there is no icon. */
+/**
+ * What a setting names, as small icons alone: the first `max`, then how many more. A name replaces the icon where there is none.
+ */
 export function ReferenceMarks({
   reference,
   values,
@@ -226,7 +232,7 @@ export function ReferenceMarks({
 /**
  * A setting that names something, picked from what the game, the guild or Steward lists.
  *
- * A list holds chips and adds by the same picker; a value nothing lists stays, marked, never replaced.
+ * A list holds chips and adds values with the same picker. A value that nothing lists stays, marked, and is never replaced.
  */
 export function ReferencePicker({
   id,
@@ -244,7 +250,7 @@ export function ReferencePicker({
   reference: ConfigReference
   values: string[]
   multi: boolean
-  /** The value of the sibling `reference.dependsOn` names. */
+  /** The value of the sibling that `reference.dependsOn` names. */
   sibling?: string
   disabled: boolean
   /** The plain control, drawn with the reason when nothing can be listed. */

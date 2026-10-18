@@ -10,7 +10,7 @@ import type { ReactNode } from "react"
 /**
  * Status badges in the theme's three status colours, wrapping shadcn's `Badge`.
  *
- * Every badge also says a word, so colour is never the only carrier.
+ * Every badge also shows a word, so colour is never the only signal.
  */
 
 export type Tone = "ok" | "warn" | "down" | "idle"
@@ -22,7 +22,9 @@ const TONES: Record<Tone, string> = {
   idle: "border-border bg-secondary text-muted-foreground",
 }
 
-/** A badge in its tone's colour around the word for the state, with `tipContent` as its tip. */
+/**
+ * A badge in the colour of its tone around the word for the state, with `tipContent` as its tip.
+ */
 export function StatusBadge({
   tone,
   children,
@@ -37,7 +39,9 @@ export function StatusBadge({
   const badge = (
     <Badge
       variant="outline"
-      /** `max-w-full` and `truncate`, so a long badge in a table card ends in an ellipsis, not a silent cut. */
+      /**
+       * `max-w-full` and `truncate` make a long badge in a table card end in an ellipsis and not in a silent cut.
+       */
       className={cn("max-w-full truncate font-medium", TONES[tone], className)}
     >
       {children}
@@ -45,7 +49,7 @@ export function StatusBadge({
   )
   if (!tipContent) return badge
   return (
-    /** `max-w-full` here too, since this span is the grid item in a table card. */
+    /** `max-w-full` is set here too, because this span is the grid item in a table card. */
     <Tip content={tipContent}>{badge}</Tip>
   )
 }
@@ -68,15 +72,17 @@ export function Tip({ content, children, className }: { content: ReactNode; chil
   )
 }
 
-/** The fields {@link serviceTone} and {@link ServiceState} need; `alert` is the alert rule's verdict on the row. */
+/**
+ * The fields that {@link serviceTone} and {@link ServiceState} need. `alert` is the alert rule's verdict on the row.
+ */
 export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert"> &
   Partial<Pick<Service, "oneShot" | "lastRun">>
 
 /**
- * One service reduced to a tone, shared by {@link ServiceState} and {@link HealthDot} so they cannot drift apart.
+ * Reduces one service to a tone. {@link ServiceState} and {@link HealthDot} share it, so they cannot drift apart.
  *
- * Red is the alert rule's word alone; a stop it raises nothing about is meant, a standby or a hold, so `idle`.
- * A one-shot that exited cleanly did its job, so `ok`.
+ * Red is the alert rule's word alone. A stop that the rule raises nothing about is intended, as for a standby or a hold, so it is `idle`.
+ * A one-shot that exited cleanly did its job, so it is `ok`.
  */
 export function serviceTone(service: ServiceHealth): Tone {
   if (service.alert === "down") return "down"
@@ -85,17 +91,19 @@ export function serviceTone(service: ServiceHealth): Tone {
   return "ok"
 }
 
-/** Whether this is a one-shot whose last run exited with code 0. */
+/** Returns whether this is a one-shot whose last run exited with code 0. */
 export function completed(service: ServiceHealth): boolean {
   return service.oneShot === true && service.state !== "running" && service.lastRun?.exitCode === 0
 }
 
-/** Whether this service is stopped and meant to be; a hold on a running container says nothing. */
+/**
+ * Returns whether this service is stopped on purpose. A hold on a running container says nothing.
+ */
 export function held(service: ServiceHealth): boolean {
   return service.hold !== undefined && service.state !== "running"
 }
 
-/** Docker's container state, with health folded in where there is one. */
+/** Docker's container state, with the health folded in where there is one. */
 export function ServiceState({ service }: { service: ServiceHealth }) {
   const { state, health, hold, lastRun } = service
   const tone = serviceTone(service)
@@ -117,7 +125,7 @@ export function ServiceState({ service }: { service: ServiceHealth }) {
         </StatusBadge>
       )
     }
-    /** One badge: Docker's own word moves to the title rather than a second, red badge. */
+    /** One badge. Docker's own word moves to the title and does not become a second, red badge. */
     return (
       <StatusBadge
         tone="idle"
@@ -159,11 +167,13 @@ const DOT_TONE: Record<Tone, string> = {
   ok: "bg-success",
   warn: "bg-warning",
   down: "bg-destructive",
-  /** A meant stop: a bordered dot, differing from the other three in shape, not only colour. */
+  /**
+   * An intended stop gets a bordered dot, which differs from the other three in shape and not only in colour.
+   */
   idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
-/** The state word each tone says, which `steward.service.state` turns into the reader's word. */
+/** The state word that each tone says. `steward.service.state` turns it into the reader's word. */
 const DOT_STATE: Record<Tone, string> = {
   ok: "healthy",
   warn: "starting",
@@ -174,7 +184,7 @@ const DOT_STATE: Record<Tone, string> = {
 /**
  * The health of one service as a dot, for the sidebar and the network view.
  *
- * `quiet` hides the fine state; an undefined `service` draws a neutral dot, never the fine one.
+ * `quiet` hides the fine state. An undefined `service` draws a neutral dot and never the fine one.
  */
 export function HealthDot({
   service,
@@ -183,11 +193,13 @@ export function HealthDot({
 }: {
   service?: ServiceHealth
   className?: string
-  /** Whether a healthy service draws nothing at all: `true` for the sidebar, `false` for the picture. */
+  /**
+   * Whether a healthy service draws nothing at all: `true` for the sidebar, `false` for the picture.
+   */
   quiet?: boolean
 }) {
   if (!service) {
-    /** A dot still waiting shimmers, like every other loading surface. */
+    /** A dot that is still waiting shimmers, like every other loading surface. */
     return (
       <Skeleton
         role="img"
@@ -214,7 +226,9 @@ export function HealthDot({
   )
 }
 
-/** The tone of each resolve status; one Steward does not know yet is neutral, never green. */
+/**
+ * The tone of each resolve status. A status that Steward does not know yet is neutral and never green.
+ */
 const AVAILABLE_TONE: Record<string, Tone> = {
   UP_TO_DATE: "ok",
   OUTDATED: "warn",
@@ -226,12 +240,11 @@ const AVAILABLE_TONE: Record<string, Tone> = {
 }
 
 /**
- * One artefact's resolve status, in four answers kept apart.
+ * One artefact's resolve status, in four answers that are kept apart.
  *
- * "could not ask" must never look like "up to date", since a silent source looks like one with no change.
- * "not installed" is normal on a fresh volume and, on a running server, a new file or a renamed jar.
- * "unsupported" means the source has no build for the network's Minecraft version: nothing failed, and the
- * artefact stays listed so the next run picks up a build when one appears.
+ * "could not ask" never looks like "up to date", because a silent source looks like one with no change.
+ * "not installed" is normal on a fresh volume. On a running server it means a new file or a renamed jar.
+ * "unsupported" means that the source has no build for the network's Minecraft version. Nothing failed, and the artefact stays listed so the next run picks up a build when one appears.
  */
 export function AvailableBadge({ status }: { status: string }) {
   return (
@@ -243,8 +256,12 @@ export function AvailableBadge({ status }: { status: string }) {
 
 const DRIFT_TONE: Record<string, Tone> = { UP_TO_DATE: "ok", OUTDATED: "warn" }
 
-/** Image drift: UNKNOWN is never silent or green, and LOCAL, being ahead of the registry, is neutral. */
-/** The drift a service is drawn with: anything built on the host reads as a local build, whatever its image says. */
+/**
+ * Image drift: UNKNOWN is never silent or green. LOCAL is ahead of the registry and is neutral.
+ */
+/**
+ * Returns the drift that a service is drawn with. Anything built on the host reads as a local build, whatever its image says.
+ */
 export function shownDrift(drift: ImageState, localBuild?: LocalBuild): ImageState {
   return localBuild ? "LOCAL" : drift
 }
@@ -267,10 +284,10 @@ export function DriftBadge({
 }
 
 /**
- * What a drift badge or mark adds: the image, the jars of a local build, and for an unchecked image why it is.
+ * Returns what a drift badge or mark adds: the image, the jars of a local build, and for an unchecked image the reason.
  *
- * A local build is one made on this host and in no release; an update that would replace it names it and asks first.
- * Nothing when the image is not known, since the word on the badge is then all there is.
+ * A local build is one made on this host and in no release. An update that would replace it names it and asks first.
+ * It returns nothing when the image is not known, because the word on the badge is then all there is.
  */
 export function driftTip(drift: ImageState, image?: string, localBuild?: LocalBuild): ReactNode {
   const shown = shownDrift(drift, localBuild)
@@ -304,18 +321,20 @@ export function driftTip(drift: ImageState, image?: string, localBuild?: LocalBu
   )
 }
 
-/** The status of a run, as its row in steward's inbox carries it. */
+/** The status of a run, as its row in steward's inbox has it. */
 export function RunStatus({ status }: { status: string }) {
   const tone: Tone = status === "DONE" ? "ok" : status === "FAILED" ? "down" : status === "RUNNING" ? "warn" : "idle"
   return <StatusBadge tone={tone}>{runStatus(status)}</StatusBadge>
 }
 
-/** The outcome of a run in {@link RunStatus}'s words, for text such as the command palette's search. */
+/**
+ * Returns the outcome of a run in the words of {@link RunStatus}, for text such as the command palette's search.
+ */
 export function runStatus(status: string): string {
   return t("run.status", { status: choice(status) })
 }
 
-/** What kind of run it was. */
+/** Returns the kind of a run. */
 export function runKind(kind: string): string {
   return t("run.kind", { kind: choice(kind) })
 }

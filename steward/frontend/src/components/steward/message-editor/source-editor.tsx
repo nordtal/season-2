@@ -27,10 +27,9 @@ export type SourceEditorProps = {
 const MONO = "font-mono text-[13px] leading-6 max-md:text-base"
 
 /**
- * B: the stored text with its syntax coloured, a textarea over a highlighted copy of itself.
+ * B: the stored text with its syntax coloured. It is a textarea over a highlighted copy of itself.
  *
- * The browser keeps caret, selection, undo and the phone keyboard; the colours are drawn underneath, from the marks
- * the one parser leaves where it read syntax, and from where it stopped reading.
+ * The browser keeps caret, selection, undo and the phone keyboard. The colours are drawn underneath, from the marks that the one parser leaves where it read syntax, and from where it stopped reading.
  */
 export function SourceEditor({
   text,
@@ -61,7 +60,9 @@ export function SourceEditor({
     })
   }
 
-  /** The style tools work here too, re-styling the selection through the runs when it reads on its own. */
+  /**
+   * The style tools also work here. They restyle the selection through the runs when the selection reads on its own.
+   */
   function restyle(change: (style: Style) => Style) {
     const element = area.current
     if (!element || element.selectionStart === element.selectionEnd) return
@@ -145,8 +146,7 @@ export function SourceEditor({
 }
 
 /**
- * The source in coloured pieces: a colour or tone tag in its colour, other tags, values, escapes, and from where the
- * parser stopped reading, the rest in red. A mark inside another (a value in a tag's argument) keeps the outer one.
+ * Returns the source in coloured pieces: a colour or tone tag in its colour, other tags, values, escapes, and the rest in red from where the parser stopped reading. A mark inside another mark (a value in a tag's argument) keeps the outer one.
  */
 export function highlight(text: string, markup: boolean, tones: Tones): ReactNode[] {
   const { marks, error } = marksOf(text, markup)
@@ -190,7 +190,9 @@ function styleOf(mark: Mark, tones: Tones): CSSProperties | undefined {
   return colour ? { color: colour, fontWeight: 600 } : undefined
 }
 
-/** The colour a tag names: a tone, a colour by name or hex, `color:…`, or a gradient's first stop. */
+/**
+ * Returns the colour that a tag names: a tone, a colour by name or hex, `color:…`, or the first stop of a gradient.
+ */
 function tagColour(node: Extract<TextNode, { tag: string }>, tones: Tones): string | null {
   const name = node.tag.toLowerCase()
   const first = node.args[0] ? argumentText(node.args[0]) : null

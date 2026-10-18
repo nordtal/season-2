@@ -11,12 +11,16 @@ import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 
-/** One section's fields as a card edits them, a list of sections holding the same record one level down. */
+/**
+ * One section's fields as a card edits them. A list of sections holds the same record one level down.
+ */
 export type SectionValues = {
   [key: string]: string | string[] | SectionValues[]
 }
 
-/** A stable identity for "no template", so a memo keyed on it does not recompute every render. */
+/**
+ * An empty list with a fixed identity for "no template", so a memo that depends on it does not recompute on every render.
+ */
 const NO_TEMPLATE: ConfigEntry[] = []
 
 function fieldsToValues(fields: ConfigEntry[]): SectionValues {
@@ -29,33 +33,36 @@ function fieldsToValues(fields: ConfigEntry[]): SectionValues {
   return values
 }
 
-/** The document's own sections, as records, which a card's draft starts from. */
+/** Returns the document's own sections as records, which a card's draft starts from. */
 export function sectionsFromEntry(entry: ConfigEntry): SectionValues[] {
   return (entry.sections ?? []).map(fieldsToValues)
 }
 
-/** One field's value in a brand new section: what its template holds, which is the schema's default. */
+/**
+ * Returns one field's value in a brand new section: what its template holds, which is the schema's default.
+ */
 function blankValue(field: ConfigEntry): string | string[] | SectionValues[] {
   if (field.kind === "SECTIONS") return []
   if (field.kind === "LIST") return field.items ?? []
   return field.value ?? ""
 }
 
-/** A brand new section with every key `template` names, each at its default. */
+/** Returns a brand new section with every key that `template` names, each at its default. */
 export function blankSection(template: ConfigEntry[]): SectionValues {
   const values: SectionValues = {}
   for (const field of template) values[field.key] = blankValue(field)
   return values
 }
 
-/** Whether a field applies to `section`: always, unless its schema names the sibling values it is for. */
+/**
+ * Returns whether a field applies to `section`. It always does, unless its schema names the sibling values it is for.
+ */
 export function appliesTo(field: ConfigEntry, section: SectionValues): boolean {
   return !field.appliesWhen || field.appliesWhen.values.includes(textOf(section, field.appliesWhen.key))
 }
 
 /**
- * `section` with `key` set to `value`, and every field that hangs on that key back at its default where it changed:
- * one that no longer applies, and one whose reference depends on it, such as the subjects of a statistic.
+ * Returns `section` with `key` set to `value`. Every field that depends on that key goes back to its default where it changed: a field that no longer applies, and a field whose reference depends on the key, such as the subjects of a statistic.
  */
 export function withValue(
   template: ConfigEntry[],
@@ -72,23 +79,29 @@ export function withValue(
   return next
 }
 
-/** A field's text, or "" for a field that holds a list. */
+/** Returns a field's text, or "" for a field that holds a list. */
 function textOf(section: SectionValues | undefined, key: string): string {
   const value = section?.[key]
   return typeof value === "string" ? value : ""
 }
 
-/** A LIST field's own value: strings, never the sections array a SECTIONS field would hold. */
+/**
+ * Returns a LIST field's own value: strings, never the sections array that a SECTIONS field holds.
+ */
 function stringsOf(value: string | string[] | SectionValues[] | undefined): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
 }
 
-/** A SECTIONS field's own value: nested records, never the strings a LIST field would hold. */
+/**
+ * Returns a SECTIONS field's own value: nested records, never the strings that a LIST field holds.
+ */
 export function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
 
-/** The entries of a `SECTIONS` value as cards, each drawn from `template`, appended and removed one at a time. */
+/**
+ * The entries of a `SECTIONS` value as cards, each drawn from `template`, added and removed one at a time.
+ */
 export function RepeatableCards({
   entry,
   value,
@@ -101,26 +114,34 @@ export function RepeatableCards({
   value: SectionValues[]
   disabled: boolean
   onChange: (value: SectionValues[]) => void
-  /** What to call a card instead of "Entry N"; the caller decides, since the schema knows no titles. */
+  /**
+   * The title of a card instead of "Entry N". The caller decides, because the schema has no titles.
+   */
   sectionTitle?: (section: SectionValues, index: number) => string
-  /** Set for a list inside another card, whose entries are divided by a rule; it names the add button. */
+  /**
+   * Set for a list inside another card, whose entries are divided by a rule. It names the add button.
+   */
   within?: string
 }) {
   const template = entry.template ?? NO_TEMPLATE
 
-  /** The channel fields not marked optional, whose absence marks a card incomplete. */
+  /**
+   * The channel fields that are not marked optional. If one is missing, the card is incomplete.
+   */
   const requiredChannelFields = useMemo(() => template.filter((field) => isRequiredChannel(field)), [template])
 
-  /** The index armed for removal, which only the dialog's confirmation splices out. */
+  /** The index armed for removal. Only the dialog's confirmation removes it. */
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
 
-  /** The entry the schema protects, greyed out here since steward refuses its removal too. */
+  /** The entry that the schema protects, disabled here because steward refuses its removal too. */
   const protectedIndex = entry.protectedEntry
     ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
     : -1
 
-  /** A schema with no single shape for every entry sends no template, so the list is edited as raw text. */
+  /**
+   * A schema without a single shape for every entry sends no template, so the list is edited as raw text.
+   */
   if (template.length === 0) {
     return (
       <div className="flex flex-col gap-2">
@@ -207,7 +228,9 @@ export function RepeatableCards({
                     />
                   )
                 } else if (field.kind === "SECTIONS") {
-                  /** The file's copy of this nested list; a card added in this draft has none yet. */
+                  /**
+                   * The file's copy of this nested list. A card added in this draft has none yet.
+                   */
                   const own = entry.sections?.[index]?.find((f) => f.key === field.key)
                   control = (
                     <RepeatableCards
@@ -275,7 +298,7 @@ export function RepeatableCards({
         </Button>
       </div>
 
-      {/* Removing only changes the draft; nothing is written to the file until Save. */}
+      {/* Removing only changes the draft. Nothing is written to the file until Save. */}
       <AskThenAct
         open={pendingRemoval !== null}
         onOpenChange={(open) => open || setPendingRemoval(null)}

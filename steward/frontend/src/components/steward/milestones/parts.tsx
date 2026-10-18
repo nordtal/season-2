@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** A small rounded mark holding one value, the way the list shows a milestone's settings. */
+/** A small rounded mark that holds one value, as the list shows a milestone's settings. */
 function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
     <span
@@ -46,16 +46,15 @@ function Pill({ title, className, children }: { title?: string; className?: stri
   )
 }
 
-/** A label from the schema, for the key the editor places. */
+/** Returns a label from the schema, for a key that the editor places. */
 function labelOf(fields: ConfigEntry[], key: string): string {
   return fields.find((field) => field.key === key)?.label ?? key
 }
 
 /**
- * Budget sums as pills, each by its icon and named by the objective field's schema label; a zero sum is left out.
+ * Budget sums as pills, each with its icon and the schema label of the objective field. A zero sum is left out.
  *
- * A pill is titled by its label only where it stands for a milestone or the season, so a card's own sums are not
- * mistaken for them.
+ * A pill gets its label as title only where it stands for a milestone or the season, so a card's own sums are not mistaken for them.
  */
 export function BudgetMarks({
   sums,
@@ -80,12 +79,14 @@ export function BudgetMarks({
   })
 }
 
-/** A field's sibling value where its reference depends on one, such as the statistic a subject is counted by. */
+/**
+ * Returns a field's sibling value where its reference depends on one, such as the statistic that a subject is counted by.
+ */
 function siblingOf(field: ConfigEntry, section: SectionValues): string | undefined {
   return field.refers?.dependsOn ? text(section, field.refers.dependsOn) : undefined
 }
 
-/** One field of a section, by the control its schema asks for. */
+/** One field of a section, with the control that its schema asks for. */
 export function FieldControl({
   id,
   field,
@@ -120,14 +121,13 @@ export function FieldControl({
   )
 }
 
-/** Whether a field takes a whole row: a list, or a reference whose picker shows a name. */
+/** Returns whether a field takes a whole row: a list, or a reference whose picker shows a name. */
 function isWide(field: ConfigEntry): boolean {
   return field.kind === "LIST" || (field.refers !== undefined && !isColour(field.refers))
 }
 
 /**
- * The fields a section asks for: those that apply to it, without a reference that has nothing to name, such as the
- * subjects of a statistic kept per nothing.
+ * Returns the fields that a section asks for: those that apply to it, without a reference that has nothing to name, such as the subjects of a statistic kept per nothing.
  */
 function useShownFields(fields: ConfigEntry[], section: SectionValues): ConfigEntry[] {
   const game = useGameData(fields.some((field) => field.refers?.to === "SUBJECT"))
@@ -137,7 +137,9 @@ function useShownFields(fields: ConfigEntry[], section: SectionValues): ConfigEn
   )
 }
 
-/** A section's fields under their schema labels, two to a row where they are small; only those that apply. */
+/**
+ * A section's fields under their schema labels, two to a row where they are small. Only fields that apply show.
+ */
 export function Fields({
   id,
   fields,
@@ -158,7 +160,7 @@ export function Fields({
   return (
     <div
       className={cn(
-        // A select keeps to its cell here, where the form elsewhere gives it a minimum width.
+        // A select keeps to its cell here. Elsewhere the form gives it a minimum width.
         "grid grid-cols-2 gap-x-3 gap-y-3 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:min-w-0",
         className,
       )}
@@ -185,15 +187,13 @@ export function Fields({
   )
 }
 
-/** The milestone's own fields, without its objectives. */
+/** Returns the milestone's own fields, without its objectives. */
 export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
   return schema.milestone.filter((field) => field.key !== KEY.objectives)
 }
 
 /**
- * A milestone's settings as pills, as the list shows them: a choice by its icon and name, a number by its icon, a flag when on,
- * and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is
- * left out; a number that applies only for a choice, such as a border's diameter, sits in that choice's pill.
+ * A milestone's settings as pills, as the list shows them: a choice by its icon and name, a number by its icon, a flag when on, and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is left out. A number that applies only for a choice, such as a border's diameter, sits in that choice's pill.
  */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
@@ -239,7 +239,9 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
   )
 }
 
-/** The objective's type by its icon, where the icon can be drawn; the card writes its name beside it. */
+/**
+ * The objective's type as an icon where the icon can be drawn. The card writes the name beside it.
+ */
 function TypeIcon({ objective, schema, size }: { objective: SectionValues; schema: TrackSchema; size: number }) {
   const choices = schema.objective.find((field) => field.key === KEY.type)?.choices
   const type = text(objective, KEY.type)
@@ -249,9 +251,7 @@ function TypeIcon({ objective, schema, size }: { objective: SectionValues; schem
 }
 
 /**
- * What an objective counts, field by field among those that apply: a list such as items or subjects by its icons, a
- * single value by its icon and name, a statistic by its name alone since none of its icons would say which. A field
- * another depends on comes after it, so subjects come before the statistic that counts them.
+ * What an objective counts, field by field among those that apply: a list such as items or subjects by its icons, a single value by its icon and name, and a statistic by its name alone, because none of its icons would say which. A field that another field depends on comes after it, so subjects come before the statistic that counts them.
  */
 export function ObjectiveMarks({
   objective,
@@ -289,8 +289,7 @@ export function ObjectiveMarks({
 }
 
 /**
- * An objective as a card of its own, which opens the sheet: its type written out, its ID and its rewards, then its
- * target and what it counts.
+ * An objective as a card of its own that opens the sheet. The card shows the type written out, the ID and the rewards, then the target and what it counts.
  */
 export function ObjectiveCard({
   objective,
@@ -341,7 +340,9 @@ export function ObjectiveCard({
   )
 }
 
-/** One objective's every field in a sheet, a bottom sheet on a phone; its edits go straight into the draft. */
+/**
+ * Every field of one objective in a sheet, which is a bottom sheet on a phone. Its edits go straight into the draft.
+ */
 export function ObjectiveSheet({
   id,
   objective,

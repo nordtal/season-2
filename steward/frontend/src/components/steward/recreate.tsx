@@ -11,7 +11,7 @@ import { runKind } from "@/components/steward/status"
 import { message, t } from "@/lib/texts"
 
 /**
- * Asks for a RECREATE run of one service: its container is made again from the image already on this host.
+ * Asks for a RECREATE run of one service. The run makes the container again from the image that is already on this host.
  *
  * It is a run like any other, so players are warned and moved before the container goes.
  */
@@ -27,15 +27,21 @@ export function RecreateButton({
   trigger = true,
 }: {
   service: string
-  /** `outline` on a page, `ghost` in the network picture, where ten outlined buttons would compete with the lines. */
+  /**
+   * `outline` on a page. `ghost` in the network picture, where ten outlined buttons would compete with the lines.
+   */
   variant?: "outline" | "ghost"
-  /** The icon alone, for a network card too narrow for the word; `aria-label` still says "Recreate <service>". */
+  /**
+   * The icon alone, for a network card too narrow for the word. `aria-label` still says "Recreate <service>".
+   */
   compact?: boolean
   size?: "default" | "sm"
-  /** Lets a page hide the word below a breakpoint; the button keeps it as its accessible name. */
+  /**
+   * Lets a page hide the word below a breakpoint. The button keeps the word as its accessible name.
+   */
   labelClassName?: string
   className?: string
-  /** Steerable from outside, for the service page's ⋯ menu. */
+  /** Lets the caller open and close the dialog, for the service page's ⋯ menu. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
   /** `false` draws the dialog alone, for a caller that opens it from somewhere else. */
@@ -50,7 +56,7 @@ export function RecreateButton({
   const ask = useAskForRun()
   const { unavailable, title } = useRecreateGate(service)
 
-  /** The agent refuses to recreate itself, so its button is not drawn at all. */
+  /** The agent refuses to recreate itself, so its button is not drawn. */
   if (service === "steward-agent") return null
 
   return (
@@ -68,7 +74,7 @@ export function RecreateButton({
               <TERM_ICON.recreate aria-hidden />
             </Button>
           </TooltipTrigger>
-          {/* A disabled button shows no `title` on hover, so here the tooltip carries the reason. */}
+          {/* A disabled button shows no `title` on hover, so the tooltip carries the reason. */}
           <TooltipContent>{title}</TooltipContent>
         </Tooltip>
       ) : (
@@ -101,17 +107,21 @@ export function RecreateButton({
 }
 
 /**
- * Whether Recreate can be offered, and the sentence that says why not.
+ * Returns whether Recreate can be offered, and the sentence that says why not.
  *
- * A hook of its own, so the service page's menu greys out the same item for the same reason.
+ * It is a hook of its own, so the service page's menu disables the same item for the same reason.
  */
 export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
   const agent = useAgent()
-  /** A run owns the containers in its scope, and recreating one it is about to stop would race it. */
+  /**
+   * A run owns the containers in its scope, and recreating a container that the run is about to stop would race the run.
+   */
   const run = useRunLock().run
   const lock =
     run && touches(run, service) ? { locked: true, title: lockTitle(run) } : { locked: false, title: undefined }
-  /** An answer that the agent is unavailable or unreachable locks the button; a first load leaves it open. */
+  /**
+   * An answer that the agent is unavailable or unreachable locks the button. The first load leaves it open.
+   */
   const unreachable = agent.data?.available === true && agent.data.reachable === false
   const unavailable = agent.data?.available === false || unreachable || agent.isError || lock.locked
   const title =

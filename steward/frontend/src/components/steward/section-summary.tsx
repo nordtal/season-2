@@ -3,7 +3,9 @@ import { isColour } from "@/lib/references"
 import { ReferenceValues } from "@/components/steward/reference-picker"
 import { FieldLabelIcon } from "@/components/steward/term-icons"
 
-/** A section's filled settings, read only, each under its schema label; what names a game thing shows it. */
+/**
+ * A section's filled settings, read only, each under its schema label. A setting that names a game thing shows the thing.
+ */
 export function SectionSummary({ fields }: { fields: ConfigEntry[] }) {
   const shown = fields.filter(isFilled)
   if (shown.length === 0) return null

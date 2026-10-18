@@ -27,14 +27,16 @@ function block(name: string, keys: string[], values: string[] = []): ConfigEntry
   ]
 }
 
-/** The shape `prestige.yml` has: `hours` and `colours`, thirteen keys each, in the same order. */
+/** The shape of `prestige.yml`: `hours` and `colours`, thirteen keys each, in the same order. */
 const LADDER = [
   field({ key: "admin", path: "admin", value: "#ff5555" }),
   ...block("hours", ["tier-01", "tier-02", "tier-03"], ["0", "2", "5"]),
   ...block("colours", ["tier-01", "tier-02", "tier-03"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
 ]
 
-/** Mostly refusals, since pairing blocks that only look alike would put one tier's hour beside another's colour. */
+/**
+ * Most tests expect a refusal, because pairing blocks that only look alike would put one tier's hour beside another tier's colour.
+ */
 describe("pairedBlocks", () => {
   it("pairs two sibling blocks that carry the same keys, one row per key", () => {
     const pairs = pairedBlocks(LADDER)
@@ -43,7 +45,7 @@ describe("pairedBlocks", () => {
     expect(pairs[0].left.path).toBe("hours")
     expect(pairs[0].right.path).toBe("colours")
     expect(pairs[0].rows.map((row) => row.key)).toEqual(["tier-01", "tier-02", "tier-03"])
-    /** Left is the left block's key and right the right block's. */
+    /** `left` is the key of the left block and `right` the key of the right block. */
     expect(pairs[0].rows[1].left.path).toBe("hours.tier-02")
     expect(pairs[0].rows[1].right.path).toBe("colours.tier-02")
   })
@@ -55,7 +57,9 @@ describe("pairedBlocks", () => {
   })
 
   it("refuses two blocks whose keys are the same but in a different order", () => {
-    /** Same keys and count but shuffled, which would pair tier-03's hour with tier-02's colour. */
+    /**
+     * The same keys and count in a shuffled order, which would pair tier-03's hour with tier-02's colour.
+     */
     const shuffled = [
       ...block("hours", ["tier-01", "tier-02", "tier-03"]),
       ...block("colours", ["tier-01", "tier-03", "tier-02"]),
@@ -114,7 +118,7 @@ describe("pairedBlocks", () => {
       "hours.tier-02",
       "hours.tier-03",
     ])
-    // `admin` is not one of them: it sits beside the two blocks and stays an ordinary field.
+    // `admin` is not one of them. It sits beside the two blocks and stays an ordinary field.
     expect(pairedPaths(pairedBlocks(LADDER)).has("admin")).toBe(false)
   })
 })

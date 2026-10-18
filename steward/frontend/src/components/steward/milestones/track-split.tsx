@@ -35,7 +35,7 @@ export type TrackProps = {
 
 type Open = { milestone: number; objective: number } | null
 
-/** The one objective sheet the track opens, and the way to open it. */
+/** The one objective sheet that the track opens, and the way to open it. */
 function useObjectiveSheet({ id, schema, track, edits, disabled }: TrackProps) {
   const [open, setOpen] = useState<Open>(null)
   const objective = open ? (objectivesOf(track[open.milestone])[open.objective] ?? null) : null
@@ -119,7 +119,7 @@ function MilestoneBody({
   )
 }
 
-/** The season's budgets: every objective's, summed over the whole track. */
+/** The season's budgets: every objective's budgets, summed over the whole track. */
 function SeasonSums({ track, schema }: { track: SectionValues[]; schema: TrackSchema }) {
   const sums = budgetSums(track)
   if (BUDGETS.every((key) => sums[key] <= 0)) return null
@@ -143,8 +143,7 @@ function AddMilestone({ disabled, onAdd }: { disabled: boolean; onAdd: () => voi
 }
 
 /**
- * The track as a list beside the open milestone, an objective's fields in a sheet. A wide screen keeps the list and
- * opens the first milestone while none is chosen; a phone shows the list, then the chosen milestone with a way back.
+ * The track as a list beside the open milestone, with an objective's fields in a sheet. A wide screen keeps the list and opens the first milestone while none is chosen. A phone shows the list, then the chosen milestone with a way back.
  */
 export function TrackSplit(props: TrackProps) {
   const { schema, track, edits, disabled } = props

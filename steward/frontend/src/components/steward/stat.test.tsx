@@ -24,7 +24,7 @@ describe("UsageBar - the arithmetic", () => {
   })
 
   it.each([0, -1])("answers 0 rather than NaN or Infinity when the ceiling is %s", (total) => {
-    // An unmeasured disk must not draw a full bar.
+    // An unmeasured disk does not draw a full bar.
     render(<UsageBar used={5} total={total} />)
     expect(share()).toBe(0)
     expect(Number.isNaN(share())).toBe(false)

@@ -14,13 +14,13 @@ import { ConfigFile } from "@/components/steward/settings-config"
 import { t } from "@/lib/texts"
 import { StewardMark } from "@/app/steward-mark"
 
-/** The service the network's own settings are published under, the ones every process reads. */
+/** The service under which the network's own settings are published. Every process reads them. */
 export const NETWORK = "network"
 
 /**
- * The Settings tab: the service's groups of settings in one list, the chosen one as a tree.
+ * The Settings tab: the service's groups of settings in one list, with the chosen group as a tree.
  *
- * The open file is the page's `?file=`, handed in and reported back rather than kept here.
+ * The open file is the page's `?file=`. The page passes it in and receives changes through a callback. This component does not keep it.
  */
 export function ServiceSettings({
   service,
@@ -29,11 +29,15 @@ export function ServiceSettings({
 }: {
   service: string
   file: string | undefined
-  /** `replace` for a choice nobody made, so Back does not return to a list that chose itself. */
+  /**
+   * `replace` is set for a choice that nobody made, so Back does not return to a list that chose itself.
+   */
   onFile: (file: string | undefined, replace?: boolean) => void
 }) {
   const configs = useConfigs()
-  /** Without them a group falls back to the form its schema draws, which is all a failed read costs. */
+  /**
+   * Without the descriptors a group falls back to the form that its schema draws. That is all a failed read costs.
+   */
   const descriptors = useDescriptors()
   const dirty = useDirtyFiles()
   const wide = useWide()
@@ -48,11 +52,15 @@ export function ServiceSettings({
     [service, configs.data, descriptors.data],
   )
   const loading = configs.isPending
-  /** On a wide screen the first readable file is shown when none is chosen, derived rather than written to the URL. */
+  /**
+   * On a wide screen the first readable file shows when none is chosen. The component derives it and does not write it to the URL.
+   */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
   const selected = files.find((item) => item.id === shown)
 
-  /** A jump from the command palette; each gets a new number, so the same hit twice lands twice. */
+  /**
+   * A jump from the command palette. Each jump gets a new number, so the same hit twice lands twice.
+   */
   useEffect(() => {
     const land = () => {
       const config = takePendingJump(service)
@@ -123,10 +131,12 @@ export function ServiceSettings({
   )
 }
 
-/** A counter, not state: the number only has to differ from the last one. */
+/** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
 
-/** The router's own position in the browser history, or 0 for an entry it never numbered. */
+/**
+ * Returns the router's own position in the browser history, or 0 for an entry that it never numbered.
+ */
 function historyEntryIndex(): number {
   const state: unknown = window.history.state
   const key = "__TSR_index"
@@ -139,7 +149,7 @@ function byLabel(a: FileItem, b: FileItem): number {
   return a.label.localeCompare(b.label)
 }
 
-/** The groups of settings, each with the editor its plugin names for it. */
+/** Returns the groups of settings, each with the editor that its plugin names for it. */
 function filesOf(service: string, configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
   const settings: FileItem[] = configs
     .filter((file) => file.service === service)

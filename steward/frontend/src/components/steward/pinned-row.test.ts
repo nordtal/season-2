@@ -6,7 +6,9 @@ import { assert, describe, expect, it } from "vitest"
 
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 
-/** Every non-test source under `src`, since jsdom has no layout to show where a sticky row lands. */
+/**
+ * Returns every non-test source under `src`, because jsdom has no layout that shows where a sticky row lands.
+ */
 function sources(dir: string = src): Array<{ file: string; text: string }> {
   return readdirSync(dir).flatMap((name) => {
     const full = path.join(dir, name)
@@ -16,7 +18,7 @@ function sources(dir: string = src): Array<{ file: string; text: string }> {
   })
 }
 
-/** Every class list that pins something to the bottom of the scrolling content. */
+/** Returns every class list that pins something to the bottom of the scrolling content. */
 function pinnedToTheBottom(): Array<{ file: string; classes: string }> {
   return sources().flatMap(({ file, text }) =>
     [...text.matchAll(/["`]([^"`]*\bsticky\b[^"`]*)["`]/g)]

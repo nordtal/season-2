@@ -8,28 +8,30 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { t } from "@/lib/texts"
 
 /**
- * Who is in the game, at the top of the start page: up to three faces, then `+N`, then the count in words.
+ * Shows who is in the game at the top of the start page: up to three faces, then `+N`, then the count in words.
  *
- * An unknown count is a dash, never a settled `0`, so `players ?? 0` must not appear here.
+ * An unknown count is a dash and never `0`, so `players ?? 0` must not appear here.
  */
 
-/** One person in the game; a roster may know only one of the two fields. */
+/** One person in the game. A roster may know only one of the two fields. */
 export type OnlinePlayer = { uuid?: string; name?: string }
 
-/** The three Minecraft services that carry their own count, in the order a player passes them. */
+/** The three Minecraft services that have their own count, in the order a player passes them. */
 const SERVERS = ["limbo", "hunger-games", "smp"] as const
 
 export type Online = {
-  /** The network total, from `proxy`; `undefined` means nobody has said, not nobody. */
+  /** The network total, from `proxy`. `undefined` means that nobody has reported a total. */
   total?: number
-  /** Per server, in {@link SERVERS} order, only those that answered. */
+  /** The players per server, in {@link SERVERS} order. Only servers that answered are listed. */
   servers: Array<{ service: string; players: number }>
-  /** Who is online, where a roster exists; the `+N` covers everyone else. */
+  /** Who is online, where a roster exists. The `+N` covers everyone else. */
   roster: OnlinePlayer[]
   pending: boolean
 }
 
-/** The one query all three variants read; the total is `proxy`'s own row, not the sum of the servers. */
+/**
+ * The one query that all three variants read. The total is the `proxy` row's own value and not the sum of the servers.
+ */
 export function useOnline(roster?: OnlinePlayer[]): Online {
   const services = useServices()
   const rows = services.data?.services ?? []
@@ -40,13 +42,13 @@ export function useOnline(roster?: OnlinePlayer[]): Online {
       const row = rows.find((service) => service.service === name)
       return row?.players === undefined ? [] : [{ service: name, players: row.players }]
     }),
-    /** The proxy row's roster unless the caller passes a better one. */
+    /** The roster of the proxy row, unless the caller passes a better one. */
     roster: roster ?? proxy?.roster ?? [],
     pending: services.isPending,
   }
 }
 
-/** "7 players online", "1 player online", or a dash when nobody has said. */
+/** Returns "7 players online", "1 player online", or a dash when nobody has reported a count. */
 function said(total: number | undefined): { number: string; word: string } {
   if (total === undefined) return { number: "\u2013", word: "players online" }
   return { number: count(total), word: total === 1 ? "player online" : "players online" }
@@ -55,10 +57,12 @@ function said(total: number | undefined): { number: string; word: string } {
 /** The faces, overlapping, with the overflow as a named last circle. */
 function Stack({ online, size = "size-8", base }: { online: Online; size?: string; base: string | undefined }) {
   const shown = online.roster.slice(0, 3)
-  /** Never negative; with no roster the overflow is the whole count. */
+  /** Never negative. With no roster the overflow is the whole count. */
   const rest = Math.max((online.total ?? 0) - shown.length, 0)
 
-  /** Pending draws a single circle, since any more would guess how busy the server is. */
+  /**
+   * While pending it draws a single circle, because more circles would guess how busy the server is.
+   */
   if (online.pending) {
     return (
       <ul className="flex shrink-0 items-center -space-x-2">
@@ -97,7 +101,7 @@ function Stack({ online, size = "size-8", base }: { online: Online; size?: strin
   )
 }
 
-/** Where they are, per server, which the tiles below do not say. */
+/** Where the players are, per server. The tiles below do not show this. */
 function Where({ online, className }: { online: Online; className?: string }) {
   if (online.pending) {
     return (
@@ -120,7 +124,9 @@ function Where({ online, className }: { online: Online; className?: string }) {
   )
 }
 
-/** Variant A: faces, overflow and count on one line, without a pill, since nothing here is tappable. */
+/**
+ * Variant A: faces, overflow and count on one line, without a pill, because nothing here is tappable.
+ */
 export function OnlineLine({ online }: { online: Online }) {
   const base = useAvatarBaseUrl().data
   const { number, word } = said(online.total)
@@ -194,7 +200,7 @@ export function OnlineCluster({ online }: { online: Online }) {
   )
 }
 
-/** Variant C: the number as the heading, the faces small beside it. */
+/** Variant C: the number as the heading, with small faces beside it. */
 export function OnlineFigure({ online }: { online: Online }) {
   const base = useAvatarBaseUrl().data
   const { number, word } = said(online.total)
@@ -214,7 +220,9 @@ export function OnlineFigure({ online }: { online: Online }) {
   )
 }
 
-/** The row the heading stands in: a `header` with no border, background or height of its own. */
+/**
+ * The row that the heading stands in: a `header` without border, background or height of its own.
+ */
 function Heading({ children }: { children: ReactNode }) {
   return <header className="flex flex-col gap-1.5">{children}</header>
 }
@@ -222,7 +230,7 @@ function Heading({ children }: { children: ReactNode }) {
 /**
  * The same line on a service page, counted for that service alone.
  *
- * Undefined where the row carries no `players`, so there is no skeleton.
+ * It returns undefined where the row has no `players`, so there is no skeleton.
  */
 export function useServiceOnline(name: string): Online | undefined {
   const service = useService(name)

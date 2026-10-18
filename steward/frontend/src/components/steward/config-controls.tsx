@@ -14,18 +14,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
 
-/** One scalar key's control, shared by `configuration.tsx` and `repeatable-cards.tsx` so neither imports the other. */
+/**
+ * The control of one scalar key. `configuration.tsx` and `repeatable-cards.tsx` share it, so neither imports the other.
+ */
 
 /**
- * The plain-text name of a config file, built like `Labels.of`: no extension, words split, Capital Case.
+ * Returns the plain-text name of a config file, built like `Labels.of`: no extension, words split, Capital Case.
  *
- * Kept here so `config-search.tsx` can import it without a cycle.
+ * It is in this file so that `config-search.tsx` can import it without a cycle.
  */
 export function humanFileName(name: string): string {
   return fileTitle(name)
 }
 
-/** The short text between a label and its input: the schema's words. */
+/** Returns the short text between a label and its input, taken from the schema. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null
   if (entry.explanation) return entry.explanation
@@ -33,20 +35,20 @@ export function explanationOf(entry: ConfigEntry): string | null {
 }
 
 /**
- * Whether an empty value leaves a section incomplete: a Discord channel its spec does not call optional.
+ * Returns whether an empty value leaves a section incomplete. That is the case for a Discord channel that its spec does not mark optional.
  *
- * A language missing a channel cannot carry its messages; an empty game reference is the game's to judge.
+ * A language without a channel cannot carry its messages. The game judges an empty game reference.
  */
 export function isRequiredChannel(entry: ConfigEntry): boolean {
   return entry.refers?.to === "DISCORD_CHANNEL" && !entry.refers.optional
 }
 
-/** A choice's name as its plugin's text gives it, else the value itself. */
+/** Returns the name that the plugin's text gives a choice, or the value itself. */
 export function choiceName(choices: ConfigChoices, value: string): string {
   return choices.names?.[value] ?? value
 }
 
-/** The item a choice is drawn with where its schema gives one, or nothing. */
+/** Draws the item of a choice when the schema gives one. */
 export function ChoiceIcon({ choices, value, size = 20 }: { choices: ConfigChoices; value: string; size?: number }) {
   const item = choices.icons?.[value]
   const game = useGameData(choices.icons !== undefined)
@@ -54,7 +56,9 @@ export function ChoiceIcon({ choices, value, size = 20 }: { choices: ConfigChoic
   return <GameIcon icons={game.data.icons} item={item} size={size} />
 }
 
-/** A schema's choices, each by its name and icon: a strict list is a select only, a suggestion is one beside free text. */
+/**
+ * Shows the choices of a schema, each with its name and icon. A strict list is a select only. A suggestion list is a select beside a free text field.
+ */
 function ChoicesControl({
   id,
   value,
@@ -68,7 +72,9 @@ function ChoicesControl({
   disabled: boolean
   onChange: (value: string) => void
 }) {
-  /** A value the schema did not list is passed as "", so the select shows its placeholder. */
+  /**
+   * A value that the schema does not list is passed as "", so the select shows its placeholder.
+   */
   const known = choices.values.includes(value)
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -102,7 +108,7 @@ function ChoicesControl({
   )
 }
 
-/** The plain text field, also what a reference falls back to while nothing can be listed. */
+/** The plain text field. A reference falls back to it while nothing can be listed. */
 function TextControl({
   id,
   entry,
@@ -116,7 +122,7 @@ function TextControl({
   disabled: boolean
   onChange: (value: string) => void
 }) {
-  /** A value that already spans lines gets a box it fits in. */
+  /** A value that already spans lines gets a box large enough for it. */
   if (value.includes("\n")) {
     return (
       <Textarea
@@ -144,9 +150,9 @@ function TextControl({
 }
 
 /**
- * One scalar key: a secret, choices, a reference, a boolean or text, in that precedence.
+ * The control of one scalar key. The precedence is: secret, choices, reference, boolean, text.
  *
- * `sibling` is the value of the field a reference depends on, such as the statistic a subject is counted by.
+ * `sibling` is the value of the field that a reference depends on, such as the statistic that a subject is counted by.
  */
 export function ScalarControl({
   id,
@@ -163,7 +169,7 @@ export function ScalarControl({
   sibling?: string
   onChange: (value: string) => void
 }) {
-  /** A secret lives in the host environment alone, so the form says only whether it is set. */
+  /** A secret lives only in the host environment, so the form shows only whether it is set. */
   if (entry.secret) {
     return (
       <Input
@@ -218,9 +224,9 @@ export function ScalarControl({
 }
 
 /**
- * A list, one row per entry.
+ * A list with one row per entry.
  *
- * The whole list is sent with the file's `revision`, so a concurrent save gets a 409.
+ * The form sends the whole list with the file's `revision`, so a concurrent save gets a 409.
  */
 export function ListControl({
   id,

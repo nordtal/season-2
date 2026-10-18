@@ -23,7 +23,9 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { t } from "@/lib/texts"
 
-/** The track's definition, read through the configuration API for its order and what each step asks for. */
+/**
+ * The definition of the track. The track reads it through the configuration API for its order and for what each step asks for.
+ */
 export const TRACK_FILE = "smp/milestones"
 
 /** A task's progress and the settings that define it. */
@@ -33,12 +35,9 @@ export type TrackTask = SmpObjective & { fields: ConfigEntry[] }
 export type TrackStep = Omit<SmpMilestone, "objectives"> & { fields: ConfigEntry[]; objectives: TrackTask[] }
 
 /**
- * The database's progress in the file's order, each step with its settings beside it.
+ * Returns the database's progress in the file's order, each step with its settings beside it.
  *
- * Nothing here knows what a milestone holds: the file's list of sections is the track, a section's `key` joins it
- * to its row as the settings cards title it, and its own list of sections holds the tasks. A section the database
- * holds no row for is not on the track yet. Without the file the database's order stands; a row the file no longer
- * declares goes last.
+ * The code does not know what a milestone holds. The file's list of sections is the track. A section's `key` joins it to its row, as the settings cards title it, and the section's own list of sections holds the tasks. A section without a database row is not on the track yet. Without the file the database's order applies, and a row that the file no longer declares goes last.
  */
 export function trackSteps(progress: SmpTrack, definition?: ConfigDocument): TrackStep[] {
   const rows = new Map(progress.milestones.map((milestone) => [milestone.key, milestone]))
@@ -62,7 +61,7 @@ function tasks(progress: SmpObjective[], section: ConfigEntry[]): TrackTask[] {
     .map((row) => ({ ...row, fields: details(declared.get(row.key) ?? [], row) }))
 }
 
-/** The first list of sections among `entries`, each by its `key`. */
+/** Returns the first list of sections among `entries`, each by its `key`. */
 function titled(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   const sections = entries.find((entry) => entry.kind === "SECTIONS")?.sections ?? []
   const out = new Map<string, ConfigEntry[]>()
@@ -73,7 +72,9 @@ function titled(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   return out
 }
 
-/** A section's settings less what its progress row already says, so nothing is said twice. */
+/**
+ * Returns a section's settings without what its progress row already says, so nothing appears twice.
+ */
 function details(section: ConfigEntry[], row: object): ConfigEntry[] {
   return section.filter((field) => !Object.hasOwn(row, field.key))
 }
@@ -83,7 +84,7 @@ function share(task: TrackTask): number {
   return task.target > 0 ? Math.min(100, Math.floor((task.amount * 100) / task.target)) : 0
 }
 
-/** The SMP's milestone track, every step at once: across on a wide screen, down on a phone. */
+/** The SMP's milestone track with every step at once: across on a wide screen, down on a phone. */
 export function SmpActions() {
   const track = useSmpTrack()
   const definition = useConfig(TRACK_FILE)
@@ -128,7 +129,7 @@ export function SmpActions() {
   )
 }
 
-/** One milestone; unlocking it moves the track on and pays aura to everybody who qualified. */
+/** One milestone. Unlocking it moves the track on and pays aura to everybody who qualified. */
 function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (ask: Ask) => void }) {
   const name = keyName(step.key)
   const active = step.state === "ACTIVE"
@@ -167,7 +168,7 @@ function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (a
             </Button>
           ) : null}
         </div>
-        {/* A finished step's tasks are all done; on a phone they stay behind its popover. */}
+        {/* The tasks of a finished step are all done. On a phone they stay behind its popover. */}
         {step.objectives.length > 0 ? (
           <ul className={cn("grid grid-cols-2 gap-1 lg:grid-cols-1", step.state === "UNLOCKED" && "max-lg:hidden")}>
             {step.objectives.map((task) => (
@@ -305,7 +306,9 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
             size="sm"
             onClick={() => {
               setOpen(false)
-              /** Completing closes the task at its amount and pays out that share of its aura and spins. */
+              /**
+               * Completing closes the task at its amount and pays out that share of its aura and spins.
+               */
               onAsk({
                 path: "/api/smp/objective",
                 body: { key: task.key },

@@ -6,8 +6,7 @@ import { ServicePlugins } from "@/components/steward/plugins"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The plugins tab: three lists by where a plugin comes from, the update check's answer on each row,
- * and a check button that only reads.
+ * The plugins tab: three lists by where a plugin comes from, the answer of the update check on each row, and a check button that only reads.
  */
 
 function json(status: number, body: unknown): Response {
@@ -151,7 +150,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The plugin names drawn under the group heading of the given name. */
+/** Returns the plugin names drawn under the group heading with the given name. */
 const namesIn = (heading: string) =>
   within(screen.getByRole("heading", { name: heading }).parentElement!)
     .getAllByRole("listitem")
@@ -169,7 +168,7 @@ describe("ServicePlugins", () => {
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent)
     expect(headings).toEqual(["Nordtal", "Preinstalled", "Added"])
 
-    // The name-tag fork is Nordtal's own and leads that list; the rest is alphabetical.
+    // The name-tag fork is Nordtal's own and leads that list. The rest is alphabetical.
     expect(namesIn("Nordtal")).toEqual(["Display Tags", "SMP"])
     expect(namesIn("Preinstalled")).toEqual(["Chunky", "CoreProtect", "packetevents"])
   })
@@ -183,7 +182,7 @@ describe("ServicePlugins", () => {
 
     expect(await screen.findByText("2.13.0 → 2.14.0")).toBeTruthy()
     expect(screen.getAllByText("up to date")).toHaveLength(1)
-    // Not on the disk, said as such, with Modrinth's picture and name.
+    // The plugin is not on the disk, and the row says so, with Modrinth's picture and name.
     const coreprotect = screen.getByText("CoreProtect").closest("li")!
     expect(within(coreprotect).getByText("not installed")).toBeTruthy()
     expect(coreprotect.querySelector("img")).toBeTruthy()

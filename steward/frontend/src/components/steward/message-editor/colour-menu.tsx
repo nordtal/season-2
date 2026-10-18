@@ -32,7 +32,7 @@ const COLOUR_ORDER = [
   "white",
 ]
 
-/** The colour a style is drawn in, as a small swatch: a gradient shows as one. */
+/** A small swatch of the colour that a style is drawn in. A gradient shows as a gradient. */
 export function Swatch({ style, tones, className }: { style: Style; tones: Tones; className?: string }) {
   const background = style.gradient
     ? `linear-gradient(90deg, ${style.gradient.map(hexOf).join(", ")})`
@@ -52,7 +52,9 @@ export function Swatch({ style, tones, className }: { style: Style; tones: Tones
 
 type ColourMode = "tone" | "colour" | "gradient"
 
-/** A tone first, which follows the palette; a colour or a gradient of its own only where the text may have one. */
+/**
+ * The colour menu. A tone comes first and follows the palette. A colour or gradient of its own is offered only where the text may have one.
+ */
 export function ColourMenu({
   style,
   tones,

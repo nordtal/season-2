@@ -4,14 +4,18 @@ import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { useConfig, useConfigs } from "@/lib/queries"
 import { Badge } from "@/components/ui/badge"
 
-/** A form over one published settings group, as the backup and the update schedules draw theirs. */
+/** A form over one published settings group, as the backup and update schedules draw theirs. */
 
-/** Steward's own group, looked up in `/api/setting-groups` so a group not yet published gets no form. */
+/**
+ * Steward's own group, looked up in `/api/setting-groups`. A group that is not published yet gets no form.
+ */
 export function useStewardConfig() {
   return useGroupConfig("steward", "steward")
 }
 
-/** One service's group, looked up in `/api/setting-groups` so a group not yet published gets no form. */
+/**
+ * One service's group, looked up in `/api/setting-groups`. A group that is not published yet gets no form.
+ */
 export function useGroupConfig(service: string, name: string) {
   const configs = useConfigs()
   const file = configs.data?.find((location) => location.service === service && location.name === name)
@@ -19,15 +23,15 @@ export function useGroupConfig(service: string, name: string) {
   return { file: file?.path, document: document.data, pending: configs.isPending || document.isPending }
 }
 
-/** One key of that file by its dotted path, or `undefined` when there is none. */
+/** Returns one key of that file by its dotted path, or `undefined` when there is none. */
 export function entryAt(document: ConfigDocument | undefined, path: string): ConfigEntry | undefined {
   return document?.entries.find((entry) => entry.path === path)
 }
 
 /**
- * The draft, changes and save state for a fixed list of keys of one document.
+ * Returns the draft, the changes and the save state for a fixed list of keys of one document.
  *
- * `keys` must be a stable reference, or the memo is invalidated every render.
+ * `keys` must be a stable reference, or the memo is invalidated on every render.
  */
 export function useConfigDraft(document: ConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
@@ -66,15 +70,17 @@ const WEEKDAYS = [
   { label: "Sun", value: "SUNDAY" },
 ] as const
 
-/** The `backup.days` key, a list and therefore not part of the scalar draft. */
-/** Which days a list of config entries means, by the first three letters, as `NightlyClock` reads them. */
+/** The `backup.days` key is a list and not part of the scalar draft. */
+/**
+ * Returns which days a list of config entries means, by the first three letters, as `NightlyClock` reads them.
+ */
 export function chosenDays(items: string[] | undefined): string[] {
   if (items === undefined) return []
   const stems = new Set(items.map((item) => item.trim().slice(0, 3).toUpperCase()))
   return WEEKDAYS.filter((day) => stems.has(day.value.slice(0, 3))).map((day) => day.value)
 }
 
-/** The seven days as toggles, in week order; shared by the backup and update schedules. */
+/** The seven days as toggles in week order. The backup and update schedules share it. */
 export function DayPicker({
   days,
   disabled,

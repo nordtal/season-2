@@ -8,7 +8,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
 import { words } from "@/lib/query-fixtures"
 
-/** The smp and hunger-games actions are picked, not typed, named by what they act on, and a late answer is in words. */
+/**
+ * The smp and hunger-games actions are picked and not typed. They are named by what they act on, and a late answer is shown in words.
+ */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

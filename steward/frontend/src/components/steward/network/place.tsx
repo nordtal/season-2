@@ -11,10 +11,14 @@ import { type Box, EDGE_COLOR, type Geometry, type Point, Wires, bundle, collaps
  * `y` stays absolute. Cards in different lanes never share a row where they collide at `minWidth`.
  */
 
-/** 144x76, measured from the card's rows plus room for the toolbar; fixed whatever the canvas does. */
+/**
+ * The card size, 144x76, measured from the card's rows plus room for the toolbar. It stays fixed whatever the canvas does.
+ */
 export const NODE = { width: 144, height: 76 }
 
-/** The room a lane-0 card leaves to the canvas edge, more than `GROUP_PADDING` so a frame is not cut off. */
+/**
+ * The room that a lane-0 card leaves to the canvas edge. It is larger than `GROUP_PADDING`, so a frame is not cut off.
+ */
 export const MARGIN = 16
 
 /** A card's place: which lane it sits in, and how far down. */
@@ -23,21 +27,29 @@ export type Spot = { id: NodeId; lane: number; y: number }
 /**
  * Several cards in one tinted column that acts as a single endpoint for an edge.
  *
- * `lane` and `y` are the centre of the group's frame, like a `Spot`; members stack `GROUP_GAP` apart.
+ * `lane` and `y` are the centre of the group's frame, like those of a `Spot`. Members stack `GROUP_GAP` apart.
  */
 export type GroupSpec = { id: string; members: NodeId[]; lane: number; y: number }
 
 export type Arrangement = {
-  /** The narrowest canvas the arrangement must be right at; below it the picture is scaled down. */
+  /**
+   * The narrowest canvas that the arrangement must be right at. Below it the picture is scaled down.
+   */
   minWidth: number
-  /** The widest canvas the arrangement is drawn at; beyond it the picture is centred rather than pulled apart. */
+  /**
+   * The widest canvas that the arrangement is drawn at. Beyond it the picture is centred and not stretched further.
+   */
   maxWidth: number
   height: number
   spots: Spot[]
   groups?: GroupSpec[]
-  /** Where the database lines meet before entering the sink, or nothing to draw them separately. */
+  /**
+   * Where the database lines meet before they enter the sink. Without it the lines are drawn separately.
+   */
   junction?: { lane: number; y: number }
-  /** Per-edge detours keyed by the resolved `from-to`, for siblings that would otherwise run through each other. */
+  /**
+   * Per-edge detours, keyed by the resolved `from-to`, for siblings that would otherwise run through each other.
+   */
   bows?: Record<string, number>
 }
 
@@ -55,12 +67,12 @@ export type Placed = {
   bows?: Record<string, number>
 }
 
-/** The x a lane lands on at a given canvas width. */
+/** Returns the x that a lane lands on at a given canvas width. */
 export function laneX(lane: number, width: number): number {
   return MARGIN + NODE.width / 2 + lane * (width - 2 * MARGIN - NODE.width)
 }
 
-/** An arrangement, resolved against a canvas width. */
+/** Resolves an arrangement against a canvas width. */
 export function place(arrangement: Arrangement, width: number): Placed {
   const at = (lane: number) => laneX(lane, width)
   return {
@@ -78,14 +90,18 @@ export function place(arrangement: Arrangement, width: number): Placed {
   }
 }
 
-/** The gap inside a group and the padding of its frame, in pixels since members are placed by centre point. */
+/**
+ * The gap inside a group and the padding of its frame, in pixels, because members are placed by centre point.
+ */
 export const GROUP_GAP = 4
 export const GROUP_PADDING = 10
 
 type PlacedGroup = Placed["groups"][number]
 type PlacedSpot = Placed["spots"][number]
 
-/** Where a group's members land: one column, centred on the group's own point, `GROUP_GAP` apart. */
+/**
+ * Returns where a group's members land: one column, centred on the group's own point, `GROUP_GAP` apart.
+ */
 export function groupMemberSpots(group: PlacedGroup): PlacedSpot[] {
   const total = group.members.length * NODE.height + (group.members.length - 1) * GROUP_GAP
   let y = group.y - total / 2 + NODE.height / 2
@@ -96,7 +112,9 @@ export function groupMemberSpots(group: PlacedGroup): PlacedSpot[] {
   })
 }
 
-/** The frame around a group: its members' own bounding box, plus `GROUP_PADDING` on every side. */
+/**
+ * Returns the frame around a group: its members' bounding box plus `GROUP_PADDING` on every side.
+ */
 export function groupBox(group: PlacedGroup): Box {
   const members = groupMemberSpots(group)
   const top = members[0].y - NODE.height / 2
@@ -109,12 +127,12 @@ export function groupBox(group: PlacedGroup): Box {
   }
 }
 
-/** Every card an arrangement places, individually named or packed into a group. */
+/** Returns every card that an arrangement places, individually named or packed into a group. */
 export function allSpots(placed: Placed): PlacedSpot[] {
   return [...placed.spots, ...placed.groups.flatMap(groupMemberSpots)]
 }
 
-/** The rectangle of every card, which is what the lines are drawn from. */
+/** Returns the rectangle of every card. The lines are drawn from these rectangles. */
 export function geometryOf(placed: Placed): Geometry {
   const boxes: Record<string, Box> = {}
   for (const spot of allSpots(placed)) {
@@ -136,7 +154,9 @@ export function geometryOf(placed: Placed): Geometry {
   return { boxes, groups, memberOf, width: placed.width, height: placed.height }
 }
 
-/** The top-level shapes, one per group or lone card, for the overlap and on-canvas checks. */
+/**
+ * Returns the top-level shapes, one per group or lone card, for the overlap and on-canvas checks.
+ */
 export function regionsOf(placed: Placed): Record<string, Box> {
   const geometry = geometryOf(placed)
   const regions: Record<string, Box> = { ...geometry.boxes }
@@ -148,9 +168,9 @@ export function regionsOf(placed: Placed): Record<string, Box> {
 }
 
 /**
- * How wide the thing holding the picture is.
+ * Returns how wide the element that holds the picture is.
  *
- * 0 in jsdom resolves to `minWidth`, the tightest version of the picture.
+ * In jsdom it returns 0, which resolves to `minWidth`, the tightest version of the picture.
  */
 function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0)
@@ -176,9 +196,9 @@ function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
 }
 
 /**
- * The picture, drawn from its arrangement at the container's width: it stretches, it does not scale.
+ * The picture, drawn from its arrangement at the container's width. It stretches and does not scale.
  *
- * Only below `minWidth` is it scaled down, rather than overflowing.
+ * It scales down only below `minWidth`, so it does not overflow.
  */
 export function Field({ plan, topology, id }: { plan: Arrangement; topology: Topology; id: string }) {
   const outer = useRef<HTMLDivElement>(null)
@@ -191,7 +211,9 @@ export function Field({ plan, topology, id }: { plan: Arrangement; topology: Top
   const placed = place(plan, width)
   const geometry = geometryOf(placed)
 
-  /** Resolved through the group map, so the Paper group's foot leaves from its own border. */
+  /**
+   * The sources are resolved through the group map, so the Paper group's foot leaves from its own border.
+   */
   const sources = collapseToGroups(topology.storers, geometry)
   const sink = topology.sink === undefined ? undefined : geometry.boxes[topology.sink]
   const merged = placed.junction && sink ? bundle(sources, sink, placed.junction) : null
@@ -210,7 +232,7 @@ export function Field({ plan, topology, id }: { plan: Arrangement; topology: Top
           ["--node-h" as string]: `${NODE.height}px`,
         }}
       >
-        {/* One tint per group, drawn before the cards so it sits behind them; a border would nest theirs. */}
+        {/* One tint per group. It is drawn before the cards, so it sits behind them, and a border would nest theirs. */}
         {placed.groups.map((group) => {
           const box = geometry.groups[group.id]
           if (!box) return null
@@ -251,7 +273,7 @@ export function Field({ plan, topology, id }: { plan: Arrangement; topology: Top
                   strokeLinecap="round"
                 />
               ))}
-              {/* The trunk is dashed like the feet and thicker, since it carries all of them. */}
+              {/* The trunk is dashed like the feet and thicker, because it carries all of them. */}
               <path
                 data-trunk=""
                 d={merged.trunk}

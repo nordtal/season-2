@@ -20,13 +20,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-/** Discord's own cap on one message, mirrored from the backend's refusal. */
+/** Discord's limit for one message. It mirrors the backend's refusal. */
 const MAX_LENGTH = 2000
 
 /**
- * An announcement: one text per language, each posted by the bot into that language's channel.
+ * An announcement: one text per language, which the bot posts into that language's channel.
  *
- * Nothing is sent until every language has its text.
+ * The form sends nothing until every language has its text.
  */
 export function AnnouncementForm() {
   const file = useConfig(ACCESS_FILE)
@@ -54,7 +54,7 @@ export function AnnouncementForm() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {tags.map((tag) => (
             <div key={tag} className="flex flex-col gap-2">
-              {/* As high as the badge, so a row with plain text keeps the two fields level. */}
+              {/* As high as the badge, so a row with plain text keeps both fields level. */}
               <div className="flex min-h-5 flex-wrap items-center justify-between gap-2">
                 <Label htmlFor={`announcement-${tag}`}>{languageName(tag)}</Label>
                 <Destination tag={tag} targets={targets} channels={channels.data} />
@@ -110,7 +110,7 @@ export function AnnouncementForm() {
   )
 }
 
-/** Where one language's line will land, as far as the file can say. */
+/** Shows where the line of one language will land, as far as the file says. */
 function Destination({
   tag,
   targets,

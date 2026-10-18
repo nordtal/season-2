@@ -31,9 +31,9 @@ import { StatusBadge, runKind } from "@/components/steward/status"
 import { choice, t } from "@/lib/texts"
 
 /**
- * The plugins on one Minecraft server in three lists by origin, and the Modrinth search that adds one.
+ * The plugins on one Minecraft server in three lists by origin, and the Modrinth search that adds a plugin.
  *
- * Only an added plugin can be removed. Check for updates writes nothing; installing is an update run.
+ * Only an added plugin can be removed. Check for updates writes nothing. An update run installs.
  */
 export function ServicePlugins({ service }: { service: string }) {
   const plugins = usePlugins(service)
@@ -41,10 +41,12 @@ export function ServicePlugins({ service }: { service: string }) {
   const refresh = useRefreshAvailable()
   const [adding, setAdding] = useState(false)
 
-  /** A service with no plugins folder answers 404 and draws nothing; steward decides which have one. */
+  /**
+   * A service without a plugins folder answers 404, and the component draws nothing. steward decides which services have a folder.
+   */
   if (plugins.error instanceof ApiError && plugins.error.status === 404) return null
 
-  // Unknown is not "up to date": when the reading failed, no row says anything about updates.
+  // Unknown is not "up to date". When reading failed, no row says anything about updates.
   const unchecked = available.isError || refresh.isError
   const changes = unchecked ? undefined : available.data?.changes
 
@@ -105,7 +107,7 @@ export function ServicePlugins({ service }: { service: string }) {
       </QueryState>
 
       <ResponsiveDialog open={adding} onOpenChange={setAdding}>
-        {/* The search stays put and only the results scroll, flush to the dialog's edge. */}
+        {/* The search stays in place and only the results scroll, flush to the dialog's edge. */}
         <ResponsiveDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" data-testid="add-plugin">
           <ResponsiveDialogHeader className="px-(--sheet-gutter,1rem) pt-4 pb-3">
             <ResponsiveDialogTitle>{t("steward.service-page.add-plugin")}</ResponsiveDialogTitle>
@@ -124,15 +126,19 @@ type Group = NonNullable<ServicePlugin["group"]>
 
 const GROUP_ORDER: Group[] = ["nordtal", "preinstalled", "added"]
 
-/** Three absent rows: the count an ordinary Paper service here settles at. */
+/** Three absent rows, which is the count that an ordinary Paper service here ends with. */
 const WAITING_PLUGINS = [undefined, undefined, undefined]
 
-/** Sort key within a list: a Nordtal plugin steward ranks comes first, in rank order. */
+/**
+ * Returns the sort key within a list. A Nordtal plugin that steward ranks comes first, in rank order.
+ */
 function rank(plugin: ServicePlugin): number {
   return plugin.rank ?? Number.MAX_SAFE_INTEGER
 }
 
-/** The plugins in their three lists, empty ones left out; each alphabetical after the ranked ones. */
+/**
+ * Returns the plugins in their three lists without the empty lists. Each list is alphabetical after the ranked plugins.
+ */
 export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]][] {
   return GROUP_ORDER.map((group): [Group, ServicePlugin[]] => [
     group,
@@ -142,7 +148,9 @@ export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]]
   ]).filter(([, rows]) => rows.length > 0)
 }
 
-/** The badge on a plugin not on the disk: no build for this version, or simply not installed. */
+/**
+ * Returns the badge of a plugin that is not on the disk: no build for this version, or simply not installed.
+ */
 export function absence(
   service: string,
   plugin: ServicePlugin,
@@ -155,7 +163,9 @@ export function absence(
   return noBuild(gameVersion)
 }
 
-/** The version in a jar's name: what follows the last `-` of the stem, and only when it reads as digits and dots. */
+/**
+ * Returns the version in a jar's name: what follows the last `-` of the stem, and only when it reads as digits and dots.
+ */
 export function versionOf(fileName?: string): string | undefined {
   if (!fileName) return undefined
   const stem = fileName.replace(/\.jar$/i, "")
@@ -163,12 +173,11 @@ export function versionOf(fileName?: string): string | undefined {
   return stem.includes("-") && /^\d+(\.\d+)*$/.test(tail) ? tail : undefined
 }
 
-/** One piece of a row's version line, with what it means on hover. */
+/** One piece of a row's version line, with its meaning as a hover title. */
 export type VersionPiece = { text: string; title?: string }
 
 /**
- * A row's version: the release's alone when the jar is the one it ships, the jar's and the release's labelled when
- * they differ, and the whole file name when its name carries no version.
+ * Returns a row's version line. It shows only the release's version when the jar is the one it ships. It shows the jar's and the release's versions, labelled, when they differ. It shows the whole file name when the name has no version.
  */
 export function versionLine(plugin: ServicePlugin): VersionPiece[] {
   const version = plugin.version ?? versionOf(plugin.fileName)
@@ -184,14 +193,18 @@ export function versionLine(plugin: ServicePlugin): VersionPiece[] {
 
 export type PluginStatus = { tone: "idle" | "warn"; text: string }
 
-/** No build of this plugin for the service's Minecraft version, named when it is known. */
+/**
+ * Returns the sentence for a plugin with no build for the service's Minecraft version, naming the version when it is known.
+ */
 function noBuild(gameVersion: string | undefined): string {
   return gameVersion
     ? t("steward.service-page.no-build-for", { version: gameVersion })
     : t("steward.service-page.no-build")
 }
 
-/** What the update check says about one running plugin, or nothing when it has no answer for it. */
+/**
+ * Returns what the update check says about one running plugin, or nothing when it has no answer for it.
+ */
 export function pluginStatus(
   service: string,
   plugin: ServicePlugin,
@@ -275,7 +288,9 @@ function PluginRow({
   )
 }
 
-/** The mark for a Nordtal jar, Modrinth's icon, or an empty slot of the same size so names line up. */
+/**
+ * The mark for a Nordtal jar or Modrinth's icon, or an empty slot of the same size so the names line up.
+ */
 function Tile({ plugin }: { plugin?: ServicePlugin }) {
   if (!plugin) return <Skeleton className="size-9 shrink-0 rounded-md" />
   if (plugin.group === "nordtal") return <StewardMark className="size-9 shrink-0" />
@@ -283,7 +298,7 @@ function Tile({ plugin }: { plugin?: ServicePlugin }) {
   return <div className="size-9 shrink-0" aria-hidden />
 }
 
-/** Removes a plugin after a dialog naming the data folder it deletes as well. */
+/** Removes a plugin after a dialog that names the data folder it deletes as well. */
 function RemoveButton({ service, plugin, artifact }: { service: string; plugin: ServicePlugin; artifact: string }) {
   const [open, setOpen] = useState(false)
   const remove = useRemovePlugin(service)
@@ -320,9 +335,9 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
 }
 
 /**
- * What the removal confirmation says, testable outside JSX.
+ * Returns what the removal confirmation says. It is outside JSX so a test can read it.
  *
- * The data folder is named only when steward read it from the jar; an absent plugin loses only its row.
+ * The data folder is named only when steward read it from the jar. An absent plugin loses only its row.
  */
 export function removalSentence(plugin: ServicePlugin): string {
   if (!plugin.running) {
@@ -338,13 +353,15 @@ export function removalSentence(plugin: ServicePlugin): string {
 /** Three absent hits, the first screenful of a Modrinth answer. */
 const WAITING_HITS: (PluginHit | undefined)[] = [undefined, undefined, undefined]
 
-/** The Modrinth search, filtered to this service's loader and Minecraft version so every hit can run here. */
+/**
+ * The Modrinth search, filtered to this service's loader and Minecraft version, so every hit can run here.
+ */
 function Search({ service, loader, version }: { service: string; loader?: string; version?: string }) {
   const [typed, setTyped] = useState("")
   const [query, setQuery] = useState("")
   const install = useInstallPlugin(service)
 
-  /** Debounced a third of a second, so typing does not call Modrinth on every keystroke. */
+  /** Debounced by a third of a second, so typing does not call Modrinth on every keystroke. */
   useEffect(() => {
     const timer = setTimeout(() => setQuery(typed.trim()), 300)
     return () => clearTimeout(timer)
@@ -420,7 +437,9 @@ function Search({ service, loader, version }: { service: string; loader?: string
 }
 
 function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<typeof useInstallPlugin> }) {
-  /** Already added and given by the network are different reasons, so they get different badges. */
+  /**
+   * A plugin that is already added and one that the network provides are different reasons, so they get different badges.
+   */
   if (hit.fixed) {
     return <StatusBadge tone="ok">{t("steward.service-page.given")}</StatusBadge>
   }
@@ -456,7 +475,7 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
 /**
  * The thumbnail, loaded straight from `cdn.modrinth.com`.
  *
- * A Content-Security-Policy in front of steward must allow that host; steward stores no other.
+ * A Content-Security-Policy in front of steward must allow that host. steward stores no other.
  */
 function Thumbnail({
   url,
@@ -469,7 +488,7 @@ function Thumbnail({
   waiting?: boolean
   className?: string
 }) {
-  /** No icon is a flat square; a row still waiting shimmers. */
+  /** No icon is a flat square. A row that is still waiting shimmers. */
   if (waiting) {
     return <Skeleton className={`${className} shrink-0`} />
   }
@@ -482,7 +501,7 @@ function Thumbnail({
       alt={alt}
       loading="lazy"
       className={`${className} shrink-0 object-cover`}
-      /** A broken icon is hidden, keeping its space so the row stays aligned. */
+      /** A broken icon is hidden and keeps its space, so the row stays aligned. */
       onError={(event) => {
         event.currentTarget.style.visibility = "hidden"
       }}

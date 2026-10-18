@@ -56,7 +56,7 @@ import type { Icon } from "@phosphor-icons/react"
 /**
  * The one icon of every domain term, drawn wherever the term appears: page, pill, field, table, tooltip and palette.
  *
- * An icon here belongs to its term alone; `one-icon-per-term.test.ts` fails when another file imports it.
+ * An icon here belongs to its term alone. `one-icon-per-term.test.ts` fails when another file imports it.
  */
 export const TERM_ICON = {
   overview: PulseIcon,
@@ -114,7 +114,9 @@ export const TERM_ICON = {
 
 export type Term = keyof typeof TERM_ICON
 
-/** The settings keys whose value is a term, so a field shows the icon its value carries elsewhere. */
+/**
+ * The settings keys whose value is a term, so a field shows the icon that its value has elsewhere.
+ */
 const FIELD_TERM: Record<string, Term> = {
   aura: "aura",
   "aura-budget": "aura",
@@ -124,13 +126,13 @@ const FIELD_TERM: Record<string, Term> = {
   "admin-unlocked": "admin",
 }
 
-/** The icon of the term a settings key holds, if it holds one. */
+/** Returns the icon of the term that a settings key holds, if it holds one. */
 export function fieldIcon(key: string): Icon | undefined {
   const term = FIELD_TERM[key]
   return term === undefined ? undefined : TERM_ICON[term]
 }
 
-/** A field's label with its term's icon before it, where its key holds a term. */
+/** A field's label with the icon of its term before it, where its key holds a term. */
 export function FieldLabelIcon({ fieldKey, className }: { fieldKey: string; className?: string }) {
   const icons = { Icon: fieldIcon(fieldKey) }
   return icons.Icon ? <icons.Icon aria-hidden className={className ?? "size-3.5 shrink-0"} /> : null

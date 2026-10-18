@@ -10,36 +10,42 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
 /**
- * The one display of a person, and the only place a Discord id or a Minecraft UUID may be drawn.
+ * The one display of a person, and the only place that may draw a Discord id or a Minecraft UUID.
  *
- * Closed it shows an avatar and a name; its popover holds both ids, each with a copy button.
+ * Closed, it shows an avatar and a name. Its popover holds both ids, each with a copy button.
  */
 
-/** A Minecraft head URL, composed from the uuid and the configured base, so a new base leaves nothing stale. */
+/**
+ * Composes a Minecraft head URL from the UUID and the configured base, so a new base leaves no stale URL.
+ */
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
 
-  /** The uuid goes into the path, before any query the base carries such as `?scale=16`. */
+  /** The UUID goes into the path, before any query that the base carries, such as `?scale=16`. */
   const [path, query] = splitQuery(baseUrl)
 
-  /** Hyphens stripped, so each face has one spelling and one cache entry. */
+  /** The hyphens are removed, so each face has one spelling and one cache entry. */
   return `${path.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}${query}`
 }
 
-/** `["https://host/face", "?scale=16"]`, with an empty second half when there is no query. */
+/**
+ * Returns `["https://host/face", "?scale=16"]`, with an empty second element when there is no query.
+ */
 function splitQuery(baseUrl: string): [string, string] {
   const at = baseUrl.search(/[?#]/)
   return at === -1 ? [baseUrl, ""] : [baseUrl.slice(0, at), baseUrl.slice(at)]
 }
 
-/** Loosely matches a Discord snowflake or a Minecraft UUID, for tests that assert none leaks into a page. */
+/**
+ * Matches a Discord snowflake or a Minecraft UUID loosely. Tests use it to check that none appears in a page.
+ */
 export const IDENTIFIER_PATTERN =
   /\b\d{17,20}\b|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/
 
 /**
- * Copies text to the clipboard where the browser allows it, and reports whether it did.
+ * Copies text to the clipboard where the browser allows it and returns whether it did.
  *
- * Needs a secure context, so the id is also drawn as selectable text.
+ * It needs a secure context, so the id is also drawn as selectable text.
  */
 export async function copyToClipboard(value: string): Promise<boolean> {
   try {
@@ -59,18 +65,24 @@ export type PersonIdentityProps = {
   discordAvatarUrl?: string
   mcUuid?: string
   mcName?: string
-  /** Where a Minecraft head is composed from, `useAvatarBaseUrl()`; absent draws no head. */
+  /**
+   * The base that a Minecraft head is composed from, `useAvatarBaseUrl()`. Without it no head is drawn.
+   */
   avatarBaseUrl?: string
   className?: string
-  /** Steward itself did this, not a person: the server's mark and the word "Steward", with no popover. */
+  /**
+   * Marks that Steward did it and not a person. It draws the server's mark and the word "Steward" without a popover.
+   */
   system?: boolean
-  /** Which half is drawn closed: `discord` (default), `minecraft`, or `both` side by side; the popover is the same. */
+  /**
+   * The half drawn while closed: `discord` (default), `minecraft`, or `both` side by side. The popover is the same for all three.
+   */
   face?: "discord" | "minecraft" | "both"
   /** `false` draws the closed face alone, for a place that is itself interactive. */
   interactive?: boolean
 }
 
-/** The name shown closed. */
+/** Returns the name shown while closed. */
 function displayName(props: PersonIdentityProps): { text: string | null } {
   if (props.discordDisplayName) {
     return { text: props.discordDisplayName }
@@ -114,7 +126,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
     ) : props.face === "both" && props.mcUuid ? (
       <>
         <span className="inline-flex min-w-0 items-center gap-2">{discordFace}</span>
-        {/* The account in the game reads as the second of the two, quieter than the person's name. */}
+        {/* The account in the game is the second of the two, so it is quieter than the person's name. */}
         <span className="ml-1 inline-flex min-w-0 items-center gap-1.5 opacity-80">{minecraftFace}</span>
       </>
     ) : (
@@ -133,7 +145,9 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <button
           type="button"
           className={
-            /** `max-w-full` caps the box so `truncate` can act; `min-w-0` only lets it shrink. */
+            /**
+             * `max-w-full` caps the box so that `truncate` works. `min-w-0` only lets it shrink.
+             */
             "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none tap-target " +
             "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
             (props.className ?? "")
@@ -187,7 +201,9 @@ export function PersonIdentity(props: PersonIdentityProps) {
   )
 }
 
-/** A link to the person's page under Users, drawn only inside a router, so a card rendered on its own stays a card. */
+/**
+ * A link to the person's page under Users. It is drawn only inside a router, so a card rendered alone stays a card.
+ */
 function PersonPageLink({ discordId }: { discordId: string }) {
   const router = useRouter({ warn: false })
   if (!router) return null
@@ -204,7 +220,7 @@ function PersonPageLink({ discordId }: { discordId: string }) {
   )
 }
 
-/** An id as selectable text plus a copy button, for a browser without clipboard access. */
+/** An id as selectable text with a copy button, for a browser without clipboard access. */
 function CopyableId({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -239,7 +255,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The small round Discord avatar, closed or in the popover header. */
+/** The small round Discord avatar, in the closed face or in the popover header. */
 function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: string | null; size?: string }) {
   const [broken, setBroken] = useState(false)
 
@@ -267,7 +283,7 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
 /**
  * The small rounded-square Minecraft head, drawn from a composed URL.
  *
- * A skeleton while waiting or loading, a question mark if it fails, and never a change of size.
+ * It shows a skeleton while waiting or loading and a question mark if it fails. Its size never changes.
  */
 export function MinecraftHead({
   mcUuid,
@@ -275,7 +291,7 @@ export function MinecraftHead({
   size = "size-5",
   rounded = "rounded-sm",
 }: {
-  /** Absent while the row around this head is still loading. */
+  /** Missing while the row around this head loads. */
   mcUuid?: string
   baseUrl?: string
   size?: string
@@ -285,7 +301,7 @@ export function MinecraftHead({
   const [loaded, setLoaded] = useState(false)
   const url = mcUuid ? minecraftHeadUrl(baseUrl, mcUuid) : undefined
 
-  /** `undefined` waits; `""` means nobody has one and draws the question mark. */
+  /** `undefined` waits. `""` means that nobody has a UUID, and the question mark is drawn. */
   if (mcUuid === undefined) {
     return <Skeleton className={`${size} shrink-0 ${rounded}`} />
   }

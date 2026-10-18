@@ -10,9 +10,9 @@ import { asButton } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * "Recreate", which asks for a run and never touches a container itself.
+ * "Recreate" asks for a run and never touches a container itself.
  *
- * The fake backend answers by URL, since the dialog asks three questions in an order that may change.
+ * The fake backend answers by URL, because the dialog asks three questions in an order that may change.
  */
 
 type Answer = { status?: number; body: unknown }
@@ -62,7 +62,7 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Open the dialog and press the confirming "Recreate" inside it, not the trigger. */
+/** Opens the dialog and presses the confirming "Recreate" inside it, not the trigger. */
 async function start() {
   fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
   const dialog = await screen.findByRole("alertdialog")
@@ -102,7 +102,9 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is disabled when the agent is configured but its container is not answering", async () => {
-    /** `reachable: false` is a measured answer from the endpoint, and answers lock the button. */
+    /**
+     * `reachable: false` is a measured answer from the endpoint, and an answer locks the button.
+     */
     fetched = backend({ available: true, reachable: false })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
@@ -125,7 +127,9 @@ describe("RecreateButton - before anything is pressed", () => {
 
 describe("RecreateButton - when /api/agent itself cannot be asked", () => {
   it("disables the button and stops claiming a state nobody has checked, on a 404", async () => {
-    /** No answer at all: `agent.data` stays undefined, which must not read as available. */
+    /**
+     * There is no answer at all. `agent.data` stays undefined, which must not read as available.
+     */
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
@@ -143,7 +147,9 @@ describe("RecreateButton - when /api/agent itself cannot be asked", () => {
 
 describe("RecreateButton - before /api/agent has answered at all", () => {
   it("keeps the button active but says nobody has checked yet, until the agent answers", async () => {
-    /** The first load leaves the button open; once the agent is there, the button needs no title. */
+    /**
+     * The first load leaves the button open. Once the agent has answered, the button needs no title.
+     */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",
@@ -158,7 +164,7 @@ describe("RecreateButton - before /api/agent has answered at all", () => {
     expect(button.disabled).toBe(false)
     expect(button.title).not.toBe("")
 
-    // Resolves the pending fetch so no timer leaks into the next test.
+    // Resolves the pending fetch, so no timer leaks into the next test.
     settle(json({ body: { available: true, reachable: true } }))
     await waitFor(() => expect(button.title).toBe(""))
   })

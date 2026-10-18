@@ -38,41 +38,48 @@ import { SourceEditor } from "@/components/steward/message-editor/source-editor"
 import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
 import { LIT, UNSEEN, useLanding, type Highlight } from "@/components/steward/settings-view"
 
-/** One key's draft: per language, its new variants, `null` for "back to the jar", absent for no change. */
+/**
+ * One key's draft: per language its new variants, `null` for "back to the jar", and absent for no change.
+ */
 export type MessageDraft = Record<Language, string[] | null>
 
-/** How long typing pauses before the validator is asked. */
+/** The pause in milliseconds after typing before the validator is asked. */
 const CHECK_DELAY = 300
 
 export type MessageEditorProps = {
   entry: MessageEntry
-  /** The jar the text is read from, `<service>/<module>`, as the check and the preview name it. */
+  /**
+   * The jar that the text is read from, `<service>/<module>`, as the check and the preview name it.
+   */
   path: string
-  /** The service whose palette the previews take, or `undefined` for the network's. */
+  /** The service whose palette the previews use, or `undefined` for the network's. */
   service?: string
-  /** The languages the key is offered in, English first. */
+  /** The languages that the key is offered in, English first. */
   languages: Language[]
-  /** Each tone's colour by tag, as the settings of `service` name it; empty for the network's own. */
+  /**
+   * The colour of each tone by tag, as the settings of `service` name it. It is empty for the network's own.
+   */
   colours: Record<string, string>
-  /** Every place a text can be shown, with where it is. */
+  /** Every place where a text can be shown, with its location. */
   places: Places
   writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
-  /** `undefined` drops this language's draft, `null` asks for the packaged texts back. */
+  /** `undefined` drops this language's draft. `null` asks for the packaged texts back. */
   onChange: (language: Language, value: string[] | null | undefined) => void
-  /** The key's overrides no process shows, one per language at most. */
+  /** The key's overrides that no process shows, at most one per language. */
   fallbacks: MessageFallback[]
   /** Saves a fallen-back override as it is, which takes it over. */
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
-  /** Each place of the key a preview reaches, to where it reaches the admin; absent for a key none reaches. */
+  /**
+   * Maps each place of the key that a preview reaches to where it reaches the admin. It is absent for a key that no preview reaches.
+   */
   previews?: Record<string, MessagePreviewTarget>
 }
 
 /**
- * One key's text in one language and variant: A as it looks or B as it is written, the validator's word on it, and
- * where it is shown with example values. A fallen-back override comes first, with what it was written over.
+ * The text of one key in one language and variant: A shows it as it looks, B as it is written. It shows the validator's verdict and where the text appears with example values. A fallen-back override comes first, with the text it was written over.
  */
 export function MessageEditor({
   entry,
@@ -97,7 +104,7 @@ export function MessageEditor({
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
   const examples = useMessageExamples()
-  // The service's own colours, so a tone reads as its players see it.
+  // The service's own colours, so a tone looks as its players see it.
   const tones = useMemo(
     () => (Object.keys(colours).length > 0 ? colours : (syntax.data?.tones ?? {})),
     [colours, syntax.data],
@@ -105,7 +112,7 @@ export function MessageEditor({
   const toneTags = useMemo(() => Object.keys(tones), [tones])
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
-  // A nested message reads as its words here; the server renders the key itself, so it is sent the key.
+  // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
   const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
   const sent = (name: string) => exampleOf(name, entry.args, examples.data)
 
@@ -334,7 +341,9 @@ export function MessageEditor({
   )
 }
 
-/** An override no process shows: what it was written over, what the jar has now, and the override itself. */
+/**
+ * An override that no process shows: the text it was written over, what the jar has now, and the override itself.
+ */
 function FallbackPanel({
   fallback,
   format,
@@ -389,8 +398,7 @@ function FallbackPanel({
 }
 
 /**
- * The runs A edits, kept apart from the text so that a run boundary A made survives until the text changes from
- * elsewhere. A change that leaves the runs as the stored text reads writes the stored text back as it was written.
+ * The runs that A edits. They are kept apart from the text, so a run boundary made by A survives until the text changes from elsewhere. A change that leaves the runs as the stored text reads writes the stored text back as it was written.
  */
 function useRuns(
   text: string,
@@ -410,7 +418,7 @@ function useRuns(
     }
   }, [text, format, tones])
 
-  // The tones arrive after the first render; read the text again with them.
+  // The tones arrive after the first render, so the text is read again with them.
   useEffect(() => {
     setLocal(parse(written.current, format, tones))
   }, [format, tones])
@@ -424,7 +432,9 @@ function useRuns(
   return [runs, update]
 }
 
-/** One place of the key: its name, the text as it looks there, and the way to see it there oneself. */
+/**
+ * One place of the key: its name, the text as it looks there, and the way to see it there oneself.
+ */
 function PlacePreview({
   place,
   places,
@@ -436,16 +446,18 @@ function PlacePreview({
   blocked,
   request,
 }: {
-  /** `undefined` for the one plain preview of a key that no place of its own shows. */
+  /** `undefined` for the one plain preview of a key that no place shows on its own. */
   place: string | undefined
   places: Places
-  /** Where a preview of this place reaches the admin, if one does. */
+  /** Where a preview of this place reaches the admin, if it does. */
   target: MessagePreviewTarget | undefined
   runs: Run[]
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
-  /** Whether the text as it stands cannot be sent: empty, or refused by the validator. */
+  /**
+   * Whether the text as it stands cannot be sent, because it is empty or the validator refuses it.
+   */
   blocked: boolean
   request: PreviewRequest
 }) {
@@ -487,7 +499,9 @@ function PlacePreview({
   )
 }
 
-/** What a preview sends besides its place: the text as it stands, and the values `fill` gives it. */
+/**
+ * What a preview sends besides its place: the text as it stands, and the values that `fill` gives it.
+ */
 type PreviewRequest = {
   path: string
   service: string | undefined
@@ -498,8 +512,7 @@ type PreviewRequest = {
 }
 
 /**
- * The text as it stands, sent to the admin alone as `shown` shows it, in the palette of the service, if one is
- * named; what became of the request follows. A value every message has is the receiving process's own.
+ * Sends the text as it stands to the admin alone, drawn as `shown` shows it, in the palette of the service if one is named. The request's outcome follows. A value that every message has belongs to the receiving process.
  */
 function usePreview({ path, service, entry, language, text, fill }: PreviewRequest, shown: string | undefined) {
   const action = useGameAction()

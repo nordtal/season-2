@@ -11,24 +11,27 @@ import type { Run, Style } from "@/lib/rich-text"
 import type { Fill } from "@/components/steward/message-editor/examples"
 
 /**
- * Texts drawn where they are shown: Minecraft's pixel font on its surface, Discord's layout, Steward's page or a
- * notification, placeholders as examples.
+ * Texts drawn where they are shown: Minecraft's pixel font on its surface, Discord's layout, Steward's page or a notification. Placeholders show as examples.
  */
 
-/** The palette's tones by tag, each with the colour it is drawn in. */
+/** The tones of the palette by tag, each with the colour it is drawn in. */
 export type Tones = Record<string, string>
 
-/** Minecraft draws its font eight pixels tall; at GUI scale 2 that is sixteen CSS pixels. */
+/** Minecraft draws its font eight pixels tall. At GUI scale 2 that is sixteen CSS pixels. */
 const SCALE = 2
 
-/** Where the game wraps a line, in its own pixels: chat at its full width, floating text at its default width. */
+/**
+ * Where the game wraps a line, in its own pixels: chat at its full width, floating text at its default width.
+ */
 const CHAT_WRAP = 320
 const HOLOGRAM_WRAP = 200
 
-/** A hover text wraps at half the screen, but never narrower than this. */
+/** A hover text wraps at half the screen and never narrower than this. */
 const HOVER_WRAP = 200
 
-/** A screen wraps 50 pixels short of its width, here a 1920 pixel window at GUI scale 2. */
+/**
+ * A screen wraps 50 pixels short of its width. Here the width is a 1920 pixel window at GUI scale 2.
+ */
 const SCREEN_WRAP = 960 - 50
 
 export const MINECRAFT_FONT: CSSProperties = {
@@ -44,17 +47,16 @@ type McProps = {
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
-  /** The colour a run without one is drawn in. */
+  /** The colour of a run that has none. */
   base?: string
   shadow?: boolean
   scale?: number
 }
 
 /**
- * Runs drawn in the game's look: tone, colour, gradient, decorations, glyphs, the shadow, and hover.
+ * Runs drawn in the game's look: tone, colour, gradient, decorations, glyphs, shadow and hover.
  *
- * Each line is a block of its own that keeps its spaces; it wraps only at `wrap`, the width in the game's pixels
- * where the place itself wraps, and never where it draws one line however long.
+ * Each line is a block of its own that keeps its spaces. It wraps only at `wrap`, the width in the game's pixels at which the place wraps. A place that draws one line however long never wraps.
  */
 export function MinecraftText({
   runs,
@@ -124,7 +126,9 @@ export function MinecraftText({
   )
 }
 
-/** For each run inside a gradient, where along it its first character sits and how long it is. */
+/**
+ * For each run inside a gradient, returns where along the gradient its first character sits and how long the run is.
+ */
 function gradientPositions(runs: Run[], fill: Fill): ({ start: number; total: number } | undefined)[] {
   const out: ({ start: number; total: number } | undefined)[] = runs.map(() => undefined)
   let index = 0
@@ -232,9 +236,9 @@ function Obfuscated({ text }: { text: string }) {
 }
 
 /**
- * A glyph at its own proportions: its height is the pack's, its width follows from the image.
+ * A glyph at its own proportions. Its height is the pack's, and its width follows from the image.
  *
- * The page's reset caps an image's width at its container's, which squeezed a wide one like the logo; none here.
+ * The page's reset caps an image's width at its container's, which squeezed a wide glyph like the logo. This image has no cap.
  */
 export function Glyph({
   name,
@@ -275,7 +279,7 @@ export function Glyph({
   )
 }
 
-/** A glyph inside a fixed square, whole and at its proportions, for a menu of them. */
+/** A glyph inside a fixed square, whole and at its proportions, for a menu of glyphs. */
 export function GlyphTile({ glyph, className }: { glyph: GlyphInfo; className?: string }) {
   return (
     <img
@@ -287,7 +291,7 @@ export function GlyphTile({ glyph, className }: { glyph: GlyphInfo; className?: 
   )
 }
 
-/** The game's tooltip: near-black, a purple frame, drawn above whatever it belongs to. */
+/** The game's tooltip: near-black with a purple frame, drawn above the element it belongs to. */
 export function McTooltip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
@@ -322,16 +326,16 @@ function HoverTip({ tip, children }: { tip: ReactNode; children: ReactNode }) {
   )
 }
 
-// The places
-
 const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b6e2c 70%, #3b2a1d 70.5%, #2e2117 100%)"
 
-/** The places the game draws on one line. */
+/** The places where the game draws a text on one line. */
 const ONE_LINE = new Set(["TITLE", "SUBTITLE", "ACTION_BAR", "BOSS_BAR"])
 
 type PreviewProps = {
   runs: Run[]
-  /** The place drawn, one of the key's; `undefined` draws it plain, as no place in particular shows it. */
+  /**
+   * The place drawn, one of the key's. `undefined` draws the text plain, as no particular place shows it.
+   */
   shown: string | undefined
   /** Where that place is, as `/api/messages` names it. */
   surface: MessageSurface | undefined
@@ -341,7 +345,9 @@ type PreviewProps = {
   className?: string
 }
 
-/** The text where the game, Discord, Steward or a notification shows it, with its example values filled in. */
+/**
+ * The text as the game, Discord, Steward or a notification shows it, with its example values filled in.
+ */
 export function Preview({ runs, shown, surface, fill, glyphs, tones, className }: PreviewProps) {
   if (shown === undefined || (surface !== "GAME" && surface !== "DISCORD")) {
     return <PagePreview runs={runs} fill={fill} push={shown === "PUSH"} className={className} />
@@ -356,7 +362,7 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, className }
   const text = ({ base = "#FFFFFF", scale = SCALE, wrap }: { base?: string; scale?: number; wrap?: number } = {}) => (
     <MinecraftText runs={drawn} fill={fill} glyphs={glyphs} tones={tones} base={base} scale={scale} wrap={wrap} />
   )
-  // A line the game draws however long runs past the preview's edge, so the scene scrolls rather than cutting it.
+  // A line that the game draws however long runs past the preview's edge, so the scene scrolls and does not cut it.
   const scene = (children: ReactNode, background = SKY) => (
     <div
       className={cn("relative flex min-h-36 w-full overflow-x-auto overflow-y-hidden rounded-md", className)}
@@ -464,8 +470,6 @@ function Hotbar() {
     </div>
   )
 }
-
-// Discord
 
 function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   return (
@@ -614,8 +618,6 @@ function DiscordPreview({
       return surface(author(<div className="whitespace-pre-wrap">{body}</div>))
   }
 }
-
-// Steward and its notifications
 
 /** The text as Steward's page or a notification shows it: plain, in the page's own type. */
 function PagePreview({ runs, fill, push, className }: { runs: Run[]; fill: Fill; push: boolean; className?: string }) {

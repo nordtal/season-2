@@ -44,14 +44,16 @@ export type VisualEditorProps = {
   glyphs: GlyphInfo[]
   fill: Fill
   tones: Tones
-  /** The styles each value kind offers, by the kind's token. */
+  /** The styles that each value kind offers, by the kind's token. */
   kinds: Record<string, string[]>
   label: string
-  /** A hover's own text: no hover, click or action inside it. */
+  /** A hover's own text, which has no hover, click or action inside it. */
   nested?: boolean
-  /** In a plural's case: the number `#` stands for, which the tool row offers. */
+  /** In a plural's case: the number that `#` stands for, which the tool row offers. */
   pound?: string
-  /** In a plural's case: the style around the plural, drawn under each run's own and never written. */
+  /**
+   * In a plural's case: the style around the plural. It is drawn under each run's own style and never written.
+   */
   around?: Style
   disabled?: boolean
 }
@@ -61,8 +63,7 @@ type Range = { from: number; to: number }
 /**
  * A: the text as it looks, typed into directly, with placeholders as pills that move as one character.
  *
- * The runs are the state: each `beforeinput` edit is applied to them instead; only a composition is read back. The
- * tool row sits above the field and stays there on a phone, scrolling sideways rather than following the selection.
+ * The runs are the state. Each `beforeinput` edit is applied to them, and only a composition is read back. The tool row sits above the field and stays there on a phone, scrolling sideways and not following the selection.
  */
 export function VisualEditor({
   runs,
@@ -143,7 +144,7 @@ export function VisualEditor({
     caret.current = null
   })
 
-  // Keep the selection in model offsets, so the tool row and the menus act on it after focus left.
+  // Keep the selection in model offsets, so the tool row and the menus can act on it after the focus left.
   useEffect(() => {
     const update = () => {
       const element = root.current
@@ -374,7 +375,7 @@ export function VisualEditor({
   )
 }
 
-/** The one value the selection is exactly, with its place among the runs. */
+/** Returns the one value that the selection is exactly, with its place among the runs. */
 function selectedValue(
   runs: Run[],
   range: Range,
@@ -422,7 +423,7 @@ function RunView({
   glyphs: GlyphInfo[]
   fill: Fill
   tones: Tones
-  /** Selects this run, given the caret position it starts at. */
+  /** Selects this run. `at` is the caret position where the run starts. */
   onSelect: (at: number) => void
 }) {
   const minecraft = format === "MINIMESSAGE"
@@ -504,7 +505,9 @@ function RunView({
   }
 }
 
-/** Hover, click and action drawn as marks in the editor, since none of them can be seen in the game until used. */
+/**
+ * Draws hover, click and action as marks in the editor, because none of them is visible in the game until used.
+ */
 function marksOf(style: Style, format: Format): CSSProperties {
   if (format === "DISCORD_MARKDOWN") return style.click ? { color: "#00a8fc" } : {}
   const marks: CSSProperties = {}
@@ -546,7 +549,7 @@ function textStyle(style: Style, format: Format, tones: Tones): CSSProperties {
   return css
 }
 
-/** How many characters of plain text one run contributes to a gradient span. */
+/** Returns how many characters of plain text one run contributes to a gradient span. */
 function runLength(run: Run): number {
   return run.kind === "text" ? run.text.length : run.kind === "placeholder" ? 1 : 0
 }
@@ -651,8 +654,6 @@ function HoverMenu({
   )
 }
 
-// The DOM and the model
-
 function backward(runs: Run[], offset: number, type: string): number {
   if (offset === 0) return 0
   if (type === "deleteContentBackward") return offset - 1
@@ -684,7 +685,7 @@ function runIndex(node: Node): number | null {
   return value === undefined ? null : Number(value)
 }
 
-/** How many model positions a top-level child of the editor stands for. */
+/** Returns how many model positions a top-level child of the editor stands for. */
 function lengthOfNode(node: Node, runs: Run[]): number {
   const index = runIndex(node)
   if (index !== null) {
@@ -772,7 +773,7 @@ function placeCaret(root: HTMLElement, runs: Run[], range: Range) {
   selection.setBaseAndExtent(start.node, start.offset, end.node, end.offset)
 }
 
-/** After a composition: the runs as the DOM now reads, and where its caret is. */
+/** After a composition: returns the runs as the DOM now reads them, and where its caret is. */
 function readDom(root: HTMLElement, runs: Run[]): { runs: Run[]; caret: Range } {
   const selection = document.getSelection()
   const caretAt =

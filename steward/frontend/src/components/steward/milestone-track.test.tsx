@@ -8,7 +8,9 @@ import { SmpActions, trackSteps } from "@/components/steward/milestone-track"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { words } from "@/lib/query-fixtures"
 
-/** The whole track in the file's order, each task's details and action behind a popover, and no command in sight. */
+/**
+ * The whole track in the file's order, with each task's details and action behind a popover and no command visible.
+ */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
@@ -92,7 +94,9 @@ const GAME: GameData = {
   tags: {},
 }
 
-/** Alphabetical, as the database answers, so the file's order has to be applied. */
+/**
+ * The tracks are alphabetical, as the database answers, so the test has to apply the file's order.
+ */
 const TRACK: SmpTrack = {
   milestones: [
     {

@@ -1,12 +1,15 @@
 import type { MessageArg, MessageExamples } from "@/lib/api"
 import { ENGLISH, type Language } from "@/lib/message-text"
 
-/** What a placeholder is drawn as in a preview: a value for its name. */
+/** How a preview draws a placeholder: a value for its name. */
 export type Fill = (name: string) => string
 
 /**
- * The value a placeholder is previewed with: the live example the server read for its type, else, given a
- * `language`, the words of a nested message's example in it or in English, else its schema's example, else its name.
+ * Returns the value that a placeholder is previewed with.
+ *
+ * The first of these that exists wins: the live example that the server read for its type, then (given a
+ * `language`) the words of a nested message's example in that language or in English, then the example of its
+ * schema, then its name.
  */
 export function exampleOf(
   name: string,
@@ -23,10 +26,14 @@ export function exampleOf(
   return words ?? arg?.example ?? name
 }
 
-/** A message's placeholders as the menu offers them: a plain value alone, a role with its attributes under it. */
+/**
+ * A message's placeholders as the menu offers them: a plain value alone, or a role with its attributes under it.
+ */
 export type PlaceholderGroup = { role: string | null; args: MessageArg[] }
 
-/** Groups the values of `args`, actions left out, the message's own before the ones every message has. */
+/**
+ * Groups the values of `args` without the actions. The message's own values come before the ones every message has.
+ */
 export function placeholderGroups(args: MessageArg[]): PlaceholderGroup[] {
   const groups: PlaceholderGroup[] = []
   const values = args.filter((arg) => !arg.action)

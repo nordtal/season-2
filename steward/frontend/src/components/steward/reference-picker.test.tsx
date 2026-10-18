@@ -5,7 +5,9 @@ import type { ConfigReference, GameData, GuildList } from "@/lib/api"
 import { queryResult, words } from "@/lib/query-fixtures"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 
-/** One picker per reference: search, tags, chips, the unknown id kept, and typing where nothing is listed. */
+/**
+ * One picker per reference: search, tags, chips, the unknown id kept, and typing where nothing is listed.
+ */
 
 const GAME: GameData = {
   version: "26.2",

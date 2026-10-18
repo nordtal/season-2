@@ -37,9 +37,9 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
 }
 
 /**
- * A group's unsaved edits and the save that sends them, for the schema form and every custom editor alike.
+ * Holds a group's unsaved edits and the save that sends them. The schema form and every custom editor use it.
  *
- * A value set back to what is stored leaves the draft, so the count is what a save would change.
+ * A value set back to the stored value leaves the draft, so the count is the number of changes a save makes.
  */
 export function useGroupDraft(file: string, document: ConfigDocument) {
   const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
@@ -72,7 +72,9 @@ export function useGroupDraft(file: string, document: ConfigDocument) {
   return { draft, changes, count, set, submit, discard: () => clearDraft(file), save }
 }
 
-/** What stands above a group's fields: why a save is refused, cannot happen, or waits for a restart. */
+/**
+ * Returns the notice above a group's fields: why a save is refused, why it cannot happen, or that it waits for a restart.
+ */
 export function noticeOf(document: ConfigDocument): string | null {
   if (document.problem) return t("steward.settings.refused", { problem: document.problem })
   if (!document.writable) return t("steward.settings.read-only")
@@ -80,8 +82,7 @@ export function noticeOf(document: ConfigDocument): string | null {
 }
 
 /**
- * The save of a draft and, beside it, the discard that drops all of it at once, shown only while there is something
- * to save.
+ * The save of a draft, with the discard beside it that drops all of the draft at once. It shows only while there is something to save.
  */
 export function SaveDraft({
   count,

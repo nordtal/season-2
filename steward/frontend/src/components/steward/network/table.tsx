@@ -12,9 +12,9 @@ import { imageTag, type Section } from "./topology"
 import { t } from "@/lib/texts"
 
 /**
- * The network on a phone: one row per service carrying the card's facts, grouped by the topology's sections.
+ * The network on a phone: one row per service with the card's facts, grouped by the sections of the topology.
  *
- * The grouping stands in for the edges, since a "connected to" column would read as neither table nor graph.
+ * The grouping replaces the edges, because a "connected to" column would be neither table nor graph.
  */
 export function NetworkTable({ sections }: { sections: readonly Section[] }) {
   const network = useNetwork()
@@ -29,7 +29,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
             const players = network.players(id)
             return (
               <div
-                /** Read by `network.test.tsx` the same way a card is. */
+                /** `network.test.tsx` reads it the same way as a card. */
                 key={id}
                 data-row={id}
                 className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1 last:border-b-0"
@@ -41,7 +41,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                         <HealthDot service={service} quiet={false} />
                       </span>
                     </TooltipTrigger>
-                    {/* A held service shows `service_hold`, since Docker's exit sentence reads like a crash. */}
+                    {/* A held service shows `service_hold`, because Docker's exit sentence reads like a crash. */}
                     <TooltipContent>
                       {held(service)
                         ? t("steward.service.held-since", {
@@ -65,7 +65,9 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
 
                 {players === undefined ? null : (
                   <span
-                    /** The icon carries the word on screen; this carries it to a screen reader and a test. */
+                    /**
+                     * The icon shows the word on screen. The title gives it to a screen reader and a test.
+                     */
                     title={t("steward.network.players")}
                     className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
                   >
@@ -87,7 +89,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                   <SkeletonText className="w-16 shrink-0" width="short" />
                 )}
 
-                {/* Two buttons wide at the pointer's target size, since `RecreateButton` skips `steward-agent`. */}
+                {/* Two buttons wide at the pointer's target size, because `RecreateButton` skips `steward-agent`. */}
                 <div className="flex w-[3.125rem] shrink-0 justify-end pointer-coarse:w-[calc(2*var(--control-min-height)+0.125rem)]">
                   <NodeToolbar id={id} />
                 </div>

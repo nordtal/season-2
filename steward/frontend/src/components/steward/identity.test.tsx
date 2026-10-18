@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { IDENTIFIER_PATTERN, PersonIdentity, minecraftHeadUrl } from "@/components/steward/identity"
 import { asInput } from "@/lib/test-elements"
 
-/** Identifiers appear only in this component's popover, each beside a way to copy it, never while closed. */
+/**
+ * Identifiers appear only in this component's popover, each beside a button that copies it. They never appear while the popover is closed.
+ */
 
 const DISCORD_ID = "214906139328839681"
 const MC_UUID = "11111111-2222-3333-4444-555555555555"
@@ -41,7 +43,7 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
   })
 
   it("falls back to readable text, not the raw id, for an account with no observed name", () => {
-    /** A former member or an unmirrored profile still must not fall back to the identifier. */
+    /** A former member or an unmirrored profile does not fall back to the identifier. */
     render(<PersonIdentity discordId={DISCORD_ID} />)
 
     expect(document.body.textContent).not.toContain(DISCORD_ID)
@@ -111,7 +113,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
   it("copies the id it is asked to copy, and not the other one", async () => {
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
-    // `navigator`'s fields are prototype getters, so spreading it copies nothing.
+    // The fields of `navigator` are prototype getters, so spreading it copies nothing.
     vi.stubGlobal("navigator", { clipboard: { writeText } })
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" mcUuid={MC_UUID} mcName="AliceMC" />)
@@ -124,7 +126,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
   })
 
   it("leaves the id selectable when the clipboard API is unavailable, rather than failing silently", async () => {
-    /** `navigator.clipboard` needs a secure context, which http://127.0.0.1 lacks. */
+    /** `navigator.clipboard` needs a secure context, which http://127.0.0.1 is not. */
     vi.stubGlobal("navigator", { clipboard: undefined })
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
@@ -133,12 +135,12 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     const field = asInput(await screen.findByLabelText("Discord-ID"))
     expect(field.readOnly).toBe(true)
     expect(field.value).toBe(DISCORD_ID)
-    // Still clickable, and it must not throw without a clipboard.
+    // The button stays clickable and must not throw without a clipboard.
     expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
   })
 })
 
-/** A card inside the app's router, with the person page's route registered. */
+/** Renders a card inside the app's router with the route of the person page registered. */
 function inRouter(card: ReactNode) {
   const root = createRootRoute({ component: () => <>{card}</> })
   const person = createRoute({ getParentRoute: () => root, path: "/access/$id" })
@@ -182,13 +184,15 @@ describe("PersonIdentity - the way to the person's page", () => {
 })
 
 describe("PersonIdentity - nothing half-written, and no mark nobody can see", () => {
-  /** The popover writes no half line under a name without a timestamp, and no staleness mark. */
+  /** The popover writes no line under a name that has no timestamp, and no staleness mark. */
   it("writes no line under the Discord name, whether the name is fresh or ancient", () => {
     render(<PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.queryByText(/confirmed/i)).toBeNull()
-    /** The en dash `format.ts` writes for nothing, which behind a word reads as half a sentence. */
+    /**
+     * The en dash that `format.ts` writes for nothing. After a word it reads as half a sentence.
+     */
     expect(document.body.textContent).not.toContain("\u2013")
   })
 
@@ -230,9 +234,9 @@ describe("PersonIdentity, Minecraft face - no asterisk, no tooltip", () => {
 
 describe("minecraftHeadUrl", () => {
   /**
-   * Both uuid spellings answer at api.mineatar.io; the hyphens come out for one stable, cached URL.
+   * Both UUID spellings answer at api.mineatar.io. The hyphens are removed, so each face has one URL and one cache entry.
    *
-   * The default base carries `?scale=16` for sharp heads, so the uuid goes before the query.
+   * The default base carries `?scale=16`, so the UUID goes before the query.
    */
   const UNDASHED = MC_UUID.replace(/-/g, "")
   const MINEATAR = "https://api.mineatar.io/face"
@@ -242,7 +246,7 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("puts the uuid in the path and keeps the query behind it", () => {
-    /** Appending blindly would give a URL that is fetched and never this player's face. */
+    /** Appending the UUID to the end would give a URL that loads and is not this player's face. */
     expect(minecraftHeadUrl(`${MINEATAR}?scale=16`, MC_UUID)).toBe(`${MINEATAR}/${UNDASHED}?scale=16`)
   })
 
@@ -262,7 +266,7 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("still works for a base pointing anywhere else, because it is configuration", () => {
-    /** A base naming mc-heads keeps working, since it is a setting like any other. */
+    /** A base that names mc-heads keeps working, because the base is a setting like any other. */
     expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(`https://mc-heads.net/avatar/${UNDASHED}`)
   })
 
@@ -282,7 +286,7 @@ describe("PersonIdentity, Minecraft face - the name and the head, never the uuid
   it("says a name has not been observed yet, rather than showing nothing", () => {
     render(<PersonIdentity face="minecraft" mcUuid={MC_UUID} />)
 
-    /** Kept short, since a longer fallback truncates at 390px. */
+    /** The fallback is short, because a longer one is truncated at 390px. */
     expect(screen.getByText(/no name yet/i)).toBeTruthy()
   })
 })

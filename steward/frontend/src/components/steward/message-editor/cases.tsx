@@ -21,20 +21,20 @@ export type CaseContext = {
   tones: Tones
   kinds: Record<string, string[]>
   label: string
-  /** The language edited, whose plural categories a plural offers. */
+  /** The language being edited. A plural offers the plural categories of this language. */
   language: string
-  /** The style the runs sit in, which each case field draws its own text inside. */
+  /** The style that the runs sit in. Each case field draws its own text inside it. */
   around?: Style
   disabled?: boolean
 }
 
-/** A key a case may have: a plural's `=n`, or a choice's value. */
+/** The keys a case may have: a plural's `=n`, or a choice's value. */
 const CASE_KEY = { plural: /^=\d+$/, select: /^[A-Za-z0-9_-]+$/ }
 
 /**
- * Every plural and choice of `runs`, each case in a field of its own, a choice inside a case below its field.
+ * Shows every plural and choice of `runs`. Each case has a field of its own, and a choice inside a case is below its field.
  *
- * `outer` names the plural a `#` stands for around these runs, for the choices inside a plural's case.
+ * `outer` names the plural that a `#` stands for around these runs, for the choices inside a plural's case.
  */
 export function ChoiceFields({
   runs,
@@ -72,7 +72,9 @@ export function ChoiceFields({
   )
 }
 
-/** One plural or choice: the value it depends on, a field per case, and the cases the language still needs. */
+/**
+ * One plural or choice: the value it depends on, a field per case, and the cases that the language still needs.
+ */
 function ChoiceCases({
   choice,
   outer,
@@ -137,7 +139,9 @@ function ChoiceCases({
   )
 }
 
-/** The plural categories the language needs and has no case for, then any other case by its key. */
+/**
+ * Offers the plural categories that the language needs and has no case for, then any other case by its key.
+ */
 function AddCase({
   plural,
   needed,

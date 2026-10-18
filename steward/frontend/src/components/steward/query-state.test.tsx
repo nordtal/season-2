@@ -5,9 +5,9 @@ import { QueryState, TRANSIENT_GRACE_MS, transient } from "@/components/steward/
 import { ApiError } from "@/lib/api"
 
 /**
- * A disabled query must not look like a running one, though TanStack reports it `isPending` for ever.
+ * A disabled query must not look like a running one, though TanStack reports it as `isPending` for ever.
  *
- * `fetchStatus` `"idle"` beside `isPending` is what tells them apart.
+ * `fetchStatus` `"idle"` next to `isPending` tells them apart.
  */
 
 afterEach(cleanup)
@@ -32,7 +32,7 @@ describe("QueryState", () => {
   })
 
   it("still draws the waiting shape when nothing said which it is", () => {
-    // `fetchStatus` is optional, since a page may hand in a plain object.
+    // `fetchStatus` is optional, because a page may pass a plain object.
     render(<QueryState query={{ data: undefined, error: null, isPending: true }}>{row}</QueryState>)
     expect(screen.getByText("…")).toBeTruthy()
   })
@@ -42,7 +42,7 @@ describe("QueryState", () => {
     expect(screen.getByText("smp")).toBeTruthy()
   })
 
-  /** The child is the skeleton, so it is called while the answer is still out. */
+  /** The child is the skeleton, so it is called while the answer is still pending. */
   it("calls the child while waiting, so the child can draw its own shape", () => {
     render(
       <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>{row}</QueryState>,
@@ -56,7 +56,9 @@ describe("QueryState", () => {
         {(data: string) => <span>{data}</span>}
       </QueryState>,
     )
-    /** Only `Loading` carries `role="status"`, being a box of its own; the shaped branch has no wrapper. */
+    /**
+     * Only `Loading` has `role="status"`, because it is a box of its own. The shaped branch has no wrapper.
+     */
     expect(screen.getByRole("status")).toBeTruthy()
     expect(screen.queryByText("…")).toBeNull()
   })
@@ -67,7 +69,7 @@ describe("QueryState", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
-  /** The old data stands through a refetch, since this reads `isPending` and not `isFetching`. */
+  /** The old data stays through a refetch, because this reads `isPending` and not `isFetching`. */
   it("leaves the old data standing while the next answer is fetched", () => {
     render(
       <QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "fetching" }}>{row}</QueryState>,

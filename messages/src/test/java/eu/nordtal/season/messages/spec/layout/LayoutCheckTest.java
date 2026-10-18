@@ -12,6 +12,7 @@ import static eu.nordtal.season.messages.spec.layout.Part.sectionWithButton;
 import static eu.nordtal.season.messages.spec.layout.Part.sectionWithThumbnail;
 import static eu.nordtal.season.messages.spec.layout.Part.separator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.Tone;
 import java.util.List;
@@ -238,5 +239,14 @@ class LayoutCheckTest {
                         List.of(Element.input("code", "layouts/field"), Element.button("buy", "layouts/buy")),
                         Part.text(title("layouts/dialog")),
                         row("code", "buy"))));
+    }
+
+    @Test
+    void aModalRebuiltWithATitleOfItsOwnIsRefused() {
+        final Layout rebuild = CODE.rebuilt(
+                List.of(Part.text(Line.added(Line.Style.TITLE, Map.of("en", "Code"))), row("code")), List.of());
+
+        assertTrue(LayoutCheck.rebuildProblems(CODE, rebuild)
+                .contains("a modal holds something other than its title and one field per row"));
     }
 }

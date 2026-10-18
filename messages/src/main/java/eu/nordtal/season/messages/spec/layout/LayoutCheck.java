@@ -196,7 +196,9 @@ public final class LayoutCheck {
         final boolean titled = !parts.isEmpty()
                 && parts.getFirst().type() == Part.Type.TEXT
                 && title.size() == 1
-                && title.getFirst().style() == Line.Style.TITLE;
+                && title.getFirst().style() == Line.Style.TITLE
+                // A modal's title is its key's text; an editor changes only that text.
+                && title.getFirst().key() != null;
         final Set<String> inputs = layout.elements().stream()
                 .filter(element -> element.kind() == Element.Kind.INPUT)
                 .map(Element::id)

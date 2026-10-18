@@ -92,7 +92,7 @@ export function Toolbar({ label, nested, children }: { label: string; nested?: b
       aria-label={label}
       className={cn(
         "flex min-w-0 items-center gap-0.5 overflow-x-auto",
-        !nested && "sticky top-0 z-10 rounded-t-lg border-b border-input bg-background px-1 py-1",
+        !nested && "sticky top-(--content-top,0px) z-10 rounded-t-lg border-b border-input bg-background px-1 py-1",
       )}
     >
       {children}

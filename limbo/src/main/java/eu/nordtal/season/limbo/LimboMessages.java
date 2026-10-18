@@ -40,6 +40,9 @@ public interface LimboMessages {
             @Name("Server stopped")
             Screen held();
 
+            @Name("Next in line")
+            Screen queue();
+
             @Name("Maintenance")
             Screen maintenance();
 
@@ -54,6 +57,7 @@ public interface LimboMessages {
                     case MAINTENANCE -> maintenance();
                     case UPDATE -> update();
                     case HELD -> held();
+                    case QUEUE -> queue();
                     case UNKNOWN -> unknown();
                 };
             }

@@ -246,7 +246,10 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             case CONNECT ->
                 connect(
                         player,
-                        Objects.requireNonNull(decision.server(), "CONNECT always carries a server"),
+                        viaWaitingRoom(
+                                Objects.requireNonNull(decision.server(), "CONNECT always carries a server"),
+                                routing.servers(),
+                                available),
                         state.locale());
             default -> {
                 logger.info("Disconnecting {} on the phase change: {}", player.getUsername(), decision.action());
@@ -254,6 +257,14 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 yield true;
             }
         };
+    }
+
+    /**
+     * Returns the waiting room for a move onto {@code smp}, whose queue lets the player on; otherwise the server.
+     * Without a registered {@code limbo} the player goes straight there.
+     */
+    static String viaWaitingRoom(final String server, final PhaseServers servers, final Set<String> available) {
+        return server.equals(servers.smp()) && available.contains(servers.limbo()) ? servers.limbo() : server;
     }
 
     /** Connects the player unless the player is on the server. */

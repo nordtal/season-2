@@ -247,6 +247,13 @@ public final class PackStation {
         return seen;
     }
 
+    /** Sweeps the waiting room while a player waits for a slot onto {@code smp}. */
+    public void sweepQueue() {
+        if (book.anyQueued()) {
+            final int _ = sweep();
+        }
+    }
+
     /** Executes the decision of {@link WaitingBook} for the player. */
     public void evaluate(final Player player) {
         final UUID uuid = player.getUniqueId();

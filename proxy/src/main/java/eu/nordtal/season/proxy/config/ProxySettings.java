@@ -23,6 +23,11 @@ public final class ProxySettings {
         Checks.requireText("server-smp", config.serverSmp());
     }
 
+    /** Throws an {@link IllegalArgumentException} that names the first invalid value of the queue group. */
+    public static void checkQueue(final QueueSpec config) {
+        Checks.requirePositive("smp-interval-seconds", config.smpIntervalSeconds());
+    }
+
     /** Throws an {@link IllegalArgumentException} that names the first invalid value of the pack group. */
     public static void checkPack(final PackSpec config) {
         Checks.requirePositive("apply-timeout-seconds", config.applyTimeoutSeconds());

@@ -40,6 +40,7 @@ import eu.nordtal.season.proxy.config.GateSpec;
 import eu.nordtal.season.proxy.config.NetworkSpec;
 import eu.nordtal.season.proxy.config.PackSpec;
 import eu.nordtal.season.proxy.config.ProxySettings;
+import eu.nordtal.season.proxy.config.QueueSpec;
 import eu.nordtal.season.proxy.feedback.ProxySounds;
 import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.BackendKick;
@@ -53,6 +54,7 @@ import eu.nordtal.season.proxy.gate.RestartGate;
 import eu.nordtal.season.proxy.gate.WaitingRooms;
 import eu.nordtal.season.proxy.launch.LaunchCountdown;
 import eu.nordtal.season.proxy.online.OnlineWriter;
+import eu.nordtal.season.proxy.pack.AccessQueue;
 import eu.nordtal.season.proxy.pack.PackMessages;
 import eu.nordtal.season.proxy.pack.PackOffer;
 import eu.nordtal.season.proxy.pack.PackStation;
@@ -112,6 +114,9 @@ import org.slf4j.Logger;
         authors = {"nordtal"})
 public final class ProxyPlugin {
 
+    /** How often a waiting queue onto {@code smp} is swept. */
+    private static final Duration QUEUE_TICK = Duration.ofSeconds(1);
+
     /** The clock. */
     private final Clock clock = NetworkTime.clock();
 
@@ -149,7 +154,8 @@ public final class ProxyPlugin {
             Messages messages,
             DatabaseSettings settings,
             Setting<PlayersSpec> players,
-            Setting<PrestigeSpec> prestigeSetting) {}
+            Setting<PrestigeSpec> prestigeSetting,
+            Setting<QueueSpec> queue) {}
 
     /** The objects that several features use. */
     private record Shared(
@@ -213,6 +219,9 @@ public final class ProxyPlugin {
         final NetworkSpec network = settings.load(
                         Group.of("network", NetworkSpec.class).whileRunning())
                 .get();
+        final Setting<QueueSpec> queue = settings.load(Group.of("queue", QueueSpec.class)
+                .checkedBy(ProxySettings::checkQueue)
+                .whileRunning());
         final ToneColours colours =
                 ToneColours.parse(Colours.declared(settings.load(Colours.GROUP).get()), logger::warn);
         final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
@@ -229,7 +238,17 @@ public final class ProxyPlugin {
                 .within(NetworkSettings.environment("proxy", season, languageAndTime, colours));
         this.messages = loadedMessages;
         return new Loaded(
-                opened, database, gate, pack, network, colours, loadedMessages, settings, players, prestigeSetting);
+                opened,
+                database,
+                gate,
+                pack,
+                network,
+                colours,
+                loadedMessages,
+                settings,
+                players,
+                prestigeSetting,
+                queue);
     }
 
     /** Creates every feature, registers the event handlers in order, then starts the signal hub and the heartbeat. */
@@ -360,6 +379,7 @@ public final class ProxyPlugin {
                 Duration.ofSeconds(config.applyTimeoutSeconds()),
                 Duration.ofSeconds(shared.loaded().gate().limboReadyGraceSeconds()),
                 shared.role(),
+                accessQueue(shared),
                 clock);
         final PackStation packs = new PackStation(
                 proxy,
@@ -374,6 +394,15 @@ public final class ProxyPlugin {
                 shared.backendHealth());
         packs.registerChannel();
         return packs;
+    }
+
+    /** Creates the queue onto {@code smp}, whose interval follows the live setting. */
+    private AccessQueue accessQueue(final Shared shared) {
+        final Setting<QueueSpec> setting = shared.loaded().queue();
+        return new AccessQueue(
+                shared.phaseServers().smp(),
+                () -> Duration.ofSeconds(setting.get().smpIntervalSeconds()),
+                clock);
     }
 
     /** Creates the router and the sweep of the waiting room. */
@@ -402,6 +431,8 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, packs);
         final Duration sweepInterval = Duration.ofSeconds(shared.loaded().gate().limboSweepIntervalSeconds());
         final var _ = scheduler.every(sweepInterval, sweepInterval, packs::sweep);
+        // The queue's interval is shorter than the sweep's, so a waiting queue is swept every second.
+        final var _ = scheduler.every(QUEUE_TICK, QUEUE_TICK, packs::sweepQueue);
         shared.phaseWatch().refresh();
         return router;
     }
@@ -618,7 +649,7 @@ public final class ProxyPlugin {
         final SignalHub hub = openHub(loaded, "proxy-signals");
         this.signals = hub;
         hub.on(Channel.PHASE, "the season phase", shared.phaseWatch()::refresh);
-        loaded.settings().listen(hub, () -> reloadNetwork(loaded.players(), loaded.prestigeSetting()));
+        loaded.settings().listen(hub, () -> reloadNetwork(loaded));
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
         hub.on(Channel.ADMIN, "the admin roster", () -> refreshAdmins(shared, router));
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
@@ -685,10 +716,11 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Reads the player limit, the allowlist and the crests again. An invalid change keeps the old values. */
-    private void reloadNetwork(final Setting<PlayersSpec> players, final Setting<PrestigeSpec> prestigeSettings) {
+    /** Reads the live groups again: players, crests and the queue. An invalid change keeps the old values. */
+    private void reloadNetwork(final Loaded loaded) {
+        final Setting<PrestigeSpec> prestigeSettings = loaded.prestigeSetting();
         try {
-            players.reload();
+            loaded.players().reload();
         } catch (final SettingsException refused) {
             logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
         }
@@ -697,6 +729,11 @@ public final class ProxyPlugin {
             prestige = NetworkSettings.prestige(prestigeSettings.get());
         } catch (final SettingsException refused) {
             logger.warn("The prestige tiers were not taken, the running ones stay: {}", refused.getMessage());
+        }
+        try {
+            loaded.queue().reload();
+        } catch (final SettingsException refused) {
+            logger.warn("The queue interval was not taken, the running one stays: {}", refused.getMessage());
         }
     }
 

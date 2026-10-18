@@ -763,7 +763,6 @@
     "steward.texts.all-services": ["translations"],
     "steward.texts.group": ["translations"],
     "steward.texts.none": ["translations"],
-    "steward.texts.parts": ["translations"],
     "steward.texts.search": ["translations"],
     "steward.texts.service": ["translations"],
     "steward.texts.shown-in": ["translations"],

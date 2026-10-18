@@ -34,24 +34,20 @@ import net.kyori.adventure.text.minimessage.tag.resolver.ArgumentQueue;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The Minecraft target: renders a message as an Adventure component, apart from {@code Messages} for the bot's sake.
- * The text's own markup is MiniMessage; every value is a component a tag inserts, never characters spliced into the
- * markup, so nothing a player typed can open a tag.
+/** Renders a message as an Adventure component.
+ * A tag inserts every value as a component, so a value never opens a tag.
  */
 public final class MessageRenderer {
 
-    /** The tag a value is inserted by; its one argument is the value's index. */
     private static final String VALUE_TAG = "nordtal-value";
 
-    /** Where a list's leading items and its last stand in the joint, characters no bundle text holds. */
+    /** Marks where a list's leading items and its last item go in the joining text. */
     private static final char REST_MARK = '\u0001';
 
     private static final char LAST_MARK = '\u0002';
 
     private static final List<GlyphNames> GLYPHS = load(GlyphNames.class);
 
-    /** {@code <glyph:name>}, drawn by the {@link GlyphNames} this process ships; an unknown name is refused. */
     private static final TagResolver GLYPH_TAG = TagResolver.resolver("glyph", (arguments, context) -> {
         final String name = arguments.popOr("a glyph needs a name").value();
         final Component glyph = glyph(name);
@@ -79,47 +75,37 @@ public final class MessageRenderer {
         this.cards = Objects.requireNonNull(cards, "cards");
     }
 
-    /**
-     * Returns a renderer over {@code messages} that shows a player's bare name.
-     * It allocates rather than caching, since MiniMessage's parser is already a cached singleton.
-     */
+    /** Returns a renderer that shows a player's bare name. */
     public static MessageRenderer of(final Messages messages) {
         return new MessageRenderer(messages);
     }
 
-    /** Returns a renderer over {@code messages} that draws every player's name with {@code names}. */
     public static MessageRenderer of(final Messages messages, final Names names) {
         return new MessageRenderer(messages, names);
     }
 
-    /** Returns a renderer that draws every player's name with {@code names} and shows its card on hover. */
     public static MessageRenderer of(final Messages messages, final Names names, final NameCards cards) {
         return new MessageRenderer(messages, names, cards);
     }
 
-    /** Returns the same bundle with every name bare and no card, for a reader that draws neither, such as a console. */
+    /** Returns a renderer with bare names and no cards. */
     public MessageRenderer bare() {
         return new MessageRenderer(messages);
     }
 
-    /** Returns the raw bundle behind this renderer. */
     public Messages raw() {
         return messages;
     }
 
-    /** Renders a message for a reader known only by language, in the network's zone. */
     public Component format(final @Nullable Locale locale, final MessageRef message) {
         return format(Viewer.of(locale), message);
     }
 
-    /** Renders a message for a reader: their language, their zone, and {@code self} for the roles that are them. */
     public Component format(final Viewer viewer, final MessageRef message) {
         return format(viewer, message, true);
     }
 
     /**
-     * Renders a text an admin is trying for a message's key, in place of the key's own, with the message's values.
-     *
      * @throws eu.nordtal.season.messages.text.MessageSyntaxException when the text cannot be read
      */
     public Component format(final Viewer viewer, final MessageRef message, final String text) {
@@ -127,15 +113,12 @@ public final class MessageRenderer {
     }
 
     /**
-     * Renders a text an admin is trying for a message's key, its tones painted from {@code palette}.
-     *
      * @throws eu.nordtal.season.messages.text.MessageSyntaxException when the text cannot be read
      */
     public Component format(final Viewer viewer, final MessageRef message, final String text, final Palette palette) {
         return render(viewer, messages.prepare(viewer, message, text), message, true, palette);
     }
 
-    /** Renders a message, its names with their cards unless it is a card itself, which never draws a card. */
     private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
         return render(
                 viewer,
@@ -155,7 +138,6 @@ public final class MessageRenderer {
             return Component.text(
                     PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));
         }
-        // A message in a message is drawn for the same reader, in the same palette, with its own tones and names.
         final Writing writing = new Writing(
                 prepared,
                 message.args(),
@@ -169,16 +151,13 @@ public final class MessageRenderer {
                         TagResolver.resolver(writing.values(), new Tones(palette), GLYPH_TAG));
     }
 
-    /** Returns the card of {@code name} for the reader {@code prepared} is for, or {@code null} where there is none. */
     private @Nullable Component card(final DisplayName name, final Messages.Prepared prepared) {
         final @Nullable MessageRef card = cards.card(name);
         return card == null ? null : format(new Viewer(prepared.language(), prepared.zone(), null), card, false);
     }
 
-    /**
-     * Makes characters inert for MiniMessage.
-     *
-     * The backslash is escaped before {@code <}; the other order lets {@code \<tag>} open a tag.
+    /** Escapes {@code <} and the backslash.
+     * The backslash goes first, otherwise {@code \<tag>} opens a tag.
      */
     static String escape(final String value) {
         return value.indexOf('<') < 0 && value.indexOf('\\') < 0
@@ -202,7 +181,6 @@ public final class MessageRenderer {
                 .toList();
     }
 
-    /** One message being written as MiniMessage, with the components its values became. */
     private static final class Writing {
 
         private final Messages.Prepared prepared;
@@ -264,16 +242,13 @@ public final class MessageRenderer {
                 }
                 for (final Piece part : piece.args().get(index)) {
                     switch (part) {
-                        // A quoted argument's text is the text's own markup, escapes included.
                         case Piece.Text text -> markup.append(text.text());
                         case Piece.Filled filled
                         when "hover".equals(tag.name()) ->
-                            // The hover text is parsed again, with these resolvers: a value stays a component.
+                            // The hover text is parsed again, so a value stays a component.
                             insert(component(filled));
                         case Piece.Filled filled -> markup.append(quoted(plain(filled), quote));
-                        case Piece.Markup ignored -> {
-                            // The parser puts no tag inside an argument.
-                        }
+                        case Piece.Markup ignored -> {}
                     }
                 }
                 if (quote != 0) {
@@ -286,7 +261,6 @@ public final class MessageRenderer {
             markup.append('>');
         }
 
-        /** {@code <action:name>} becomes a click that runs the command the code bound to that name. */
         private void action(final Piece.Markup piece) {
             if (piece.tag().shape() == Node.Tag.Shape.CLOSE) {
                 markup.append("</click>");
@@ -297,7 +271,6 @@ public final class MessageRenderer {
                     : piece.tag().args().getFirst().literal();
             final Object bound = name == null ? null : args.get(name);
             final String command = bound instanceof final Action action ? action.command() : "";
-            // An unbound action still opens a click, so its closing tag closes something.
             markup.append("<click:run_command:'").append(quoted(command, '\'')).append("'>");
         }
 
@@ -329,7 +302,6 @@ public final class MessageRenderer {
             };
         }
 
-        /** The game's own line, translated by the client, each argument a component of its own kind. */
         private Component content(final GameContent content) {
             final List<Component> filled = new ArrayList<>(content.args().size());
             for (final Object arg : content.args()) {
@@ -338,7 +310,6 @@ public final class MessageRenderer {
             return Component.translatable(content.key(), content.english(), filled);
         }
 
-        /** A list joined with the reader's words, each item a component of its own kind, so a game name stays one. */
         private Component list(final List<?> items, final boolean or) {
             if (items.isEmpty()) {
                 return Component.text(prepared.words().missing(Kind.LIST));
@@ -352,7 +323,7 @@ public final class MessageRenderer {
             }
             final Component rest = Component.join(
                     JoinConfiguration.separator(Component.text(", ")), shown.subList(0, shown.size() - 1));
-            // The joint is the bundle's plain text, so the two parts stand in it as markers and are put back here.
+            // The joining text is plain, so markers stand in for the two parts.
             final String joint = prepared.words()
                     .word(
                             or ? "list.or" : "list.and",
@@ -377,7 +348,6 @@ public final class MessageRenderer {
             return Component.textOfChildren(parts.toArray(Component[]::new));
         }
 
-        /** One value inside another, a game line's argument or a list's item, as a component of its kind. */
         private Component item(final Object value) {
             return switch (value) {
                 case final GameContent inner -> content(inner);
@@ -396,7 +366,6 @@ public final class MessageRenderer {
             };
         }
 
-        /** The name as this process draws it, with its card on hover; {@code plain} is the bare name alone. */
         private Component name(final DisplayName name, final boolean plain) {
             if (plain) {
                 return Component.text(name.name());
@@ -415,14 +384,12 @@ public final class MessageRenderer {
             });
         }
 
-        /** Escapes a spliced value for the argument it stands in, so it cannot end that argument early. */
         private static String quoted(final String value, final char quote) {
             // The validator refuses a value in an argument without quotes.
             return value.replace("\\", "\\\\").replace(String.valueOf(quote), "\\" + quote);
         }
     }
 
-    /** The tone tags, painted from the palette as it is at this render. */
     private record Tones(Palette palette) implements TagResolver {
 
         @Override

@@ -73,7 +73,6 @@ class MessageSpecsTest {
             @Name("Update")
             Screen update();
 
-            /** How a spec maps an enum onto its own methods. */
             default Screen of(final boolean updating) {
                 return updating ? update() : pack();
             }

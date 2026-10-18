@@ -19,7 +19,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.junit.jupiter.api.Test;
 
-/** A text drawn where the game shows single lines: a tooltip's lines, a name, a title, a bar. */
+/** Checks {@link Lines} on texts for a tooltip, a name, a title and a bar. */
 class LinesTest {
 
     private static final MessageRenderer RENDER = new MessageRenderer(Messages.load("messages/render", Locale.ENGLISH)
@@ -31,7 +31,7 @@ class LinesTest {
                 Viewer.of(Locale.ENGLISH), new MessageRef("greeting", Map.of("name", name, "count", 2)), text);
     }
 
-    /** The text a line shows, with the colour and decorations each of its characters is drawn in. */
+    /** Returns the text of a line with the colour and decorations of each character. */
     private static String drawn(final Component line) {
         final StringBuilder out = new StringBuilder();
         draw(line, line.style(), out);

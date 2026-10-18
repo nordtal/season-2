@@ -10,27 +10,20 @@ import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A module's whole sound configuration, parsed once and then answered from memory.
- * A blank key silences a category, and a bad value is reported once and silenced or corrected, never thrown on a player
- * path.
+/** Holds the sound of each {@code Feedback} category.
+ * A blank key silences a category. A bad value is reported once and silenced or corrected, never thrown.
  */
 public final class FeedbackSounds {
 
     private final Map<Feedback, FeedbackSound> byCategory;
 
-    /** Categories whose sound threw when played, so the complaint is made once. */
     private final Set<Feedback> broken = ConcurrentHashMap.newKeySet();
 
     private FeedbackSounds(final Map<Feedback, FeedbackSound> byCategory) {
         this.byCategory = byCategory;
     }
 
-    /**
-     * Parses a module's declarations; an absent or blank key is silent without complaint.
-     *
-     * @param problems where each ignored or corrected value is reported once, such as {@code getLogger()::warning}
-     */
+    /** Parses a module's declarations. An absent or blank key is silent without a report. */
     public static FeedbackSounds parse(final Map<Feedback, FeedbackSound> declared, final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> parsed = new EnumMap<>(Feedback.class);
         for (final Map.Entry<Feedback, FeedbackSound> entry : declared.entrySet()) {
@@ -56,28 +49,21 @@ public final class FeedbackSounds {
         return new FeedbackSounds(parsed);
     }
 
-    /** Returns everything silent, for a module before its config is read and for tests. */
     public static FeedbackSounds silent() {
         return new FeedbackSounds(new EnumMap<>(Feedback.class));
     }
 
-    /**
-     * Returns what to play for {@code category}, or {@code null} when it is silent.
-     * It is null rather than an Optional because it runs on every click.
-     */
+    /** Returns the sound of {@code category}, or {@code null} when it is silent. */
     public @Nullable FeedbackSound sound(final Feedback category) {
         return broken.contains(category) ? null : byCategory.get(category);
     }
 
-    /** Returns whether {@code category} will play nothing, because it is unset, wrong or has failed. */
     public boolean isSilent(final Feedback category) {
         return sound(category) == null;
     }
 
     /**
-     * Silences {@code category} after playing it threw, and complains once.
-     *
-     * @return true the first time, so the adapter can log the cause with it
+     * @return {@code true} on the first failure of {@code category}
      */
     public boolean failed(final Feedback category, final Throwable cause, final Consumer<String> problems) {
         if (!broken.add(category)) {
@@ -106,7 +92,6 @@ public final class FeedbackSounds {
             return FeedbackSound.DEFAULT_PITCH;
         }
         if (declared < FeedbackSound.MIN_PITCH || declared > FeedbackSound.MAX_PITCH) {
-            // Clamped rather than refused, as the client clamps it anyway.
             final float clamped = Math.min(FeedbackSound.MAX_PITCH, Math.max(FeedbackSound.MIN_PITCH, declared));
             problems.accept("the pitch for " + category + " is " + declared + ", outside the "
                     + FeedbackSound.MIN_PITCH + " - " + FeedbackSound.MAX_PITCH + " a client will"

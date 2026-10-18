@@ -8,17 +8,14 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 
-/**
- * Turns a line the game wrote, such as a death message or an advancement's title, into a value a message carries.
- * The client still translates it into its reader's language.
- */
+/** Converts a line the game wrote, such as a death message, to a {@link GameContent}. */
 public final class GameLines {
 
     private GameLines() {}
 
-    /**
-     * Returns the game's line as content: a translatable line keeps its key and its arguments, any other its text.
-     * Styling and hover events are the game's and are not carried.
+    /** Returns the line as content.
+     * A translatable line keeps its key and arguments, any other line keeps its text.
+     * Styling and hover events are dropped.
      */
     public static GameContent of(final Component line) {
         if (line instanceof final TranslatableComponent translatable) {
@@ -30,12 +27,12 @@ public final class GameLines {
             final String fallback = translatable.fallback();
             return new GameContent(translatable.key(), fallback == null ? translatable.key() : fallback, args);
         }
-        // Not the game's own line: its text stands as a key no client translates, so it shows as written.
+        // The text serves as the key, which no client translates.
         final String text = text(line);
         return new GameContent(text, text);
     }
 
-    /** Returns the words of a component and its children, such as what a player typed into chat. */
+    /** Returns the text of a component and its children. */
     public static String text(final Component component) {
         final StringBuilder out = new StringBuilder();
         plain(component, out);

@@ -9,10 +9,8 @@ import java.util.function.Consumer;
 import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The {@link Tone} colours, parsed once and then answered from memory.
- *
- * A value that is not a hex colour is reported once through {@code problems} and replaced by the tone's default.
+/** Holds the colour of each {@link Tone}.
+ * {@link #parse} replaces a value that is not a hex colour with the tone's default.
  */
 public final class ToneColours implements Palette {
 
@@ -27,10 +25,8 @@ public final class ToneColours implements Palette {
     }
 
     /**
-     * Parses a module's {@code colours} group.
-     *
-     * @param declared a hex string per tone; a tone it does not carry takes {@link #DEFAULTS} silently
-     * @param problems where a value replaced by its default is reported, once each
+     * @param declared a hex string per tone. A tone it lacks takes its default without a report.
+     * @param problems receives a message for each value that is not a hex colour
      */
     public static ToneColours parse(final Map<Tone, String> declared, final Consumer<String> problems) {
         Objects.requireNonNull(declared, "declared");

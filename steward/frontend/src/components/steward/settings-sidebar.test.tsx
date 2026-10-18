@@ -5,14 +5,12 @@ import type { PluginDescriptor } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
 import { Settings, backend, draw, entry, location } from "@/components/steward/configuration.fixtures"
 
-/** The sidebar: every group of the service as a row of its own. */
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   resetDrafts()
 })
 
-/** Nordtal's mark, the one `StewardMark` draws. */
 const MARK = "/icon.png"
 
 function group(name: string, service = "smp") {

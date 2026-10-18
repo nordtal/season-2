@@ -21,9 +21,7 @@ import { layoutFaults, topologyOf } from "./topology"
 import { type Box, bundle, curve, inside, overlaps, resolvedSources, samplePath } from "./wires"
 
 /**
- * The network picture as numbers, since the plan's placement is a pure function and jsdom has no layout.
- *
- * Every assertion runs at `minWidth`, `maxWidth` and two widths between, where the failures live.
+ * Every assertion runs at `minWidth`, at `maxWidth` and at two widths between, where the failures are.
  */
 const WIDTHS = [372, 410, 560, 720] as const
 
@@ -32,7 +30,6 @@ const LAYOUTS = WIDTHS.map((width) => [`${width}px`, place(PLAN, width)] as cons
 const TOPOLOGY = topologyOf(NETWORK_MAP)
 const TRAFFIC = TOPOLOGY.edges.filter((edge) => edge.kind === "traffic")
 
-/** How far into a card a line may reach before it counts as running through it. */
 const SLACK = -4
 
 function crossings(d: string, boxes: Record<string, Box>, allowed: string[]): string[] {
@@ -66,7 +63,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 
   it("never lets two cards or group frames touch", () => {
-    /** Top level shapes only, since a member's box sits inside its group's frame on purpose. */
+    /** Only top-level shapes, because a member's box sits inside its group's frame on purpose. */
     const regions = regionsOf(placed)
     const ids = Object.keys(regions)
     for (let a = 0; a < ids.length; a++) {
@@ -97,7 +94,9 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     }
   })
 
-  /** The database bundle, with `postgres` itself not excused, since a line may cut behind the sink too. */
+  /**
+   * The database bundle is checked with `postgres` itself not excused, because a line may also cut behind the sink.
+   */
   it("keeps the database bundle clear of every card and group, the sink included", () => {
     const geometry = geometryOf(placed)
     const regions = regionsOf(placed)
@@ -120,7 +119,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
       expect(`${key} foot through ${through.join(", ")}`).toBe(`${key} foot through `)
     })
 
-    /** The trunk must be read as a real path, or it could not be checked at all. */
     expect(samplePath(merged.trunk).length).toBeGreaterThan(1)
     const throughTrunk = crossings(merged.trunk, regions, [])
     expect(`trunk through ${throughTrunk.join(", ")}`).toBe("trunk through ")
@@ -176,7 +174,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     for (const group of placed.groups) {
       const members = groupMemberSpots(group)
       for (let i = 1; i < members.length; i++) {
-        /** Restated as a gap between stacked cards rather than a distance between centres. */
         expect(members[i].y - members[i - 1].y - NODE.height).toBe(GROUP_GAP)
       }
 
@@ -213,7 +210,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     const resolved = resolvedSources(TOPOLOGY.storers, geometry)
     const keys = resolved.map((entry) => entry.key)
     expect(keys.filter((key) => key === paperGroup)).toHaveLength(1)
-    /** Nothing steward calls holds a database connection of its own. */
+    /** Nothing that steward calls holds a database connection of its own. */
     expect(keys.filter((key) => key === deployGroup)).toHaveLength(0)
   })
 
@@ -229,7 +226,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 })
 
-/** The drawing stretches while the cards keep their size, each half asserted on its own. */
 describe("stretching", () => {
   it("leaves every card the same size at every width", () => {
     for (const [, placed] of LAYOUTS) {
@@ -246,7 +242,6 @@ describe("stretching", () => {
         `at ${WIDTHS[i]}px the lanes are ${Math.max(gaps[i], gaps[i - 1] + 1)}px apart`,
       )
     }
-    /** By exactly the extra room, all of which goes into the gap between lane 0 and lane 1. */
     expect(gaps[gaps.length - 1] - gaps[0]).toBe(WIDTHS[WIDTHS.length - 1] - WIDTHS[0])
   })
 

@@ -19,7 +19,9 @@ import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-/** Settles the one OPEN request of this row by hand; the bot books it as if bunq had reported it. */
+/**
+ * Settles the one OPEN request of this row by hand. The bot books it as if bunq had reported it.
+ */
 function SettleAction({ reference }: { reference: string }) {
   const settle = useSettle()
   return (
@@ -69,7 +71,7 @@ function SettleAction({ reference }: { reference: string }) {
   )
 }
 
-/** A deadline or a payment's time: the day, and the clock under it, so the column stays narrow. */
+/** The day, and the clock under it, so the column stays narrow. */
 function Moment({ at }: { at?: string }) {
   if (!at) return <>{"\u2013"}</>
   return (
@@ -80,22 +82,16 @@ function Moment({ at }: { at?: string }) {
   )
 }
 
-/** Eight rows of nothing while the requests are read. */
 const WAITING_PAYMENTS = [0, 1, 2, 3, 4, 5, 6, 7]
 
-/** A request's tone; its word and what it means are the bundle's. */
 const PAYMENT_TONES: Record<string, Tone> = { PAID: "ok" }
 
-/** OPEN and past its `expires`; the sweep has just not run yet. */
+/** OPEN and past its `expires`, because the sweep has not run yet. */
 function isOverdue(payment: Payment, now: number): boolean {
   return payment.status === "OPEN" && new Date(payment.expires).getTime() <= now
 }
 
-/**
- * Payment requests as rows, eight waiting ones while `payments` is undefined.
- *
- * @param person whether to draw the Person column, which a person's own page leaves out
- */
+/** Payment requests as rows, with eight waiting ones while `payments` is undefined. */
 export function PaymentsTable({
   payments,
   now,
@@ -117,7 +113,6 @@ export function PaymentsTable({
           <TableHead className="w-[9rem]">{t("steward.payments.status")}</TableHead>
           <TableHead className="w-[7rem]">{t("steward.payments.deadline")}</TableHead>
           <TableHead className="w-[7rem]">{t("steward.payments.paid")}</TableHead>
-          {/* `Tab` and `Settle`, which may stack. */}
           <TableHead className="w-[11rem]" />
         </TableRow>
       </TableHeader>
@@ -211,7 +206,6 @@ export function PaymentsTable({
                           {"\u2013"}
                         </span>
                       )}
-                      {/* Only an OPEN request can be settled. */}
                       {payment.status === "OPEN" ? <SettleAction reference={payment.reference} /> : null}
                     </div>
                   </TableCell>
@@ -224,9 +218,7 @@ export function PaymentsTable({
 }
 
 /**
- * The payments: the first three links of the chain.
- *
- * The sum is what the tabs asked for, since the payer can edit the amount on bunq.me.
+ * The first three links of the chain. The sum is what the tabs asked for, because the payer can edit the amount on bunq.me.
  */
 export function PaymentsPage() {
   const payments = usePayments()
@@ -243,7 +235,7 @@ export function PaymentsPage() {
         isEmpty={(list: Payment[]) => list.length === 0}
       >
         {(list) => {
-          /** A sum over nothing is 0, which is not a waiting state, so every figure waits on `waiting`. */
+          /** A sum over nothing is 0, so every figure waits on `waiting`. */
           const waiting = list === undefined
           const rows = list ?? []
           const open = rows.filter((payment) => payment.status === "OPEN")
@@ -264,7 +256,6 @@ export function PaymentsPage() {
                   tone={overdue.length > 0 ? "warn" : undefined}
                 />
                 <Stat label={t("steward.payments.paid")} value={waiting ? undefined : count(paid.length)} />
-                {/* Amount plus donation of every paid request, as its tab asked for it. */}
                 <Stat label={t("steward.payments.requested")} value={waiting ? undefined : euros(requested)} />
               </div>
 

@@ -14,17 +14,9 @@ import { SkeletonText } from "@/components/ui/skeleton"
 import { INGRESS, imageTag, type NodeId } from "./topology"
 import { choice, since, t } from "@/lib/texts"
 
-/**
- * One card of the network picture, the same size in every arrangement, sized by `--node-w` and `--node-h`.
- *
- * Three lines: identifier and health dot, drift mark with tag and player count, then the toolbar.
- */
+/** It has the same size in every arrangement, set by `--node-w` and `--node-h`. */
 
-/**
- * Image drift as a mark: silent when up to date, warning when OUTDATED, neutral for LOCAL and UNKNOWN.
- *
- * Exported for `table.tsx`, so the phone's rows draw the same mark.
- */
+/** `table.tsx` imports it, so the phone's rows draw the same mark. */
 export function DriftMark({
   drift,
   image,
@@ -52,17 +44,15 @@ export function DriftMark({
   const tip = driftTip(drift, image, localBuild)
   if (!tip) return mark
   return (
-    /** Padded out to a finger's size, and pulled back so the line does not move. */
     <Tip content={tip} className="-m-2 p-2">
       {mark}
     </Tip>
   )
 }
 
-/** Resources and runtime, on the dot; exported for `network.test.tsx`, which cannot hover. */
+/** `network.test.tsx` imports it, because the test cannot hover. */
 export function Vitals({ service }: { service: Service }) {
   return (
-    /** A stopped node says it is not running instead of a row of dashes. */
     <span className="flex flex-col gap-0.5">
       <span>
         {service.startedAt
@@ -87,9 +77,7 @@ export function Vitals({ service }: { service: Service }) {
 }
 
 /**
- * What a node can do: open its service page, and recreate it.
- *
- * Ghost and icon-only, so ten toolbars do not compete with the lines; exported for `table.tsx`.
+ * The buttons are ghost buttons with icons only, so ten toolbars do not compete with the lines. `table.tsx` imports the toolbar.
  */
 export function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
   return (
@@ -120,9 +108,8 @@ export function ServiceNode({
   className,
 }: {
   id: NodeId
-  /** Absent until `/api/services` answers, or for a card that is not a container. */
   service?: Service
-  /** The count to draw, or nothing; never a zero standing in for "not said". */
+  /** A zero never stands for "not reported". */
   players?: number
   className?: string
 }) {
@@ -130,11 +117,9 @@ export function ServiceNode({
 
   return (
     <div
-      /** Read back by `useNodeBoxes`, since the lines are drawn from measured positions. */
       data-node={id}
       className={cn(
         "relative z-10 flex h-(--node-h) w-(--node-w) flex-col gap-0.5 rounded-md border bg-card px-2.5 py-1.5",
-        /** The people card is drawn as an opening: dashed, with no dot, since it has no health. */
         ingress ? "border-dashed border-border bg-background" : "border-border",
         className,
       )}
@@ -153,15 +138,15 @@ export function ServiceNode({
                 {id}
               </Link>
             </TooltipTrigger>
-            {/* Docker's own status sentence, or the state word until it answers. */}
             <TooltipContent>{service?.status ?? service?.state ?? t("steward.service.not-read")}</TooltipContent>
           </Tooltip>
         )}
 
-        {/* Only `players` draws its count here, having no second line. */}
         {ingress && players !== undefined ? (
           <span
-            /** The icon carries the word on screen; this carries it to a screen reader and a test. */
+            /**
+             * The icon shows the word on screen. The title gives it to a screen reader and a test.
+             */
             title={t("steward.network.players")}
             className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
           >
@@ -194,7 +179,6 @@ export function ServiceNode({
               className="flex min-w-0 items-center gap-1 rounded-sm text-[0.6875rem] text-muted-foreground"
             >
               <DriftMark drift={service?.drift ?? "UNKNOWN"} image={service?.image} localBuild={service?.localBuild} />
-              {/* Only the tag has to be fetched, so only it waits. */}
               {service ? (
                 <span className="min-w-0 flex-1 truncate tnum">{imageTag(service.image)}</span>
               ) : (
@@ -202,11 +186,7 @@ export function ServiceNode({
               )}
 
               {players === undefined ? null : (
-                <span
-                  /** The same word for a screen reader and a test, as on `players` above. */
-                  title={t("steward.network.players")}
-                  className="flex shrink-0 items-center gap-1"
-                >
+                <span title={t("steward.network.players")} className="flex shrink-0 items-center gap-1">
                   <TERM_ICON.people className="size-3" aria-hidden />
                   <span className="tnum">{players}</span>
                 </span>
@@ -222,7 +202,6 @@ export function ServiceNode({
         </Tooltip>
       )}
 
-      {/* `players` gets no toolbar, since it is not a container. */}
       {ingress ? null : <NodeToolbar id={id} />}
     </div>
   )

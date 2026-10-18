@@ -8,8 +8,6 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
 import { words } from "@/lib/query-fixtures"
 
-/** The smp and hunger-games actions are picked, not typed, named by what they act on, and a late answer is in words. */
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -88,7 +86,6 @@ describe("HungerGamesActions", () => {
 
     await waitFor(() => expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }]))
     await within(dialog).findByText("Objective closed.")
-    // The round moved on, so there is nothing to start anyway.
     await waitFor(() => expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull())
   })
 

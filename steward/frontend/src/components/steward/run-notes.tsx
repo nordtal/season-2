@@ -6,18 +6,13 @@ import { Panel } from "@/components/steward/panel"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Badge } from "@/components/ui/badge"
 
-/** The outcomes worst first, which is the order the filter offers them in. */
 const OUTCOMES: readonly RunOutcome[] = ["FAILED", "WARNING", "DONE", "SKIPPED"]
 
 const TONE: Record<RunOutcome, Tone> = { FAILED: "down", WARNING: "warn", DONE: "ok", SKIPPED: "idle" }
 
 export type NoteFilter = { outcome?: RunOutcome; service?: string }
 
-/**
- * The records a filter keeps, grouped by step in the order the run first reached each.
- *
- * A run writes its records in order, so within a step they stay in the order they happened.
- */
+/** A run writes its records in order, so within a step they stay in the order they happened. */
 export function grouped(notes: RunNote[], filter: NoteFilter): { step: RunStep; notes: RunNote[] }[] {
   const groups = new Map<RunStep, RunNote[]>()
   for (const note of notes) {
@@ -28,7 +23,6 @@ export function grouped(notes: RunNote[], filter: NoteFilter): { step: RunStep; 
   return [...groups].map(([step, kept]) => ({ step, notes: kept }))
 }
 
-/** A run's records under their steps, filtered by outcome and by service; nothing for a run without any. */
 export function RunNotes({ notes }: { notes: RunNote[] }) {
   const [filter, setFilter] = useState<NoteFilter>({})
   if (notes.length === 0) return null
@@ -85,7 +79,9 @@ function Step({ step, notes }: { step: RunStep; notes: RunNote[] }) {
       </h3>
       <ul className="flex flex-col divide-y divide-border">
         {notes.map((note, index) => (
-          /* Phone first: the badge and the service share a line and the words go under them; a grid from sm on. */
+          /*
+           * Phone first: the badge and the service share a line and the words go under them. From `sm` up it is a grid.
+           */
           <li
             key={`${note.what.key}-${note.service ?? ""}-${index}`}
             className="flex flex-col gap-1 py-2 sm:grid sm:grid-cols-[6rem_12rem_1fr] sm:items-baseline sm:gap-3"

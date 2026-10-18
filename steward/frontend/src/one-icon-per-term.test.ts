@@ -8,7 +8,6 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** The one file that picks an icon for a term. */
 const MAP = path.join("components", "steward", "term-icons.tsx")
 
 const PHOSPHOR_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*"@phosphor-icons\/react[^"]*"/g
@@ -26,7 +25,6 @@ function sourceFiles(directory: string): string[] {
   return found
 }
 
-/** Every icon a file imports from the pack, by its exported name. */
 function iconsImportedBy(text: string): string[] {
   return [...text.matchAll(PHOSPHOR_IMPORT)].flatMap((match) =>
     match[1]
@@ -36,7 +34,6 @@ function iconsImportedBy(text: string): string[] {
   )
 }
 
-/** The icons the map holds, by the names its own imports give them. */
 function mappedIcons(): Set<string> {
   return new Set(iconsImportedBy(readFileSync(path.join(source, MAP), "utf8")).filter((name) => name !== "Icon"))
 }
@@ -75,7 +72,7 @@ describe("one icon per domain term", () => {
     expect(shared).toEqual([])
   })
 
-  /** Without this, a broken path or pattern makes the rule above pass by finding nothing. */
+  /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the map and the sources", () => {
     expect(mappedIcons().size).toBe(Object.keys(TERM_ICON).length)
     const imported = sourceFiles(source).flatMap((file) => iconsImportedBy(readFileSync(file, "utf8")))

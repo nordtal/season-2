@@ -7,8 +7,8 @@ import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 function ScrollArea({ className, children, ...props }: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative", className)} {...props}>
-      {/* `[&>div]:!block` caps Radix's `display: table` div at the viewport's width, or a phone clips every page. */}
-      {/* `relative` places an absolute descendant, a `sr-only` label, in what scrolls, not below the page. */}
+      {/* `[&>div]:!block` caps Radix's `display: table` div at the viewport's width. Without it a phone clips every page. */}
+      {/* `relative` places an absolute descendant, such as a `sr-only` label, in the scrolling content and not below the page. */}
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
         className="relative size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:!block"

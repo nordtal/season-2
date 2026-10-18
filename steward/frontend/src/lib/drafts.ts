@@ -2,9 +2,7 @@ import { useSyncExternalStore } from "react"
 import { shapedAs } from "@/lib/api"
 
 /**
- * Unsaved edits of the settings and the texts, one record per file, and which tree branches are open.
- *
- * Module level, so a draft survives a tab switch but not a reload; a non-empty record means a draft.
+ * Unsaved edits of the settings and texts, one record per file, and which tree branches are open. They live at module level, so a draft survives a tab switch and not a reload.
  */
 const drafts = new Map<string, Record<string, unknown>>()
 const opened = new Map<string, Record<string, boolean>>()
@@ -25,7 +23,6 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** Sets one key of a file's draft, or removes it with `undefined`. */
 export function setDraftValue(file: string, key: string, value: unknown) {
   const next = { ...drafts.get(file) }
   if (value === undefined) delete next[key]
@@ -44,7 +41,6 @@ export function useDraft<T>(file: string, isValue: (value: unknown) => value is 
   return useSyncExternalStore(subscribe, () => shapedAs(drafts.get(file) ?? NOTHING, isValue, file))
 }
 
-/** Every file that holds a draft. */
 export function useDirtyFiles(): string[] {
   return useSyncExternalStore(subscribe, () => dirty)
 }
@@ -54,12 +50,10 @@ export function setOpened(file: string, branch: string, open: boolean) {
   changed()
 }
 
-/** The branches somebody opened or closed by hand; the rest follow the file's default. */
 export function useOpened(file: string): Record<string, boolean> {
   return useSyncExternalStore(subscribe, () => opened.get(file) ?? NOTHING)
 }
 
-/** For tests: forget everything, as a reload would. */
 export function resetDrafts() {
   drafts.clear()
   opened.clear()

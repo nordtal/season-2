@@ -26,10 +26,9 @@ import {
   useStewardConfig,
 } from "@/components/steward/group-form"
 
-/** steward's `backup.at`, the clock that writes the request row. */
 const SCHEDULE_KEYS = ["backup.at"] as const
 
-/** steward-agent's four `backup.retention` keys, in the order the dialog draws them; the run applies them. */
+/** steward-agent's four `backup.retention` keys, in the order the dialog draws them. */
 const RETENTION_KEYS = [
   "backup.retention.daily",
   "backup.retention.weekly",
@@ -39,7 +38,6 @@ const RETENTION_KEYS = [
 
 const DAYS_KEY = "backup.days"
 
-/** A refused save, named as the stale revision it usually is. */
 function failed(failure: unknown) {
   toast.error(
     failure instanceof ApiError && failure.status === 409 ? t("steward.form.changed-meanwhile") : String(failure),
@@ -47,9 +45,7 @@ function failed(failure: unknown) {
 }
 
 /**
- * The nightly clock and its retention (at most daily + weekly + monthly archives a volume), in a dialog.
- *
- * Clock in steward's group, retention in steward-agent's `runs` group: Save writes each that changed.
+ * Edits the nightly clock and its retention in a dialog. The clock is in Steward's group and the retention in steward-agent's `runs` group. Save writes each one that changed.
  */
 export function ScheduleDialog() {
   const { file, document, pending } = useStewardConfig()
@@ -59,7 +55,7 @@ export function ScheduleDialog() {
   const saveRuns = useSaveConfig(runs.file ?? "")
   const retention = useConfigDraft(runs.document, RETENTION_KEYS)
 
-  /** The picked days; `undefined` until a badge is clicked, so the file's list is drawn. */
+  /** `undefined` until a badge is clicked, so the file's list is drawn. */
   const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
   const [lastScheduleDocument, setLastScheduleDocument] = useState(document)
   if (lastScheduleDocument !== document) {

@@ -97,7 +97,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** Shows what a run would install without running one; the forced re-read is a parameter on the same GET. */
+/** Shows what a run would install without running one. */
 describe("the available card", () => {
   it("names the jump rather than the filename and the version", async () => {
     vi.stubGlobal(
@@ -122,12 +122,12 @@ describe("the available card", () => {
     expect(screen.getByText("1.5.3")).toBeTruthy()
     expect(screen.getByText("1.5.4")).toBeTruthy()
     expect(screen.getByText("outdated")).toBeTruthy()
-    /** The filename column is gone, since the version was being read out of it by eye. */
+    /** The filename column is gone, because the version was being read out of it by eye. */
     expect(screen.queryByText("Chunky-Bukkit-1.5.3.jar")).toBeNull()
   })
 
   it("leaves out everything a run would not touch", async () => {
-    /** Up to date rows are absent, so the states that are not work have their own tests below. */
+    /** Up-to-date rows are absent. */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -186,7 +186,6 @@ describe("the available card", () => {
     await screen.findByText("chunky")
     expect(screen.getByText("Notes")).toBeTruthy()
     expect(screen.getByText(/Somebodys-1\.0\.jar/)).toBeTruthy()
-    // The filter chip of the outcome, which only the run page's view draws.
     expect(screen.getByText("all 1")).toBeTruthy()
   })
 
@@ -227,7 +226,6 @@ describe("the available card", () => {
 
     await screen.findByText("packetevents")
     expect(screen.getByText("could not ask")).toBeTruthy()
-    // The line above the table, which is the part a scanning reader actually sees.
     expect(screen.getByText(/incomplete/)).toBeTruthy()
   })
 
@@ -268,7 +266,9 @@ describe("the available card", () => {
   })
 
   it("keeps the artefact with no build for this version, and calls it unsupported", async () => {
-    /** Still listed though neither work nor a failure, since it answers why CoreProtect has no update. */
+    /**
+     * Still listed though it is neither work nor a failure, because it answers why CoreProtect has no update.
+     */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -297,7 +297,7 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    /** The reason belongs in the title and the badge, not in a table cell. */
+    /** The reason belongs in the title and the badge. */
     expect(screen.queryByText(/no stable build/)).toBeNull()
     expect(
       document.querySelector('[title^="coreprotect has no stable build for Minecraft 26.2 on paper"]'),
@@ -328,7 +328,7 @@ describe("the available card", () => {
   })
 
   it("asks the sources again when the button is pressed, and redraws from that answer", async () => {
-    /** The only way to skip steward's six hour cache, so it must replace what is on screen. */
+    /** The only way to skip Steward's six-hour cache, so it must replace what is on screen. */
     const wired = backend(
       available({
         changes: [

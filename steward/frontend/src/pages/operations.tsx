@@ -21,12 +21,10 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
- * The vocabulary of a run, shared by Updates, Backups and a service's own page.
- *
- * A run is a row in steward's inbox, never a call to a container; steward claims it.
+ * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
  */
 
-/** The stages in `UpdateReport.Stage` order, without the four endings, shown in full for every kind. */
+/** The stages in `UpdateReport.Stage` order, without the four endings. */
 const TRAIL = [
   "RESOLVING",
   "PLANNED",
@@ -38,12 +36,11 @@ const TRAIL = [
   "VERIFYING",
 ] as const
 
-/** A stage as the trail names it, shorter than the admin bundle's sentence for it. */
 function stageLabel(stage: string): string {
   return t("steward.operations.step", { stage: choice(stage) })
 }
 
-/** The four stages a run stops at; `NOTHING_TO_DO` is not a kind of "done". */
+/** The four stages a run stops at. `NOTHING_TO_DO` is not a kind of "done". */
 export const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
 
 /** Grey for `NOTHING_TO_DO`, so a run that changed nothing never looks like a finished update. */
@@ -58,7 +55,7 @@ export function StageBadge({ stage }: { stage: string }) {
   return <StatusBadge tone={stageTone(stage)}>{stageLabel(stage)}</StatusBadge>
 }
 
-/** A report line's tone; its word is the admin bundle's, so a state reads the same here and in Discord. */
+/** Its word is the admin bundle's, so a state reads the same here and in Discord. */
 const LINE_TONE: Record<string, Tone> = {
   UNCHANGED: "idle",
   PLANNED: "idle",
@@ -72,15 +69,12 @@ const LINE_TONE: Record<string, Tone> = {
 }
 
 function LineState({ state }: { state: string }) {
-  /** An unknown state keeps its enum name, so a newer steward is noticed rather than hidden. */
+  /** An unknown state keeps its enum name, so a newer Steward is noticed. */
   return <StatusBadge tone={LINE_TONE[state] ?? "idle"}>{t("run.state", { state: choice(state) })}</StatusBadge>
 }
 
 /**
- * One artefact, and what is happening to it.
- *
- * Branches on UNSUPPORTED and on `told`, whose `to` is `"-"`, and shows the raw words of a row stored before a change
- * was told in a message.
+ * One artefact, and what is happening to it. It branches on UNSUPPORTED and on `told`, whose `to` is `"-"`.
  */
 export function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
@@ -99,7 +93,7 @@ export function Change({ change }: { change: ReportChange }) {
     )
   }
   return (
-    /** `flex-wrap`, so a long jar name and both versions wrap instead of leaving a phone's edge. */
+    /** `flex-wrap`, so a long jar name does not leave a phone's edge. */
     <span className="flex flex-wrap items-center gap-1.5">
       <code className="text-xs">{change.artefact}</code>
       {change.from ? (
@@ -115,13 +109,11 @@ export function Change({ change }: { change: ReportChange }) {
   )
 }
 
-/** A fingerprint rather than a version, as the resource pack reports its SHA-1. */
+/** A fingerprint, as the resource pack reports its SHA-1. */
 const FINGERPRINT = /^[0-9a-f]{32,64}$/i
 
 /**
- * What was there before this change: a version, or the first eight characters of a fingerprint.
- *
- * The whole hash is on the title.
+ * Shows what was there before: a version, or the first eight characters of a fingerprint. The whole hash is on the title.
  */
 export function Was({ value }: { value: string }) {
   if (!FINGERPRINT.test(value)) {
@@ -135,15 +127,12 @@ export function Was({ value }: { value: string }) {
 }
 
 /**
- * Whether a change row is a file actually moving.
- *
- * Not `state === "MOVING"`, since steward omits the field for MOVING and a Gson round trip puts it back.
+ * Returns whether a change row is a file actually moving. Steward omits the field for MOVING and a Gson round trip puts it back, so `state === "MOVING"` fails.
  */
 function isMoving(change: ReportChange): boolean {
   return change.state !== "UNSUPPORTED"
 }
 
-/** How long a run took, or how long it has been going so far. */
 export function runSeconds(run: Run): number | null {
   const started = parseInstant(run.started)
   if (started == null) return null
@@ -152,10 +141,7 @@ export function runSeconds(run: Run): number | null {
 }
 
 /**
- * Whether the backend would still take this row back.
- *
- * Must match `UpdateDirectory#cancelCountdown`: a cancellable kind, PENDING before its schedule or RUNNING before
- * its countdown's end.
+ * Returns whether the backend would still take this row back, as `UpdateDirectory#cancelCountdown` does.
  */
 export function cancellable(run: Run, now = new Date()): boolean {
   if (!CANCELLABLE_KINDS.has(run.kind)) return false
@@ -168,10 +154,10 @@ export function cancellable(run: Run, now = new Date()): boolean {
   return moment !== null && moment.getTime() > now.getTime()
 }
 
-/** The kinds a countdown runs for, mirroring the list in steward's SQL. */
+/** The kinds a countdown runs for, as in Steward's SQL. */
 const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
 
-/** What a run did, one fact per line, counted out of the report since steward writes no sentence. */
+/** Returns what a run did, one fact per line, counted out of the report. */
 export function summaryOf(run: Run): string[] {
   if (run.resultText) return [t("steward.operations.report-unreadable")]
   const report = run.report
@@ -197,9 +183,8 @@ export function summaryOf(run: Run): string[] {
 
 export type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
-/** Each kind's symbol; its title, what it does and what it costs are the bundle's. */
 export const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
-  /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
+  /** Its own symbol, so it is not mistaken for Recreate. */
   UPDATE: TERM_ICON.update,
   BACKUP: TERM_ICON.backup,
   RESTART: TERM_ICON.restart,
@@ -208,9 +193,7 @@ export const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
 }
 
 /**
- * One button, one confirmation: Now or Cancel.
- *
- * Every run stops servers, so the dialog names what will happen in at most two short lines.
+ * One button and one confirmation: Now or Cancel. Every run stops servers, so the dialog names what will happen in at most two short lines.
  */
 export function AskButton({
   kind,
@@ -226,18 +209,18 @@ export function AskButton({
 }: {
   kind: Kind
   variant?: "default" | "outline"
-  /** The compose services this run is for; left off for the whole network. */
+  /** Left off for the whole network. */
   services?: string[]
-  /** Overrides the button's own word, for a page where "Update" alone would be ambiguous. */
+  /** Overrides the button's word where "Update" alone would be ambiguous. */
   label?: string
   size?: "default" | "sm"
-  /** Lets a page hide the word below a breakpoint; the button keeps it as its accessible name. */
+  /** Hides the word below a breakpoint. The button keeps it as its accessible name. */
   labelClassName?: string
   className?: string
-  /** The dialog's open state, so the service page's ⋯ menu opens the same confirmation. */
+  /** So the service page's ⋯ menu opens the same confirmation. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  /** `false` draws the dialog alone, for a caller that opens it from somewhere else. */
+  /** `false` draws the dialog alone. */
   trigger?: boolean
 }) {
   const ask = useAskForRun()
@@ -303,9 +286,7 @@ export function AskButton({
 }
 
 /**
- * Taking a run back, on its row, without a confirmation since it undoes one.
- *
- * A 409 means the countdown ran out first; the backend's sentence is shown as it came.
+ * Takes a run back from its row, with no confirmation because it undoes one. A 409 means that the countdown ran out first, and the backend's sentence is shown as it came.
  */
 export function CancelButton({ run }: { run: Run }) {
   const cancel = useCancelRun()
@@ -336,9 +317,7 @@ export function CancelButton({ run }: { run: Run }) {
 }
 
 /**
- * One run, drawn rather than dumped, for every kind but BACKUP.
- *
- * `useRun` polls while the run is unfinished, so the report grows on screen.
+ * One run, drawn and not dumped, for every kind but BACKUP. `useRun` polls while the run is unfinished, so the report grows on screen.
  */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
@@ -362,7 +341,7 @@ export function UpdateRunPage() {
       {!numeric ? (
         <Empty title={t("steward.operations.not-a-number")} />
       ) : (
-        /** A missing row arrives as a 404 failure, and an answered query always has a body. */
+        /** A missing row arrives as a 404 failure. */
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
       )}
     </div>
@@ -384,7 +363,6 @@ function RunDetail({ run }: { run?: Run }) {
           <span className="font-heading text-xs font-medium text-muted-foreground">
             {t("steward.operations.status")}
           </span>
-          {/* A report's stage says what the run's status says, and more precisely. */}
           <div className="flex items-center gap-2">
             {report ? (
               <StageBadge stage={report.stage} />
@@ -404,7 +382,7 @@ function RunDetail({ run }: { run?: Run }) {
           value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
           hint={run ? dateTime(run.requested) : undefined}
         />
-        {/* steward does not pick the row up before this. */}
+        {/* Steward does not pick the row up before this. */}
         <Stat label={t("steward.operations.no-earlier-than")} value={run ? dateTime(run.scheduledFor) : undefined} />
         <Stat
           label={t("steward.operations.started")}
@@ -447,7 +425,7 @@ function RunDetail({ run }: { run?: Run }) {
 
       <Panel title={t("steward.operations.report")}>
         {!run ? (
-          /** A placeholder the size of the Report card, so the page does not jump when it loads. */
+          /** The size of the Report card, so the page does not jump when it loads. */
           <Loading rows={4} />
         ) : run.resultText ? (
           <>
@@ -472,15 +450,13 @@ function RunDetail({ run }: { run?: Run }) {
 }
 
 /**
- * The stages a finished run of each kind walked, since its report keeps only the last one.
- *
- * A run that did not end DONE gets no ticks, because where it stopped is no longer known.
+ * The stages that a finished run of each kind walked, because its report keeps only the last one. A run that did not end DONE gets no ticks.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(TRAIL),
   BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
   RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  // A DOWN ends at STOPPING and never walks the starting half.
+  // A DOWN ends at STOPPING.
   DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
   START: new Set(["STARTING", "VERIFYING"]),
   // Written once it is done, on a start with no server running yet.
@@ -496,7 +472,9 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
-        /** A running run has walked everything before its stage; a finished one what its kind walks, if DONE. */
+        /**
+         * A running run has walked everything before its stage. A finished one has walked what its kind walks, if it is DONE.
+         */
         const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (
@@ -529,7 +507,6 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   )
 }
 
-/** The report's lines, each with what it says, which steward draws from the line's facts. */
 function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string, MessageRef> }) {
   if (lines.length === 0) {
     return <Empty title={t("steward.operations.no-line-title")} />
@@ -554,7 +531,7 @@ function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string
               <TableCell data-label={t("steward.operations.state")}>
                 <LineState state={line.state} />
               </TableCell>
-              {/* `whitespace-normal`, so a long list of changes wraps instead of widening the table. */}
+              {/* `whitespace-normal`, so a long list of changes wraps and does not widen the table. */}
               <TableCell data-label={t("steward.operations.changes")} className="whitespace-normal">
                 {line.changes.length === 0 && !words ? (
                   <span className="text-muted-foreground">{"\u2013"}</span>
@@ -583,7 +560,9 @@ function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string
   )
 }
 
-/** Copy to clipboard, with a failure spelled out, since `navigator.clipboard` needs a secure context. */
+/**
+ * Copies to the clipboard and spells out a failure, because `navigator.clipboard` needs a secure context.
+ */
 export function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
   const [copied, setCopied] = useState(false)
 

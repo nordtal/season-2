@@ -6,7 +6,9 @@ import { assert, describe, expect, it } from "vitest"
 
 const app = path.dirname(fileURLToPath(import.meta.url))
 
-/** Every shell source with comments blanked, since a comment about a header is not a header. */
+/**
+ * Returns every shell source with its comments blanked, because a comment about a header is not a header.
+ */
 function shellSources(): Array<{ file: string; text: string }> {
   return readdirSync(app)
     .filter((name) => name.endsWith(".tsx") && !name.includes(".test."))
@@ -18,7 +20,7 @@ function shellSources(): Array<{ file: string; text: string }> {
     }))
 }
 
-/** Read from the sources, since jsdom cannot see a top bar; the sidebar collapses and search stays on a phone. */
+/** jsdom cannot see a top bar, so the test reads the sources. */
 describe("the header is gone and does not grow back", () => {
   it("reads the sources, so an empty result means something", () => {
     const sources = shellSources()
@@ -68,7 +70,6 @@ describe("the header is gone and does not grow back", () => {
   })
 
   it("does not grow a second shell back behind a query parameter", () => {
-    /** There is exactly one shell frame, never several behind a query parameter. */
     const offenders = shellSources()
       .filter(({ text }) => /export function Shell[A-Z]\b/.test(text))
       .map(({ file }) => file)

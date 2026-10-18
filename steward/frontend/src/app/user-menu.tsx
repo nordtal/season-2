@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { t } from "@/lib/texts"
 
-/** The signed-in person's picture, falling back to initials, since `discordAvatarUrl` is often not on record. */
 export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: string; className?: string }) {
   const [broken, setBroken] = useState(false)
   const size = className ?? "size-control"
@@ -34,7 +33,6 @@ export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: s
   )
 }
 
-/** The first letters of a name as written, not forced to capitals. */
 export function initials(name: string | undefined): string {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return "?"
@@ -42,11 +40,7 @@ export function initials(name: string | undefined): string {
   return words[0].slice(0, 1) + words[1].slice(0, 1)
 }
 
-/**
- * While a step-up holds: until when, and a control that ends it at once.
- *
- * Gone within one tick of `useNow` once it runs out; the server, not this row, is what refuses a change after.
- */
+/** The row disappears within one tick of `useNow` after the step-up runs out. */
 export function StepUpHolding({ until }: { until: string | undefined }) {
   const end = useEndStepUp()
   const now = useNow()
@@ -69,7 +63,7 @@ export function UserMenu({
 }: {
   me: Me | undefined
   align?: "start" | "end"
-  /** Inside an island, which already has the border. */
+  /** Set when the control is inside an island, which already has the border. */
   plain?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -77,7 +71,9 @@ export function UserMenu({
   const app = useAuthenticatorActions(me)
   const notifications = useNotificationActions()
 
-  /** The popover steps aside while a question is asked, and its dialogs mount outside it to outlive it. */
+  /**
+   * The popover closes while a question is asked. The dialogs are mounted outside it, so they outlive it.
+   */
   const asking = keys.asking || app.asking || notifications.open
   if (asking && open) setOpen(false)
 
@@ -94,7 +90,7 @@ export function UserMenu({
           </button>
         </PopoverTrigger>
 
-        {/* Never wider than the phone, so a long key name truncates rather than pushing its buttons off. */}
+        {/* At most the phone's width, so a long key name is truncated and its buttons stay in view. */}
         <PopoverContent align={align} className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3">
           <div className="flex items-center gap-2">
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />

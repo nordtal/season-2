@@ -6,10 +6,10 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** No class list may force `uppercase`; an abbreviation like CPU is written in capitals in the source instead. */
+/** No class list may force `uppercase`. An abbreviation like CPU is written in capitals. */
 const UPPERCASE_UTILITY = /(^|[\s:])uppercase($|\s)/
 
-/** Every `.tsx` string shaped like a class list, comments blanked so this rule cannot trip on itself. */
+/** Returns every `.tsx` string shaped like a class list. */
 function classAttributes(directory: string): Array<{ file: string; line: number; classes: string }> {
   const found: Array<{ file: string; line: number; classes: string }> = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -19,7 +19,7 @@ function classAttributes(directory: string): Array<{ file: string; line: number;
       continue
     }
     if (!entry.name.endsWith(".tsx") || entry.name.includes(".test.")) continue
-    /** Blanked, not deleted, so line numbers stay true. */
+    /** Blanked, not deleted, so the line numbers stay true. */
     const withoutComments = readFileSync(full, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "))
       .replace(/^\s*\/\/.*$/gm, " ")
@@ -53,7 +53,7 @@ describe("nothing is drawn in capitals by a class", () => {
     )
   })
 
-  /** Without this, a broken path or extension makes the rule above pass by finding nothing. */
+  /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const files: string[] = []
     const walk = (directory: string) => {

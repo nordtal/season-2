@@ -1,17 +1,13 @@
 import type { ReactNode, Ref } from "react"
 
-/**
- * The top of every page: its title and its actions.
- *
- * There is deliberately no prop for a note under the title.
- */
+/** There is deliberately no prop for a note under the title. */
 export function PageHeader({ title, actions, ref }: { title: ReactNode; actions?: ReactNode; ref?: Ref<HTMLElement> }) {
   return (
     <header ref={ref} className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="text-3xl font-semibold font-heading tracking-tight text-balance">{title}</h1>
       </div>
-      {/* `max-w-full`, since at `shrink-0` alone a row of actions wider than the phone runs off it instead of wrapping. */}
+      {/* `max-w-full` is set because with `shrink-0` alone a row of actions wider than the phone runs off the screen and does not wrap. */}
       {actions ? <div className="flex max-w-full shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
   )

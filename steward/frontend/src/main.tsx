@@ -9,11 +9,10 @@ import { loadTexts } from "@/lib/texts"
 import { router } from "@/router"
 import "@/index.css"
 
-/** One QueryClient for the process, so retry and staleness are decided once. */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      /** A dashboard read constantly must not refetch on every focus change. */
+      /** A dashboard that is read constantly must not refetch on every focus change. */
       staleTime: 5_000,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -21,14 +20,14 @@ const queryClient = new QueryClient({
   },
 })
 
-/** Tracks window height and iOS's blur band before the first render, guarded since a throw here is a black screen. */
+/** A throw here would be a black screen, so it is guarded. */
 try {
   trackAppFrame()
 } catch (error) {
   console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
 }
 
-/** Registered at once, since a service worker needs no permission; a browser without one skips this. */
+/** A service worker needs no permission, so it is registered at once. */
 registerServiceWorker().catch((error: unknown) => {
   console.error("the service worker did not register; web push will not be available", error)
 })
@@ -36,7 +35,7 @@ registerServiceWorker().catch((error: unknown) => {
 const container = document.getElementById("root")
 if (!container) throw new Error("#root is missing from index.html")
 
-/** Drawn once the texts are read, so an admin's override never flashes the packaged text first. */
+/** So an override never flashes the packaged text first. */
 void loadTexts().finally(() => {
   createRoot(container).render(
     <StrictMode>

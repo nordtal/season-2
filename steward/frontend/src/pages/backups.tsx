@@ -26,9 +26,7 @@ import { entryAt, useStewardConfig } from "@/components/steward/group-form"
 import { ScheduleDialog } from "@/pages/backup-dialogs"
 
 /**
- * Everything about the backups: the numbers, the runs and the schedule.
- *
- * A secret is never drawn; a backup and a restore are runs like every other.
+ * Everything about the backups. A secret is never drawn. A backup and a restore are runs like every other.
  */
 export function BackupsPage() {
   return (
@@ -52,9 +50,7 @@ export function BackupsPage() {
 }
 
 /**
- * Three numbers, roughly two to a row on a phone.
- *
- * Nothing queries the Storage Box yet, so "Storage available" says so instead of drawing a number.
+ * Three numbers, about two to a row on a phone. Nothing queries the Storage Box yet, so "Storage available" says so.
  */
 function Summary() {
   const backups = useBackups()
@@ -74,7 +70,7 @@ function Summary() {
         tone={backups.data && !newest ? "down" : undefined}
         hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
       />
-      {/* Neutral rather than warn, since "not tracked" is a fact about the feature: steward does not ask the Storage Box. */}
+      {/* Neutral and not warn: "not tracked" is a fact about the feature. */}
       <Stat label={t("steward.backups.storage")} value={t("steward.backups.not-tracked")} />
       <Stat
         label={t("steward.backups.next")}
@@ -91,12 +87,10 @@ function Summary() {
   )
 }
 
-/** The `BACKUP` rows of steward's inbox, newest first. */
 function backupRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "BACKUP")
 }
 
-/** How many of a run's report lines were saved, out of how many. */
 function saved(run: Run): { saved: number; total: number } {
   const lines = run.report?.services ?? []
   return { saved: lines.filter((line) => line.state === "SAVED").length, total: lines.length }
@@ -109,10 +103,8 @@ function ran(run: Run): string {
   return span((finished.getTime() - started.getTime()) / 1000)
 }
 
-/** Four waiting runs; the panel shows eight at most. */
 const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
 
-/** The last backup runs, each row a link to its detail page. */
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
@@ -191,9 +183,7 @@ function Runs() {
 }
 
 /**
- * Asks for a restore of one finished archive, once what it replaces is typed back.
- *
- * The run backs up first, counts down and stops what the archive replaces; `deploy/restore.sh` is for a host without steward-agent.
+ * Asks for a restore of one finished archive, once what it replaces is typed back. The run backs up first, counts down and stops what the archive replaces.
  */
 function RestoreDialog() {
   const backups = useBackups()
@@ -290,9 +280,7 @@ function RestoreDialog() {
 }
 
 /**
- * The archives one run wrote: those modified within a minute of the run's start and finish.
- *
- * A run that cannot be dated matches nothing.
+ * Returns the archives one run wrote: those modified within a minute of its start and finish. A run that cannot be dated matches nothing.
  */
 function archivesOf(run: Run, backups: Backup[]): Backup[] {
   const started = parseInstant(run.started)?.getTime()
@@ -310,7 +298,6 @@ function archivesOf(run: Run, backups: Backup[]): Backup[] {
     .toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
-/** What one file is, from its name, with `.partial` said plainly. */
 function holds(backup: Backup): string {
   const what = archived(backup.name)
   const subject =
@@ -318,10 +305,8 @@ function holds(backup: Backup): string {
   return t("steward.backups.holds", { subject, partial: backup.partial })
 }
 
-/** Three waiting archives, the usual number for one run. */
 const WAITING_ARCHIVES = Array.from({ length: 3 }, () => undefined)
 
-/** One backup run and the archives it wrote, each downloadable. */
 export function BackupRunDetailPage() {
   const { id } = useParams({ from: "/operations/backups/$id" })
   const runs = useRuns(80)
@@ -333,16 +318,10 @@ export function BackupRunDetailPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("steward.backups.backup", { id })} />
 
-      <QueryState
-        query={runs}
-        isEmpty={() => !run}
-        /** A run older than the page's own window of rows is not found either. */
-        empty={{ title: t("steward.backups.no-such-run") }}
-      >
+      <QueryState query={runs} isEmpty={() => !run} empty={{ title: t("steward.backups.no-such-run") }}>
         {(answer) => (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-              {/* The four figures keep their places while the run is looked up. */}
               <Stat label={t("steward.backups.status")} value={run ? <RunStatus status={run.status} /> : undefined} />
               <Stat
                 label={t("steward.backups.when")}

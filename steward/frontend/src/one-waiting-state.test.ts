@@ -7,15 +7,13 @@ import { assert, describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Every view that loads data waits through `QueryState`, the one skeleton approach.
- *
- * Only `Loading` is guarded; `isPending` and `Failure` also serve mutations, where they are honest.
+ * Every view that loads data waits through `QueryState`. Only `Loading` is guarded, because `isPending` and `Failure` also serve mutations.
  */
 const QUERIES = /from "@\/lib\/queries"/
 const GATE = /from "@\/components\/steward\/query-state"/
 const FLAT_BARS = /<Loading\b/
 
-/** Files that read from `@/lib/queries` and draw no waiting shape, each with the reason, listed by file. */
+/** Files that read from `@/lib/queries` and draw no waiting shape, each with its reason. */
 const NO_WAITING_SHAPE = new Map<string, string>([
   [
     "app/app-sidebar.tsx",
@@ -71,7 +69,7 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
 ])
 
-/** The views that still draw flat grey bars, each with the reason. */
+/** The views that still draw flat grey bars, each with its reason. */
 const FLAT_BARS_ALLOWED = new Map<string, string>([
   [
     "pages/operations.tsx",
@@ -103,7 +101,7 @@ function sourceFiles(directory: string): string[] {
   return found
 }
 
-/** Only `.tsx`: a `.ts` file has no layout, so there is nothing in one for a skeleton to be. */
+/** A `.ts` file has no layout for a skeleton. */
 function views(): { relative: string; text: string }[] {
   return sourceFiles(source).map((file) => ({
     relative: path.relative(source, file),
@@ -151,7 +149,7 @@ describe("one waiting state, and it is QueryState", () => {
     )
   })
 
-  /** Without this, a broken path or extension makes both rules above pass by finding nothing. */
+  /** A broken path would make both rules above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const all = views()
     expect(all.length).toBeGreaterThan(40)
@@ -159,7 +157,7 @@ describe("one waiting state, and it is QueryState", () => {
     expect(all.some(({ relative }) => relative === "components/steward/query-state.tsx")).toBe(true)
   })
 
-  /** An exemption a file no longer needs is stale. */
+  /** An exemption that a file no longer needs is stale. */
   it("has no exemption that is already stale", () => {
     const stale: string[] = []
     const byName = new Map(views().map((view) => [view.relative, view.text]))

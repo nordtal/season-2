@@ -20,8 +20,6 @@ vi.mock("@/lib/queries", () => ({
   usePeople: () => queryResult(undefined),
 }))
 
-/** `RepeatableCards` against fixtures of a repeating structure, one card per entry with add and remove. */
-
 function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
   return {
     path: over.key,
@@ -154,7 +152,6 @@ describe("RepeatableCards", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
-    /** The click only arms the confirmation, so nothing is drafted yet. */
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
@@ -200,7 +197,6 @@ describe("RepeatableCards", () => {
   })
 })
 
-/** Removing an entry confirms with the list's own explanation, the same dialog for every unprotected entry. */
 describe("RepeatableCards - confirming a removal", () => {
   it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -238,7 +234,9 @@ describe("RepeatableCards - confirming a removal", () => {
   })
 })
 
-/** Every word Steward shows is a key of its bundle, so an admin can override the confirmation's buttons too. */
+/**
+ * Every word that Steward shows is a key of its bundle, so an admin can override the confirmation's buttons too.
+ */
 describe("RepeatableCards - the removal's buttons are texts of the bundle", () => {
   afterEach(() => replaceTexts(packagedTexts()))
 
@@ -258,7 +256,9 @@ describe("RepeatableCards - the removal's buttons are texts of the bundle", () =
   })
 })
 
-/** The entry `@Protected` names cannot be removed; steward refuses it too, so the disabled button is a courtesy. */
+/**
+ * The entry that `@Protected` names cannot be removed. steward refuses it too, so the disabled button is a courtesy.
+ */
 describe("RepeatableCards - a protected entry", () => {
   it("disables the trash icon for the entry the schema names, and leaves every other one alone", () => {
     const entry = {
@@ -290,7 +290,9 @@ describe("RepeatableCards - a protected entry", () => {
   })
 
   it("does not disable anything when the schema's protected value matches no current entry", () => {
-    /** The value is only removed once it stops matching, since a protected tag nothing carries protects nothing. */
+    /**
+     * The value is removed only once it stops matching, because a protected tag that nothing carries protects nothing.
+     */
     const entry = {
       ...sectionsEntry([[field({ key: "tag", value: "de" }), field({ key: "role" })]]),
       protectedEntry: { field: "tag", value: "en" },
@@ -302,7 +304,6 @@ describe("RepeatableCards - a protected entry", () => {
   })
 })
 
-/** A title only when the caller supplies one; every other entry keeps "Entry N". */
 describe("RepeatableCards - a caller-supplied title", () => {
   it("uses it instead of the plain index", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -328,7 +329,6 @@ describe("RepeatableCards - a caller-supplied title", () => {
   })
 })
 
-/** A card says when it misses a channel its spec does not call optional, whatever section it sits in. */
 describe("RepeatableCards - an incomplete card", () => {
   const REQUIRED_CHANNEL = field({
     key: "contribution-channel",
@@ -350,7 +350,6 @@ describe("RepeatableCards - an incomplete card", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     screen.getByText(/incomplete/i)
-    /** Named as the field's label and again in the "missing" sentence. */
     expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
   })
 
@@ -378,7 +377,6 @@ describe("RepeatableCards - an incomplete card", () => {
 })
 
 describe("RepeatableCards - sections inside sections", () => {
-  /** The milestone track: objectives within milestones, items within objectives, as deep as the schema. */
   const OBJECTIVE: ConfigEntry[] = [
     field({ key: "key", label: "ID" }),
     field({ key: "target", label: "Target", type: "INTEGER" }),

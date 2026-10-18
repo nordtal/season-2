@@ -4,10 +4,7 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { blankSection, sectionsOf, withValue } from "@/components/steward/repeatable-cards"
 
 /**
- * The milestones group as its editor reads it: the keys the editor places, and nothing it means.
- *
- * Labels, controls, choices and references still come from the schema; a key the editor does not place is edited
- * in the objective's sheet or the milestone's fields like any other.
+ * A key that the editor does not place is edited in the objective's sheet or the milestone's fields like any other.
  */
 export const KEY = {
   milestones: "milestones",
@@ -19,15 +16,12 @@ export const KEY = {
   spinBudget: "spin-budget",
 } as const
 
-/** The milestone fields drawn as small marks in the list, each by its schema label. */
 export const MARKED = ["unlocks", "border-diameter", "admin-unlocked"] as const
 
-/** An objective's budgets, which a milestone and the whole track show as sums. */
 export const BUDGETS = [KEY.auraBudget, KEY.spinBudget] as const
 
 export type Budget = (typeof BUDGETS)[number]
 
-/** Every budget summed over the objectives of `milestones`. */
 export function budgetSums(milestones: SectionValues[]): Record<Budget, number> {
   const sums: Record<Budget, number> = {
     [KEY.auraBudget]: 0,
@@ -42,7 +36,6 @@ export function budgetSums(milestones: SectionValues[]): Record<Budget, number> 
   return sums
 }
 
-/** The schema of the track: the milestone's fields and an objective's, with the track's own entry. */
 export type TrackSchema = {
   entry: ConfigEntry
   milestone: ConfigEntry[]
@@ -70,7 +63,6 @@ export function objectivesOf(section: SectionValues | undefined): SectionValues[
   return sectionsOf(section?.[KEY.objectives])
 }
 
-/** `list` with the element at `from` moved to `to`, or unchanged where `to` is outside. */
 export function moved<T>(list: T[], from: number, to: number): T[] {
   if (to < 0 || to >= list.length || from === to) return list
   const out = [...list]
@@ -80,9 +72,9 @@ export function moved<T>(list: T[], from: number, to: number): T[] {
 }
 
 /**
- * `section` with every value that names something in the game in its namespaced form, at every depth.
+ * Returns `section` with every value that names something in the game in its namespaced form, at every depth.
  *
- * The game reads `OAK_LOG` and `minecraft:oak_log` alike; a track that is saved writes only the second.
+ * The game reads `OAK_LOG` and `minecraft:oak_log` alike. A saved track writes only the second form.
  */
 export function namespaced(fields: ConfigEntry[], section: SectionValues): SectionValues {
   const out: SectionValues = { ...section }
@@ -100,7 +92,9 @@ export function namespaced(fields: ConfigEntry[], section: SectionValues): Secti
   return out
 }
 
-/** The track's edits, each answering the whole list in its namespaced form, which is what the draft holds. */
+/**
+ * The track's edits. Each one answers the whole list in its namespaced form, which is what the draft holds.
+ */
 export function trackEdits(track: SectionValues[], schema: TrackSchema, onChange: (track: SectionValues[]) => void) {
   const save = (next: SectionValues[]) => onChange(next.map((milestone) => namespaced(schema.milestone, milestone)))
   const replace = (index: number, next: SectionValues) => save(track.map((m, at) => (at === index ? next : m)))

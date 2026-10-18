@@ -6,9 +6,6 @@ import { ScalarControl } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 import { asInput } from "@/lib/test-elements"
 
-/** The colour picker, offered where a spec declares a colour, and `colourRuns`, which rows them. */
-
-/** The preview starts hidden, so every test about it opens it first. */
 const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
 
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
@@ -28,7 +25,6 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
   }
 }
 
-/** A field its spec declares a colour. */
 function colour(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return field({ refers: { to: "COLOUR", optional: false }, ...over })
 }
@@ -66,7 +62,9 @@ describe("ColourControl", () => {
     const onChange = vi.fn<(value: string) => void>()
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={onChange} />)
 
-    /** `getByRole("textbox")`, since the native swatch holds the same display value but has no such role. */
+    /**
+     * The test uses `getByRole("textbox")`, because the native swatch has the same display value and no such role.
+     */
     const text = asInput(screen.getByRole("textbox"))
     fireEvent.change(text, { target: { value: "#123456" } })
 
@@ -92,11 +90,10 @@ describe("ColourControl", () => {
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
 
     const sample = screen.getByText(SAMPLE_TEXT)
-    /** jsdom normalises an inline `color` to `rgb(...)`; "#8ba888" is (139, 168, 136). */
+    /** jsdom normalises an inline `color` to `rgb(...)`. "#8ba888" is (139, 168, 136). */
     expect(sample.style.color).toBe("rgb(139, 168, 136)")
   })
 
-  /** A wrapped sample would make one colour in a row taller than the rest. */
   it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
@@ -106,7 +103,6 @@ describe("ColourControl", () => {
     expect(sample.className).toContain("truncate")
   })
 
-  /** The preview spans the field's width but starts hidden behind the eye. */
   it("draws no preview until it is asked for", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
 
@@ -120,7 +116,7 @@ describe("ColourControl", () => {
     fireEvent.click(eye)
     expect(screen.queryByText(SAMPLE_TEXT)).not.toBeNull()
 
-    // The label flips with the state, so the same query finds it either way.
+    // The label changes with the state, so the same query finds the button in both states.
     fireEvent.click(eye)
     expect(screen.queryByText(SAMPLE_TEXT)).toBeNull()
   })
@@ -135,7 +131,6 @@ describe("ColourControl", () => {
   })
 
   it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
-    /** An incomplete value must not crash the native input, and the preview keeps its size meanwhile. */
     render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
@@ -144,7 +139,6 @@ describe("ColourControl", () => {
     const sample = screen.getByText(SAMPLE_TEXT)
     expect(sample.style.color).toBe("")
     expect(screen.queryByText(/type a hex value/i)).toBeNull()
-    // The name still says what a sighted reader sees from the dimming alone.
     screen.getByRole("img", { name: /no valid colour to preview yet/i })
   })
 })
@@ -201,7 +195,6 @@ describe("colourRuns", () => {
   })
 
   it("groups the thirteen prestige tiers into one row and leaves admin out of it", () => {
-    /** The shape of `smp/smp/prestige-colours.yml`: `admin` at the top, thirteen tiers under `prestige`. */
     const entries = [
       colour({ key: "admin", path: "admin", value: "#ff5555" }),
       colour({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),

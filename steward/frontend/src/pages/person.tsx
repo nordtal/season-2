@@ -17,9 +17,7 @@ import { JournalTable } from "@/pages/journal"
 import { PaymentsTable } from "@/pages/payments"
 
 /**
- * One person: who they are, what they may, and everything Steward knows them by, on an address of their own.
- *
- * Sessions are left out, since nothing records a login per person yet; the journal shows the writes.
+ * One person: who they are, what they may do, and everything Steward knows them by. Sessions are left out, because nothing records a login per person yet.
  */
 export function PersonPage() {
   const { id } = useParams({ from: "/access/$id" })
@@ -42,9 +40,8 @@ export function PersonPage() {
   )
 }
 
-/** The page once the roster names the person. */
 function PersonView({ person, people }: { person: Person; people: readonly Person[] }) {
-  // One clock for the whole page, so that the badges and the tables cannot disagree about "now".
+  // One clock for the page, so the badges and tables cannot disagree about "now".
   const now = useNow()
   const payments = usePersonPayments(person.discordId)
   const journal = useJournal({ subject: person.discordId })
@@ -82,7 +79,7 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
   )
 }
 
-/** The figures under the name; without a person each keeps its place with a bar. */
+/** Without a person, each figure keeps its place with a bar. */
 function PersonStats({ person, people, now }: { person?: Person; people?: readonly Person[]; now?: number }) {
   const badge = "text-base font-normal"
   return (
@@ -127,10 +124,9 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
   )
 }
 
-/** Three rows of nothing while a person's periods are read. */
 const WAITING_GRANTS = [0, 1, 2]
 
-/** Where a period stands right now, judged from the row itself rather than from the roster. */
+/** Returns where a period stands now, judged from the row and not from the roster. */
 function grantTone(grant: Grant, now: number): { label: string; tone: Tone } {
   if (grant.revoked) return { label: t("steward.people.revoked", { at: grant.revoked }), tone: "down" }
   if (new Date(grant.validFrom).getTime() > now) {
@@ -140,12 +136,11 @@ function grantTone(grant: Grant, now: number): { label: string; tone: Tone } {
   return { label: t("steward.people.over"), tone: "idle" }
 }
 
-/** A uuid or a request id, short enough for a cell and complete in the title attribute. */
+/** Returns an id short enough for a cell and complete in the title. */
 function shortId(value: string): string {
   return value.length > 8 ? `${value.slice(0, 8)}…` : value
 }
 
-/** One person's chain, period by period, on their page; the writes are the page's actions. */
 function PersonPeriods({ person, now }: { person: Person; now: number }) {
   const grants = useGrants(person.discordId)
 

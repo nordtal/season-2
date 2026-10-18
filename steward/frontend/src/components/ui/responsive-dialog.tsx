@@ -35,18 +35,17 @@ import {
 
 const ResponsiveContext = React.createContext(false)
 
-/** Whether this subtree is drawn as a sheet; read only by the components in this file. */
 function useSheet(): boolean {
   return React.useContext(ResponsiveContext)
 }
 
 /**
- * One dialog, a bottom sheet below the sidebar's 640px breakpoint and a centred dialog above it.
- *
- * The exports mirror `dialog.tsx` one for one, so converting a call site is its import and a rename.
+ * The exports mirror `dialog.tsx` one for one, so converting a call site means changing its import and renaming.
  */
 export function ResponsiveDialog({ children, ...props }: React.ComponentProps<typeof Dialog>) {
-  /** Crossing the breakpoint while open swaps the root, which remounts the dialog. */
+  /**
+   * Crossing the breakpoint while the dialog is open swaps the root, which remounts the dialog.
+   */
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : Dialog
 
@@ -63,7 +62,7 @@ export function ResponsiveDialogTrigger(props: React.ComponentProps<typeof Dialo
 }
 
 export function ResponsiveDialogContent({ showCloseButton, ...props }: React.ComponentProps<typeof DialogContent>) {
-  /** A sheet is closed by flicking it away or tapping the overlay, so it has no close button. */
+  /** A sheet closes by flicking it away or tapping the overlay, so it has no close button. */
   if (useSheet()) {
     return <DrawerContent {...props} />
   }
@@ -97,11 +96,7 @@ export function ResponsiveDialogClose(props: React.ComponentProps<typeof DialogC
   return <Close {...props} />
 }
 
-/**
- * The confirmation in front of something that cannot be taken back, in both shapes.
- *
- * Flicking the sheet away answers no, like a click on the dialog's overlay.
- */
+/** Flicking the sheet away answers no, like a click on the dialog's overlay. */
 export function ResponsiveAlertDialog({ children, ...props }: React.ComponentProps<typeof AlertDialog>) {
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : AlertDialog
@@ -143,7 +138,6 @@ export function ResponsiveAlertDialogFooter(props: React.ComponentProps<typeof A
   return <Footer {...props} />
 }
 
-/** The button that answers no, outlined and a close in both shapes. */
 export function ResponsiveAlertDialogCancel({
   variant = "outline",
   size = "default",

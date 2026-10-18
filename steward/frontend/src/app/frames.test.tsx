@@ -9,11 +9,7 @@ import { NETWORK_MAP } from "@/lib/query-fixtures"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * Renders both shapes of the frame through a real route tree, proving there is no header element.
- *
- * jsdom has no layout, so how either shape looks is checked in a browser.
- */
+/** jsdom has no layout, so a browser checks how each shape looks. */
 const ME: Me = {
   signedIn: true,
   id: "214906139328839681",
@@ -26,7 +22,6 @@ const ME: Me = {
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }
 
-/** Every address the navigation links to, with nothing behind it. */
 const PATHS = [
   "/services/$name",
   "/operations/updates",
@@ -66,7 +61,6 @@ function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
 }
 
 beforeEach(() => {
-  // The sidebar lists the served services, each with a health dot, so the shell opens two queries on mount.
   vi.stubGlobal(
     "fetch",
     vi.fn(
@@ -84,7 +78,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The phone's shape is chosen by the window's width on the first render, so the width is set first. */
 function asPhone() {
   atWidth(390)
 }
@@ -120,14 +113,15 @@ describe("the frame on a desktop", () => {
   })
 
   it("folds the path away while the navigation is open, and keeps the mark", async () => {
-    /** Asked of the trail, since "smp" is also an open navigation row and a document search would always pass. */
+    /**
+     * Asks the trail, because "smp" is also an open navigation row and a search of the document would always pass.
+     */
     drawAt("/services/smp", { open: true })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
     expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).toBe("true")
-    /** The service rows come with `/api/topology`, a moment after the page. */
     expect((await screen.findByRole("link", { name: /smp/ })).getAttribute("aria-current")).toBe("page")
   })
 
@@ -149,7 +143,9 @@ describe("the frame on a desktop", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true")
     fireEvent.click(toggle)
 
-    /** The reported state must change, since a screen reader gets it instead of the animation. */
+    /**
+     * The reported state must change, because a screen reader gets it in place of the animation.
+     */
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
@@ -167,7 +163,9 @@ describe("the frame on a desktop", () => {
 })
 
 describe("where the desktop's frame begins", () => {
-  /** At `sm`, not `md`, so an upright tablet gets the column; only the desktop column honours the open cookie. */
+  /**
+   * The column starts at `sm`, not `md`, so an upright tablet gets it. Only the desktop column reads the open cookie.
+   */
   it.each([
     [640, "true"],
     [700, "true"],
@@ -188,7 +186,7 @@ describe("the frame on a phone", () => {
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const toggle = screen.getByRole("button", { name: "Navigation" })
-    // The cookie says open; the phone's navigation has its own state and starts closed.
+    // The cookie says open, but the phone navigation has its own state and starts closed.
     expect(toggle.getAttribute("aria-expanded")).toBe("false")
     const dock = toggle.parentElement!
     await waitFor(() => expect(dock.textContent).toContain("Steward"))

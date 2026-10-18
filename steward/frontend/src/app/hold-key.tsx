@@ -13,12 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { t } from "@/lib/texts"
 
-/**
- * Signed in with no factor used yet this session; the whole window, and the only way past is a factor.
- *
- * The key comes first, the app's code below it when the account has one. There is no skip: every `/api` route answers
- * 403 until one of them is done.
- */
+/** There is no skip: every `/api` route answers 403 until one factor is done. */
 export function HoldKeyPage({ me }: { me: Me }) {
   const hold = useHoldKey()
   const enter = useEnterCode()

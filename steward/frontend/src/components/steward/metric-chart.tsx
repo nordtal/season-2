@@ -7,13 +7,11 @@ import { Stat } from "@/components/steward/stat"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 
-/** How far back a curve reaches, in minutes: the ranges the service page offers. */
 export const RANGES = [2, 10, 60, 360, 720] as const
 export type Range = (typeof RANGES)[number]
 
 type Reading = { at: number; value: number }
 
-/** The range of a page's curves, as a small select that stays out of the way. */
 export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (minutes: Range) => void }) {
   return (
     <Select
@@ -42,9 +40,7 @@ export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (
 }
 
 /**
- * One number with its curve below it; touching or hovering the curve moves the reading at that moment into the number.
- *
- * Without `label` it is the curve alone, for a tile that already draws its number.
+ * Touching or hovering the curve moves the reading at that moment into the number. Without `label` only the curve shows, for a tile that already draws its number.
  */
 export function MetricChart({
   label,
@@ -59,17 +55,13 @@ export function MetricChart({
   valueClassName,
 }: {
   label?: string
-  /** The number now, absent while it is on its way. */
   value?: string
-  /** The caveat under the number, as `Stat` draws it. */
   hint?: ReactNode
-  /** Absent while the series is read, drawn as a strip of the same height. */
   points?: MetricPoint[]
   format: (value: number) => string
   colour: string
   height?: number
   className?: string
-  /** Passed to the number's `Stat`, for a row that lays it out differently on a phone. */
   statClassName?: string
   valueClassName?: string
 }) {
@@ -90,7 +82,9 @@ export function MetricChart({
   )
 }
 
-/** Room above and below the data, never below zero, so a steady line does not lie along an edge. */
+/**
+ * Adds room above and below the data and never goes below zero, so a steady line does not lie along an edge.
+ */
 function fit([min, max]: readonly [number, number]): [number, number] {
   const pad = Math.max((max - min) * 0.2, Math.abs(max) * 0.05, Number.EPSILON)
   return [Math.max(0, min - pad), max + pad]
@@ -119,9 +113,9 @@ function Curve({
   }
   const leave = () => onReading?.(null)
   return (
-    // The number above carries the reading, so the curve itself says nothing to a screen reader.
+    // The number above carries the reading, so the curve says nothing to a screen reader.
     <div style={{ height }} className="touch-pan-y" aria-hidden>
-      {/* `initialDimension`, since jsdom measures zero by zero and recharts will not draw into that. */}
+      {/* `initialDimension` is set, because jsdom measures zero by zero and recharts does not draw into that. */}
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 200, height }}>
         <AreaChart
           data={series}

@@ -8,11 +8,9 @@ import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
 import { takePendingJump, takePendingTextJump } from "@/lib/settings-search"
 import type { ConfigEntry, ConfigLocation, MessageEntry, MessageTexts, ConfigDocument, Run } from "@/lib/api"
 
-// The palette navigates on select; the tests below assert on this spy.
 const navigateSpy = vi.fn<(options: Record<string, unknown>) => void>()
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
 
-/** Runs, configs and texts are mocked rather than fetched through a real client. */
 vi.mock("@/lib/queries", () => ({
   useRuns: vi.fn<typeof useRuns>(),
   useConfigs: vi.fn<typeof useConfigs>(),
@@ -22,7 +20,6 @@ vi.mock("@/lib/queries", () => ({
 }))
 
 beforeEach(() => {
-  // Nothing loaded by default; a test about runs or settings asks for its own.
   vi.mocked(useRuns).mockReturnValue(queryResult([]))
   vi.mocked(useConfigs).mockReturnValue(queryResult([]))
   vi.mocked(useConfigDocuments).mockReturnValue([])
@@ -41,7 +38,6 @@ afterEach(() => {
   vi.mocked(useTopology).mockReset()
 })
 
-/** The palette, identified by the one thing only the open dialog has. */
 const searchInput = () => screen.queryByPlaceholderText("Search pages, runs, settings…")
 
 function nonNull<T>(value: T | null, what: string): T {
@@ -53,7 +49,6 @@ function ctrlK(target: Element | Document) {
   fireEvent.keyDown(target, { key: "k", ctrlKey: true })
 }
 
-/** A run shaped like `/api/updates` answers it; only the fields these tests look at vary. */
 function run(over: Partial<Run> = {}): Run {
   return {
     id: 91,
@@ -73,7 +68,6 @@ function run(over: Partial<Run> = {}): Run {
   }
 }
 
-/** Opens the palette and types into it. */
 async function search(query: string) {
   render(<CommandPalette />)
   ctrlK(document.body)
@@ -103,7 +97,6 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
   }
 }
 
-/** Wires `useConfigs` and `useConfigDocuments` for one file, paired by index as the palette pairs them. */
 function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
   const document: ConfigDocument = { ...loc, revision: "r1", restartRequired: false, entries }
@@ -124,7 +117,6 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
   }
 }
 
-/** Wires `useMessageTexts` for the texts of one bundle. */
 function oneBundle(entries: MessageEntry[]) {
   const texts: MessageTexts = {
     writable: true,
@@ -154,7 +146,7 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
   }
 }
 
-/** The real `discord-bot/access` shape: no comments, so `role-names.donor` is found by label, path and `@Explain`. */
+/** The file has no comments, so `role-names.donor` is found by label, path and `@Explain`. */
 function accessFile() {
   const loc: ConfigLocation = {
     service: "discord-bot",
@@ -194,12 +186,10 @@ function accessFile() {
   ])
 }
 
-/** Every row the palette is currently showing, top to bottom, by its visible text. */
 function paletteItems(): string[] {
   return Array.from(document.querySelectorAll("[cmdk-item]")).map((row) => (row.textContent ?? "").trim())
 }
 
-/** The same setting, by the same name, in two services, which is the real case. */
 function twoServicesWithTheSameSetting() {
   const steward = configLocation({ path: "steward/steward", name: "steward" })
   const bot = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
@@ -211,7 +201,6 @@ function twoServicesWithTheSameSetting() {
   ])
 }
 
-/** Ctrl+K stays the browser's while typing, except in the palette's own input, where it closes. */
 describe("CommandPalette - Ctrl+K", () => {
   it("opens on Ctrl+K when nobody is typing", async () => {
     render(<CommandPalette />)
@@ -248,7 +237,7 @@ describe("CommandPalette - Ctrl+K", () => {
     render(<CommandPalette />)
     const field = document.createElement("div")
     field.contentEditable = "true"
-    // jsdom does not derive isContentEditable from the attribute, so it is set directly.
+    // jsdom does not derive `isContentEditable` from the attribute, so the test sets it directly.
     Object.defineProperty(field, "isContentEditable", { value: true })
     document.body.append(field)
     ctrlK(field)
@@ -266,10 +255,8 @@ describe("CommandPalette - Ctrl+K", () => {
   })
 })
 
-/** A run is found by its number, kind, outcome and search synonyms, the German one imported, not spelled. */
 describe("CommandPalette - finding a run", () => {
   it("still finds a page by its title", async () => {
-    // Restore is a dialog on Backups now, and the word still finds the page that holds it.
     await search("restore")
     expect(screen.queryByText("Backups")).not.toBeNull()
   })
@@ -308,7 +295,6 @@ describe("CommandPalette - finding a run", () => {
     await search("report")
     const item = await screen.findByText(/Run #91/)
     fireEvent.click(item)
-    // The fixture is a BACKUP run, whose page is under Backups.
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/operations/backups/$id",
       params: { id: "91" },
@@ -316,7 +302,6 @@ describe("CommandPalette - finding a run", () => {
   })
 })
 
-/** Every service's settings are searchable, with the service named in the hit. */
 describe("CommandPalette - finding a setting", () => {
   it("finds a setting by its label and names the service it belongs to", async () => {
     const loc = configLocation({ path: "steward/steward", name: "steward" })
@@ -343,7 +328,7 @@ describe("CommandPalette - finding a setting", () => {
     const loc = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
     const token = "super-secret-discord-token"
     oneFile(loc, [
-      /** As if a bug sent a secret's value anyway: the client's own guard has to hold. */
+      /** The test sends a secret's value to check that the client discards it. */
       configEntry({
         path: "discord.bot-token",
         key: "bot-token",
@@ -389,7 +374,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("keeps the trailing grey column off a phone entirely", async () => {
-    /** The path is hidden below 640px, where it would truncate the name; jsdom can only check the classes. */
+    /** The path is hidden below 640px. jsdom checks the classes only. */
     const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])
 
@@ -434,20 +419,20 @@ describe("CommandPalette - finding a setting", () => {
   })
 })
 
-/** A text that lives only in a message bundle is still found. */
 describe("CommandPalette - finding a text", () => {
   it("finds a bundle key that no config file mentions", async () => {
     oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
 
-    /** The row is named as the Translations page names the text, with the matched text on the right. */
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
   })
 
   it("finds a key by its German translation, not only its English default", async () => {
-    /** A synthetic marker rather than German prose, since `language.test.ts` scans fixtures too. */
+    /**
+     * The fixture is a synthetic marker, because `language.test.ts` also scans fixtures for German prose.
+     */
     oneBundle([
       messageEntry({
         texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
@@ -465,7 +450,6 @@ describe("CommandPalette - finding a text", () => {
 
     await search("grave.decay")
 
-    // Matched by the key, which the row itself never shows.
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/grave\.decay/)).toBeNull()
   })
@@ -488,7 +472,6 @@ describe("CommandPalette - finding a text", () => {
 
     expect(navigateSpy).toHaveBeenCalledWith({ to: "/translations", search: {} })
     expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
-    // And never the config map: a text hit must not be mistaken for a config one downstream.
     expect(takePendingJump("smp")).toBeUndefined()
   })
 
@@ -528,7 +511,7 @@ describe("CommandPalette - finding a text", () => {
   })
 })
 
-/** `cmdk`'s `role="combobox"` drops the placeholder as a name, so the field needs its own. */
+/** `cmdk` gives its `role="combobox"` no placeholder name, so the field has its own label. */
 describe("CommandPalette - the input says what it is", () => {
   it("is findable by role and name, not only by its placeholder", async () => {
     render(<CommandPalette />)
@@ -539,7 +522,6 @@ describe("CommandPalette - the input says what it is", () => {
   })
 })
 
-/** A setting named "Donor" outranks every service page that only fuzzily contains those letters, in DOM order. */
 describe("CommandPalette - what an exact name outranks", () => {
   it("puts the setting named Donor above the service pages that only fuzzily contain those letters", async () => {
     accessFile()
@@ -555,7 +537,9 @@ describe("CommandPalette - what an exact name outranks", () => {
   })
 })
 
-/** Two rows with identical search text are still two rows to cmdk, so pointing at one lights only it. */
+/**
+ * cmdk treats two rows with the same search text as two rows, so pointing at one highlights only that one.
+ */
 describe("CommandPalette - one row lights up, not every row that reads alike", () => {
   it("draws both hits, because they are two different settings in two different services", async () => {
     twoServicesWithTheSameSetting()
@@ -576,7 +560,6 @@ describe("CommandPalette - one row lights up, not every row that reads alike", (
   })
 })
 
-/** The palette is a bottom sheet on a phone; jsdom can say which shell mounted, not how it looks. */
 describe("CommandPalette - the shell is a sheet on a phone", () => {
   it("is a centred dialog on a desktop", async () => {
     window.innerWidth = 1024
@@ -605,7 +588,7 @@ describe("CommandPalette - the shell is a sheet on a phone", () => {
 
     const input = await waitFor(() => nonNull(searchInput(), "the search input"))
     await waitFor(() => expect(document.activeElement).toBe(input))
-    // The dialog's width and offset are the desktop half; on a sheet they would shrink it and push it aside.
+    // The dialog's width and offset classes apply to the desktop only. They would shrink and shift a sheet.
     const sheet = nonNull(input.closest("[data-slot='drawer-content']"), "the drawer content")
     const bare = sheet.className.split(/\s+/).filter((name) => !name.includes(":"))
     expect(

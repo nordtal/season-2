@@ -21,8 +21,6 @@ import {
 import { live } from "@/lib/live"
 import { SECOND, keys } from "@/lib/query-keys"
 
-/** The settings groups and the texts: reading them, searching them and saving them. */
-
 export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,
@@ -32,7 +30,6 @@ export function useConfigs(enabled = true) {
   })
 }
 
-/** One group of settings, by the listing's `path` with each segment encoded on its own. */
 export function useConfig(file: string, enabled = true) {
   return useQuery({
     queryKey: keys.config(file),
@@ -46,11 +43,7 @@ function encodePath(file: string): string {
   return file.split("/").map(encodeURIComponent).join("/")
 }
 
-/**
- * Saves a group of settings, naming the revision the form was drawn from.
- *
- * A save against an older revision is answered 409 instead of overwriting.
- */
+/** A save against an older revision is answered with 409 and does not overwrite. */
 export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
@@ -60,13 +53,11 @@ export function useSaveConfig(file: string) {
         body: { revision, changes },
       }),
     onSuccess: (document) => {
-      /** The answer is the group as stored, so the form redraws from it. */
       client.setQueryData(keys.config(file), document)
-      /** A save of steward's own group may move both clocks. */
       void client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {
-      /** A 409 means the cached copy and its revision are stale, so the group is read again. */
+      /** A 409 means that the cached copy is stale, so the group is read again. */
       if (failure instanceof ApiError && failure.status === 409) {
         void client.invalidateQueries({ queryKey: keys.config(file) })
       }
@@ -74,7 +65,6 @@ export function useSaveConfig(file: string) {
   })
 }
 
-/** What each jar of ours says of itself: whose settings it holds and the custom editor of a group, if any. */
 export function useDescriptors(enabled = true) {
   return useQuery({
     queryKey: keys.descriptors,
@@ -84,7 +74,6 @@ export function useDescriptors(enabled = true) {
   })
 }
 
-/** Every text of every bundle the network's jars ship, each once, with the services that show it. */
 export function useMessageTexts(enabled = true) {
   return useQuery({
     queryKey: keys.messageTexts,
@@ -93,24 +82,18 @@ export function useMessageTexts(enabled = true) {
   })
 }
 
-/**
- * Saves overrides of any texts of any bundles at once; the second of two edits wins.
- *
- * The answer is every text as it now reads, with placeholder warnings and `reload`, and replaces the cache entry.
- */
+/** Saves overrides of any texts of any bundles at once. The answer replaces the cache entry. */
 export function useSaveMessageTexts() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (body: MessageChanges) => api<MessageSaveResult>("/api/messages", { method: "PUT", body }),
     onSuccess: (saved) => {
       client.setQueryData(keys.messageTexts, saved.texts)
-      /** A save over a fallen-back override takes it over. */
       void client.invalidateQueries({ queryKey: keys.messageFallbacks })
     },
   })
 }
 
-/** An example value per placeholder type and property, read from real data by the server. */
 export function useMessageExamples() {
   return useQuery({
     queryKey: keys.messageExamples,
@@ -119,7 +102,6 @@ export function useMessageExamples() {
   })
 }
 
-/** The tones a text names by tag with their default colours, and the styles each value kind offers. */
 export function useMessageSyntax() {
   return useQuery({
     queryKey: keys.messageSyntax,
@@ -128,7 +110,6 @@ export function useMessageSyntax() {
   })
 }
 
-/** Every override no process shows, because a release changed its original or the validator refuses it. */
 export function useMessageFallbacks(enabled = true) {
   return useQuery({
     queryKey: keys.messageFallbacks,
@@ -138,7 +119,6 @@ export function useMessageFallbacks(enabled = true) {
   })
 }
 
-/** What the one validator says of `text` as `key` of `bundle`; the editor asks once typing pauses. */
 export function useMessageCheck(bundle: string, key: string, text: string | null) {
   return useQuery({
     queryKey: keys.messageCheck(bundle, key, text ?? ""),
@@ -152,7 +132,7 @@ export function useMessageCheck(bundle: string, key: string, text: string | null
   })
 }
 
-/** The resource pack's named glyphs; static files next to the page, so no API call and no session. */
+/** The resource pack's named glyphs, static files with no API call and no session. */
 export function useGlyphs() {
   return useQuery({
     queryKey: keys.glyphs,
@@ -165,11 +145,7 @@ export function useGlyphs() {
   })
 }
 
-/**
- * Every one of the given groups of settings, fetched only while `enabled`.
- *
- * Keys are shared with {@link useConfig}, so a group already loaded costs nothing a second time.
- */
+/** The keys are shared with {@link useConfig}, so a loaded group costs nothing again. */
 export function useConfigDocuments(files: string[], enabled: boolean) {
   return useQueries({
     queries: files.map((file) => ({
@@ -181,11 +157,7 @@ export function useConfigDocuments(files: string[], enabled: boolean) {
   })
 }
 
-/**
- * What the servers know of the game, for the pickers: about a megabyte, so it is read again only when it changes.
- *
- * Only the live topic refreshes it, never a timer or a focus.
- */
+/** It is about a megabyte, so only the live topic refreshes it, never a timer or a focus event. */
 export function useGameData(enabled = true) {
   return useQuery({
     queryKey: keys.gameData,

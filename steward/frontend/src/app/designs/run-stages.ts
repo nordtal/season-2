@@ -1,7 +1,9 @@
 import type { LineState, ReportChange, Run, RunNote, RunStep } from "@/lib/api"
 import { type MessageRef, choice, t } from "@/lib/texts"
 
-/** The record steps in the order a run reaches them, with Start where the servers come back; `RUN` is the header's. */
+/**
+ * The record steps in the order a run reaches them. Start is where the servers come back. `RUN` belongs to the header.
+ */
 export const STAGES = [
   "SCOPE",
   "SOURCES",
@@ -18,10 +20,9 @@ export const STAGES = [
 
 export type StageKey = (typeof STAGES)[number]
 
-/** How a stage went: its worst record, `quiet` when it had nothing to say, `not-reached` after a failure. */
 export type Verdict = "failed" | "warning" | "done" | "skipped" | "quiet" | "now" | "not-reached"
 
-/** One service as a stage sees it; `undone` marks a change a run planned and never made. */
+/** `undone` marks a change that a run planned and did not make. */
 export type StageItem = {
   service: string
   state?: LineState
@@ -32,7 +33,7 @@ export type StageItem = {
 
 export type Stage = { key: StageKey; verdict: Verdict; records: RunNote[]; items: StageItem[] }
 
-/** The stages each kind walks, shown even when they had nothing to say. */
+/** The stages each kind walks through. They show even when empty. */
 const WALKS: Record<string, readonly StageKey[]> = {
   UPDATE: ["SOURCES", "RELEASE", "STANDBY", "PLAYERS", "STOP", "MIGRATE", "INSTALL", "START", "CLEANUP"],
   BACKUP: ["PLAYERS", "STOP", "BACKUP", "START"],
@@ -41,7 +42,6 @@ const WALKS: Record<string, readonly StageKey[]> = {
   START: ["START"],
 }
 
-/** Where a running run is, from the stage its report names. */
 const NOW: Record<string, StageKey> = {
   RESOLVING: "SOURCES",
   PLANNED: "RELEASE",
@@ -53,13 +53,11 @@ const NOW: Record<string, StageKey> = {
   VERIFYING: "START",
 }
 
-/** The artefacts a line carries to say what kind of run touched it, which are not installs. */
+/** The artefacts that mark which kind of run touched a line. They are not installs. */
 const MARKERS = new Set(["backup", "restart"])
 
-/** The states of a server that went down and came back, or failed to. */
 const CAME_BACK: ReadonlySet<LineState> = new Set(["STOPPED", "STARTING", "HEALTHY", "FAILED"])
 
-/** A stage's name: the record step's word, and the trail's for Start, which no record step names. */
 export function stageName(key: StageKey): string {
   return key === "START"
     ? t("steward.operations.step", { stage: "starting" })
@@ -67,9 +65,7 @@ export function stageName(key: StageKey): string {
 }
 
 /**
- * A run as its stages, each with the records and service lines that belong to it, in the order a run reaches them.
- *
- * The report keeps only the last stage, so a line is placed by its state: saved under Backup, changes under Install.
+ * The report keeps only the last stage, so the state of a line decides its stage: saved goes under Backup, changes under Install.
  */
 export function stagesOf(run: Run): Stage[] {
   const report = run.report
@@ -126,7 +122,6 @@ export function stagesOf(run: Run): Stage[] {
   })
 }
 
-/** The verdict a stage's own records and lines give, or none when it has neither. */
 function contentVerdict(records: RunNote[], items: StageItem[]): Verdict | undefined {
   if (records.some((note) => note.outcome === "FAILED") || items.some((item) => item.state === "FAILED")) {
     return "failed"

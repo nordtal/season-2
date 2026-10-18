@@ -1,23 +1,17 @@
-/** The version pair behind two filenames, or the filenames themselves when they do not come apart. */
+/** The version pair behind two filenames, or the filenames themselves. */
 export type Jump = {
-  /** What is installed: a version when the pair came apart, the filename when it did not. */
   from: string
-  /** What would be installed: the publisher's version, or the filename as a last resort. */
   to: string
-  /** Whether `from` is a version rather than a filename. */
   exact: boolean
 }
 
-/** Characters a version runs through, and therefore ones a boundary must not sit inside. */
+/** The characters a version runs through. */
 const INSIDE_A_NUMBER = /[0-9.+]/
 
-/** What a version never starts or ends with, once the names are taken apart. */
 const EDGE = /^[-_.+\s]+|[-_.+\s]+$/g
 
 /**
- * Reads two builds of one artefact against each other, so the part that differs is the version.
- *
- * Mirrors steward's `VersionPair`: names must start alike, and neither end may land inside a number.
+ * Returns the version pair of two builds of one artefact. It mirrors Steward's `VersionPair`: the names must start alike, and neither end may land inside a number.
  */
 export function versionJump(
   installed: string | undefined,
@@ -32,15 +26,15 @@ export function versionJump(
   return { from: installed, to: fallbackTo, exact: false }
 }
 
-/** The two remainders, or `null` when the names do not come apart into a pair worth printing. */
+/** Returns the two remainders, or `null` when the names do not come apart. */
 function split(left: string, right: string): [string, string] | null {
   if (left === right) return null
 
   let head = 0
   while (head < left.length && head < right.length && left[head] === right[head]) head += 1
-  // Back out of a number the prefix ended inside, so `…-1.` gives the `1.` back to the version.
+  // Backs out of a number that the prefix ended inside.
   while (head > 0 && INSIDE_A_NUMBER.test(left[head - 1])) head -= 1
-  // Nothing in common at the front: a hash against a filename, or a renamed jar.
+  // Nothing is common at the front.
   if (head === 0) return null
 
   let tail = 0
@@ -51,7 +45,7 @@ function split(left: string, right: string): [string, string] | null {
   ) {
     tail += 1
   }
-  // Back out of a number the suffix started inside, so `.0.jar` gives back `.0`.
+  // Backs out of a number that the suffix started inside.
   while (tail > 0 && INSIDE_A_NUMBER.test(left[left.length - tail])) tail -= 1
 
   const from = left.slice(head, left.length - tail).replace(EDGE, "")

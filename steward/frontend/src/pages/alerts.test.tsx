@@ -7,7 +7,9 @@ import type { Alerts } from "@/lib/api"
 import { AlertsPage } from "@/pages/alerts"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** The alerts page against a fake `/api/alerts`, in a real router so every link has to resolve. */
+/**
+ * The alerts page against a fake `/api/alerts`, in a real router, so every link has to resolve.
+ */
 
 const READING: Alerts = {
   checkedAt: "2026-10-02T12:00:00Z",

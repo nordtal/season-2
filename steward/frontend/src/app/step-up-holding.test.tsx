@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { StepUpHolding } from "@/app/user-menu"
 
-/** The account popover's step-up row: shown while a step-up holds, and ending it at once. */
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()

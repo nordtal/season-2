@@ -1,19 +1,17 @@
 import { t } from "@/lib/texts"
 
 /**
- * Converts a WebAuthn ceremony between the server's base64url JSON and the browser's `ArrayBuffer`s.
- *
- * It decides nothing. `parseCreationOptionsFromJSON` is avoided because jsdom has no `PublicKeyCredential`.
+ * Converts a WebAuthn ceremony between the server's base64url JSON and the browser's `ArrayBuffer`s. It avoids `parseCreationOptionsFromJSON` because jsdom has no `PublicKeyCredential`.
  */
 
-/** Whether this browser can do WebAuthn at all. An old browser is a sentence, not a crash. */
+/** Returns whether this browser can do WebAuthn. An old browser gets a sentence and no crash. */
 export function browserHasSecurityKeys(): boolean {
   return typeof window !== "undefined" && !!window.PublicKeyCredential && !!navigator.credentials
 }
 
 export function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/")
-  /** `atob` accepts it unpadded, but the padding is written out as correct rather than lucky. */
+  /** The padding is written out so that it is correct and not lucky. */
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
@@ -23,15 +21,13 @@ export function fromBase64Url(value: string): Uint8Array {
 export function toBase64Url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ""
-  /** A loop, not a spread: a certificate chain would make the spread's argument list overflow the stack. */
+  /** A loop and no spread, because the spread would overflow the stack on a certificate chain. */
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
 
 /**
- * What `/auth/webauthn/register/start` answers, with its byte fields still base64url.
- *
- * Only the fields this file touches are named; the rest passes through as the server decided.
+ * What `/auth/webauthn/register/start` answers, with its byte fields in base64url. The rest passes through as the server decided.
  */
 export type CreationOptionsJson = {
   publicKey: Record<string, unknown> & {
@@ -42,9 +38,7 @@ export type CreationOptionsJson = {
 }
 
 /**
- * The parts of `PublicKeyCredential` this file reads, one type per ceremony.
- *
- * A real credential satisfies both structurally, and a test can build one as a plain object.
+ * The parts of `PublicKeyCredential` this file reads, so a test can build one as a plain object.
  */
 export type AttestationCredentialLike = {
   type: string
@@ -73,14 +67,12 @@ export type AssertionCredentialLike = {
   getClientExtensionResults: () => Record<string, unknown>
 }
 
-/** `CreationOptionsJson`'s `publicKey` with its byte fields converted; the rest stays untyped. */
 export type ConvertedCreationOptions = Record<string, unknown> & {
   challenge: Uint8Array
   user: Record<string, unknown> & { id: Uint8Array }
   excludeCredentials?: Array<Record<string, unknown> & { id: Uint8Array }>
 }
 
-/** The server's JSON as the browser's API wants it: the same object, with three fields as bytes. */
 export function toCreationOptions(answer: CreationOptionsJson): ConvertedCreationOptions {
   const publicKey = answer.publicKey
   return {
@@ -95,9 +87,7 @@ export function toCreationOptions(answer: CreationOptionsJson): ConvertedCreatio
 }
 
 /**
- * The credential as the server's library reads it.
- *
- * Written by hand since `toJSON()` omits `transports`, which lets a later sign-in offer the right method.
+ * Returns the credential as the server's library reads it. It is written by hand because `toJSON()` omits `transports`, which a later sign-in needs.
  */
 export function fromCredential(credential: AttestationCredentialLike): string {
   const response = credential.response
@@ -108,7 +98,7 @@ export function fromCredential(credential: AttestationCredentialLike): string {
     response: {
       clientDataJSON: toBase64Url(response.clientDataJSON),
       attestationObject: toBase64Url(response.attestationObject),
-      // Not every browser has it, and an absent list is not an empty one.
+      // An absent list is not an empty one.
       ...(typeof response.getTransports === "function" ? { transports: response.getTransports() } : {}),
     },
     clientExtensionResults: credential.getClientExtensionResults(),
@@ -120,9 +110,7 @@ export function fromCredential(credential: AttestationCredentialLike): string {
 }
 
 /**
- * Holds the dialog open and hands back what the key said.
- *
- * Throws what the browser threw: `NotAllowedError` is cancelled or timed out, `InvalidStateError` a known key.
+ * Holds the dialog open and returns what the key said, or throws what the browser threw: `NotAllowedError` means cancelled or timed out, `InvalidStateError` a known key.
  */
 export async function createSecurityKey(startAnswer: CreationOptionsJson): Promise<string> {
   const publicKey = toCreationOptions(startAnswer)
@@ -136,14 +124,12 @@ export async function createSecurityKey(startAnswer: CreationOptionsJson): Promi
   return fromCredential(credential)
 }
 
-/** Whether {@link toCreationOptions} converted its byte fields; the rest is trusted as the server sent it. */
 function isCreationOptions(
   value: ConvertedCreationOptions,
 ): value is ConvertedCreationOptions & PublicKeyCredentialCreationOptions {
   return value.challenge instanceof Uint8Array && value.user.id instanceof Uint8Array
 }
 
-/** Whether the browser gave back the fields {@link fromCredential} reads, not just any `Credential`. */
 function isAttestationCredential(credential: Credential | null): credential is AttestationCredentialLike {
   return (
     credential !== null &&
@@ -155,7 +141,7 @@ function isAttestationCredential(credential: Credential | null): credential is A
   )
 }
 
-/** What went wrong as a sentence rather than a DOMException name: the key refused, or this service did. */
+/** Returns what went wrong as a sentence, not as a DOMException name. */
 export function whyTheKeyFailed(error: unknown): string {
   const name = error instanceof Error ? error.name : ""
   switch (name) {
@@ -175,9 +161,7 @@ export function whyTheKeyFailed(error: unknown): string {
 }
 
 /**
- * What `/auth/webauthn/authenticate/start` answers, with its byte fields still base64url.
- *
- * `allowCredentials` is the account's own keys, so this sign-in is never usernameless.
+ * What `/auth/webauthn/authenticate/start` answers. `allowCredentials` holds the account's own keys, so a sign-in is never usernameless.
  */
 export type RequestOptionsJson = {
   publicKey: Record<string, unknown> & {
@@ -186,13 +170,11 @@ export type RequestOptionsJson = {
   }
 }
 
-/** `RequestOptionsJson`'s `publicKey`, with its byte fields converted; see `ConvertedCreationOptions`. */
 export type ConvertedRequestOptions = Record<string, unknown> & {
   challenge: Uint8Array
   allowCredentials?: Array<Record<string, unknown> & { id: Uint8Array }>
 }
 
-/** The server's JSON as `navigator.credentials.get` wants it: the same object, with bytes. */
 export function toRequestOptions(answer: RequestOptionsJson): ConvertedRequestOptions {
   const publicKey = answer.publicKey
   return {
@@ -206,9 +188,7 @@ export function toRequestOptions(answer: RequestOptionsJson): ConvertedRequestOp
 }
 
 /**
- * The assertion as the server's library reads it.
- *
- * `userHandle` is omitted when absent: keys here are not discoverable, and a strict parser rejects `null`.
+ * Returns the assertion as the server's library reads it. `userHandle` is omitted when absent, because a strict parser rejects `null`.
  */
 export function fromAssertion(credential: AssertionCredentialLike): string {
   const response = credential.response
@@ -231,7 +211,7 @@ export function fromAssertion(credential: AssertionCredentialLike): string {
   return JSON.stringify(answer)
 }
 
-/** Holds the dialog open and hands back the signature; throws what the browser threw. */
+/** Holds the dialog open and returns the signature, or throws what the browser threw. */
 export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<string> {
   const publicKey = toRequestOptions(startAnswer)
   if (!isRequestOptions(publicKey)) {
@@ -244,14 +224,12 @@ export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<s
   return fromAssertion(credential)
 }
 
-/** Whether {@link toRequestOptions}'s challenge arrived as bytes; every other field passes through untyped. */
 function isRequestOptions(
   value: ConvertedRequestOptions,
 ): value is ConvertedRequestOptions & PublicKeyCredentialRequestOptions {
   return value.challenge instanceof Uint8Array
 }
 
-/** Whether the browser gave back the fields {@link fromAssertion} reads, not just any `Credential`. */
 function isAssertionCredential(credential: Credential | null): credential is AssertionCredentialLike {
   return (
     credential !== null &&

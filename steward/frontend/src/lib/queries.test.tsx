@@ -9,12 +9,9 @@ import { useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
 import { keys } from "@/lib/query-keys"
 
 /**
- * When a poll stops, and what a save sends.
- *
- * A poll must stop once its query errors; a save must drop the cached document on a 409 and only then.
+ * A poll must stop once its query errors. A save must drop the cached document on a 409 and only then.
  */
 
-/** A response the way the browser hands it to `api()`. */
 function answer(status: number, body: unknown): Response {
   return new Response(body === undefined ? "" : JSON.stringify(body), {
     status,
@@ -22,7 +19,6 @@ function answer(status: number, body: unknown): Response {
   })
 }
 
-/** A client with retries off, so a failing test does not wait for a second attempt. */
 function client(): QueryClient {
   return new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -35,11 +31,10 @@ function wrap(queryClient: QueryClient) {
   )
 }
 
-/** The refetch interval TanStack would use, read from the cached query rather than re-implemented. */
 function pollOf(queryClient: QueryClient, key: readonly unknown[]) {
   const query = queryClient.getQueryCache().find({ queryKey: key })
   if (!query) throw new Error(`nothing in the cache under ${JSON.stringify(key)}`)
-  /** `refetchInterval` exists at runtime but not in `QueryOptions`; the `typeof` below is the assertion. */
+  /** `refetchInterval` exists at runtime but not in `QueryOptions`. */
   const options: object = query.options
   const interval = "refetchInterval" in options ? options.refetchInterval : undefined
   if (typeof interval !== "function") {
@@ -48,13 +43,12 @@ function pollOf(queryClient: QueryClient, key: readonly unknown[]) {
   return interval(query)
 }
 
-/** Narrows a mutation's `error` to the `ApiError` every path under test throws. */
 function asApiError(error: Error | null): ApiError {
   if (!(error instanceof ApiError)) throw new Error(`expected an ApiError, got ${String(error)}`)
   return error
 }
 
-/** The query's state in the cache, which is what `refetchInterval` sees, unlike the hook's render result. */
+/** Returns the query's state in the cache, which is what `refetchInterval` sees. */
 function stateOf(queryClient: QueryClient, key: readonly unknown[]) {
   const state = queryClient.getQueryState(key)
   if (!state) throw new Error(`nothing in the cache under ${JSON.stringify(key)}`)
@@ -70,7 +64,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  /** Unmounts every tree, so no polling hook leaves a live interval for the next test file. */
   cleanup()
 })
 
@@ -88,7 +81,7 @@ describe("useCommandRun - when the reconciliation stops", () => {
   })
 
   it("keeps asking while nothing has come back yet, so a spinner is never left sitting", async () => {
-    /** Enabled, in flight, no data and no error: a slow first answer must not end the polling. */
+    /** A slow first answer must not end the polling. */
     const queryClient = client()
     fetched.mockImplementation(() => new Promise<Response>(() => {}))
     renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -110,7 +103,7 @@ describe("useCommandRun - when the reconciliation stops", () => {
   })
 
   it("stops on a failed poll even though the answer it still holds says RUNNING", async () => {
-    /** The row said RUNNING, then steward stopped answering; without the guard the poll would go on. */
+    /** Without the guard the poll would go on. */
     const queryClient = client()
     fetched.mockResolvedValueOnce(answer(200, { id: "7", status: "RUNNING" }))
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -120,7 +113,6 @@ describe("useCommandRun - when the reconciliation stops", () => {
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).error).toBeInstanceOf(ApiError))
 
-    /** The stale RUNNING is still cached, and the poll is off anyway. */
     expect(stateOf(queryClient, keys.commandRun("7")).data).toMatchObject({ status: "RUNNING" })
     expect(pollOf(queryClient, keys.commandRun("7"))).toBe(false)
   })
@@ -135,7 +127,6 @@ describe("useCommandRun - when the reconciliation stops", () => {
   })
 
   it("starts asking again once a retry gets through", async () => {
-    /** A successful retry restarts the poll. */
     const queryClient = client()
     fetched.mockRejectedValueOnce(new TypeError("Failed to fetch"))
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -174,7 +165,6 @@ describe("useSaveConfig - the revision travels with the change", () => {
   }
 
   it("puts the revision and the changes in the body, at the path the listing gave", async () => {
-    /** The revision is sent, and the path keeps its slashes so the route matches. */
     await save(client(), answer(200, SAVED))
 
     const [url, init] = fetched.mock.calls[0]
@@ -187,7 +177,6 @@ describe("useSaveConfig - the revision travels with the change", () => {
   })
 
   it("redraws the form from the answer, so the next save carries the new revision", async () => {
-    /** The answer is the file as it now reads, so the cache takes its new revision. */
     const queryClient = client()
     await save(queryClient, answer(200, SAVED))
 
@@ -195,7 +184,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
   })
 
   it("drops the cached document on 409, because its revision is provably stale", async () => {
-    /** Somebody else was faster, so the stale copy is dropped, not only the error shown. */
+    /** Somebody else saved first, so the stale copy is dropped. */
     const queryClient = client()
     queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1", restartRequired: false })
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
@@ -224,7 +213,6 @@ describe("useSaveConfig - the revision travels with the change", () => {
   })
 
   it("keeps it when the request never arrived anywhere either", async () => {
-    /** An unreachable interface is status 0, which is not 409. */
     const queryClient = client()
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
@@ -239,7 +227,7 @@ describe("useMe - the token every write in the interface needs", () => {
   beforeEach(() => rememberCsrf(null))
 
   it("puts the token where api() can read it synchronously", async () => {
-    /** The CSRF token arrives only with /api/me, which is why the shell refuses to draw without it. */
+    /** The CSRF token arrives only with /api/me. */
     const queryClient = client()
     fetched.mockResolvedValue(answer(200, { signedIn: true, id: "1", name: "ally", csrf: "t0ken" }))
     renderHook(() => useMe(), { wrapper: wrap(queryClient) })

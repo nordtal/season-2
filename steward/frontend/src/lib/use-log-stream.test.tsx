@@ -5,7 +5,9 @@ import { useLogStream } from "@/lib/use-log-stream"
 import type { LogStream } from "@/lib/use-log-stream"
 import { FakeEventSource } from "@/lib/fake-event-source"
 
-/** The newest source, since a StrictMode mount and `reconnect` both leave a closed one behind. */
+/**
+ * Returns the newest source, because a StrictMode mount and `reconnect` both leave a closed one behind.
+ */
 function live(): FakeEventSource {
   const source = FakeEventSource.opened.at(-1)
   if (!source) throw new Error("the hook never constructed an EventSource")
@@ -23,7 +25,6 @@ function mount(limit = 3) {
 
 const texts = (result: { current: LogStream }) => result.current.entries.map((entry) => entry.text)
 
-/** Lets the frame that applies a batch run. */
 function frame(): void {
   act(() => {
     vi.advanceTimersByTime(20)
@@ -48,7 +49,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The console stream: bounded, in log order, refilled on each connection and retried quietly at first. */
 describe("useLogStream", () => {
   it("asks for the chosen number of lines", () => {
     mount(5000)

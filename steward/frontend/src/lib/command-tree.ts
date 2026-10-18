@@ -1,22 +1,17 @@
 import type { CommandNode } from "@/lib/api"
 
 /**
- * What the console offers for the word being typed, read from the tree the server published of itself.
- *
- * Every word before it is walked from the root: a word matches a word of the tree, and an argument takes any one word.
+ * What the console offers for the word being typed, read from the server's published command tree. Every earlier word is walked from the root. An argument takes any one word.
  */
 export type Suggestions = {
-  /** Where the word being typed starts; a completion replaces the line from here. */
   from: number
-  /** The words that complete it, and whether the command goes on after one. */
   words: Word[]
-  /** The arguments expected here, by their names; they cannot be completed, only typed. */
   arguments: string[]
 }
 
 export type Word = { name: string; more: boolean }
 
-/** More words than this no one scrolls through; the tree lists the plain ones before the namespaced ones. */
+/** The tree lists plain words before namespaced ones. */
 const SHOWN = 50
 
 export function suggest(nodes: readonly CommandNode[], line: string): Suggestions {
@@ -51,12 +46,11 @@ export function suggest(nodes: readonly CommandNode[], line: string): Suggestion
   }
 }
 
-/** The line with the word being typed replaced, and a space after it when the command goes on. */
 export function complete(line: string, from: number, word: Word): string {
   return `${line.slice(0, from)}${word.name}${word.more ? " " : ""}`
 }
 
-/** A node's children, or those of the node it redirects to, as Brigadier carries on there; indexes outside the list are left out. */
+/** Returns a node's children, or those of the node it redirects to, as Brigadier does. */
 function childrenOf(nodes: readonly CommandNode[], index: number): number[] {
   const node = nodes[index]
   if (!node) return []

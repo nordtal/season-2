@@ -16,11 +16,7 @@ import {
   search,
 } from "@/components/steward/configuration.fixtures"
 
-/**
- * The configuration form drawn from the schema beside a file, against a fake backend answering by URL.
- *
- * No `jest-dom`, so assertions read DOM properties directly.
- */
+/** The test does not use `jest-dom`, so the assertions read DOM properties directly. */
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -44,7 +40,6 @@ describe("the file row", () => {
     draw(<Settings service="steward" />)
 
     await screen.findByText("Steward")
-    /** The path is not shown under the name. */
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
@@ -92,7 +87,6 @@ describe("the file row", () => {
   })
 })
 
-/** The search box of an open file: label, path, value and explanation, never a secret's value, and a pruned tree. */
 describe("searching a file", () => {
   const file = "steward/steward"
 
@@ -156,7 +150,9 @@ describe("searching a file", () => {
   it("never finds a secret by its value", async () => {
     const token = "MTA1NzE4.super-secret-discord-token"
     withEntries([
-      /** A secret carrying a value despite the wire contract, which the search must still refuse. */
+      /**
+       * A secret that carries a value against the wire contract. The search must still refuse it.
+       */
       entry({
         path: "discord.bot-token",
         key: "bot-token",
@@ -209,7 +205,9 @@ describe("headings and explanations", () => {
           entries: [
             entry({ path: "agent", key: "agent", label: "Agent", kind: "MAP" }),
             entry({ path: "agent.limits", key: "limits", label: "Limits", kind: "MAP" }),
-            /** Three levels deep: a heading stops here and the leaf's path carries the rest. */
+            /**
+             * Three levels deep: a heading stops here, and the path of the leaf carries the rest.
+             */
             entry({ path: "agent.limits.retry", key: "retry", label: "Retry", kind: "MAP" }),
             entry({
               path: "agent.limits.retry.max-attempts",
@@ -278,9 +276,6 @@ describe("headings and explanations", () => {
   })
 })
 
-/**
- * A field an environment variable overrides must not draw as editable, since saving it changes nothing.
- */
 describe("environment overrides", () => {
   const file = "steward/steward"
 
@@ -408,11 +403,7 @@ describe("a group whose stored values the service refused", () => {
   })
 })
 
-/**
- * A search hit must also work when this page is already open, where `navigate` remounts nothing.
- *
- * Otherwise the jump stays in the map and fires on the next visit.
- */
+/** Otherwise the jump stays in the map and fires on the next visit. */
 describe("a hit that arrives while this page is already open", () => {
   const file = "steward/steward"
 
@@ -432,7 +423,7 @@ describe("a hit that arrives while this page is already open", () => {
   }
 
   afterEach(() => {
-    /** The map is module level, so no jump may survive into the next test. */
+    /** The map is module-level, so no jump may survive into the next test. */
     takePendingJump("steward")
   })
 
@@ -442,7 +433,6 @@ describe("a hit that arrives while this page is already open", () => {
       entry({ path: "agent.token", key: "token", label: "Token" }),
     ])
     await screen.findByText("Steward")
-    // Closed to begin with: the field is in a file nobody has opened.
     expect(screen.queryByText("Base url")).toBeNull()
 
     setPendingJump("steward", { file, path: "agent.base-url" })
@@ -481,7 +471,7 @@ describe("a hit that arrives while this page is already open", () => {
 
     setPendingJump("smp", { file: "smp/steward.yml", path: "grave.decay.enabled" })
 
-    // Still shut, and the other service's jump is still there for the page it was meant for.
+    // The file is still shut, and the other service's jump is still there for its page.
     await waitFor(() => expect(screen.queryByText("Base url")).toBeNull())
     expect(takePendingJump("smp")).toEqual({
       file: "smp/steward.yml",
@@ -521,7 +511,7 @@ describe("the arrow back to the top", () => {
     await open("Steward")
     await screen.findByRole("searchbox", { name: "Search this file" })
 
-    // Three fields and nothing scrolls: an arrow here would do nothing.
+    // There are three fields and nothing scrolls, so the arrow would do nothing.
     expect(screen.queryByRole("button", { name: "Back to the top" })).toBeNull()
 
     act(() => report?.([{ isIntersecting: false }]))

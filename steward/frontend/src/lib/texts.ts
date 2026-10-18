@@ -1,15 +1,11 @@
 /**
- * The web target: every text Steward's page shows, rendered in the browser from the trees Steward parsed.
- *
- * Steward parsed them; the validator is Java's. `messages/src/test/resources/web-target.json` holds both sides to one
- * result.
+ * The web target. It renders every text that Steward's page shows from the trees Steward parsed. The validator is Java's, and `messages/src/test/resources/web-target.json` holds both sides to one result.
  */
 import { api } from "@/lib/api"
 import { LOCALE, date, dateTime, money, parseInstant, relative, time } from "@/lib/format"
 import packaged from "@/lib/texts.gen.json"
 import type { TextArgs } from "@/lib/texts.gen"
 
-/** One node of a parsed text, as `NodeJson` writes it. */
 export type TextNode =
   | string
   | { v: string; k?: string; s?: string }
@@ -17,16 +13,12 @@ export type TextNode =
   | { pound: string }
   | { tag: string; shape: string; args: TextNode[][] }
 
-/** Every key's variants, as `GET /api/texts` answers. */
 export type Texts = Record<string, TextNode[][]>
 
-/** A value with its kind, as `MessageJson` writes it into a row and onto the wire. */
 export type Typed =
   | { kind: "text"; value: string }
   | { kind: "number"; value: number }
-  /** Seconds. */
   | { kind: "duration"; value: number }
-  /** ISO-8601. */
   | { kind: "instant"; value: string }
   | { kind: "money"; value: { minor: number; currency: string } }
   | { kind: "list"; value: Typed[] }
@@ -35,16 +27,16 @@ export type Typed =
   | { kind: "item"; value: { key: string; english: string; args?: Typed[] } }
   | { kind: "glyph"; value: string }
   | { kind: "choice"; value: boolean | string }
-  /** Another message, shown for the same reader. */
   | { kind: "message"; value: MessageRef }
 
 export type Kind = Typed["kind"]
 
-/** What a call may pass for a value of each kind; a bare value takes the kind its text declares. */
+/**
+ * What a call may pass for a value of each kind. A bare value takes the kind its text declares.
+ */
 export type Arg = {
   text: string | Typed
   number: number | Typed
-  /** Seconds. */
   duration: number | Typed
   instant: string | Date | Typed
   money: { minor: number; currency: string } | Typed
@@ -57,10 +49,8 @@ export type Arg = {
   message: MessageRef | Typed
 }
 
-/** A message as data, its key and typed values, as a journal row or a request carries one. */
 export type MessageRef = { key: string; args?: Record<string, Typed> }
 
-/** A piece of a rendered text: a literal, or a value with its kind, each drawn as its own text node. */
 export type Run = { text: string; kind?: Kind; name?: string }
 
 type Packaged = { kinds: Record<string, Record<string, Kind>>; texts: Texts }
@@ -99,10 +89,12 @@ const LINE_BREAKS = new Set(["newline", "br"])
 
 const NUMBER = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 })
 
-/** The packaged texts until Steward's arrive, and for good where Steward cannot be reached. */
+/** The packaged texts, until Steward's arrive and for good where Steward cannot be reached. */
 let current: Texts = PACKAGED.texts
 
-/** Takes the texts Steward serves, an admin's overrides layered; a failure keeps the packaged ones. */
+/**
+ * Takes the texts Steward serves with an admin's overrides. A failure keeps the packaged texts.
+ */
 export async function loadTexts(): Promise<void> {
   try {
     current = await api<Texts>("/api/texts")
@@ -111,29 +103,24 @@ export async function loadTexts(): Promise<void> {
   }
 }
 
-/** The texts this build packages, which a test layers an override over. */
 export function packagedTexts(): Texts {
   return PACKAGED.texts
 }
 
-/** Replaces the texts, for a test that renders an override. */
 export function replaceTexts(texts: Texts): void {
   current = texts
 }
 
 type ArgsOf<K extends keyof TextArgs> = TextArgs[K] extends Record<string, never> ? [] : [TextArgs[K]]
 
-/** A text of Steward's as the page shows it. */
 export function t<K extends keyof TextArgs>(key: K, ...args: ArgsOf<K>): string {
   return plain(runs(key, args[0] ?? {}))
 }
 
-/** A message a row or a request carries, by a key the page cannot know ahead. */
 export function message(ref: MessageRef): string {
   return plain(runs(ref.key, ref.args ?? {}))
 }
 
-/** A text's runs, for a page that draws its values apart from the words around them. */
 export function runs(key: string, args: Record<string, unknown>): Run[] {
   const variants = current[key] ?? PACKAGED.texts[key]
   if (!variants || variants.length === 0) return [{ text: key }]
@@ -143,22 +130,21 @@ export function runs(key: string, args: Record<string, unknown>): Run[] {
   return out
 }
 
-/** An enum constant as a `select` names it, as Java's `Kind.choiceOf` does: `REMOVE_PLUGIN` is `remove-plugin`. */
+/**
+ * Returns an enum constant as a `select` names it, as Java's `Kind.choiceOf` does: `REMOVE_PLUGIN` is `remove-plugin`.
+ */
 export function choice(constant: string): string {
   return constant.toLowerCase().replaceAll("_", "-")
 }
 
 /**
- * A span outside a message, through the duration kind: `short` for an uptime or a run, `minutes` for play time.
- *
- * What is not a span is the en dash every cell shows for nothing.
+ * Returns a span outside a message through the duration kind. Anything that is not a span shows the en dash.
  */
 export function span(seconds: number | null | undefined, style: "short" | "minutes" = "short"): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
   return durationOf(seconds, style)
 }
 
-/** How long ago an instant was, as a span rather than as "… ago". */
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
   return parsed == null ? "\u2013" : span((now - parsed.getTime()) / 1000)
@@ -184,7 +170,6 @@ function fill(nodes: TextNode[], args: Record<string, unknown>, declared: Record
   }
 }
 
-/** A value of no kind is no value: it shows its kind's replacement word, as every target does. */
 function filled(
   name: string,
   written: string | undefined,
@@ -201,7 +186,6 @@ function filled(
   return { text: shown(value, style), kind: value.kind, name }
 }
 
-/** The case of a plural or a select that the value `raw` picks, its `other` case where it picks none. */
 export function chosen(node: { plural: boolean; cases: Record<string, TextNode[]> }, raw: unknown): TextNode[] {
   const other = node.cases.other
   const value = typedOf(raw, node.plural ? "number" : "choice")
@@ -211,7 +195,7 @@ export function chosen(node: { plural: boolean; cases: Record<string, TextNode[]
   return node.cases[`=${String(value.value)}`] ?? node.cases[category(value.value)] ?? other
 }
 
-/** Every language Steward ships says `one` for exactly 1 and `other` otherwise, as `PluralRules` does. */
+/** Returns `one` for exactly 1 and `other` otherwise, as every language Steward ships does. */
 function category(number: number): string {
   return number === 1 ? "one" : "other"
 }
@@ -245,7 +229,6 @@ function isTyped(raw: unknown): raw is Typed {
   )
 }
 
-/** A bare value takes the kind its text declares where it fits one, else the kind its type has. */
 function typedOf(raw: unknown, hint: Kind | undefined): Typed | undefined {
   if (raw === undefined || raw === null) return undefined
   if (isTyped(raw)) return raw
@@ -277,7 +260,6 @@ function isMessageRef(raw: unknown): raw is MessageRef {
   return typeof raw === "object" && raw !== null && "key" in raw && typeof raw.key === "string"
 }
 
-/** A bare object is known by its fields, as the wire writes each kind's value. */
 function typedObject(raw: object): Typed | undefined {
   if ("minor" in raw && "currency" in raw && typeof raw.minor === "number" && typeof raw.currency === "string") {
     return { kind: "money", value: { minor: raw.minor, currency: raw.currency } }
@@ -296,7 +278,6 @@ function typedObject(raw: object): Typed | undefined {
   return undefined
 }
 
-/** Each kind's value as this target shows it; the one formatter of the browser. */
 function shown(value: Typed, style: string | undefined): string {
   switch (value.kind) {
     case "text":
@@ -329,7 +310,6 @@ function shown(value: Typed, style: string | undefined): string {
   }
 }
 
-/** The `values` bundle's word at `key`, as `Words` reads it. */
 function word(key: string, values: Record<string, unknown>): string {
   return plain(runs(`values.${key}`, values))
 }
@@ -347,7 +327,9 @@ function join(shownItems: string[], or: boolean): string {
   })
 }
 
-/** The two largest units that are not zero, as `ValueText` shows a duration; or a style's. */
+/**
+ * Returns the two largest units that are not zero, as `ValueText` shows a duration, or a style's units.
+ */
 function durationOf(seconds: number, style: string | undefined): string {
   const total = Math.max(0, Math.trunc(seconds))
   if (style === "clock") {
@@ -359,7 +341,6 @@ function durationOf(seconds: number, style: string | undefined): string {
   const amounts = [Math.floor(total / 86_400), Math.floor(total / 3600) % 24, Math.floor(total / 60) % 60, total % 60]
   const units = ["days", "hours", "minutes", "seconds"]
   if (style === "minutes") {
-    // Every unit down to the minute, so a span typed in days, hours and minutes reads back as it was typed.
     const parts = units
       .slice(0, 3)
       .flatMap((unit, index) =>
@@ -383,7 +364,9 @@ function durationOf(seconds: number, style: string | undefined): string {
   return parts.length === 1 ? parts[0] : word("list.and", { rest: parts[0], last: parts[1] })
 }
 
-/** In the browser's zone; `relative` reads as a span from now, which a page can show and a log cannot. */
+/**
+ * Returns the instant in the browser's zone. `relative` reads as a span from now, which a page can show and a log cannot.
+ */
 function instantOf(iso: string, style: string | undefined): string {
   switch (style) {
     case "date":
@@ -397,7 +380,6 @@ function instantOf(iso: string, style: string | undefined): string {
   }
 }
 
-/** The English line with each argument where the game's line places it: `%s` in turn, or `%2$s` by position. */
 function itemOf(content: { english: string; args?: Typed[] }): string {
   const args = (content.args ?? []).map((arg) => shown(arg, undefined))
   let next = 0

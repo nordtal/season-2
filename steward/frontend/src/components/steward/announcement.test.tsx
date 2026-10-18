@@ -10,8 +10,6 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { words } from "@/lib/query-fixtures"
 
-/** One form writes every language, nothing is sent until each has its text, and each line's destination is shown. */
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -107,7 +105,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The Send button, narrowed to the type its `disabled` assertions need. */
 function send() {
   return asButton(screen.getByRole("button", { name: "Send" }))
 }
@@ -135,7 +132,6 @@ describe("AnnouncementForm", () => {
     await waitFor(() =>
       expect(sent).toEqual([{ texts: { en: "The end opens tonight.", de: "The second language, tonight." } }]),
     )
-    // Once for each row just sent.
     await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(2))
     expect(asTextArea(screen.getByLabelText("English")).value).toBe("")
   })

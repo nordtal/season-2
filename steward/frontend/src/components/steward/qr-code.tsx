@@ -1,9 +1,6 @@
 import type { QrCode as Qr } from "@/lib/api"
 
-/**
- * A QR code the server drew as one SVG path, black on white in either theme with the four-module quiet zone a
- * scanner needs around it.
- */
+/** It is black on white in either theme, with the four-module quiet zone that a scanner needs. */
 export function QrCode({ qr, label }: { qr: Qr; label: string }) {
   return (
     <svg

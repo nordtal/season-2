@@ -9,37 +9,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/**
- * The one display of a person, and the only place a Discord id or a Minecraft UUID may be drawn.
- *
- * Closed it shows an avatar and a name; its popover holds both ids, each with a copy button.
- */
+/** The only place that may draw a Discord id or a Minecraft UUID. */
 
-/** A Minecraft head URL, composed from the uuid and the configured base, so a new base leaves nothing stale. */
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
 
-  /** The uuid goes into the path, before any query the base carries such as `?scale=16`. */
+  /** The UUID goes before any query that the base carries. */
   const [path, query] = splitQuery(baseUrl)
 
-  /** Hyphens stripped, so each face has one spelling and one cache entry. */
   return `${path.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}${query}`
 }
 
-/** `["https://host/face", "?scale=16"]`, with an empty second half when there is no query. */
 function splitQuery(baseUrl: string): [string, string] {
   const at = baseUrl.search(/[?#]/)
   return at === -1 ? [baseUrl, ""] : [baseUrl.slice(0, at), baseUrl.slice(at)]
 }
 
-/** Loosely matches a Discord snowflake or a Minecraft UUID, for tests that assert none leaks into a page. */
+/**
+ * Matches a Discord snowflake or a Minecraft UUID loosely. Tests use it to check that none appears in a page.
+ */
 export const IDENTIFIER_PATTERN =
   /\b\d{17,20}\b|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/
 
 /**
- * Copies text to the clipboard where the browser allows it, and reports whether it did.
+ * Copies text to the clipboard where the browser allows it and returns whether it did.
  *
- * Needs a secure context, so the id is also drawn as selectable text.
+ * It needs a secure context, so the id is also drawn as selectable text.
  */
 export async function copyToClipboard(value: string): Promise<boolean> {
   try {
@@ -52,25 +47,20 @@ export async function copyToClipboard(value: string): Promise<boolean> {
 }
 
 export type PersonIdentityProps = {
-  /** Not required with {@link system}, which has no id to show. */
   discordId?: string
   discordUsername?: string
   discordDisplayName?: string
   discordAvatarUrl?: string
   mcUuid?: string
   mcName?: string
-  /** Where a Minecraft head is composed from, `useAvatarBaseUrl()`; absent draws no head. */
+  /** Without it no head is drawn. */
   avatarBaseUrl?: string
   className?: string
-  /** Steward itself did this, not a person: the server's mark and the word "Steward", with no popover. */
   system?: boolean
-  /** Which half is drawn closed: `discord` (default), `minecraft`, or `both` side by side; the popover is the same. */
   face?: "discord" | "minecraft" | "both"
-  /** `false` draws the closed face alone, for a place that is itself interactive. */
   interactive?: boolean
 }
 
-/** The name shown closed. */
 function displayName(props: PersonIdentityProps): { text: string | null } {
   if (props.discordDisplayName) {
     return { text: props.discordDisplayName }
@@ -114,7 +104,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
     ) : props.face === "both" && props.mcUuid ? (
       <>
         <span className="inline-flex min-w-0 items-center gap-2">{discordFace}</span>
-        {/* The account in the game reads as the second of the two, quieter than the person's name. */}
+        {/* The account in the game is the second of the two, so it is quieter than the person's name. */}
         <span className="ml-1 inline-flex min-w-0 items-center gap-1.5 opacity-80">{minecraftFace}</span>
       </>
     ) : (
@@ -133,7 +123,9 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <button
           type="button"
           className={
-            /** `max-w-full` caps the box so `truncate` can act; `min-w-0` only lets it shrink. */
+            /**
+             * `max-w-full` caps the box so that `truncate` works. `min-w-0` only lets it shrink.
+             */
             "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none tap-target " +
             "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
             (props.className ?? "")
@@ -187,7 +179,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
   )
 }
 
-/** A link to the person's page under Users, drawn only inside a router, so a card rendered on its own stays a card. */
+/** It is drawn only inside a router, so a card rendered alone stays a card. */
 function PersonPageLink({ discordId }: { discordId: string }) {
   const router = useRouter({ warn: false })
   if (!router) return null
@@ -204,7 +196,6 @@ function PersonPageLink({ discordId }: { discordId: string }) {
   )
 }
 
-/** An id as selectable text plus a copy button, for a browser without clipboard access. */
 function CopyableId({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -239,7 +230,6 @@ function CopyableId({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The small round Discord avatar, closed or in the popover header. */
 function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: string | null; size?: string }) {
   const [broken, setBroken] = useState(false)
 
@@ -264,18 +254,13 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
   )
 }
 
-/**
- * The small rounded-square Minecraft head, drawn from a composed URL.
- *
- * A skeleton while waiting or loading, a question mark if it fails, and never a change of size.
- */
+/** It shows a skeleton while waiting or loading and a question mark if it fails. */
 export function MinecraftHead({
   mcUuid,
   baseUrl,
   size = "size-5",
   rounded = "rounded-sm",
 }: {
-  /** Absent while the row around this head is still loading. */
   mcUuid?: string
   baseUrl?: string
   size?: string
@@ -285,7 +270,7 @@ export function MinecraftHead({
   const [loaded, setLoaded] = useState(false)
   const url = mcUuid ? minecraftHeadUrl(baseUrl, mcUuid) : undefined
 
-  /** `undefined` waits; `""` means nobody has one and draws the question mark. */
+  /** `undefined` waits. `""` means that nobody has a UUID, and the question mark is drawn. */
   if (mcUuid === undefined) {
     return <Skeleton className={`${size} shrink-0 ${rounded}`} />
   }

@@ -30,12 +30,11 @@ import {
 import { DraftDot, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
-/** The Translations page's form: every text in its group and topic, where it appears, its editor, and the one save. */
-
-/** The one draft of the Translations page, keyed by each text's `<bundle>/<key>`. */
 export const TEXTS_FILE = "texts"
 
-/** No palette of a service's own, one object so the editor's memo of its tones holds. */
+/**
+ * The network has no palette of its own. This is one object, so the editor's memo of its tones holds.
+ */
 const NETWORK_COLOURS: Record<string, string> = {}
 
 function isMessageDraft(value: unknown): value is MessageDraft {
@@ -55,7 +54,6 @@ function isMessageDraftRecord(value: unknown): value is Record<string, MessageDr
   return typeof value === "object" && value !== null && Object.values(value).every(isMessageDraft)
 }
 
-/** The draft as a save sends it, every key under its bundle. */
 function changesOf(draft: Record<string, MessageDraft>, byId: Map<string, MessageText>): MessageChanges["changes"] {
   const changes: MessageChanges["changes"] = {}
   for (const [id, changed] of Object.entries(draft)) {
@@ -73,10 +71,8 @@ export function TextsForm({
   search,
 }: {
   texts: MessageTexts
-  /** The service the page is filtered to: only its texts, in its palette. */
   service: string | undefined
   target: Target | null
-  /** The search in the page's title row. */
   search: OutsideSearch
 }) {
   const draft = useDraft<MessageDraft>(TEXTS_FILE, isMessageDraftRecord)
@@ -98,7 +94,6 @@ export function TextsForm({
       ),
     [texts.texts, texts.languages],
   )
-  /** The filtered service's palette, else none, which leaves the network's own. */
   const colours = service === undefined ? undefined : texts.colours[service]
   const fallenBack = useMemo(() => {
     const found = new Map<string, MessageFallback[]>()
@@ -108,7 +103,7 @@ export function TextsForm({
     }
     return found
   }, [fallbacks.data])
-  // One key open at a time: opening another closes this one, and its draft stays where it is.
+  // One key is open at a time. Opening another closes this one, and its draft stays.
   const [openId, setOpenId] = useState<string | null>(null)
 
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
@@ -141,7 +136,7 @@ export function TextsForm({
     )
   }
 
-  /** Saves a fallen-back override as it stands, which writes it over the jar's text of now; its draft goes. */
+  /** That writes it over the jar's current text, and its draft is dropped. */
   function takeOverOf(entry: MessageEntry) {
     return (language: Language, override: string[]) =>
       takeOver.mutate(
@@ -219,7 +214,6 @@ export function TextsForm({
   )
 }
 
-/** Where a text appears: one pill per place, or one for a whole surface it fills. */
 function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
   const pills = pillsOf(entry, places)
   if (pills.length === 0) return null
@@ -241,8 +235,7 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
 }
 
 /**
- * One key: its name with where it appears, and its text on the line below. Opened, it is one card of its name, where it
- * appears, its editor and its previews, the text's line left out since the editor shows the text.
+ * Opened, it is one card with its name, where it appears, its editor and its previews. The text's line is left out, because the editor shows the text.
  */
 function TextRow({
   open,
@@ -250,7 +243,6 @@ function TextRow({
   colours,
   ...editor
 }: Omit<MessageEditorProps, "colours"> & {
-  /** The filtered service's palette, `undefined` for the network's. */
   colours: Record<string, string> | undefined
   open: boolean
   onOpen: (open: boolean) => void
@@ -260,7 +252,6 @@ function TextRow({
   const typed = draft?.[ENGLISH]
   const text = (typed === undefined ? shownOf(entry, ENGLISH) : (typed ?? packagedOf(entry, ENGLISH)))[0] ?? ""
 
-  // A jump from the command palette lands on a key by opening it.
   useEffect(() => {
     if (highlight) onOpen(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps

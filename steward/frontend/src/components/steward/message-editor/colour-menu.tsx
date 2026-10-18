@@ -12,7 +12,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Tones } from "@/components/steward/message-editor/preview"
 import { MenuTrigger } from "@/components/steward/message-editor/tools"
 
-/** Minecraft's sixteen colours in the order of their old section codes, 0 to f. */
 const COLOUR_ORDER = [
   "black",
   "dark_blue",
@@ -32,7 +31,6 @@ const COLOUR_ORDER = [
   "white",
 ]
 
-/** The colour a style is drawn in, as a small swatch: a gradient shows as one. */
 export function Swatch({ style, tones, className }: { style: Style; tones: Tones; className?: string }) {
   const background = style.gradient
     ? `linear-gradient(90deg, ${style.gradient.map(hexOf).join(", ")})`
@@ -52,7 +50,7 @@ export function Swatch({ style, tones, className }: { style: Style; tones: Tones
 
 type ColourMode = "tone" | "colour" | "gradient"
 
-/** A tone first, which follows the palette; a colour or a gradient of its own only where the text may have one. */
+/** A colour or gradient of its own is offered only where the text may have one. */
 export function ColourMenu({
   style,
   tones,

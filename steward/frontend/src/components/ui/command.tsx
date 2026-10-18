@@ -25,13 +25,15 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   )
 }
 
-/** In a sheet, the field and the rows start on `--sheet-gutter`, less the command's own two 4px insets. */
+/**
+ * In a sheet the field and the rows start on `--sheet-gutter`, less the command's own two 4px insets.
+ */
 const SHEET_INSET = "data-[slot=drawer-content]:px-[calc(var(--sheet-gutter)-0.5rem)]"
 
 /**
- * `label` names the input through cmdk's hidden label, and defaults to `title`.
+ * `label` names the input through cmdk's hidden label and defaults to `title`.
  *
- * `aria-labelledby` points at that label and outranks `aria-label`, so leaving it empty leaves no name.
+ * `aria-labelledby` points at that label and outranks `aria-label`, so an empty label leaves the input without a name.
  */
 function CommandDialog({
   title = "Command Palette",
@@ -46,7 +48,6 @@ function CommandDialog({
   title?: string
   description?: string
   label?: string
-  /** How a row is scored, handed to cmdk's `filter`; undefined keeps its subsequence default. */
   filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
   className?: string
   showCloseButton?: boolean
@@ -58,11 +59,13 @@ function CommandDialog({
         <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
       <ResponsiveDialogContent
-        /** `top-1/3` only as a dialog, since as a sheet vaul already places the shell above the keyboard. */
+        /**
+         * `top-1/3` applies to the dialog only. As a sheet, vaul already places the shell above the keyboard.
+         */
         className={cn("overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0", SHEET_INSET, className)}
         showCloseButton={showCloseButton}
       >
-        {/* `min-h-0 flex-1` so the list, not the input, gives way when vaul shrinks the sheet above the keyboard. */}
+        {/* `min-h-0 flex-1` makes the list and not the input give way when vaul shrinks the sheet above the keyboard. */}
         <Command label={label ?? title} filter={filter} className="min-h-0 flex-1">
           {children}
         </Command>
@@ -155,7 +158,9 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
     <span
       data-slot="command-shortcut"
       className={cn(
-        /** Capped so a long note cannot squeeze the label out, and hidden below 640px where it would truncate both. */
+        /**
+         * The note is capped, so a long note cannot squeeze the label out, and hidden below 640px, where it would truncate both.
+         */
         "ml-auto hidden max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground sm:block",
         className,
       )}

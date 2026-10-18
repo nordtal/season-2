@@ -8,9 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { t } from "@/lib/texts"
 
-/**
- * The marker for a key an environment variable answers, where a saved value waits until the variable is gone.
- */
+/** A saved value has no effect until the variable is removed. */
 export function EnvironmentOverriddenBadge() {
   return (
     <Tooltip>
@@ -39,7 +37,6 @@ function isSectionValuesArray(value: Draft[string] | undefined): value is Sectio
   )
 }
 
-/** Only the keys that differ from what is stored, so a one word change stays one row. */
 export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
@@ -51,7 +48,9 @@ export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
       }
       continue
     }
-    /** A card list is sent whole under its parent path, since a removed card leaves no key to differ. */
+    /**
+     * A card list is sent whole under its parent path, because a removed card leaves no key to compare.
+     */
     if (entry.kind === "SECTIONS") {
       if (isSectionValuesArray(value) && JSON.stringify(value) !== JSON.stringify(sectionsFromEntry(entry))) {
         changes[entry.path] = value
@@ -66,9 +65,7 @@ export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
 }
 
 /**
- * Titles `languages` cards by their tag's language name, the one `SECTIONS` entry with a natural title.
- *
- * A blank tag falls back to the plain index.
+ * It is the one `SECTIONS` entry with a natural title. A blank tag falls back to the plain index.
  */
 function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: number) => string) | undefined {
   if (entry.path !== "languages") return undefined
@@ -78,7 +75,6 @@ function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: n
   }
 }
 
-/** Which control an entry gets: cards for `SECTIONS`, list rows for `LIST`, else `ScalarControl`. */
 export function Control({
   entry,
   draft,

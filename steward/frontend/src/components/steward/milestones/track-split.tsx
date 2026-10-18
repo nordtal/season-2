@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** What the track is drawn from: the schema, the track as the draft holds it, and its edits. */
 export type TrackProps = {
   id: string
   schema: TrackSchema
@@ -35,7 +34,6 @@ export type TrackProps = {
 
 type Open = { milestone: number; objective: number } | null
 
-/** The one objective sheet the track opens, and the way to open it. */
 function useObjectiveSheet({ id, schema, track, edits, disabled }: TrackProps) {
   const [open, setOpen] = useState<Open>(null)
   const objective = open ? (objectivesOf(track[open.milestone])[open.objective] ?? null) : null
@@ -62,7 +60,6 @@ function nameOf(milestone: SectionValues): string {
   return text(milestone, KEY.id) || "unnamed"
 }
 
-/** The step's number on the track, which is its order in the season. */
 function Step({ index, className }: { index: number; className?: string }) {
   return (
     <span
@@ -77,7 +74,6 @@ function Step({ index, className }: { index: number; className?: string }) {
   )
 }
 
-/** A milestone's fields and its objectives, as the open milestone shows them. */
 function MilestoneBody({
   props,
   index,
@@ -119,7 +115,6 @@ function MilestoneBody({
   )
 }
 
-/** The season's budgets: every objective's, summed over the whole track. */
 function SeasonSums({ track, schema }: { track: SectionValues[]; schema: TrackSchema }) {
   const sums = budgetSums(track)
   if (BUDGETS.every((key) => sums[key] <= 0)) return null
@@ -143,8 +138,7 @@ function AddMilestone({ disabled, onAdd }: { disabled: boolean; onAdd: () => voi
 }
 
 /**
- * The track as a list beside the open milestone, an objective's fields in a sheet. A wide screen keeps the list and
- * opens the first milestone while none is chosen; a phone shows the list, then the chosen milestone with a way back.
+ * A wide screen keeps the list and opens the first milestone while none is chosen. A phone shows the list, then the chosen milestone with a way back.
  */
 export function TrackSplit(props: TrackProps) {
   const { schema, track, edits, disabled } = props

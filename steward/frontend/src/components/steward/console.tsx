@@ -23,10 +23,7 @@ import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
 /**
- * The Console tab's window: its controls and the line into the server, one row on a desktop and two on a phone, then
- * the log newest on top.
- *
- * The stream reconnects by itself, and scrolling away stops the following until the arrow brings it back.
+ * The stream reconnects by itself. Scrolling away stops following until the arrow brings it back.
  */
 export function ServiceConsole({
   name,
@@ -36,9 +33,7 @@ export function ServiceConsole({
 }: {
   name: string
   hasConsole: boolean
-  /** Why the log may end on purpose: a run is stopping this service (`going`) or it is not running (`gone`). */
   offline?: "going" | "gone"
-  /** How many lines steward can fill; the steps above it are not offered. */
   capacity: number | undefined
 }) {
   const [limit, setLimit] = useState<number>(DEFAULT_LIMIT)
@@ -178,7 +173,7 @@ export function ServiceConsole({
   )
 }
 
-/** The steps steward can fill; the lowest is always there, and the window says when it runs dry. */
+/** The lowest step is always offered, and the window says when it runs dry. */
 export function offeredSteps(capacity: number | undefined): number[] {
   return STEPS.filter((step) => step === DEFAULT_LIMIT || (capacity ?? 0) >= step)
 }
@@ -187,7 +182,7 @@ function pad(value: number): string {
   return String(value).padStart(2, "0")
 }
 
-/** The raw lines the window holds, oldest first, as a file, filtered but without the markers. */
+/** The filter applies and the markers are left out. */
 function download(name: string, entries: LogEntry[]) {
   const text = entries
     .filter((entry) => entry.kind === "line")
@@ -211,7 +206,9 @@ const LEVEL_TEXT: Record<Level, string> = {
   ERROR: "text-destructive",
 }
 
-/** Parsed once per entry, not once per render: entries keep their identity while they stay. */
+/**
+ * Each entry is parsed once and not on every render, because entries keep their identity while they stay.
+ */
 const parsed = new WeakMap<LogEntry, ParsedLine>()
 function parse(entry: LogEntry): ParsedLine {
   let line = parsed.get(entry)
@@ -224,9 +221,7 @@ function parse(entry: LogEntry): ParsedLine {
 
 type Row = { entry: LogEntry; line: ParsedLine | null; level: Level | null }
 
-/** Following means the top: within this many pixels of it the window moves with new lines. */
 const FOLLOWING = 8
-/** From here on the arrow back to the top shows. */
 const AWAY = 48
 
 function LogLines({ entries }: { entries: LogEntry[] }) {
@@ -235,7 +230,9 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
   const newest = useRef<number | null>(null)
   const [away, setAway] = useState(false)
 
-  /** A stack trace takes the colour of the line before it in time, so this walks oldest first and then turns round. */
+  /**
+   * A stack trace takes the colour of the line before it in time. So the loop walks oldest first, then turns round.
+   */
   const rows = useMemo(() => {
     const out: Row[] = []
     let carried: Level | null = null
@@ -256,7 +253,9 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
     return out.toReversed()
   }, [entries])
 
-  /** A new block slides in at the top; scrolled away, the reading position is held instead. */
+  /**
+   * A new block slides in at the top. When the reader has scrolled away, the reading position stays.
+   */
   useLayoutEffect(() => {
     const pane = box.current
     const content = grid.current
@@ -265,7 +264,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
     newest.current = top
     if (!pane || !content || top === null || previous === null || top === previous) return
     const added = rows.findIndex((row) => row.entry.seq <= previous)
-    // Not found: a refill from a new connection, which is not an arrival.
+    // No new lines were found. This is a refill from a new connection and not an arrival.
     if (added <= 0) return
     const first = content.children[0]
     const kept = content.children[added]
@@ -299,7 +298,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         onScroll={(event) => setAway(event.currentTarget.scrollTop > AWAY)}
         className="h-full overflow-auto px-2 pt-1.5 pb-16 [overflow-anchor:none] sm:px-3"
       >
-        {/* On a phone time and source get their own line above the text; from `sm` up all three are columns. */}
         <div ref={grid} className="grid grid-cols-1 gap-x-3 sm:grid-cols-[auto_auto_1fr]">
           {rows.map(({ entry, line, level }) =>
             line === null ? (
@@ -329,7 +327,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 key={entry.seq}
                 className={cn(
                   "break-words whitespace-pre-wrap",
-                  /** A continuation line sits under the message; anything else has the whole width. */
                   continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
                   level ? LEVEL_TEXT[level] : LEVEL_TEXT.INFO,
                 )}
@@ -359,8 +356,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
 }
 
 /**
- * One line into the server console, above the log its answer comes back in and first in the controls' row.
- *
  * The up arrow walks a history that is not persisted, so the next person at this browser cannot read it.
  */
 function ConsoleLine({ name }: { name: string }) {
@@ -476,9 +471,7 @@ function ConsoleLine({ name }: { name: string }) {
 }
 
 /**
- * The words that complete the one being typed, under the line, and the arguments expected there.
- *
- * A tap takes a word without the field losing focus, so the keyboard on a phone stays up.
+ * A tap takes a word without moving the focus from the field, so the keyboard on a phone stays up.
  */
 function ConsoleSuggestions({
   words,

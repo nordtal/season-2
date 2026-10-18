@@ -7,8 +7,6 @@ import { announce } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
 import { ServiceConsole, offeredSteps } from "./console"
 
-/** The Console window: newest line on top, levels as colours, stack traces, run lines, Find, steps and failures. */
-
 type Listener = (event: Event) => void
 
 class FakeEventSource {
@@ -41,7 +39,6 @@ function mount() {
   act(() => live().emit("open"))
 }
 
-/** The console line of a server whose published tree is already in the cache, so nothing is fetched. */
 function mountLine(nodes: CommandNode[]) {
   const client = new QueryClient()
   client.setQueryData(keys.commandTree("smp"), { nodes })
@@ -89,7 +86,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** Whether an element is drawn in the dimmed text colour. */
 const dimmed = (element: Element) => element.getAttribute("class")?.split(/\s+/).includes("text-muted-foreground")
 
 describe("ServiceConsole", () => {
@@ -119,7 +115,6 @@ describe("ServiceConsole", () => {
     expect(screen.getByText(/Smp\.onEnable/).className).toContain("text-destructive")
     expect(screen.getByText("Can't keep up!").className).toContain("text-warning")
     expect(screen.getByText(/players online/).className).toContain("text-foreground")
-    // The thread falls away; the time loses nothing but stays apart from the text.
     expect(screen.queryByText(/Server thread/)).toBeNull()
   })
 
@@ -150,7 +145,7 @@ describe("ServiceConsole", () => {
     const input = mountLine(TREE)
     const buttons = ["Find", "Download", "Send"].map((name) => screen.getByRole("button", { name }))
     expect(buttons.filter((button) => dimmed(button) || [...button.querySelectorAll("svg")].some(dimmed))).toEqual([])
-    // The select's own caret is dimmed by the shared component; the trigger lifts it with `[&_svg]:text-foreground`.
+    // The shared component dims the select's own caret, and the trigger lifts it with `[&_svg]:text-foreground`.
     expect(screen.getByRole("combobox", { name: "Lines" }).className).toContain("[&_svg]:text-foreground")
     // `text-base` is 16px, the size of the prompt's `size-4` chevron.
     expect(input.className.split(/\s+/)).toContain("text-base")
@@ -180,7 +175,6 @@ describe("ServiceConsole", () => {
     expect(orphan.className).toContain("sm:col-start-3")
     expect(carried.className).toContain("sm:col-start-3")
     expect(orphan.className).not.toContain("col-span-full")
-    // A line that carries on nothing keeps the whole width.
     feed(["line", "There are 0 of a max of 40 players online:"])
     expect(screen.getByText(/players online/).className).toContain("col-span-full")
   })
@@ -232,7 +226,7 @@ describe("ServiceConsole", () => {
   })
 
   it("suggests from the tree its server published since, while the words are open", async () => {
-    // The refetch settles through the real event loop, which waitFor polls.
+    // The refetch finishes through the real event loop, which `waitFor` polls.
     vi.useRealTimers()
     const client = new QueryClient()
     client.setQueryData(keys.commandTree("smp"), { nodes: TREE })

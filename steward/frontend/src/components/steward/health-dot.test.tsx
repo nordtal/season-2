@@ -7,8 +7,6 @@ import { afterEach, assert, describe, expect, it } from "vitest"
 
 import { HealthDot } from "@/components/steward/status"
 
-/** `HealthDot` is green in the network view and silent in the sidebar, and the sidebar must never set `quiet`. */
-
 const here = path.dirname(fileURLToPath(import.meta.url))
 const sidebarFile = path.resolve(here, "../../app/app-sidebar.tsx")
 
@@ -46,7 +44,6 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 })
 
-/** Whether a source file sets `quiet`, taking a string so the test can prove the detector detects. */
 export function mentionsQuiet(source: string): string[] {
   return source
     .split("\n")
@@ -75,7 +72,6 @@ describe("the sidebar stays silent", () => {
   })
 })
 
-/** A held service reads as held, since `service_hold` alone tells it from a crash. */
 describe("a held service is not a broken one", () => {
   const held = { state: "exited", hold: { since: "2026-09-20T18:00:00Z", by: "hmtill" } }
 
@@ -97,13 +93,14 @@ describe("a held service is not a broken one", () => {
   })
 
   it("changes nothing about a held container that is running anyway", () => {
-    /** A held service that is up and unhealthy stays red, as steward's alerts judge it. */
     render(<HealthDot service={{ ...held, state: "running", health: "unhealthy", alert: "down" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })
 })
 
-/** Red is the alert rule's verdict, carried on the row, so a stop the rule means is never red here either. */
+/**
+ * Red is the alert rule's verdict on the row, so a stop that the rule intends is not red here either.
+ */
 describe("a standby is not a broken one", () => {
   it("draws a stopped standby, which raises no alert, as standby rather than red", () => {
     render(<HealthDot service={{ state: "exited" }} />)

@@ -24,7 +24,6 @@ describe("UsageBar - the arithmetic", () => {
   })
 
   it.each([0, -1])("answers 0 rather than NaN or Infinity when the ceiling is %s", (total) => {
-    // An unmeasured disk must not draw a full bar.
     render(<UsageBar used={5} total={total} />)
     expect(share()).toBe(0)
     expect(Number.isNaN(share())).toBe(false)
@@ -62,7 +61,6 @@ describe("UsageBar - the colour, which is the reason it is not shadcn's Progress
   })
 
   it("stays green for an unmeasured ceiling instead of drawing a red full bar", () => {
-    // The guarded share is 0, so the tone is the calm one.
     render(<UsageBar used={5} total={0} />)
     expect(fill().className).toContain("bg-success")
   })

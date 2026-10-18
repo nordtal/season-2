@@ -6,16 +6,13 @@ import { topologyOf } from "@/components/steward/network/topology"
 import { useTopology } from "@/lib/queries"
 import { t } from "@/lib/texts"
 
-/** The one list of places, read by the sidebar, the palette and the breadcrumb; a route missing here is unreachable. */
+/** A route missing here is unreachable. */
 
 export type NavEntry = {
-  /** Stable id, used as a React key and as the command palette's search value. */
   id: string
   label: string
-  /** One line of what the page is for, shown by the command palette and the placeholder. */
   note: string
   icon: Icon
-  /** Words an admin might type that are not in the label. */
   keywords?: string[]
 } & (
   | { to: "/services/$name"; params: { name: string } }
@@ -24,16 +21,11 @@ export type NavEntry = {
 
 export type NavGroup = {
   id: string
-  /** The heading over the group, left out where a group's single entry names itself. */
   label?: string
   entries: NavEntry[]
 }
 
-/**
- * Four groups: `Services`, `Operations` and two unlabelled ones for the single pages around them.
- *
- * `services` are the names `/api/topology` serves, in the network table's order; {@link useNavigation} passes them.
- */
+/** `services` holds the names that `/api/topology` serves, in the order of the network table. */
 export function navigation(services: readonly string[]): NavGroup[] {
   return [
     {
@@ -75,7 +67,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           keywords: ["update", "drift", "image", "plugin", "restart", "schedule"],
         },
         {
-          /** The list page rather than a backup id, since "latest" is not a backup's name. */
+          /** The id of the list page, because "latest" is not a backup's name. */
           id: "operations-backups",
           label: t("steward.shell.page", { page: "backups" }),
           to: "/operations/backups",
@@ -141,7 +133,6 @@ export function navigation(services: readonly string[]): NavGroup[] {
   ]
 }
 
-/** The navigation with the services the stack serves, which list none until `/api/topology` has answered. */
 export function useNavigation(): NavGroup[] {
   const topology = useTopology()
   return navigation(topology.data ? topologyOf(topology.data).names : [])

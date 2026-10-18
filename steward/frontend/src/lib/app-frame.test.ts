@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { isStandalone, measuredHeight, screenHeight, trackAppFrame, visibleBand } from "@/lib/app-frame"
 
-/** The two moments reading the visual viewport is wrong: a keyboard and a pinch, both answered with `null`. */
-
 function view(over: Partial<{ innerHeight: number; visual: { height: number; scale: number } | null }> = {}) {
   return {
     innerHeight: over.innerHeight ?? 844,
@@ -31,7 +29,7 @@ describe("measuredHeight - the window, and the moments that are not the window",
 
     const editable = document.createElement("div")
     editable.contentEditable = "true"
-    // jsdom does not implement isContentEditable off the attribute, so it is set directly.
+    // jsdom does not derive isContentEditable from the attribute, so the test sets it directly.
     Object.defineProperty(editable, "isContentEditable", { value: true })
     expect(measuredHeight(view(), editable)).toBeNull()
   })
@@ -45,7 +43,9 @@ describe("measuredHeight - the window, and the moments that are not the window",
   })
 
   it("takes a measurement that is LARGER than the last one, because neither refusal can grow a window", () => {
-    /** Both refusals ignore only a shrinking viewport; a bigger one is taken even while a field has focus. */
+    /**
+     * Both refusals ignore only a shrinking viewport. A bigger viewport is taken even while a field has the focus.
+     */
     const input = document.createElement("input")
     expect(measuredHeight(view({ visual: { height: 900, scale: 1 } }), input, 700)).toBe(900)
     expect(measuredHeight(view({ visual: { height: 900, scale: 2.5 } }), null, 700)).toBe(900)
@@ -63,7 +63,6 @@ describe("measuredHeight - the window, and the moments that are not the window",
   })
 })
 
-/** An iPhone 16 Pro's screen in points, on a home screen unless a test says otherwise. */
 function phone(over: Partial<{ innerWidth: number; standalone: boolean | undefined }> = {}) {
   return {
     innerWidth: over.innerWidth ?? 402,
@@ -92,7 +91,7 @@ describe("screenHeight - the height iOS cannot shrink", () => {
 })
 
 describe("trackAppFrame - what lands on the document", () => {
-  // Three of these tests drive the poll with fake timers; the rest must not inherit them.
+  // Three of these tests drive the poll with fake timers. The rest must not inherit them.
   afterEach(() => {
     vi.useRealTimers()
   })
@@ -109,7 +108,7 @@ describe("trackAppFrame - what lands on the document", () => {
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
 
-    // Let go of the pinch at a new height, and it follows again.
+    // After the pinch ends at a new height, the property follows again.
     visual.scale = 1
     visual.height = 640
     window.dispatchEvent(new Event("resize"))
@@ -166,7 +165,9 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("follows a window that GROWS while a field has focus, instead of staying short below it", () => {
-    /** A window grown with the cursor in a field must grow the shell at once, not when the field is left. */
+    /**
+     * A window that grows while the cursor is in a field must grow the shell at once, not when the field is left.
+     */
     const visual = { height: 700, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
     const field = document.createElement("input")
@@ -180,7 +181,9 @@ describe("trackAppFrame - what lands on the document", () => {
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
 
-    /** A viewport shrinking under a focused field is still the keyboard and keeps the last good number. */
+    /**
+     * A viewport that shrinks under a focused field is still the keyboard and keeps the last good number.
+     */
     visual.height = 600
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
@@ -193,7 +196,9 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("re-measures when the app comes back, because a resume sends no resize", () => {
-    /** No `resize` is dispatched, since iOS sends none on a resume; each resume event must suffice alone. */
+    /**
+     * The test dispatches no `resize`, because iOS sends none on a resume. Each resume event must suffice alone.
+     */
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
 
@@ -219,7 +224,6 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("re-measures on a timer while visible, because a resume can arrive with no event at all", () => {
-    /** The resume events are not always enough, so the height is also polled, again without any event. */
     vi.useFakeTimers()
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
@@ -257,7 +261,7 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("measures nothing and schedules nothing while the page is hidden", () => {
-    /** A hidden window is not polled, since iOS throttles its timers and nobody is looking. */
+    /** A hidden window is not polled, because iOS throttles its timers and nobody is looking. */
     vi.useFakeTimers()
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
@@ -271,7 +275,6 @@ describe("trackAppFrame - what lands on the document", () => {
     vi.advanceTimersByTime(10_000)
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
 
-    // Coming back is the resume: at once, and the poll is running again afterwards.
     Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true })
     document.dispatchEvent(new Event("visibilitychange"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("600px")
@@ -284,7 +287,9 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("keeps a home screen app at the screen's height when iOS leaves every viewport number short", () => {
-    /** WebKit's layout viewport stays short after the keyboard or a long pause, and the visual viewport agrees. */
+    /**
+     * WebKit's layout viewport stays short after the keyboard or a long pause, and the visual viewport agrees.
+     */
     const visual = { height: 874, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
     Object.defineProperty(window, "innerWidth", { value: 402, configurable: true })
@@ -298,7 +303,6 @@ describe("trackAppFrame - what lands on the document", () => {
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("874px")
 
-    // Turned on its side, the window is as wide as the long side and the short side is the height.
     Object.defineProperty(window, "innerWidth", { value: 874, configurable: true })
     window.dispatchEvent(new Event("orientationchange"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("402px")
@@ -326,7 +330,6 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 })
 
-/** iPhone figures: an 844px window, a 336px keyboard, and iOS panning 120px further to show a field. */
 describe("visibleBand - where a bottom sheet stands while the keyboard is open", () => {
   it("is the whole window, nothing under it, without a keyboard", () => {
     expect(visibleBand({ innerHeight: 844, visualViewport: { height: 844, scale: 1, offsetTop: 0 } })).toEqual({

@@ -41,7 +41,7 @@ describe("PaymentsPage - settle as a row action", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Settle" }))
 
-    // Booked by steward in one answer, with no bot request to wait for.
+    // Booked by Steward in one answer, with no bot request to wait for.
     await waitFor(() => {
       const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")
       expect(call).toBeTruthy()
@@ -106,7 +106,7 @@ describe("PaymentsPage - one column for each field", () => {
   })
 })
 
-/** Every Payments column is a field, so the width at 1440px is kept by folding `Created` and `Donation`. */
+/** Every column is a field, so folding `Created` and `Donation` keeps the width at 1440px. */
 describe("PaymentsPage - the column budget fits the card at 1440px", () => {
   it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {
     vi.stubGlobal(

@@ -18,13 +18,11 @@ export type Ask = {
   confirm: string
 }
 
-/** A key as the track file spells it, readable: `ancient-debris` becomes "Ancient debris". */
 export function keyName(key: string): string {
   const spaced = key.replace(/[-_]+/g, " ").trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-/** The hunger games' round, started with one button: everybody registered goes into the arena, the countdown begins. */
 export function HungerGamesActions() {
   const round = useHungerGamesRound()
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -39,7 +37,9 @@ export function HungerGamesActions() {
       confirm: t("steward.game.start", { anyway }),
     })
 
-  /** A start refused below the recommended minimum is the one refusal a second, confirmed step can overrule. */
+  /**
+   * A start refused for being below the recommended minimum is the one refusal that a second, confirmed step can overrule.
+   */
   const after = (run: CommandRun) =>
     run.reason === "BELOW_SOFT_MINIMUM" && ask?.confirm === t("steward.game.start", { anyway: false }) ? (
       <StartAnyway onStart={() => start(true)} />
@@ -90,7 +90,6 @@ function StartAnyway({ onStart }: { onStart: () => void }) {
   )
 }
 
-/** Asks, sends, and then stays open with what became of it. */
 export function ActionDialog({
   ask,
   onClose,
@@ -99,7 +98,6 @@ export function ActionDialog({
 }: {
   ask: Ask | null
   onClose: () => void
-  /** The query this action changes, re-read once the server has answered. */
   refresh: string
   after?: (run: CommandRun) => ReactNode
 }) {
@@ -113,7 +111,7 @@ export function ActionDialog({
     if (settled) void client.invalidateQueries({ queryKey: [refresh] })
   }, [settled, client, refresh])
 
-  // A new question starts clean: the answer to the last one is not the answer to this.
+  // A new question starts clean, because the answer to the last one does not answer it.
   const reset = action.reset
   const [lastAsk, setLastAsk] = useState(ask)
   if (lastAsk !== ask) {
@@ -154,11 +152,7 @@ export function ActionDialog({
   )
 }
 
-/**
- * The states a request can be in, each said in words.
- *
- * EXPIRED means no server claimed the row, so it is not listening; the action did not fail.
- */
+/** EXPIRED means that no server claimed the row, so none is listening. The action did not fail. */
 export function RequestOutcome({ run }: { run: CommandRun }) {
   const tone =
     run.status === "FAILED" || run.status === "EXPIRED"

@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/** The sign-in mask, a whole page since signed out every other API call answers 401. */
+/**
+ * The sign-in page. It fills the window, because every other API call answers 401 when signed out.
+ */
 export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
   const missing = me?.signInUnavailable
 

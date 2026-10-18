@@ -9,7 +9,6 @@ afterEach(() => {
   window.innerWidth = 1024
 })
 
-/** The confirmation open from the start, closing through `closed`. */
 function draw(change: () => Promise<unknown> | void, closed: { count: number } = { count: 0 }) {
   render(
     <AskThenAct

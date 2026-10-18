@@ -48,16 +48,10 @@ import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 
-/**
- * One hook per endpoint, with the live topics it follows decided here rather than at the call site.
- *
- * A live query is read again when steward's stream announces one of its topics, and once a minute anyway.
- */
+/** One hook per endpoint. A hook's live topics are decided here and not at the call site. */
 
 /**
- * Who is signed in, and the CSRF token that every write needs.
- *
- * Kept for an hour; the token goes where `api()` can read it synchronously.
+ * Who is signed in, and the CSRF token that every write needs. The token goes where `api()` can read it synchronously.
  */
 export function useMe() {
   return useQuery({
@@ -73,9 +67,7 @@ export function useMe() {
 }
 
 /**
- * Registers a security key: two round trips with the browser's dialog between them.
- *
- * One mutation, since a challenge is single-use and a half-done ceremony must not outlive a re-render.
+ * Registers a security key in one mutation, because a challenge is single-use and a half-done ceremony must not outlive a re-render.
  */
 export function useRegisterKey() {
   const client = useQueryClient()
@@ -89,7 +81,7 @@ export function useRegisterKey() {
       try {
         credential = await createSecurityKey(started)
       } catch (refused) {
-        /** Rethrown as a plain Error, so the form prints one sentence rather than "NotAllowedError". */
+        /** A plain Error, so the form prints one sentence and not "NotAllowedError". */
         throw new Error(whyTheKeyFailed(refused), { cause: refused })
       }
       const registered = await api<KeyRegistered>("/auth/webauthn/register/finish", {
@@ -102,16 +94,13 @@ export function useRegisterKey() {
   })
 }
 
-/** Asks for a registration challenge once. */
 const askForRegistration = () => api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
 
-/** The registration challenge; a further key needs a step-up, so a refusal opens the sheet once and asks again. */
+/** A further key needs a step-up, so a refusal opens the sheet once and asks again. */
 const startRegistration = () => afterAStepUp(askForRegistration)
 
 /**
- * An `/auth/` request that adds a further factor, asked again once after the step-up sheet if it was refused for one.
- *
- * The sheet offers whichever factor the account has, so an account with only an authenticator app gets past it too.
+ * An `/auth/` request that adds a further factor, asked again once after the step-up sheet if it was refused for want of one. The sheet offers whichever factor the account has.
  */
 async function afterAStepUp<T>(ask: () => Promise<T>): Promise<T> {
   try {
@@ -125,14 +114,12 @@ async function afterAStepUp<T>(ask: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Starts enrolling an authenticator app: a fresh secret, its URI and its QR code, none of which counts yet. */
 export function useStartEnrolment() {
   return useMutation({
     mutationFn: () => afterAStepUp(() => api<AuthenticatorEnrolment>("/auth/totp/enrol/start", { method: "POST" })),
   })
 }
 
-/** Confirms the enrolment with one code the app shows, after which `/api/me` lists the app. */
 export function useFinishEnrolment() {
   const client = useQueryClient()
   return useMutation({
@@ -143,7 +130,9 @@ export function useFinishEnrolment() {
   })
 }
 
-/** A step-up, or the door, with the app's code instead of the key; `length` as the key's split button chooses it. */
+/**
+ * A step-up, or the first factor, with the app's code instead of the key. `length` is what the key's split button chooses.
+ */
 export function useEnterCode() {
   const client = useQueryClient()
   return useMutation({
@@ -154,7 +143,6 @@ export function useEnterCode() {
   })
 }
 
-/** Removes the authenticator app; the server refuses the last factor. */
 export function useRemoveAuthenticator() {
   const client = useQueryClient()
   return useMutation({
@@ -165,7 +153,6 @@ export function useRemoveAuthenticator() {
   })
 }
 
-/** Holds the key, then refetches `/api/me`, whose `verifiedAt` the shell and the step-up dialog read. */
 export function useHoldKey() {
   const client = useQueryClient()
   return useMutation({
@@ -177,7 +164,7 @@ export function useHoldKey() {
   })
 }
 
-/** Ends this session's step-up now; `/api/me` then has no `stepUpUntil`, and the next change asks for the key. */
+/** Ends this session's step-up now, so the next change asks for the key. */
 export function useEndStepUp() {
   const client = useQueryClient()
   return useMutation({
@@ -188,7 +175,6 @@ export function useEndStepUp() {
   })
 }
 
-/** Renames one registered key. The list lives in `/api/me`, so that is what is invalidated. */
 export function useRenameKey() {
   const client = useQueryClient()
   return useMutation({
@@ -203,7 +189,6 @@ export function useRenameKey() {
   })
 }
 
-/** Removes one registered key; the server refuses the account's last factor. */
 export function useRemoveKey() {
   const client = useQueryClient()
   return useMutation({
@@ -217,7 +202,7 @@ export function useRemoveKey() {
   })
 }
 
-/** The services the network page draws and the sidebar lists, as compose.yml's labels place and wire them. */
+/** The services that the network page draws, as the labels in compose.yml place and wire them. */
 export function useTopology(enabled = true) {
   return useQuery({
     queryKey: keys.topology,
@@ -254,7 +239,6 @@ export function useHost(enabled = true) {
   })
 }
 
-/** Steward's nightly clock, which moves when its settings are saved. */
 export function useSchedule(enabled = true) {
   return useQuery({
     queryKey: keys.schedule,
@@ -268,16 +252,13 @@ export function useBackups(enabled = true) {
   return useQuery({
     queryKey: keys.backups,
     queryFn: () => api<Backup[]>("/api/backups"),
-    /** An archive is written by a run, so a finished run is when the list moves. */
     ...live("RUNS"),
     enabled,
   })
 }
 
 /**
- * What a run would do, without a run.
- *
- * No refetch interval: steward caches the answer for six hours, so polling would not make it any fresher.
+ * What a run would do, without a run. There is no refetch interval, because steward caches the answer for six hours.
  */
 export function useAvailable(enabled = true) {
   return useQuery({
@@ -289,9 +270,7 @@ export function useAvailable(enabled = true) {
 }
 
 /**
- * Asks every source again, now, and writes the answer straight into the cache.
- *
- * A mutation, so the button's busy state belongs to this press. It can take up to two minutes.
+ * Asks every source again and writes the answer into the cache. It is a mutation so the busy state belongs to this press. It can take up to two minutes.
  */
 export function useRefreshAvailable() {
   const client = useQueryClient()
@@ -310,7 +289,7 @@ export function useRuns(limit = 20, enabled = true) {
   })
 }
 
-/** The one open run, or none, which locks Update, Take down and Recreate everywhere. */
+/** The one open run, or none. An open run locks Update, Take down and Recreate everywhere. */
 export function useActiveRun(enabled = true) {
   return useQuery({
     queryKey: keys.activeRun,
@@ -320,7 +299,9 @@ export function useActiveRun(enabled = true) {
   })
 }
 
-/** One run, read again on every change of the runs while it is open, since its report carries the progress. */
+/**
+ * One run, read again on every change of the runs while it is open, because its report carries the progress.
+ */
 export function useRun(id: string, enabled = true) {
   return useQuery({
     queryKey: keys.run(id),
@@ -351,7 +332,6 @@ export function useSeason(enabled = true) {
   })
 }
 
-/** The newest actions across steward's inbox and the journal, merged and sorted by steward. */
 export function useActions(limit = 5, enabled = true) {
   return useQuery({
     queryKey: keys.actions(limit),
@@ -361,7 +341,6 @@ export function useActions(limit = 5, enabled = true) {
   })
 }
 
-/** The SMP's active milestones and their objectives, for the actions on its service page. */
 export function useSmpTrack() {
   return useQuery({
     queryKey: keys.smpTrack,
@@ -370,7 +349,6 @@ export function useSmpTrack() {
   })
 }
 
-/** The open hunger games round, if there is one. */
 export function useHungerGamesRound() {
   return useQuery({
     queryKey: keys.hungerGamesRound,
@@ -379,7 +357,6 @@ export function useHungerGamesRound() {
   })
 }
 
-/** One action on the smp or hunger-games page, as a request in that server's inbox; the answer names it. */
 export function useGameAction() {
   const client = useQueryClient()
   return useMutation({
@@ -390,7 +367,6 @@ export function useGameAction() {
   })
 }
 
-/** One announcement, one text per language; the answer is one row id per language. */
 export function useSendAnnouncement() {
   const client = useQueryClient()
   return useMutation({
@@ -402,7 +378,7 @@ export function useSendAnnouncement() {
   })
 }
 
-/** What became of one request, read again on every change of the requests until it has settled. */
+/** What became of one request, read again on every change of the requests until it is final. */
 export function useCommandRun(id: string | null) {
   return useQuery({
     queryKey: keys.commandRun(id ?? ""),
@@ -410,7 +386,7 @@ export function useCommandRun(id: string | null) {
     enabled: Boolean(id),
     meta: { topics: ["REQUESTS"] satisfies Topic[] },
     refetchInterval: (query) => {
-      /** A failed read stops the reconciliation; the row shows the error and a button to ask again. */
+      /** A failed read stops the reconciliation. */
       if (query.state.error) return false
       const status = query.state.data?.status
       return status === undefined || status === "PENDING" || status === "RUNNING" ? RECONCILE : false
@@ -419,9 +395,7 @@ export function useCommandRun(id: string | null) {
 }
 
 /**
- * The guild's channels, for the pickers in the configuration editor.
- *
- * Five minutes and no refetch on focus, so a page with eleven pickers is not eleven requests per focus.
+ * The guild's channels. Fresh for five minutes with no refetch on focus, so a page with eleven pickers sends one request.
  */
 export function useGuildChannels(enabled = true) {
   return useQuery({
@@ -433,7 +407,6 @@ export function useGuildChannels(enabled = true) {
   })
 }
 
-/** Whether the agent has a secret and answers, asked before the recreate button is drawn. */
 export function useAgent(enabled = true) {
   return useQuery({
     queryKey: keys.agent,
@@ -443,16 +416,18 @@ export function useAgent(enabled = true) {
   })
 }
 
-/** Asks for a run by writing a row into steward's inbox, which is cancellable and never touches a container. */
+/**
+ * Asks for a run by writing a row into steward's inbox. The run can be cancelled and never touches a container.
+ */
 export function useAskForRun() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (ask: {
       kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START" | "RECREATE" | "DEPLOY"
       delaySeconds?: number
-      /** Which compose services the run is for; left off for the whole network. */
+      /** Without it the run is for the whole network. */
       services?: string[]
-      /** For an update: the builds made on the host that it renews may go, as the dialog listed them. */
+      /** For an update: whether it may replace the builds made on the host. */
       replaceLocal?: boolean
     }) => api<Run>("/api/updates", { method: "POST", body: ask }),
     onSuccess: () => {
@@ -461,11 +436,7 @@ export function useAskForRun() {
   })
 }
 
-/**
- * Takes back the pending run, whether its countdown is ticking now or it is entered for tonight.
- *
- * A 409 means the countdown ran out first.
- */
+/** Takes back the pending run. A 409 means that the countdown ran out first. */
 export function useCancelRun() {
   const client = useQueryClient()
   return useMutation({
@@ -487,7 +458,6 @@ export function useConsole(service: string) {
   })
 }
 
-/** The commands one server published of itself, read again whenever a server publishes a changed tree. */
 export function useCommandTree(service: string) {
   return useQuery({
     queryKey: keys.commandTree(service),
@@ -496,18 +466,16 @@ export function useCommandTree(service: string) {
   })
 }
 
-/** The plugins on one Minecraft server, which change when a run installs or removes one. */
 export function usePlugins(service: string) {
   return useQuery({
     queryKey: keys.plugins(service),
     queryFn: () => api<ServicePlugins>(`/api/services/${encodeURIComponent(service)}/plugins`),
     ...live("RUNS"),
-    /** A 404 means the service has no plugins folder; every other failure gets one retry. */
+    /** A 404 means no plugins folder. Every other failure gets one retry. */
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
   })
 }
 
-/** The Modrinth search, as a query keyed on what was typed; the component debounces it. */
 export function usePluginSearch(service: string, query: string, enabled: boolean) {
   return useQuery({
     queryKey: keys.pluginSearch(service, query),
@@ -515,12 +483,11 @@ export function usePluginSearch(service: string, query: string, enabled: boolean
       api<PluginSearch>(`/api/services/${encodeURIComponent(service)}/plugins/search?q=${encodeURIComponent(query)}`),
     enabled,
     staleTime: 5 * 60 * SECOND,
-    /** Keeps the previous hits while a new key loads, so the list does not flash skeletons on every letter. */
+    /** The list does not flash skeletons on every letter. */
     placeholderData: keepPreviousData,
   })
 }
 
-/** Installs a plugin, which means writing the row the next update run reads. */
 export function useInstallPlugin(service: string) {
   const client = useQueryClient()
   return useMutation({
@@ -528,13 +495,15 @@ export function useInstallPlugin(service: string) {
       api<PluginAdded>(`/api/services/${encodeURIComponent(service)}/plugins`, { method: "POST", body: hit }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.plugins(service) })
-      // The search rows carry `added`, so they are wrong the moment this succeeds.
+      // The search rows carry `added`, so they are wrong once this succeeds.
       void client.invalidateQueries({ queryKey: ["plugin-search", service] })
     },
   })
 }
 
-/** Asks for a RESTORE run of one archive, with what it replaces typed back as the confirmation. */
+/**
+ * Asks for a RESTORE run of one archive. The confirmation is the text of what the run replaces, typed back.
+ */
 export function useRestore() {
   const client = useQueryClient()
   return useMutation({
@@ -549,7 +518,7 @@ export function useRestore() {
   })
 }
 
-/** Asks for a REMOVE_PLUGIN run: the server is stopped, and the row, the jar and the data folder go. */
+/** Asks for a REMOVE_PLUGIN run: the server stops, and the row, the jar and the data folder go. */
 export function useRemovePlugin(service: string) {
   const client = useQueryClient()
   return useMutation({
@@ -578,7 +547,7 @@ export function useSetPhase() {
 export function useSetSeasonDate() {
   const client = useQueryClient()
   return useMutation({
-    /** `at: null` removes the date: "none announced" is a state the countdown reads. */
+    /** `at: null` removes the date, which the countdown reads as "none announced". */
     mutationFn: (change: { which: "launch" | "smpStart"; at: string | null }) =>
       api<DateChange>("/api/season/date", { method: "POST", body: change }),
     onSuccess: () => {
@@ -588,7 +557,6 @@ export function useSetSeasonDate() {
   })
 }
 
-/** Re-export so a page can narrow a query's options without importing TanStack itself. */
 export type { UseQueryOptions }
 
 export * from "@/lib/queries-access"

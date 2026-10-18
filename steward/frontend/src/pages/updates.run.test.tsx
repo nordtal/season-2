@@ -21,7 +21,6 @@ const REPORT = {
       service: "proxy",
       state: "HEALTHY",
       changes: [
-        // As PlanReport writes it: the pair, not the filename.
         { artefact: "proxy", from: "0.9.3", to: "0.9.4" },
         {
           artefact: "resource-pack",
@@ -90,7 +89,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** A report names the version pair `PlanReport` writes, and a pack by its short pre-run hash. */
+/**
+ * A report names the version pair that `PlanReport` writes, and a pack by its short pre-run hash.
+ */
 describe("a run's report reads as versions, not as bookkeeping", () => {
   it("prints the jump steward resolved and no jar name", async () => {
     vi.stubGlobal("fetch", backend())
@@ -144,7 +145,7 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
   })
 
   it("leaves a filename alone when that is honestly all there is", async () => {
-    /** A renamed jar falls back to its filename, since an invented version would be worse. */
+    /** A renamed jar falls back to its filename, because an invented version would be worse. */
     vi.stubGlobal(
       "fetch",
       backend({

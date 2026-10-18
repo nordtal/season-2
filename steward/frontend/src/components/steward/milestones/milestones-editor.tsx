@@ -7,17 +7,14 @@ import { PinnedRow } from "@/components/steward/settings-view"
 import { TrackSplit } from "@/components/steward/milestones/track-split"
 import { trackEdits, trackSchema } from "@/components/steward/milestones/model"
 
-/** A draft value that is a list of sections, which is what the track's key holds. */
 function sectionsIn(value: string | string[] | SectionValues[] | undefined): SectionValues[] | undefined {
   return Array.isArray(value) && value.every((item) => typeof item === "object") ? value : undefined
 }
 
-/** Whether this editor can draw `document`: a track whose milestones and objectives the schema describes. */
 export function readsTrack(document: ConfigDocument): boolean {
   return trackSchema(document.entries) !== null
 }
 
-/** The milestones group drawn compactly, saved like every other group. */
 export function MilestonesEditor({ file, document }: CustomEditorProps) {
   const schema = trackSchema(document.entries)
   const { draft, count, set, submit, discard, save } = useGroupDraft(file, document)

@@ -56,7 +56,6 @@ function text(over: Partial<MessageEntry> & { key: string }): MessageText {
   return { entry: message({ shown: ["CHAT"], ...over }), path: "smp/smp", services: ["smp"], previews: {} }
 }
 
-/** The tree as text, one line per node, so a whole shape fits in one expectation. */
 function shape<L>(nodes: TreeNode<L>[], depth = 0): string[] {
   return nodes.flatMap((node) =>
     node.kind === "leaf"

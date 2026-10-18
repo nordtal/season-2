@@ -8,9 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 /**
- * The Issues tile: what steward judged, and how complete that reading is.
- *
- * Rendered in a real memory router, so a link to a missing route fails.
+ * The Issues tile: what Steward judged, and how complete that reading is. It renders in a real memory router, so a link to a missing route fails.
  */
 
 function json(status: number, body: unknown): Response {
@@ -55,7 +53,6 @@ function backup(hoursAgo: number) {
   }
 }
 
-/** The database dump, so the tile has no missing dump to be red about. */
 function dump(hoursAgo: number) {
   return {
     name: "nordtal-20260912T024500Z.dump",
@@ -66,7 +63,6 @@ function dump(hoursAgo: number) {
   }
 }
 
-/** One alert as `/api/alerts` lists it. */
 function alert(subject: string, level: "warn" | "down") {
   return {
     type: "service",
@@ -79,12 +75,11 @@ function alert(subject: string, level: "warn" | "down") {
   }
 }
 
-/** A reading steward finished, with these alerts in it. */
 function reading(alerts: unknown[], unreadable: string | null = null) {
   return { checkedAt: new Date().toISOString(), unreadable, level: "ok", alerts, recent: [] }
 }
 
-/** Everything the start page asks for; `alerts` is a function so a test can hold it open. */
+/** `alerts` is a function, so a test can hold it open. */
 function backend(over: {
   services?: unknown[]
   backups?: unknown[]
@@ -102,7 +97,7 @@ function backend(over: {
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/backups") return json(200, over.backups ?? [backup(2), dump(2)])
     if (url === "/api/alerts") return json(200, await (over.alerts?.() ?? Promise.resolve(reading([]))))
-    /** The other tiles answer emptily, so nothing else can be why a test passes or fails. */
+    /** The other tiles answer emptily, so nothing else decides a test. */
     if (url === "/api/agent") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
@@ -114,13 +109,11 @@ function backend(over: {
   })
 }
 
-/** A route this test never draws, only routes to. */
+/** A route this test only routes to. */
 const nothing = () => null
 
-/** The default a held promise's resolver starts as. */
 const noop = () => undefined
 
-/** The page under a router holding only the routes it links into. */
 function draw() {
   const root = createRootRoute()
   const routeTree = root.addChildren([
@@ -138,7 +131,7 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  /** The tooltip provider the Shell normally supplies, which the table's badges need. */
+  /** The tooltip provider that the Shell normally supplies. */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -148,13 +141,12 @@ function draw() {
   )
 }
 
-/** The Issues tile, walked up from its label to the div holding value and hint. */
+/** Found by walking up from its label to the div that holds value and hint. */
 function issuesTile(): HTMLElement | null {
   const label = screen.queryByText("Issues")
   return label?.closest("div") ?? null
 }
 
-/** What the tile says altogether, or "" before it renders. */
 const said = () => issuesTile()?.textContent ?? ""
 
 const COULD_NOT_READ = /could not/
@@ -172,7 +164,6 @@ describe("OverviewPage - the Issues tile prints what steward judged", () => {
     )
     draw()
 
-    /** The tile prints an alert's subject, not its title. */
     await waitFor(() => expect(said()).toContain("smp, bot"))
     expect(said()).toContain("2")
     expect(issuesTile()?.innerHTML).toContain("text-destructive")
@@ -180,7 +171,7 @@ describe("OverviewPage - the Issues tile prints what steward judged", () => {
   })
 
   it("keeps the tile empty while steward has not read the stack yet", async () => {
-    /** A settled "0" must never appear before steward has looked. */
+    /** A settled "0" must never appear before Steward has looked. */
     vi.stubGlobal("fetch", backend({ alerts: () => Promise.resolve({ ...reading([]), checkedAt: undefined }) }))
     draw()
 
@@ -222,7 +213,6 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
     vi.stubGlobal("fetch", backend({ alerts: () => held }))
     draw()
 
-    // Waiting: the tile already exists and already says something, and that something is not "0".
     await waitFor(() => expect(issuesTile()).not.toBeNull())
     expect(said()).not.toContain("0")
 
@@ -230,7 +220,6 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
       answer(reading([]))
     })
 
-    /** Settled and fine: the evidenced zero, and nothing reading as failed. */
     await waitFor(() => expect(said()).toContain("0"))
     expect(said()).not.toMatch(COULD_NOT_READ)
   })
@@ -238,8 +227,6 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
 
 /**
  * The tiles pair up two by two below `26rem` and run over three columns up to `lg`, so no tile spans a row.
- *
- * CPU and Memory are the service page's `MetricChart`, each with its own curve of the host.
  */
 describe("OverviewPage - the number row pairs up its tiles", () => {
   it("lets CPU take one column like every other tile", async () => {
@@ -264,7 +251,7 @@ describe("OverviewPage - the number row pairs up its tiles", () => {
   })
 })
 
-/** The tile order, read in DOM order since the defect is an order: CPU, Memory, Disk, Latest backup, Behind, Issues. */
+/** Read in DOM order because the defect is an order. */
 function metricLabels(): string[] {
   const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
   return Array.from(grid?.children ?? []).map((tile) => tile.querySelector("span")?.textContent ?? "")
@@ -280,7 +267,6 @@ describe("OverviewPage - the order of the number row", () => {
   })
 })
 
-/** The Latest backup tile links to `/operations/backups`, which holds the full list. */
 describe("OverviewPage - the Latest backup tile links to the page that holds the detail", () => {
   it("points the tile at /operations/backups", async () => {
     vi.stubGlobal("fetch", backend({ backups: [backup(2), dump(2)] }))
@@ -293,7 +279,6 @@ describe("OverviewPage - the Latest backup tile links to the page that holds the
   })
 })
 
-/** The heading is the proxy's player count, and a dash while no row carries one. */
 describe("OverviewPage - the heading is how many are in the game", () => {
   it("says the count instead of the page's own name", async () => {
     vi.stubGlobal(
@@ -319,9 +304,7 @@ describe("OverviewPage - the heading is how many are in the game", () => {
 })
 
 /**
- * The bottom section is the network picture and the actions, with no service table beside it.
- *
- * jsdom has no layout, so only presence is asserted, not position.
+ * The bottom section is the network picture and the actions. jsdom has no layout, so the test asserts presence and not position.
  */
 describe("OverviewPage - the bottom section", () => {
   it("draws the network picture and no longer draws the service table", async () => {
@@ -339,10 +322,8 @@ describe("OverviewPage - the bottom section", () => {
 
     await waitFor(() => expect(document.querySelector('[data-node="smp"]')).not.toBeNull())
     expect(screen.getByRole("heading", { name: "Network" })).toBeTruthy()
-    /** Every service the arrangement names is drawn, with or without a container behind it. */
     expect(document.querySelector('[data-node="postgres"]')).not.toBeNull()
 
-    /** No disclosure element remains. */
     expect(document.querySelector("details")).toBeNull()
     expect(screen.queryByText(/of 3 healthy/)).toBeNull()
   })

@@ -4,8 +4,6 @@ import { groupPlugins, pluginStatus, removalSentence, versionLine, versionOf } f
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
- * The removal confirmation names the plugin's data folder, which it deletes too.
- *
  * The folder cannot be derived from the jar: `Chunky-Bukkit-<version>.jar` makes `plugins/Chunky/`.
  */
 const plugin = (over: Partial<ServicePlugin> = {}): ServicePlugin => ({
@@ -30,7 +28,9 @@ describe("what the confirmation promises before a plugin is removed", () => {
   it("names no folder when steward could not read one out of the jar", () => {
     const sentence = removalSentence(plugin({ dataFolder: undefined }))
 
-    /** An unknown folder must not be named, not even by a fallback; `plugins/` alone is the honest sentence. */
+    /**
+     * An unknown folder is not named, not even by a fallback. `plugins/` alone is the correct sentence.
+     */
     expect(sentence).not.toMatch(/plugins\/\S+\//)
     expect(sentence).toContain("could not be read")
     expect(sentence).toContain("Chunky-Bukkit-1.5.3.jar")

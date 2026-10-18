@@ -28,7 +28,6 @@ afterEach(() => {
   resetDrafts()
 })
 
-/** One language card's two values. */
 function section(tag: string, channel: string): ConfigEntry[] {
   return [
     entry({ path: "tag", key: "tag", value: tag }),
@@ -36,7 +35,6 @@ function section(tag: string, channel: string): ConfigEntry[] {
   ]
 }
 
-/** Repeatable cards through the real form: `SECTIONS` draws `RepeatableCards`, and only Save writes. */
 describe("repeatable cards for a SECTIONS entry", () => {
   const file = "discord-bot/access"
   const TEMPLATE: ConfigEntry[] = [
@@ -105,7 +103,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
     expect(screen.queryByText("Entry 1")).toBeNull()
     expect(screen.queryByText("en", { selector: "span" })).toBeNull()
 
-    /** A blank new card falls back to its index for a title. */
     fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
     screen.getByText("Entry 3")
   })
@@ -125,7 +122,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
     draw(<Settings service="discord-bot" />)
     await open("Access")
 
-    /** Without a bot token the picker degrades to a text input under the guild's reason. */
     expect(await screen.findByText("no bot token in this test")).not.toBeNull()
   })
 
@@ -166,10 +162,8 @@ describe("repeatable cards for a SECTIONS entry", () => {
     await screen.findByDisplayValue("de")
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
-    // Removing asks first; the click only arms the confirmation.
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
-    // The card is gone from the draft and the count says so, but nothing has been written yet.
     expect(screen.queryByDisplayValue("de")).toBeNull()
     screen.getByRole("button", { name: "Save 1" })
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false)
@@ -181,7 +175,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
   })
 })
 
-/** The five tones of `colours.yml` through the real form, drawn as one run. */
 describe("a file of colours, side by side", () => {
   const file = "smp/colours.yml"
 
@@ -209,7 +202,6 @@ describe("a file of colours, side by side", () => {
     const swatches = await screen.findAllByLabelText("Pick a colour")
     expect(swatches).toHaveLength(5)
 
-    /** Every swatch shares one row ancestor, the grid `EntryList` builds for a run. */
     const rows = new Set(swatches.map((swatch) => swatch.closest(".grid")))
     expect(rows.size).toBe(1)
     expect(rows.has(null)).toBe(false)
@@ -223,7 +215,6 @@ describe("a file of colours, side by side", () => {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
           restartRequired: false,
-          /** A single colour is not grouped, yet still gets the picker. */
           entries: [colourEntry("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
         },
       }),
@@ -254,7 +245,6 @@ describe("a file of colours, side by side", () => {
   })
 })
 
-/** `prestige.yml`'s two blocks through the real form, as one row per tier with its hour and colour. */
 describe("two blocks that share their keys, as one row per key", () => {
   const file = "smp/prestige.yml"
 
@@ -283,7 +273,6 @@ describe("two blocks that share their keys, as one row per key", () => {
     const row = hour.closest("li")
 
     expect(row).not.toBeNull()
-    /** The same `<li>`, which is what one row per tier means in the DOM. */
     expect(colour.closest("li")).toBe(row)
     expect(row?.textContent).toContain("tier-02")
   })
@@ -295,14 +284,15 @@ describe("two blocks that share their keys, as one row per key", () => {
 
     await screen.findByDisplayValue("2")
     const row = nonNull(fieldFor(container, "hours.tier-02").closest<HTMLElement>("li"), "the row")
-    /** The tier is named once, and the halves carry only `sr-only` labels, removed here first. */
+    /**
+     * The tier is named once. The halves carry only `sr-only` labels, which the test removes first.
+     */
     expect(visibleText(row).match(/tier-02/g) ?? []).toHaveLength(1)
     const block = nonNull(row.closest<HTMLElement>("ul"), "the block")
     expect(visibleText(block).match(/hours/g) ?? []).toHaveLength(1)
     expect(visibleText(block).match(/colours/g) ?? []).toHaveLength(1)
   })
 
-  /** The label is hidden for the eye but kept as the field's accessible name. */
   it("keeps each half's label for a screen reader", async () => {
     withLadder()
     draw(<Settings service="smp" />)
@@ -318,7 +308,6 @@ describe("two blocks that share their keys, as one row per key", () => {
     draw(<Settings service="smp" />)
     await open("Prestige")
 
-    // Three tiers, plus `admin` standing outside the pair as an ordinary colour field.
     expect(await screen.findAllByLabelText("Pick a colour")).toHaveLength(4)
   })
 
@@ -339,7 +328,9 @@ describe("two blocks that share their keys, as one row per key", () => {
     const parsed: unknown = JSON.parse(body)
     if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
     expect(parsed.changes).toEqual({
-      /** The display label was overridden and the path was not, so search and save hit the same key. */
+      /**
+       * The display label is overridden and the path is not, so search and save use the same key.
+       */
       "hours.tier-02": "3",
       "colours.tier-02": "#112233",
     })
@@ -366,7 +357,6 @@ describe("two blocks that share their keys, as one row per key", () => {
     const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
-    /** Nothing is paired, and all three values are still drawn as separate fields. */
     await screen.findByDisplayValue("2")
     expect(fieldFor(container, "hours.tier-02").closest("li")).toBeNull()
     expect(fieldFor(container, "hours.tier-01").value).toBe("0")

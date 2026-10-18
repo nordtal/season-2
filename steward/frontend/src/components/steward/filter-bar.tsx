@@ -9,9 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /**
- * The search and filter row of every page that has one: the search field first and growing, the filters beside it.
- *
- * It wraps only when the controls do not fit one line, the field never narrower than a phone's half.
+ * The row wraps only when the controls do not fit on one line. The field is never narrower than half a phone.
  */
 export function FilterBar({
   children,
@@ -30,9 +28,7 @@ export function FilterBar({
 }
 
 /**
- * The search field, the magnifier inside it and a clear button once something is typed.
- *
- * With `onSubmit` it filters on Enter alone, as an exact match must; clearing submits the empty value at once.
+ * With `onSubmit` it filters on Enter only, as an exact match must. Clearing submits the empty value at once.
  */
 export function SearchField({
   value,
@@ -47,9 +43,7 @@ export function SearchField({
   value: string
   onValueChange: (value: string) => void
   onSubmit?: (value: string) => void
-  /** The keyboard a phone shows, `numeric` for a number. */
   inputMode?: "numeric"
-  /** The field's accessible name, which may say more than the placeholder has room for. */
   label: string
   placeholder?: string
   className?: string
@@ -100,10 +94,9 @@ export function SearchField({
   )
 }
 
-/** The value of a {@link FilterSelect} that keeps every row. */
 const EVERY = "\u0000every"
 
-/** A filter by one value, `""` for every row, named for a screen reader and drawn without a label. */
+/** `""` keeps every row. */
 export function FilterSelect({
   value,
   onValueChange,
@@ -115,7 +108,6 @@ export function FilterSelect({
   value: string
   onValueChange: (value: string) => void
   label: string
-  /** What the choice that keeps every row reads. */
   every: string
   options: { value: string; label: string }[]
   className?: string
@@ -137,7 +129,6 @@ export function FilterSelect({
   )
 }
 
-/** A filter that is on or off, a button that stays pressed and ticked while it holds. */
 export function FilterToggle({
   pressed,
   onPressedChange,
@@ -160,7 +151,6 @@ export function FilterToggle({
   )
 }
 
-/** What every row of the search shares, such as the loader and version a plugin must run on. */
 export function FilterContext({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <Badge variant="outline" className="h-6 text-muted-foreground" title={title}>

@@ -23,16 +23,11 @@ import {
   hasRole,
 } from "@/pages/access-person"
 
-/**
- * The Users page: who may join, and why they may.
- *
- * Payments and Journal are pages of their own and share its vocabulary: the chain request, tab, paid, access.
- */
+/** The Users page: who may join, and why. Payments and Journal share its vocabulary. */
 
-/** Rows per page of the People table, paged after filtering. */
 const PEOPLE_PAGE_SIZE = 20
 
-/** The roster's header row and column widths, shared by the real rows and the waiting ones. */
+/** The roster's header row, shared by the real rows and the waiting ones. */
 function PeopleTable({ children }: { children: ReactNode }) {
   return (
     <Table className="steward-table">
@@ -42,7 +37,7 @@ function PeopleTable({ children }: { children: ReactNode }) {
           <TableHead className="w-[20rem]">{t("steward.people.access")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.minecraft")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.roles")}</TableHead>
-          {/* The prestige tier is derived from this number, so it is the one lever an admin has. */}
+          {/* The prestige tier derives from this number, so it is the one lever an admin has. */}
           <TableHead className="w-[7rem]">{t("steward.people.playtime")}</TableHead>
           <TableHead className="w-[15rem]" />
         </TableRow>
@@ -52,14 +47,12 @@ function PeopleTable({ children }: { children: ReactNode }) {
   )
 }
 
-/** How many rows are drawn before the roster is there. */
 const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
 
-/** One person before there is one, in the shapes of the real row; the row action stays empty. */
+/** One person before there is one. The row action stays empty. */
 function WaitingPersonRow() {
   return (
     <TableRow>
-      {/* Drawn at the declared widths, so the headings do not slide when the roster lands. */}
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
@@ -87,19 +80,16 @@ function WaitingPersonRow() {
 }
 
 /**
- * The roster: everyone the bot knows, and what they may.
- *
- * Every write here is a request the bot carries out, as `/access` in Discord does; a name opens the person's page.
+ * The roster: everyone the bot knows. Every write is a request that the bot carries out, as `/access` in Discord does.
  */
 export function AccessPage() {
   const people = usePeople()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
-  // One clock for the whole render, so that two badges in one row cannot disagree about "now".
+  // One clock for the whole render, so two badges in a row cannot disagree about "now".
   const now = useNow()
 
-  /** Resets the page whenever the filter changes, so a stale page number never flashes. */
   function changeNeedle(value: string) {
     setNeedle(value)
     setPage(0)
@@ -115,7 +105,6 @@ export function AccessPage() {
 
       <div className="flex flex-col gap-3">
         <FilterBar>
-          {/* The placeholder is short enough for 360px; the long sentence is the accessible name. */}
           <SearchField
             value={needle}
             onValueChange={changeNeedle}
@@ -134,7 +123,6 @@ export function AccessPage() {
         >
           {(list) => {
             if (list === undefined) {
-              /** Everything above the rows is already on screen, so only eight rows wait. */
               return (
                 <>
                   <PeopleTable>
@@ -149,9 +137,7 @@ export function AccessPage() {
               )
             }
             const trimmed = needle.trim().toLowerCase()
-            /**
-             * Matches the Discord name, the Minecraft name and both ids, so an id from a log still finds the person.
-             */
+            /** Matches both names and both ids, so an id from a log still finds the person. */
             const rows = list.filter(
               (person) =>
                 (!onlyWithAccess || person.accessActive) &&
@@ -165,7 +151,6 @@ export function AccessPage() {
             if (rows.length === 0) {
               return <Empty title={t("steward.people.no-match")} />
             }
-            /** Paged after filtering, so a search reaches the whole roster. */
             const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))
             const clampedPage = Math.min(page, pageCount - 1)
             const paged = rows.slice(clampedPage * PEOPLE_PAGE_SIZE, clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE)
@@ -174,10 +159,9 @@ export function AccessPage() {
                 <PeopleTable>
                   {paged.map((person) => (
                     <TableRow key={person.discordId}>
-                      {/* No `data-label`, so on a phone the person heads the card, both accounts in one popover. */}
+                      {/* No `data-label`, so on a phone the person heads the card. */}
                       <TableCell className="font-medium" data-phone="top-start">
                         <div className="hidden flex-wrap items-center gap-2 @rows:flex">
-                          {/* The closed face, since the link is the way to everything else about them. */}
                           <Link
                             to="/access/$id"
                             params={{ id: person.discordId }}
@@ -185,7 +169,7 @@ export function AccessPage() {
                           >
                             <Entity id={person.discordId} kind="discord" interactive={false} />
                           </Link>
-                          {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
+                          {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
                           {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                         </div>
                         <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
@@ -193,7 +177,7 @@ export function AccessPage() {
                       <TableCell data-label={t("steward.people.access")} data-phone="bottom-start">
                         <AccessBadge person={person} now={now} />
                       </TableCell>
-                      {/* On a phone the account is part of the person; a missing link is a badge beside them. */}
+                      {/* On a phone a missing link is a badge beside the person. */}
                       <TableCell data-label={t("steward.people.minecraft")} data-phone="off">
                         {person.minecraftUuid ? (
                           <Entity id={person.minecraftUuid} kind="minecraft" />
@@ -203,13 +187,12 @@ export function AccessPage() {
                       </TableCell>
                       <TableCell data-label={t("steward.people.roles")} data-phone="top-end">
                         <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
-                          {/* What the desktop shows in the person's and the Minecraft column. */}
                           {person.memberState !== "MEMBER" ? (
                             <span className="contents @rows:hidden">
                               <MemberBadge state={person.memberState} />
                             </span>
                           ) : null}
-                          {/* "Not linked" is only worth a place on a phone while it keeps a paying person out. */}
+                          {/* "Not linked" matters on a phone only while it keeps a paying person out. */}
                           {!person.minecraftUuid && person.accessActive ? (
                             <span className="contents @rows:hidden">
                               <LinkBadge person={person} />
@@ -224,14 +207,14 @@ export function AccessPage() {
                         )}
                       </TableCell>
                       <TableCell data-label={t("steward.people.playtime")} data-phone="bottom-end">
-                        {/* `playtime` draws the dash for somebody who has never been online. */}
+                        {/* `playtime` draws the dash for somebody never online. */}
                         <span
                           className={
                             "flex items-center gap-1 text-sm tabular-nums" +
                             (person.playtimeSeconds ? "" : " @max-rows:hidden")
                           }
                         >
-                          {/* The card's stand-in for the column's heading, which a phone does not draw. */}
+                          {/* The card's stand-in for the heading a phone does not draw. */}
                           <TERM_ICON.playtime
                             className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
                             role="img"
@@ -247,7 +230,6 @@ export function AccessPage() {
                   ))}
                 </PeopleTable>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  {/* The one count of the list: how many match, and which of them this page shows. */}
                   <p className="text-xs text-muted-foreground tnum">
                     {pageCount > 1
                       ? t("steward.people.range", {

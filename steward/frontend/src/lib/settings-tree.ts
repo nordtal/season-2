@@ -7,31 +7,32 @@ import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
 
 /**
- * One leaf of a file's settings tree, built as data so its shape can be tested without drawing.
- *
- * Keys are never shown but stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
+ * One leaf of a file's settings tree, built as data so a test can check its shape. Keys stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
  */
 export type TreeLeaf<L> = {
   kind: "leaf"
   id: string
-  /** Every key this leaf draws: one for a field, several for a colour run or a paired block. */
+  /**
+   * Every key that this leaf draws: one for a field, several for a colour run or a paired block.
+   */
   ids: string[]
   value: L
-  /** Takes the whole width of the grid rather than one cell. */
   wide: boolean
 }
 
 export type TreeBranch<L> = {
   kind: "branch"
   id: string
-  /** One name, or several when a chain of single-child branches was folded into one row. */
+  /** One name, or several when single-child branches were folded into one row. */
   labels: string[]
   children: TreeNode<L>[]
 }
 
 export type TreeNode<L> = TreeLeaf<L> | TreeBranch<L>
 
-/** `farm-world` reads "Farm world" and `serverUuid` "Server UUID", for a section nothing named. */
+/**
+ * `farm-world` reads "Farm world" and `serverUuid` reads "Server UUID", for a section that nothing named.
+ */
 export function humanise(segment: string): string {
   return sentenceOf(segment.split(/[-_.\s]+/)) || segment
 }
@@ -40,7 +41,6 @@ class Builder<L> {
   readonly root: TreeNode<L>[] = []
   private readonly branches = new Map<string, TreeBranch<L>>()
 
-  /** The branch `id`, created under `parent` on first use. */
   branch(id: string, label: string, parent: string | null): TreeBranch<L> {
     const known = this.branches.get(id)
     if (known) return known
@@ -65,7 +65,9 @@ class Builder<L> {
     return branch.children
   }
 
-  /** A branch with one branch child becomes one row with both names, and a lone top section is not a root. */
+  /**
+   * Returns the tree. A branch with one branch child becomes one row with both names, and a lone top section is not a root.
+   */
   build(): TreeNode<L>[] {
     let nodes = this.root.map(fold)
     while (nodes.length === 1 && nodes[0].kind === "branch") nodes = nodes[0].children
@@ -88,16 +90,11 @@ function parentPath(path: string): string | null {
   return at < 0 ? null : path.slice(0, at)
 }
 
-// Config files
-
 export type ConfigLeafValue =
   | { kind: "entry"; entry: ConfigEntry }
-  /** Several colours of one section, side by side (`colourRuns`). */
   | { kind: "run"; entries: ConfigEntry[] }
-  /** Two sibling sections with the same keys, one row per key (`pairedBlocks`). */
   | { kind: "pair"; pair: PairedBlocks }
 
-/** Whether a config entry needs the whole width: a list, a list of sections, several lines. */
 function wideEntry(entry: ConfigEntry): boolean {
   return entry.kind === "LIST" || entry.kind === "SECTIONS" || !entry.editable || (entry.value ?? "").includes("\n")
 }
@@ -111,7 +108,9 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   for (const run of runs) for (const member of run) runOf.set(member.path, run)
   const labelOf = new Map(entries.filter((entry) => entry.kind === "MAP").map((entry) => [entry.path, entry.label]))
 
-  /** A section never listed as its own MAP still gets a branch, so every leaf has somewhere to hang. */
+  /**
+   * Gives a section that no MAP lists a branch of its own, so every leaf has somewhere to hang.
+   */
   const ensure = (path: string | null): string | null => {
     if (path === null) return null
     if (!builder.has(path)) {
@@ -162,7 +161,6 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   return builder.build()
 }
 
-/** What a config leaf is found by: name, key, value and explanation of every entry it draws. */
 export function configLeafMatches(value: ConfigLeafValue, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -175,17 +173,15 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
   return entries.some((entry) => entryHaystack(entry).includes(needle))
 }
 
-// Texts
-
-/** Where a text is on the Translations page, `<bundle>/<key>`: a key alone is not unique across bundles. */
+/**
+ * Returns where a text sits on the Translations page, `<bundle>/<key>`. A key alone is not unique across bundles.
+ */
 export function textId(entry: MessageEntry): string {
   return `${entry.bundle}/${entry.key}`
 }
 
 /**
- * The Translations page as a tree: a branch per group, then each text's topic, by its section names and its key's segments.
- *
- * A topic two bundles share is one branch, and each of their texts is a leaf of its own.
+ * Returns the Translations page as a tree: a branch per group, then each text's topic. Bundles that share a topic share its branch.
  */
 export function textsTree(texts: MessageText[], places: Places): TreeNode<MessageText>[] {
   const builder = new Builder<MessageText>()
@@ -207,12 +203,13 @@ export function textsTree(texts: MessageText[], places: Places): TreeNode<Messag
   return builder.build()
 }
 
-/** The name a message is shown by: its spec's `@Name`, or its last key segment made readable. */
+/**
+ * Returns the name a message is shown by: its spec's `@Name`, else its last key segment made readable.
+ */
 export function messageName(entry: MessageEntry): string {
   return entry.name ?? humanise(entry.key.slice(entry.key.lastIndexOf(".") + 1))
 }
 
-/** What a message is found by: its name, its key, and both languages, packaged and overridden. */
 export function messageLeafMatches(entry: MessageEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -222,19 +219,18 @@ export function messageLeafMatches(entry: MessageEntry, query: string): boolean 
     .includes(needle)
 }
 
-// Walking a tree
-
-/** How many keys a tree draws, which decides whether it starts open. */
+/** Returns how many keys a tree draws, which decides whether it starts open. */
 export function leafCount<L>(nodes: TreeNode<L>[]): number {
   return nodes.reduce((sum, node) => sum + (node.kind === "leaf" ? node.ids.length : leafCount(node.children)), 0)
 }
 
-/** The keys below a node, for a branch's count of changed ones. */
 export function idsBelow<L>(node: TreeNode<L>): string[] {
   return node.kind === "leaf" ? node.ids : node.children.flatMap(idsBelow)
 }
 
-/** The branches that have to be open for the leaf drawing `id` to be seen, outermost first. */
+/**
+ * Returns the branches that must be open for the leaf that draws `id` to show, outermost first.
+ */
 export function ancestorsOf<L>(nodes: TreeNode<L>[], id: string): string[] | null {
   for (const node of nodes) {
     if (node.kind === "leaf") {
@@ -247,7 +243,6 @@ export function ancestorsOf<L>(nodes: TreeNode<L>[], id: string): string[] | nul
   return null
 }
 
-/** The tree with only the leaves `keep` accepts, and only the branches still holding one. */
 export function filterTree<L>(nodes: TreeNode<L>[], keep: (leaf: TreeLeaf<L>) => boolean): TreeNode<L>[] {
   const kept: TreeNode<L>[] = []
   for (const node of nodes) {

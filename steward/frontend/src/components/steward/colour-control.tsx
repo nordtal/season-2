@@ -8,17 +8,17 @@ import { t } from "@/lib/texts"
 /** Minecraft's chat background: black at the default `textBackgroundOpacity` of 0.5. */
 export const MINECRAFT_CHAT_BACKGROUND = "rgba(0, 0, 0, 0.5)"
 
-/** The word the preview paints, one word so five tones side by side never wrap to different heights. */
+/**
+ * The word the preview paints. It is one word, so five tones side by side wrap to the same height.
+ */
 export const SAMPLE_TEXT = "Nordtal"
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
-/** A valid `#rrggbb`, or `null` for anything else, including an empty or half typed value. */
 function validHex(value: string): string | null {
   return HEX_COLOUR.test(value) ? value : null
 }
 
-/** A hex colour, typed or picked, with a preview on Minecraft's chat background shown behind an eye. */
 export function ColourControl({
   id,
   value,
@@ -36,7 +36,7 @@ export function ColourControl({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        {/* The native picker only takes `#rrggbb`, so it falls back to black rather than mirroring `value`. */}
+        {/* The native picker accepts only `#rrggbb`, so it shows black for any other `value`. */}
         <input
           type="color"
           aria-label={t("steward.settings.pick-colour")}
@@ -45,7 +45,7 @@ export function ColourControl({
           onChange={(event) => onChange(event.target.value)}
           className="h-9 w-9 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        {/* `h-9` to stand level with the swatch; the eye stays usable while disabled, as it writes nothing. */}
+        {/* `h-9` matches the swatch's height. The eye button stays enabled while the field is disabled, because it writes nothing. */}
         <InputGroup className="h-9 min-w-0 flex-1">
           <InputGroupInput
             id={id}
@@ -68,7 +68,7 @@ export function ColourControl({
           </InputGroupAddon>
         </InputGroup>
       </div>
-      {/* The same box whether or not the digits are complete, so nothing below moves while retyping. */}
+      {/* The box has the same size whether or not the digits are complete, so nothing below it moves while the admin types. */}
       {shown ? (
         <div
           role="img"
@@ -88,15 +88,12 @@ export function ColourControl({
   )
 }
 
-/** The parent path of an entry: everything before the last `.`, or "" for a top-level entry. */
 function parentOf(entry: ConfigEntry): string {
   return entry.path.includes(".") ? entry.path.slice(0, entry.path.lastIndexOf(".")) : ""
 }
 
 /**
- * Consecutive colour entries sharing a parent, which `colourRuns` draws as one row.
- *
- * A colour is what its spec declares one, so a blank member still belongs to the run.
+ * An entry is a colour when its spec declares one, so an entry with a blank value stays in its group.
  */
 export function colourRuns(entries: ConfigEntry[]): ConfigEntry[][] {
   const runs: ConfigEntry[][] = []

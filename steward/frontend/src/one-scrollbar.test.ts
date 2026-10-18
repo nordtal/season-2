@@ -7,9 +7,7 @@ import { describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Every scroll container draws the same thin scrollbar in the border colour, natively and in `ScrollArea`.
- *
- * A class that hides or restyles a scrollbar in one place is a second style.
+ * Every scroll container draws the same thin scrollbar in the border colour. A class that hides or restyles one is a second style.
  */
 function files(directory: string): string[] {
   return readdirSync(directory).flatMap((name) => {

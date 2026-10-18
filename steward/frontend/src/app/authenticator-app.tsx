@@ -21,9 +21,7 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * A confirm that holds the default step-up, beside a menu of the longer holds the server offers for this one only.
- *
- * Shared by the key and the code, so both offer the same lengths the same way.
+ * A confirm button that holds for the default step-up length, with a menu of the longer holds the server offers.
  */
 export function HoldSplitButton({
   holds,
@@ -36,9 +34,7 @@ export function HoldSplitButton({
   holds: StepUpHold[]
   onHold: (length?: StepUpLength) => void
   disabled: boolean
-  /** A form's submit button, so Enter in its field holds the default. */
   submit?: boolean
-  /** Drawn as the second choice, below a factor offered first. */
   secondary?: boolean
   children: React.ReactNode
 }) {
@@ -81,7 +77,6 @@ export function HoldSplitButton({
   )
 }
 
-/** The six digits an app shows, read the way a phone fills them in from its own keyboard suggestion. */
 export function CodeInput({
   id,
   value,
@@ -114,7 +109,6 @@ export function CodeInput({
   )
 }
 
-/** The "or" between the key and the app wherever both are offered. */
 export function OrDivider() {
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -125,12 +119,10 @@ export function OrDivider() {
   )
 }
 
-/** Whether what was typed can be a code at all, so the confirm stays off until it can. */
 export function looksLikeACode(code: string): boolean {
   return /^\d{6}$/.test(code.replace(/ /g, ""))
 }
 
-/** The app row of the account popover, and the two questions it opens, kept above the popover as the keys' are. */
 export type AuthenticatorActions = ReturnType<typeof useAuthenticatorActions>
 
 export function useAuthenticatorActions(me: Me | undefined) {
@@ -143,7 +135,7 @@ export function useAuthenticatorActions(me: Me | undefined) {
   return {
     app: me?.authenticator,
     offered: me?.authenticatorOffered ?? false,
-    /** The only factor cannot be removed; the server refuses it too. */
+    /** The only factor cannot be removed. The server refuses it too. */
     onlyFactor: (me?.keys?.length ?? 0) === 0,
     start,
     finish,
@@ -152,7 +144,6 @@ export function useAuthenticatorActions(me: Me | undefined) {
     setCode,
     enrolling,
     removing,
-    /** Opens the dialog and asks for a fresh secret, behind a step-up when the account already has a factor. */
     startEnrolling: () => {
       setCode("")
       finish.reset()
@@ -171,7 +162,6 @@ export function useAuthenticatorActions(me: Me | undefined) {
   }
 }
 
-/** The popover's app row: the app with its remove control, or an Add while the installation offers one. */
 export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) {
   if (!state.app && !state.offered) return null
   return (
@@ -217,7 +207,9 @@ export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) 
   )
 }
 
-/** The enrolment and the removal question, mounted where a closing popover cannot take them with it. */
+/**
+ * The enrolment and removal dialogs, mounted outside the popover because a closing popover unmounts its dialogs.
+ */
 export function AuthenticatorAppDialogs({ state }: { state: AuthenticatorActions }) {
   return (
     <>
@@ -235,11 +227,7 @@ export function AuthenticatorAppDialogs({ state }: { state: AuthenticatorActions
   )
 }
 
-/**
- * Setting up an app: the QR code and the key as text, then one code it shows, which is what makes it count.
- *
- * The secret is asked for as the dialog opens, and a step-up comes first if the account already has a factor.
- */
+/** Sets up an authenticator app. It counts as set up once the admin enters one code from it. */
 export function EnrolDialog({ state }: { state: AuthenticatorActions }) {
   const { start, finish, code, setCode } = state
   const onClose = state.closeEnrolling
@@ -308,7 +296,6 @@ export function EnrolDialog({ state }: { state: AuthenticatorActions }) {
   )
 }
 
-/** The key in groups of four, as apps show a typed key, so it is read off without losing the place. */
 function grouped(secret: string): string {
   return secret.replace(/(.{4})(?=.)/g, "$1 ")
 }

@@ -35,16 +35,12 @@ import { Switch } from "@/components/ui/switch"
 import { runs, t } from "@/lib/texts"
 
 /**
- * Every notification setting, reached from the user popover so it is found.
- *
- * Mounted outside the popover like `SecurityKeyDialogs`: a popover unmounts a dialog on the first outside click.
+ * The dialog is mounted outside the popover, like `SecurityKeyDialogs`, because a popover unmounts its dialog on the first outside click.
  */
 export type NotificationActions = ReturnType<typeof useNotificationActions>
 
 /**
- * Every {@link AlertType}, with the tone `AlertRouter#sample` really sends.
- *
- * What a switch governs is `steward.notifications.type`, and the test's words are `steward.notifications.sample`.
+ * `steward.notifications.type` names what a switch governs, and `steward.notifications.sample` holds the test's words.
  */
 const TYPES: ReadonlyArray<{ key: AlertType; tone: "warn" | "down" }> = [
   { key: "service", tone: "down" },
@@ -58,7 +54,6 @@ const TYPES: ReadonlyArray<{ key: AlertType; tone: "warn" | "down" }> = [
   { key: "bot", tone: "warn" },
 ]
 
-/** The two places an alert can reach an admin besides Steward, as columns. */
 const CHANNELS: ReadonlyArray<{ key: AlertChannel; label: () => string }> = [
   { key: "push", label: () => t("steward.notifications.push") },
   { key: "discord", label: () => t("steward.notifications.discord") },
@@ -71,7 +66,9 @@ function typeName(type: AlertType): string {
 export function useNotificationActions() {
   const supported = pushSupported()
   const [open, setOpen] = useState(false)
-  /** Nothing is fetched until the dialog opens, except the public key, which must be cached before the tap. */
+  /**
+   * Nothing is fetched until the dialog opens, except the public key, which must be cached before the tap.
+   */
   const publicKey = useWebPushPublicKey(supported)
   const subscription = useWebPushSubscription(supported)
   const devices = useWebPushDevices(open)
@@ -98,11 +95,10 @@ export function useNotificationActions() {
   }
 }
 
-/** The entry in the user popover. The dialog itself is mounted beside it, never inside it. */
 export function NotificationsDialog({ state }: { state: NotificationActions }) {
   return (
     <ResponsiveDialog open={state.open} onOpenChange={state.setOpen}>
-      {/* `sm:max-w-md` only: below it a sheet is as wide as the phone, and no row may widen it. */}
+      {/* Only `sm:max-w-md`: below it a sheet is as wide as the phone, and no row may widen it. */}
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("steward.notifications.title")}</ResponsiveDialogTitle>
@@ -124,9 +120,7 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
 }
 
 /**
- * Whether this browser is subscribed, and the button that changes it.
- *
- * `onClick` calls `.mutate` without awaiting first, since iOS only prompts while the tap is on the stack.
+ * `onClick` calls `.mutate` without awaiting, because iOS prompts only while the tap is on the stack.
  */
 function ThisDevice({ state }: { state: NotificationActions }) {
   const subscribed = Boolean(state.subscription.data)
@@ -169,7 +163,6 @@ function ThisDevice({ state }: { state: NotificationActions }) {
   )
 }
 
-/** One switch per {@link AlertType} and channel, for this account and all of its browsers at once. */
 function Types({ state }: { state: NotificationActions }) {
   const chosen = state.preferences.data
 
@@ -194,7 +187,6 @@ function Types({ state }: { state: NotificationActions }) {
                     type: typeName(type.key),
                     channel: channel.label(),
                   })}
-                  /** Off until the query answers, and disabled until then, so no type ever reads as off by accident. */
                   checked={chosen?.[type.key]?.[channel.key] ?? false}
                   disabled={!chosen || (channel.key === "push" && !state.supported)}
                   onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, channel: channel.key, enabled })}
@@ -213,15 +205,10 @@ function Types({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The service and group holding the three numbers: `AlertsSpec`. */
 const ALERTS_SERVICE = "steward"
 const ALERTS_FILE = "alerts"
 
-/**
- * The three numbers steward's measured alerts fire on, editable here and applied at steward's next reading.
- *
- * It saves the `alerts` group with the configuration form's PUT, so a stale revision is refused with a 409.
- */
+/** Steward applies the numbers at its next reading. A stale revision is refused with a 409. */
 function Thresholds({ state }: { state: NotificationActions }) {
   const client = useQueryClient()
   const configs = useConfigs(state.open)
@@ -294,7 +281,9 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  /** The alerts are a different cache entry from the group just saved. */
+                  /**
+                   * The alerts query is a different cache entry from the group that was just saved.
+                   */
                   void client.invalidateQueries({ queryKey: keys.alerts })
                 },
               },
@@ -313,14 +302,12 @@ function Thresholds({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The three keys, in the order the alerts read them. */
 const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: () => string; unit: string }> = [
   { key: "disk", path: "disk-percent", label: () => t("steward.notifications.disk-in-use"), unit: "%" },
   { key: "memory", path: "memory-percent", label: () => t("steward.notifications.memory-in-use"), unit: "%" },
   { key: "backup", path: "backup-age-hours", label: () => t("steward.notifications.newest-backup"), unit: "h" },
 ]
 
-/** What a deployment that cannot write the file gets: the numbers, and where they are set. */
 function ReadOnlyThresholds({
   rows,
   waiting,
@@ -379,7 +366,6 @@ function ReadOnlyThresholds({
   )
 }
 
-/** Every browser on this account, and a test send to one of them, chosen on the paper plane's popover. */
 function Devices({ state }: { state: NotificationActions }) {
   const mine = state.subscription.data
   const devices = state.devices.data ?? []
@@ -389,7 +375,6 @@ function Devices({ state }: { state: NotificationActions }) {
     <div className="flex flex-col gap-2">
       <span className="text-xs text-muted-foreground">{t("steward.notifications.devices")}</span>
 
-      {/* Two placeholder rows while loading, so the dialog does not grow under a pointer. */}
       {state.devices.isPending ? (
         <ul className="flex flex-col">
           {WAITING_DEVICES.map((index) => (
@@ -422,7 +407,6 @@ function Devices({ state }: { state: NotificationActions }) {
   )
 }
 
-/** Two rows while the subscriptions are read. */
 const WAITING_DEVICES = [0, 1]
 
 function DeviceRow({
@@ -434,7 +418,6 @@ function DeviceRow({
   isThisOne: boolean
   state: NotificationActions
 }) {
-  // The system first, then the browser, as Steward stores them apart.
   const name = [device.system, device.browser].filter(Boolean).join(", ") || t("steward.notifications.unnamed")
   const busy = state.test.isPending || state.forget.isPending
   const [testing, setTesting] = useState(false)
@@ -443,7 +426,6 @@ function DeviceRow({
     <li className="flex items-center gap-2 py-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm">{name}</span>
-        {/* One line under the name, and "this device" wins it. */}
         <span className="truncate text-xs text-muted-foreground">
           {isThisOne
             ? t("steward.notifications.this-one")
@@ -465,7 +447,6 @@ function DeviceRow({
             <PaperPlaneTiltIcon aria-hidden />
           </Button>
         </PopoverTrigger>
-        {/* End-aligned with a `rem` width, so it grows left into the sheet instead of past it. */}
         <PopoverContent align="end" className="w-60 max-w-[calc(100vw-2rem)] p-1">
           <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("steward.notifications.test-notifications")}</p>
           <ul className="flex flex-col">

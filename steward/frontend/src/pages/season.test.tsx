@@ -7,9 +7,10 @@ import { SeasonPage } from "@/pages/season"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asElement, asInput } from "@/lib/test-elements"
 
-/** The phase change dialog, and that a reason typed then cancelled never reaches the journal with the next change. */
+/**
+ * The phase change dialog, and that a reason typed and then cancelled never reaches the journal with the next change.
+ */
 
-// The page reads its open group from the URL; outside a router there is none.
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => vi.fn<() => void>(), useSearch: () => ({}) }))
 
 function json(status: number, body: unknown): Response {
@@ -25,7 +26,6 @@ const SEASON = {
   smpStart: "2026-10-08T18:00:00Z",
 }
 
-/** One group of the network's and one of a service's, of which the page shows the first. */
 const GROUPS = [
   {
     service: "network",
@@ -39,7 +39,6 @@ const GROUPS = [
   { service: "steward", name: "web", path: "steward/web", label: "", live: true, readable: true, writable: true },
 ]
 
-/** The page's own routes and nothing else. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/season/phase" && init?.method === "POST") {
@@ -64,9 +63,7 @@ function draw(node: ReactNode) {
 }
 
 /**
- * Presses "Switch" on one phase's row, disabled until `/api/season` answers.
- *
- * Every lookup repeats inside the `waitFor`, since a node captured before the answer may be detached.
+ * Presses "Switch" on one phase's row. Every lookup repeats inside the `waitFor`, because a node captured before the answer may be detached.
  */
 async function ask(phase: string): Promise<HTMLElement> {
   const live = () => {
@@ -81,7 +78,6 @@ async function ask(phase: string): Promise<HTMLElement> {
 
 const reasonField = () => asInput(screen.getByLabelText("Reason"))
 
-/** What the page sent, as the backend would have read it. */
 function sentPhaseChange(fetched: ReturnType<typeof backend>) {
   const call = fetched.mock.calls.find(([url, init]) => url === "/api/season/phase" && init?.method === "POST")
   if (!call) throw new Error("no phase change was sent at all")
@@ -108,7 +104,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is gone when the dialog is dismissed with Escape rather than with the button", async () => {
-    /** Escape and an overlay click leave through `onOpenChange` too, which is what clears the reason. */
+    /** Escape and an overlay click leave through `onOpenChange` too, which clears the reason. */
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
@@ -140,7 +136,6 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is sent when it was meant, so that the clearing is not simply a broken field", async () => {
-    /** The other direction, so a field that never works does not pass. */
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<SeasonPage />)
@@ -177,9 +172,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
 })
 
 /**
- * The alerts in a scope carrying the refusal under test.
- *
- * `hidden: true` since Radix hides all outside the dialog; the page's own standing alert is filtered out.
+ * Returns the alerts in a scope that carry the refusal. `hidden: true`, because Radix hides everything outside the dialog.
  */
 function refusals(scope: { queryAllByRole: typeof screen.queryAllByRole }) {
   return scope
@@ -203,7 +196,7 @@ describe("SeasonPage - a switch the backend refuses", () => {
   })
 
   it("shows the operator why, inside the dialog they are looking at", async () => {
-    // The refusal is repeated inside the dialog, since the open dialog covers the card's copy.
+    // The refusal is repeated inside the dialog, because the open dialog covers the card's copy.
     vi.stubGlobal(
       "fetch",
       backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }),
@@ -213,15 +206,12 @@ describe("SeasonPage - a switch the backend refuses", () => {
     const dialog = await ask("MAINTENANCE")
     fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
-    /** Rendered in the card underneath, which the overlay covers. */
     await waitFor(() => expect(refusals(screen)).toHaveLength(1))
 
-    // It must also be in the dialog the operator is looking at.
     expect(refusals(within(dialog))).toHaveLength(1)
   })
 })
 
-/** The date routes on top of the page's own, recording what was asked. */
 function dates(answer: { status: number; body: unknown } = { status: 200, body: {} }) {
   const base = backend()
   const sent: unknown[] = []
@@ -238,7 +228,6 @@ function dates(answer: { status: number; body: unknown } = { status: 200, body: 
   return sent
 }
 
-/** Clicks Remove on the date row for `field` and returns the confirmation dialog it opens. */
 async function remove(field: string) {
   const row = asElement((await screen.findByLabelText(field)).closest("div.flex-wrap"))
   const button = await within(row).findByRole("button", { name: "Remove" })

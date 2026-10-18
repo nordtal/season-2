@@ -6,17 +6,10 @@ import { HealthDot } from "@/components/steward/status"
 import { SkeletonText } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/** Four rows while the services are read, about as many as Paper and the entry have. */
 const WAITING_ROWS = [0, 1, 2, 3]
 
-/**
- * The list of places, held by the desktop's column and the phone's dock alike.
- *
- * Every row is a `size-control` box and a label, so icons and labels align with the toggle above.
- */
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  /** Decided across the whole navigation, since two entries can match and only the longer is meant. */
   const groups = useNavigation()
   const active = activeEntryId(pathname, groups)
   const services = useServices()
@@ -41,7 +34,6 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             </div>
           ) : null}
           <ul className="flex flex-col">
-            {/* The service rows are the served topology's, so they wait for it as rows of their own shape. */}
             {group.id === "services" && topology.isPending
               ? WAITING_ROWS.map((index) => (
                   <li key={index} className="flex min-h-control items-center pr-3">
@@ -52,9 +44,6 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
               : null}
             {group.entries.map((entry) => {
               const isActive = entry.id === active
-              /**
-               * Only the container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
-               */
               const service =
                 group.id === "services"
                   ? services.data?.services.find((row) => row.service === entry.params?.name)
@@ -84,17 +73,12 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
   )
 }
 
-/** Substitutes `$name`-style segments, so one entry can describe a parameterised route. */
 export function resolveHref(to: string, params?: Record<string, string>) {
   if (!params) return to
   return Object.entries(params).reduce((path, [key, value]) => path.replace(`$${key}`, encodeURIComponent(value)), to)
 }
 
-/**
- * The single entry a path lights up: the longest fixed part wins across the whole navigation.
- *
- * A route matches by its fixed part, so "Backups" stays selected on a backup run's page.
- */
+/** A route matches by its fixed part, so Backups stays selected on a backup run's page. */
 export function activeEntryId(
   pathname: string,
   groups: readonly { entries: readonly { id: string; to: string; params?: Record<string, string> }[] }[],
@@ -115,7 +99,6 @@ export function activeEntryId(
   return best
 }
 
-/** Everything before a route's first parameter: `/operations/updates/$id` is `/operations/updates`. */
 function fixedPart(to: string) {
   const parameter = to.indexOf("/$")
   return parameter === -1 ? to : to.slice(0, parameter)

@@ -13,12 +13,10 @@ import {
 } from "@/lib/webauthn"
 
 /**
- * Converts between the wire's base64url and the browser's buffers, the half jsdom can reach.
- *
- * The alphabets differ in two characters, so a mix up fails only now and then, as a `SecurityError` on a phone.
+ * The alphabets differ in two characters, so a mix-up fails only now and then, as a `SecurityError` on a phone.
  */
 
-/** The bytes that separate the two alphabets: 62 is `+`/`-` and 63 is `/`/`_`. */
+/** The bytes that separate the two alphabets. */
 const ALPHABET_TRAP = new Uint8Array([0xfb, 0xff, 0xbe])
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
@@ -52,7 +50,6 @@ describe("base64url, which is not base64", () => {
   it("never writes a character base64url does not have", () => {
     const encoded = toBase64Url(bufferOf(ALPHABET_TRAP))
 
-    // btoa of these three bytes is "+/++", i.e. both of the characters that differ.
     expect(encoded).toBe("-_--")
     expect(encoded).not.toMatch(/[+/=]/)
   })
@@ -65,9 +62,7 @@ describe("base64url, which is not base64", () => {
   })
 
   it("round-trips at all three padding lengths", () => {
-    /**
-     * All three remainders occur, each a different branch; `atob` accepts the padding missing, so it is kept explicit.
-     */
+    /** `atob` accepts missing padding, so the test spells it out. */
     for (const length of [1, 2, 3, 31, 32, 33]) {
       const bytes = new Uint8Array(length)
       for (let i = 0; i < length; i += 1) bytes[i] = (i * 37 + 11) % 256
@@ -99,7 +94,6 @@ describe("the server's JSON as the browser's API wants it", () => {
     const options = toCreationOptions(answer)
 
     expect(options.challenge).toEqual(new Uint8Array([1, 2, 3, 4]))
-    /** The user handle is the Discord id as UTF-8 bytes, as `Credentials.handleOf` writes it. */
     expect(options.user.id).toEqual(new Uint8Array([0x31, 0x32, 0x33]))
     expect(options.rp).toEqual({ id: "nordtal.eu", name: "Nordtal Steward" })
     expect(options.pubKeyCredParams).toEqual([{ alg: -7, type: "public-key" }])
@@ -114,7 +108,7 @@ describe("the server's JSON as the browser's API wants it", () => {
   it("keeps the rest of the user object, which is what the dialog prints", () => {
     const options = toCreationOptions(answer)
 
-    // A spread that forgot these leaves a dialog offering to register a key for nobody.
+    // A spread that forgot these fields would offer to register a key for nobody.
     expect(options.user.name).toBe("ally")
     expect(options.user.displayName).toBe("ally")
   })
@@ -139,7 +133,7 @@ describe("the server's JSON as the browser's API wants it", () => {
   })
 
   it("leaves the exclusion list absent when the server sent none", () => {
-    /** An empty array would tell the browser there is nothing to exclude, not nothing to say. */
+    /** An empty array would tell the browser that there is nothing to exclude. */
     const options = toCreationOptions(answer)
 
     expect(options.excludeCredentials).toBeUndefined()
@@ -160,7 +154,6 @@ describe("the credential as the server's library reads it", () => {
   })
 
   it("carries the transports, which the browser's own toJSON() does not", () => {
-    /** Without the transports, a later sign in offers every method the browser has. */
     const written = JSON.parse(fromCredential(credentialOf()))
 
     expect(written.response.transports).toEqual(["internal", "hybrid"])
@@ -176,7 +169,7 @@ describe("the credential as the server's library reads it", () => {
 
     const written = JSON.parse(fromCredential(blind))
 
-    // Absent, not `[]` and not `null`. An empty list claims the key has no way in at all.
+    // The field is absent, not `[]`: an empty list claims the key has no way in.
     expect("transports" in written.response).toBe(false)
   })
 
@@ -230,14 +223,14 @@ describe("the dialog", () => {
 
 describe("what a person is told went wrong", () => {
   it("tells a cancelled dialog apart from a refused one", () => {
-    /** A cancel means try again and a known key means use another; the browser's message is usually empty. */
+    /** A cancel means "try again" and a known key means "use another". */
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/cancelled/)
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/Nothing was registered/)
     expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already registered/)
   })
 
   it("blames this server for the one failure that is this server's", () => {
-    /** A relying party mismatch is the server's fault, and the person must not blame the key. */
+    /** A relying-party mismatch is the server's fault. */
     expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/configuration fault on this server/)
   })
 

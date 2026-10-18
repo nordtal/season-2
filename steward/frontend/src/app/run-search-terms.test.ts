@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { GERMAN_BACKUP_SYNONYM, RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 
-/**
- * The word list itself; `command-palette.test.tsx` proves the words reach the palette's search.
- *
- * It is checked by `language.test.ts` too, which is why the German word is imported as a constant.
- */
+/** `language.test.ts` checks this file too, so the German word is imported as a constant. */
 describe("RUN_KIND_SEARCH_TERMS", () => {
   it("carries the four intended words on the backup entry", () => {
     for (const word of ["backup", GERMAN_BACKUP_SYNONYM, "dump", "report"]) {

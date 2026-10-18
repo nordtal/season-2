@@ -8,8 +8,6 @@ import { Actor, Entity, entityKind } from "@/components/steward/entity"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
-/** The four answers of the entity component: a Discord id, a Minecraft UUID, a service, and a question mark. */
-
 const DISCORD_ID = "214906139328839681"
 const MC_UUID = "11111111-2222-3333-4444-555555555555"
 
@@ -68,7 +66,6 @@ describe("entityKind - what an identifier is, from its shape", () => {
     expect(entityKind("steward", services)).toBe("service")
     expect(entityKind("host", services)).toBe("unknown")
     expect(entityKind("", services)).toBe("unknown")
-    /** A name is a service because the stack serves it, not because it looks like one. */
     expect(entityKind("smp", [])).toBe("unknown")
   })
 })

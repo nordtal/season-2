@@ -2,40 +2,34 @@ import { argumentText, readText, writeText } from "@/lib/message-tree"
 import { chosen, type TextNode } from "@/lib/texts"
 
 /**
- * A message as the translation editor edits it: runs, each carrying its whole style, read from the one parser's tree.
- *
- * Only {@link parse} and {@link serialize} know how a style is spelled; the parsing itself is `message-tree`'s.
+ * A message as the translation editor edits it: runs, each with its whole style, read from the tree of the one parser. Only {@link parse} and {@link serialize} know how a style is spelled.
  */
 
 export type Format = "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN"
 
 export type ClickAction = "open_url" | "run_command" | "suggest_command" | "copy_to_clipboard"
 
-/** What a click does; `value` is the argument as written, so it may hold values like `{player.name}`. */
+/** `value` is the argument as written, so it may hold values like `{player.name}`. */
 export type Click = { action: ClickAction; value: string }
 
 export type Style = {
-  /** One of the palette's tones, as its tag (`good`); a packaged text names colours only so. */
+  /** One of the palette's tones, as its tag (`good`). */
   tone?: string
-  /** A named colour (`gray`) or a hex one (`#4a63d8`), as it is written. */
   colour?: string
-  /** Two or more colours, spread over every run that carries the same list. */
   gradient?: string[]
-  /** `false` is an explicit "off" (`<!italic>`), `undefined` inherits. */
+  /** `false` is an explicit "off" (`<!italic>`). `undefined` inherits. */
   bold?: boolean
   italic?: boolean
   underlined?: boolean
   strikethrough?: boolean
   obfuscated?: boolean
-  /** Discord's inline code. */
   code?: boolean
   hover?: Run[]
   click?: Click
-  /** The message's action this text triggers, `<action:name>`. */
   action?: string
 }
 
-/** `style` written inside `around`: what it leaves undefined it inherits, and a colour of its own replaces the outer one. */
+/** Returns `style` written inside `around`. A colour of its own replaces the outer one. */
 export function inside(around: Style, style: Style): Style {
   const own = Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined))
   const coloured = style.tone !== undefined || style.colour !== undefined || style.gradient !== undefined
@@ -43,8 +37,7 @@ export function inside(around: Style, style: Style): Style {
 }
 
 /**
- * One piece of the text. A value keeps the kind and style it was written with; a plural, a select or a tag no editor
- * offers (`<rainbow>`, `<lang:…>`) is kept as its source and moves as one character.
+ * One piece of the text. A plural, a select or a tag that no editor offers (`<rainbow>`, `<lang:…>`) is kept as its source and moves as one character.
  */
 export type Run =
   | { kind: "text"; text: string; style: Style }
@@ -56,7 +49,6 @@ export type Run =
 export const DECORATIONS = ["bold", "italic", "underlined", "strikethrough", "obfuscated"] as const
 export type Decoration = (typeof DECORATIONS)[number]
 
-/** Minecraft's sixteen named colours, as the client draws them. */
 export const NAMED_COLOURS: Record<string, string> = {
   black: "#000000",
   dark_blue: "#0000AA",
@@ -78,7 +70,7 @@ export const NAMED_COLOURS: Record<string, string> = {
   white: "#FFFFFF",
 }
 
-/** What a format lets a text carry; an editor offers exactly this and nothing else. */
+/** Returns what a format lets a text carry. An editor offers exactly this. */
 export function capabilities(format: Format) {
   const mini = format === "MINIMESSAGE"
   const discord = format === "DISCORD_MARKDOWN"
@@ -100,13 +92,8 @@ export function formatOf(value: string | undefined): Format {
   return value === "DISCORD_MARKDOWN" || value === "PLAIN" ? value : "MINIMESSAGE"
 }
 
-// Parsing
-
 /**
- * The runs of `source`, or `null` while the one parser cannot read it; `tones` are the palette's tags.
- *
- * Only a Minecraft text reads tags; Discord's and a plain one read `{…}` alone, Discord's markdown on top. `plural`
- * names the number a `#` stands for in a plural's case, where each `#` is a run of its own.
+ * Returns the runs of `source`, or `null` while the parser cannot read it. Only a Minecraft text reads tags. `plural` names the number that a `#` stands for, and each `#` is a run of its own.
  */
 export function parse(
   source: string,
@@ -130,7 +117,9 @@ export function parse(
   return normalize(format === "PLAIN" ? fromPlain(flat, queue) : fromMarkdown(flat, queue, {}))
 }
 
-/** Where a value or a choice stands in the text a plain or markdown reading scans: one character, never typed. */
+/**
+ * Marks where a value or a choice stands in the text that a plain or markdown reading scans. Never typed.
+ */
 const HOLE = "￿"
 
 function leafOf(node: Exclude<TextNode, string>, markup: boolean, style: Style, plural: string | null): Run {
@@ -211,7 +200,9 @@ const CLICK_ACTIONS: Record<string, ClickAction> = {
   copy_to_clipboard: "copy_to_clipboard",
 }
 
-/** What an opening tag does to the style, and the name its closing tag will use; `null` for one no editor offers. */
+/**
+ * Returns what an opening tag does to the style, and the name its closing tag will use, or `null` for a tag no editor offers.
+ */
 function opening(
   tag: string,
   args: TextNode[][],
@@ -258,7 +249,6 @@ function opening(
   return null
 }
 
-/** A quoted argument as Adventure reads it: an escaped quote is a quote. */
 function unquoted(text: string): string {
   return text.replaceAll(/\\(['"])/g, "$1")
 }
@@ -272,7 +262,6 @@ function closes(frame: string, closing: string): boolean {
   return decoration !== undefined && DECORATION_NAMES[frame] === decoration
 }
 
-/** A plain text: a line break is a break, a hole the next value. */
 function fromPlain(flat: string, queue: Run[]): Run[] {
   const out: Run[] = []
   let pending = ""
@@ -298,7 +287,6 @@ const MARKS: [string, keyof Style][] = [
   ["_", "italic"],
 ]
 
-/** Discord's markdown over the literal text; a hole takes the next value in the style around it. */
 function fromMarkdown(source: string, queue: Run[], outer: Style): Run[] {
   const out: Run[] = []
   let style: Style = outer
@@ -358,9 +346,9 @@ function fromMarkdown(source: string, queue: Run[], outer: Style): Run[] {
   return out
 }
 
-// Serializing
-
-/** The runs as the text the one parser reads back to them, as a case of the plural on `plural` if one is named. */
+/**
+ * Returns the runs as the text that the parser reads back, as a case of the plural `plural` names.
+ */
 export function serialize(runs: Run[], format: Format, plural: string | null = null): string {
   if (format === "PLAIN") return runs.map((run) => leaf(run, format, plural)).join("")
   if (format === "DISCORD_MARKDOWN") return group(runs, MARKDOWN_LEVELS, 0, format, plural)
@@ -379,7 +367,6 @@ const decorationLevel = (name: Decoration): Level => ({
   close: () => `</${name}>`,
 })
 
-/** A quoted tag argument: the text as it stands, a single quote in it escaped. */
 function quoted(value: string): string {
   return `'${value.replaceAll("'", "\\'")}'`
 }
@@ -475,17 +462,13 @@ function leaf(run: Run, format: Format, plural: string | null): string {
 }
 
 /**
- * Literal text in Discord's markdown, escaped for both readings: markdown's markers first, then the message syntax.
- *
- * A backslash stays single where the message parser keeps it anyway, so a source's `\*` is written back as it was.
+ * Literal text in Discord markdown, escaped for markdown first, then the message syntax. A backslash the message parser keeps stays single, so a source's `\*` is written back as it was.
  */
 function markdownText(text: string, inPlural: boolean): string {
   const marked = text.replaceAll(/([\\*_~`[\]])/g, "\\$1")
   const escaped = marked.replaceAll(/\\(?=[{}\\]|$)|[{}]/g, (c) => `\\${c}`)
   return inPlural ? escaped.replaceAll("#", "\\#") : escaped
 }
-
-// Editing
 
 export function same(a: unknown, b: unknown): boolean {
   if (a === b) return true
@@ -498,7 +481,6 @@ export function cleanStyle(style: Style): Style {
   return Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined))
 }
 
-/** Adjacent text runs of one style merged, empty ones dropped, undefined fields gone. */
 export function normalize(runs: Run[]): Run[] {
   const out: Run[] = []
   for (const run of runs) {
@@ -512,7 +494,6 @@ export function normalize(runs: Run[]): Run[] {
   return out
 }
 
-/** How many caret positions a run takes: its characters, or one for anything drawn as a unit. */
 export function lengthOf(run: Run): number {
   return run.kind === "text" ? run.text.length : 1
 }
@@ -521,7 +502,6 @@ export function totalLength(runs: Run[]): number {
   return runs.reduce((sum, run) => sum + lengthOf(run), 0)
 }
 
-/** The runs, split so that a run boundary falls at `offset`; returns the index of the run after it. */
 function splitAt(runs: Run[], offset: number): { runs: Run[]; index: number } {
   let position = 0
   for (let index = 0; index < runs.length; index += 1) {
@@ -556,7 +536,7 @@ export function remove(runs: Run[], from: number, to: number): Run[] {
   return normalize([...second.runs.slice(0, first.index), ...second.runs.slice(second.index)])
 }
 
-/** Inserts runs at `offset`; a text run with no style of its own takes the style of what it follows. */
+/** Inserts runs at `offset`. An unstyled text run takes the style of the run it follows. */
 export function insert(runs: Run[], offset: number, inserted: Run[], inherit = true): Run[] {
   const { runs: split, index } = splitAt(runs, offset)
   const before = split[index - 1] ?? split[index]
@@ -565,7 +545,6 @@ export function insert(runs: Run[], offset: number, inserted: Run[], inherit = t
   return normalize([...split.slice(0, index), ...placed, ...split.slice(index)])
 }
 
-/** The style every run in the range shares, field by field. */
 export function commonStyle(runs: Run[], from: number, to: number): Style {
   const covered: Style[] = []
   let position = 0
@@ -601,15 +580,13 @@ const STYLE_KEYS: (keyof Style)[] = [
   "action",
 ]
 
-/** Copies `first`'s value for `key` into `result`, only when every style in `rest` agrees with it. */
 function setShared(result: Style, key: keyof Style, first: Style, rest: Style[]): void {
   const value = first[key]
   if (rest.every((style) => same(style[key], value))) Object.assign(result, { [key]: value })
 }
 
 /**
- * The runs as a preview draws them: each plural and select as the case its value's `example` picks, the way the web
- * target and the game pick it, with `#` drawn as the plural's number.
+ * Returns the runs as a preview draws them: each plural and select as the case its value's `example` picks, with `#` as the number.
  */
 export function branchesOf(
   runs: Run[],
@@ -634,12 +611,10 @@ export function branchesOf(
   )
 }
 
-/** A plural or a select as an editor offers it: the value it depends on, and each case's runs in written order. */
 export type Choice = { name: string; plural: boolean; cases: [string, Run[]][] }
 
 /**
- * The plural or select a raw run is, or `null` for any other run or a case that cannot be read. `outer` names the
- * plural a `#` stands for around the run, for a choice inside a plural's case.
+ * Returns the plural or select that a raw run is, or `null`. `outer` names the plural around the run.
  */
 export function choiceOf(
   run: Run,
@@ -662,20 +637,17 @@ export function choiceOf(
   return { name: node.c, plural: node.plural, cases }
 }
 
-/** A choice written back as the syntax its raw run holds, inside the plural `outer` names if there is one. */
 export function choiceSource(choice: Choice, format: Format, outer: string | null = null): string {
   const inner = choice.plural ? choice.name : outer
   const cases = choice.cases.map(([key, runs]) => `${key} {${serialize(runs, format, inner)}}`)
   return `{${choice.name}, ${choice.plural ? "plural" : "select"}, ${cases.join(" ")}}`
 }
 
-/** An example as the value it stands for: a number where it reads as one, else its words. */
 function exampleValue(example: string): number | string {
   const number = Number(example)
   return example.trim() !== "" && Number.isFinite(number) ? number : example
 }
 
-/** A plural's case with each `#` that stands for its number `name` written as that number's value. */
 function numbered(nodes: TextNode[], name: string): TextNode[] {
   return nodes.map((node) => {
     if (typeof node === "string" || "v" in node) return node
@@ -691,15 +663,17 @@ function numbered(nodes: TextNode[], name: string): TextNode[] {
   })
 }
 
-/** A case's style inside the style around it: its own colour replaces the one around, as a nested tag's does. */
+/** Its own colour replaces the outer one, as a nested tag's does. */
 function within(around: Style, own: Style): Style {
   const coloured = own.tone !== undefined || own.colour !== undefined || own.gradient !== undefined
   const kept = coloured ? { ...around, tone: undefined, colour: undefined, gradient: undefined } : around
   return cleanStyle({ ...kept, ...own })
 }
 
-/** The plain characters of the runs, with placeholders filled, for counting and search. */
-/** Pasted or typed text as runs: a line break stays one where the format has them, else it becomes a space. */
+/** Returns the plain characters of the runs with placeholders filled, for counting and search. */
+/**
+ * Pasted or typed text as runs. A line break stays one where the format has breaks, and otherwise becomes a space.
+ */
 export function textRuns(text: string, breaks: boolean): Run[] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n")
   const out: Run[] = []
@@ -726,8 +700,6 @@ export function plainText(runs: Run[], fill: (name: string) => string = (name) =
     .join("")
 }
 
-// Colour
-
 export function hexOf(colour: string): string {
   return HEX.test(colour) ? colour : (NAMED_COLOURS[colour.toLowerCase()] ?? "#FFFFFF")
 }
@@ -737,7 +709,9 @@ function channels(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
 }
 
-/** The colour `t` of the way along a gradient, the way Adventure spreads it: evenly between stops. */
+/**
+ * Returns the colour `t` of the way along a gradient, as Adventure spreads it: evenly between the stops.
+ */
 export function gradientAt(colours: string[], t: number): string {
   if (colours.length === 1) return hexOf(colours[0])
   const scaled = Math.min(Math.max(t, 0), 1) * (colours.length - 1)
@@ -760,7 +734,7 @@ export function shadowOf(hex: string): string {
   return `rgb(${r >> 2}, ${g >> 2}, ${b >> 2})`
 }
 
-/** The colour a run's style draws in: its gradient's first stop aside, a colour, else its tone, else `base`. */
+/** Returns the colour that a run's style draws in: its colour, else its tone, else `base`. */
 export function colourOf(style: Style, tones: Record<string, string>, base: string): string {
   if (style.colour) return hexOf(style.colour)
   if (style.tone && tones[style.tone]) return tones[style.tone]

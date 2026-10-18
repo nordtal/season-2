@@ -83,7 +83,9 @@ function sourceFiles(directory: string): string[] {
   })
 }
 
-/** The places that draw a magnifier of their own, each for a reason the filter bar does not cover. */
+/**
+ * The places that draw their own magnifier. Each has a reason that the filter bar does not cover.
+ */
 const OWN_MAGNIFIER = new Map<string, string>([
   [path.join("components", "ui", "command.tsx"), "the Ctrl+K field, which cmdk draws"],
   [path.join("app", "island.tsx"), "the dock's button that opens Ctrl+K, not a field"],

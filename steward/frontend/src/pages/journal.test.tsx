@@ -42,7 +42,7 @@ describe("JournalPage - Detail is running text, not a field", () => {
   })
 })
 
-/** Somebody the roster no longer knows is named as such, the id still copyable in the popover. */
+/** Somebody the roster no longer knows is named as such. */
 const JOURNAL_ENTRIES = () => [
   {
     id: "j1",
@@ -65,7 +65,6 @@ describe("JournalPage - profiles, never user ids", () => {
     await screen.findAllByText("Access granted")
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("bob")).toBeTruthy()
-    // The admin bundle's line, its values typed: a number counted, a moment in the browser's own zone.
     expect(screen.getByText(/^30 days of access, until /)).toBeTruthy()
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
@@ -89,7 +88,7 @@ describe("JournalPage - profiles, never user ids", () => {
 
     await screen.findByText("1 grant of access revoked.")
     expect(await screen.findByText("no Discord name on record")).toBeTruthy()
-    // Still not the number: the id lives in the popover, next to a button that copies it.
+    // The id lives in the popover, next to a button that copies it.
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
@@ -147,8 +146,7 @@ describe("JournalPage - profiles, never user ids", () => {
   })
 })
 
-/** On a phone an entry is its time and action, and only what they do not already say. */
-/** The labels of the cells a phone leaves out of the card of the row that holds `detail`. */
+/** On a phone an entry is its time and action, plus what they do not already say. */
 async function off(detail: string | RegExp): Promise<string[]> {
   return [...assertElement((await screen.findByText(detail)).closest("tr"), "a row").querySelectorAll("td")]
     .filter((cell) => cell.getAttribute("data-phone") === "off")

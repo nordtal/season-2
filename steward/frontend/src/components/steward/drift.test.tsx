@@ -5,8 +5,6 @@ import { DriftBadge } from "@/components/steward/status"
 import { DriftMark } from "@/components/steward/network/node"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** A service running something built on the host says so, whatever the registry thinks of its image. */
-
 afterEach(cleanup)
 
 describe("a local build", () => {
@@ -34,7 +32,6 @@ describe("a local build", () => {
   })
 })
 
-/** What a finger does to an element: pointer events first, then the compatibility mouse events, focus, and the click. */
 function tap(element: HTMLElement) {
   fireEvent.pointerDown(element, { pointerType: "touch" })
   fireEvent.pointerUp(element, { pointerType: "touch" })

@@ -10,8 +10,6 @@ import { MilestonesEditor } from "@/components/steward/milestones/milestones-edi
 import { moved } from "@/components/steward/milestones/model"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** The milestones editor: chosen by the descriptor, drawn from the schema, compact, and saved like any group. */
-
 const FILE = "smp/milestones"
 
 function entry(key: string, more: Partial<ConfigEntry> = {}): ConfigEntry {
@@ -306,7 +304,7 @@ describe("customEditor", () => {
   })
 })
 
-// Fifteen seconds: its sheets open selects and save, about half a second here and seven times that on a busy runner.
+// The timeout is fifteen seconds. The sheets open selects and save, which takes about half a second here and seven times as long on a busy runner.
 describe("MilestonesEditor", { timeout: 15_000 }, () => {
   it("lists every milestone with its settings as marks, beside the one that is open", () => {
     backend()

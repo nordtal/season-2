@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { AskButton } from "@/pages/operations"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** The confirmation before a run offers Now or Cancel and says what happens in at most two short lines. */
+/** The confirmation before a run offers Now or Cancel in at most two short lines. */
 
 afterEach(() => {
   cleanup()

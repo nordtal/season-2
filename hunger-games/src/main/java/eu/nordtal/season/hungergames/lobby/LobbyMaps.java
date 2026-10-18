@@ -22,11 +22,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Slices a language-specific lobby image onto a grid of maps in item frames.
- *
- * A missing image is logged and skipped, so {@link #render(World)} never throws for it.
- */
+/** Puts the lobby image of each language on a grid of maps in item frames. A missing image is logged and skipped. */
 public final class LobbyMaps {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LobbyMaps.class);
@@ -35,14 +31,16 @@ public final class LobbyMaps {
     private final HungerGamesSpec config;
     private final List<Locale> languages;
 
-    /** The lobby maps of {@code languages}, the ones the network speaks. */
+    /** Creates the lobby maps for the languages. */
     public LobbyMaps(final Plugin plugin, final HungerGamesSpec config, final List<Locale> languages) {
         this.plugin = plugin;
         this.config = config;
         this.languages = List.copyOf(languages);
     }
 
-    /** Loads {@code lobby/map-<lang>.png} for every network language and mounts its slices at the configured origin. */
+    /**
+     * Loads {@code lobby/map-<lang>.png} for each language and puts its slices in the frames at the configured origin.
+     */
     public void render(final World world) {
         for (final Locale language : languages) {
             renderLanguage(world, Locales.tag(language));
@@ -125,7 +123,7 @@ public final class LobbyMaps {
         frame.setItem(mapItem);
     }
 
-    /** Draws one already-sliced image cell onto its map, once. */
+    /** Draws an image on a map once. */
     private static final class StaticImageRenderer extends MapRenderer {
 
         private final Image image;

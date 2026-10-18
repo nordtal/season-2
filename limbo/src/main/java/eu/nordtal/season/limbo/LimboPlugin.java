@@ -15,9 +15,8 @@ import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The season 2 waiting room: every login lands here first and leaves when the proxy says so.
- *
- * The proxy ends every wait on {@code nordtal:limbo} ({@link LimboProtocol}); this only reports arrival.
+ * The waiting room server. The proxy sends every login here first.
+ * This plugin sends {@code READY} on {@code nordtal:limbo} ({@link LimboProtocol}) and the proxy moves the player on.
  */
 public final class LimboPlugin extends NordtalPlugin {
 

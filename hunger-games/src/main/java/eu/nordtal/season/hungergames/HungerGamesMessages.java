@@ -13,14 +13,12 @@ import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.value.Action;
 import java.time.Duration;
 
-/**
- * Every message of the hunger-games bundle, one method per key.
- */
+/** The messages of the hunger-games bundle. */
 @MessageSpec("hunger-games")
 @Shown(Display.CHAT)
 public interface HungerGamesMessages {
 
-    /** The one shared instance; it is stateless. */
+    /** The shared instance. */
     HungerGamesMessages MESSAGES = MessageSpecs.create(HungerGamesMessages.class);
 
     Hg hg();

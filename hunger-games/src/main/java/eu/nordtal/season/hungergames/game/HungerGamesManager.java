@@ -33,15 +33,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The start sequence: towers, freeze, countdown, release with PvP protection.
- *
- * It also does the demotion and colour work that must happen once, before the border step is computed.
+ * Starts a game. It assigns the colours, builds the towers, freezes the players, runs the countdown and releases them.
  */
 public final class HungerGamesManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HungerGamesManager.class);
 
-    /** Sparse far out, dense at the end, the whole time first. */
+    /** The announcements of the countdown. */
     private static final CountdownPlan COUNTDOWN =
             CountdownPlan.at(60, 30, 20, 10, 5, 4, 3, 2, 1).fromTheStart();
 
@@ -56,7 +54,7 @@ public final class HungerGamesManager {
     private final BorderController border;
     private final HungerGamesSounds sounds;
 
-    /** Whether players are frozen for the countdown, which {@code FreezeListener} consults. */
+    /** Whether the players are frozen. {@code FreezeListener} reads it. */
     private volatile boolean frozen;
 
     private final Clock clock;
@@ -95,13 +93,10 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Runs the whole start sequence of a game just created; callers must already be off the main thread.
+     * Starts the game. The caller runs it off the main thread.
      *
-     * @param gameId the game being started
-     * @param participants who plays, at least one
-     * @param names what the participants are called, by Minecraft account, for the bodies of those offline
-     * @param world the event world
-     * @param onReleased called on the main thread once the countdown finishes and protection begins
+     * @param names the name of each participant by Minecraft UUID
+     * @param onReleased runs on the main thread when the countdown ends and the PvP protection starts
      */
     public void start(
             final UUID gameId,
@@ -109,7 +104,6 @@ public final class HungerGamesManager {
             final Map<UUID, PlayerContext> names,
             final World world,
             final Runnable onReleased) {
-        // Colours are written before the world is touched, so a restart before release repaints identically.
         assignColours(participants);
 
         final double step =
@@ -140,7 +134,7 @@ public final class HungerGamesManager {
         });
     }
 
-    /** Tells every online solo-by-demotion participant, at the start of the countdown, why they stand alone. */
+    /** Sends every online participant of a demoted team the demotion message. */
     private void announceDemotions(final List<Participant> participants) {
         for (final Participant participant : participants) {
             if (!participant.demotedToSolo()) {
@@ -148,7 +142,6 @@ public final class HungerGamesManager {
             }
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
-                // Deliberately silent: the tower teleport in the same tick already played TRAVEL.
                 online.sendMessage(renderer.format(
                         identities.languageOf(participant.mcUuid()),
                         MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
@@ -156,13 +149,12 @@ public final class HungerGamesManager {
         }
     }
 
-    /** Schedules the countdown announcements, one task per beat, since the beats are uneven. */
+    /** Schedules one task for each countdown announcement. */
     private void scheduleCountdown(final List<Participant> participants) {
         final List<CountdownPlan.Beat<MessageRef>> beats = COUNTDOWN.beats(
                 Duration.ofSeconds(config.countdownSeconds()), MESSAGES.hg().start()::countdown, null);
         for (final CountdownPlan.Beat<MessageRef> beat : beats) {
             PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> {
-                // The game can be over, or never have started, by the time a beat fires.
                 if (!frozen) {
                     return;
                 }
@@ -177,12 +169,11 @@ public final class HungerGamesManager {
         }
     }
 
-    /** One palette entry per distinct team, so a duo shares its colour, sized after demotion. */
+    /** Assigns each team one colour of the palette. */
     private void assignColours(final List<Participant> participants) {
         final int teamCount = Demotion.effectiveTeamCount(participants);
         final List<Integer> palette = TeamColours.generatePalette(teamCount);
 
-        // Deterministic walk over the stable-ordered list: re-running against the same roster repeats it.
         final Map<UUID, Integer> assigned = new LinkedHashMap<>();
         int paletteIndex = 0;
         for (final Participant participant : participants) {
@@ -203,7 +194,6 @@ public final class HungerGamesManager {
             final Participant participant, final Location tower, final Map<UUID, PlayerContext> names) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
-            // Not in the teleport callback, which would reorder the sequence; a failed teleport is logged.
             final var _ = online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
                     plugin.getLogger()
@@ -213,13 +203,11 @@ public final class HungerGamesManager {
                 }
             });
             online.setInvulnerable(true);
-            // mayfly only stops vanilla's floating kick while FreezeListener pins everyone; release() takes it away.
             online.setAllowFlight(true);
             sounds.play(online, Feedback.TRAVEL);
             return;
         }
 
-        // Not dropped: a body with no live Player to copy equipment from waits bare on its tower.
         LOGGER.info(
                 "Placing an unequipped body for offline participant {} on its "
                         + "spawn tower - see PlayerBodies for what this approximates",
@@ -240,7 +228,6 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 online.setInvulnerable(false);
-                // setFlying(false) first: setAllowFlight(false) on someone actually flying drops them.
                 online.setFlying(false);
                 online.setAllowFlight(false);
                 online.sendMessage(renderer.format(

@@ -3,11 +3,7 @@ package eu.nordtal.season.hungergames.roster;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One member on a team of the round, as this plugin plays them.
- *
- * {@code mcUuid} is null for a player who never linked, who therefore has no body to teleport.
- */
+/** A member of a team in a round. {@code mcUuid} is {@code null} when the member has no linked account. */
 public record RosterEntry(
         UUID memberId,
         UUID teamId,

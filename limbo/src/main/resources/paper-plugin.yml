@@ -6,4 +6,4 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.2"
 
-# No permissions: every command is gated by the admin flag, and the console needs none.
+# The plugin declares no permissions. Every command checks the admin flag.

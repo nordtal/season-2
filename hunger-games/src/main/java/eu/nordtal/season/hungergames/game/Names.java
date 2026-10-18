@@ -10,21 +10,17 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
-/** What the players of a game are called, read through the identity service: a Minecraft name, never an account id. */
+/** Reads the Minecraft names of players from the identity service. */
 public final class Names {
 
     private final Function<Collection<PlayerId>, List<PlayerIdentity>> identities;
 
-    /** @param identities the identity service's read, {@code AccessReader#identities} */
+    /** @param identities {@code AccessReader#identities} */
     public Names(final Function<Collection<PlayerId>, List<PlayerIdentity>> identities) {
         this.identities = identities;
     }
 
-    /**
-     * Returns these Minecraft accounts by the name each was last seen with; blocking.
-     *
-     * An account never seen has no name and is left out, which only one that has never played can be.
-     */
+    /** Returns the last seen name of each account, without accounts that have none. It blocks. */
     public Map<UUID, PlayerContext> of(final Collection<UUID> mcUuids) {
         final Map<UUID, PlayerContext> named = new HashMap<>();
         if (mcUuids.isEmpty()) {

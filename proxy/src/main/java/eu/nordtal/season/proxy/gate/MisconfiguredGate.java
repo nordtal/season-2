@@ -14,34 +14,29 @@ import java.util.concurrent.atomic.AtomicLong;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
-/**
- * Refuses every login because {@code proxy}'s own configuration could not be read.
- *
- * Failing closed is the point: a mistyped key must not silently open the network, so nobody is exempt.
- */
+/** Refuses every login, admins included, when the configuration of the proxy cannot be read. */
 public final class MisconfiguredGate {
 
     private final Logger logger;
     private final Component screen;
     private final Component motd;
 
-    /** How many logins were refused, so the log says "and 400 others" rather than 400 lines. */
+    /** The number of refused logins. */
     private final AtomicLong refused = new AtomicLong();
 
     public MisconfiguredGate(final Logger logger, final MessageRenderer renderer) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(renderer, "renderer");
         this.screen = GateMessages.inEveryLanguage(renderer, MESSAGES.gate().misconfigured());
-        // English only: a ping carries no player to take a language from.
         this.motd = renderer.format(Locale.ENGLISH, MESSAGES.motd().misconfigured());
     }
 
-    /** Returns what the server browser shows while nobody can join. */
+    /** Returns the MOTD. */
     Component motd() {
         return motd;
     }
 
-    /** What the server browser shows while nobody can join, never the configured MOTD. */
+    /** Replaces the MOTD of every ping. */
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
         event.setPing(event.getPing().asBuilder().description(motd).build());
@@ -53,11 +48,7 @@ public final class MisconfiguredGate {
                 refuse(event.getPlayer().getUniqueId(), event.getPlayer().getUsername())));
     }
 
-    /**
-     * Refuses, counts, and logs the first refusal and every {@value #REPEAT_LOG_EVERY}th after that.
-     *
-     * @param username their name, for the log line
-     */
+    /** Counts the refusal and logs the first refusal and every {@value #REPEAT_LOG_EVERY}th one. */
     Component refuse(final UUID mcUuid, final String username) {
         final long count = refused.incrementAndGet();
         if (count == 1 || count % REPEAT_LOG_EVERY == 0) {
@@ -71,7 +62,7 @@ public final class MisconfiguredGate {
         return screen;
     }
 
-    /** How many logins this handler has refused. */
+    /** Returns the number of refused logins. */
     public long refusedCount() {
         return refused.get();
     }

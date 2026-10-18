@@ -29,14 +29,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.slf4j.Logger;
 
-/**
- * Tells every player on the network that it is about to go down, and how long they have.
- *
- * Counts towards the row's {@link UpdateRequest#due()}; a notification, including a withdrawal's, makes it look again.
- */
+/** Announces the countdown of an update run to every player. The countdown ends at {@link UpdateRequest#due()}. */
 public final class RestartWatch {
 
-    /** How long a tick's subtitle stays up; longer than a second, so the counter does not flicker between ticks. */
+    /** The display times of the tick subtitle. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -49,24 +45,24 @@ public final class RestartWatch {
     private final PhaseServers servers;
     private final Clock clock;
 
-    /** Whether a standby proxy is answering, asked once per countdown; defaults to no. */
+    /** Asks whether a standby proxy answers. It is asked once per countdown. */
     private volatile BooleanSupplier standbyProxy = () -> false;
 
-    /** What the run being counted down is, fixed once per countdown and kept so {@link #vanished()} can name it. */
+    /** The shape of the run that is counted down. */
     private volatile RunShape shape = RunShape.of(UpdateKind.RESTART, Set.of(), true, false);
 
-    /** Whether the voice chat sentence has been said for this countdown; it goes on the first chat line only. */
+    /** Whether the voice chat message was sent in this countdown. */
     private volatile boolean saidVoice;
 
-    /** When to speak and what to say. */
+    /** Plans the announcements. */
     private final Countdown countdown = new Countdown();
 
     private final List<Scheduler.Task> scheduled = new ArrayList<>();
 
-    /** Whether the network has already been told the outage is happening; two paths reach that sentence. */
+    /** Whether the {@code NOW} announcement was sent. */
     private boolean saidNow;
 
-    /** What else runs at zero besides the announcement, the evacuation in practice; defaults to nothing. */
+    /** The action that runs at zero. */
     private volatile Runnable atZero = () -> {};
 
     public RestartWatch(
@@ -89,39 +85,37 @@ public final class RestartWatch {
     }
 
     /**
-     * How to find out whether a standby proxy is there to catch the network.
+     * Sets the check for a standby proxy.
      *
-     * @param answers {@code ProxySwap#canPark} in the deployment; a setter, since the swap is built after this watch
+     * @param answers {@code ProxySwap#canPark} in the deployment
      */
     public void standbyProxyAnswers(final BooleanSupplier answers) {
         this.standbyProxy = Objects.requireNonNull(answers, "answers");
     }
 
     /**
-     * What to run at the instant the counter reaches zero, beside the announcement.
+     * Sets the action that runs at zero.
      *
-     * @param action must not throw, since Velocity stops running a scheduled task that throws
+     * @param action must not throw
      */
     public void whenZeroReached(final Runnable action) {
         this.atZero = Objects.requireNonNull(action, "action");
     }
 
-    /**
-     * Whether a countdown is running right now.
-     *
-     * {@code OnlineWriter} writes counts every second from here on, so steward reads fresh ones at zero.
-     */
+    /** Returns whether a countdown runs. */
     public synchronized boolean isCountingDown() {
         return countdown.watching() != null;
     }
 
-    /** One pass, on every {@code nordtal_update} notification and the hub's quiet minute; never throws. */
+    /**
+     * Reads the update request and plans the announcements.
+     * It runs on every {@code nordtal_update} notification and never throws.
+     */
     public synchronized void check() {
         final Optional<UpdateRequest> pending;
         try {
             pending = updates.countingDown();
         } catch (final RuntimeException failure) {
-            // Not a reason to announce anything, nor to take back a countdown already scheduled.
             logger.warn("Could not read the countdown; nobody was told anything this pass", failure);
             return;
         }
@@ -133,7 +127,6 @@ public final class RestartWatch {
 
         final UpdateRequest request = pending.get();
         countdown.beats(request.id(), request.untilDue(clock.instant())).ifPresent(beats -> {
-            // Once per countdown: it parses a report and opens a socket.
             shape = shapeOf(request);
             saidVoice = false;
             logger.info(
@@ -154,7 +147,7 @@ public final class RestartWatch {
         });
     }
 
-    /** What this run is, from the services it stops, {@link Evacuation#roomFor} and {@code ProxySwap}'s probe. */
+    /** Returns the shape of the run. */
     private RunShape shapeOf(final UpdateRequest request) {
         final Set<String> moving = Evacuation.backends(request);
         final boolean room = Evacuation.roomFor(
@@ -175,7 +168,7 @@ public final class RestartWatch {
         return RunShape.of(request.kind(), moving, room, standby);
     }
 
-    /** Puts one beat on the proxy's scheduler, even at zero delay, so no broadcast runs under this monitor. */
+    /** Schedules the beat on the proxy scheduler. */
     private void schedule(final CountdownPlan.Beat<Announcement> beat) {
         scheduled.add(scheduler.after(beat.delay(), () -> {
             if (beat.said().kind() == Announcement.Kind.NOW) {
@@ -186,7 +179,6 @@ public final class RestartWatch {
                     saidNow = true;
                     countdown.zeroReached();
                 }
-                // Before the sentence: a failure here must not swallow the announcement.
                 try {
                     atZero.run();
                 } catch (final RuntimeException failure) {
@@ -205,11 +197,10 @@ public final class RestartWatch {
         scheduled.clear();
     }
 
-    /** Looks up what became of a row that is no longer counting down: ran out or withdrawn. */
+    /** Announces the end of a countdown that ran out or was cancelled. */
     private void vanished() {
         final Long watched = countdown.watching();
         if (watched == null) {
-            // Nothing was being counted down; clears the bookkeeping and stays silent.
             countdown.gone(null).ifPresent(this::say);
             return;
         }
@@ -218,7 +209,6 @@ public final class RestartWatch {
         try {
             status = updates.find(watched).map(UpdateRequest::status).orElse(null);
         } catch (final RuntimeException failure) {
-            // The countdown is left standing so the next pass asks again.
             logger.warn(
                     "Countdown {} stopped and could not be read back; nobody was told anything" + " this pass",
                     watched,
@@ -242,7 +232,6 @@ public final class RestartWatch {
     private void say(final Announcement announcement) {
         final RunShape current = shape;
         switch (announcement.kind()) {
-            // Chat is where a warning is read; the title reaches a player mining with chat closed.
             case COUNTDOWN -> {
                 each((player, locale) -> player.sendMessage(line(
                         locale,
@@ -264,7 +253,6 @@ public final class RestartWatch {
                         line(locale, now(current.occasion(), what(current)), fateOf(current, player))));
                 title(locale -> renderer.format(locale, now(current.occasion(), what(current))));
             }
-            // No chat line: the number alone, in the middle of the screen, once a second.
             case TICK ->
                 title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
             case CANCELLED ->
@@ -275,9 +263,8 @@ public final class RestartWatch {
     }
 
     /**
-     * One chat line: the occasion and service, then in grey what happens to the reader.
-     *
-     * {@link RunShape.Fate#NOTHING} adds no second half.
+     * Returns the chat message with the occasion, the service and the {@link RunShape.Fate} of the player.
+     * {@link RunShape.Fate#NOTHING} adds no text.
      */
     private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
         final Component head = renderer.format(locale, announcement);
@@ -312,7 +299,7 @@ public final class RestartWatch {
         };
     }
 
-    /** Whether this player is about to lose voice chat, by {@link RunShape#losesVoice}. */
+    /** Returns whether the player loses voice chat. */
     private boolean losesVoice(final RunShape current, final Player player) {
         final String on = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
@@ -326,13 +313,13 @@ public final class RestartWatch {
                 .orElse(null));
     }
 
-    /** The service a run is about as a player would name it, or "the network" for more than one. */
+    /** Returns the name of the only service of the run, or "the network" for several. */
     private static MessageRef what(final RunShape current) {
         final String only = current.onlyService();
         return only == null ? MESSAGES.restart().what().network() : Homecoming.serviceName(only);
     }
 
-    /** The occasion as a noun, for the lines that say it is off. */
+    /** Returns the occasion as a noun. */
     private static MessageRef occasion(final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
         return switch (current.occasion()) {
@@ -344,12 +331,12 @@ public final class RestartWatch {
         };
     }
 
-    /** Renders a line for everybody in their own locale from {@link LoginRoster}, English when it has none. */
+    /** Sends the message to every player in the language of the player. */
     private void broadcast(final java.util.function.Function<Locale, Component> render) {
         each((player, locale) -> player.sendMessage(render.apply(locale)));
     }
 
-    /** The same, as a subtitle with an empty title above it. */
+    /** Shows the message to every player as a subtitle. */
     private void title(final java.util.function.Function<Locale, Component> render) {
         each((player, locale) ->
                 player.showTitle(Title.title(Component.empty(), Lines.joined(render.apply(locale)), TIMES)));

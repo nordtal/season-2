@@ -12,7 +12,7 @@ import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.proxy.ping.ServerListContext;
 
-/** Every message of the proxy bundle, one method per key. */
+/** The messages of the proxy bundle. */
 @MessageSpec("proxy")
 @Shown(Display.CHAT)
 public interface ProxyMessages {

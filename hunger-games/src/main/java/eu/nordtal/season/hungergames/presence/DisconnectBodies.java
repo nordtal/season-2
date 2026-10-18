@@ -24,11 +24,7 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Puts a body in place of a player who quits mid-game and hands the gear back on their return.
- *
- * The tab list's player count is redrawn as people come and go.
- */
+/** Spawns a stand for a player who quits during a game and returns the equipment when the player joins again. */
 public final class DisconnectBodies implements Listener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DisconnectBodies.class);
@@ -39,10 +35,9 @@ public final class DisconnectBodies implements Listener {
     private final GameState state;
     private final TabList tabList;
 
-    /** The shared system lines, held for the join line. */
     private final SystemLines lines;
 
-    /** The network's limit, which the footer shows: no server has one of its own. */
+    /** The player limit of the network. */
     private final PlayersSpec network;
 
     public DisconnectBodies(
@@ -62,7 +57,7 @@ public final class DisconnectBodies implements Listener {
         this.lines = lines;
     }
 
-    /** Rewrites the tab list header and footer, which carries the player count, for everybody online. */
+    /** Sends the tab list header and footer to every online player. */
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = identities.languageOf(online.getUniqueId());
@@ -79,17 +74,15 @@ public final class DisconnectBodies implements Listener {
                 final Location at = armorStand.getLocation();
                 returnEquipment(player, armorStand);
                 armorStand.remove();
-                // Fire-and-forget: nothing here depends on the teleport landing before the handler returns.
                 final var _ = player.teleportAsync(at);
             }
             bodies.remove(player.getUniqueId());
         }
     }
 
-    /** Draws what a joined player reads once every join handler ran, and says they arrived. */
+    /** Sends the tab list and announces the join. */
     public void languageKnown(final Player player) {
         refreshTabList();
-        // Said once, here rather than in a join handler, after Paper's own join handling.
         lines.announceJoin(player);
     }
 
@@ -97,17 +90,15 @@ public final class DisconnectBodies implements Listener {
     public void onQuit(final PlayerQuitEvent event) {
         final Player player = event.getPlayer();
 
-        // A tick later: during PlayerQuitEvent the leaver is still counted in getOnlinePlayers().
         PaperScheduler.of(plugin).onMain(this::refreshTabList);
 
-        // Only a RUNNING-game disconnect gets a body here; the countdown already placed one for offline players.
         if (state.isRunning()) {
             LOGGER.info("Player {} disconnected mid-game - spawning a body to take their place", player.getName());
             bodies.spawn(player, Objects.requireNonNull(player.getLocation()));
         }
     }
 
-    /** Returns the marker's remaining gear to the reconnecting player, the inverse of {@code PlayerBodies#spawn}. */
+    /** Copies the equipment of the stand to the player. */
     private void returnEquipment(final Player player, final ArmorStand marker) {
         final EntityEquipment equipment = marker.getEquipment();
         if (equipment == null) {

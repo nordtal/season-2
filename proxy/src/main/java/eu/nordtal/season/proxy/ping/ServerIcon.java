@@ -10,19 +10,15 @@ import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 
-/**
- * The 64 x 64 icon the server browser shows, from {@code plugins/proxy/icon.png}.
- *
- * The built-in one is {@code pack.png} at every second pixel; any failure is a warning and no icon.
- */
+/** Loads the 64 x 64 icon from {@code plugins/proxy/icon.png}. A failure is logged and the ping has no icon. */
 public final class ServerIcon {
 
-    /** Where the built-in icon sits in the jar, and the file's name in the data folder. */
+    /** The file name of the icon in the jar and in the data folder. */
     public static final String FILE_NAME = "icon.png";
 
     private ServerIcon() {}
 
-    /** The icon for every ping, or empty when there is none to be had. */
+    /** Returns the icon, or empty when it cannot be loaded. */
     public static Optional<Favicon> load(final Path dataDirectory, final Logger logger) {
         Objects.requireNonNull(dataDirectory, "dataDirectory");
         final Path file = dataDirectory.resolve(FILE_NAME);

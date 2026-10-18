@@ -9,11 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Where a player belongs, as a total function of one {@link AccessState} and the servers this proxy has.
- *
- * A registered server that is down is not visible here; the caller handles the failed connection.
- */
+/** Decides the server of a player from the {@link AccessState} and the registered servers. */
 public final class PhaseRouting {
 
     private final PhaseServers servers;
@@ -29,10 +25,9 @@ public final class PhaseRouting {
     }
 
     /**
-     * Decides what happens to one player, in the phase {@code state} carries.
+     * Returns the decision for the player in the phase of the state.
      *
-     * @param available the names from {@code ProxyServer.getAllServers()}
-     * @return what to do, never {@code null}
+     * @param available the names of the registered servers
      */
     public RouteDecision decide(final AccessState state, final Set<String> available) {
         Objects.requireNonNull(state, "state");
@@ -42,35 +37,28 @@ public final class PhaseRouting {
         return switch (outcome) {
             case NOT_LINKED -> RouteDecision.of(RouteDecision.Action.REFUSE_UNLINKED);
             case NOT_MEMBER -> RouteDecision.of(RouteDecision.Action.REFUSE_NOT_MEMBER);
-            // Never a redirect to limbo: limbo is for waiting on something that ends.
             case NO_ACCESS -> RouteDecision.of(RouteDecision.Action.REFUSE_NO_ACCESS);
-            // The network went back to PRE_LAUNCH under a player on it; they get the gate's own screens.
             case PRE_LAUNCH_BUY -> RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_BUY);
             case PRE_LAUNCH_READY -> RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_READY);
             case ALLOW -> decideAdmitted(state.phase(), state.admin(), available);
-            // Only the login gate, which knows the player count, answers these.
             case FULL, TROUBLE -> throw new IllegalStateException("not an access table outcome: " + outcome);
         };
     }
 
     /**
-     * Where an admitted login goes first: {@code limbo}, whatever the phase.
-     *
-     * A missing waiting room refuses the login; only an admin goes straight to the phase's backend.
+     * Returns the decision for an admitted login: connect to {@code limbo}.
+     * Without a waiting room only an admin connects to the backend of the phase.
      */
     public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
-        // The live room first: preferring the standby while both are up would split arrivals.
         final String room = waitingRoomAmong(available);
         if (room != null) {
-            // Everybody, admins included: STAY would release them back into the room they just entered.
             return RouteDecision.connectTo(room);
         }
 
         if (admin) {
-            // No waiting room at all: an admin locked out could never repair a missing limbo.
             final String destination = servers.forAdmitted(phase, true);
             if (available.contains(destination)) {
                 return RouteDecision.connectTo(destination);
@@ -83,13 +71,12 @@ public final class PhaseRouting {
                         : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
-    /** Where a player past admission belongs, from the facts the roster already holds. */
+    /** Returns the decision for a player who is already admitted. */
     public RouteDecision decideAdmitted(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
         if ((phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) && admin) {
-            // Maintenance does not move an admin; one still in the waiting room uses decideRelease.
             return RouteDecision.of(RouteDecision.Action.STAY);
         }
 
@@ -104,7 +91,7 @@ public final class PhaseRouting {
                         : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
-    /** Where the waiting room lets a player out to; never {@code STAY}, which would leave them on a black screen. */
+    /** Returns the decision for a player who leaves the waiting room. It is never {@code STAY}. */
     public RouteDecision decideRelease(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
@@ -123,20 +110,12 @@ public final class PhaseRouting {
         return servers;
     }
 
-    /**
-     * Returns {@code limbo} if registered, else {@code limbo-standby} if registered, else {@code null}.
-     *
-     * @param available the backends registered on this proxy
-     */
+    /** Returns {@code limbo} if registered, otherwise {@code limbo-standby} if registered, otherwise {@code null}. */
     private @Nullable String waitingRoomAmong(final Set<String> available) {
         return waitingRoomAmong(available, servers, role);
     }
 
-    /**
-     * The same, as a function of its inputs; the standby prefers the standby room.
-     *
-     * Otherwise a player parked out of {@code limbo} would rejoin it within a second and collide with themselves.
-     */
+    /** Returns the waiting room for the inputs. The standby proxy prefers {@code limbo-standby}. */
     static @Nullable String waitingRoomAmong(
             final Set<String> available, final PhaseServers servers, final ProxyRole role) {
         final String first = role.isStandby() ? servers.limboStandby() : servers.limbo();

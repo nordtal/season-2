@@ -1,24 +1,20 @@
 package eu.nordtal.season.proxy;
 
-/**
- * Which of the two proxies this process is, set by {@code network#standby}.
- *
- * Both run the same image and environment, so the role cannot be detected and has a safe default.
- */
+/** The role of this proxy, set by {@code network#standby}. */
 public enum ProxyRole {
 
-    /** The proxy on {@code network#public-address}, the one players type in. */
+    /** The proxy on {@code network#public-address}. */
     LIVE,
 
-    /** The second proxy, which holds every player for the length of one update run. */
+    /** The proxy that holds every player during a proxy swap. */
     STANDBY;
 
-    /** Returns the role that {@code network#standby} names. */
+    /** Returns {@link #STANDBY} for {@code true}, otherwise {@link #LIVE}. */
     public static ProxyRole of(final boolean standby) {
         return standby ? STANDBY : LIVE;
     }
 
-    /** Whether this process is the standby. */
+    /** Returns whether the role is {@link #STANDBY}. */
     public boolean isStandby() {
         return this == STANDBY;
     }

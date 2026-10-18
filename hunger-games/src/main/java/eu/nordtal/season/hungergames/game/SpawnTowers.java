@@ -3,13 +3,13 @@ package eu.nordtal.season.hungergames.game;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Spawn tower positions: {@code count} points evenly spaced on a circle, as X/Z pairs. */
+/** The positions of the spawn towers. */
 public final class SpawnTowers {
 
     private SpawnTowers() {}
 
     /**
-     * {@code count} {@code [x, z]} pairs, evenly spaced from angle 0 on the positive X axis.
+     * Returns {@code count} {@code [x, z]} pairs on a circle, evenly spaced from angle 0 on the positive X axis.
      *
      * @throws IllegalArgumentException if {@code count} or {@code radius} is not positive
      */

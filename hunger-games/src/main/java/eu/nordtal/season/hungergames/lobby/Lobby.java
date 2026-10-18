@@ -24,13 +24,11 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready" and a live team count.
- *
- * Ready state starts nothing by itself; it informs the admin's decision.
+ * Broadcasts the ready check to the lobby periodically. The broadcast has a ready button and the number of ready teams.
  */
 public final class Lobby {
 
-    /** What the lobby broadcast's button runs. */
+    /** The action of the ready button. */
     private static final Action READY = new Action("/hg ready");
 
     private final Plugin plugin;
@@ -57,10 +55,9 @@ public final class Lobby {
         this.identities = identities;
     }
 
-    /** Starts the periodic ready-check broadcast. Call once, from {@code onEnable}. */
+    /** Starts the periodic broadcast. */
     public void startBroadcasting(final World world) {
         final Duration period = Duration.ofSeconds(config.lobby().broadcastIntervalSeconds());
-        // The roster is read off the main thread, and only the lines are sent from it.
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         broadcastTask = scheduler.every(
                 period,
@@ -75,7 +72,7 @@ public final class Lobby {
         }
     }
 
-    /** Deliberately silent: a chime on a repeating message makes people turn the sound off entirely. */
+    /** Sends the broadcast to the players in the world. It plays no sound. */
     private void broadcast(final World world, final List<RosterEntry> roster) {
         final long totalTeams =
                 roster.stream().map(RosterEntry::teamId).distinct().count();
@@ -93,7 +90,7 @@ public final class Lobby {
     }
 
     /**
-     * Marks the calling player ready in the open round, for {@code /hg ready}; blocking.
+     * Marks the team of the player as ready in the open round. It blocks.
      *
      * @return whether the player is on a team of the open round
      */
@@ -101,7 +98,7 @@ public final class Lobby {
         return dao.openRound().map(round -> rosters.markReady(round, discordId)).orElse(false);
     }
 
-    /** Returns every member of the open round and whether they are ready, or empty while no round is open; blocking. */
+    /** Returns the members of the open round and whether each is ready, or empty without an open round. It blocks. */
     public Optional<List<RosterEntry>> readyStatus() {
         return dao.openRound().map(rosters::roster);
     }

@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** The five placeholder loot points the {@code config} group defaults to, until the event world exists. */
+/** The default loot points of the {@code config} group. */
 final class DefaultLootPoints {
 
     static final List<HungerGamesSpec.LootPointSpec> LIST = List.of(

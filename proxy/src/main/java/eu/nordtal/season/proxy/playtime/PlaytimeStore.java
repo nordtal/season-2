@@ -5,20 +5,16 @@ import eu.nordtal.season.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
 
-/** Where accumulated online time goes; an interface so {@link PlaytimeWriter} tests need no database. */
+/** Stores the play time. */
 public interface PlaytimeStore {
 
-    /** A store over the proxy's own pool; it owns nothing and there is nothing to close. */
+    /** Creates a store that uses the pool of the proxy. */
     static PlaytimeStore using(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         final PlaytimeDao dao = Jdbis.over(dataSource).onDemand(PlaytimeDao.class);
         return dao::add;
     }
 
-    /**
-     * Adds a slice of online time to a player's running total, creating the row on first use.
-     *
-     * @param seconds how many seconds to add, always positive
-     */
+    /** Adds the positive number of seconds to the total of the player. It creates the row when it is missing. */
     void add(DiscordId discordId, long seconds);
 }

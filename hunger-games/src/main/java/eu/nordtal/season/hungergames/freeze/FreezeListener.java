@@ -5,11 +5,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 
-/**
- * Holds players in place during the countdown, so nobody creeps toward the chests early.
- *
- * Cancelling moves keeps everyone visible on their tower, which spectator mode would not; looking around stays free.
- */
+/** Cancels the movement of players during the countdown. Players can still look around. */
 public final class FreezeListener implements Listener {
 
     private final HungerGamesManager manager;

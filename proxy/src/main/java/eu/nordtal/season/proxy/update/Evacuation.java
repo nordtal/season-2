@@ -18,9 +18,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Moves the players off a backend an update is about to stop into the waiting room, at zero and not before.
- *
- * The waiting room's sweep brings them back; nobody moves when the run stops every waiting room.
+ * Moves the players of a server that an update run stops to the waiting room when the countdown reaches zero.
+ * The sweep of the waiting room sends them back.
  */
 public final class Evacuation {
 
@@ -29,15 +28,15 @@ public final class Evacuation {
     private final UpdateDirectory updates;
     private final PhaseServers servers;
 
-    /** Who to tell when their server takes them back. */
+    /** Informs the players when they return. */
     private final Homecoming homecoming;
-    /** The backends a run has, or is about to have, stopped; replaced wholesale since other threads read it. */
+    /** The servers that an update run stops or is about to stop. */
     private volatile Set<String> moving = Set.of();
 
-    /** The backends somebody deliberately holds down; kept apart since the screen promises no return. */
+    /** The servers that an admin keeps stopped. */
     private volatile Set<String> held = Set.of();
 
-    /** Whether the last pass refused the evacuation, so the warning is logged once per run. */
+    /** Whether the warning about the missing waiting room was logged. */
     private volatile boolean warnedAboutWaitingRoom;
 
     public Evacuation(
@@ -53,36 +52,28 @@ public final class Evacuation {
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
     }
 
-    /** Returns whether an update run has this backend stopped or is stopping it, which shows {@code UPDATE}. */
+    /** Returns whether an update run stops or has stopped the server. */
     public boolean isMoving(final String server) {
         return server != null && moving.contains(server);
     }
 
-    /**
-     * Returns whether a run has anything stopped or about to be, which puts {@code OnlineWriter} on its fast cadence.
-     */
+    /** Returns whether an update run stops or has stopped any server. */
     public boolean isAnyMoving() {
         return !moving.isEmpty();
     }
 
-    /** Returns whether somebody holds this backend down on purpose, which shows {@code HELD}. */
+    /** Returns whether an admin keeps the server stopped. */
     public boolean isHeld(final String server) {
         return server != null && held.contains(server);
     }
 
-    /**
-     * One pass, beside {@code RestartWatch} on the same notification and at its zero.
-     *
-     * Never throws: Velocity stops running a task that does.
-     */
+    /** Reads the update row and moves the players when the countdown has ended. It never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> running;
         try {
-            // Read first: a pass with no run to report still needs the holds.
             held = heldServices(updates.holds());
             running = updates.running();
         } catch (final RuntimeException failure) {
-            // The last pass's set stands.
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
@@ -94,14 +85,12 @@ public final class Evacuation {
             return;
         }
 
-        // Ordinarily the waiting room itself, or limbo-standby if the run stops that too.
         final String room = roomFor(
                 next,
                 servers.limbo(),
                 servers.limboStandby(),
                 name -> proxy.getServer(name).isPresent());
         if (room == null) {
-            // The run stops the waiting room and no standby is registered; logged every pass.
             if (!warnedAboutWaitingRoom) {
                 warnedAboutWaitingRoom = true;
                 logger.warn(
@@ -121,10 +110,10 @@ public final class Evacuation {
     }
 
     /**
-     * The waiting room this run can move people into: {@code limbo}, else a registered standby, else {@code null}.
+     * Returns {@code limbo} unless the run stops it, otherwise the standby if registered, otherwise {@code null}.
      *
-     * @param next the backends this run is about to stop
-     * @param registered whether this proxy has a server under a given name
+     * @param next the servers that the run stops
+     * @param registered whether the proxy has a server of this name
      */
     static @Nullable String roomFor(
             final Set<String> next, final String limbo, final String standby, final Predicate<String> registered) {
@@ -137,11 +126,7 @@ public final class Evacuation {
         return null;
     }
 
-    /**
-     * The services of those holds, as a set to look a backend up in.
-     *
-     * A DOWN run reaches {@code DONE} in seconds while its hold lasts until somebody presses Start.
-     */
+    /** Returns the services of the holds. */
     static Set<String> heldServices(final List<eu.nordtal.season.database.update.ServiceHold> holds) {
         if (holds.isEmpty()) {
             return Set.of();
@@ -154,21 +139,20 @@ public final class Evacuation {
     }
 
     /**
-     * The backends to clear, empty until a run is under way.
+     * Returns the servers to clear, or an empty set without a running request.
      *
-     * @param running the row whose countdown has run out, from {@code UpdateDirectory#running()}; empty during a
-     *     countdown, which can still be cancelled
+     * @param running the request whose countdown has ended
      */
     static Set<String> imminent(final Optional<UpdateRequest> running) {
         return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
-    /** The services the run stops, as steward wrote them when its countdown started. */
+    /** Returns the services that the request stops. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
     }
 
-    /** Counts players sent off one backend on the run's move; a write that fails costs the count, never the move. */
+    /** Stores the number of moved players. A failed write is logged. */
     private void moved(final long run, final String from, final String room, final int players) {
         try {
             updates.recorder().moved(run, from, room, players);
@@ -177,11 +161,10 @@ public final class Evacuation {
         }
     }
 
-    /** Moves everybody standing on one of those backends into the waiting room. */
+    /** Moves every player on one of the servers to the waiting room. */
     private void evacuate(final Set<String> backends, final String waitingRoom, final long run) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
-            // roomFor checked this server, so it was unregistered between the two calls.
             logger.error(
                     "The update moves {} and there is no '{}' registered on this proxy, so"
                             + " nobody can be moved out of the way",
@@ -210,11 +193,9 @@ public final class Evacuation {
                 leaving.size(),
                 new HashSet<>(backends),
                 waitingRoom);
-        // Recorded before the move, so the release at the other end has a sentence to say.
         homecoming.movedOut(leaving);
         off.forEach((from, players) -> moved(run, from, waitingRoom, players));
         for (final Player player : leaving) {
-            // fireAndForget: blocking on one slow connection would delay everybody else past the deadline.
             try {
                 player.createConnectionRequest(limbo).fireAndForget();
             } catch (final RuntimeException failure) {

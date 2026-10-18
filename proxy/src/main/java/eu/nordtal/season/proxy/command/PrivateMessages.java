@@ -34,17 +34,13 @@ import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * The network's own private messages: {@code /msg}, {@code /whisper} and {@code /r}.
- *
- * The proxy sees both sides across backends. Nothing is logged or stored; reply partners live in memory only.
- */
+/** The commands {@code /msg}, {@code /whisper} and {@code /r}. Messages are not logged or stored. */
 public final class PrivateMessages {
 
-    /** The recipient argument's name, which tab completion offers against. */
+    /** The name of the recipient argument. */
     static final String PLAYER = "player";
 
-    /** Everything after the name, taken whole. */
+    /** The name of the argument with the text. */
     static final String MESSAGE = "message";
 
     private final ProxyServer proxy;
@@ -53,7 +49,7 @@ public final class PrivateMessages {
     private final Supplier<ToneColours> colours;
     private final Logger logger;
 
-    /** Who each connected player last exchanged a private message with, for {@code /r}; lost on restart by design. */
+    /** The last conversation partner of each player, for {@code /r}. */
     private final ConcurrentHashMap<UUID, UUID> partners = new ConcurrentHashMap<>();
 
     public PrivateMessages(
@@ -69,7 +65,7 @@ public final class PrivateMessages {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** All three, ready for {@code CommandManager#register}. */
+    /** Returns the three commands. */
     public List<BrigadierCommand> commands() {
         return List.of(whisper("msg"), whisper("whisper"), reply());
     }
@@ -86,7 +82,6 @@ public final class PrivateMessages {
 
         final RequiredArgumentBuilder<CommandSource, ?> who =
                 BrigadierCommand.requiredArgumentBuilder(PLAYER, StringArgumentType.word());
-        // A map lookup and never a query: Brigadier evaluates this while building the client's tree.
         who.suggests((context, builder) -> {
             proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
             return builder.buildFuture();
@@ -123,7 +118,6 @@ public final class PrivateMessages {
             user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
-        // Refused before anything is delivered: it also keeps /r from ever being set to answer itself.
         if (recipient.get().getUniqueId().equals(sender.getUniqueId())) {
             user(sender).reply(ProxyMessages.MESSAGES.chat().msg().self(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
@@ -140,13 +134,11 @@ public final class PrivateMessages {
         final String text = StringArgumentType.getString(context, MESSAGE);
         final UUID partner = partners.get(sender.getUniqueId());
         if (partner == null) {
-            // Distinct from playerOffline: "nobody has written to you" means type their name instead.
             user(sender).reply(ProxyMessages.MESSAGES.chat().noPartner(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         final Optional<Player> recipient = proxy.getPlayer(partner);
         if (recipient.isEmpty()) {
-            // The partner is left standing rather than removed: they may come back.
             user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
@@ -158,33 +150,31 @@ public final class PrivateMessages {
         try {
             deliver(from, to, text);
         } catch (final RuntimeException failure) {
-            // Never with the text in it: a delivery failure is worth logging, what somebody wrote is not.
             logger.warn("{} could not be delivered", what, failure);
             user(from).reply(ProxyMessages.MESSAGES.chat().failed(), Feedback.REFUSED, Tone.BAD);
         }
     }
 
-    /** Delivers both halves of one message and sets the reply partner on both sides. */
+    /** Sends the message to both players and sets them as each other's reply partner. */
     private void deliver(final Player sender, final Player recipient, final String text) {
         sender.sendMessage(line(Half.SENT, localeOf(sender), recipient, text));
         recipient.sendMessage(line(Half.RECEIVED, localeOf(recipient), sender, text));
         remember(sender.getUniqueId(), recipient.getUniqueId());
     }
 
-    /** Which copy of a message a line is. */
+    /** The two copies of a message. */
     enum Half {
-        /** The copy the sender keeps. */
+        /** The copy of the sender. */
         SENT,
-        /** The copy that arrives. */
+        /** The copy of the recipient. */
         RECEIVED
     }
 
     /**
-     * Draws one half of a message.
+     * Draws a copy of the message.
      *
-     * @param half which of the two copies
-     * @param reader the language of the side this line is for
-     * @param about the other person, whose name, flag and admin tag are shown
+     * @param reader the language of the player who reads the copy
+     * @param about the other player, whose name, flag and admin tag the copy shows
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final String flag = LanguageFlags.of(localeOf(about));
@@ -207,19 +197,19 @@ public final class PrivateMessages {
                 });
     }
 
-    /** Sets these two as each other's {@code /r} partner. */
+    /** Sets the two players as each other's {@code /r} partner. */
     void remember(final UUID one, final UUID other) {
         partners.put(one, other);
         partners.put(other, one);
     }
 
-    /** Drops both directions of every conversation this player was in. */
+    /** Deletes the partner entries of the player and the entries that name the player. */
     void forget(final UUID gone) {
         partners.remove(gone);
         partners.values().removeIf(gone::equals);
     }
 
-    /** Returns the player who typed it, or {@code null} for the console, which these commands refuse. */
+    /** Returns the sending player, or {@code null} for the console. */
     private @Nullable Player sender(final CommandContext<CommandSource> context) {
         if (context.getSource() instanceof Player player) {
             return player;
@@ -229,11 +219,7 @@ public final class PrivateMessages {
         return null;
     }
 
-    /**
-     * Prints the usage line and the description for an incomplete command.
-     *
-     * {@code PrivateMessagesTest} checks the hand-written usage against each tree.
-     */
+    /** Prints the usage and the description of an incomplete command. */
     private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
         if (!(context.getSource() instanceof Player player)) {
             context.getSource()
@@ -251,7 +237,7 @@ public final class PrivateMessages {
         return new VelocityUser(player, roster, renderer, colours);
     }
 
-    /** The admin tag with a leading space, or nothing, substituted as {@code {admin}}. */
+    /** Returns the admin tag with a leading space, or an empty string. */
     private String adminTag(final Player player) {
         return roster.isAdmin(player.getUniqueId()) ? " " + Glyphs.TAG_ADMIN : "";
     }
@@ -260,13 +246,13 @@ public final class PrivateMessages {
         return roster.localeOf(player.getUniqueId());
     }
 
-    /** Drops both directions of a conversation the moment one side leaves. */
+    /** Deletes the partner entries of the disconnected player. */
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
         forget(event.getPlayer().getUniqueId());
     }
 
-    /** Returns who this player would answer with {@code /r}, for a test. */
+    /** Returns the reply partner of the player. */
     Optional<UUID> partnerOf(final UUID player) {
         return Optional.ofNullable(partners.get(player));
     }

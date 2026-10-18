@@ -39,11 +39,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * PvP protection and death handling, for real players and disconnected ones' armor-stand bodies.
- *
- * Protection is everyone from everyone, a per-player timestamp in {@link GameState}; friendly fire needs no code.
- */
+/** Handles damage and deaths of players and of the armour stands of disconnected players. */
 public final class CombatListener implements Listener {
 
     private final Plugin plugin;
@@ -56,10 +52,9 @@ public final class CombatListener implements Listener {
     private final HungerGamesSounds sounds;
     private final Names names;
 
-    /** What to run once the game is decided, with the winner's Minecraft uuid already resolved off the main thread. */
+    /** Runs when a death decides the game. */
     private final Consumer<Ceremony.Decision> onGameDecided;
 
-    /** The kill feed for a body's death, which vanilla does not announce. */
     private final SystemLines systemLines;
 
     private final Clock clock;
@@ -136,7 +131,7 @@ public final class CombatListener implements Listener {
         handleDeath(owner, killerUuid);
     }
 
-    /** The kill feed line for a body's death, named off the marker since its owner is offline. */
+    /** Announces the death of a stand. */
     private void announceBodyDeath(final Entity marker, final UUID owner, final @Nullable UUID killerUuid) {
         final PlayerContext victim = PlayerContext.of(PlayerId.of(owner), marker.getName());
         final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
@@ -151,17 +146,15 @@ public final class CombatListener implements Listener {
     }
 
     private void handleDeath(final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {
-        // Every caller checks state.isRunning() first, and release() never runs before reset() sets gameId.
         final UUID gameId = Objects.requireNonNull(state.gameId());
         state.clearProtection(victimMcUuid);
 
-        // LOSS here, not in the async block: the victim may be an offline body's owner, so play() tolerates null.
         sounds.play(plugin.getServer().getPlayer(victimMcUuid), Feedback.LOSS);
 
         PaperScheduler.of(plugin).execute(() -> resolveDeathAsync(gameId, victimMcUuid, killerMcUuid));
     }
 
-    /** The database and outcome work for one death, off the main thread. */
+    /** Stores the death and decides the game. It runs off the main thread. */
     private void resolveDeathAsync(final UUID gameId, final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {
         final Optional<RosterEntry> victimEntry = rosters.rosterEntryByMcUuid(gameId, victimMcUuid);
         if (victimEntry.isEmpty()) {
@@ -176,7 +169,6 @@ public final class CombatListener implements Listener {
         final Optional<WinTracker.Outcome> outcome =
                 winTracker.recordDeath(gameId, victimEntry.get().memberId(), killerMemberId);
 
-        // Everything the ceremony needs, read here: at most once per game, and only once there is a result.
         final Ceremony.Decision decision =
                 outcome.map(decided -> decisionFor(gameId, decided)).orElse(null);
 
@@ -185,7 +177,6 @@ public final class CombatListener implements Listener {
             if (decision != null) {
                 onGameDecided.accept(decision);
             } else {
-                // SMALL_SUCCESS only here: a kill that decided the game gets BIG_SUCCESS in the same tick.
                 if (killerMcUuid != null) {
                     sounds.play(plugin.getServer().getPlayer(killerMcUuid), Feedback.SMALL_SUCCESS);
                 }
@@ -202,12 +193,10 @@ public final class CombatListener implements Listener {
                 : roster.stream()
                         .filter(entry -> decided.winnerMemberId().equals(entry.memberId()))
                         .map(RosterEntry::mcUuid)
-                        // findFirst throws on a null element, so a never-linked member is filtered out first.
                         .filter(java.util.Objects::nonNull)
                         .findFirst()
                         .orElse(null);
 
-        // Written ahead of the ceremony: a game left un-DECIDED is what the partial unique index refuses beside it.
         dao.decideGame(gameId, decided.winnerMemberId());
 
         final Map<UUID, PlayerContext> byAccount = names.of(roster.stream()

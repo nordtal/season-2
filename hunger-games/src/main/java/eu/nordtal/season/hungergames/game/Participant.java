@@ -2,6 +2,6 @@ package eu.nordtal.season.hungergames.game;
 
 import java.util.UUID;
 
-/** One effective participant at countdown time: a linked member of the round and whether its team was just demoted. */
+/** A participant with a linked account and whether the team of the participant was demoted to a solo team. */
 public record Participant(
         UUID memberId, UUID teamId, String teamName, UUID mcUuid, boolean present, boolean demotedToSolo) {}

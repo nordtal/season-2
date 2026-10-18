@@ -12,23 +12,15 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.PlayerInventory;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Killable armour stands standing in for absent players, before or during a game.
- *
- * Their damage and death map back to the owner through this class; {@code WinTracker} tracks life.
- */
+/** The armour stands that stand in for absent players. {@link #ownerOf} returns the player of a stand. */
 public final class PlayerBodies {
 
-    /** Minecraft UUID -> the marker standing in for that player, if any. */
+    /** The stand of each player, by Minecraft UUID. */
     private final Map<UUID, UUID> markerByPlayer = new ConcurrentHashMap<>();
 
     private final Map<UUID, UUID> playerByMarker = new ConcurrentHashMap<>();
 
-    /**
-     * Spawns a body copying the player's equipment and returns the marker's UUID.
-     *
-     * Call from the quit listener while the {@code Player} object is still usable.
-     */
+    /** Spawns a stand with the equipment of the player and returns the UUID of the stand. */
     public UUID spawn(final Player player, final Location at) {
         final ArmorStand marker = baseArmorStand(at, player.getName());
 
@@ -47,12 +39,12 @@ public final class PlayerBodies {
         return marker.getUniqueId();
     }
 
-    /** Spawns a bare body for a participant never seen online this session, and returns the marker's UUID. */
+    /** Spawns a stand without equipment and returns its UUID. */
     public UUID spawnBareArmorStand(final Location at, final String displayName) {
         return baseArmorStand(at, displayName).getUniqueId();
     }
 
-    /** As {@link #spawnBareArmorStand(Location, String)}, registered against a UUID for {@link #ownerOf(UUID)}. */
+    /** Spawns a stand without equipment, registers it for the Minecraft UUID and returns its UUID. */
     public UUID spawnBareArmorStand(final Location at, final String displayName, final UUID mcUuid) {
         final ArmorStand marker = baseArmorStand(at, displayName);
         register(mcUuid, marker.getUniqueId());
@@ -78,12 +70,12 @@ public final class PlayerBodies {
         playerByMarker.put(markerUuid, mcUuid);
     }
 
-    /** Returns the Minecraft account a marker entity stands in for, if it is one of ours. */
+    /** Returns the Minecraft UUID of the player that the stand stands in for, or {@code null}. */
     public @Nullable UUID ownerOf(final UUID markerEntityUuid) {
         return playerByMarker.get(markerEntityUuid);
     }
 
-    /** Returns whether this player currently has a body standing in for them. */
+    /** Returns whether a stand stands in for the player. */
     public boolean hasBody(final UUID mcUuid) {
         return markerByPlayer.containsKey(mcUuid);
     }
@@ -92,7 +84,7 @@ public final class PlayerBodies {
         return markerByPlayer.get(mcUuid);
     }
 
-    /** Removes the bookkeeping for a marker; call after despawning it, on reconnect or on death. */
+    /** Forgets the stand of the player. It does not despawn the stand. */
     public void remove(final UUID mcUuid) {
         final UUID marker = markerByPlayer.remove(mcUuid);
         if (marker != null) {

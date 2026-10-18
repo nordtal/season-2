@@ -13,13 +13,12 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 
 /**
- * Holds the last snapshot that came back, and refreshes it when the signal hub wakes.
- *
- * A failed refresh keeps the previous snapshot; {@link #current()} is a field read for the ping path.
+ * Holds the last {@link NetworkSnapshot} and refreshes it on a signal of the hub.
+ * A failed refresh keeps the previous snapshot.
  */
 public final class SnapshotStore {
 
-    /** How long a signal waits for the ones behind it, so a burst of writes is one read. */
+    /** The time that a signal waits for further signals. Signals within it cause one refresh. */
     static final Duration SETTLE = Duration.ofSeconds(1);
 
     private final SnapshotDirectory snapshots;
@@ -31,24 +30,20 @@ public final class SnapshotStore {
         this.logger = logger;
     }
 
-    /** A store over the proxy's own pool; it owns nothing and there is nothing to close. */
+    /** Creates a store that uses the pool of the proxy. */
     public static SnapshotStore using(final DataSource dataSource, final Logger logger) {
         Objects.requireNonNull(dataSource, "dataSource");
         Objects.requireNonNull(logger, "logger");
         return new SnapshotStore(SnapshotDirectory.using(dataSource), logger);
     }
 
-    /** The last snapshot that came back, or {@link NetworkSnapshot#EMPTY} if none ever has. */
+    /** Returns the last snapshot, or {@link NetworkSnapshot#EMPTY} before the first refresh. */
     public NetworkSnapshot current() {
         return Objects.requireNonNull(
                 current.get(), "current is seeded with NetworkSnapshot.EMPTY and never set to null");
     }
 
-    /**
-     * Refreshes whenever the hub wakes on a channel that moves a number, with signals close together as one read.
-     *
-     * Before {@link SignalHub#start}. The SMP channel is busy, so the hub of these numbers carries no other refresh.
-     */
+    /** Refreshes on each signal of a channel that changes a number. Call it before {@link SignalHub#start}. */
     public void follow(final SignalHub hub, final Scheduler scheduler) {
         Objects.requireNonNull(hub, "hub");
         Objects.requireNonNull(scheduler, "scheduler");
@@ -58,12 +53,12 @@ public final class SnapshotStore {
         }
     }
 
-    /** Returns what a signal calls: a refresh after {@link #SETTLE}, shared by the signals of a burst. */
+    /** Returns the action of a signal: a refresh after {@link #SETTLE}. */
     Runnable refreshOnSignal(final Scheduler scheduler) {
         return new Coalescing(scheduler, SETTLE, this::refresh)::request;
     }
 
-    /** Runs the query and replaces the snapshot; called off the hub's thread, never from a ping. */
+    /** Reads the snapshot from the database. */
     public void refresh() {
         try {
             final NetworkSnapshot snapshot = snapshots.snapshot();
@@ -71,7 +66,6 @@ public final class SnapshotStore {
                 current.set(snapshot);
             }
         } catch (final RuntimeException failure) {
-            // The hub's next wake-up retries, and a stale snapshot beats no numbers at all.
             logger.warn(
                     "Could not refresh the MOTD snapshot; the server browser keeps showing the " + "previous numbers",
                     failure);

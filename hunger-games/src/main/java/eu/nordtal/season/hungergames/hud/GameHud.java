@@ -23,11 +23,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-/**
- * The game's three boss bar lines on the plugin's {@code Hud}: players, loot and border, from release to decision.
- *
- * The resource pack hides the vanilla bar, so this class only decides what each line says.
- */
+/** The three lines of the {@code Hud} during a game: players, loot and border. */
 public final class GameHud {
 
     private final World world;
@@ -36,15 +32,13 @@ public final class GameHud {
     private final BorderController border;
     private final GameState state;
 
-    /** Read at render time rather than pushed in, so the living count cannot go stale. */
     private final WinTracker wins;
 
-    /** Read on every redraw, like {@link #wins}. */
     private final LootRefill loot;
 
     private final Clock clock;
 
-    /** Whether a game is under way; the lines are hidden otherwise. */
+    /** Whether the lines are shown. */
     private volatile boolean shown;
 
     public GameHud(
@@ -66,19 +60,19 @@ public final class GameHud {
         this.loot = loot;
     }
 
-    /** Declares the three lines, players above loot above border. */
+    /** Declares the lines in the order players, loot, border. */
     public void declareOn(final Hud hud) {
         hud.declare(this::playersLine);
         hud.declare(this::lootLine);
         hud.declare(this::borderLine);
     }
 
-    /** Shows the lines to everybody in the arena from the next frame on. */
+    /** Shows the lines to every player in the arena. */
     public void show() {
         shown = true;
     }
 
-    /** Hides the lines from the next frame on. */
+    /** Hides the lines. */
     public void hide() {
         shown = false;
     }
@@ -115,7 +109,7 @@ public final class GameHud {
         return List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderText(locale)));
     }
 
-    /** The arrow rides at the end of its text's pill, or nothing does when there is no target. */
+    /** Appends the arrow to the text, or returns the text when the arrow is empty. */
     private static String withArrow(final String text, final String arrow) {
         return arrow.isEmpty() ? text : text + BossBarLine.ICON_GAP + arrow;
     }

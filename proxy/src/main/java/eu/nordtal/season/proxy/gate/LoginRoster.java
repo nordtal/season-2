@@ -15,13 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * What the login query said about each connected, linked player: id, language, flags, exemption and play time.
- *
- * The {@code /phase} requirement and the play-time writer read it instead of querying.
+ * Stores the login data of each connected, linked player.
+ * The {@code /phase} requirement and the play-time writer read it.
  */
 public final class LoginRoster {
 
-    /** One player's login, of which only the admin flag changes while they stay. */
+    /** The login data of a player. Only the admin flag changes during a session. */
     public record Session(
             DiscordId discordId,
             Locale locale,
@@ -37,7 +36,7 @@ public final class LoginRoster {
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
-    /** Records what a successful login query said; an unlinked state removes the entry. */
+    /** Stores the session of the state. An unlinked state deletes the session. */
     public void remember(final UUID mcUuid, final AccessState state) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
@@ -58,15 +57,12 @@ public final class LoginRoster {
         }
     }
 
-    /** What the login query said about {@code mcUuid}, if it is still connected. */
+    /** Returns the session of the player, or empty when the player is not connected. */
     public Optional<Session> of(final UUID mcUuid) {
         return mcUuid == null ? Optional.empty() : Optional.ofNullable(sessions.get(mcUuid));
     }
 
-    /**
-     * Returns the card of each player connected here: flags and play time as of their login, the crest as of now.
-     * A player not connected through this proxy, or not linked, has none.
-     */
+    /** Returns the name card of each connected, linked player. The crest is read when the card is drawn. */
     public NameCards cards(final Supplier<Prestige> prestige) {
         Objects.requireNonNull(prestige, "prestige");
         return name -> of(name.player().value())
@@ -75,25 +71,25 @@ public final class LoginRoster {
                 .orElse(null);
     }
 
-    /** Whether the login query found the admin flag set; {@code false} for anyone unknown. */
+    /** Returns whether the player is an admin. It is {@code false} for an unknown player. */
     public boolean isAdmin(final UUID mcUuid) {
         return of(mcUuid).map(Session::admin).orElse(Boolean.FALSE);
     }
 
-    /** Returns whether an admin exempted {@code mcUuid} from the resource pack; {@code false} when unknown. */
+    /** Returns whether the player is exempt from the resource pack. It is {@code false} for an unknown player. */
     public boolean isPackExempt(final UUID mcUuid) {
         return of(mcUuid).map(Session::packExempt).orElse(Boolean.FALSE);
     }
 
-    /** The language {@code mcUuid} logged in with, English when unknown. */
+    /** Returns the language of the player, English for an unknown player. */
     public Locale localeOf(final UUID mcUuid) {
         return of(mcUuid).map(Session::locale).orElse(Locale.ENGLISH);
     }
 
     /**
-     * Re-derives every session's admin flag from the full set, so a lost notification costs only latency.
+     * Sets the admin flag of every session from the admin Discord ids.
      *
-     * @return how many sessions changed
+     * @return the number of changed sessions
      */
     public int refreshAdmins(final java.util.Set<String> adminDiscordIds) {
         Objects.requireNonNull(adminDiscordIds, "adminDiscordIds");
@@ -102,7 +98,6 @@ public final class LoginRoster {
             final Session session = entry.getValue();
             final boolean admin = adminDiscordIds.contains(session.discordId().value());
             if (admin != session.admin()) {
-                // replace(), not put(): a player who disconnected meanwhile must not be put back.
                 if (sessions.replace(entry.getKey(), session, session.withAdmin(admin))) {
                     changed++;
                 }
@@ -111,12 +106,12 @@ public final class LoginRoster {
         return changed;
     }
 
-    /** How many sessions are tracked. */
+    /** Returns the number of sessions. */
     public int size() {
         return sessions.size();
     }
 
-    /** Forgets a player on disconnect; handler order is not guaranteed, so nothing may read it afterwards. */
+    /** Deletes the session of a disconnected player. */
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
         sessions.remove(event.getPlayer().getUniqueId());

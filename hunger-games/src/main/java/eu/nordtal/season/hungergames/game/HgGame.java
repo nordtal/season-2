@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** One row of {@code hg_game}, started from the round of registration {@code registrationId}. */
+/** A row of {@code hg_game}. */
 public record HgGame(
         UUID id,
         UUID registrationId,

@@ -7,18 +7,14 @@ import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Generates a palette of {@code n} evenly spaced hues, and maps any RGB colour to its nearest one.
- *
- * Fixed saturation and brightness separate n colours best; no platform type appears, so it is unit-testable.
- */
+/** Generates a palette of evenly spaced hues and finds the nearest named Minecraft colour of an RGB colour. */
 public final class TeamColours {
 
     public static final float SATURATION = 0.85f;
 
     public static final float BRIGHTNESS = 0.95f;
 
-    /** The sixteen named Minecraft chat colours, hardcoded since they are part of the protocol. */
+    /** The sixteen named Minecraft chat colours. */
     private static final Map<String, Integer> NAMED_COLOURS = Map.ofEntries(
             Map.entry("BLACK", 0x000000),
             Map.entry("DARK_BLUE", 0x0000AA),
@@ -40,7 +36,7 @@ public final class TeamColours {
     private TeamColours() {}
 
     /**
-     * Returns {@code count} evenly spaced hues as packed {@code 0xRRGGBB}, starting at hue 0.
+     * Returns {@code count} evenly spaced hues as {@code 0xRRGGBB}, starting at hue 0.
      *
      * @throws IllegalArgumentException if {@code count} is not positive
      */
@@ -59,9 +55,8 @@ public final class TeamColours {
     }
 
     /**
-     * Returns the name of the nearest named Minecraft colour, as written to {@code hg_team_colour.colour_named}.
-     *
-     * For the vanilla surfaces (scoreboard team, tab list) that cannot take an exact colour.
+     * Returns the name of the nearest named Minecraft colour.
+     * The name is stored in {@code hg_team_colour.colour_named}.
      */
     public static String nearestNamedColour(final int rgb) {
         final int r = (rgb >> 16) & 0xFF;
@@ -86,7 +81,6 @@ public final class TeamColours {
                 best = entry.getKey();
             }
         }
-        // NAMED_COLOURS is a fixed sixteen-entry map, never empty, so the loop always assigns best at least once.
         return Objects.requireNonNull(best, "NAMED_COLOURS must not be empty");
     }
 }

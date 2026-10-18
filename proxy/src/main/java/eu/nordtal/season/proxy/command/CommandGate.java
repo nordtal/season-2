@@ -24,13 +24,12 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 
 /**
- * What a player who is not an admin may type, and what they are told exists.
- *
- * A refused command answers like a mistyped one. The admin check reads {@link LoginRoster} and never the database.
+ * Allows players who are not admins only the commands of the allowlist.
+ * A refused command gets the answer of an unknown command.
  */
 public final class CommandGate {
 
-    /** How a refusal sounds on the proxy; the Velocity twin of {@code PaperUser.Chime}. */
+    /** Plays the sound of a refusal. */
     @FunctionalInterface
     public interface Chime {
 
@@ -48,10 +47,10 @@ public final class CommandGate {
     private final Supplier<ToneColours> colours;
     private final Chime chime;
 
-    /** The network's list as of its last reload, which a change in Steward reaches without a restart. */
+    /** The allowlist of the network. */
     private final Supplier<CommandAllowlist> allowlist;
 
-    /** Without a {@link Chime}: silent. */
+    /** Creates the gate without sounds. */
     public CommandGate(
             final LoginRoster roster,
             final CommandAllowlist allowlist,
@@ -60,7 +59,7 @@ public final class CommandGate {
         this(roster, allowlist, renderer, logger, Chime.silent());
     }
 
-    /** With one fixed list and without a colour supplier: {@link ToneColours#DEFAULTS}. */
+    /** Creates the gate with a fixed allowlist and {@link ToneColours#DEFAULTS}. */
     public CommandGate(
             final LoginRoster roster,
             final CommandAllowlist allowlist,
@@ -85,11 +84,7 @@ public final class CommandGate {
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
-    /**
-     * Turns "undefined" into "no" for everybody who is not an admin.
-     *
-     * Reads the roster live, since this fires before the gate fills it. The console keeps Velocity's default.
-     */
+    /** Sets every permission of a player who is not an admin to false. */
     @Subscribe
     public void onPermissionsSetup(final PermissionsSetupEvent event) {
         if (!(event.getSubject() instanceof Player player)) {
@@ -99,11 +94,7 @@ public final class CommandGate {
                 subject -> permission -> roster.isAdmin(player.getUniqueId()) ? Tristate.TRUE : Tristate.FALSE);
     }
 
-    /**
-     * Refuses anything the list does not carry.
-     *
-     * {@code denied()} rather than {@code forwardToServer()}, which would let a backend refuse it a second time.
-     */
+    /** Denies every command that is not on the allowlist. */
     @Subscribe
     public void onCommandExecute(final CommandExecuteEvent event) {
         if (!(event.getCommandSource() instanceof Player player)) {
@@ -118,11 +109,7 @@ public final class CommandGate {
         chime.play(player, Feedback.REFUSED);
     }
 
-    /**
-     * Removes every root the list does not carry from the tree the client is sent.
-     *
-     * Names are collected before removing, since {@code getChildren()} is a live view of the node's map.
-     */
+    /** Removes the commands that are not on the allowlist from the command tree of the client. */
     @Subscribe
     public void onAvailableCommands(final PlayerAvailableCommandsEvent event) {
         if (roster.isAdmin(event.getPlayer().getUniqueId())) {
@@ -145,7 +132,7 @@ public final class CommandGate {
         }
     }
 
-    /** The player's {@code discord_user.locale} from the roster, never the client's setting; English when unknown. */
+    /** Returns the language of the player from {@link LoginRoster}. */
     private Locale locale(final Player player) {
         return roster.localeOf(player.getUniqueId());
     }

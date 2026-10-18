@@ -10,14 +10,14 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
 
-/** The {@code config} group: everything the hunger games start event needs that is not a database credential. */
+/** The {@code config} group of the Hunger Games. */
 @ConfigSpec
 public interface HungerGamesSpec {
 
-    /** The floor below which {@code /hg start} refuses, since the border step divides by one less than it. */
+    /** The smallest number of participants. {@code /hg start} refuses a start below it. */
     int HARD_MINIMUM_PARTICIPANTS = 2;
 
-    /** How long players are frozen on their spawn towers before release. */
+    /** The seconds that players are frozen on their spawn towers. */
     @Order(1)
     @Name("Countdown (seconds)")
     @Key("countdown-seconds")
@@ -26,7 +26,7 @@ public interface HungerGamesSpec {
         return 60;
     }
 
-    /** The hard floor is arithmetic and not configurable. */
+    /** The number of participants below which {@code /hg start} needs a confirmation. */
     @Order(2)
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
@@ -59,7 +59,7 @@ public interface HungerGamesSpec {
         return 6.0;
     }
 
-    /** How long without a death before the passive shrink starts. */
+    /** The seconds without a death after which the passive shrink starts. */
     @Order(6)
     @Name("Border quiet period (seconds)")
     @Key("border-quiet-period-seconds")
@@ -68,7 +68,7 @@ public interface HungerGamesSpec {
         return 600;
     }
 
-    /** A much coarser unit than the wall speed, only meant to force a stalemate together. */
+    /** The diameter that the passive shrink removes per hour. */
     @Order(7)
     @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
@@ -101,7 +101,7 @@ public interface HungerGamesSpec {
         return 4.0;
     }
 
-    /** A placeholder: set it to the event world's folder name once the world exists. */
+    /** The folder name of the world of the Hunger Games. */
     @Order(11)
     @Name("World name")
     @Key("world-name")
@@ -110,14 +110,14 @@ public interface HungerGamesSpec {
         return "hunger_games";
     }
 
-    /** The lobby box: teleport point, map and rules image grid, and the periodic ready broadcast. */
+    /** The lobby settings. */
     @Order(12)
     @Name("Lobby")
     @Key("lobby")
     @NoExplanationNeeded
     LobbySpec lobby();
 
-    /** The spawn plus four staggered locations. */
+    /** The loot points. */
     @Order(13)
     @Name("Loot points")
     @Key("loot-points")
@@ -126,7 +126,7 @@ public interface HungerGamesSpec {
         return DefaultLootPoints.LIST;
     }
 
-    /** Ordered by ascending delay; changing an entry's delay retires that tier. */
+    /** The refill tiers, ordered by delay. */
     @Order(14)
     @Name("Refill tiers")
     @Key("refill-tiers")
@@ -138,7 +138,7 @@ public interface HungerGamesSpec {
     @Reload
     void reload();
 
-    /** The lobby box: teleport point, map/rules image grid, and the periodic ready broadcast. */
+    /** The lobby settings. */
     @ConfigSpec
     interface LobbySpec {
 
@@ -166,7 +166,7 @@ public interface HungerGamesSpec {
             return 0.0;
         }
 
-        /** How often the ready-check broadcast, with its clickable ready button, repeats. */
+        /** The seconds between two ready broadcasts. */
         @Order(4)
         @Name("Broadcast interval (seconds)")
         @Key("broadcast-interval-seconds")
@@ -175,7 +175,7 @@ public interface HungerGamesSpec {
             return 300;
         }
 
-        /** The lobby image is sliced from {@code map-<lang>.png} per language; a missing file is no startup failure. */
+        /** The columns of the map grid. The grid shows {@code map-<lang>.png}. */
         @Order(5)
         @Name("Map grid columns")
         @Key("map-grid-columns")
@@ -192,7 +192,7 @@ public interface HungerGamesSpec {
             return 3;
         }
 
-        /** This plugin only sets the maps in the frames. */
+        /** The X coordinate of the map frame origin. */
         @Order(7)
         @Name("Map frame origin X")
         @Key("map-frame-origin-x")
@@ -201,7 +201,7 @@ public interface HungerGamesSpec {
             return 0;
         }
 
-        /** This plugin only sets the maps in the frames. */
+        /** The Y coordinate of the map frame origin. */
         @Order(8)
         @Name("Map frame origin Y")
         @Key("map-frame-origin-y")
@@ -210,7 +210,7 @@ public interface HungerGamesSpec {
             return 196;
         }
 
-        /** This plugin only sets the maps in the frames. */
+        /** The Z coordinate of the map frame origin. */
         @Order(9)
         @Name("Map frame origin Z")
         @Key("map-frame-origin-z")
@@ -220,11 +220,11 @@ public interface HungerGamesSpec {
         }
     }
 
-    /** One of the five loot points: a label used in the HUD and announcements, and its position. */
+    /** A loot point with a label and a position. */
     @ConfigSpec
     interface LootPointSpec {
 
-        /** Shown in refill announcements. */
+        /** The name in the refill announcements. */
         @Order(1)
         @Name("Label")
         @Key("label")
@@ -258,11 +258,11 @@ public interface HungerGamesSpec {
         }
     }
 
-    /** One refill: when it happens, and what it stocks every loot point's chest with. */
+    /** A refill with a delay and the items of every loot chest. */
     @ConfigSpec
     interface RefillTierSpec {
 
-        /** Changing it on an existing entry retires that tier rather than rescheduling it. */
+        /** The minutes after the release at which the refill happens. */
         @Order(1)
         @Name("Delay (minutes)")
         @Key("delay-minutes")
@@ -271,7 +271,7 @@ public interface HungerGamesSpec {
             return 0;
         }
 
-        /** Every loot chest is cleared first. */
+        /** The items that the refill puts in each loot chest after it clears the chest. */
         @Order(2)
         @Name("Items")
         @Key("items")

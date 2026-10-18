@@ -15,9 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 
 /**
- * Counts network-wide online time, AFK included, and writes it to {@code player_playtime}.
- *
- * Flushed on disconnect and on a timer; a player the roster does not know is not counted.
+ * Counts the online time of each player, AFK time included, and writes it to {@code player_playtime}.
+ * A flush runs on a disconnect and on a timer.
  */
 public final class PlaytimeWriter {
 
@@ -37,13 +36,13 @@ public final class PlaytimeWriter {
 
     // session lifecycle
 
-    /** Starts counting on {@code PostLoginEvent}, since the gate may still refuse a {@code LoginEvent}. */
+    /** Starts counting the time of the player. */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
         begin(event.getPlayer().getUniqueId(), event.getPlayer().getUsername());
     }
 
-    /** Writes the last slice of the session and forgets it. */
+    /** Writes the remaining time of the player and deletes the session. */
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
         final Player player = event.getPlayer();
@@ -51,21 +50,16 @@ public final class PlaytimeWriter {
         forget(player.getUniqueId());
     }
 
-    /**
-     * Stops counting for a player, always after a {@link #flush(UUID)}.
-     *
-     * @param mcUuid the player who has left
-     */
+    /** Deletes the session of the player. */
     void forget(final UUID mcUuid) {
         sessions.remove(mcUuid);
     }
 
-    /** Entry point for the two events above, so tests need no Velocity types. */
+    /** Starts a session. A player without a Discord id is not counted. */
     void begin(final UUID mcUuid, final String username) {
         final DiscordId discordId =
                 roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
-            // No Discord id to key the row by; a guessed key would corrupt a total.
             logger.warn(
                     "Not counting play time for {} ({}): the login path never learned a Discord "
                             + "id for this account",
@@ -79,9 +73,9 @@ public final class PlaytimeWriter {
     // flushing
 
     /**
-     * One pass over every session being counted, meant for a fixed schedule.
+     * Flushes every session.
      *
-     * @return how many players had whole seconds written
+     * @return the number of players with written seconds
      */
     public int flushAll() {
         int written = 0;
@@ -94,9 +88,9 @@ public final class PlaytimeWriter {
     }
 
     /**
-     * Writes the whole seconds since this session's marker and advances it by exactly that much.
+     * Writes the whole seconds since the last flush.
      *
-     * @return whether anything was written
+     * @return whether seconds were written
      */
     boolean flush(final UUID mcUuid) {
         final Session session = sessions.get(mcUuid);
@@ -104,7 +98,6 @@ public final class PlaytimeWriter {
             return false;
         }
 
-        // Locks the session, not the class: a disconnect flush and flushAll never double-credit.
         synchronized (session) {
             final long seconds =
                     Duration.between(session.since, clock.instant()).toSeconds();
@@ -115,7 +108,6 @@ public final class PlaytimeWriter {
             try {
                 store.add(session.discordId, seconds);
             } catch (final RuntimeException exception) {
-                // The marker stays put: the seconds are still owed and go out on the next flush.
                 logger.warn(
                         "Could not write {}s of play time for {} ({}); it will be written with " + "the next flush",
                         seconds,
@@ -125,18 +117,17 @@ public final class PlaytimeWriter {
                 return false;
             }
 
-            // Advance by what was written, not to now, so the sub-second remainder survives.
             session.since = session.since.plusSeconds(seconds);
             return true;
         }
     }
 
-    /** How many sessions are being counted. */
+    /** Returns the number of sessions. */
     public int tracked() {
         return sessions.size();
     }
 
-    /** One player's running session; {@link #flush(UUID)} holds its monitor across read, write and advance. */
+    /** The counting state of a player. */
     private static final class Session {
 
         private final DiscordId discordId;

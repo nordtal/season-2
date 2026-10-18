@@ -15,17 +15,13 @@ import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * Publishes the proxy's whole command tree for Steward's console: Velocity's own, every plugin's and ours.
- *
- * Velocity announces no registration, so the tree is read every {@link #EVERY} and written when it changed.
- */
+/** Publishes the command tree of the proxy for the console of Steward. It reads the tree every {@link #EVERY}. */
 public final class CommandTrees {
 
-    /** How often the tree is read, the first time once every other plugin has had that long to register. */
+    /** The interval between two reads. */
     static final Duration EVERY = Duration.ofSeconds(10);
 
-    /** Brigadier's nodes as the walk reads them. */
+    /** Reads a Brigadier node. */
     static final CommandTree.Shape<CommandNode<?>> BRIGADIER = new CommandTree.Shape<>() {
         @Override
         public String name(final CommandNode<?> node) {
@@ -70,7 +66,7 @@ public final class CommandTrees {
         this.logger = logger;
     }
 
-    /** Publishes the tree {@code console} may use, as Velocity's command manager holds it. */
+    /** Creates a publisher for the commands that the console may use. */
     public static CommandTrees of(
             final CommandManager commands,
             final CommandSource console,
@@ -88,16 +84,15 @@ public final class CommandTrees {
                 logger);
     }
 
-    /** Reads the tree every {@link #EVERY} from now on, and writes it whenever it changed. */
+    /** Reads the tree every {@link #EVERY} and publishes it when it changed. */
     public void start() {
         final var _ = scheduler.every(EVERY, EVERY, this::read);
     }
 
     /**
-     * Copies every command the console may use into {@code into}, as Velocity copies them for a player's client.
+     * Copies the commands that the source may use into {@code into}. It calls the injector of the command manager.
      *
-     * The API hands out no tree, so this calls the injector Velocity's own command manager exposes.
-     * @throws IllegalStateException when the command manager has no injector of that shape
+     * @throws IllegalStateException when the command manager has no injector
      */
     static <S> void copy(final Object commands, final RootCommandNode<S> into, final S source) {
         try {
@@ -121,7 +116,6 @@ public final class CommandTrees {
             }
             problem = null;
         } catch (final RuntimeException failed) {
-            // Read again every few seconds, so a lasting failure is said once rather than on every read.
             final String said = "The command tree could not be published: " + failed.getMessage();
             if (!said.equals(problem)) {
                 logger.warn(said);

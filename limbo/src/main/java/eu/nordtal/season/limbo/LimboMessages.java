@@ -9,11 +9,11 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 
-/** Every message of the limbo bundle, one method per key. */
+/** The messages of the limbo bundle. */
 @MessageSpec("limbo")
 public interface LimboMessages {
 
-    /** The one shared instance; it is stateless. */
+    /** The shared instance. */
     LimboMessages MESSAGES = MessageSpecs.create(LimboMessages.class);
 
     Limbo limbo();
@@ -46,7 +46,7 @@ public interface LimboMessages {
             @Name("Unknown reason")
             Screen unknown();
 
-            /** The screen for a reason, and the one place a reason becomes a key. */
+            /** Returns the screen of the reason. */
             default Screen of(final WaitReason reason) {
                 return switch (reason) {
                     case PACK -> pack();

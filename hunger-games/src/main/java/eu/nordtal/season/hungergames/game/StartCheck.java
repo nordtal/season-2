@@ -7,19 +7,16 @@ import eu.nordtal.season.messages.Refusal;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/** Whether a game may start from the open round now, the same answer for the console and for Steward. */
+/** Checks whether a game may start from the open round. */
 public final class StartCheck {
 
     private StartCheck() {}
 
     /**
-     * Returns why the game may not start, or empty when it may.
+     * Returns the refusal, or empty when the game may start.
      *
-     * @param underWay     the state of the game in its countdown or running, or {@code null} when none is
-     * @param open         whether a round of registration is open to start a game from
-     * @param participants the participants after demotion, which the border divides by
-     * @param recommended  the minimum below which only a confirmed start goes ahead
-     * @param confirmed    whether the asker has seen the numbers
+     * @param underWay    the state of the game in {@code COUNTDOWN} or {@code RUNNING}, {@code null} without one
+     * @param recommended the number of participants below which only a confirmed start goes ahead
      */
     public static Optional<Refusal> refusal(
             final @Nullable HgGameState underWay,

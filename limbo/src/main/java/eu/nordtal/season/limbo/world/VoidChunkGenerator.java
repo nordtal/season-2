@@ -7,9 +7,7 @@ import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
 
 /**
- * A chunk generator that generates nothing at all.
- *
- * Every {@code shouldGenerate*} hook answers {@code false}, switching vanilla generation off.
+ * A chunk generator for empty chunks. Every {@code shouldGenerate*} method returns {@code false}.
  */
 public final class VoidChunkGenerator extends ChunkGenerator {
 
@@ -50,13 +48,11 @@ public final class VoidChunkGenerator extends ChunkGenerator {
 
     @Override
     public List<org.bukkit.generator.BlockPopulator> getDefaultPopulators(final org.bukkit.World world) {
-        // The one thing shouldGenerate* does not cover; empty keeps a populator from planting a tree on no ground.
         return Collections.emptyList();
     }
 
     @Override
     public boolean isParallelCapable() {
-        // Nothing is computed and nothing is shared, so chunks need not be generated one at a time.
         return true;
     }
 

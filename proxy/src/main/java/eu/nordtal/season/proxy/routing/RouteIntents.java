@@ -13,11 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * Refuses a connection to any destination {@link PlayerRouter} did not choose, such as Velocity's {@code /server}.
- *
- * Both waiting rooms need no intent: Velocity's own fallback and {@code Evacuation} send players there.
- */
+/** Refuses a connection to a server that {@link PlayerRouter} did not choose. The waiting rooms need no intent. */
 public final class RouteIntents {
 
     private final LoginRoster roster;
@@ -32,14 +28,14 @@ public final class RouteIntents {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** Records that this plugin has decided to send {@code player} to {@code server}. */
+    /** Records that the player is to connect to the server. */
     public void intend(final UUID player, final String server) {
         if (player != null && server != null) {
             intents.put(player, server);
         }
     }
 
-    /** Refuses a connection this plugin did not ask for; admins are exempt. */
+    /** Refuses a connection without an intent. Admins are exempt. */
     @Subscribe
     public void onServerPreConnect(final ServerPreConnectEvent event) {
         final Player player = event.getPlayer();
@@ -50,12 +46,10 @@ public final class RouteIntents {
 
         final String destination = event.getOriginalServer().getServerInfo().getName();
         if (allows(servers, destination, intents.get(uuid))) {
-            // Consumed only when the intent allowed it; a waiting room must not eat the real one.
             intents.remove(uuid, destination);
             return;
         }
 
-        // Loud on purpose: every legitimate connection registers an intent.
         logger.warn(
                 "Refused to connect {} to '{}': nothing in proxy chose that "
                         + "destination. If this is a route this plugin takes, it is missing its "
@@ -66,9 +60,9 @@ public final class RouteIntents {
     }
 
     /**
-     * The decision, without Velocity.
+     * Returns whether the connection is allowed.
      *
-     * @param intended where this plugin last decided to send the player, or {@code null}
+     * @param intended the server that the player is to connect to, {@code null} without an intent
      */
     static boolean allows(final PhaseServers servers, final String destination, final @Nullable String intended) {
         return servers.isWaitingRoom(destination) || destination.equals(intended);
@@ -79,7 +73,7 @@ public final class RouteIntents {
         intents.remove(event.getPlayer().getUniqueId());
     }
 
-    /** How many players hold an intent, for a test and a log line. */
+    /** Returns the number of intents. */
     public int size() {
         return intents.size();
     }

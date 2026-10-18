@@ -13,9 +13,7 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The empty world every player waits in, and the one location in it.
- *
- * Built rather than configured, so nothing is ever in it; players are placed here before spawning anywhere.
+ * The empty world of the waiting room and its spawn location.
  */
 public final class WaitingWorld {
 
@@ -27,11 +25,7 @@ public final class WaitingWorld {
         this.spawn = spawn;
     }
 
-    /**
-     * Loads the waiting world, creating it if this server has never had one.
-     *
-     * Returns {@code null} if the server refused to create it, which the caller must treat as fatal.
-     */
+    /** Loads the waiting world or creates it. Returns {@code null} when the server cannot create it. */
     public static @Nullable WaitingWorld loadOrCreate(final Plugin plugin, final LimboSpec config) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(config, "config");
@@ -48,11 +42,9 @@ public final class WaitingWorld {
 
         world.setDifficulty(Difficulty.PEACEFUL);
         world.setSpawnLocation(0, config.spawnY(), 0);
-        // A client still ticks weather and a thunderstorm is audible even on a screen that is entirely black.
         world.setTime(6000L);
         world.setStorm(false);
         world.setThundering(false);
-        // GameRules, not GameRule: the old constants are deprecated for removal.
         setRule(world, GameRules.ADVANCE_TIME, false);
         setRule(world, GameRules.ADVANCE_WEATHER, false);
         setRule(world, GameRules.SPAWN_MOBS, false);
@@ -61,7 +53,6 @@ public final class WaitingWorld {
         setRule(world, GameRules.SHOW_ADVANCEMENT_MESSAGES, false);
         setRule(world, GameRules.SHOW_DEATH_MESSAGES, false);
         setRule(world, GameRules.IMMEDIATE_RESPAWN, true);
-        // Nobody should take damage here, but the impossible should not scatter an inventory into the void either.
         setRule(world, GameRules.KEEP_INVENTORY, true);
         setRule(world, GameRules.FALL_DAMAGE, false);
         setRule(world, GameRules.DROWNING_DAMAGE, false);
@@ -69,21 +60,20 @@ public final class WaitingWorld {
         setRule(world, GameRules.FREEZE_DAMAGE, false);
         setRule(world, GameRules.RESPAWN_RADIUS, 0);
 
-        // World#setKeepSpawnInMemory is a no-op: generating an empty chunk is generating nothing regardless.
         return new WaitingWorld(world, new Location(world, 0.5, config.spawnY(), 0.5, 0.0f, 0.0f));
     }
 
-    /** Returns the world itself. */
+    /** Returns the world. */
     public World world() {
         return world;
     }
 
-    /** Returns a fresh copy of the one place anybody stands. */
+    /** Returns a copy of the spawn location. */
     public Location spawn() {
         return spawn.clone();
     }
 
-    /** Returns whether a player has drifted far enough from {@link #spawn()} to be put back. */
+    /** Returns whether the location is outside the world, too far from the spawn or too far below it. */
     public boolean hasStrayed(final @Nullable Location location) {
         if (location == null || !world.equals(location.getWorld())) {
             return true;
@@ -92,10 +82,10 @@ public final class WaitingWorld {
                 || location.distanceSquared(spawn) > STRAY_RADIUS * STRAY_RADIUS;
     }
 
-    /** How far from the spawn a player may drift before being put back. */
+    /** The largest distance from the spawn. */
     private static final double STRAY_RADIUS = 24.0;
 
-    /** How far below the spawn a player may fall before being put back. */
+    /** The largest distance below the spawn. */
     private static final double STRAY_BELOW = 8.0;
 
     private static <T> void setRule(final World world, final GameRule<T> rule, final T value) {

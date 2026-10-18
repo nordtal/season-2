@@ -4,42 +4,34 @@ import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 
-/**
- * What the login gate decided, and therefore which screen the player gets.
- *
- * An unlinked account is refused as unlinked in every phase, since a link code helps it most.
- */
+/** The decision of the login gate. Each value that is not {@code ALLOW} has a screen. */
 public enum GateOutcome {
 
-    /** Linked, a member, and whatever the current phase asks for on top. */
+    /** The account is linked, is a member and meets the requirements of the phase. */
     ALLOW,
 
-    /** No Discord account is linked to this UUID: issue a link code and show it. */
+    /** No Discord account is linked to the UUID. The gate shows a link code. */
     NOT_LINKED,
 
-    /** Linked, but that Discord account has left the guild or is banned. */
+    /** The Discord account has left the guild or is banned. */
     NOT_MEMBER,
 
-    /** {@link SeasonPhase#SMP} and no access period is running. */
+    /** The phase is {@link SeasonPhase#SMP} and no period is running. */
     NO_ACCESS,
 
-    /** {@link SeasonPhase#PRE_LAUNCH}, linked member, no access period bought yet. */
+    /** The phase is {@link SeasonPhase#PRE_LAUNCH} and the member has bought no period. */
     PRE_LAUNCH_BUY,
 
-    /** {@link SeasonPhase#PRE_LAUNCH}, linked member, and a period already bought. */
+    /** The phase is {@link SeasonPhase#PRE_LAUNCH} and the member has bought a period. */
     PRE_LAUNCH_READY,
 
-    /** Let in by the access table but for the network's player limit; an admin is never refused for it. */
+    /** The network has reached its player limit. An admin is never refused for it. */
     FULL,
 
-    /** The access state is unreachable and the cache does not vouch for the player. */
+    /** The database does not answer and the cache does not hold the player as allowed. */
     TROUBLE;
 
-    /**
-     * Walks the phase table once.
-     *
-     * Never {@link #FULL} or {@link #TROUBLE}: those need the player count or a database that does not answer.
-     */
+    /** Returns the outcome for the access state. It is never {@link #FULL} or {@link #TROUBLE}. */
     public static GateOutcome of(final AccessState state) {
         if (!state.linked()) {
             return NOT_LINKED;
@@ -48,11 +40,8 @@ public enum GateOutcome {
             return NOT_MEMBER;
         }
         return switch (state.phase()) {
-            // Free for every linked member: during maintenance they are let in and then held in limbo.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> ALLOW;
-            // The admin flag is a free pass, else the admin who switches the phase to SMP is disconnected by it.
             case SMP -> state.accessActive() || state.admin() ? ALLOW : NO_ACCESS;
-            // Before opening, only an admin belongs here; accessBought(), not accessActive(), since it waits.
             case PRE_LAUNCH -> {
                 if (state.admin()) {
                     yield ALLOW;
@@ -62,22 +51,16 @@ public enum GateOutcome {
         };
     }
 
-    /**
-     * The access table with the player limit applied, so an admin can still enter a full network to fix it.
-     *
-     * @param online the players on the network now
-     * @param maximum the network's player limit
-     */
+    /** Returns {@link #FULL} when the state is allowed, the player is not an admin and the network is full. */
     public static GateOutcome of(final AccessState state, final int online, final int maximum) {
         final GateOutcome outcome = of(state);
         return outcome == ALLOW && !state.admin() && online >= maximum ? FULL : outcome;
     }
 
     /**
-     * The decision while the access database does not answer: the cache's word, under the limit for everyone.
-     * The admin flag is what could not be read, so it exempts nobody.
+     * Returns the outcome while the database does not answer. No player is exempt from the player limit.
      *
-     * @param remembered whether the cache holds the player as allowed in
+     * @param remembered whether the cache holds the player as allowed
      */
     public static GateOutcome withoutDatabase(final boolean remembered, final int online, final int maximum) {
         if (!remembered) {
@@ -86,7 +69,7 @@ public enum GateOutcome {
         return online >= maximum ? FULL : ALLOW;
     }
 
-    /** @return whether this outcome lets the player through */
+    /** Returns whether the outcome is {@link #ALLOW}. */
     public boolean allowed() {
         return this == ALLOW;
     }

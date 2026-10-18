@@ -3,20 +3,16 @@ package eu.nordtal.season.proxy.update;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 
-/**
- * The two addresses a proxy swap moves players between.
- *
- * Always unresolved, so the client gets the configured name and Velocity never does a reverse lookup.
- */
+/** Parses the addresses of the proxy swap. The addresses are unresolved. */
 public final class SwapAddresses {
 
     private SwapAddresses() {}
 
     /**
-     * Parses {@code network#public-address}, or {@code network#live-address}.
+     * Parses {@code network#public-address} or {@code network#live-address}.
      *
-     * @param address {@code host:port}, or {@code [::1]:port}, or blank
-     * @return the address, or empty when it is blank or has no usable port, meaning this deployment does not swap
+     * @param address {@code host:port}, {@code [::1]:port} or blank
+     * @return the address, or empty when the address is blank or has no valid port
      */
     public static Optional<InetSocketAddress> publicAddress(final String address) {
         if (address == null || address.isBlank()) {
@@ -27,7 +23,6 @@ public final class SwapAddresses {
         final String host;
         final String port;
         if (trimmed.startsWith("[")) {
-            // A bare IPv6 literal has colons of its own; only the brackets say where the host ends.
             final int close = trimmed.indexOf(']');
             if (close < 0 || close + 2 >= trimmed.length() || trimmed.charAt(close + 1) != ':') {
                 return Optional.empty();
@@ -50,11 +45,11 @@ public final class SwapAddresses {
     }
 
     /**
-     * The standby's address: the same host, the other port.
+     * Returns the address of the standby proxy, which has the host of the address and the standby port.
      *
-     * @param address the parsed {@link #publicAddress}
+     * @param address the result of {@link #publicAddress}
      * @param standbyPort {@code network#standby-port}
-     * @return where to send a player during the swap, or empty when the port is invalid or the live proxy's own
+     * @return the address, or empty when the port is invalid or equals the port of the address
      */
     public static Optional<InetSocketAddress> standbyAddress(final InetSocketAddress address, final int standbyPort) {
         if (address == null) {

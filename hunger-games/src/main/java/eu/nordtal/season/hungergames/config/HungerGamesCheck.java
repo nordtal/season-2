@@ -6,20 +6,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * What a valid {@code config} group of the hunger games is beyond its types.
- *
- * A reload re-reads only the {@code sounds} group, so a border parameter never moves mid-game.
- */
+/** Checks the {@code config} group. */
 public final class HungerGamesCheck {
 
     private HungerGamesCheck() {}
 
-    /**
-     * Refuses a {@code config} group no game can be run from.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
+    /** Throws an {@link IllegalArgumentException} that names the first invalid value. */
     public static void check(final HungerGamesSpec config) {
         validateScalars(config);
         validateLootPoints(config);
@@ -28,7 +20,6 @@ public final class HungerGamesCheck {
 
     private static void validateScalars(final HungerGamesSpec config) {
         Checks.requirePositive("countdown-seconds", config.countdownSeconds());
-        // Zero or negative would not disable the watcher, it would poll once per second.
         if (config.softMinimumParticipants() < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             throw new IllegalArgumentException(
                     "soft-minimum-participants must be at least " + HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS

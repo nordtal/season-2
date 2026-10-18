@@ -5,15 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The four refill tiers the {@code config} group defaults to, basic to overpowered.
- *
- * Each is one shared chest's contents, one of each material, with no quantities or randomness.
- */
+/** The default refill tiers of the {@code config} group. */
 final class DefaultRefillTiers {
 
     static final List<HungerGamesSpec.RefillTierSpec> LIST = List.of(
-            // 0h00: basic farming gear; the shield keeps an early fight from being a free kill.
             tier(
                     0,
                     List.of(
@@ -23,7 +18,6 @@ final class DefaultRefillTiers {
                             "minecraft:bread",
                             "minecraft:apple",
                             "minecraft:wheat_seeds")),
-            // 1h00: iron PvP gear.
             tier(
                     60,
                     List.of(
@@ -36,7 +30,6 @@ final class DefaultRefillTiers {
                             "minecraft:arrow",
                             "minecraft:cooked_beef",
                             "minecraft:golden_carrot")),
-            // 2h00: diamond gear.
             tier(
                     120,
                     List.of(
@@ -47,7 +40,6 @@ final class DefaultRefillTiers {
                             "minecraft:golden_apple",
                             "minecraft:shield",
                             "minecraft:ender_pearl")),
-            // 2h30: overpowered, so the last stretch rewards moving between points rather than camping one chest.
             tier(
                     150,
                     List.of(

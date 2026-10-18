@@ -3,41 +3,32 @@ package eu.nordtal.season.limboprotocol;
 import java.util.Optional;
 
 /**
- * Why a player is sitting in the waiting room, the whole content of {@code limbo}'s screen.
- * {@link #name()} travels on the wire, so renaming a constant breaks a proxy against another version.
+ * The reason a player waits in the waiting room. {@code limbo} shows the title of the reason.
+ * The wire carries {@link #name()}.
  */
 public enum WaitReason {
 
-    /** The resource pack has been offered and not applied yet, the ordinary state of every login. */
+    /** The resource pack is offered and not applied yet. */
     PACK,
 
-    /** The phase's backend is not registered or refuses the connection; it resolves when the backend comes up. */
+    /** The backend of the phase is not registered or refuses the connection. */
     BACKEND,
 
-    /** The network is in {@code MAINTENANCE} and the player is not an admin; it ends when the phase changes. */
+    /** The phase is {@code MAINTENANCE} and the player is not an admin. */
     MAINTENANCE,
 
-    /**
-     * An update run has the player's backend stopped and will have it back in a few minutes.
-     * Unlike {@link #BACKEND} it is on purpose and nearly over, which the proxy reads from the update row.
-     */
+    /** An update run has stopped the backend of the player. The proxy reads this from the update row. */
     UPDATE,
 
     /**
-     * Somebody stopped the player's backend on purpose, with no automatic return.
-     * The player is released once the backend takes a connection again.
+     * An admin stopped the backend of the player. The proxy sends the player on when the backend accepts connections.
      */
     HELD,
 
-    /** The proxy has not said why yet; it carries a real text, because a blank screen looks like a crash. */
+    /** The proxy has sent no reason yet. */
     UNKNOWN;
 
-    /**
-     * Parses a name off the wire, never throwing, so a newer proxy's reason degrades to a screen.
-     *
-     * @param name the value that arrived, may be {@code null}
-     * @return the reason, or empty when the name is not one of these
-     */
+    /** Returns the reason with this name, or empty when the name is {@code null} or unknown. */
     public static Optional<WaitReason> parse(final String name) {
         if (name == null || name.isBlank()) {
             return Optional.empty();

@@ -6,11 +6,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.RejectedExecutionException;
 
-/**
- * The one way proxy code runs work later or elsewhere: Velocity's scheduler, told durations.
- *
- * Repeated work comes from {@link Scheduler#every}, so two runs never overlap, as on every other process.
- */
+/** Runs tasks on the scheduler of Velocity. {@link Scheduler#every} never runs two runs of a task at once. */
 public final class VelocityScheduler implements Scheduler {
 
     private final ProxyServer proxy;
@@ -21,7 +17,7 @@ public final class VelocityScheduler implements Scheduler {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
     }
 
-    /** Returns the scheduler of {@code plugin}, whose work Velocity calls off when the proxy shuts down. */
+    /** Returns the scheduler of the plugin. Velocity cancels its tasks when the proxy stops. */
     public static VelocityScheduler of(final ProxyServer proxy, final Object plugin) {
         return new VelocityScheduler(proxy, plugin);
     }
@@ -39,7 +35,6 @@ public final class VelocityScheduler implements Scheduler {
                     .delay(delay.isNegative() ? Duration.ZERO : delay)
                     .schedule()::cancel;
         } catch (final IllegalStateException stopped) {
-            // Velocity's scheduler refuses work once it has shut down, the way any stopped scheduler refuses.
             throw new RejectedExecutionException(stopped);
         }
     }

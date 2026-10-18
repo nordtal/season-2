@@ -5,29 +5,29 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What to do with one player in the waiting room, right now.
+ * The action for a player in the waiting room.
  *
- * @param reason the title to show, non-{@code null} exactly when the action is {@link Action#SHOW}
+ * @param reason the reason to show, not {@code null} exactly for {@link Action#SHOW}
  */
 public record WaitingDecision(Action action, @Nullable WaitReason reason) {
 
     public enum Action {
 
-        /** Nothing to do: they see the right title already, or they are not held. */
+        /** Do nothing. */
         IDLE,
 
-        /** Send {@code limbo} a {@code WAIT} carrying {@link WaitingDecision#reason()}. */
+        /** Send {@code limbo} a {@code WAIT} with {@link WaitingDecision#reason()}. */
         SHOW,
 
-        /** Disconnect them: the client never answered the pack offer within {@code pack#apply-timeout-seconds}. */
+        /**
+         * Disconnect the player. The client did not answer the pack offer within {@code pack#apply-timeout-seconds}.
+         */
         TIMED_OUT,
 
-        /** Hand them to the router; everything had to be true is true, {@code READY} included. */
+        /** Send the player to the router. */
         RELEASE,
 
-        /**
-         * Hand them to the router without {@code limbo}'s {@code READY}, after the grace period; the caller logs it.
-         */
+        /** Send the player to the router without {@code READY} after the grace period. */
         RELEASE_UNCONFIRMED
     }
 

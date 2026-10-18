@@ -18,22 +18,21 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The standby proxy's half of a swap: it holds the network, and sends it home by itself.
- *
- * Players go home after an outage plus {@link #SETTLE}, or unconditionally after {@link #RESCUE_AFTER}.
+ * Transfers the players of the standby proxy back to the live proxy.
+ * It waits {@link #SETTLE} after an outage and {@link #RESCUE_AFTER} without an outage.
  */
 public final class StandbyReturn {
 
-    /** How often this runs; short, because a person is looking at a loading screen. */
+    /** The interval between two passes. */
     public static final Duration INTERVAL = Duration.ofSeconds(2);
 
-    /** How long to wait for the handshake; short, since it is a port on the same machine. */
+    /** The time that the live proxy has to answer a probe. */
     static final Duration PROBE_TIMEOUT = Duration.ofSeconds(1);
 
-    /** How long the live proxy must have answered before players are sent home without an outage seen. */
+    /** The answer time of the live proxy that sends the players back without an outage. */
     static final Duration RESCUE_AFTER = Duration.ofMinutes(1);
 
-    /** How long it must have answered after an outage; longer than one tick, so a release takes two passes. */
+    /** The answer time of the live proxy that sends the players back after an outage. */
     static final Duration SETTLE = Duration.ofSeconds(4);
 
     private final Scheduler scheduler;
@@ -48,19 +47,19 @@ public final class StandbyReturn {
 
     private final Homecoming voice;
 
-    /** The same planner the way out uses, so the return counts in the same voice. */
+    /** Plans the announcements of the return. */
     private final Countdown notice = new Countdown();
 
-    /** A new number per return, because {@link Countdown} plans one row once. */
+    /** The id of the current return. */
     private long notices;
 
-    /** Whether a return is promised; once set, a flickering probe cannot start a second countdown. */
+    /** Whether a return is planned. */
     private boolean returning;
 
-    /** Whether the live proxy has refused a connection since this proxy last had players. */
+    /** Whether the live proxy refused a connection since the players arrived. */
     private boolean outageSeen;
 
-    /** When it started answering again, or {@code null} while it is not. */
+    /** The time since which the live proxy answers, {@code null} while it does not. */
     private @Nullable Instant answeringSince;
 
     public StandbyReturn(
@@ -77,11 +76,8 @@ public final class StandbyReturn {
     }
 
     /**
-     * Takes the probe as a seam, so the decision is testable without binding a port.
-     *
-     * @param live where the live proxy itself listens; the public address cannot tell, since Caddy answers it
-     *     and hands it to this standby while the live proxy is down
-     * @param probe how to ask whether an address answers
+     * @param live the address of the live proxy itself, not the public address
+     * @param probe asks whether an address answers
      */
     StandbyReturn(
             final Scheduler scheduler,
@@ -106,12 +102,12 @@ public final class StandbyReturn {
         this.probe = Objects.requireNonNull(probe, "probe");
     }
 
-    /** Returns whether this process will do anything at all, for the startup log line. */
+    /** Returns whether this proxy is a standby with both addresses. */
     public boolean isArmed() {
         return home != null && live != null && role.isStandby();
     }
 
-    /** One pass: reports how many players are here and sends them home if it is time; never throws. */
+    /** Reports the number of players and transfers them back when the time has come. It never throws. */
     public void check() {
         final InetSocketAddress target = live;
         if (target == null || !isArmed()) {
@@ -121,18 +117,15 @@ public final class StandbyReturn {
         final Instant now = clock.instant();
 
         try {
-            // Always, including zero: no row has to keep meaning this standby has never spoken.
             seats.reportStandby(players.size(), now);
         } catch (final RuntimeException failure) {
             logger.warn("Could not report how many players the standby is holding", failure);
         }
 
         if (returning) {
-            // Already promised and scheduled: nothing this pass observes improves on it.
             return;
         }
         if (players.isEmpty()) {
-            // Nobody to protect: the next group to arrive has to see its own outage.
             outageSeen = false;
             answeringSince = null;
             return;
@@ -167,7 +160,7 @@ public final class StandbyReturn {
         announceThenSendHome(players);
     }
 
-    /** Tells the players the network is back, counts the last ten seconds, and transfers them on zero. */
+    /** Announces the return, counts the last ten seconds and transfers the players at zero. */
     private void announceThenSendHome(final Collection<Player> players) {
         returning = true;
         final List<CountdownPlan.Beat<Announcement>> beats =
@@ -181,13 +174,11 @@ public final class StandbyReturn {
 
         for (final CountdownPlan.Beat<Announcement> beat : beats) {
             final var _ = scheduler.after(beat.delay(), () -> {
-                // Asked again per beat: a player who logged out is gone, one who logged in is owed the same.
                 final Collection<Player> here = proxy.getAllPlayers();
                 voice.say(here, beat.said());
                 if (beat.said().kind() != Announcement.Kind.NOW) {
                     return;
                 }
-                // Sentence before transfer, unlike the way out: after it, the message reaches nobody.
                 sendHome(here);
                 returning = false;
                 outageSeen = false;
@@ -197,17 +188,15 @@ public final class StandbyReturn {
     }
 
     /**
-     * The decision, without a socket and without Velocity.
+     * Returns whether to transfer the players back.
      *
-     * @param outageSeen whether the live proxy has refused a connection since these players arrived
-     * @param answering how long it has been answering without interruption
-     * @return whether to send the players home now
+     * @param outageSeen whether the live proxy refused a connection since the players arrived
+     * @param answering how long the live proxy answers without interruption
      */
     static boolean releases(final boolean outageSeen, final Duration answering) {
         if (outageSeen) {
             return answering.compareTo(SETTLE) >= 0;
         }
-        // No outage means this was called off, or somebody joined this port by hand.
         return answering.compareTo(RESCUE_AFTER) >= 0;
     }
 
@@ -219,28 +208,25 @@ public final class StandbyReturn {
                 player.transferToHost(home);
                 sent++;
             } catch (final RuntimeException failure) {
-                // One client that cannot be transferred must not cost the rest; the next pass tries again.
                 logger.warn("Could not transfer {} back to {}", player.getUsername(), home, failure);
             }
         }
         voice.returned(ProxySwap.OWN_SERVICE, ProxySwap.STANDBY_SERVICE, sent);
     }
 
-    /** Whether an address accepts a TCP connection. */
+    /** Asks whether an address accepts a TCP connection. */
     @FunctionalInterface
     interface Probe {
 
         /**
-         * Knocks once.
+         * Returns whether the address answers.
          *
-         * @param address where to knock
-         * @param timeout how long to wait for the handshake
-         * @return whether it answered
+         * @param timeout the time to wait for the handshake
          */
         boolean answers(InetSocketAddress address, Duration timeout);
     }
 
-    /** The real probe; it resolves the unresolved address here, and a name that does not resolve is not answering. */
+    /** Resolves the address and connects. A name that does not resolve does not answer. */
     static boolean connects(final InetSocketAddress address, final Duration timeout) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(address.getHostString(), address.getPort()), (int) timeout.toMillis());

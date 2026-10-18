@@ -23,18 +23,15 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Tells players moved out by an update that they are going back, once each.
- *
- * From the waiting room: one chat line. From the standby proxy: chat plus a counted subtitle.
+ * Informs each player whom an update run moved that the player returns.
+ * The waiting room sends a chat message. The standby proxy sends a chat message and a countdown subtitle.
  */
 public final class Homecoming {
 
-    /**
-     * How long the standby proxy warns before it hands the network back, matching {@code Countdown}'s subtitle stretch.
-     */
+    /** The seconds that the standby proxy announces the return before it happens. */
     public static final Duration NOTICE = Duration.ofSeconds(10);
 
-    /** As long as a tick's subtitle in {@code RestartWatch}. */
+    /** The display times of the subtitle, equal to those in {@code RestartWatch}. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -44,10 +41,10 @@ public final class Homecoming {
     private final PhaseServers servers;
     private final RunRecorder runs;
 
-    /** Players moved out of the way and not yet told they are going back; emptied at the start of every evacuation. */
+    /** The players who were moved and have not been informed. */
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
-    /** @param runs where a player's return is counted on the move that took them out */
+    /** @param runs the store of the move counts */
     public Homecoming(
             final Logger logger,
             final MessageRenderer renderer,
@@ -63,7 +60,7 @@ public final class Homecoming {
 
     // out of the waiting room
 
-    /** Starts a new evacuation: these players are owed the sentence, and nobody else. */
+    /** Replaces the set of players to inform with these players. */
     public void movedOut(final Collection<Player> players) {
         final Set<UUID> uuids = new java.util.HashSet<>();
         for (final Player player : players) {
@@ -72,22 +69,21 @@ public final class Homecoming {
         owedNow(uuids);
     }
 
-    /** Sets the register directly, without Velocity. */
+    /** Sets the players to inform. */
     void owedNow(final Set<UUID> uuids) {
         owed.clear();
         owed.addAll(uuids);
     }
 
-    /** Returns whether this player is owed the sentence, and spends it if so. */
+    /** Returns whether the player is to be informed and removes the player from the set. */
     boolean claim(final UUID uuid) {
         return owed.remove(uuid);
     }
 
     /**
-     * Tells a player the waiting room is about to release that they are going back, once, if a run put them there.
+     * Informs the player about the return if an update run moved the player.
      *
-     * @param player the player being released
-     * @param destination the server they are going to, for the name in the line
+     * @param destination the server of the player
      */
     public void comingBack(final Player player, final String destination) {
         if (!claim(player.getUniqueId())) {
@@ -108,7 +104,7 @@ public final class Homecoming {
         }
     }
 
-    /** Counts players back on the latest move from one service to another; a write that fails costs the count. */
+    /** Stores the number of returned players. A failed write is logged. */
     public void returned(final String from, final String to, final int players) {
         try {
             runs.returned(from, to, players);
@@ -120,7 +116,7 @@ public final class Homecoming {
     // off the standby proxy
 
     /**
-     * Speaks one beat of the standby's return: chat to everybody, the subtitle only to players outside a waiting room.
+     * Sends the announcement. Every player gets the chat message and players outside a waiting room get the subtitle.
      */
     public void say(final Collection<Player> players, final Announcement announcement) {
         for (final Player player : players) {
@@ -156,7 +152,6 @@ public final class Homecoming {
                             renderer.format(locale, MESSAGES.returnSection().now()));
                 }
             }
-            // Neither can happen: the standby only speaks about a return it already decided on.
             case CANCELLED, FAILED ->
                 logger.warn(
                         "The standby was asked to announce {}, which is" + " not something a return can be",
@@ -164,7 +159,7 @@ public final class Homecoming {
         }
     }
 
-    /** Returns whether a transfer would interrupt what this player is doing. */
+    /** Returns whether a transfer interrupts the player. */
     private boolean isPlaying(final Player player) {
         return interrupts(
                 player.getCurrentServer()
@@ -174,9 +169,9 @@ public final class Homecoming {
     }
 
     /**
-     * Returns whether a transfer would interrupt a player standing on {@code server}.
+     * Returns whether a transfer interrupts a player on the server.
      *
-     * @param server where they are standing, or {@code null} while still connecting
+     * @param server the server of the player, {@code null} while the player connects
      */
     static boolean interrupts(final @Nullable String server, final PhaseServers servers) {
         return server != null && !servers.isWaitingRoom(server);
@@ -186,7 +181,7 @@ public final class Homecoming {
         player.showTitle(Title.title(Component.empty(), Lines.joined(line), TIMES));
     }
 
-    /** A compose service name as a player would say it, or the compose name itself when there is no line for it. */
+    /** Returns the message with the name of the compose service, or the service name itself without a message. */
     public static MessageRef serviceName(final String service) {
         final ProxyMessages.Restart.What names = MESSAGES.restart().what();
         return switch (service) {

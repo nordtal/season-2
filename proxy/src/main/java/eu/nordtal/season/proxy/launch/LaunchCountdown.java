@@ -11,20 +11,12 @@ import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
-/**
- * How long until the network opens, coarse on purpose: days and hours, or hours and minutes.
- *
- * A passed instant renders as "any moment now": nothing switches the phase when the date passes.
- */
+/** The time until the network opens, in days and hours or in hours and minutes. */
 public final class LaunchCountdown {
 
     private LaunchCountdown() {}
 
-    /**
-     * The remaining time, or the line for a date nobody has announced.
-     *
-     * @param launch when the network opens, or {@code null} when no date is set
-     */
+    /** Returns the remaining time, or a line for a {@code null} launch date. */
     public static MessageRef left(final @Nullable Instant launch, final Instant now) {
         final ProxyMessages.NetworkCountdown lines = MESSAGES.countdown();
         if (launch == null) {
@@ -43,7 +35,7 @@ public final class LaunchCountdown {
         return lines.minutes(remaining.toMinutes());
     }
 
-    /** The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, for the disconnect screens. */
+    /** Returns the countdown wrapped in {@code gate.countdown}, or the line for a missing launch date. */
     public static Component component(
             final MessageRenderer renderer, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {

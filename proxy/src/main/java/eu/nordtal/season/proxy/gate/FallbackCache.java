@@ -11,9 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The in-memory last-known state the login gate falls back to while the database is unreachable.
- *
- * Only a state that may join is stored, and an entry older than {@code window} counts as absent.
+ * Stores the access states that the login gate uses when the database does not answer.
+ * An entry older than {@code window} is absent.
  */
 public final class FallbackCache {
 
@@ -29,7 +28,7 @@ public final class FallbackCache {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /** Records the outcome of a successful {@code accessState} query, evicting the account unless it may join. */
+    /** Stores the state if it may join, otherwise deletes the entry of the account. */
     public void remember(final UUID mcUuid, final AccessState state) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
@@ -40,17 +39,17 @@ public final class FallbackCache {
         }
     }
 
-    /** Whether this account may be let in from the cache alone, evicting an expired entry. */
+    /** Returns whether the cache holds the account as allowed. */
     public boolean mayJoin(final UUID mcUuid) {
         return current(mcUuid).isPresent();
     }
 
-    /** The language this account was last seen with, English when it is not cached. */
+    /** Returns the cached language of the account, English without an entry. */
     public Locale localeOf(final UUID mcUuid) {
         return current(mcUuid).map(Entry::locale).orElse(Locale.ENGLISH);
     }
 
-    /** How many cached accounts are still within the window. */
+    /** Returns the number of entries within the window. */
     public int size() {
         return entries.size();
     }

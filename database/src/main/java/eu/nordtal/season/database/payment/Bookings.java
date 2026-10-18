@@ -21,27 +21,26 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Books a payment in one transaction, which all of it commits in or none of it does.
- * The request is paid, the access appended, the donor flag set, the journal line written and the bot told.
- * steward is the one caller, for money its poll matched and for an admin's booking by hand alike.
+ * Books a payment in one transaction: marks the request paid, appends the access, sets the donor flag and journals it.
+ * The bot is told in the same transaction. Only steward calls it.
  */
 public final class Bookings {
 
     private final Jdbi jdbi;
     private final Inbox<BotRequest> bot;
 
-    /** Borrows the pool it is given and owns nothing; the process that built it closes it. */
+    /** Borrows {@code dataSource}. The process that built it closes it. */
     public Bookings(final DataSource dataSource) {
         this.jdbi = Jdbis.over(dataSource);
         this.bot = Inbox.over(dataSource, BotRequest.TABLE);
     }
 
     /**
-     * What arrived for a request, and how it was found.
+     * What arrived for a request.
      *
-     * @param matchedBy     the tab, the reference, or an admin's word
-     * @param bunqPaymentId the bank's payment, {@code null} for a booking by hand
-     * @param receivedCents what it was worth, {@code null} for a booking by hand
+     * @param matchedBy the tab, the reference or an admin's word
+     * @param bunqPaymentId the bank's payment, null for a booking by hand
+     * @param receivedCents the amount, null for a booking by hand
      */
     public record Arrival(
             PaymentMatch matchedBy,
@@ -57,12 +56,12 @@ public final class Bookings {
             }
         }
 
-        /** Money the poll found at the bank. */
+        /** Money that the poll found at the bank. */
         public static Arrival paid(final long bunqPaymentId, final int receivedCents, final PaymentMatch matchedBy) {
             return new Arrival(matchedBy, bunqPaymentId, receivedCents);
         }
 
-        /** An admin's word that the money arrived, with no bank payment behind it. */
+        /** An admin's word that the money arrived. */
         public static Arrival byHand() {
             return new Arrival(PaymentMatch.MANUAL, null, null);
         }
@@ -71,25 +70,23 @@ public final class Bookings {
     /** How one booking ended. */
     public sealed interface Booking {
 
-        /** Booked and committed; the bot is told with exactly this. */
+        /** Booked and committed. The bot is told with this. */
         record Booked(BotRequest.PaymentBooked told) implements Booking {}
 
-        /** The request was no longer open, so nothing was written. */
+        /** The request was not open, so nothing was written. */
         record NotOpen() implements Booking {}
 
-        /** The money does not cover the cheapest tier, which is a human's decision; nothing was written. */
+        /** The money does not cover the cheapest tier, so nothing was written. A human decides. */
         record BelowMinimum(PaymentRequest request) implements Booking {}
     }
 
     /**
      * Books what arrived for one request.
      *
-     * @param request the request the money belongs to
-     * @param arrival what arrived and how it was found
-     * @param rule    what the order buys with that money, read off the locked row; empty when it buys nothing
-     * @param by      who booked it: steward for the poll, the admin for a booking by hand
-     * @throws org.jdbi.v3.core.statement.UnableToExecuteStatementException when another request already booked this
-     *     bank payment, which rolls everything back
+     * @param rule what the order buys with that money, read off the locked row. Empty if it buys nothing
+     * @param by who booked it: steward for the poll, the admin for a booking by hand
+     * @throws org.jdbi.v3.core.statement.UnableToExecuteStatementException if another request booked this bank
+     *     payment, which rolls back everything
      */
     public Booking book(
             final UUID request,

@@ -11,10 +11,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps a {@code payment_request} row, reading every {@code timestamptz} through {@link OffsetDateTime}.
- * Written out, for the reason {@code MetricPointMapper} gives.
- */
+/** Maps a {@code payment_request} row, reading timestamps through {@link OffsetDateTime}. */
 public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
 
     @Override

@@ -10,10 +10,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The SQL surface of {@code payment_request}; {@link PaymentRequests} is the API.
- * Every uniqueness rule is an index, so every write here applies or loses a race loudly.
- */
+/** The SQL of {@code payment_request}. {@link PaymentRequests} is its API. Every uniqueness rule is an index. */
 @RegisterRowMapper(PaymentRequestMapper.class)
 interface PaymentRequestDao {
 
@@ -54,7 +51,6 @@ interface PaymentRequestDao {
             """)
     Optional<PaymentRequest> findByReference(@Bind("reference") String reference);
 
-    /** Returns one request by its surrogate key. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -77,7 +73,7 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> findByUser(@Bind("discordId") DiscordId discordId, @Bind("limit") int limit);
 
-    /** Returns open requests that have a tab, oldest first, which is what the poll loop asks bunq about. */
+    /** Returns open requests that have a tab, oldest first, for the poll loop. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -89,7 +85,7 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> openWithTab();
 
-    /** Returns the newest requests of every status, with {@code id} breaking ties for a stable page. */
+    /** Returns the newest requests of every status. {@code id} breaks ties. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -101,7 +97,6 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> recent(@Bind("limit") int limit);
 
-    /** Returns every open request, whether or not it got as far as a tab. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -113,7 +108,7 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> allOpen();
 
-    /** Returns open requests past their TTL, whose tabs still have to be cancelled at bunq. */
+    /** Returns open requests past their TTL, whose tabs bunq still has to cancel. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -137,9 +132,9 @@ interface PaymentRequestDao {
             @Bind("donationCents") int donationCents);
 
     /**
-     * Stores the tab steward made, and announces it.
+     * Stores the tab and announces it.
      *
-     * @return 1 when stored, 0 when the row had closed, leaving the caller a live URL to cancel
+     * @return 1 if stored, 0 if the row had closed, which leaves the caller a live URL to cancel
      */
     @SqlQuery("""
             WITH updated AS (
@@ -158,7 +153,7 @@ interface PaymentRequestDao {
     /**
      * Closes an open request with a status other than {@code PAID}, so {@code settled} stays null.
      *
-     * @return 1 when the request was still open, 0 when something else had already closed it
+     * @return 1 if the request was open, 0 if it was closed already
      */
     @SqlUpdate("""
             UPDATE payment_request
@@ -167,7 +162,7 @@ interface PaymentRequestDao {
             """)
     int close(@Bind("id") UUID id, @Bind("status") String status);
 
-    /** Locks one open request for the transaction that books it, so its order cannot change under the booking. */
+    /** Locks one open request for the booking transaction. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -180,8 +175,8 @@ interface PaymentRequestDao {
     Optional<PaymentRequest> lockOpen(@Bind("id") UUID id);
 
     /**
-     * Marks a locked request paid with what arrived and how it was found, and announces it; 1 when it did.
-     * The unique index on {@code bunq_payment_id} refuses a payment another request already booked.
+     * Marks a locked request paid with the arrival and announces it. Returns 1 if it did.
+     * The unique index on {@code bunq_payment_id} refuses a payment that another request booked.
      */
     @SqlQuery("""
             WITH booked AS (
@@ -206,9 +201,9 @@ interface PaymentRequestDao {
     Optional<Integer> booked(@Bind("bunqPaymentId") long bunqPaymentId);
 
     /**
-     * Clears bunq's last refusal on an open request that still has no tab, before a tab is asked for again.
+     * Clears the last bunq refusal on an open request without a tab, before a tab is requested again.
      *
-     * @return 1 when a tab can be asked for, 0 when the row was closed or already has one
+     * @return 1 if a tab can be requested, 0 if the row is closed or has a tab
      */
     @SqlUpdate("""
             UPDATE payment_request
@@ -218,10 +213,10 @@ interface PaymentRequestDao {
     int clearFailure(@Bind("id") UUID id);
 
     /**
-     * Records that bunq refused to make the tab, which the payer is shown instead of a link.
+     * Records that bunq refused the tab, which the payer sees instead of a link.
      *
-     * @param refusal why, which the payer's text and the admins' alert are drawn from
-     * @return 1 when the failure was recorded, 0 when the row had closed or a tab had arrived
+     * @param refusal the reason, from which the payer's text and the admins' alert are drawn
+     * @return 1 if recorded, 0 if the row closed or a tab arrived
      */
     @SqlQuery("""
             WITH updated AS (
@@ -240,7 +235,7 @@ interface PaymentRequestDao {
     /**
      * Records that the tab is gone at bunq.
      *
-     * @return 1 when this call closed it out, 0 when there was no tab or somebody had already done so
+     * @return 1 if this call recorded it, 0 if there was no tab or it was recorded already
      */
     @SqlQuery("""
             WITH updated AS (

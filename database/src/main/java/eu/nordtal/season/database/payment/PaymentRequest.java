@@ -7,21 +7,17 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One row of {@code payment_request}, the persisted state of one purchase flow.
+ * One row of {@code payment_request}, the state of one purchase flow.
  *
- * @param reference       {@code NT-XXXXXX}, unique; the fallback matcher scrapes it from a description
- * @param days            the days ordered; the grant derives from the amount that arrives
- * @param amountCents     what the tab asks for: tier price plus the donation if chosen
- * @param donationCents   the donation part of {@code amountCents}, zero when none was chosen
- * @param bunqTabId       the bunq.me tab, null until the user confirmed
- * @param shareUrl        the bunq.me share URL, null until the user confirmed
- * @param bunqPaymentId   the payment that settled it, null until it is paid
- * @param settled         when it was booked, null unless {@code status} is {@code PAID}
- * @param tabRefusal      why bunq made no tab, null unless it refused
- * @param tabFailed       when it refused, null unless {@code tabRefusal} is set
- * @param tabCancelled    when steward cancelled it at bunq, null while it stands
- * @param matchedCents    what arrived, in cents, null until steward found it
- * @param matchedBy       along which path it was found, null until then
+ * @param reference {@code NT-XXXXXX}, unique
+ * @param days the days ordered
+ * @param amountCents the amount the tab asks for: tier price plus donation
+ * @param donationCents the donation part of {@code amountCents}
+ * @param bunqTabId the bunq.me tab, null until the user confirmed
+ * @param settled when it was booked, null unless {@code status} is {@code PAID}
+ * @param tabRefusal why bunq made no tab, null unless it refused
+ * @param tabFailed when it refused, null unless {@code tabRefusal} is set
+ * @param tabCancelled when steward cancelled the tab at bunq, null while it stands
  */
 public record PaymentRequest(
         UUID id,
@@ -43,12 +39,10 @@ public record PaymentRequest(
         @Nullable Integer matchedCents,
         @Nullable PaymentMatch matchedBy) {
 
-    /** Returns the bunq.me tab, if one was created. */
     public Optional<Long> tab() {
         return Optional.ofNullable(bunqTabId);
     }
 
-    /** Returns whether the user asked for the donation surcharge. */
     public boolean donationRequested() {
         return donationCents > 0;
     }

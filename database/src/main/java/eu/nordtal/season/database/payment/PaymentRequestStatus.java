@@ -1,20 +1,20 @@
 package eu.nordtal.season.database.payment;
 
-/** The life of one attempt to buy access, stored in {@code payment_request.status}. */
+/** The state of one attempt to buy access, stored in {@code payment_request.status}. */
 public enum PaymentRequestStatus {
 
-    /** Being worked on or waiting to be paid; at most one per person, by a partial unique index. */
+    /** Waiting to be paid. A partial unique index allows one per person. */
     OPEN,
 
-    /** Paid and booked. Carries the bunq payment id and the settlement time. */
+    /** Paid and booked. */
     PAID,
 
-    /** Ran past the configured TTL without being paid. Its bunq tab was cancelled. */
+    /** Ran past the TTL unpaid. Its bunq tab was cancelled. */
     EXPIRED,
 
-    /** Cancelled by the user or by an admin. Its bunq tab was cancelled. */
+    /** Cancelled by the user or an admin. Its bunq tab was cancelled. */
     CANCELLED,
 
-    /** Replaced by a newer request from the same person. Its bunq tab was cancelled. */
+    /** Replaced by a newer request of the same person. Its bunq tab was cancelled. */
     SUPERSEDED
 }

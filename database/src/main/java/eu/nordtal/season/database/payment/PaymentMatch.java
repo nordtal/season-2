@@ -1,14 +1,14 @@
 package eu.nordtal.season.database.payment;
 
-/** How a payment was attributed to a request, stored under its name in {@code payment_request.matched_by}. */
+/** How a payment was attributed to a request, stored in {@code payment_request.matched_by}. */
 public enum PaymentMatch {
 
-    /** The payment arrived under the request's own bunq.me tab, the strongest match. */
+    /** The payment came in under the bunq.me tab of the request, the strongest match. */
     TAB,
 
-    /** The payment's description carried the request's {@code NT-XXXXXX} reference, with no tab. */
+    /** The description of the payment holds the {@code NT-XXXXXX} reference of the request, and there is no tab. */
     REFERENCE,
 
-    /** An admin booked it by hand on the Access page; there is no bunq payment behind it. */
+    /** An admin booked it by hand on the Access page. No bunq payment exists. */
     MANUAL
 }

@@ -11,18 +11,16 @@ import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Money;
 
-/** The texts the layout tests and the shared vectors place, shown as an embed's unless a key says otherwise. */
+/** The texts the layout tests and the shared vectors place, shown as a text block unless a key says otherwise. */
 @MessageSpec("layouts")
-@Shown(Display.DISCORD_EMBED)
+@Shown(Display.DISCORD_TEXT)
 @Format(TextFormat.DISCORD_MARKDOWN)
 public interface LayoutTexts {
 
     @Name("Title")
-    @Shown(Display.DISCORD_EMBED_HEADING)
     MessageRef title();
 
     @Name("Prices")
-    @Shown(Display.DISCORD_EMBED_HEADING)
     MessageRef prices();
 
     @Name("Tier")

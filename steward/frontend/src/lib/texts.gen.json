@@ -986,7 +986,7 @@
     "steward.message-editor.override": [["Override"]],
     "steward.message-editor.packaged-now": [["Packaged now"]],
     "steward.message-editor.packaged-then": [["Written over"]],
-    "steward.message-editor.place": [[{"c":"place","plural":false,"cases":{"chat":["Chat"],"action-bar":["Action bar"],"title":["Title"],"subtitle":["Subtitle"],"boss-bar":["Boss bar"],"tab-list":["Tab list"],"gui":["Menu"],"hologram":["Floating text"],"kick-screen":["Screen"],"server-list":["Server list"],"discord-message":["Discord message"],"discord-embed":["Discord embed"],"discord-embed-heading":["Embed heading"],"discord-button":["Discord button"],"discord-modal":["Discord form"],"discord-select":["Discord menu"],"discord-channel":["Channel name"],"discord-command":["Slash command"],"steward":["Steward"],"push":["Notification"],"other":["Elsewhere"]}}]],
+    "steward.message-editor.place": [[{"c":"place","plural":false,"cases":{"chat":["Chat"],"action-bar":["Action bar"],"title":["Title"],"subtitle":["Subtitle"],"boss-bar":["Boss bar"],"tab-list":["Tab list"],"gui":["Menu"],"hologram":["Floating text"],"kick-screen":["Screen"],"server-list":["Server list"],"discord-message":["Discord message"],"discord-embed":["Discord embed"],"discord-embed-heading":["Embed heading"],"discord-text":["Discord text"],"discord-button":["Discord button"],"discord-modal":["Discord form"],"discord-select":["Discord menu"],"discord-channel":["Channel name"],"discord-command":["Slash command"],"steward":["Steward"],"push":["Notification"],"other":["Elsewhere"]}}]],
     "steward.message-editor.placeholder": [["Insert a value"]],
     "steward.message-editor.remove": [["Remove"]],
     "steward.message-editor.remove-case": [["Remove this case"]],

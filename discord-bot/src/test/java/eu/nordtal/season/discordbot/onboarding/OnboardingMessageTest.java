@@ -1,23 +1,25 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.ManagedMessage;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Messages;
 import java.util.List;
 import java.util.Locale;
-import net.dv8tion.jda.api.components.Component;
+import net.dv8tion.jda.api.components.MessageTopLevelComponent;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.junit.jupiter.api.Test;
 
 /** The two onboarding messages: the welcome that asks a locked member for a language, and the one to change later. */
@@ -35,34 +37,36 @@ class OnboardingMessageTest {
     private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER);
 
     @Test
-    void theWelcomeIsOneEmbedInTheDefaultLanguageWithItsBanner() {
-        final ManagedMessage.Content welcome = message.welcome();
+    void theWelcomeIsOneBoxInTheDefaultLanguageOverItsBanner() {
+        final LayoutRenderer.Drawn welcome = message.welcome();
+        final Container box = (Container) welcome.components().getFirst();
 
         assertAll(
-                () -> assertEquals(1, welcome.embeds().size()),
                 () -> assertEquals(
-                        RENDERER.format(
-                                Locale.ENGLISH, MESSAGES.onboarding().welcome().title()),
-                        welcome.embeds().getFirst().getTitle()),
-                () -> assertEquals(OnboardingMessage.BANNER, welcome.banner()),
+                        "## Welcome to Nordtal",
+                        ((TextDisplay) box.getComponents().getFirst()).getContent()),
                 () -> assertEquals(
-                        "attachment://" + OnboardingMessage.BANNER,
-                        welcome.embeds().getFirst().getImage().getUrl()));
+                        "attachment://onboarding.png",
+                        ((MediaGallery) box.getComponents().getLast())
+                                .getItems()
+                                .getFirst()
+                                .getUrl()),
+                () -> assertEquals(List.of("onboarding.png"), welcome.attachments()));
     }
 
     @Test
     void theWelcomeAsksOnlyForTheLanguageWithOneSelectAndNoButton() {
-        final List<Component> components = components(message.welcome());
+        final List<MessageTopLevelComponent> components = message.welcome().components();
 
-        assertEquals(1, components.size());
-        final StringSelectMenu menu = (StringSelectMenu) components.getFirst();
-        assertEquals(Ids.ONBOARD_PICK_LANGUAGE, menu.getCustomId());
+        assertAll(
+                () -> assertEquals(2, components.size()),
+                () -> assertEquals(Ids.ONBOARD_PICK_LANGUAGE, select(components).getCustomId()));
     }
 
     @Test
     void eachLanguageIsOfferedUnderItsOwnNameWithTheFlagOfItsCountry() {
         final List<SelectOption> options =
-                ((StringSelectMenu) components(message.welcome()).getFirst()).getOptions();
+                select(message.welcome().components()).getOptions();
 
         assertAll(
                 () -> assertEquals(
@@ -79,23 +83,31 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theChangeMessageHasAButtonPerLanguageThatOpensTheDialogInIt() {
-        final ManagedMessage.Content change = message.change();
+    void theChangeMessageHasABoxAndAButtonPerLanguageEachInItsLanguage() {
+        final List<MessageTopLevelComponent> change = message.change().components();
+        final List<Button> buttons = change.stream()
+                .filter(ActionRow.class::isInstance)
+                .flatMap(row -> ((ActionRow) row).getButtons().stream())
+                .toList();
 
         assertAll(
-                () -> assertEquals(2, change.embeds().size()),
+                () -> assertEquals(4, change.size()),
                 () -> assertEquals(
                         List.of(Ids.ONBOARD + "en", Ids.ONBOARD + "de"),
-                        components(change).stream()
-                                .map(component -> ((Button) component).getCustomId())
-                                .toList()),
-                () -> assertTrue(components(change).stream().allMatch(Button.class::isInstance)));
+                        buttons.stream().map(Button::getCustomId).toList()),
+                () -> assertEquals(
+                        List.of("Change", "Ändern"),
+                        buttons.stream().map(Button::getLabel).toList()),
+                () -> assertEquals(
+                        "## Sprache und Region\n### Ändern\n**Ändern** → Sprache und Region, jederzeit",
+                        ((TextDisplay) ((Container) change.get(2))
+                                        .getComponents()
+                                        .getFirst())
+                                .getContent()));
     }
 
-    private static List<Component> components(final ManagedMessage.Content content) {
-        return content.components().stream()
-                .flatMap(row -> row.getComponents().stream())
-                .map(Component.class::cast)
-                .toList();
+    private static StringSelectMenu select(final List<MessageTopLevelComponent> components) {
+        return (StringSelectMenu)
+                ((ActionRow) components.getLast()).getComponents().getFirst();
     }
 }

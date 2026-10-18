@@ -124,12 +124,6 @@ public final class Card {
         return this;
     }
 
-    /** An image, usually {@code attachment://<name>} uploaded with the same message. */
-    public Card image(final String url) {
-        embed.setImage(url);
-        return this;
-    }
-
     public MessageEmbed build() {
         return embed.build();
     }

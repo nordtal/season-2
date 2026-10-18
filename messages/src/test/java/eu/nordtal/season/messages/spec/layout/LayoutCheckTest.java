@@ -92,10 +92,9 @@ class LayoutCheckTest {
     void aKeyPlacedWhereItsShownDoesNotSayItIsShownIsRefused() {
         assertEquals(
                 List.of(
-                        "layouts/broken: places layouts/buy as a title or heading, but its @Shown names only"
-                                + " DISCORD_BUTTON",
+                        "layouts/broken: places layouts/buy as text, but its @Shown names only" + " DISCORD_BUTTON",
                         "layouts/broken: places layouts/title as a button's label, but its @Shown names only"
-                                + " DISCORD_EMBED_HEADING"),
+                                + " DISCORD_TEXT"),
                 problems(withParts(
                         List.of(Element.button("go", "layouts/title")), Part.text(title("layouts/buy")), row("go"))));
     }

@@ -2,21 +2,22 @@ package eu.nordtal.season.discordbot.access.discord;
 
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
-import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.spec.layout.Element;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.Line;
+import eu.nordtal.season.messages.spec.layout.Part;
 import eu.nordtal.season.messages.value.Money;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jdbi.v3.core.Jdbi;
 
 /**
@@ -26,12 +27,43 @@ import org.jdbi.v3.core.Jdbi;
  */
 public final class ManagedMessages {
 
-    private static final String CONTRIBUTION_BANNER = "contribution.png";
-    private static final String LINK_BANNER = "link.png";
+    /** The contribution message: the prices, the donation and the renewal over the banner, the Buy button under it. */
+    static final Layout CONTRIBUTION = Layout.discord(
+            "access",
+            "contribution",
+            "Contribution",
+            List.of(
+                    Element.list("tiers", "access/contribution.tier-line"),
+                    Element.button("buy", "access/contribution.button")),
+            Part.container(
+                    Tone.BRAND,
+                    Part.text(Line.title("access/contribution.title")),
+                    Part.text(Line.heading("access/contribution.prices"), Line.list("tiers")),
+                    Part.text(
+                            Line.heading("access/contribution.donation-heading"),
+                            Line.text("access/contribution.donation")),
+                    Part.text(
+                            Line.heading("access/contribution.renew-heading"), Line.text("access/contribution.renew")),
+                    Part.gallery("attachment://contribution.png")),
+            Part.row("buy"));
+
+    /** The link message: the steps and the switch over the banner, the button that opens the code dialog under it. */
+    static final Layout LINK = Layout.discord(
+            "access",
+            "link",
+            "Link",
+            List.of(Element.button("link", "access/link.button")),
+            Part.container(
+                    Tone.BRAND,
+                    Part.text(Line.title("access/link.title")),
+                    Part.text(Line.heading("access/link.steps-heading"), Line.text("access/link.steps")),
+                    Part.text(Line.heading("access/link.switch-heading"), Line.text("access/link.switch-account")),
+                    Part.gallery("attachment://link.png")),
+            Part.row("link"));
 
     private final GuildLanguages languages;
     private final Tiers tiers;
-    private final DiscordRenderer messages;
+    private final LayoutRenderer renderer;
     private final ManagedMessage managed;
 
     public ManagedMessages(
@@ -42,7 +74,7 @@ public final class ManagedMessages {
             final Jdbi jdbi) {
         this.languages = languages;
         this.tiers = tiers;
-        this.messages = messages;
+        this.renderer = new LayoutRenderer(messages);
         this.managed = new ManagedMessage(jda, jdbi);
     }
 
@@ -54,58 +86,36 @@ public final class ManagedMessages {
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
             final Locale locale = language.locale();
-            publish(language.contributionKind(), true, language.contributionChannelId(), locale);
-            publish(language.linkKind(), false, language.linkChannelId(), locale);
+            managed.publish(
+                    language.contributionKind(),
+                    language.contributionChannelId(),
+                    contribution(renderer, tiers, locale));
+            managed.publish(language.linkKind(), language.linkChannelId(), link(renderer, locale));
         }
     }
 
-    private void publish(final String kind, final boolean contribution, final String channelId, final Locale locale) {
-        final MessageEmbed embed = contribution ? contributionEmbed(locale) : linkEmbed(locale);
-        final List<ActionRow> components = List.of(ActionRow.of(
-                contribution
-                        ? Button.primary(
-                                Ids.BUY,
-                                messages.format(locale, MESSAGES.contribution().button()))
+    static LayoutRenderer.Drawn contribution(final LayoutRenderer renderer, final Tiers tiers, final Locale locale) {
+        final List<Map<String, Object>> items = tiers.all().stream()
+                .map(tier ->
+                        Map.<String, Object>of("days", (long) tier.days(), "price", Money.euroCents(tier.priceCents())))
+                .toList();
+        return renderer.render(
+                CONTRIBUTION,
+                new LayoutRenderer.Filling(
+                        Map.of("amount", Money.euroCents(tiers.donationCents())),
+                        Map.of(
+                                "tiers", new LayoutRenderer.FilledList(items),
+                                "buy", new LayoutRenderer.FilledButton(Ids.BUY))),
+                locale);
+    }
+
+    static LayoutRenderer.Drawn link(final LayoutRenderer renderer, final Locale locale) {
+        return renderer.render(
+                LINK,
+                new LayoutRenderer.Filling(
+                        Map.of("button", MESSAGES.link().button()),
                         // Opens a modal for the code the proxy showed on the login screen.
-                        : Button.primary(
-                                Ids.LINK,
-                                messages.format(locale, MESSAGES.link().button()))));
-        final String banner = contribution ? CONTRIBUTION_BANNER : LINK_BANNER;
-        managed.publish(kind, channelId, new ManagedMessage.Content(List.of(embed), components, banner));
-    }
-
-    private MessageEmbed contributionEmbed(final Locale locale) {
-        final List<String> prices = new ArrayList<>();
-        for (final Tier tier : tiers.all()) {
-            prices.add(messages.format(
-                    locale, MESSAGES.contribution().tierLine(tier.days(), Money.euroCents(tier.priceCents()))));
-        }
-        return Card.of(messages.format(locale, MESSAGES.contribution().title()))
-                .block(messages.format(locale, MESSAGES.contribution().prices()), prices, count -> "+" + count)
-                .field(
-                        messages.format(locale, MESSAGES.contribution().donationHeading()),
-                        messages.format(
-                                locale, MESSAGES.contribution().donation(Money.euroCents(tiers.donationCents()))))
-                .field(
-                        messages.format(locale, MESSAGES.contribution().renewHeading()),
-                        messages.format(locale, MESSAGES.contribution().renew()))
-                .image("attachment://" + CONTRIBUTION_BANNER)
-                .build();
-    }
-
-    private MessageEmbed linkEmbed(final Locale locale) {
-        return Card.of(messages.format(locale, MESSAGES.link().title()))
-                .wide(
-                        messages.format(locale, MESSAGES.link().stepsHeading()),
-                        messages.format(
-                                locale,
-                                MESSAGES.link()
-                                        .steps(messages.format(
-                                                locale, MESSAGES.link().button()))))
-                .field(
-                        messages.format(locale, MESSAGES.link().switchHeading()),
-                        messages.format(locale, MESSAGES.link().switchAccount()))
-                .image("attachment://" + LINK_BANNER)
-                .build();
+                        Map.of("link", new LayoutRenderer.FilledButton(Ids.LINK))),
+                locale);
     }
 }

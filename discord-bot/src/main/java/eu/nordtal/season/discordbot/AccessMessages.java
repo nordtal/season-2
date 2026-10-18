@@ -12,6 +12,7 @@ import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
+import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
@@ -31,31 +32,31 @@ public interface AccessMessages {
     interface Contribution {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef title();
 
         @Name("Prices")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef prices();
 
         @Name("Tier line")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef tierLine(@Arg("days") long days, @Arg("price") Money price);
 
         @Name("Donation heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef donationHeading();
 
         @Name("Donation")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef donation(@Arg("amount") Money amount);
 
         @Name("Renew heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef renewHeading();
 
         @Name("Renew")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef renew();
 
         @Name("Button")
@@ -70,23 +71,23 @@ public interface AccessMessages {
     interface Link {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef title();
 
         @Name("Steps heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef stepsHeading();
 
         @Name("Steps")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef steps(@Arg("button") @Example("Enter my code") String button);
+        @Shown(Display.DISCORD_TEXT)
+        MessageRef steps(@Arg("button") @Takes("link.button") MessageRef button);
 
         @Name("Switch heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef switchHeading();
 
         @Name("Switch")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef switchAccount();
 
         @Name("Button")
@@ -140,19 +141,19 @@ public interface AccessMessages {
         interface Welcome {
 
             @Name("Title")
-            @Shown(Display.DISCORD_EMBED_HEADING)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef title();
 
             @Name("Lead")
-            @Shown(Display.DISCORD_EMBED)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef lead();
 
             @Name("Steps heading")
-            @Shown(Display.DISCORD_EMBED_HEADING)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef stepsHeading();
 
             @Name("Steps")
-            @Shown(Display.DISCORD_EMBED)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef steps();
 
             @Name("Choose")
@@ -183,21 +184,21 @@ public interface AccessMessages {
 
         Onboarding.Change change();
 
-        /** The message in the change channel: an embed and a button per language, each opening the dialog in it. */
+        /** The message in the change channel: a box and a button per language, each opening the dialog in it. */
         @Name("Change")
         interface Change {
 
             @Name("Title")
-            @Shown(Display.DISCORD_EMBED_HEADING)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef title();
 
             @Name("Heading")
-            @Shown(Display.DISCORD_EMBED_HEADING)
+            @Shown(Display.DISCORD_TEXT)
             MessageRef heading();
 
             @Name("How")
-            @Shown(Display.DISCORD_EMBED)
-            MessageRef how(@Arg("button") @Example("Change") String button);
+            @Shown(Display.DISCORD_TEXT)
+            MessageRef how(@Arg("button") @Takes("onboarding.change.button") MessageRef button);
 
             @Name("Button")
             @Shown(Display.DISCORD_BUTTON)
@@ -389,31 +390,31 @@ public interface AccessMessages {
     interface Register {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef title();
 
         @Name("Team heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef teamHeading();
 
         @Name("Team")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef team();
 
         @Name("Name heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef nameHeading();
 
         @Name("Name")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef name();
 
         @Name("Partner heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef partnerHeading();
 
         @Name("Partner")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef partner();
 
         @Name("Button")

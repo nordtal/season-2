@@ -11,10 +11,11 @@ pluginDescriptor {
 
 application.mainClass.set("eu.nordtal.season.discordbot.AccessBot")
 
-// ConfigsTest reads the access blocks of the real .env.example, so the file is a declared input.
+// ConfigsTest reads the access blocks of the real .env.example, and LayoutRendererTest the shared layout vectors.
 repositoryRootTestInputs {
     reads(".env.example")
     readsTree("discord-bot/src/main")
+    readsTree("messages/src/test/resources")
 }
 
 dependencies {
@@ -53,4 +54,7 @@ dependencies {
 
 messageSpec {
     specClasses.add("eu.nordtal.season.discordbot.AccessMessages")
+    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.ManagedMessages")
+    layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterMessages")
+    layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingMessage")
 }

@@ -26,6 +26,8 @@ public enum Display {
     DISCORD_EMBED(Surface.DISCORD, 4096),
     /** An embed's title or a field's name. */
     DISCORD_EMBED_HEADING(Surface.DISCORD, 256),
+    /** A text block of a Components V2 message, a title or heading included; a message holds 4000 characters. */
+    DISCORD_TEXT(Surface.DISCORD, 4000),
     DISCORD_BUTTON(Surface.DISCORD, 80),
     DISCORD_MODAL(Surface.DISCORD, 45),
     /** A select menu: its placeholder or one of its options. */

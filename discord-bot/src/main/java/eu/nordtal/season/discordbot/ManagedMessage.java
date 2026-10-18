@@ -6,28 +6,19 @@ import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jdbi.v3.core.Jdbi;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps one bot message per kind in its channel, editing the one it posted last rather than posting another.
- *
- * The id is kept in {@code managed_message}; a remembered message that is gone is posted anew.
+ * The id is kept in {@code managed_message}; a remembered message that is gone is posted anew. An edit turns an embed
+ * message into Components V2, which Discord never turns back.
  */
 @Slf4j
 public final class ManagedMessage {
-
-    /** What one message shows: its embeds, its buttons, and the image it attaches from {@code banners/}, if any. */
-    public record Content(
-            List<MessageEmbed> embeds,
-            List<ActionRow> components,
-            @Nullable String banner) {}
 
     private final JDA jda;
     private final ManagedMessageDao dao;
@@ -42,7 +33,7 @@ public final class ManagedMessage {
      *
      * A failure is logged and never thrown, so one bad channel does not stop the others.
      */
-    public void publish(final String kind, final String channelId, final Content content) {
+    public void publish(final String kind, final String channelId, final LayoutRenderer.Drawn content) {
         // Checked first: getChannelById throws on an empty id.
         if (!Configured.isSet(channelId)) {
             return;
@@ -61,9 +52,9 @@ public final class ManagedMessage {
             if (existing.isPresent() && edit(channel, existing.get(), content)) {
                 return;
             }
-            final MessageCreateAction post =
-                    channel.sendMessageEmbeds(content.embeds()).addComponents(content.components());
-            final String posted = (content.banner() == null ? post : post.addFiles(upload(content.banner())))
+            final String posted = channel.sendMessageComponents(content.components())
+                    .useComponentsV2()
+                    .addFiles(uploads(content))
                     .complete()
                     .getId();
             dao.remember(kind, channelId, posted);
@@ -74,17 +65,9 @@ public final class ManagedMessage {
     }
 
     /** Returns {@code false} when the remembered message is gone, so the caller posts a fresh one. */
-    private boolean edit(final MessageChannel channel, final String messageId, final Content content) {
+    private boolean edit(final MessageChannel channel, final String messageId, final LayoutRenderer.Drawn content) {
         try {
-            // setReplace(true) re-uploads the attachment; inheriting the old one would keep swapped-out artwork.
-            final MessageEditBuilder edit = new MessageEditBuilder()
-                    .setReplace(true)
-                    .setEmbeds(content.embeds())
-                    .setComponents(content.components());
-            channel.editMessageById(
-                            messageId,
-                            (content.banner() == null ? edit : edit.setFiles(upload(content.banner()))).build())
-                    .complete();
+            channel.editMessageById(messageId, edit(content)).complete();
             return true;
         } catch (final RuntimeException exception) {
             log.info(
@@ -96,8 +79,25 @@ public final class ManagedMessage {
         }
     }
 
-    private FileUpload upload(final String banner) {
-        final InputStream stream = getClass().getClassLoader().getResourceAsStream("banners/" + banner);
+    /**
+     * The edit that turns a message into {@code content}: Components V2 with its embeds emptied, as Discord requires.
+     * The images are uploaded anew and replace the old ones, so a swapped banner shows.
+     */
+    static MessageEditData edit(final LayoutRenderer.Drawn content) {
+        return new MessageEditBuilder()
+                .setEmbeds(List.of())
+                .useComponentsV2()
+                .setComponents(content.components())
+                .setFiles(uploads(content))
+                .build();
+    }
+
+    private static List<FileUpload> uploads(final LayoutRenderer.Drawn content) {
+        return content.attachments().stream().map(ManagedMessage::upload).toList();
+    }
+
+    private static FileUpload upload(final String banner) {
+        final InputStream stream = ManagedMessage.class.getClassLoader().getResourceAsStream("banners/" + banner);
         if (stream == null) {
             throw new IllegalStateException("banners/" + banner + " is missing from the jar");
         }

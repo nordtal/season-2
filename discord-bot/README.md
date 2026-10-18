@@ -51,6 +51,8 @@ The container runs the jar baked into its image; the whole deployment is in [../
 - `roles/`: every role the bot uses (`GuildRoles`), found by name and then followed by its stored id.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
+- `LayoutRenderer`: draws a declared layout as a Components V2 message within Discord's limits. The managed
+  messages declare their layouts beside the code that fills them.
 - `Mark`: the one set of emojis every embed and the admin log take their status and action marks from.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.
@@ -75,10 +77,10 @@ flowchart LR
     change["change message, a button per language"] -->|"dialog with both selects"| released
 ```
 
-- The onboarding channel holds the welcome: one embed in the network's default language and a select of the
+- The onboarding channel holds the welcome: one box in the network's default language and a select of the
   languages, each under its own name and its country's flag. Choosing one gives its role and answers with a
   select of the regions, unless a region is held already.
-- The change channel holds an embed and a button per language, each opening a dialog in it with both selects;
+- The change channel holds a box and a button per language, each opening a dialog in it with both selects;
   it is how a member changes either later.
 - The onboarding channel is the lock role's alone: the bot keeps it shut to everyone and open to the lock role
   and to itself, the lock on or off, so a released member no longer sees it.

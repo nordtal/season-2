@@ -29,6 +29,7 @@ import eu.nordtal.season.messages.value.Example;
     Display.DISCORD_MESSAGE,
     Display.DISCORD_EMBED,
     Display.DISCORD_EMBED_HEADING,
+    Display.DISCORD_TEXT,
     Display.DISCORD_BUTTON,
     Display.DISCORD_MODAL,
     Display.DISCORD_SELECT,

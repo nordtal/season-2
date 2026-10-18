@@ -3,21 +3,19 @@ package eu.nordtal.season.discordbot.onboarding;
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import java.util.ArrayList;
+import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.spec.layout.Element;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.Line;
+import eu.nordtal.season.messages.spec.layout.Part;
 import java.util.List;
-import java.util.Locale;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.components.selections.SelectOption;
-import net.dv8tion.jda.api.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.emoji.Emoji;
+import java.util.Map;
 
 /**
  * The two onboarding messages: the welcome in the onboarding channel and the message to change later in another.
@@ -32,24 +30,44 @@ final class OnboardingMessage {
     /** The change message's {@code managed_message.kind}. */
     static final String CHANGE_KIND = "ONBOARDING_CHANGE";
 
-    /** The welcome's banner, from {@code banners/}. */
-    static final String BANNER = "onboarding.png";
+    /** The welcome: one box in the default language over its banner, and a select that asks only for the language. */
+    static final Layout WELCOME = Layout.discord(
+            "access",
+            "onboarding-welcome",
+            "Onboarding",
+            List.of(Element.select("language", "access/onboarding.welcome.choose")),
+            Part.container(
+                    Tone.BRAND,
+                    Part.text(Line.title("access/onboarding.welcome.title")),
+                    Part.text(Line.text("access/onboarding.welcome.lead")),
+                    Part.text(
+                            Line.heading("access/onboarding.welcome.steps-heading"),
+                            Line.text("access/onboarding.welcome.steps")),
+                    Part.gallery("attachment://onboarding.png")),
+            Part.row("language"));
 
-    /** Discord shows at most ten embeds on one message. */
-    private static final int EMBEDS = 10;
-
-    /** And at most five buttons in one row. */
-    private static final int ROW = 5;
-
-    /** And at most 25 options in one select. */
-    private static final int OPTIONS = 25;
+    /** The message to change later: a box and a button per language, each button opening the dialog in it. */
+    static final Layout CHANGE = Layout.discord(
+            "access",
+            "onboarding-change",
+            "Onboarding",
+            List.of(Element.languages("each"), Element.button("change", "access/onboarding.change.button")),
+            Part.languages(
+                    "each",
+                    Part.container(
+                            Tone.BRAND,
+                            Part.text(
+                                    Line.title("access/onboarding.change.title"),
+                                    Line.heading("access/onboarding.change.heading"),
+                                    Line.text("access/onboarding.change.how"))),
+                    Part.row("change")));
 
     private final GuildLanguages languages;
-    private final DiscordRenderer messages;
+    private final LayoutRenderer renderer;
 
     OnboardingMessage(final GuildLanguages languages, final DiscordRenderer messages) {
         this.languages = languages;
-        this.messages = messages;
+        this.renderer = new LayoutRenderer(messages);
     }
 
     /** Posts or edits both messages; an empty channel id means that message is not kept. */
@@ -58,59 +76,34 @@ final class OnboardingMessage {
         managed.publish(CHANGE_KIND, changeChannelId, change());
     }
 
-    /** The welcome: one embed in the default language and a select that asks for nothing but the language. */
-    ManagedMessage.Content welcome() {
-        final Locale locale = languages.fallback().locale();
-        final MessageEmbed embed = Card.of(
-                        messages.format(locale, MESSAGES.onboarding().welcome().title()))
-                .lead(messages.format(locale, MESSAGES.onboarding().welcome().lead()))
-                .wide(
-                        messages.format(locale, MESSAGES.onboarding().welcome().stepsHeading()),
-                        messages.format(locale, MESSAGES.onboarding().welcome().steps()))
-                .image("attachment://" + BANNER)
-                .build();
-        final StringSelectMenu menu = StringSelectMenu.create(Ids.ONBOARD_PICK_LANGUAGE)
-                .setPlaceholder(
-                        messages.format(locale, MESSAGES.onboarding().welcome().choose()))
-                .addOptions(languages.all().stream()
-                        .limit(OPTIONS)
-                        .map(OnboardingMessage::option)
-                        .toList())
-                .build();
-        return new ManagedMessage.Content(List.of(embed), List.of(ActionRow.of(menu)), BANNER);
+    LayoutRenderer.Drawn welcome() {
+        final List<LayoutRenderer.Option> options = languages.all().stream()
+                .map(language -> new LayoutRenderer.Option(
+                        language.tag(),
+                        language.ownName(),
+                        Map.of(),
+                        Locales.flagCountry(language.locale()).map(Mark::flag).orElse(null)))
+                .toList();
+        return renderer.render(
+                WELCOME,
+                new LayoutRenderer.Filling(
+                        Map.of(),
+                        Map.of("language", new LayoutRenderer.FilledSelect(Ids.ONBOARD_PICK_LANGUAGE, options))),
+                languages.fallback().locale());
     }
 
-    /** The message to change later: an embed and a button per language, each opening the dialog in it. */
-    ManagedMessage.Content change() {
-        final List<MessageEmbed> embeds = new ArrayList<>();
-        final List<Button> buttons = new ArrayList<>();
-        for (final GuildLanguages.Language language :
-                languages.all().stream().limit(EMBEDS).toList()) {
-            final Locale locale = language.locale();
-            final String button =
-                    messages.format(locale, MESSAGES.onboarding().change().button());
-            embeds.add(Card.of(messages.format(
-                            locale, MESSAGES.onboarding().change().title()))
-                    .field(
-                            messages.format(
-                                    locale, MESSAGES.onboarding().change().heading()),
-                            messages.format(
-                                    locale, MESSAGES.onboarding().change().how(button)))
-                    .build());
-            buttons.add(Button.primary(Ids.ONBOARD + language.tag(), button));
-        }
-        final List<ActionRow> rows = new ArrayList<>();
-        for (int first = 0; first < buttons.size(); first += ROW) {
-            rows.add(ActionRow.of(buttons.subList(first, Math.min(first + ROW, buttons.size()))));
-        }
-        return new ManagedMessage.Content(embeds, rows, null);
-    }
-
-    /** A language under its own name, with the flag of its country where it has one. */
-    private static SelectOption option(final GuildLanguages.Language language) {
-        final SelectOption option = SelectOption.of(language.ownName(), language.tag());
-        return Locales.flagCountry(language.locale())
-                .map(country -> option.withEmoji(Emoji.fromUnicode(Mark.flag(country))))
-                .orElse(option);
+    LayoutRenderer.Drawn change() {
+        return renderer.render(
+                CHANGE,
+                new LayoutRenderer.Filling(
+                        Map.of("button", MESSAGES.onboarding().change().button()),
+                        Map.of(
+                                "each",
+                                new LayoutRenderer.FilledLanguages(languages.all().stream()
+                                        .map(GuildLanguages.Language::locale)
+                                        .toList()),
+                                "change",
+                                new LayoutRenderer.FilledButton(Ids.ONBOARD))),
+                languages.fallback().locale());
     }
 }

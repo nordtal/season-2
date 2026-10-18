@@ -1,27 +1,31 @@
 # smp
 
-The season's Paper plugin: Nordtal, the farm world, the Nether and the End, the milestone track, aura, the
-wheel, duels and graves. This file holds how its features are cut apart; what each one does is in its code.
+`smp` is the season's Paper plugin for the SMP. It holds the farm world, the Nether, the End, the milestone track, aura, the wheel, duels and graves.
 
-- **A feature is a package and knows no other feature.** `duel`, `grave`, `navigate`, `npc`, `progress`,
-  `protect`, `travel`, `welcome` and `wheel` each own their listeners, menus and rows. What they share sits
-  beside them: the track (`milestone`, read live through `state`'s `SeasonState`, which the signal hub keeps
-  current), the aura book (`aura`), the surfaces, the settings and the worlds. The root package and
-  `command` wire the features together and may name any of them. `:architecture` refuses a class of one
-  feature reaching a class of another.
-- **What one feature needs of another is a port** in `port`, implemented by the owner and handed over in
-  `SmpStart`: `PrizeSource` (the grant of the extra spins an objective's spin budget pays), `Contributions`
-  (progress's credit and a player's own share with the spins it would get now beside the spin budget, which the NPC's menu and hand-in use) and `Arenas` (whether a death is a duel's, which graves ask). Who a player is comes from
-  paper-common's `Identities`, never from a feature.
-- **Each feature has its own DAO** (`TrackDao`, `ProgressDao`, `AuraDao`, `GraveDao`, `PlaceDao`,
-  `SpinDao`, `WelcomeDao`), on-demand JDBI SqlObjects over the plugin's one `Jdbi`, called off the main
-  thread only. A DAO is per feature, not per table: the track's rows are written by the track's lifecycle
-  in `SmpPlugin` and moved by `progress`.
-- **A write of several statements is one transaction**: a credit with the completion, the aura and the
-  spins it pays; finishing an objective by hand; an unlock with the next milestone's activation; a reload's
-  rows. JDBI hands an on-demand DAO the handle its thread holds open in `inTransaction`, so every DAO and
-  the `PrizeSource` join without being passed a handle, which is what lets a port take part in a transaction
-  it knows nothing of. A failed payout therefore leaves no delivery credited, and the hand-in gives the items
-  back with nothing kept. The milestone check runs after the commit, so two objectives finished at once each
-  see the other; the announcements wait for the commit too, and a payout books its players in one order so
-  two in flight never deadlock.
+## Features
+
+Each of the packages `duel`, `grave`, `navigate`, `npc`, `progress`, `protect`, `travel`, `welcome` and `wheel` is a feature. A feature uses no class of another feature, and `:architecture` fails the build when it does.
+
+The features share the packages `milestone`, `state` and `aura`. The root package and `command` may use the classes of every feature.
+
+A feature reads a player's identity from `Identities` in paper-common.
+
+## Ports
+
+A feature that needs something from another feature uses an interface in `port`. The feature that owns the thing implements the interface, and `SmpStart` passes it on.
+
+## Database
+
+Each feature has its own DAO. A DAO is a JDBI SqlObject created with `onDemand` from the plugin's one `Jdbi`. It runs off the main thread only.
+
+A DAO belongs to a feature, not to a table. `SmpPlugin` writes the track's rows, and `progress` changes them.
+
+## Transactions
+
+A write of several statements is one transaction. These are a credit with its completion, aura and spins, finishing an objective by hand, an unlock with the activation of the next milestone, and the rows of a reload.
+
+An `onDemand` DAO uses the handle that `inTransaction` holds open on the same thread. A DAO or a `PrizeSource` therefore joins the transaction without receiving a handle.
+
+A failed payout credits no delivery, and the hand-in returns the items.
+
+The milestone check and the announcements run after the commit. A payout writes its players in one fixed order, which prevents deadlocks.

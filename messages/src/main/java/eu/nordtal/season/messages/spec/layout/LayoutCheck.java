@@ -34,9 +34,6 @@ public final class LayoutCheck {
     private static final int GALLERY_IMAGES = 10;
     private static final int ROW_BUTTONS = 5;
 
-    /** Where a plain line may be shown while Display still names embeds. */
-    private static final List<Display> TEXT = List.of(Display.DISCORD_MESSAGE, Display.DISCORD_EMBED);
-
     private LayoutCheck() {}
 
     /** Returns one line per problem, empty when every layout is sound. */
@@ -287,11 +284,7 @@ public final class LayoutCheck {
         for (final Part part : layout.allParts()) {
             for (final Line line : Objects.requireNonNullElse(part.lines(), List.<Line>of())) {
                 if (line.key() != null) {
-                    placed.add(
-                            line.style() == null
-                                    ? new Placed(line.key(), "text", TEXT)
-                                    : new Placed(
-                                            line.key(), "a title or heading", List.of(Display.DISCORD_EMBED_HEADING)));
+                    placed.add(new Placed(line.key(), "text", List.of(Display.DISCORD_TEXT)));
                 }
             }
         }
@@ -301,7 +294,8 @@ public final class LayoutCheck {
                         switch (element.kind()) {
                             case BUTTON, LINK -> new Placed(key, "a button's label", List.of(Display.DISCORD_BUTTON));
                             case SELECT -> new Placed(key, "a select's text", List.of(Display.DISCORD_SELECT));
-                            case LIST, LANGUAGES -> new Placed(key, "a data list's line", TEXT);
+                            case LIST, LANGUAGES ->
+                                new Placed(key, "a data list's line", List.of(Display.DISCORD_TEXT));
                         });
             }
         }

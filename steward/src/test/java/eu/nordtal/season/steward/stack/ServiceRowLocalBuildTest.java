@@ -39,7 +39,7 @@ class ServiceRowLocalBuildTest {
 
     private static JsonObject row(final ImageResult images) {
         final AgentWire.Container container = new AgentWire.Container(
-                "smp", "id-smp", null, null, "running", null, null, "2026-10-06T01:00:00Z", null, null, null, null);
+                "smp", "id-smp", null, null, "running", null, null, "2026-10-06T01:00:00Z", null, null, null, null, 0);
         return WireJson.gson()
                 .toJsonTree(
                         ServiceRows.describe(container, images, ServicesApi.Online.NONE, Map.of(), Set.of(), TOPOLOGY))

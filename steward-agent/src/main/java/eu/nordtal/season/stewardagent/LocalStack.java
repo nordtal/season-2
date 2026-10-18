@@ -65,6 +65,17 @@ final class LocalStack implements ContainerOps {
     }
 
     @Override
+    public List<String> lastLines(final String containerId, final int count) {
+        try {
+            return docker.recentLines(
+                    containerId, count, !docker.inspect(containerId).tty());
+        } catch (final DockerException unread) {
+            log.warn("could not read the log of {}", containerId, unread);
+            return List.of();
+        }
+    }
+
+    @Override
     public void handOverMounts(final String service) {
         try {
             compose.handOver(List.of(service), line -> log.info("[hand-over {}] {}", service, line));

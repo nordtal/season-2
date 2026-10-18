@@ -151,5 +151,9 @@ public interface DatabaseMessages {
         @Name("Direct message not delivered")
         @Shown(Display.STEWARD)
         MessageRef notDelivered();
+
+        @Name("Settings refused")
+        @Shown(Display.STEWARD)
+        MessageRef settingsRefused(@Arg("service") @Example("smp") String service, @Arg("reason") String reason);
     }
 }

@@ -699,6 +699,7 @@ export type Service = {
   health?: string
   alert?: AlertLevel
   startedAt?: string
+  restarts?: number
   memoryBytes?: number
   memoryLimitBytes?: number
   cpuPercent?: number
@@ -1009,6 +1010,7 @@ export type Gauge =
   | "BACKUP_AGE_HOURS"
   | "CONTAINER_STATE"
   | "HEALTH"
+  | "RESTARTS"
   | "EXIT_CODE"
   | "OLDER_IMAGE"
 
@@ -1101,7 +1103,7 @@ export type LineImage = "OUTDATED" | "PULLED" | "KEPT"
 
 export type LineFallback = "NONE" | "RUNNING" | "STARTED" | "REFUSED"
 
-export type LineBack = "YES" | "NO" | "INTERRUPTED"
+export type LineBack = "YES" | "NO" | "INTERRUPTED" | "REFUSED" | "RESTARTED"
 
 export type LineSeen = {
   status?: string

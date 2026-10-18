@@ -133,6 +133,30 @@ class StackAlertsTest {
     }
 
     @Test
+    void aServiceDockerRestartedWithinTheHourIsYellowUntilItHasRunAnHour() {
+        final List<Alert> looping = withServices(new StackReading.Service(
+                "smp", "running", "starting", StackReading.Purpose.SERVES, null, false, 3, NOW.minusSeconds(40)));
+        assertEquals(List.of("smp restarted 3 times since it was started"), titles(looping));
+        assertEquals(Alert.Level.WARN, looping.getFirst().level());
+        assertEquals(
+                List.of(Measure.of(Gauge.RESTARTS, "smp", 3)),
+                looping.getFirst().measured());
+
+        assertEquals(
+                List.of(),
+                withServices(new StackReading.Service(
+                        "smp",
+                        "running",
+                        "healthy",
+                        StackReading.Purpose.SERVES,
+                        null,
+                        false,
+                        1,
+                        NOW.minus(Duration.ofHours(2)))),
+                "one crash two hours ago that Docker recovered from is history, not a loop");
+    }
+
+    @Test
     void noServiceAtAllIsYellow() {
         final Alert none = withServices().getFirst();
         assertEquals(Alert.Level.WARN, none.level());

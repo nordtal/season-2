@@ -9,12 +9,14 @@ import org.jspecify.annotations.Nullable;
  * @param containerId the id that the stop and start calls address
  * @param status Docker's container status, {@code running} when it is up
  * @param health Docker's health state, or {@code null} for a service without a healthcheck
+ * @param restarts how often Docker's restart policy started the container again since it was created
  */
 public record ServiceRuntime(
         String service,
         @Nullable String containerId,
         @Nullable String status,
-        @Nullable String health) {
+        @Nullable String health,
+        int restarts) {
 
     /**
      * Returns whether the service is back: healthy, or {@code running} if it has no healthcheck.

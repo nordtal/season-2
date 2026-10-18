@@ -5,7 +5,8 @@ import eu.nordtal.season.database.notify.Channel;
 import java.util.Objects;
 
 /** A request to the Hunger Games server from another process. Each record is one kind. */
-public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame, HungerGamesRequest.PreviewMessage {
+public sealed interface HungerGamesRequest
+        permits HungerGamesRequest.StartGame, HungerGamesRequest.PreviewMessage, HungerGamesRequest.CheckSettings {
 
     InboxTable<HungerGamesRequest> TABLE = InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class)
             .withRows(StartGame.class);
@@ -23,6 +24,14 @@ public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame,
         public PreviewMessage {
             Objects.requireNonNull(player, "player");
             Objects.requireNonNull(preview, "preview");
+        }
+    }
+
+    /** Tries a change to the settings before Steward saves it. Refused when the server would not start with it. */
+    record CheckSettings(SettingsChange change) implements HungerGamesRequest {
+
+        public CheckSettings {
+            Objects.requireNonNull(change, "change");
         }
     }
 }

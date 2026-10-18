@@ -2,10 +2,12 @@ package eu.nordtal.season.steward;
 
 import eu.nordtal.season.common.health.Readiness;
 import eu.nordtal.season.common.language.Languages;
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.metric.MetricDirectory;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.online.OnlineDirectory;
@@ -14,6 +16,8 @@ import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.InternalClient;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -32,6 +36,7 @@ import eu.nordtal.season.steward.config.StewardSpec;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.metric.MetricRecorder;
+import eu.nordtal.season.steward.settings.InboxTrial;
 import eu.nordtal.season.steward.stack.PluginsForward;
 import eu.nordtal.season.steward.stack.StackApi;
 import java.time.Clock;
@@ -249,6 +254,14 @@ public final class Steward {
                 eu.nordtal.season.database.message.MessageOverrideStore.using(database.dataSource()),
                 eu.nordtal.season.database.document.DocumentStore.using(database.dataSource()),
                 settings,
+                new InboxTrial(
+                        data.smp(),
+                        data.hungerGames(),
+                        Messages.load(
+                                Steward.class.getClassLoader(),
+                                "messages/" + MessageSchema.bundle(DatabaseMessages.class),
+                                Locales.DEFAULT),
+                        Waiting.on(CLOCK)),
                 CLOCK,
                 scheduler);
     }

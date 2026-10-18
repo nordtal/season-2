@@ -21,6 +21,7 @@ import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
+import eu.nordtal.season.steward.settings.ServerTrial;
 import eu.nordtal.season.steward.settings.SettingsApi;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -124,7 +125,20 @@ public final class StackApi implements AutoCloseable {
             final Nightly nightly,
             final Clock clock,
             final Scheduler scheduler) {
-        this(agent, updates, audit, () -> nightly, null, null, null, null, null, null, clock, scheduler);
+        this(
+                agent,
+                updates,
+                audit,
+                () -> nightly,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                ServerTrial.NONE,
+                clock,
+                scheduler);
     }
 
     private final Clock clock;
@@ -144,6 +158,7 @@ public final class StackApi implements AutoCloseable {
      * @param documentStore the admins' documents and images, or {@code null} without a database, which refuses a save
      * @param nightly the current schedule
      * @param settings every process's settings, or {@code null} without a database, which makes their routes answer 503
+     * @param trial asks a server whether it takes a settings change before it is saved
      */
     public StackApi(
             final AgentClient agent,
@@ -156,6 +171,7 @@ public final class StackApi implements AutoCloseable {
             final @Nullable MessageOverrideStore messageOverrides,
             final @Nullable DocumentStore documentStore,
             final @Nullable SettingStore settings,
+            final ServerTrial trial,
             final Clock clock,
             final Scheduler scheduler) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -163,7 +179,7 @@ public final class StackApi implements AutoCloseable {
         this.driftRefresh = scheduler.serial();
         this.updates = updates;
         this.managedPlugins = managedPlugins;
-        this.settings = settings == null ? null : new SettingsApi(settings, agent, messageOverrides);
+        this.settings = settings == null ? null : new SettingsApi(settings, agent, messageOverrides, trial);
         this.agent = agent;
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);

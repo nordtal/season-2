@@ -193,6 +193,69 @@ class UpdateRunTest {
     }
 
     @Test
+    void aRefusedStartEndsTheWaitAtOnceWithTheReason() {
+        final FakeContainers containers = new FakeContainers().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped);
+        containers.refuses(Topology.SMP, "smp is not starting: the milestones name an unknown track");
+
+        final UpdateReport verified = run.verify(started, stopped.services(), patient());
+
+        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
+        assertEquals(
+                "refused to start: smp is not starting: the milestones name an unknown track",
+                Told.said(verified.line(Topology.SMP)));
+    }
+
+    @Test
+    void aRestartDuringTheWaitEndsItWithWhyTheLastRunEnded() {
+        final FakeContainers containers = new FakeContainers().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped);
+        final Waiting clock = new Waiting() {
+            private Instant now = Instant.parse("2026-10-18T17:00:00Z");
+
+            @Override
+            public Instant now() {
+                return now;
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                now = now.plus(duration);
+                containers.restarted(Topology.SMP, "[nordtal] server exited with status 1");
+                return true;
+            }
+        };
+
+        final UpdateReport verified = run.verify(started, stopped.services(), clock);
+
+        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
+        assertEquals(
+                "restarted before it was healthy: [nordtal] server exited with status 1",
+                Told.said(verified.line(Topology.SMP)));
+    }
+
+    /** A clock that never runs out; a wait that does not end early is interrupted after three looks. */
+    private static Waiting patient() {
+        return new Waiting() {
+            private int looks;
+
+            @Override
+            public Instant now() {
+                return Instant.parse("2026-10-18T17:00:00Z");
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                return ++looks < 3;
+            }
+        };
+    }
+
+    @Test
     void aServiceThatReportsHealthyInsideTheWindowIsTheSuccessCase() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);

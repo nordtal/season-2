@@ -300,6 +300,13 @@ public interface ReportTexts {
     @Name("Not healthy in time")
     MessageRef notHealthy(@Arg("minutes") long minutes, @Arg("seen") MessageRef seen);
 
+    @Name("A plugin refused the start")
+    MessageRef startRefused(
+            @Arg("reason") @Example("smp is not starting: the milestones group is broken") String reason);
+
+    @Name("Restarted while it was waited for")
+    MessageRef restarted(@Arg("reason") @Example("[nordtal] server exited with status 1") String reason);
+
     @Name("A service with no container in the project, as what was seen of it")
     MessageRef noContainer();
 

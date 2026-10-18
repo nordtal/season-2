@@ -16,6 +16,9 @@ final class FakeContainers implements ContainerOps {
     /** Every stop and start, in order. */
     final List<String> calls = new ArrayList<>();
 
+    /** service -> the recent lines of its log, oldest first. */
+    private final Map<String, List<String>> logs = new LinkedHashMap<>();
+
     /** service -> its current runtime. Mutated by the test to make a server come back, or not. */
     private final Map<String, ServiceRuntime> services = new LinkedHashMap<>();
 
@@ -60,7 +63,7 @@ final class FakeContainers implements ContainerOps {
 
     FakeContainers running(final String... names) {
         for (final String name : names) {
-            services.put(name, new ServiceRuntime(name, name + "-container", "running", "healthy"));
+            services.put(name, new ServiceRuntime(name, name + "-container", "running", "healthy", 0));
         }
         return this;
     }
@@ -171,7 +174,8 @@ final class FakeContainers implements ContainerOps {
                         service,
                         service + "-container-2",
                         "running",
-                        neverHealthy.contains(service) ? "unhealthy" : "healthy"));
+                        neverHealthy.contains(service) ? "unhealthy" : "healthy",
+                        0));
         return RedeployResult.triggered("HTTP 200");
     }
 
@@ -194,17 +198,17 @@ final class FakeContainers implements ContainerOps {
     }
 
     void sick(final String service) {
-        services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy"));
+        services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy", 0));
     }
 
     void settle() {
         services.replaceAll((name, entry) -> "starting".equals(entry.health())
-                ? new ServiceRuntime(name, entry.containerId(), "running", "healthy")
+                ? new ServiceRuntime(name, entry.containerId(), "running", "healthy", entry.restarts())
                 : entry);
     }
 
     void back(final String service) {
-        services.put(service, new ServiceRuntime(service, service + "-container", "running", "healthy"));
+        services.put(service, new ServiceRuntime(service, service + "-container", "running", "healthy", 0));
     }
 
     FakeContainers backupRefused(final String volume) {
@@ -231,12 +235,33 @@ final class FakeContainers implements ContainerOps {
             return RedeployResult.refused("refused");
         }
         services.computeIfPresent(
-                service(containerId), (name, entry) -> new ServiceRuntime(name, entry.containerId(), "exited", null));
+                service(containerId),
+                (name, entry) -> new ServiceRuntime(name, entry.containerId(), "exited", null, entry.restarts()));
         if (stopUnverified.contains(service(containerId))) {
             return RedeployResult.unverified(containerId + " was stopped, and how it ended could"
                     + " not be read back: reading the docker socket");
         }
         return RedeployResult.triggered("HTTP 204");
+    }
+
+    @Override
+    public List<String> lastLines(final String containerId, final int count) {
+        final List<String> lines = logs.getOrDefault(service(containerId), List.of());
+        return lines.subList(Math.max(0, lines.size() - count), lines.size());
+    }
+
+    /** The plugin refuses the start and the entrypoint holds the container. */
+    void refuses(final String service, final String reason) {
+        services.put(service, new ServiceRuntime(service, service + "-container", "running", "starting", 0));
+        logs.put(service, List.of("2026-10-18T17:10:00Z [nordtal] REFUSED: " + reason));
+    }
+
+    /** Docker's restart policy starts the container again after its server exited. */
+    void restarted(final String service, final String exitLine) {
+        final ServiceRuntime was = java.util.Objects.requireNonNull(services.get(service));
+        services.put(
+                service, new ServiceRuntime(service, was.containerId(), "running", "starting", was.restarts() + 1));
+        logs.put(service, List.of(exitLine, "[nordtal] starting paper 26.2 build 1"));
     }
 
     @Override
@@ -250,7 +275,8 @@ final class FakeContainers implements ContainerOps {
         // Started and not healthy.
         services.computeIfPresent(
                 service(containerId),
-                (name, entry) -> new ServiceRuntime(name, entry.containerId(), "running", "starting"));
+                (name, entry) ->
+                        new ServiceRuntime(name, entry.containerId(), "running", "starting", entry.restarts()));
         return RedeployResult.triggered("HTTP 204");
     }
 

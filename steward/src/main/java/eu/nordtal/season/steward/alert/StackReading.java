@@ -26,14 +26,30 @@ public record StackReading(
         mountedBy = Map.copyOf(mountedBy);
     }
 
-    /** @param exitCode the exit code of its last run, or null while it runs or when unknown */
+    /**
+     * @param exitCode the exit code of its last run, or null while it runs or when unknown
+     * @param restarts how often Docker restarted it since it was last started on purpose
+     * @param startedAt when its current run started, or null when it does not run
+     */
     public record Service(
             String name,
             String state,
             @Nullable String health,
             Purpose purpose,
             @Nullable Integer exitCode,
-            boolean outdated) {
+            boolean outdated,
+            int restarts,
+            @Nullable Instant startedAt) {
+
+        public Service(
+                final String name,
+                final String state,
+                final @Nullable String health,
+                final Purpose purpose,
+                final @Nullable Integer exitCode,
+                final boolean outdated) {
+            this(name, state, health, purpose, exitCode, outdated, 0, null);
+        }
 
         public Service(
                 final String name,

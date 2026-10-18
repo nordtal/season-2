@@ -37,11 +37,14 @@ public final class StackAlerts {
     private static final String UPDATES_PAGE = "/operations/updates";
     private static final double MILLIS_PER_HOUR = 3_600_000d;
 
+    /** A restart this long ago no longer counts as a loop, until the next one. */
+    private static final Duration RESTART_WINDOW = Duration.ofHours(1);
+
     private StackAlerts() {}
 
     public static List<Alert> of(final StackReading reading, final Thresholds thresholds, final Instant now) {
         final List<Alert> alerts = new ArrayList<>();
-        services(reading.services(), alerts);
+        services(reading.services(), now, alerts);
         drift(reading, alerts);
         pack(reading.deadPack(), alerts);
         backups(reading, thresholds, now, alerts);
@@ -50,7 +53,8 @@ public final class StackAlerts {
         return List.copyOf(alerts);
     }
 
-    private static void services(final List<StackReading.Service> services, final List<Alert> alerts) {
+    private static void services(
+            final List<StackReading.Service> services, final Instant now, final List<Alert> alerts) {
         if (services.isEmpty()) {
             alerts.add(new Alert(
                     AlertType.SERVICE,
@@ -62,6 +66,7 @@ public final class StackAlerts {
         }
         for (final StackReading.Service service : services) {
             if (!down(service)) {
+                restarting(service, now, alerts);
                 continue;
             }
             final boolean running = "running".equals(service.state());
@@ -91,6 +96,25 @@ public final class StackAlerts {
                     List.of(measured),
                     "/services/" + service.name()));
         }
+    }
+
+    /** Adds a WARN alert for a running service that Docker restarted within the last hour. */
+    private static void restarting(final StackReading.Service service, final Instant now, final List<Alert> alerts) {
+        final Instant startedAt = service.startedAt();
+        if (service.restarts() == 0
+                || startedAt == null
+                || service.purpose() == StackReading.Purpose.MOVING
+                || startedAt.isBefore(now.minus(RESTART_WINDOW))) {
+            return;
+        }
+        alerts.add(new Alert(
+                AlertType.SERVICE,
+                Alert.Level.WARN,
+                service.name(),
+                TEXTS.alert().restarting(service.name(), service.restarts()),
+                List.of(TEXTS.alert().restartedByDocker()),
+                List.of(Measure.of(Gauge.RESTARTS, service.name(), service.restarts())),
+                "/services/" + service.name()));
     }
 
     /**

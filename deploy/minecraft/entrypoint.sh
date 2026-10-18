@@ -17,6 +17,15 @@ DATA="${DATA:-/data}"
 # Paper's default level name. seed_level_settings and fetch_datapacks both read it.
 LEVEL_NAME="${LEVEL_NAME:-world}"
 
+# NordtalPlugin.fatal writes the reason of a refused start here before the server stops.
+REFUSED_START="$DATA/refused-start"
+
+# Prints that reason on one line, or nothing when the last start was not refused.
+refusal() {
+    [[ -s "$REFUSED_START" ]] || return 0
+    tr -s '\n' ' ' < "$REFUSED_START" | sed 's/ *$//'
+}
+
 # The seeding functions write files that do not exist yet and leave existing files to the operator.
 # Only online-mode and white-list are enforced at every start (see prepare_backend).
 set_property() {
@@ -604,6 +613,9 @@ mkdir -p "$DATA/logs"
 : > "$BOOT_LOG"
 
 rm -f "$SOCK"
+rm -f "$REFUSED_START"
+# Exported before the tmux server starts, which hands its environment to the JVM.
+export NORDTAL_REFUSED_START="$REFUSED_START"
 
 # The options are set before the session exists. `remain-on-exit` keeps a dead pane, so that its exit
 # status can be read. Set later, a JVM that dies at once would report 1. `exit-empty off` keeps the
@@ -663,4 +675,15 @@ fi
 
 tmux -S "$SOCK" kill-server 2>/dev/null || true
 log "server exited with status ${status:-1}"
+
+# A restart would refuse again, and unless-stopped restarts on any status. Held, the container turns
+# unhealthy and Steward alerts. steward-agent reads this line as the last of the log.
+reason=$(refusal)
+if [[ -n "$reason" ]]; then
+    printf '[nordtal] REFUSED: %s\n' "$reason" >&2
+    while (( shutting_down == 0 )); do
+        sleep 1 & wait $! || true
+    done
+    exit 0
+fi
 exit "${status:-1}"

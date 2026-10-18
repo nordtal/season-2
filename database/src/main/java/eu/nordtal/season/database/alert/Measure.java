@@ -36,6 +36,9 @@ public record Measure(
         /** The health Docker reports for a running container. */
         HEALTH,
 
+        /** How often Docker restarted a container since it was last started on purpose. */
+        RESTARTS,
+
         /** The exit code of a container that runs once. */
         EXIT_CODE,
 

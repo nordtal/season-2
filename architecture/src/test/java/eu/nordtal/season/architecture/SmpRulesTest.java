@@ -96,12 +96,17 @@ class SmpRulesTest {
                 "SmpPlugin.track is not volatile");
     }
 
-    /** A reload is checked against the server and the rows, written, applied, and only then swept. */
+    /**
+     * A start and a settings save check the track against the server through one method.
+     * A reload is checked against the server and the rows, written, applied, and only then swept.
+     */
     @Test
     void aReloadIsCheckedWrittenAppliedThenSwept() {
         classes()
                 .that(isListed(PLUGIN))
-                .should(callFrom("loadMilestoneTrack", "TrackNames#validate"))
+                .should(callFrom("loadMilestoneTrack", "SmpPlugin#milestonesRefusal"))
+                .andShould(callFrom("refusesAtStart", "SmpPlugin#milestonesRefusal"))
+                .andShould(callFrom("milestonesRefusal", "TrackNames#validate"))
                 .andShould(callInOrder(
                         "reloadMilestoneTrack",
                         "TrackValidation#validate",

@@ -145,8 +145,12 @@ public final class AgentClient {
             return RuntimeResult.unreachable(String.valueOf(all.message()));
         }
         return RuntimeResult.of(all.containers().stream()
-                .map(container ->
-                        new ServiceRuntime(container.service(), container.id(), container.state(), container.health()))
+                .map(container -> new ServiceRuntime(
+                        container.service(),
+                        container.id(),
+                        container.state(),
+                        container.health(),
+                        container.restarts()))
                 .toList());
     }
 

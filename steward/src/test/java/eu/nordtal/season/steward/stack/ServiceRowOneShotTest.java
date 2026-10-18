@@ -89,7 +89,8 @@ class ServiceRowOneShotTest {
                 null,
                 null,
                 "2026-10-06T01:00:09Z",
-                exitCode);
+                exitCode,
+                0);
         return WireJson.gson()
                 .toJsonTree(ServiceRows.describe(
                         container,

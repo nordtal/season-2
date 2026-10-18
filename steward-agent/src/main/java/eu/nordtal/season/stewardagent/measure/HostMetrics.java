@@ -10,7 +10,7 @@ import java.util.OptionalDouble;
 import java.util.regex.Pattern;
 
 /**
- * Reads {@link HostSnapshot} out of {@code /proc} and one {@code statvfs}, which needs no privilege; Linux only.
+ * Reads a {@link HostSnapshot} from {@code /proc} and one {@code statvfs} without privilege. Linux only.
  *
  * CPU is a delta against the previous reading, so {@link #read()} is synchronized and its interval is the caller's.
  */
@@ -21,18 +21,18 @@ public final class HostMetrics {
     /** Where the kernel's own numbers are; the tests pass a captured copy. */
     private static final String PROC = "/proc";
 
-    /** The filesystem measured by default; inside a container {@code /} reports the host's backing filesystem. */
+    /**
+     * The default filesystem. Inside a container {@code /} reports the backing filesystem of the host.
+     */
     private static final String DISK = "/";
 
     private final Path procRoot;
     private final Path diskPath;
 
-    /** The previous {@code /proc/stat} totals, or {@code -1} before the first reading. */
     private long previousTotalJiffies = -1;
 
     private long previousIdleJiffies = -1;
 
-    /** Reads the real {@code /proc} and the filesystem holding {@code /}. */
     public HostMetrics() {
         this(Path.of(PROC), Path.of(DISK));
     }
@@ -49,10 +49,10 @@ public final class HostMetrics {
     }
 
     /**
-     * One reading of everything.
+     * Reads everything once.
      *
      * @return the snapshot, whose {@link HostSnapshot#cpuPercent()} is absent on the first call
-     * @throws IOException if a file is missing, or holds a missing field or a unit other than {@code kB}
+     * @throws IOException if a file is missing, lacks a field or has a unit other than {@code kB}
      */
     public synchronized HostSnapshot read() throws IOException {
         final Load load = readLoad();
@@ -87,7 +87,6 @@ public final class HostMetrics {
 
     private record Load(double one, double five, double fifteen) {}
 
-    /** Parses the three averages of one {@code loadavg} line. */
     private Load readLoad() throws IOException {
         final Path file = procRoot.resolve("loadavg");
         final String line = Files.readString(file, StandardCharsets.UTF_8).strip();
@@ -107,9 +106,9 @@ public final class HostMetrics {
     private record Cpu(long total, long idle, int cpus) {}
 
     /**
-     * The aggregate {@code cpu} line, plus a count of the per-core ones.
+     * Reads the aggregate {@code cpu} line and counts the per-core lines.
      *
-     * Guest time is already inside user and nice, so only eight fields are summed; iowait counts as idle, as in htop.
+     * Guest time is inside user and nice, so only eight fields are summed. iowait counts as idle, as in htop.
      */
     private Cpu readCpu() throws IOException {
         final Path file = procRoot.resolve("stat");
@@ -121,7 +120,7 @@ public final class HostMetrics {
         for (final String line : lines) {
             if (line.startsWith("cpu ")) {
                 final String[] fields = WHITESPACE.splitAsStream(line).toArray(String[]::new);
-                // fields[0] is "cpu"; eight numbers have to follow it.
+                // fields[0] is "cpu", and eight numbers follow.
                 if (fields.length < 9) {
                     throw new IOException(file + " has an aggregate cpu line with " + (fields.length - 1)
                             + " fields, expected at least 8: '" + line + "'");
@@ -154,7 +153,6 @@ public final class HostMetrics {
         }
     }
 
-    /** The busy share since the previous reading; empty when there is nothing to subtract. */
     private OptionalDouble percentSince(final Cpu cpu) {
         if (previousTotalJiffies < 0) {
             return OptionalDouble.empty();
@@ -169,7 +167,6 @@ public final class HostMetrics {
 
     private record Memory(long total, long available, long free, long swapTotal, long swapFree) {}
 
-    /** Kernel "kB" is KiB. */
     private static final long KIB = 1024L;
 
     private static final String MEM_TOTAL = "MemTotal";

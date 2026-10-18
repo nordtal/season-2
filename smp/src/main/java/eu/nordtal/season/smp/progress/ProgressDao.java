@@ -73,6 +73,7 @@ public interface ProgressDao {
     @SqlQuery("""
             SELECT obj.key               AS key,
                    coalesce(con.amount, 0) AS mine,
+                   obj.amount            AS reached,
                    obj.target            AS target
             FROM smp_objective obj
             LEFT JOIN smp_contribution con

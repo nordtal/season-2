@@ -178,6 +178,19 @@ class ObjectivePayoutIntegrationTest {
     }
 
     @Test
+    void theMenuForecastsWhatCompletingTheObjectiveNowWouldPay() {
+        engine.credit(PLAYER, "logs", 16L, MINECRAFT_ID);
+
+        assertEquals(
+                new OwnContributionRow("logs", 16L, 64L, 5, SPINS),
+                engine.ownContributions("foothold", PLAYER).stream()
+                        .filter(row -> row.key().equals("logs"))
+                        .findFirst()
+                        .orElseThrow(),
+                "a quarter of the target forecasts a quarter of the spins, not all of them");
+    }
+
+    @Test
     void anObjectiveFinishedOverSeveralDeliveriesPaysItsWholePot() {
         engine.credit(PLAYER, "logs", 32L, MINECRAFT_ID);
         assertEquals(0, auraPaidFor("logs"), "half way, nothing is paid yet");

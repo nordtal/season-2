@@ -160,6 +160,34 @@ class PayoutTest {
     }
 
     @Test
+    void anObjectiveFinishedAtOnePercentPaysAboutOnePercentAndNeverNothing() {
+        // 20 of 2000 scales a budget of 20 to 0, and the minimum pays the contributor 1.
+        assertEquals(1, total(Payout.paid(20, 20, 2000, Map.of("a", 20L))));
+        assertEquals(2, total(Payout.paid(20, 64, 512, Map.of("a", 64L))), "12 percent of 20, floored");
+        assertEquals(20, total(Payout.paid(20, 2000, 2000, Map.of("a", 2000L))), "the full budget at the target");
+    }
+
+    @Test
+    void everyContributorOfACompletedObjectiveReceivesTheMinimum() {
+        final List<Payout.Share> shares = Payout.paid(20, 1000, 1000, contributions("a", 990, "b", 10));
+
+        assertEquals(Payout.MINIMUM_SHARE, byId(shares, "b").total(), "the token contributor is not left with 0");
+        assertEquals(20, total(shares), "the minimum came out of the budget's last unit, not on top of it");
+    }
+
+    @Test
+    void theMinimumMayExceedTheScaledTotalButNeverTheFullBudget() {
+        assertEquals(2, total(Payout.paid(20, 20, 2000, contributions("a", 10, "b", 10))), "0 scaled, 1 each");
+
+        final Map<String, Long> five = new LinkedHashMap<>();
+        for (int index = 0; index < 5; index++) {
+            five.put("p" + index, 200L);
+        }
+        assertEquals(2, total(Payout.paid(2, 1000, 1000, five)), "five contributors, a budget of 2");
+        assertTrue(Payout.paid(0, 1000, 1000, five).isEmpty(), "a budget of 0 pays no minimum");
+    }
+
+    @Test
     void anEmptyOrZeroBudgetPaysNobody() {
         assertTrue(Payout.split(0, 1000, contributions("a", 500, "b", 500)).isEmpty());
         assertTrue(Payout.split(100, 1000, Map.of()).isEmpty());

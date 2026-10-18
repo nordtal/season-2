@@ -139,6 +139,8 @@ class ArchitectureTest {
                 "java..",
                 "org.slf4j..",
                 "org.jspecify..",
+                // A document's text maps a language to one string or to a list, which needs an adapter.
+                "com.google.gson..",
                 "eu.nordtal.season.common..",
                 "eu.nordtal.season.messages..");
     }

@@ -2,6 +2,7 @@ package eu.nordtal.season.messages.document;
 
 import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.text.MessageCheck;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -94,6 +96,28 @@ public final class Documents {
 
     public static List<DocumentDeclaration> decode(final String json) {
         return List.of(Json.decode(json, DocumentDeclaration[].class));
+    }
+
+    /**
+     * Writes each spec's {@code schema.json} and each namespace's {@code declarations.json}; the build runs it.
+     * A spec or a document that fails a check is refused.
+     */
+    public static void main(final String[] args) throws Exception {
+        if (args.length < 1) {
+            throw new IllegalArgumentException(
+                    "usage: Documents <output directory> <spec class>... [--documents <class>...]");
+        }
+        final Path output = Path.of(args[0]);
+        final List<String> names = Arrays.asList(args).subList(1, args.length);
+        final int split = names.contains("--documents") ? names.indexOf("--documents") : names.size();
+        for (final String name : names.subList(0, split)) {
+            MessageSchema.write(output, Class.forName(name));
+        }
+        final List<DocumentSpec<?>> documents = new ArrayList<>();
+        for (final String holder : names.subList(Math.min(split + 1, names.size()), names.size())) {
+            documents.addAll(declared(Class.forName(holder)));
+        }
+        write(output, documents, Documents.class.getClassLoader());
     }
 
     /**

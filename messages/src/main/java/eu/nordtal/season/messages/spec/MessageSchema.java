@@ -3,8 +3,6 @@ package eu.nordtal.season.messages.spec;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.Contexts;
-import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Action;
 import eu.nordtal.season.messages.value.Example;
@@ -435,31 +433,18 @@ public final class MessageSchema {
     public record GlobalJson(String name, String context) {}
 
     /**
-     * Writes {@code <output>/messages/<bundle>/schema.json} per spec and each namespace's {@code declarations.json}.
-     * A spec or a document that fails a check is refused.
+     * Writes {@code <output>/messages/<bundle>/schema.json} for a spec.
+     *
+     * @throws IllegalStateException if the spec disagrees with its bundle
      */
-    public static void main(final String[] args) throws Exception {
-        if (args.length < 2) {
-            throw new IllegalArgumentException(
-                    "usage: MessageSchema <output directory> <spec class>... [--documents <class>...]");
+    public static void write(final Path output, final Class<?> spec) throws IOException {
+        final List<String> problems = MessageSpecCheck.problems(spec);
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(
+                    spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
         }
-        final List<String> names = Arrays.asList(args).subList(1, args.length);
-        final int split = names.contains("--documents") ? names.indexOf("--documents") : names.size();
-        for (final String name : names.subList(0, split)) {
-            final Class<?> spec = Class.forName(name);
-            final List<String> problems = MessageSpecCheck.problems(spec);
-            if (!problems.isEmpty()) {
-                throw new IllegalStateException(
-                        spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
-            }
-            final Path file = Path.of(args[0], "messages", bundle(spec), "schema.json");
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, json(spec), StandardCharsets.UTF_8);
-        }
-        final List<DocumentSpec<?>> documents = new ArrayList<>();
-        for (final String holder : names.subList(Math.min(split + 1, names.size()), names.size())) {
-            documents.addAll(Documents.declared(Class.forName(holder)));
-        }
-        Documents.write(Path.of(args[0]), documents, MessageSchema.class.getClassLoader());
+        final Path file = output.resolve("messages").resolve(bundle(spec)).resolve("schema.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, json(spec), StandardCharsets.UTF_8);
     }
 }

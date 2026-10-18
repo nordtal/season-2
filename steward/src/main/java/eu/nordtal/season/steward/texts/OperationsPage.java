@@ -8,7 +8,7 @@ import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 
-/** The words of a run's page and of asking for one; a run's own words are the admin bundle's. */
+/** The words of the run page and of the run request. The admin bundle holds the run texts. */
 @Name("Operations page")
 public interface OperationsPage {
 

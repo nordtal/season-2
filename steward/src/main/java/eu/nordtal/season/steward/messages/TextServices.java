@@ -5,15 +5,14 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.List;
 
-/** Which services show a text their jar ships, the services the Translations page's filter keeps it for. */
+/** Selects the services that show a text which their jar has, for the filter of the Translations page. */
 final class TextServices {
 
     private TextServices() {}
 
     /**
-     * Returns whether {@code service} shows a text of {@code bundle} shown at {@code shown}, given its jar ships it.
-     *
-     * A building block, or a text that names no place, stays with every service that ships it.
+     * Returns whether {@code service} shows a text of {@code bundle} at {@code shown}.
+     * A building block and a text without a place count for every service.
      */
     static boolean shows(final String service, final String bundle, final List<String> shown) {
         if (bundle.equals(Messages.VALUES) || bundle.equals(Messages.TERMS) || shown.isEmpty()) {
@@ -23,14 +22,14 @@ final class TextServices {
         return shown.stream().map(Display::valueOf).anyMatch(place -> place.surface() == draws);
     }
 
-    /** Returns the services of {@code shipping} that show the text, in their order. */
+    /** Returns the services of {@code shipping} that show the text. */
     static List<String> showing(final List<String> shipping, final String bundle, final List<String> shown) {
         return shipping.stream()
                 .filter(service -> shows(service, bundle, shown))
                 .toList();
     }
 
-    /** Where a service draws its texts: the bot in Discord, Steward on its page, every other service in the game. */
+    /** Returns the surface of a service: Discord for the bot, Steward for Steward and the game for others. */
     private static Display.Surface surfaceOf(final String service) {
         return switch (service) {
             case Topology.DISCORD_BOT -> Display.Surface.DISCORD;

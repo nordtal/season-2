@@ -9,13 +9,10 @@ import eu.nordtal.season.messages.spec.MessageSchema;
 import io.javalin.http.Context;
 import java.util.List;
 
-/**
- * The texts Steward's page shows, overrides layered, handed to the browser's web target as parsed trees.
- * Steward is English, so there is one language; the browser formats each value in its own zone.
- */
+/** Serves the texts of Steward's page with their overrides to the browser as parsed trees, in one language. */
 public final class WebTexts {
 
-    /** The bundles the page renders over {@code values}: its own, the admin texts, and the validator's problems. */
+    /** The bundles of the page: the Steward texts, the admin texts and the validator messages. */
     public static final List<Class<?>> SPECS = List.of(StewardTexts.class, AdminTexts.class, CheckMessages.class);
 
     private final Messages messages;
@@ -24,12 +21,11 @@ public final class WebTexts {
         this.messages = messages;
     }
 
-    /** Loads the bundles from Steward's own jar. */
     public static WebTexts load() {
         return new WebTexts(load(WebTexts.class.getClassLoader()));
     }
 
-    /** Loads the bundles from {@code loader}, for the build that writes the frontend's packaged copy. */
+    /** Loads the bundles from {@code loader}. */
     public static Messages load(final ClassLoader loader) {
         return Messages.load(
                 loader,
@@ -39,12 +35,11 @@ public final class WebTexts {
                 Locales.DEFAULT);
     }
 
-    /** Returns the bundles the overrides are layered on. */
     public Messages messages() {
         return messages;
     }
 
-    /** {@code GET /api/texts}: every key's variants as the page renders them now. */
+    /** {@code GET /api/texts} answers the variants of every key. */
     public void serve(final Context ctx) {
         ctx.json(MessageJson.texts(messages, Locales.DEFAULT));
     }

@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** What a page shows when an answer did not come, and the errors the interface raises itself. */
+/** The texts for a missing answer and for the errors that the interface raises. */
 @Name("Failure")
 public interface Failures {
 

@@ -41,12 +41,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** {@link MessagesApi} served over real HTTP, the contract the frontend reads. */
+/** Tests {@link MessagesApi} over HTTP. */
 class MessagesApiIntegrationTest {
 
     private static final Gson GSON = new Gson();
 
-    /** The stand-in agent's, which reads the bundles; filled per test. */
+    /** The bundles of the stand-in agent, set per test. */
     private Path configs;
 
     private Path scratch;
@@ -58,17 +58,17 @@ class MessagesApiIntegrationTest {
     private MessageOverrideStore store;
     private SettingStore settings;
 
-    /** What the last {@code POST /api/message-preview} read, which the web would ask for. */
+    /** The preview of the last {@code POST /api/message-preview}. */
     private MessagePreview previewed;
 
-    /** The bundles the last {@code PUT /api/messages} wrote, which the route journals. */
+    /** The bundles that the last {@code PUT /api/messages} wrote. */
     private List<String> journalled;
 
     @BeforeEach
     void start() throws IOException {
-        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        // Short, because a Unix socket path has a length limit.
         scratch = Files.createTempDirectory(Path.of("/tmp"), "messages");
-        // Two more servers, so a bundle several jars carry is found on each.
+        // Two more servers, for a bundle with several jars.
         agent = new AgentStandIn(scratch, 0, config -> {}, GSON.fromJson("""
                 {"limbo": {"image": "ghcr.io/nordtal/minecraft:latest"},
                  "proxy": {"image": "ghcr.io/nordtal/minecraft:latest"}}
@@ -326,7 +326,7 @@ class MessagesApiIntegrationTest {
         assertTrue(refused.body().contains("greeting"), refused.body());
     }
 
-    /** A language the network setting adds is offered before any bundle ships it, and tones are each service's own. */
+    /** Tests that a network language is offered before a bundle has it and that tones are per service. */
     @Test
     void theTextsNameTheNetworksLanguagesAndEachServicesColoursAndAPreviewCarriesTheOneAskedFor() throws Exception {
         PluginJars.smp(
@@ -536,7 +536,7 @@ class MessagesApiIntegrationTest {
         assertEquals(List.of(), store.overrides(Set.of("smp")));
     }
 
-    /** A language's variants under {@code field}, {@code texts} or {@code overrides}, of one entry. */
+    /** Returns the variants of a language under {@code field} of one entry. */
     private static List<String> texts(final JsonObject entry, final String field, final String language) {
         final JsonArray variants = entry.getAsJsonObject(field).getAsJsonArray(language);
         final List<String> texts = new java.util.ArrayList<>();
@@ -544,7 +544,7 @@ class MessagesApiIntegrationTest {
         return texts;
     }
 
-    /** {@code greeting} is shown in a title, a Discord embed and Steward; {@code page} only in Steward. */
+    /** {@code greeting} is shown in a title, a Discord embed and Steward, and {@code page} only in Steward. */
     private void greetingShownInThreePlaces() throws IOException {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
@@ -570,7 +570,7 @@ class MessagesApiIntegrationTest {
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
     }
 
-    /** One text of {@code GET /api/messages}: its entry, where it is read from, who shows it, its previews. */
+    /** One text of {@code GET /api/messages} with its entry, path, services and previews. */
     private static JsonObject text(final JsonObject texts, final String bundle, final String key) {
         for (final var element : texts.getAsJsonArray("texts")) {
             final JsonObject row = element.getAsJsonObject();

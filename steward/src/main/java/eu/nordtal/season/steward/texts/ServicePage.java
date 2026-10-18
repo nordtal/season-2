@@ -6,7 +6,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 import java.time.Instant;
 
-/** A service's page: its head, the console, Recreate and the plugins. */
+/** The texts of the service page for its head, the console, Recreate and the plugins. */
 @Name("Service page")
 public interface ServicePage {
 

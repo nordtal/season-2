@@ -4,11 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link Devices#of} against real User-Agents, each walking past a trap.
- *
- * Every one carries "Mozilla", Chrome's carries "Safari", and Edge's carries both "Chrome" and "Safari".
- */
+/** Tests {@link Devices#of} with real User-Agents. */
 class DevicesTest {
 
     private static final Devices.Device NOTHING = new Devices.Device(null, null);

@@ -41,17 +41,13 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The routes over the message bundles: steward-agent reads the packaged texts out of the jars, the overrides are rows.
- *
- * Every process that loads a bundle re-reads its rows on the signal a save sends, so a save never asks anyone.
- */
+/** The routes for the message bundles. steward-agent reads the packaged texts, and overrides are database rows. */
 public final class MessagesApi {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** A lowercase language tag, which names a bundle file and a row's language alike. */
+    /** A lowercase language tag. */
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]+)*");
 
     private final AgentClient agent;
@@ -59,9 +55,8 @@ public final class MessagesApi {
     private final @Nullable SettingStore settings;
 
     /**
-     * @param overrides where the overrides are kept, or {@code null} without a database, which makes a save refused
-     * @param settings  where the network's languages and each service's colours are read, or {@code null} for the
-     *     defaults
+     * @param overrides the override store, or {@code null} without a database, which makes {@code save} refuse
+     * @param settings  the store of the network's languages and each service's colours, or {@code null} for defaults
      */
     public MessagesApi(
             final AgentClient agent,
@@ -72,14 +67,15 @@ public final class MessagesApi {
         this.settings = settings;
     }
 
-    /** {@code GET /api/messages}: every text of every bundle once, packaged text and override side by side. */
+    /** {@code GET /api/messages} answers every text of every bundle with its packaged text and its override. */
     public void list(final Context ctx) {
         ctx.json(texts(layered(union())));
     }
 
     /**
-     * {@code PUT /api/messages}: writes each language's override, its variants in order, as rows at once.
-     * A {@code null} resets it; a warning of the validator is answered, a refusal is a 400 that writes nothing.
+     * {@code PUT /api/messages} writes the override of each named language as rows.
+     * A {@code null} resets an override. A validator warning is answered, and a validator error is a 400 that writes
+     * nothing.
      *
      * @return the bundles a row was written for, in the order the body names them
      */
@@ -101,7 +97,7 @@ public final class MessagesApi {
             for (final String text : change.texts()) {
                 for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
                     if (problem.error()) {
-                        // The editor shows every problem as the text is typed, so the refusal only names the text.
+                        // The refusal names the text only.
                         throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
                     }
                     warnings.add(new Warning(entry.bundle(), entry.key(), change.language(), problem.text()));
@@ -128,11 +124,7 @@ public final class MessagesApi {
         return List.copyOf(written);
     }
 
-    /**
-     * {@code GET /api/message-check?bundle=&key=&text=}: what the one validator says of a text for a key.
-     * Errors and warnings, each a message of the {@code check} bundle; the editor asks as the admin types, so it has
-     * no check of its own.
-     */
+    /** {@code GET /api/message-check?bundle=&key=&text=} answers the validator's errors and warnings for a text. */
     public void check(final Context ctx) {
         final String key = ctx.queryParamAsClass("key", String.class).get();
         final String text = ctx.queryParamAsClass("text", String.class).get();
@@ -142,9 +134,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code POST /api/message-preview}: a text an admin is trying, as the place {@code shown} shows it.
-     * It is filled with {@code values}, in the palette of {@code service} or else the network's. What the validator
-     * refuses is refused here too, and so is a place no preview reaches.
+     * {@code POST /api/message-preview} renders a text for the place {@code shown} with {@code values}.
+     * It uses the palette of {@code service}, else the network's. It refuses a text the validator refuses and a place
+     * no preview reaches.
      */
     public MessagePreview preview(final Context ctx) {
         final JsonObject body = bodyOf(ctx.body());
@@ -174,10 +166,7 @@ public final class MessagesApi {
                 coloursOf(service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK));
     }
 
-    /**
-     * Every place of a key a preview reaches, in its schema's order.
-     * None that Steward shows itself or pushes, and none of a key no schema describes.
-     */
+    /** Returns the places of a key that a preview reaches, in schema order, without the Steward surface. */
     static List<Display> previewable(final MessageEntry entry) {
         return entry.shown().stream()
                 .map(Display::valueOf)
@@ -186,9 +175,9 @@ public final class MessagesApi {
     }
 
     /**
-     * Returns the key's message with a typed value for each of its own placeholders, actions and globals left out.
-     * Each is the editor's, else the schema's example, else its kind's; one that none of them reads as its kind is
-     * left out, and the text shows its name.
+     * Returns the key's message with a typed value for each placeholder, without actions and globals.
+     * The value is the one in {@code values}, else the schema's example, else the kind's example. A placeholder
+     * none of them parses is left out.
      */
     private static MessageRef exampleOf(final MessageEntry entry, final JsonObject values) {
         final Map<String, Object> args = new LinkedHashMap<>();
@@ -212,7 +201,7 @@ public final class MessagesApi {
                     args.put(arg.name(), kind.example(candidate));
                     break;
                 } catch (final IllegalArgumentException | DateTimeException unread) {
-                    // The next candidate, down to the kind's own example.
+                    // Tries the next candidate.
                 }
             }
         }
@@ -220,9 +209,8 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code GET /api/message-syntax}: the tones and value styles a text may name, for the editor's menus.
-     * A tone comes with the colour it has where a service's {@code colours} settings name none, in the palette's
-     * order; a kind with the styles it offers besides its own way, sorted.
+     * {@code GET /api/message-syntax} answers the tones with their default colours and the kinds with their sorted
+     * styles.
      */
     public void syntax(final Context ctx) {
         final Map<String, String> tones = new LinkedHashMap<>();
@@ -237,9 +225,8 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code GET /api/message-fallbacks}: every override no process shows, so the packaged text shows instead.
-     * Either a release changed the packaged texts it was written over, or the one validator refuses it; saving it
-     * again takes it over.
+     * {@code GET /api/message-fallbacks} answers every override that is stale or has a validator error.
+     * Processes show the packaged text for these.
      */
     public void fallbacks(final Context ctx) {
         final MessageOverrideStore store = overrides;
@@ -302,10 +289,7 @@ public final class MessagesApi {
                 problems);
     }
 
-    /**
-     * Every key of every jar's bundles once, by bundle and key, in the agent's order of the jars.
-     * A key is read from the first jar that carries it, and lists every service whose jar shows it.
-     */
+    /** Returns each key once, read from the first jar that has it, with every service whose jar has it. */
     private List<Found> union() {
         final Map<String, Found> byId = new LinkedHashMap<>();
         for (final AgentWire.BundleRef location : agent.bundles()) {
@@ -321,7 +305,6 @@ public final class MessagesApi {
         return List.copyOf(byId.values());
     }
 
-    /** The same keys with the stored overrides beside the packaged texts, every language and variant. */
     private List<Found> layered(final List<Found> union) {
         final MessageOverrideStore store = overrides;
         if (store == null) {
@@ -329,7 +312,7 @@ public final class MessagesApi {
         }
         final Set<String> bundles =
                 union.stream().map(found -> found.entry().bundle()).collect(Collectors.toSet());
-        // Bundle and key to language to variant number to text.
+        // Maps bundle/key to language to variant number to text.
         final Map<String, Map<String, TreeMap<Integer, String>>> stored = new HashMap<>();
         for (final MessageOverride row : store.overrides(bundles)) {
             stored.computeIfAbsent(row.bundle() + "/" + row.key(), ignored -> new HashMap<>())
@@ -346,7 +329,6 @@ public final class MessagesApi {
                 .toList();
     }
 
-    /** How a text is named across the network: its bundle and key, since two bundles may declare the same key. */
     private static String idOf(final MessageEntry entry) {
         return entry.bundle() + "/" + entry.key();
     }
@@ -354,12 +336,10 @@ public final class MessagesApi {
     /**
      * One key as {@link #union} finds it.
      *
-     * @param location the first jar that carries it, which the editor names to check and preview it
-     * @param services every service whose jar ships it, in the agent's order
+     * @param location the first jar that has the key
+     * @param services every service whose jar has the key
      */
     private record Found(MessageEntry entry, AgentWire.BundleRef location, List<String> services) {}
-
-    // Finding the bundle
 
     private AgentWire.BundleRef locate(final String asked) {
         return agent.bundles().stream()
@@ -368,7 +348,7 @@ public final class MessagesApi {
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noBundle(asked)));
     }
 
-    /** The key as the bundle's jar declares it, refused when it declares none. */
+    /** Returns the key from the bundle's jar and refuses an undeclared key. */
     private MessageEntry entryOf(final AgentWire.BundleRef location, final String key) {
         return agent.bundle(location.service(), location.module()).entries().stream()
                 .filter(candidate -> candidate.key().equals(key))
@@ -376,21 +356,18 @@ public final class MessagesApi {
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.noMessage(identityOf(location), key)));
     }
 
-    /** How a bundle is named in a URL: {@code <service>/<module>}, or just {@code <service>}. */
+    /** Returns {@code <service>/<module>}, or {@code <service>} without a module. */
     private static String identityOf(final AgentWire.BundleRef location) {
         return location.module().isEmpty() ? location.service() : location.service() + "/" + location.module();
     }
 
-    // What goes over the wire
-
     /**
-     * Every text of every bundle once, packaged text and override side by side.
+     * The answer to {@code list}.
      *
-     * @param writable  whether Steward has a database to keep an override in
-     * @param languages the network's languages as its settings name them now, the default first
-     * @param colours   for each service that shows a text, each tone's colour by its tag as its {@code colours}
-     *                  settings name it now
-     * @param places    every place a text can be shown, in order, with where it is
+     * @param writable  whether Steward has a database for overrides
+     * @param languages the network's languages, the default first
+     * @param colours   each tone's colour by tag, for each service that shows a text
+     * @param places    every place a text can be shown with its surface
      */
     public record Texts(
             boolean writable,
@@ -400,65 +377,64 @@ public final class MessagesApi {
             Map<String, Display.Surface> places) {}
 
     /**
-     * One key of one bundle, where it is read from and who shows it.
+     * One key of one bundle.
      *
-     * @param path     the jar it is read from as the editor's check and preview name it, {@code <service>/<module>}
-     * @param services every service whose jar ships it and that draws one of its places, as {@link TextServices} says
-     * @param previews every place of it a preview reaches, to where it reaches the admin who asks for one, in its
-     *                 schema's order; empty for a key none reaches
+     * @param path     the jar as {@code <service>/<module>}
+     * @param services every service whose jar has the key and that draws one of its places, as {@link TextServices}
+     *                 says
+     * @param previews each place a preview reaches with its target, in schema order
      */
     public record Text(MessageEntry entry, String path, List<String> services, Map<String, PreviewTarget> previews) {}
 
-    /** Where an admin's preview of a key reaches them. */
     public enum PreviewTarget {
-        /** Their linked player, on the game server the roster has them on. */
+        /** The linked player of the admin, on the game server the roster has them on. */
         GAME,
         /** A direct message from the bot. */
         DISCORD;
 
-        /** Returns where a preview shown as {@code shown} reaches its admin. */
+        /** Returns the target of a preview shown as {@code shown}. */
         public static PreviewTarget of(final Display shown) {
             return shown.surface() == Display.Surface.DISCORD ? DISCORD : GAME;
         }
     }
 
     /**
-     * What a save answers: every text as it now reads, every dropped placeholder warning, and that it applies.
+     * The answer to {@code save}.
      *
-     * @param warnings what the validator warns about, none of it blocking the save
+     * @param warnings the validator warnings, which do not block the save
      */
     public record Saved(Texts texts, List<Warning> warnings, Reloading reload) {}
 
     /**
-     * What the validator warns about in one saved text, such as a value it no longer shows.
+     * One validator warning for a saved text.
      *
      * @param text a message of the {@code check} bundle
      */
     public record Warning(String bundle, String key, String language, MessageRef text) {}
 
     /**
-     * What a message text may name besides its values.
+     * The answer to {@code syntax}.
      *
-     * @param tones every tone's tag with its colour, in the palette's order
-     * @param kinds every value kind's token with the styles it offers, sorted; empty for a kind with none
+     * @param tones every tone's tag with its colour
+     * @param kinds every value kind's token with its sorted styles
      */
     public record Syntax(Map<String, String> tones, Map<String, List<String>> kinds) {}
 
-    /** Why a process shows the packaged text instead of an override. */
+    /** The reason a process shows the packaged text instead of an override. */
     public enum FallbackReason {
-        /** A release changed the packaged texts the override was written over. */
+        /** A release changed the packaged texts that the override was written over. */
         STALE,
-        /** The one validator refuses the override, which the release's declaration no longer allows. */
+        /** The validator refuses the override. */
         REFUSED
     }
 
     /**
-     * An override set aside, beside what it was written over and what the jar ships now.
+     * An override that processes do not show.
      *
      * @param override the override's variants, in order
-     * @param original the packaged texts it was written over, {@code null} where none were kept
-     * @param packaged the packaged texts the jar ships now, which every process shows instead
-     * @param problems what the validator refuses, messages of the {@code check} bundle, empty for a stale override
+     * @param original the packaged texts the override was written over, or {@code null}
+     * @param packaged the packaged texts of the jar
+     * @param problems the validator errors as messages of the {@code check} bundle, empty for a stale override
      */
     public record Fallback(
             String bundle,
@@ -488,7 +464,7 @@ public final class MessagesApi {
         return new Texts(overrides != null, texts, languages(settings), colours, places);
     }
 
-    /** The network's languages as its settings name them now, the default first; the defaults without a database. */
+    /** Returns the network's languages, the default first, and the defaults without a database. */
     static List<String> languages(final @Nullable SettingStore store) {
         if (store != null) {
             try {
@@ -496,13 +472,13 @@ public final class MessagesApi {
                                 store, SettingStore.NETWORK, NetworkSettings.LANGUAGE_AND_TIME))
                         .tags();
             } catch (final SettingsException unreadable) {
-                // Even the defaults refused: the editor still offers the defaults.
+                // Falls back to the default languages.
             }
         }
         return NetworkSettings.defaultLanguages().tags();
     }
 
-    /** Each tone's colour by its tag, in the palette's order, as the {@code colours} of {@code service} say. */
+    /** Returns each tone's colour by tag, with the {@code colours} settings of {@code service} applied. */
     private Map<String, String> coloursOf(final String service) {
         final Map<String, String> colours = new LinkedHashMap<>();
         for (final Tone tone : Tone.values()) {
@@ -514,15 +490,13 @@ public final class MessagesApi {
                 Colours.declared(DatabaseSettings.current(store, service, Colours.GROUP))
                         .forEach((tone, hex) -> colours.put(tone.tag(), hex));
             } catch (final SettingsException unreadable) {
-                // Even the defaults refused: every tone keeps its own.
+                // Every tone keeps its default colour.
             }
         }
         return colours;
     }
 
-    // What comes in
-
-    /** One language's texts for one key of one bundle, its variants in order; none resets it to the packaged ones. */
+    /** The variants of one language for one key of one bundle. No variants reset it to the packaged texts. */
     private record Change(String bundle, String key, String language, List<String> texts) {}
 
     private static JsonObject bodyOf(final String body) {
@@ -533,7 +507,7 @@ public final class MessagesApi {
         }
     }
 
-    /** A field of the body that has to be a text. */
+    /** Returns the body field {@code field}, which must be a text. */
     private static String textOf(final JsonObject body, final String field) {
         final JsonElement value = body.get(field);
         if (value == null
@@ -544,7 +518,7 @@ public final class MessagesApi {
         return value.getAsString();
     }
 
-    /** The changes in the order given: bundle to key to language to its variants. */
+    /** Returns the changes in body order, read from bundle to key to language to variants. */
     private static List<Change> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {
@@ -584,7 +558,7 @@ public final class MessagesApi {
         return all;
     }
 
-    /** A language's variants in order, none for a {@code null} that resets it. */
+    /** Returns the variants of a language, and none for a {@code null}. */
     private static List<String> variantsOf(final String key, final @Nullable JsonElement value) {
         if (value == null || value.isJsonNull()) {
             return List.of();

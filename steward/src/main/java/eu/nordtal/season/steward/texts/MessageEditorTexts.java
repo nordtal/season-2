@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The message editor: its two views, the tools above the field, and a fallen-back override. */
+/** The texts of the message editor with its two views, its tools and the fallback override. */
 @Name("Message editor")
 public interface MessageEditorTexts {
 

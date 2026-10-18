@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The game panels: the hunger games' round, a request's outcome, the milestone track and its editor. */
+/** The texts of the game panels: the Hunger Games round, the request outcome and the milestone track. */
 @Name("Games")
 public interface GameTexts {
 

@@ -32,7 +32,7 @@ public final class SeasonRoutes {
         return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
-    /** Switches the season phase; {@code PhaseDirectory} writes the journal entry itself. */
+    /** Sets the season phase. {@code PhaseDirectory} writes the journal entry. */
     public void phase(final Context ctx) {
         final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
         if (ask == null || ask.phase == null) {
@@ -54,7 +54,6 @@ public final class SeasonRoutes {
         if (ask == null) {
             throw new RequestRefused(400, ANSWER.empty());
         }
-        // A null `at` is "no date"; a blank string is a field somebody forgot to fill.
         final Instant at;
         if (ask.at == null) {
             at = null;
@@ -69,7 +68,6 @@ public final class SeasonRoutes {
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Actor actor = who.actor();
-        // An unmatched value must refuse rather than default to one date.
         final var change = switch (ask.which == null ? "" : ask.which.trim()) {
             case "smpStart" -> data().phase().setSmpStart(at, actor);
             case "launch" -> data().phase().setLaunch(at, actor);
@@ -82,13 +80,12 @@ public final class SeasonRoutes {
         ctx.json(read());
     }
 
-    /** {@code GET /api/season}: the phase, and each date once it is announced. */
+    /** The answer to {@code GET /api/season}: the phase and each announced date. */
     public record Season(
             SeasonPhase phase,
             @Nullable Instant launch,
             @Nullable Instant smpStart) {}
 
-    /** The phase and the two dates, as {@code GET /api/season} answers. */
     public Season read() {
         return new Season(
                 data().phase().currentPhase(),
@@ -96,7 +93,6 @@ public final class SeasonRoutes {
                 data().phase().smpStart().orElse(null));
     }
 
-    /** The body of both season endpoints; each reads the fields it needs. */
     static final class SeasonChange {
         @Nullable
         String phase;

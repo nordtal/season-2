@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** A person's two accounts, closed and in the popover. */
+/** The texts of the two accounts of a person, collapsed and in the popover. */
 @Name("Identity")
 public interface IdentityCard {
 

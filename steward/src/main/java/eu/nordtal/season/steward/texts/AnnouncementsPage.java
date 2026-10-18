@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The announcement form under the bot's console: one text per language. */
+/** The words of the announcement form, which has one text per language. */
 @Name("Announcements")
 public interface AnnouncementsPage {
 

@@ -2,15 +2,15 @@ package eu.nordtal.season.steward.push;
 
 import org.jspecify.annotations.Nullable;
 
-/** What to call a browser in a list of them, read coarsely from the subscribing request's User-Agent. */
+/** Names a browser in a list from the User-Agent of the subscribing request. */
 public final class Devices {
 
-    /** The longest User-Agent worth reading. */
+    /** The longest User-Agent that is read. */
     private static final int LONGEST = 512;
 
     private Devices() {}
 
-    /** The system and the browser, each null where it was not recognised; the interface draws its own words then. */
+    /** Returns the system and the browser, each {@code null} when not recognised. */
     static Device of(final @Nullable String userAgent) {
         if (userAgent == null || userAgent.isBlank() || userAgent.length() > LONGEST) {
             return new Device(null, null);
@@ -18,7 +18,6 @@ public final class Devices {
         return new Device(systemOf(userAgent), browserOf(userAgent));
     }
 
-    /** A browser on a system, as far as its User-Agent tells. */
     record Device(@Nullable String system, @Nullable String browser) {}
 
     private static @Nullable String systemOf(final String userAgent) {
@@ -31,7 +30,6 @@ public final class Devices {
         if (userAgent.contains("Android")) {
             return "Android";
         }
-        // iPhone, iPad and Android are already ruled out above.
         if (userAgent.contains("Windows")) {
             return "Windows";
         }
@@ -45,7 +43,7 @@ public final class Devices {
     }
 
     private static @Nullable String browserOf(final String userAgent) {
-        // Most specific claim first: Chrome, Edge and Opera all also carry "Safari".
+        // Chrome, Edge and Opera also contain "Safari", so the order matters.
         if (userAgent.contains("Edg/")) {
             return "Edge";
         }

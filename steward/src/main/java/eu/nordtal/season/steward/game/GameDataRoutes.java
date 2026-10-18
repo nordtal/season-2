@@ -12,14 +12,10 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/**
- * What the servers know of the game, for the pickers: one catalogue for the version the network runs, and its icons.
- *
- * The catalogue is merged again only when a server exported since; a sheet's URL names the painter that drew it.
- */
+/** Serves the game catalogue of the network's version and its icons to the pickers. */
 public final class GameDataRoutes {
 
-    /** A year, and never revalidated: a sheet drawn again by another painter is under another URL. */
+    /** The cache header of an icon sheet. The URL of a sheet names its painter. */
     public static final String ICONS_CACHE = "private, max-age=31536000, immutable";
 
     private final @Nullable GameDataStore store;
@@ -30,10 +26,10 @@ public final class GameDataRoutes {
     }
 
     /**
-     * The game as the newest export's version knows it, with the icons when they are drawn.
+     * The game data of the newest export's version.
      *
-     * @param version none before any server exported, and then every registry is empty
-     * @param icons none until steward-agent drew them, which it does only with the installer's consent
+     * @param version {@code null} before any server exported, and then every registry is empty
+     * @param icons {@code null} until steward-agent has drawn them
      */
     public record GameData(
             @Nullable String version,
@@ -43,10 +39,10 @@ public final class GameDataRoutes {
             @Nullable Icons icons) {}
 
     /**
-     * Where one version's sheet is and where each item's icon sits in it.
+     * The icon sheet of one version.
      *
-     * @param url the sheet, 32 pixels an icon
-     * @param slots an item's slot, counted left to right and then down, {@code columns} to a row
+     * @param url the sheet, with 32 pixels per icon
+     * @param slots the slot of each item, counted left to right and then down with {@code columns} per row
      */
     public record Icons(String url, int columns, Map<String, Integer> slots) {}
 
@@ -54,7 +50,7 @@ public final class GameDataRoutes {
         ctx.json(read());
     }
 
-    /** What changes when a server exports or icons are drawn, which the live topic compares instead of all of it. */
+    /** Returns the exports and icon painters, which the live topic compares. */
     public Object changes() {
         return store == null ? List.of() : List.of(store.exports(), store.iconPainters());
     }
@@ -74,7 +70,7 @@ public final class GameDataRoutes {
         return new GameData(version, catalogue.datapacks(), catalogue.registries(), catalogue.tags(), icons);
     }
 
-    /** The sheet of one version, which a signed-in admin's browser keeps for a year under its painter's URL. */
+    /** Answers the icon sheet of one version. */
     public void icons(final Context ctx) {
         final GameDataStore.Icons icons =
                 store == null ? null : store.icons(ctx.pathParam("version")).orElse(null);
@@ -91,7 +87,7 @@ public final class GameDataRoutes {
                 + URLEncoder.encode(painter, StandardCharsets.UTF_8);
     }
 
-    /** The union of the newest export's version, merged again only when some server exported since. */
+    /** Returns the union catalogue of the newest export's version, merged again after a new export. */
     private synchronized @Nullable GameCatalogue catalogue(final GameDataStore store) {
         final Map<String, Instant> exports = store.exports();
         if (merged != null && merged.exports().equals(exports)) {

@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The start page: the host's figures, the latest backup, drift, issues and the latest actions. */
+/** The texts of the start page: the host figures, the latest backup, drift, issues and the latest actions. */
 @Name("Status")
 public interface OverviewPage {
 

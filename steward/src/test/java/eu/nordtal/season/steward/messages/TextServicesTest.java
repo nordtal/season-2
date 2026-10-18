@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** A service shows a text its jar ships only where it draws one of the text's places. */
+/** Tests that a service shows a text only where it draws one of the places of the text. */
 class TextServicesTest {
 
     @Test

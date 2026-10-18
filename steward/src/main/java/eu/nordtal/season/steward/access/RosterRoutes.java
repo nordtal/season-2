@@ -8,7 +8,7 @@ import io.javalin.http.Context;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** Who is in the guild, what they paid, what they may, and the journal of it all. */
+/** The routes for the roster, the payments, the access and the journal. */
 public final class RosterRoutes {
 
     private final @Nullable Data data;
@@ -29,7 +29,7 @@ public final class RosterRoutes {
         ctx.json(data().access().grantsOf(DiscordId.of(ctx.pathParam("id"))));
     }
 
-    /** One person's payment requests, newest first, for their page; the list of all is a page with a limit. */
+    /** Answers the payment requests of one person, newest first, up to a limit. */
     public void paymentsOf(final Context ctx) {
         ctx.json(data().payments().recentOf(DiscordId.of(ctx.pathParam("id")), QueryLimit.of(ctx, 200, 1000)));
     }
@@ -38,12 +38,12 @@ public final class RosterRoutes {
         ctx.json(data().payments().recent(QueryLimit.of(ctx, 200, 1000)));
     }
 
-    /** What {@code access settle} may be pointed at: every open request, oldest first and without a limit. */
+    /** Answers every open payment request, oldest first, without a limit. */
     public void openPayments(final Context ctx) {
         ctx.json(data().payments().allOpen());
     }
 
-    /** The journal, narrowed by any of {@code action}, {@code subject}, {@code reference} and {@code minDays}. */
+    /** Answers the journal, filtered by {@code action}, {@code subject}, {@code reference} and {@code minDays}. */
     public void journal(final Context ctx) {
         ctx.json(data().audit()
                 .search(
@@ -55,7 +55,7 @@ public final class RosterRoutes {
                         QueryLimit.of(ctx, 200, 1000)));
     }
 
-    /** Returns {@code minDays}, or {@code null} when absent; a value that is no number is refused as a bad request. */
+    /** Returns {@code minDays}, or {@code null} when absent, and refuses a value that is not a number. */
     private static @Nullable Integer minDays(final Context ctx) {
         return ctx.queryParam("minDays") == null
                 ? null

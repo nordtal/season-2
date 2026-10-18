@@ -5,22 +5,18 @@ import io.javalin.security.RouteRole;
 /** Why a changing route writes no journal line of its own; {@code JournaledRoutesTest} names every such route. */
 public enum Unjournaled implements RouteRole {
 
-    /**
-     * {@code :database} writes the line in the transaction that makes the change, with the admin as actor.
-     *
-     * So the line exists exactly when the change does: a request row with its line, or the bot carrying one out.
-     */
+    /** The database writes the line in the transaction of the change, with the admin as actor. */
     IN_THE_CHANGE,
 
-    /** Signing out or ending one's own step-up: a session's own course, which signing in does not journal either. */
+    /** Signing out or ending one's own step-up, as signing in is not journaled either. */
     OWN_SESSION,
 
-    /** The first half of a ceremony, whose second half writes the line. */
+    /** The first step of a ceremony, whose second step writes the line. */
     CEREMONY_START,
 
-    /** A text shown to the admin alone, which changes nothing anybody else sees. */
+    /** A text shown to the admin alone. */
     SHOWN_TO_ONESELF,
 
-    /** An uploaded image, which nobody sees before a saved layout shows it; that save writes the line. */
+    /** An uploaded image, which the later save of a layout journals. */
     SHOWN_ONCE_SAVED
 }

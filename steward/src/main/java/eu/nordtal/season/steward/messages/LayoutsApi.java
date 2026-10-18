@@ -37,12 +37,11 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The routes over the Discord layouts: steward-agent reads the declarations out of the jars, the rebuilds are rows.
- * Every process that loads a bundle re-reads its rebuilds on the signal a save sends.
+ * The routes for the Discord layouts. steward-agent reads the declarations from the jars, and the rebuilds are rows.
  */
 public final class LayoutsApi {
 
-    /** The largest image stored, well below the 20 MiB per file that Discord's reference gives as its upload limit. */
+    /** The largest image stored. */
     public static final int IMAGE_MEBIBYTES = 8;
 
     public static final int IMAGE_BYTES = IMAGE_MEBIBYTES * 1024 * 1024;
@@ -50,7 +49,6 @@ public final class LayoutsApi {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** A language tag as a stored added text names it. */
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}");
 
     private final AgentClient agent;
@@ -58,8 +56,8 @@ public final class LayoutsApi {
     private final @Nullable SettingStore settings;
 
     /**
-     * @param store    where the rebuilds and images are kept, or {@code null} without a database, which refuses a save
-     * @param settings where the network's languages and prices are read, or {@code null} for the defaults
+     * @param store    the rebuilds and images, or {@code null} without a database, which refuses a save
+     * @param settings the network's languages and prices, or {@code null} for the defaults
      */
     public LayoutsApi(
             final AgentClient agent, final @Nullable LayoutStore store, final @Nullable SettingStore settings) {
@@ -69,12 +67,12 @@ public final class LayoutsApi {
     }
 
     /**
-     * Every Discord layout once, its declaration beside its stored rebuild, with what a preview fills in.
+     * Every Discord layout once, with its stored rebuild.
      *
-     * @param writable       whether Steward has a database to keep a rebuild in
+     * @param writable       whether Steward has a database for rebuilds
      * @param buildingBlocks every key shown in two or more layouts, to those layouts as {@code bundle/name}
-     * @param languages      the network's languages as its settings name them now, the default first
-     * @param tiers          the price tiers as the bot offers them now, cheapest first
+     * @param languages      the network's languages, the default first
+     * @param tiers          the price tiers, cheapest first
      */
     public record Layouts(
             boolean writable,
@@ -84,14 +82,11 @@ public final class LayoutsApi {
             List<Tier> tiers) {}
 
     /**
-     * One layout.
-     *
-     * @param entry   the declaration with its packaged structure, the values its texts may name and every key it shows
-     * @param hash    the SHA-256 of the packaged layout, which a rebuild records as written over
-     * @param rebuild   the stored rebuild with the elements the code fills in, carried over to the packaged layout the
-     *                  jar ships now, or {@code null} for none
-     * @param adapted   what carrying the rebuild over changed, empty when it was written over this packaged layout
-     * @param fallbacks the added texts the validator refuses now, which show their values' replacement words
+     * @param entry     the declaration with its packaged structure, its values and every key it shows
+     * @param hash      the SHA-256 of the packaged layout
+     * @param rebuild   the stored rebuild, carried over to the jar's layout, or {@code null} for none
+     * @param adapted   what the carry-over changed
+     * @param fallbacks the added texts the validator refuses, with replacement words for their values
      */
     public record LayoutView(
             LayoutSchema.Entry entry,
@@ -101,37 +96,31 @@ public final class LayoutsApi {
             List<AddedFallback> fallbacks) {}
 
     /**
-     * An added text the validator refuses, as a release that removed a value it names makes it.
+     * An added text the validator refuses.
      *
      * @param problems what the validator refuses, messages of the {@code check} bundle
      */
     public record AddedFallback(String language, String text, List<MessageRef> problems) {}
 
     /**
-     * What a save answers.
-     *
-     * @param warnings what the validator warns about in an added text, none of it blocking the save
+     * @param warnings the validator warnings, none of which blocks the save
      */
     public record Saved(Layouts layouts, List<Warning> warnings, Reloading reload) {}
 
     /**
-     * What the validator warns about in one added text.
-     *
      * @param text a message of the {@code check} bundle
      */
     public record Warning(String language, MessageRef text) {}
 
-    /** What an upload answers: the stored image's id and the address a part shows it by. */
     public record Uploaded(long id, String address) {}
 
-    /** {@code GET /api/layouts}. */
     public void list(final Context ctx) {
         ctx.json(layouts());
     }
 
     /**
-     * {@code PUT /api/layouts/{bundle}/{layout}}: stores the rebuild in the body as {@code {parts, links}}.
-     * A rebuild the check refuses, or an added text the validator refuses, is a 400 that writes nothing.
+     * {@code PUT /api/layouts/{bundle}/{layout}} stores the rebuild in the body as {@code {parts, links}}.
+     * A rebuild or added text that the check refuses is a 400 that writes nothing.
      *
      * @return the bundle the rebuild was written for
      */
@@ -179,7 +168,7 @@ public final class LayoutsApi {
     }
 
     /**
-     * {@code DELETE /api/layouts/{bundle}/{layout}}: removes the rebuild, so the packaged layout applies again.
+     * {@code DELETE /api/layouts/{bundle}/{layout}} removes the rebuild.
      *
      * @return the bundle the rebuild was removed from
      */
@@ -195,12 +184,11 @@ public final class LayoutsApi {
     }
 
     /**
-     * {@code POST /api/layout-images}: stores the image in the body, a PNG, JPEG, GIF or WebP file.
-     * Its type is read from its first bytes, never from the request's header.
+     * {@code POST /api/layout-images} stores the PNG, JPEG, GIF or WebP image in the body.
+     * It reads the type from the first bytes, not from the request header.
      */
     public void upload(final Context ctx, final Actor actor) {
         final LayoutStore stored = writable();
-        // Javalin refuses a body above IMAGE_BYTES, as Web configures it, before this reads it.
         final byte[] bytes = ctx.bodyAsBytes();
         final String type =
                 mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused(IMAGE_MEBIBYTES)));
@@ -208,7 +196,7 @@ public final class LayoutsApi {
         ctx.json(new Uploaded(id, LayoutStore.LayoutImage.SCHEME + id));
     }
 
-    /** {@code GET /api/layout-images/{id}}: a stored image, which never changes under its id. */
+    /** {@code GET /api/layout-images/{id}} answers a stored image. */
     public void image(final Context ctx) {
         final LayoutStore stored = store;
         final long id = ctx.pathParamAsClass("id", Long.class).get();
@@ -222,7 +210,6 @@ public final class LayoutsApi {
         ctx.result(image.bytes());
     }
 
-    /** Returns the media type a stored image's first bytes show, or empty for any other file. */
     static Optional<String> mediaType(final byte[] bytes) {
         if (starts(bytes, 0, new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})) {
             return Optional.of("image/png");
@@ -266,7 +253,6 @@ public final class LayoutsApi {
         return entry;
     }
 
-    /** Every layout of every jar once, by {@code bundle/name}, read from the first jar that carries it. */
     private Map<String, LayoutSchema.Entry> packaged() {
         final Map<String, LayoutSchema.Entry> entries = new LinkedHashMap<>();
         for (final AgentWire.BundleRef location : agent.bundles()) {
@@ -321,7 +307,6 @@ public final class LayoutsApi {
                 tiers());
     }
 
-    /** What the validator refuses in an added text of the layout's entry, empty when it takes it. */
     private static List<MessageRef> errors(final String text, final LayoutSchema.Entry entry) {
         return MessageCheck.check(text, entry.values(), MessageCheck.Mode.OVERRIDE).stream()
                 .filter(MessageCheck.Problem::error)
@@ -329,7 +314,6 @@ public final class LayoutsApi {
                 .toList();
     }
 
-    /** The price tiers as the network's settings name them now, cheapest first; none when they cannot be read. */
     private List<Tier> tiers() {
         final SettingStore stored = settings;
         if (stored == null) {
@@ -351,7 +335,6 @@ public final class LayoutsApi {
         }
     }
 
-    /** A list of the body, none when it is absent; one that does not read as {@code type} is a 400. */
     private static <T> List<T> listOf(final JsonObject body, final String field, final Class<T[]> type) {
         final JsonElement value = body.get(field);
         if (value == null || value.isJsonNull()) {

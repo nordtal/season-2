@@ -24,18 +24,14 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Asks for the nightly backup by writing a request row, and nothing else.
- *
- * The delay rounds up so it never fires early, and it re-arms whether or not the write worked.
- */
+/** Writes a request row for the nightly backup or the scheduled update. */
 public final class NightlyClock implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(NightlyClock.class);
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
-    /** What a clock asks for, always as {@link Actor#STEWARD}: nobody pressed anything. */
+    /** The request a clock writes, as {@link Actor#STEWARD}. */
     public enum Job {
         BACKUP(UpdateKind.BACKUP, "backup", "the nightly backup"),
         UPDATE(UpdateKind.UPDATE, "update", "the scheduled update");
@@ -79,7 +75,7 @@ public final class NightlyClock implements AutoCloseable {
      * Reads {@code backup.at}.
      *
      * @param at {@code HH:mm} in the network's default zone, or blank for no nightly backup
-     * @return empty when switched off or unreadable, and unreadable is logged
+     * @return empty when off or unreadable
      */
     public static Optional<NightlyClock> from(
             final UpdateDirectory directory, final @Nullable String at, final Clock wall) {
@@ -89,8 +85,8 @@ public final class NightlyClock implements AutoCloseable {
     /**
      * Reads {@code backup.at} and {@code backup.days}.
      *
-     * @param days which weekdays it may run on; {@code null} is every night
-     * @return empty when switched off, unreadable, or given no weekday
+     * @param days the weekdays it runs on, or {@code null} for every night
+     * @return empty when off, unreadable or without a weekday
      */
     public static Optional<NightlyClock> from(
             final UpdateDirectory directory,
@@ -103,7 +99,7 @@ public final class NightlyClock implements AutoCloseable {
     /**
      * Reads {@code <job>.at} and {@code <job>.days}.
      *
-     * @return empty when switched off, unreadable, or given no weekday
+     * @return empty when off, unreadable or without a weekday
      */
     public static Optional<NightlyClock> from(
             final UpdateDirectory directory,
@@ -129,11 +125,7 @@ public final class NightlyClock implements AutoCloseable {
         return Optional.of(new NightlyClock(directory, job, parsed, weekdays, wall));
     }
 
-    /**
-     * Returns {@code <job>.days} as a set, empty when the list holds nothing usable.
-     *
-     * Full and three-letter names match in any case; an unknown word is logged and dropped.
-     */
+    /** Returns {@code <job>.days} as a set. It matches full and three-letter names in any case and drops others. */
     private static Set<DayOfWeek> weekdays(final Job job, final @Nullable List<String> days) {
         if (days == null) {
             return EnumSet.allOf(DayOfWeek.class);
@@ -164,26 +156,22 @@ public final class NightlyClock implements AutoCloseable {
         return chosen;
     }
 
-    /**
-     * Returns when the next nightly backup would be asked for, in the network's default zone, or empty.
-     *
-     * The interface uses it so a "tonight" run lands before this clock rather than on top of it.
-     */
+    /** Returns the next time the nightly backup is asked for in {@code zone}, or empty. */
     public static Optional<ZonedDateTime> next(final @Nullable String at, final ZoneId zone, final ZonedDateTime now) {
         return next(at, null, zone, now);
     }
 
     /**
-     * Returns the same answer with {@code backup.days} taken into account.
+     * Returns the next time the nightly backup is asked for on one of {@code days}.
      *
-     * @param days {@code null} for every night
+     * @param days the weekdays, or {@code null} for every night
      */
     public static Optional<ZonedDateTime> next(
             final @Nullable String at, final @Nullable List<String> days, final ZoneId zone, final ZonedDateTime now) {
         return next(Job.BACKUP, at, days, zone, now);
     }
 
-    /** Returns the same answer for either clock; {@code job} only decides which key a log line names. */
+    /** Returns the next time {@code job} is asked for on one of {@code days}. */
     public static Optional<ZonedDateTime> next(
             final Job job,
             final @Nullable String at,
@@ -200,7 +188,7 @@ public final class NightlyClock implements AutoCloseable {
                 : Optional.of(nextAt(parsed, weekdays, now.withZoneSameInstant(zone)));
     }
 
-    /** Returns {@code HH:mm}, or null for blank and for anything that is not a time; both are logged. */
+    /** Returns the parsed {@code HH:mm}, or {@code null} for a blank or invalid value. */
     private static @Nullable LocalTime hour(final Job job, final @Nullable String at) {
         if (at == null || at.isBlank()) {
             return null;
@@ -217,11 +205,7 @@ public final class NightlyClock implements AutoCloseable {
         }
     }
 
-    /**
-     * Returns the next moment on one of {@code days}, strictly in the future and at most seven days ahead.
-     *
-     * {@code days} is non-empty by the time this is called, so the loop ends within a week.
-     */
+    /** Returns the next moment on one of the non-empty {@code days}, after {@code now} and within seven days. */
     private static ZonedDateTime nextAt(final LocalTime at, final Set<DayOfWeek> days, final ZonedDateTime now) {
         ZonedDateTime next = now.with(at);
         if (!next.isAfter(now)) {
@@ -233,7 +217,7 @@ public final class NightlyClock implements AutoCloseable {
         return next;
     }
 
-    /** Arms the clock on the process's scheduler, which it asks again after every firing until closed. */
+    /** Schedules the clock on {@code on} and again after every firing until it is closed. */
     public synchronized void start(final Scheduler on) {
         this.scheduler = on;
         final Duration until = untilNext(ZonedDateTime.now(wall));
@@ -256,28 +240,27 @@ public final class NightlyClock implements AutoCloseable {
         if (closed) {
             return;
         }
-        // Rounded up: toSeconds() floors, and a wait floored to zero fires early and re-arms into a loop.
+        // Rounds up, so the wait is never zero.
         final long seconds = Math.max(1, Math.ceilDiv(until.toNanos(), 1_000_000_000L));
         armed = Objects.requireNonNull(scheduler, "armed only after start").after(Duration.ofSeconds(seconds), () -> {
             final ZonedDateTime now = ZonedDateTime.now(wall);
             final ZonedDateTime tonight = due == null ? now : due;
-            // Re-arms whether the request succeeded or not.
             final Duration next = fire(tonight, now);
             arm(next, next.equals(RETRY) ? tonight : null);
         });
     }
 
-    /** How long to wait before asking again while another run is open. */
+    /** The wait before the next try while another run is open. */
     static final Duration RETRY = Duration.ofMinutes(5);
 
-    /** How long after its moment tonight's backup is still asked for; after that, tomorrow. */
+    /** The time after its moment during which tonight's request is still tried. */
     static final Duration PATIENCE = Duration.ofHours(2);
 
     /**
-     * Asks for tonight's backup once.
+     * Writes the request row once.
      *
-     * @param due when tonight's backup was first due
-     * @return {@link #RETRY} while another run is open and patience lasts, otherwise the wait until the next night
+     * @param due the time the request was first due
+     * @return {@link #RETRY} while another run is open within {@link #PATIENCE}, else the wait until the next day
      */
     Duration fire(final ZonedDateTime due, final ZonedDateTime now) {
         try {
@@ -307,7 +290,7 @@ public final class NightlyClock implements AutoCloseable {
         return untilNext(now);
     }
 
-    /** Always strictly in the future, so firing exactly on the second cannot re-arm at zero. */
+    /** Returns the wait until the next moment, which is after {@code now}. */
     Duration untilNext(final ZonedDateTime now) {
         return Duration.between(now, nextAt(at, days, now));
     }

@@ -12,15 +12,12 @@ import eu.nordtal.season.messages.spec.TextFormat;
 import java.time.Duration;
 import java.time.Instant;
 
-/**
- * Steward's own texts, English only: the page renders them in the browser and an admin may override any of them.
- * The frontend names a key as a string, which the generated {@code texts.gen.ts} types; the README says why.
- */
+/** The English texts of Steward, which the browser renders and an admin may override. */
 @MessageSpec(value = "steward", format = TextFormat.PLAIN)
 @Shown(Display.STEWARD)
 public interface StewardTexts {
 
-    /** The texts; stateless, so one instance serves every caller. */
+    /** The shared instance. */
     StewardTexts TEXTS = MessageSpecs.create(StewardTexts.class);
 
     Steward steward();
@@ -138,7 +135,7 @@ public interface StewardTexts {
             MessageRef localJars();
         }
 
-        /** Why Steward refuses a request a person sent; the error it answers carries the text rendered. */
+        /** The reasons for which Steward refuses a request. */
         @Name("Answer")
         interface Answer {
 
@@ -366,7 +363,7 @@ public interface StewardTexts {
             MessageRef keyNotAccepted();
         }
 
-        /** What Steward tells a person who did something, as data the page renders. */
+        /** The messages that Steward shows after an action. */
         @Name("Said")
         interface Said {
 
@@ -397,14 +394,14 @@ public interface StewardTexts {
         }
     }
 
-    /** What a setting holds, named when a typed value is not one. */
+    /** The type of a setting value. */
     enum Expected {
         INTEGER,
         DECIMAL,
         BOOLEAN
     }
 
-    /** What Steward keeps in its database, named when it has none. */
+    /** The kinds of data that Steward keeps in its database. */
     enum Kept {
         ALERTS,
         PREFERENCES,
@@ -413,7 +410,7 @@ public interface StewardTexts {
         OVERRIDES
     }
 
-    /** The words a service's badge and dot say: Docker's own states, and the ones its health is folded into. */
+    /** The words of a service's badge and dot: Docker states and health states. */
     enum ServiceWord {
         RUNNING,
         HEALTHY,
@@ -431,7 +428,7 @@ public interface StewardTexts {
         DEAD
     }
 
-    /** What a source says of one artifact, as the agent's plan names it. */
+    /** The status of an artifact in the plan of the agent. */
     enum ArtifactStatus {
         UP_TO_DATE,
         OUTDATED,

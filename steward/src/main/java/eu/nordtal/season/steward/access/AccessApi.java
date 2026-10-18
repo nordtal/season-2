@@ -27,11 +27,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Grants, revocations, play time and unlinking, each written into the bot's inbox, and a booking by hand.
- *
- * Only the bot can carry out all parts of a grant, and it journals what it carries out. A booking is steward's own.
- */
+/** Writes grants, revocations, play time and unlinks into the bot's inbox, and books a payment by hand. */
 public final class AccessApi {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -39,13 +35,13 @@ public final class AccessApi {
 
     private static final Logger log = LoggerFactory.getLogger(AccessApi.class);
 
-    /** The longest access one grant may give, in days; a longer period is two grants. */
+    /** The most days one grant gives. */
     static final int MOST_DAYS = 365;
 
-    /** How long a request waits for the bot before it is given up on. */
+    /** The time a request waits for the bot. */
     static final Duration PATIENCE = Duration.ofMinutes(2);
 
-    /** The ceiling on a play time somebody may type: ten years of wall clock. */
+    /** The most play time in seconds, ten years. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
 
     private final @Nullable Data data;
@@ -81,34 +77,28 @@ public final class AccessApi {
         submit(ctx, new BotRequest.Unlink(discordId(bodyOf(ctx))));
     }
 
-    /** What a booking by hand came to: booked, not open any more, or no such reference. */
+    /** The result of a booking by hand. */
     public enum SettleOutcome {
         BOOKED,
         NOT_OPEN,
         UNKNOWN
     }
 
-    /**
-     * {@code POST /api/access/settle}'s answer; {@code days} and {@code until} when booked, {@code was} when not open.
-     */
+    /** The answer of {@code POST /api/access/settle}, with {@code days} and {@code until} if booked, else {@code was}. */
     public record Settled(
             SettleOutcome outcome,
             @Nullable Integer days,
             @Nullable Instant until,
             @Nullable String was) {}
 
-    /** A request in the bot's inbox and, once it answered, what it said; a text answer is {@code {text}}. */
+    /** A request in the bot's inbox with the bot's answer, and a text answer is {@code {text}}. */
     public record AccessRequestRun(
             String id,
             String kind,
             InboxStatus status,
             @Nullable JsonObject result) {}
 
-    /**
-     * {@code POST /api/access/settle} with {@code {reference}}: books an open request by hand, at what it ordered.
-     *
-     * Booked here and now, in the transaction the poll books in too; the bot is told and only reacts.
-     */
+    /** {@code POST /api/access/settle} with {@code {reference}} books an open payment request by hand as ordered. */
     public void settle(final Context ctx) {
         final Body ask = bodyOf(ctx);
         if (ask.reference == null || ask.reference.isBlank()) {
@@ -145,13 +135,12 @@ public final class AccessApi {
                                 .byId(found.get().id())
                                 .map(row -> row.status().name())
                                 .orElse(found.get().status().name())));
-            // The order itself is the settlement, so there is always one.
             case Bookings.Booking.BelowMinimum below ->
                 throw new IllegalStateException("a booking by hand books the order");
         }
     }
 
-    /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */
+    /** {@code POST /api/people/{id}/playtime} with {@code {seconds}} sets the total play time. */
     public void playtime(final Context ctx) {
         final Body ask = bodyOf(ctx);
         if (ask.seconds == null || ask.seconds < 0 || ask.seconds > MOST_PLAYTIME_SECONDS) {
@@ -160,7 +149,7 @@ public final class AccessApi {
         submit(ctx, new BotRequest.SetPlaytime(discordId(ctx.pathParam("id")), ask.seconds));
     }
 
-    /** {@code GET /api/access/requests/{id}}: what became of it. */
+    /** {@code GET /api/access/requests/{id}} answers the status of a request. */
     public void outcome(final Context ctx) {
         final long id;
         try {
@@ -186,7 +175,7 @@ public final class AccessApi {
                 .json(new AccessRequestRun(String.valueOf(written.id()), written.kind(), written.status(), null));
     }
 
-    /** The bot's answer as an object; a row that does not parse is shown as text. */
+    /** Returns the bot's answer as an object, and a row that is not JSON as {@code {text}}. */
     private static JsonObject parsed(final String result) {
         try {
             final JsonElement element = Json.tree(result);
@@ -194,7 +183,7 @@ public final class AccessApi {
                 return element.getAsJsonObject();
             }
         } catch (final JsonSyntaxException notJson) {
-            // Shown as text, below.
+            // The result is shown as text.
         }
         final JsonObject text = new JsonObject();
         text.addProperty("text", result);

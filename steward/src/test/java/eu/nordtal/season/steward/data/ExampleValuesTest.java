@@ -17,19 +17,19 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** The values an editor fills placeholders with: the admin's own rows, others', then a fixed value per type. */
+/** Tests the example values from the admin's rows, other rows, and the fixed value of each type. */
 class ExampleValuesTest {
 
     private static DataSource dataSource;
 
-    /** The owner, for fixtures and for whatever stands in for another service. */
+    /** The owner of the fixtures. */
     private static DataSource owner;
 
     @BeforeAll
     static void start() {
         final TestDatabase database = TestDatabase.fresh();
         owner = database.dataSource();
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // The role that steward logs in as.
         dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 

@@ -17,11 +17,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Writes the agent's sampler rounds into {@code metric_sample} for the start page's curves, and compacts old ones.
- *
- * steward-agent samples; this only copies what it took since the last copy, so a restart of either loses nothing.
- */
+/** Copies the sampler rounds of steward-agent into {@code metric_sample} and compacts old samples. */
 public final class MetricRecorder implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(MetricRecorder.class);
@@ -32,7 +28,7 @@ public final class MetricRecorder implements AutoCloseable {
     private final MetricDirectory metrics;
     private final Clock clock;
 
-    /** The newest round already written; {@code null} until the first copy, which takes all the agent holds. */
+    /** The newest round already written, or {@code null} before the first copy. */
     private @Nullable Instant copied;
 
     private final List<Scheduler.Task> ticks = new ArrayList<>();
@@ -47,7 +43,7 @@ public final class MetricRecorder implements AutoCloseable {
         this.clock = clock;
     }
 
-    /** Copies every {@link MetricDirectory#SAMPLE_INTERVAL} and compacts every hour on the process's scheduler. */
+    /** Copies every {@link MetricDirectory#SAMPLE_INTERVAL} and compacts every hour. */
     public synchronized void start(final Scheduler scheduler) {
         ticks.add(scheduler.every(Duration.ZERO, MetricDirectory.SAMPLE_INTERVAL, this::copyQuietly));
         ticks.add(scheduler.every(Duration.ofHours(1), Duration.ofHours(1), this::compactQuietly));
@@ -61,7 +57,7 @@ public final class MetricRecorder implements AutoCloseable {
         }
     }
 
-    /** Copies every round taken since the last copy; a round written twice is still one row per series. */
+    /** Copies every round taken since the last copy and returns the number of samples. */
     public synchronized int copy() {
         final List<AgentWire.Round> taken = rounds.apply(copied);
         final List<MetricSample> samples = new ArrayList<>();
@@ -77,7 +73,6 @@ public final class MetricRecorder implements AutoCloseable {
         return samples.size();
     }
 
-    /** One round as rows: the host's numbers and each service's memory and CPU. */
     static List<MetricSample> samples(final AgentWire.Round round) {
         final Instant at = round.at();
         final List<MetricSample> samples = new ArrayList<>();
@@ -104,7 +99,7 @@ public final class MetricRecorder implements AutoCloseable {
         return samples;
     }
 
-    /** Compacts and forgets the raw samples past their retention; each is tried even when the other failed. */
+    /** Compacts and deletes the raw samples older than {@link MetricDirectory#RAW_RETENTION}. */
     void compactQuietly() {
         final Instant boundary = clock.instant().minus(MetricDirectory.RAW_RETENTION);
         final int written = attempt("compacting", () -> metrics.compact(boundary));
@@ -115,7 +110,7 @@ public final class MetricRecorder implements AutoCloseable {
         }
     }
 
-    /** Runs one of the two walks, whose hours each commit on their own; a failure leaves the rest for the next hour. */
+    /** Runs one of the two steps and returns its count, or 0 after a failure. */
     private static int attempt(final String what, final IntSupplier work) {
         try {
             return work.getAsInt();

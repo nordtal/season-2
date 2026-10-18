@@ -10,11 +10,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * {@link PushSender} over the real protocol, built by {@code com.interaso.webpush}.
- *
- * The library maps both 404 and 410 to {@code SubscriptionState.EXPIRED}, and declares no checked exception to catch.
- */
+/** A {@link PushSender} that uses {@code com.interaso.webpush}. The library maps 404 and 410 to {@code EXPIRED}. */
 public final class WebPushSender implements PushSender {
 
     private static final Logger log = LoggerFactory.getLogger(WebPushSender.class);
@@ -27,11 +23,7 @@ public final class WebPushSender implements PushSender {
         this.service = new WebPushService(subject, keys);
     }
 
-    /**
-     * The VAPID keypair from config, or null when {@code web-push} is not configured.
-     *
-     * Exactly one blank key is refused, since neither alone can sign or serve as an {@code applicationServerKey}.
-     */
+    /** Returns the VAPID keypair, or {@code null} without {@code web-push}. Exactly one blank key is refused. */
     public static @Nullable VapidKeys keysOf(final WebSpec.WebPushSpec webPush) {
         final String publicKey = webPush.publicKey();
         final String privateKey = webPush.privateKey();

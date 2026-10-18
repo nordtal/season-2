@@ -17,7 +17,7 @@ class WebTextsTest {
 
     private final Messages texts = WebTexts.load().messages();
 
-    /** A stored alert's title names a key of the admin bundle, which the page renders or shows bare. */
+    /** Tests that the title of a stored alert names a key of the admin bundle. */
     @Test
     void everyAdminKeyThePageShowsIsServed() {
         for (final MessageSchema.Entry entry : MessageSchema.entries(AdminTexts.class)) {

@@ -1,15 +1,14 @@
 package eu.nordtal.season.steward.push;
 
-/** Sends one push to one subscription; the seam {@code AlertRouterTest} stands in front of. */
+/** Sends one push to one subscription. */
 public interface PushSender {
 
-    /** What sending answered. */
     enum Result {
         /** The push service accepted it (HTTP 200-202). */
         SENT,
-        /** The push service says this subscription no longer exists (HTTP 404 or 410). */
+        /** The push service reports that the subscription does not exist (HTTP 404 or 410). */
         EXPIRED,
-        /** Neither: a network failure, or a status the library did not expect. */
+        /** A network failure or an unexpected status. */
         FAILED
     }
 

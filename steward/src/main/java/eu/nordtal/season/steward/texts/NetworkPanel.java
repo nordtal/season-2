@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The network panel: one card or row per service, and who is online. */
+/** The texts of the network panel with one card or row per service and the online players. */
 @Name("Network")
 public interface NetworkPanel {
 

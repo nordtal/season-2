@@ -6,7 +6,7 @@ import eu.nordtal.season.messages.spec.Name;
 import java.time.Duration;
 import java.time.Instant;
 
-/** Signing in, holding a security key, the key list and a page that is not there. */
+/** The texts for signing in, holding a security key, the key list and a missing page. */
 @Name("Sign-in and keys")
 public interface KeysPage {
 
@@ -82,7 +82,7 @@ public interface KeysPage {
     @Name("Step-up title")
     MessageRef stepUpTitle();
 
-    /** The door's and the step-up's title when the account has an authenticator app, so it names no one factor. */
+    /** The sign-in and step-up title for an account with an authenticator app. */
     @Name("Either factor title")
     MessageRef eitherFactorTitle();
 

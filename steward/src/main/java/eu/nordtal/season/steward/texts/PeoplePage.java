@@ -8,7 +8,7 @@ import eu.nordtal.season.messages.spec.Name;
 import java.time.Duration;
 import java.time.Instant;
 
-/** The Users page and one person's page: access, periods, roles and the writes on them. */
+/** The texts of the Users page and of the page of one person for access, periods, roles and their changes. */
 @Name("People")
 public interface PeoplePage {
 

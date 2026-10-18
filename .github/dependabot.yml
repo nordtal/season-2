@@ -1,4 +1,4 @@
-# Actions are pinned to a commit SHA, since a tag can move; Dependabot updates the SHA and its `# vX.Y.Z`.
+# Actions are pinned to a commit SHA, because a tag can move. Dependabot updates the SHA and its `# vX.Y.Z`.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # One pull request for all of them.
+      # One pull request for all updates.
       actions:
         patterns:
           - "*"

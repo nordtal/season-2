@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One balloon's volume: the world it stands in and the box a player steps into. */
 @ConfigSpec
 public interface BalloonSpec {
 

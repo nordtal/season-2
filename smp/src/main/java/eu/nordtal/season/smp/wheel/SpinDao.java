@@ -8,7 +8,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The wheel's spins: today's free one, the earned ones, and putting back one that paid nothing; never on main. */
+/** SpinDao must not run on the main thread. */
 public interface SpinDao {
 
     @SqlQuery("""
@@ -19,11 +19,7 @@ public interface SpinDao {
     @RegisterConstructorMapper(Spins.class)
     Optional<Spins> spinsOf(@Bind("discordId") DiscordId discordId);
 
-    /**
-     * Takes today's free spin, once.
-     *
-     * The {@code last_free IS DISTINCT FROM :today} guard gives only one of two simultaneous clicks a prize.
-     */
+    /** Only one of two simultaneous calls succeeds. */
     @SqlQuery("""
             INSERT INTO smp_spin (discord_id, last_free)
             VALUES (:discordId, :today)
@@ -34,7 +30,6 @@ public interface SpinDao {
             """)
     Optional<String> takeFreeSpin(@Bind("discordId") DiscordId discordId, @Bind("today") java.time.LocalDate today);
 
-    /** Spends one earned spin, and only if there is one to spend. */
     @SqlQuery("""
             UPDATE smp_spin
             SET used = used + 1
@@ -43,11 +38,7 @@ public interface SpinDao {
             """)
     Optional<String> takeEarnedSpin(@Bind("discordId") DiscordId discordId);
 
-    /**
-     * Puts back a free spin that was taken and paid out nothing.
-     *
-     * Idempotent; {@code previous} is null for a player's first ever free spin, hence the {@code CAST}.
-     */
+    /** Calling it again changes nothing. */
     @SqlUpdate("""
             UPDATE smp_spin
             SET last_free = CAST(:previous AS date)
@@ -58,11 +49,7 @@ public interface SpinDao {
             @Bind("previous") java.time.@Nullable LocalDate previous,
             @Bind("today") java.time.LocalDate today);
 
-    /**
-     * Puts back an earned spin that paid out nothing.
-     *
-     * Not idempotent: a second call hands back a second spin, so each call site runs at most once per spin.
-     */
+    /** Each call restores one more spin. */
     @SqlUpdate("UPDATE smp_spin SET used = used - 1 WHERE discord_id = :discordId AND used > 0")
     void restoreEarnedSpin(@Bind("discordId") DiscordId discordId);
 

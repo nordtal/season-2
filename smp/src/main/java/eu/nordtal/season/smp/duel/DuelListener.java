@@ -18,11 +18,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-/**
- * Stepping onto a platform, and the three ways a duel ends.
- *
- * Logging out counts as losing, or it becomes a free escape from losing.
- */
+/** A disconnect counts as a defeat. */
 public final class DuelListener implements Listener {
 
     private final List<Map.Entry<Box, DuelType>> platforms = new ArrayList<>();
@@ -44,11 +40,7 @@ public final class DuelListener implements Listener {
         }
     }
 
-    /**
-     * A teleport is a move, and Bukkit does not think so.
-     *
-     * PlayerTeleportEvent has its own handler list, and every travel path on this server is a teleport.
-     */
+    /** {@code PlayerTeleportEvent} has its own handler list. */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(final org.bukkit.event.player.PlayerTeleportEvent event) {
         onMove(event);
@@ -73,11 +65,6 @@ public final class DuelListener implements Listener {
         duels.steppedOn(player, on.get());
     }
 
-    /**
-     * A death inside the arena ends the duel.
-     *
-     * Drops and the death message are cleared: the loadout was the arena's, and a duel is not news.
-     */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();
@@ -87,15 +74,11 @@ public final class DuelListener implements Listener {
         event.getDrops().clear();
         event.setDroppedExp(0);
         event.deathMessage(null);
-        // On the next tick: GraveListener checks the arena at HIGH, this runs at LOWEST.
+        // GraveListener checks the arena at HIGH before this handler.
         PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
-    /**
-     * The blow that would have killed a fighter ends the duel instead, so a duel never shows a death screen.
-     *
-     * The death path still runs for /kill, the void and setHealth(0), which fire no damage event.
-     */
+    /** /kill, the void and {@code setHealth(0)} fire no damage event, so {@code onDeath} ends those duels. */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(final org.bukkit.event.entity.EntityDamageEvent event) {
         if (!(event.getEntity() instanceof final Player player) || !duels.isInArena(player)) {
@@ -108,7 +91,6 @@ public final class DuelListener implements Listener {
         PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
-    /** The other half of a duel death: see {@link Duels#respawned}. */
     @EventHandler
     public void onRespawn(final org.bukkit.event.player.PlayerRespawnEvent event) {
         duels.respawned(event);

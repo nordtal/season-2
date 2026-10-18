@@ -6,25 +6,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The track the {@code milestones} group defaults to; every key of a spec has to appear in its map.
- *
- * Each objective's aura is {@code round((budget ÷ objectives) × 5, to 10)}, its spins two per player of the gate.
+ * The default track of the {@code milestones} group.
+ * The aura of an objective is {@code round((budget ÷ objectives) × 5, to 10)}.
+ * The spins of an objective are two for each player of the gate.
  */
 final class DefaultTrack {
 
-    /** What a milestone without objectives pays: nothing. */
     private static final Budget NOTHING = new Budget(0, 0);
 
-    /** The eight milestones, in track order. */
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
-
-            // M0: where the phase switch leaves the world. Border 20 is a physical gate.
             milestone("waiting", "BORDER", 20, false, NOTHING, List.of()),
-
-            // M1: opened by an admin at the opening.
             milestone("departure", "BORDER", 43, true, NOTHING, List.of()),
-
-            // M2 foothold: 4 objectives, 20 h, 30 aura and 20 spins each, gate 10 players, day 1.
             milestone(
                     "foothold",
                     "BORDER",
@@ -54,8 +46,6 @@ final class DefaultTrack {
                                     List.of("minecraft:coal_ore", "minecraft:deepslate_coal_ore")),
                             statistic("zombies", "combat", 500, "minecraft:kill_entity", List.of("minecraft:zombie")),
                             advancement("iron-tools", 10, "minecraft:story/iron_tools"))),
-
-            // M3 settlement: 4 objectives, 45 h, 60 aura and 20 spins each, gate 10 players, days 1 to 2.
             milestone(
                     "settlement",
                     "BORDER",
@@ -88,8 +78,6 @@ final class DefaultTrack {
                                             "minecraft:bogged",
                                             "minecraft:breeze")),
                             advancement("mine-diamond", 10, "minecraft:story/mine_diamond"))),
-
-            // M4 nether: 4 objectives, 60 h, 80 aura and 16 spins each, gate 8 players, days 2 to 3.
             milestone(
                     "nether",
                     "NETHER",
@@ -106,8 +94,6 @@ final class DefaultTrack {
                                     "minecraft:mine_block",
                                     List.of("minecraft:gold_ore", "minecraft:deepslate_gold_ore")),
                             advancement("form-obsidian", 8, "minecraft:story/form_obsidian"))),
-
-            // M5 end: 5 objectives, 75 h, 80 aura and 16 spins each, gate 8 players, days 3 to 4.
             milestone(
                     "end",
                     "END",
@@ -121,8 +107,6 @@ final class DefaultTrack {
                             statistic(
                                     "endermen", "combat", 400, "minecraft:kill_entity", List.of("minecraft:enderman")),
                             advancement("blaze-rod", 8, "minecraft:nether/obtain_blaze_rod"))),
-
-            // M6 expanse: 5 objectives, 110 h, 110 aura and 12 spins each, gate 6 players, ~5 days.
             milestone(
                     "expanse",
                     "BORDER",
@@ -160,8 +144,6 @@ final class DefaultTrack {
                                             "minecraft:witch",
                                             "minecraft:illusioner")),
                             advancement("hero-of-the-village", 6, "minecraft:adventure/hero_of_the_village"))),
-
-            // M7 frontier: 5 objectives, 170 h, 170 aura and 10 spins each, gate 5 players, ~2 weeks.
             milestone(
                     "frontier",
                     "BORDER",
@@ -191,7 +173,6 @@ final class DefaultTrack {
 
     private DefaultTrack() {}
 
-    /** What each objective of one milestone pays out. */
     private record Budget(int aura, int spins) {}
 
     private static MilestonesSpec.MilestoneEntry milestone(

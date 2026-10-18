@@ -12,39 +12,27 @@ import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Turns a loaded {@link MilestonesSpec} into a {@link MilestoneTrack} of plain records the engine can test.
- *
- * An unreadable enum is reported here with the value written; every other shape problem is {@link TrackShape}'s.
- */
+/** Converts a {@link MilestonesSpec} into a {@link MilestoneTrack}. {@link TrackShape} reports structure problems. */
 public final class Milestones {
 
     private Milestones() {}
 
-    /**
-     * The outcome of reading the file.
-     *
-     * @param track the track, or {@code null} when it could not be parsed at all
-     * @param problems everything wrong with it; empty means {@code track} is usable
-     */
+    /** The result of {@link #read}. The {@code track} is {@code null} when a duplicate key made it unbuildable. */
     public record Result(@Nullable MilestoneTrack track, List<TrackValidation.Problem> problems) {
 
         public Result {
             problems = List.copyOf(Objects.requireNonNull(problems, "problems"));
         }
 
-        /** Returns whether the file is a usable track. */
         public boolean ok() {
             return track != null && problems.isEmpty();
         }
 
-        /** Returns the problems as one message, one per line. */
         public String describe() {
             return String.join("\n", problems.stream().map(Object::toString).toList());
         }
     }
 
-    /** Reads the track from the {@code milestones} group, and everything wrong with it. */
     public static Result read(final MilestonesSpec spec) {
         Objects.requireNonNull(spec, "spec");
 
@@ -119,7 +107,6 @@ public final class Milestones {
         try {
             return new MilestoneTrack(milestones);
         } catch (final IllegalArgumentException duplicateKey) {
-            // Only keeps the exception from escaping; {@link TrackShape} already reported the duplicate.
             problems.add(new TrackValidation.Problem(
                     null,
                     null,

@@ -7,7 +7,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One landing point per world the balloon flies to. */
 @ConfigSpec
 public interface BalloonSpawnPointsSpec {
 

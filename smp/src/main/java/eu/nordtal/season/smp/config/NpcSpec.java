@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** Where the spawn NPC stands, what it is called, and whose skin it wears. */
 @ConfigSpec
 public interface NpcSpec {
 

@@ -8,31 +8,21 @@ import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 
-/**
- * Draws the wheel: twelve prizes in a ring round a hub, and the controls beside it.
- *
- * Design {@code W3} moved two slot columns left; the resting cell wears the {@code travel_here} frame, not a pointer.
- */
 public final class WheelPanel {
 
-    /** Five rows: three cells tall, with the ring's band on the rows above and below its middle. */
     public static final int ROWS = 5;
 
-    /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    /** The twelve prize cells, clockwise from the leftmost along the top; index 0 is where the winner rests. */
+    /** The prize cells as column and row, clockwise. Index 0 is the resting cell of the winner. */
     private static final int[][] CELLS = {
         {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3}, {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
     };
 
-    /** The slot each cell is, in the same order, which the animation writes its icons into. */
     public static final List<Integer> CELL_SLOTS = cellSlots();
 
-    /** The cell in the middle of the ring: the hub, which carries the number and the tooltip. */
     public static final int HUB_SLOT = SlotGeometry.slot(2, 2);
 
-    /** Where the hub's number is centred: the middle of the hub's own slot cell. */
     private static final int HUB_CENTRE_X = SlotGeometry.x(2) + SlotGeometry.PITCH / 2;
 
     private static final int HUB_ROW = 2;
@@ -40,7 +30,6 @@ public final class WheelPanel {
     private static final int INFO_X = SlotGeometry.x(5) + INSET;
     private static final int INFO_RIGHT = SlotGeometry.x(8) + SlotGeometry.PITCH - INSET;
 
-    /** The row each of the three lines is written on. */
     private static final int SPINS_ROW = 1;
 
     private static final int RULE_TOP_ROW = 2;
@@ -50,30 +39,18 @@ public final class WheelPanel {
     public static final int AGAIN_X = SlotGeometry.x(6) + INSET;
     public static final int AGAIN_WIDTH = 3 * SlotGeometry.PITCH - 2 * INSET;
 
-    /** The three cells the "again" plate covers; each carries the same tooltip and the same click. */
     public static final List<Integer> AGAIN_SLOTS =
             List.of(SlotGeometry.slot(6, AGAIN_ROW), SlotGeometry.slot(7, AGAIN_ROW), SlotGeometry.slot(8, AGAIN_ROW));
 
-    /** The four cells the three text lines are written across, hoverable and never free. */
     public static final List<Integer> INFO_SLOTS = infoSlots();
 
     private WheelPanel() {}
 
-    /** What {@link WheelStrip} has to be built for: twelve cells, resting on the first. */
     public static WheelStrip.Shape shape() {
         return new WheelStrip.Shape(CELLS.length, 0);
     }
 
-    /**
-     * The whole surface, as the inventory title.
-     *
-     * @param title the readable window title, already translated
-     * @param spins the spins left after this one, as a bare number for the hub
-     * @param left the line naming those spins in words
-     * @param ruleTop the first line of the rule: more contribution, more spins
-     * @param ruleFoot the second line of it
-     * @param again the button's label
-     */
+    /** Returns the inventory title that draws the whole window. {@code spins} is the number left after this spin. */
     public static Component title(
             final Component title,
             final String spins,
@@ -105,7 +82,7 @@ public final class WheelPanel {
         return List.copyOf(slots);
     }
 
-    /** The four cells under the text, holding a {@code BlankItem} so a shift-click never lands under the text. */
+    /** Each of these slots holds a {@code BlankItem}. */
     private static List<Integer> infoSlots() {
         final java.util.List<Integer> slots = new java.util.ArrayList<>();
         for (final int row : new int[] {SPINS_ROW, RULE_TOP_ROW, RULE_BOTTOM_ROW}) {

@@ -41,14 +41,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Duels: two 3 x 3 platforms at the spawn, an arena that appears above it, and one short fight.
- *
- * The duel's inventory, health and effects are its own, the loadouts are identical, and a disconnect is a defeat.
- */
 public final class Duels implements Arenas {
 
-    /** How long the fighters stand still before they may hit each other. */
     private static final int COUNTDOWN_SECONDS = 3;
 
     private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
@@ -69,24 +63,15 @@ public final class Duels implements Arenas {
 
     private final Map<UUID, ActiveDuel> byPlayer = new HashMap<>();
 
-    /**
-     * Fighters put back on their platform, who must step off before duelling again.
-     *
-     * The restore is a teleport, which counts as a move and would otherwise start the next duel at once.
-     */
+    /** A fighter in {@code settled} must step off the platform before the next duel. */
     private final java.util.Set<UUID> settled = new java.util.HashSet<>();
 
-    /**
-     * Fighters who died in the arena, and the state waiting for them until {@link #respawned}.
-     *
-     * The respawn overwrites an inventory written onto a dead player with the arena's loadout.
-     */
+    /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
     private final Map<UUID, SavedState> pending = new HashMap<>();
 
     private static final Title.Times OUTCOME = Title.Times.times(
             java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(600));
 
-    /** Where a duel ends, for both fighters: the spawn, because the platform would restart the duel. */
     private @Nullable Location spawn() {
         return worlds.world(WorldRole.NORDTAL)
                 .map(world -> eu.nordtal.season.smp.world.LandingSite.safeAt(world, world.getSpawnLocation()))
@@ -119,14 +104,9 @@ public final class Duels implements Arenas {
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
     }
 
-    /** A pair that stepped on while every arena was busy. */
     private record Queued(UUID first, UUID second, DuelType type) {}
 
-    /**
-     * One running duel.
-     *
-     * discordIds is captured at the start: the base forgets an identity on quit before a disconnect is settled.
-     */
+    /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
     private record ActiveDuel(
             UUID first,
             UUID second,
@@ -141,7 +121,6 @@ public final class Duels implements Arenas {
         }
     }
 
-    /** Whether a player is fighting. */
     @Override
     public boolean isInArena(final Player player) {
         return byPlayer.containsKey(player.getUniqueId());
@@ -153,12 +132,10 @@ public final class Duels implements Arenas {
         }
         final UUID other = waiting.get(type);
         if (other != null && other.equals(player.getUniqueId())) {
-            // Already waiting: called on every block change inside the platform, several times at walking pace.
             return;
         }
         if (other == null) {
             waiting.put(type, player.getUniqueId());
-            // SELECT, as for a menu click: the server noticed the choice.
             tell(player, MESSAGES.smp().duel().waiting(), Feedback.SELECT);
             return;
         }
@@ -168,7 +145,7 @@ public final class Duels implements Arenas {
             return;
         }
         waiting.remove(type);
-        // One tick later: Bukkit applies event.getTo() after handlers return, undoing a teleport made in the event.
+        // Bukkit applies the event's target after the handlers return, which undoes a teleport made in them.
         final java.util.UUID firstId = opponent.getUniqueId();
         final java.util.UUID secondId = player.getUniqueId();
         PaperScheduler.of(plugin).onMain(() -> {
@@ -180,11 +157,7 @@ public final class Duels implements Arenas {
         });
     }
 
-    /**
-     * Gives a dead fighter their own life back, on the other side of the respawn screen.
-     *
-     * The location is set on the event and the inventory one tick later, after the respawn has written its own.
-     */
+    /** The inventory is restored one tick later, after the respawn has written its own. */
     public void respawned(final org.bukkit.event.player.PlayerRespawnEvent event) {
         final SavedState state = pending.remove(event.getPlayer().getUniqueId());
         if (state == null) {
@@ -211,7 +184,6 @@ public final class Duels implements Arenas {
         final Optional<Integer> slot = slots.claim();
         if (slot.isEmpty()) {
             queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
-            // Silent on purpose: whoever stepped on second heard SELECT in this same tick.
             tell(first, MESSAGES.smp().duel().queued());
             tell(second, MESSAGES.smp().duel().queued());
             return;
@@ -231,7 +203,6 @@ public final class Duels implements Arenas {
         saved.put(first.getUniqueId(), SavedState.of(first));
         saved.put(second.getUniqueId(), SavedState.of(second));
 
-        // Read now, while both fighters are online.
         final Map<UUID, String> discordIds = new HashMap<>();
         identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id.value()));
         identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id.value()));
@@ -242,7 +213,6 @@ public final class Duels implements Arenas {
         byPlayer.put(second.getUniqueId(), duel);
 
         final int radius = config.duelArenaRadius();
-        // If the first fighter did not arrive, the second must not enter an arena that is about to be torn down.
         if (!enter(first, centre.clone().add(-radius + 1.5, 1, 0), type)
                 || !enter(second, centre.clone().add(radius - 1.5, 1, 0), type)) {
             abort(duel);
@@ -251,7 +221,7 @@ public final class Duels implements Arenas {
         countdown(duel);
     }
 
-    /** Unwinds a duel that never started: both fighters go back as they were, and nothing is booked. */
+    /** Books no stake. */
     private void abort(final ActiveDuel duel) {
         byPlayer.remove(duel.first());
         byPlayer.remove(duel.second());
@@ -261,11 +231,7 @@ public final class Duels implements Arenas {
         slots.release(duel.slot());
     }
 
-    /**
-     * Puts a fighter into the arena with the loadout.
-     *
-     * @return whether the player is standing in the arena; the caller aborts on false
-     */
+    /** Returns false when the player is not in the arena. */
     private boolean enter(final Player player, final Location at, final DuelType type) {
         SavedState.clear(player);
         if (!player.teleport(at)) {
@@ -294,7 +260,6 @@ public final class Duels implements Arenas {
                 continue;
             }
             final ItemStack stack = new ItemStack(material, Math.max(1, entry.amount()));
-            // Armour goes on rather than into the hotbar, so neither fighter spends the countdown dressing.
             if (!equipIfArmour(player, material, stack)) {
                 player.getInventory().addItem(stack);
             }
@@ -317,7 +282,7 @@ public final class Duels implements Arenas {
         return true;
     }
 
-    /** Four evenly spaced beats, 3-2-1-Go: the last lands on the moment the fight starts. */
+    /** The last beat is the start of the fight. */
     private void countdown(final ActiveDuel duel) {
         final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
         for (final CountdownPlan.Beat<MessageRef> beat :
@@ -327,7 +292,6 @@ public final class Duels implements Arenas {
     }
 
     private void say(final ActiveDuel duel, final CountdownPlan.Beat<MessageRef> beat) {
-        // A beat of a duel that ended, or of one that ended and was followed by another, says nothing.
         if (!duel.equals(byPlayer.get(duel.first()))) {
             return;
         }
@@ -338,7 +302,6 @@ public final class Duels implements Arenas {
         });
     }
 
-    /** A fighter was defeated, by damage or by disconnecting. */
     public void decide(final Player loser) {
         final ActiveDuel duel = byPlayer.get(loser.getUniqueId());
         if (duel == null) {
@@ -360,23 +323,17 @@ public final class Duels implements Arenas {
         drainQueue();
     }
 
-    /**
-     * Gives a fighter their own state back.
-     *
-     * @param feedback the winner's or loser's sound, or {@code null} for a duel called off by stop()
-     */
+    /** A null {@code feedback} means that {@code stop()} ends the duel. */
     private void restore(final ActiveDuel duel, final UUID playerId, final @Nullable Feedback feedback) {
         final SavedState state = duel.saved().get(playerId);
         final Player player = Bukkit.getPlayer(playerId);
         if (player == null || state == null) {
             return;
         }
-        // Before the restore: the restore is the teleport that would otherwise start the next duel in the same tick.
+        // The restore is a teleport, which counts as a move and would start the next duel.
         settled.add(playerId);
         if (player.isDead()) {
-            // Nothing may be written onto a dead player, but the message and sound go out now.
             pending.put(playerId, state);
-            // Triggered now: the pending map is process memory only, lost if the server stops mid-respawn.
             player.spigot().respawn();
         } else {
             state.restore(player, spawn());
@@ -389,7 +346,6 @@ public final class Duels implements Arenas {
                 feedback == null
                         ? lines.interrupted()
                         : feedback == Feedback.BIG_SUCCESS ? lines.won(stake) : lines.lost(stake)));
-        // A title as well as the chat line: the line scrolls back, the title is what the hit player reads now.
         if (feedback != null) {
             final boolean won = feedback == Feedback.BIG_SUCCESS;
             player.showTitle(Title.title(
@@ -410,13 +366,8 @@ public final class Duels implements Arenas {
         }
     }
 
-    /**
-     * Books the stake and records the duel.
-     *
-     * The stake is symmetrical: the winner gains it, the loser loses it.
-     */
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
-        // From the duel, not Identities: on a disconnect the cache is already cleared by the time this runs.
+        // A disconnect has already cleared the identity cache.
         final String winner = duel.discordIds().get(winnerId);
         final String loser = duel.discordIds().get(loserId);
         if (winner == null || loser == null) {
@@ -437,7 +388,6 @@ public final class Duels implements Arenas {
             final Player first = Bukkit.getPlayer(pair.first());
             final Player second = Bukkit.getPlayer(pair.second());
             if (first != null && second != null) {
-                // pair.type(), not a guess: a bow pair queued behind a sword pair must not be handed swords.
                 begin(first, second, pair.type());
             }
         }
@@ -465,7 +415,6 @@ public final class Duels implements Arenas {
         placed.put(slot, blocks);
     }
 
-    /** Places one block, and only into air, so the worst case is a hole in the arena and never in a build. */
     private @Nullable Location place(final Location centre, final int dx, final int dy, final int dz) {
         final Location at = centre.clone().add(dx, dy, dz);
         if (!at.getBlock().getType().isAir()) {
@@ -487,12 +436,10 @@ public final class Duels implements Arenas {
         });
     }
 
-    /** Ends every duel and removes every arena, at disable. */
     public void stop() {
         List.copyOf(byPlayer.values()).forEach(duel -> {
             byPlayer.remove(duel.first());
             byPlayer.remove(duel.second());
-            // No sound: a duel called off because the server is stopping cost nobody anything.
             restore(duel, duel.first(), null);
             restore(duel, duel.second(), null);
             teardown(duel.slot());
@@ -517,11 +464,6 @@ public final class Duels implements Arenas {
         tell(player, message, null);
     }
 
-    /**
-     * The same, plus a sound.
-     *
-     * A {@code null} feedback is ordinary: only moments that change what the player can do get one.
-     */
     private void tell(final Player player, final MessageRef message, final @Nullable Feedback feedback) {
         player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), message));
         if (feedback != null) {

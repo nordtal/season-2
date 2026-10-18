@@ -6,7 +6,6 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One duel platform: which loadout it hands out, and the box a player has to stand in. */
 @ConfigSpec
 public interface DuelPlatformSpec {
 

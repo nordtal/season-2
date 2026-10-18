@@ -3,16 +3,11 @@ package eu.nordtal.season.smp.wheel;
 import java.util.List;
 import java.util.Random;
 
-/** The weighted draw behind the wheel, pure and given its {@link Random} so the distribution can be asserted. */
 public final class PrizeDraw {
 
     private PrizeDraw() {}
 
-    /**
-     * Picks an index into {@code weights}, each with probability proportional to its weight.
-     *
-     * @throws IllegalArgumentException on an empty pool, which config validation already refuses
-     */
+    /** Returns an index with a probability proportional to its weight. */
     public static int draw(final List<Integer> weights, final Random random) {
         if (weights == null || weights.isEmpty()) {
             throw new IllegalArgumentException("the wheel has nothing to land on");
@@ -33,7 +28,6 @@ public final class PrizeDraw {
             }
             roll -= weight;
         }
-        // Only reachable if nextDouble() returned exactly 1.0, which its contract forbids.
         for (int index = weights.size() - 1; index >= 0; index--) {
             if (weights.get(index) != null && weights.get(index) > 0) {
                 return index;

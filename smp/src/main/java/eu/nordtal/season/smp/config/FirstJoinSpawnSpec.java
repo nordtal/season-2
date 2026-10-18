@@ -6,11 +6,9 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** Where the first join lands, world included. */
 @ConfigSpec
 public interface FirstJoinSpawnSpec {
 
-    /** A rename of the Nordtal world has to be repeated here. */
     @Order(1)
     @Name("World")
     @Key("world")

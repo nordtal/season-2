@@ -9,11 +9,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
-/**
- * Right-clicking the wheel in the tavern spins it.
- *
- * Runs at default priority and cancels the event itself, since spawn protection at {@code LOW} refused it.
- */
+/** WheelListener runs at default priority and cancels the event. Spawn protection at {@code LOW} refuses it. */
 public final class WheelListener implements Listener {
 
     private final Boxes regions;

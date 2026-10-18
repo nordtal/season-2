@@ -29,11 +29,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The wheel of fortune in the tavern: one free spin a day, plus whatever contributing has earned.
- *
- * A spin is spent in SQL off the main thread, so two clicks yield one prize; {@link WheelGui} only shows it.
- */
+/** The SQL update that spends a spin runs off the main thread, so two clicks yield one prize. */
 public final class Wheel {
 
     private final Plugin plugin;
@@ -63,7 +59,7 @@ public final class Wheel {
         this.sounds = sounds;
     }
 
-    /** Spins once for a player, if they have a spin. Safe to call from the main thread. */
+    /** Callable from the main thread. */
     public void spin(final Player player) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -77,7 +73,6 @@ public final class Wheel {
             final LocalDate today = LocalDate.now(clock);
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
 
-            // Free first: an earned spin kept is still earned, but a free one not taken today is gone at midnight.
             final boolean free = spins.hasFree(today);
             final LocalDate previousFree = spins.lastFree();
             final boolean took = free
@@ -85,7 +80,6 @@ public final class Wheel {
                     : dao.takeEarnedSpin(discordId.get()).isPresent();
 
             if (!took) {
-                // Three keys rather than "spin(s)".
                 final int extras = spins.extras();
                 final MessageRef none = extras == 0
                         ? MESSAGES.smp().wheel().none()
@@ -95,17 +89,15 @@ public final class Wheel {
                 tell(player, renderer.format(locale, none), Feedback.REFUSED);
                 return;
             }
-            // How to undo exactly the row this spin changed; built here since only this call site knows which.
             final String id = discordId.get().value();
             final Runnable refund = free
                     ? () -> offThread(() -> dao.restoreFreeSpin(DiscordId.of(id), previousFree, today))
                     : () -> offThread(() -> dao.restoreEarnedSpin(DiscordId.of(id)));
-            // What is left after this spin, read from the row already in hand rather than queried again.
             award(player, locale, refund, Math.max(0, spins.available(today) - 1));
         });
     }
 
-    /** Tells a player what they have without spending anything. */
+    /** Spends no spin. */
     public void describe(final Player player) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -136,19 +128,17 @@ public final class Wheel {
             plugin.getLogger()
                     .warning("wheel-prizes names '" + prize.item()
                             + "', which is not a material - the spin is being put back and nothing was given");
-            // The spin goes back: a bad item name in the config group is an operator's typo, not bad luck.
             refund.run();
             tell(player, renderer.format(locale, MESSAGES.smp().wheel().brokenPrize()), Feedback.LOSS);
             return;
         }
 
-        // Everything above is a decision off the main thread.
+        // This part runs off the main thread.
         final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random, WheelPanel.shape());
         final List<ItemStack> icons = icons(pool);
 
         PaperScheduler.of(plugin).onMain(() -> {
             if (!player.isOnline()) {
-                // Nobody to show it to and nobody to give it to. give() puts the spin back.
                 give(player, material, prize.amount(), locale, refund);
                 return;
             }
@@ -159,16 +149,13 @@ public final class Wheel {
                             icons,
                             sounds,
                             spinsLeft,
-                            // Another spin runs spin() again. Null when nothing is left to spend.
                             spinsLeft > 0 ? () -> spin(player) : null,
                             winner -> give(winner, material, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
     }
 
-    /**
-     * Hands over what was won once, from {@code WheelGui#finish}, running {@code refund} when nothing was handed over.
-     */
+    /** {@code WheelGui#finish} calls it once. It runs {@code refund} when the player is offline. */
     private void give(
             final Player player,
             final Material material,
@@ -184,7 +171,6 @@ public final class Wheel {
             return;
         }
         final ItemStack stack = new ItemStack(material, count);
-        // Whatever does not fit goes on the floor rather than vanishing.
         final Location dropAt = Objects.requireNonNull(player.getLocation());
         player.getInventory()
                 .addItem(stack)
@@ -194,7 +180,7 @@ public final class Wheel {
                 renderer.format(locale, MESSAGES.smp().wheel().won(count, GameContent.of(material.translationKey()))));
     }
 
-    /** One icon per prize, in pool order, with a barrier for a material that does not resolve. */
+    /** A material that does not resolve gets a barrier. */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final WheelPrizeSpec prize : pool) {
@@ -212,7 +198,7 @@ public final class Wheel {
         return GameKeys.material(name).orElse(null);
     }
 
-    /** Runs database work off the main thread from anywhere; a refund lost to a shutdown is logged, not thrown. */
+    /** It logs a refund that the shutdown rejects. */
     private void offThread(final Runnable work) {
         try {
             PaperScheduler.of(plugin).execute(work);
@@ -223,12 +209,10 @@ public final class Wheel {
         }
     }
 
-    /** Sends one already-rendered message on the main thread, from wherever it is called. */
     private void tell(final Player player, final Component message) {
         tell(player, message, null);
     }
 
-    /** The same, plus a sound, in one hop so the two land in the same tick. */
     private void tell(final Player player, final Component message, final @Nullable Feedback feedback) {
         PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {

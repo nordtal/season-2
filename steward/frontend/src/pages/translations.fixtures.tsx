@@ -11,6 +11,7 @@ import type {
   DocumentDeclaration,
   DocumentDraft,
   DocumentList,
+  DocumentProblem,
   DocumentView,
   MessageEntry,
   MessageFallback,
@@ -85,12 +86,14 @@ export function view(over: Partial<DocumentDeclaration> & { name: string }, docu
     services: ["discord-bot"],
     packaged: document,
     hash: "packaged",
+    named: {},
+    outdated: false,
     adapted: [],
   }
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { documents: views, languages: ["en"], ...over }
+  return { writable: true, documents: views, languages: ["en"], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
@@ -100,6 +103,10 @@ export type Around = {
   check?: (text: string) => MessageProblem[]
   /** Draws a document's draft as the server would, as Discord's JSON. */
   render?: (draft: DocumentDraft) => Record<string, unknown>
+  /** What a save of the draft would be refused or warned for. */
+  problems?: (draft: DocumentDraft) => DocumentProblem[]
+  /** Answers a document's save, at its path under `/api/documents/`, with the list it leaves. */
+  saveDocument?: (path: string, document: Document) => DocumentList
   /** Answers a preview's body with the request's name. */
   preview?: (body: unknown) => string
   /** What became of each request, by name. */
@@ -119,7 +126,12 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     if (url === "/api/messages") return json(texts)
     if (url === "/api/documents") return json(around.documents ?? documents([]))
     if (url === "/api/documents/render" && around.render) {
-      return json({ discord: around.render(JSON.parse(init?.body ?? "")) })
+      const draft: DocumentDraft = JSON.parse(init?.body ?? "")
+      return json({ discord: around.render(draft), components: 7, most: 40, problems: around.problems?.(draft) ?? [] })
+    }
+    if (url.startsWith("/api/documents/") && init?.method === "PUT") {
+      if (!around.saveDocument) throw new Error("the page saved a document, which this test did not expect")
+      return json(around.saveDocument(url.slice("/api/documents/".length), JSON.parse(init.body ?? "")))
     }
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})

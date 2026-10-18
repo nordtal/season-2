@@ -18,7 +18,7 @@ import {
 } from "@/components/steward/message-editor/preview"
 
 /** How long typing pauses before the server draws the draft again. */
-const PAUSE_MS = 300
+export const PAUSE_MS = 300
 
 /**
  * A Discord document as the bot draws it, or as its modal. The server draws it with the bot's own renderer, every value at its declared example; this only draws Discord's JSON.
@@ -66,6 +66,7 @@ type Component = {
   placeholder?: string
   url?: string
   media?: { url: string }
+  file?: { url: string }
   items?: { media: { url: string } }[]
 }
 
@@ -79,6 +80,7 @@ const SECTION = 9
 const TEXT = 10
 const THUMBNAIL = 11
 const GALLERY = 12
+const FILE = 13
 const SEPARATOR = 14
 const CONTAINER = 17
 const LABEL = 18
@@ -165,6 +167,8 @@ function ComponentView({ component, language }: { component: Component; language
           ))}
         </div>
       )
+    case FILE:
+      return <Media url={component.file?.url} className="h-12 w-full max-w-xs" />
     case SEPARATOR:
       return <hr className="my-1 border-t" style={{ borderColor: "#3f4147" }} />
     case ROW:
@@ -279,9 +283,10 @@ function timeOf(seconds: number, style: string | undefined, language: Language):
 /**
  * An image of the document: a stored upload, an address, or a file the bot's jar packs, which Steward cannot read and draws as its name.
  */
-function Media({ url, className }: { url: string | undefined; className?: string }) {
+export function Media({ url, className }: { url: string | undefined; className?: string }) {
   if (url === undefined) return null
-  const upload = /^upload:\/\/(\d+)$/.exec(url)
+  // The bot packs a stored upload as an attachment, so a drawn file names it behind attachment://.
+  const upload = /^(?:attachment:\/\/)?upload:\/\/(\d+)$/.exec(url)
   if (upload || url.startsWith("https://")) {
     return (
       <img

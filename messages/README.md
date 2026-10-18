@@ -118,8 +118,9 @@ steward-agent ships the declarations and documents with the bundle (`MessageBund
 An admin's document replaces the packaged one whole. It may move the slots, leave out the optional
 ones, change every text and add link buttons and images. An image is `attachment://`, `https://` or
 `upload://<id>`, which is an image that an admin uploaded in Steward and that the bot sends as an
-attachment. `DocumentStore` keeps the document with the packaged hash it was written over, and the
-bot reads it again on `nordtal_messages`. Steward shows documents read only.
+attachment. A file part holds one such image that the message packs, never an `https://` one.
+`DocumentStore` keeps the document with the packaged hash it was written over, and the bot reads it
+again on `nordtal_messages`. Steward's Translations page edits it.
 
 `DocumentMerge` keeps an admin's document when a release changes the packaged one:
 

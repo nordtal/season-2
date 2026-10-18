@@ -451,6 +451,7 @@ export type MessageSyntax = {
 }
 
 export type DocumentList = {
+  writable: boolean
   documents: DocumentView[]
   languages: string[]
 }
@@ -463,6 +464,14 @@ export type DocumentDraft = {
 
 export type DocumentDrawing = {
   discord: Record<string, unknown>
+  components: number
+  most: number
+  problems: DocumentProblem[]
+}
+
+export type Uploaded = {
+  id: number
+  address: string
 }
 
 export type MessageProblem = {
@@ -849,10 +858,12 @@ export type MessageFallbackReason = "STALE" | "REFUSED"
 
 export type DocumentView = {
   declaration: DocumentDeclaration
+  named: Record<string, DocumentValue>
   services: string[]
   packaged: Document
   hash: string
   written?: Document
+  outdated: boolean
   adapted: DocumentAdaptation[]
 }
 
@@ -867,6 +878,11 @@ export type DocumentDeclaration = {
 
 export type Document = {
   parts: DocumentPart[]
+}
+
+export type DocumentProblem = {
+  error: boolean
+  text: string
 }
 
 export type NetworkBox = {
@@ -1005,18 +1021,18 @@ export type MessageEntry = {
 
 export type MessagePreviewTarget = "GAME" | "DISCORD"
 
+export type DocumentValue = {
+  kind: string
+  example: string
+  takes?: string[]
+}
+
 export type DocumentAdaptation = {
   change: DocumentChange
   subject: string
 }
 
 export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME"
-
-export type DocumentValue = {
-  kind: string
-  example: string
-  takes?: string[]
-}
 
 export type DocumentSlot = {
   id: string
@@ -1111,7 +1127,7 @@ export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
 
 export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT"
 
-export type DocumentPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "ROW" | "LANGUAGES"
+export type DocumentPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "FILE" | "ROW" | "LANGUAGES"
 
 export type DocumentLine = {
   text: Record<string, string | string[]>

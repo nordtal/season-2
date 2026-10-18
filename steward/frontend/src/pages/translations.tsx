@@ -104,8 +104,7 @@ export function Translations({
     />
   )
   return (
-    // The editors and previews read best at a bounded width.
-    <div className="flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {texts.data ? null : title}
       <QueryState query={texts} rows={8}>
         {(read) => (

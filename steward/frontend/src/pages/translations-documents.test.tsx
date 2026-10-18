@@ -1,7 +1,7 @@
-import { cleanup, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { DocumentDraft, DocumentView } from "@/lib/api"
+import type { Document, DocumentDraft, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
@@ -177,24 +177,95 @@ describe("the list of documents", () => {
   })
 })
 
+/** Opens the contribution's editor in its card. */
+async function openContribution(): Promise<HTMLElement> {
+  await open(/^Discord/)
+  await open("Contribution")
+  within(await screen.findByRole("article", { name: "Contribution" }))
+    .getByRole("button", { name: "Contribution" })
+    .click()
+  return screen.findByRole("region", { name: "Contribution" })
+}
+
 describe("an open document", () => {
-  it("shows its preview in each language it is written in, and goes back to the list", async () => {
+  it("opens its editor in its card, with the component count and a lock on what the code requires", async () => {
     serve()
     draw(<Page />)
 
-    await open(/^Discord/)
-    await open("Contribution")
-    within(await screen.findByRole("article", { name: "Contribution" }))
-      .getByRole("button", { name: "Contribution" })
-      .click()
+    const editor = await openContribution()
+    const card = screen.getByRole("article", { name: "Contribution" })
+    expect(card.hasAttribute("data-open")).toBe(true)
+    expect(await within(editor).findByText("7 of 40 components")).toBeTruthy()
+    expect(within(editor).getByDisplayValue("Access")).toBeTruthy()
+    expect(within(editor).getAllByLabelText("Required by the code").length).toBeGreaterThan(0)
+    expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
 
-    await screen.findByRole("heading", { level: 1, name: "Contribution" })
-    await waitFor(() => expect(screen.getByRole("region", { name: "Deutsch" }).textContent).toContain("access-de"))
-    expect(screen.getByRole("region", { name: "English" }).textContent).toContain("Buy access")
-    expect(screen.queryByRole("textbox")).toBeNull()
+    fireEvent.click(within(editor).getByRole("button", { name: "Close" }))
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
+  })
 
-    await open("Translations")
-    expect(await screen.findByRole("button", { name: /^Discord/ })).toBeTruthy()
+  it("saves the edited document at once and marks it changed in the list", async () => {
+    const saved: [string, Document][] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        saveDocument: (path, document) => {
+          saved.push([path, document])
+          return documents([{ ...contribution, written: document }, modal])
+        },
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(saved).toHaveLength(1))
+    expect(saved[0][0]).toBe("discord/contribution")
+    expect(JSON.stringify(saved[0][1])).toContain('"en":"Support"')
+    expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("Changed")).toBeTruthy()
+  })
+
+  it("refuses a save the check refuses and names why", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        problems: (draft) =>
+          JSON.stringify(draft.document).includes("Support")
+            ? [{ error: true, text: "it draws 41 components, Discord draws 40" }]
+            : [],
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+
+    expect(await within(editor).findByText("it draws 41 components, Discord draws 40")).toBeTruthy()
+    expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
+  })
+
+  it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {
+    const written = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written, outdated: true }, modal]),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    expect(within(editor).getByText("Changed")).toBeTruthy()
+    expect(within(editor).getByText("Release changed")).toBeTruthy()
+    expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
+    expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })
 })
 

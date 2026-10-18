@@ -66,6 +66,25 @@ class DocumentCheckTest {
     }
 
     @Test
+    void aFileIsOnePackedAddressAndNeverAnHttpsOne() {
+        final String file = """
+                {"type": "FILE", "media": ["upload://7"]},
+              {"type": "ROW\"""";
+        assertEquals(List.of(), errors(SUMMARY, SOUND.replace("{\"type\": \"ROW\"", file)));
+        assertEquals(
+                List.of(
+                        "a file holds 2 addresses, Discord takes 1",
+                        "a file is at https://nordtal.eu/rules.pdf, but Discord packs only attachment:// or upload:// files"),
+                errors(
+                        SUMMARY,
+                        SOUND.replace(
+                                "{\"type\": \"ROW\"",
+                                file.replace(
+                                        "\"upload://7\"",
+                                        "\"https://nordtal.eu/rules.pdf\", \"attachment://rules.pdf\""))));
+    }
+
+    @Test
     void aDataListPlacedWhereAButtonBelongsIsRefused() {
         assertTrue(errors(SUMMARY, SOUND.replace("""
                         "slot": "confirm\"""", """

@@ -33,6 +33,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.filedisplay.FileDisplay;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.label.LabelChildComponent;
 import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
@@ -568,21 +569,20 @@ public final class DocumentRenderer {
         }
 
         private ContainerChildComponent child(final Part part, final Locale locale, final @Nullable String tag) {
+            // A text block and a section count their own components.
+            components += part.type() == Part.Type.TEXT || part.type() == Part.Type.SECTION ? 0 : 1;
             return switch (part.type()) {
                 case TEXT -> text(part, locale);
                 case SECTION -> section(part, locale, tag);
-                case SEPARATOR -> {
-                    components++;
-                    yield Separator.createDivider(Separator.Spacing.SMALL);
-                }
-                case GALLERY -> {
-                    components++;
-                    yield MediaGallery.of(part.allMedia().stream()
+                case SEPARATOR -> Separator.createDivider(Separator.Spacing.SMALL);
+                case GALLERY ->
+                    MediaGallery.of(part.allMedia().stream()
                             .limit(MediaGallery.MAX_ITEMS)
                             .map(this::url)
                             .map(MediaGalleryItem::fromUrl)
                             .toList());
-                }
+                case FILE ->
+                    FileDisplay.fromFileName(url(part.allMedia().getFirst()).replaceFirst("^" + ATTACHMENT, ""));
                 case CONTAINER, ROW, LANGUAGES ->
                     throw new IllegalArgumentException("a " + part.type() + " cannot stand here");
             };

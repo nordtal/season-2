@@ -11,7 +11,8 @@ import org.jspecify.annotations.Nullable;
  * @param parts what a container holds, a section's text blocks or what a block per language repeats
  * @param button a section's button
  * @param thumbnail a section's image, in place of a button
- * @param media a gallery's images, each {@code attachment://name}, {@code upload://id} or an https URL
+ * @param media a gallery's images, each {@code attachment://name}, {@code upload://id} or an https URL, or a file's one
+ *     address
  * @param items a row's buttons, or its one select or field
  * @param slot the slot of a block per language
  */
@@ -36,6 +37,8 @@ public record Part(
         SEPARATOR,
         /** One image or several side by side. */
         GALLERY,
+        /** One file to download, packed with the message: its one {@code media} is no https URL. */
+        FILE,
         /** An action row: up to five buttons, or one select or field. */
         ROW,
         /** Repeats the parts it holds once per configured language. */

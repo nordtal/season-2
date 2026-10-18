@@ -12,6 +12,7 @@ import {
   type DocumentDeclaration,
   type DocumentDrawing,
   type DocumentList,
+  type Uploaded,
   type MessageChanges,
   type MessageSaveResult,
   type MessageTexts,
@@ -103,6 +104,26 @@ export function useDocumentDrawing(declaration: DocumentDeclaration, document: D
       api<DocumentDrawing>("/api/documents/render", { method: "POST", body: { declaration, document, language } }),
     placeholderData: keepPreviousData,
     staleTime: Infinity,
+  })
+}
+
+/** Saves an admin's document over the packaged one. The answer replaces the list, and the bot edits its messages. */
+export function useSaveDocument() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ declaration, document }: { declaration: DocumentDeclaration; document: Document }) =>
+      api<DocumentList>(
+        `/api/documents/${encodeURIComponent(declaration.namespace)}/${encodeURIComponent(declaration.name)}`,
+        { method: "PUT", body: document },
+      ),
+    onSuccess: (list) => client.setQueryData(keys.documents, list),
+  })
+}
+
+/** Stores an image and answers its `upload://` address. */
+export function useUploadImage() {
+  return useMutation({
+    mutationFn: (file: File) => api<Uploaded>("/api/document-images", { method: "POST", body: file }),
   })
 }
 

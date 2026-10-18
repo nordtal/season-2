@@ -145,7 +145,7 @@ class DocumentRendererTest {
     }
 
     @Test
-    void anAdminsDocumentIsDrawnWithItsTextItsLinkButtonAndItsUploadedImage() {
+    void anAdminsDocumentIsDrawnWithItsTextItsLinkButtonItsUploadedImageAndItsFile() {
         final StoredDocuments stored = StoredDocumentsStandIn.holding(
                 List.of(new DocumentStore.StoredDocument(
                         StoredDocuments.NAMESPACE,
@@ -154,11 +154,14 @@ class DocumentRendererTest {
                                 {"parts": [
                                   {"type": "TEXT", "lines": [{"style": "HEADING", "text": {"en": "Read first", "de": "Zuerst"}}]},
                                   {"type": "GALLERY", "media": ["upload://7"]},
+                                  {"type": "FILE", "media": ["upload://8"]},
                                   {"type": "ROW", "items": [{"link": "https://nordtal.eu", "label": {"en": "Site", "de": "Seite"}}]}]}"""),
                         StoredDocumentsStandIn.none()
                                 .applied(Replies.LINK_SUCCESS)
                                 .hash())),
-                List.of(new DocumentStore.Image(7, "image/png", new byte[] {1})));
+                List.of(
+                        new DocumentStore.Image(7, "image/png", new byte[] {1}),
+                        new DocumentStore.Image(8, "image/jpeg", new byte[] {2})));
 
         final DocumentRenderer.Drawn drawn =
                 StoredDocumentsStandIn.renderer(stored).reply(Locale.GERMAN, Replies.LINK_SUCCESS);
@@ -167,9 +170,13 @@ class DocumentRendererTest {
         assertAll(
                 () -> assertTrue(sent.contains("\"### Zuerst\""), sent),
                 () -> assertTrue(sent.contains("attachment://upload-7.png"), sent),
+                () -> assertTrue(
+                        sent.contains(
+                                "{\"file\":{\"url\":\"attachment://upload-8.jpg\"},\"spoiler\":false,\"type\":13}"),
+                        sent),
                 () -> assertTrue(sent.contains("https://nordtal.eu") && sent.contains("\"Seite\""), sent),
                 () -> assertEquals(
-                        List.of("upload-7.png"),
+                        List.of("upload-7.png", "upload-8.jpg"),
                         drawn.uploads().stream().map(FileUpload::getName).toList()));
     }
 

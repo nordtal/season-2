@@ -28,8 +28,12 @@ public final class StoredDocuments implements DocumentRenderer.Source {
         this.store = store;
     }
 
-    void follow(final SignalHub hub) {
-        store.follow(List.of(NAMESPACE), hub, this::hold);
+    /** Takes the admins' documents on connect and on every change, then runs {@code changed}. */
+    void follow(final SignalHub hub, final Runnable changed) {
+        store.follow(List.of(NAMESPACE), hub, read -> {
+            hold(read);
+            changed.run();
+        });
     }
 
     /** Takes the admins' documents, each merged into this jar's declaration. */

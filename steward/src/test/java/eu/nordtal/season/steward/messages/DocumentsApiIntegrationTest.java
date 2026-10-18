@@ -4,6 +4,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -79,8 +80,11 @@ class DocumentsApiIntegrationTest {
                 new DocumentsApi(new AgentClient(agent.client()), store, SettingStore.using(database));
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
+                    config.http.maxRequestSize = DocumentsApi.IMAGE_BYTES;
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
                     config.routes.get("/api/documents", documents::list);
+                    config.routes.put("/api/documents/{namespace}/{name}", ctx -> documents.save(ctx, Actor.STEWARD));
+                    config.routes.post("/api/document-images", ctx -> documents.upload(ctx, Actor.STEWARD));
                     config.routes.get("/api/document-images/{id}", documents::image);
                     config.routes.post("/api/documents/render", documents::render);
                 })
@@ -110,6 +114,80 @@ class DocumentsApiIntegrationTest {
                 Document.decode(WELCOME), Document.decode(view.get("packaged").toString()));
         assertEquals(packaged().hash(), view.get("hash").getAsString());
         assertFalse(view.has("written"));
+        assertFalse(view.get("outdated").getAsBoolean());
+        assertEquals(
+                "text",
+                view.getAsJsonObject("named")
+                        .getAsJsonObject("join.label")
+                        .get("kind")
+                        .getAsString());
+    }
+
+    @Test
+    void aSavedDocumentIsStoredOverThePackagedHashAndListedAsWritten() throws Exception {
+        final String written = WELCOME.replace("Welcome {player}", "Hello {player}");
+
+        final JsonObject list = GSON.fromJson(
+                send("PUT", "/api/documents/smp/welcome", written.getBytes(UTF_8), 200), JsonObject.class);
+
+        final DocumentStore.StoredDocument stored =
+                store.documents(List.of("smp")).getFirst();
+        assertEquals(Document.decode(written), stored.document());
+        assertEquals(packaged().hash(), stored.replaced());
+        final JsonObject view = list.getAsJsonArray("documents").get(0).getAsJsonObject();
+        assertEquals(
+                Document.decode(written), Document.decode(view.get("written").toString()));
+        assertFalse(view.get("outdated").getAsBoolean());
+    }
+
+    @Test
+    void aSaveTheCheckRefusesWritesNothing() throws Exception {
+        final String withoutJoin = """
+                {"parts":[{"type":"TEXT","lines":[{"text":{"en":"Hi {player}"}}]}]}""";
+
+        final String refused = send("PUT", "/api/documents/smp/welcome", withoutJoin.getBytes(UTF_8), 400);
+
+        assertTrue(refused.contains("it does not place the button join"), refused);
+        assertEquals(List.of(), store.documents(List.of("smp")));
+        send("PUT", "/api/documents/smp/nothing", WELCOME.getBytes(UTF_8), 404);
+        send("PUT", "/api/documents/smp/welcome", "{".getBytes(UTF_8), 400);
+        send(
+                "PUT",
+                "/api/documents/smp/welcome",
+                WELCOME.replace("Welcome", "{gone}").getBytes(UTF_8),
+                400);
+        send(
+                "PUT",
+                "/api/documents/smp/welcome",
+                WELCOME.replace("#5865f2", "blue").getBytes(UTF_8),
+                400);
+        send("PUT", "/api/documents/smp/welcome", """
+                {"parts":[{"type":"GALLERY","media":["upload://99"]},
+                  {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}""".getBytes(UTF_8), 400);
+        assertEquals(List.of(), store.documents(List.of("smp")));
+    }
+
+    @Test
+    void aDocumentOverAnOlderPackagedOneIsMarkedOutdated() throws Exception {
+        store.change(
+                new DocumentStore.StoredDocument("smp", "welcome", Document.decode(WELCOME), "b".repeat(64)),
+                Actor.STEWARD);
+
+        assertTrue(view().get("outdated").getAsBoolean());
+    }
+
+    @Test
+    void anUploadIsStoredByTheTypeItsBytesShowAndShownByItsAddress() throws Exception {
+        final JsonObject uploaded = GSON.fromJson(send("POST", "/api/document-images", PNG, 200), JsonObject.class);
+
+        final long id = uploaded.get("id").getAsLong();
+        assertEquals("upload://" + id, uploaded.get("address").getAsString());
+        assertEquals("image/png", store.image(id).orElseThrow().mediaType());
+        send("POST", "/api/document-images", "not an image".getBytes(UTF_8), 400);
+        send("POST", "/api/document-images", new byte[DocumentsApi.IMAGE_BYTES + 1], 413);
+        final String shown = WELCOME.replace(
+                "{\"type\":\"ROW\"", "{\"type\":\"GALLERY\",\"media\":[\"upload://" + id + "\"]},{\"type\":\"ROW\"");
+        send("PUT", "/api/documents/smp/welcome", shown.getBytes(UTF_8), 200);
     }
 
     /** A document written over an older release, which had a slot this one dropped. */
@@ -156,9 +234,12 @@ class DocumentsApiIntegrationTest {
         draft.add("document", Json.tree(WELCOME));
         draft.addProperty("language", "de");
 
-        final JsonObject discord = GSON.fromJson(
-                        send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 200), JsonObject.class)
-                .getAsJsonObject("discord");
+        final JsonObject drawing = GSON.fromJson(
+                send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 200), JsonObject.class);
+        final JsonObject discord = drawing.getAsJsonObject("discord");
+
+        assertEquals(4, drawing.get("components").getAsInt());
+        assertEquals(0, drawing.getAsJsonArray("problems").size());
 
         final JsonObject container = discord.getAsJsonArray("components").get(0).getAsJsonObject();
         assertEquals(0x5865f2, container.get("accent_color").getAsInt());

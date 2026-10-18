@@ -76,6 +76,11 @@ public final class DocumentCheck {
         return List.copyOf(check.problems);
     }
 
+    /** Returns how many components the document draws at its largest, a block per language once per language. */
+    public static int components(final DocumentDeclaration declaration, final Document document) {
+        return new Measure(declaration, document.languages()).components(document.parts());
+    }
+
     /** Returns the text of each problem that refuses the document. */
     public static List<String> errors(
             final DocumentDeclaration declaration, final Document document, final MessageCheck.Mode mode) {
@@ -146,6 +151,15 @@ public final class DocumentCheck {
                         error("a gallery holds " + part.allMedia().size() + " images, Discord draws 1 to "
                                 + GALLERY_ITEMS);
                     }
+                }
+                case FILE -> {
+                    if (part.allMedia().size() != 1) {
+                        error("a file holds " + part.allMedia().size() + " addresses, Discord takes 1");
+                    }
+                    part.allMedia().stream()
+                            .filter(address -> address.startsWith("https://"))
+                            .forEach(address -> error("a file is at " + address
+                                    + ", but Discord packs only attachment:// or upload:// files"));
                 }
                 case ROW -> row(part);
                 case LANGUAGES -> {
@@ -449,7 +463,7 @@ public final class DocumentCheck {
                     case SECTION -> 2 + components(part.inner());
                     case ROW -> 1 + part.allItems().size();
                     case LANGUAGES -> Math.max(1, languages.size()) * components(part.inner());
-                    case TEXT, SEPARATOR, GALLERY -> 1;
+                    case TEXT, SEPARATOR, GALLERY, FILE -> 1;
                 };
             }
             return count;

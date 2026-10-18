@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 
 /** The texts the layout tests and the shared vectors place, shown as a text block unless a key says otherwise. */
@@ -44,6 +45,9 @@ public interface LayoutTexts {
 
     @Name("Steps")
     MessageRef steps(@Arg("button") @Takes("buy") MessageRef button);
+
+    @Name("Anything of this bundle")
+    MessageRef any(@Arg("text") @Takes("layouts/*") @Example("layouts/title") MessageRef text);
 
     @Name("Untaken")
     MessageRef untaken(@Arg("what") MessageRef what);

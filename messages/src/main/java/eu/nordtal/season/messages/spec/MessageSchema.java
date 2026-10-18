@@ -205,7 +205,11 @@ public final class MessageSchema {
                     method + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
         }
         final List<String> choices = takes == null ? choices(type) : List.of(takes.value());
-        if (example != null && !choices.isEmpty() && !choices.contains(example.value())) {
+        if (example == null && takes != null && whole(choices.getFirst())) {
+            throw new IllegalStateException(
+                    method + ": " + name + " takes " + choices.getFirst() + ", so it needs an @Example to preview");
+        }
+        if (example != null && !choices.isEmpty() && !takes(choices, example.value())) {
             throw new IllegalStateException(method + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
@@ -331,6 +335,18 @@ public final class MessageSchema {
     /** Reads a {@code schema.json}. */
     public static Bundle decode(final java.io.Reader json) {
         return Json.decode(json, Bundle.class);
+    }
+
+    /** Whether a key {@link Takes} names is a whole bundle, {@code bundle/*}. */
+    public static boolean whole(final String taken) {
+        return taken.endsWith("/*");
+    }
+
+    /** Whether {@code key} is one of {@code choices}, or a key of a bundle one of them names whole. */
+    private static boolean takes(final List<String> choices, final String key) {
+        return choices.contains(key)
+                || choices.stream()
+                        .anyMatch(choice -> whole(choice) && key.startsWith(choice.substring(0, choice.length() - 1)));
     }
 
     /**

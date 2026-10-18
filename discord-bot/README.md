@@ -52,13 +52,14 @@ The container runs the jar baked into its image; the whole deployment is in [../
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `LayoutRenderer`: draws a declared layout as a Components V2 message within Discord's limits. Every message
-  a member reads is one: the managed messages, the replies, the direct messages and the modals, each declared
+  the bot sends is one: the managed messages, the replies, the direct messages, the modals and the admin
+  channel's cards, each declared
   beside the code that fills it; a reply of one text is in `Replies`, found by its text's key. A modal is its
   title and one field per row, so only its texts change. An ephemeral flow edits one message through several
   layouts, which works because each of them is V2. Where Steward stores a rebuild written over
   the jar's layout (`StoredLayouts`, re-read on `nordtal_messages`), the next publish draws the rebuild, carried
   over by `LayoutMerge` when a release changed the layout, and its uploaded images are sent as attachments.
-- `Mark`: the one set of emojis every embed and the admin log take their status and action marks from.
+- `Mark`: the one set of emojis every message of the bot takes its status and action marks from.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.
 
@@ -114,13 +115,14 @@ target of `:messages`; `:architecture` refuses `Messages.format` here.
 
 - In a markdown text each value is escaped with JDA's sanitizer, character by character, so a team
   called `Red_Fox**` reads as written; a link stays as it is. A moment is Discord's `<t:…:f>` and a
-  member a mention. A text shown without markdown (a button, select, modal or channel name) is
+  member a mention, in a message placed in another message too. A text shown without markdown (a button, select, modal or channel name) is
   declared `PLAIN`.
 - The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page
   renders too. A journal line goes through `AdminLog.record`, a member's action and a note of the bot's own
   alike, the bot as the note's actor: the row stores the message and the card is that same message rendered
   here, so the journal and the card cannot differ. A booking's line is steward's, written with the booking,
   and reaches the bot in the request it reacts to. Alerts and the update feed are drawn from the same bundle,
-  in English.
+  in English: a card's title and lines take any message of the admin or database bundle, and its services and
+  failures are data lists. A mention in a card names someone without a ping; only an alert's admins are pinged.
 - Only what a member reads is in the bot's own bundle, in every language, except an announcement: a
   server or Steward writes it as messages of `:database`'s bundle, which the bot renders in each channel's language.

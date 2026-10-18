@@ -15,8 +15,11 @@ import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 /** Every message of the access bundle, one method per key. */
 @MessageSpec("access")
@@ -563,6 +566,60 @@ public interface AccessMessages {
     }
 
     Announce announce();
+
+    Admin admin();
+
+    /** The admin channel's cards, in English; a slot takes any message of the admin and database bundles. */
+    @Name("Admin channel")
+    interface Admin {
+
+        @Name("A card's title, after its mark")
+        MessageRef title(
+                @Arg("mark") @Example(Mark.PREVIEW) String mark,
+                @Arg("title") @Takes({"admin/*", "database/*"}) @Example("admin/run.why") MessageRef title);
+
+        @Name("A card's line")
+        MessageRef line(@Arg("line") @Takes({"admin/*", "database/*"}) @Example("admin/run.why") MessageRef line);
+
+        @Name("A user to ping")
+        MessageRef mention(@Arg("admin") Mention admin);
+
+        @Name("Who did it")
+        MessageRef by(@Arg("who") @Takes({"admin/journal.actor", "admin/journal.person"}) MessageRef who);
+
+        @Name("Whom it concerns")
+        MessageRef concerns(@Arg("who") @Takes({"admin/journal.actor", "admin/journal.person"}) MessageRef who);
+
+        @Name("The Minecraft account it concerns")
+        MessageRef minecraft(@Arg("account") String account);
+
+        @Name("How long a run took")
+        MessageRef duration(@Arg("took") Duration took);
+
+        @Name("A service in a run, its state and what changed")
+        MessageRef service(
+                @Arg("mark") @Example(Mark.PREVIEW) String mark,
+                @Arg("service") @Example("smp") String service,
+                @Arg("state") @Takes("admin/run.state") MessageRef state,
+                @Arg("changes") List<MessageRef> changes);
+
+        @Name("What changed of a service")
+        MessageRef change(
+                @Arg("artefact") @Example("paper") String artefact,
+                @Arg("change") @Takes({"admin.moved", "admin.version", "admin/*", "database/*"}) MessageRef change);
+
+        @Name("A version replaced by another")
+        MessageRef moved(@Arg("from") @Example("1.21.4") String from, @Arg("to") @Example("1.21.5") String to);
+
+        @Name("A version")
+        MessageRef version(@Arg("to") @Example("1.21.5") String to);
+
+        @Name("What explains a failed run")
+        MessageRef failure(
+                @Arg("named") boolean named,
+                @Arg("service") @Example("smp") String service,
+                @Arg("what") @Takes({"admin/*", "database/*"}) @Example("admin/run.why") MessageRef what);
+    }
 
     /** What the bot announces by itself. */
     @Name("Announce")

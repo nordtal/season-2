@@ -55,7 +55,7 @@ public final class DiscordRenderer {
     }
 
     /** Renders prepared pieces as Discord shows them. */
-    public static String render(final Messages.Prepared prepared) {
+    private String render(final Messages.Prepared prepared) {
         final boolean markdown = prepared.format() == TextFormat.DISCORD_MARKDOWN;
         final StringBuilder out = new StringBuilder();
         for (final Piece piece : prepared.pieces()) {
@@ -75,13 +75,13 @@ public final class DiscordRenderer {
 
     /**
      * Makes text inert for Discord's markdown, a backslash included, every single character and not only pairs.
-     * Every value the bot places in markdown is escaped here, the embeds' own lines too.
+     * Every value the bot places in markdown is escaped here, the layouts' own lines too.
      */
     public static String escape(final String text) {
         return MarkdownSanitizer.escape(text.replace("\\", "\\\\"), true);
     }
 
-    private static String value(
+    private String value(
             final Kind kind,
             final @Nullable Object value,
             final @Nullable String style,
@@ -95,6 +95,7 @@ public final class DiscordRenderer {
             case MENTION ->
                 markdown ? "<@" + ((Mention) value).member().value() + ">" : text(kind, value, style, prepared, false);
             case LIST -> list((List<?>) value, "or".equals(style), prepared, markdown);
+            case MESSAGE -> markdown ? nested((MessageRef) value, prepared) : text(kind, value, style, prepared, false);
             case GLYPH -> "";
             default -> text(kind, value, style, prepared, markdown);
         };
@@ -111,7 +112,14 @@ public final class DiscordRenderer {
         return markdown && !(kind == Kind.TEXT && link(shown)) ? escape(shown) : shown;
     }
 
-    private static String list(
+    /** A message in a markdown message, drawn in Discord's way too, so its mentions and moments stay what they are. */
+    private String nested(final MessageRef message, final Messages.Prepared outer) {
+        final Messages.Prepared inner = messages.prepare(new Viewer(outer.language(), outer.zone(), null), message);
+        final String shown = render(inner);
+        return inner.format() == TextFormat.DISCORD_MARKDOWN ? shown : escape(shown);
+    }
+
+    private String list(
             final List<?> items, final boolean or, final Messages.Prepared prepared, final boolean markdown) {
         final List<String> shown = new ArrayList<>(items.size());
         for (final Object item : items) {

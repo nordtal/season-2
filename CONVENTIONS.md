@@ -7,7 +7,7 @@ this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warn
 
 Every text written for this project is short, plain technical prose: Markdown, comments, doc
 comments, commit messages, pull requests, Plane work items and every text a player, a Discord
-member or an admin reads (message bundles, embeds, Steward's interface). A rewrite first cuts, then
+member or an admin reads (message bundles, Discord messages, Steward's interface). A rewrite first cuts, then
 rewords what is left.
 
 ### Cut
@@ -268,9 +268,9 @@ run `git config core.hooksPath .githooks` once per clone.
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a
   lower-case nordtal in a text. _(checked in the bundles)_
 - **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's
-  embed line and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
+  container accent and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.
-- **Every Discord embed carries the brand blue line**, a success included. The outcome shows in the
+- **Every Discord container carries the brand blue accent**, a success included. The outcome shows in the
   content through one coordinated set of emojis, `Mark` in discord-bot, and no class but `Mark` types an
   emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
   values. _(emojis outside `Mark` checked)_ The set:

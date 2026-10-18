@@ -3,12 +3,12 @@ package eu.nordtal.season.discordbot;
 /**
  * The one set of emojis a Discord message uses to show a status or an action, in front of the text it belongs to.
  *
- * Every embed and the admin log take theirs from here, and a language its flag; no other class types an emoji.
+ * Every message of the bot takes its marks from here, and a language its flag; no other class types an emoji.
  */
 public enum Mark {
 
     /** Finished well: a run that is done, a service that is healthy, an alert that cleared. */
-    DONE("✅"),
+    DONE(Mark.PREVIEW),
 
     /** Finished badly, or down: a failed run or service, an alert that needs an admin now. */
     FAILED("🛑"),
@@ -60,6 +60,9 @@ public enum Mark {
 
     /** The regional indicator of the letter A; a flag is the indicators of its country's two letters. */
     private static final int REGIONAL_A = 0x1F1E6;
+
+    /** The mark a text's preview shows in Steward, a constant because an annotation needs one. */
+    public static final String PREVIEW = "✅";
 
     private final String symbol;
 

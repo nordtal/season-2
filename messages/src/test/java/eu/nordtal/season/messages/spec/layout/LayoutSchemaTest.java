@@ -61,6 +61,18 @@ class LayoutSchemaTest {
     }
 
     @Test
+    void aMessageValueThatTakesAWholeBundleShowsEveryKeyOfIt() {
+        final Layout any = Layout.discord("layouts", "any", "Link", List.of(), Part.text(Line.text("layouts/any")));
+
+        assertEquals(
+                MessageSchema.entries(LayoutTexts.class).stream()
+                        .map(entry -> "layouts/" + entry.key())
+                        .sorted()
+                        .toList(),
+                described(any).shows().stream().sorted().toList());
+    }
+
+    @Test
     void aKeyShownInTwoLayoutsIsABuildingBlockOfBoth() {
         assertEquals(
                 Map.of("layouts/buy", List.of("layouts/prices", "layouts/steps")),

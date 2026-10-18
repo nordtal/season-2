@@ -3,7 +3,6 @@ package eu.nordtal.season.discordbot;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -28,7 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -39,8 +40,10 @@ import org.junit.jupiter.api.Test;
  */
 class AdminLogTest {
 
-    private static final DiscordRenderer ADMIN = DiscordRenderer.of(
-            Messages.load(AdminLogTest.class.getClassLoader(), List.of("messages/admin"), Locale.ENGLISH));
+    private static final LayoutRenderer ADMIN = new LayoutRenderer(
+            DiscordRenderer.of(Messages.load(
+                    AdminLogTest.class.getClassLoader(), List.of("messages/access", "messages/admin"), Locale.ENGLISH)),
+            StoredLayoutsStandIn.none());
 
     private static final Alert DM = new Alert(
             AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), "/access");
@@ -102,15 +105,23 @@ class AdminLogTest {
     }
 
     @Test
-    void everyNamedAdminIsMentionedOutsideTheEmbed() {
-        assertEquals(
-                "<@400000000000000001> <@400000000000000002>",
-                AdminLog.mentions(List.of(DiscordId.of("400000000000000001"), DiscordId.of("400000000000000002"))));
+    void anAlertPingsTheAdminsItNamesAndNobodyElse() {
+        final MessageCreateData sent = AdminLog.pinging(
+                AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000001")))),
+                List.of(DiscordId.of("400000000000000001")));
+
+        assertTrue(sent.getAllowedMentions().isEmpty(), "no role, everyone or here ping: " + sent.getAllowedMentions());
+        assertEquals(java.util.Set.of("400000000000000001"), sent.getMentionedUsers());
     }
 
     @Test
-    void nobodyNamedMeansNoMention() {
-        assertNull(AdminLog.mentions(List.of()));
+    void aJournalCardNamesPeopleWithoutPingingThem() {
+        final MessageCreateData sent = AdminLog.pinging(
+                AdminLog.card(ADMIN, LinkFlow.lockedOut(DiscordId.of("400000000000000001"))), List.of());
+
+        assertTrue(
+                sent.getAllowedMentions().isEmpty(), sent.getAllowedMentions().toString());
+        assertEquals(java.util.Set.of(), sent.getMentionedUsers());
     }
 
     @Test
@@ -122,7 +133,7 @@ class AdminLogTest {
 
     @Test
     void aJournalLineIsItsActionTheLineAndWhoWasInvolved() {
-        final MessageEmbed card = AdminLog.card(
+        final LayoutRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 new AuditLine(
                         JournalAction.GRANT_ACCESS,
@@ -131,54 +142,56 @@ class AdminLogTest {
                         UUID.fromString("00000000-0000-0000-0000-000000000001"),
                         new JournalDetail.AccessGranted(30, Instant.parse("2026-11-02T10:00:00Z"))));
 
-        assertEquals("🎟️ Access granted", card.getTitle());
-        assertEquals("30 days of access, until <t:1793613600:D>.", card.getDescription());
-        assertEquals(
-                List.of(
-                        "By: Steward",
-                        "Concerns: <@400000000000000002>",
-                        "Minecraft: `00000000-0000-0000-0000-000000000001`"),
-                card.getFields().stream()
-                        .map(field -> field.getName() + ": " + field.getValue())
-                        .toList());
+        assertEquals("""
+                ## 🎟️ Access granted
+                30 days of access, until <t:1793613600:D>.
+                **By** Steward
+                **Concerns** <@400000000000000002>
+                **Minecraft** `00000000-0000-0000-0000-000000000001`""", card.text());
     }
 
     @Test
     void aValueInAJournalLineIsEscapedNeverMarkdown() {
-        final MessageEmbed card = AdminLog.card(
+        final LayoutRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 AuditLine.of(
                         JournalAction.REGISTER_KEY,
                         Actor.person(DiscordId.of("400000000000000001")),
                         new JournalDetail.KeyRegistered("*bold*")));
 
-        assertEquals("📝 Security key added", card.getTitle());
-        assertEquals("Added the security key \"\\*bold\\*\".", card.getDescription());
-        assertEquals(
-                "By: <@400000000000000001>",
-                card.getFields().getFirst().getName() + ": "
-                        + card.getFields().getFirst().getValue());
+        assertEquals("""
+                ## 📝 Security key added
+                Added the security key "\\*bold\\*".
+                **By** <@400000000000000001>""", card.text());
     }
 
     @Test
-    void aRoutedAlertIsItsMarkTitleLinesAndLinkWithEveryValueEscaped() {
-        final MessageEmbed card = AdminLog.card(
-                ADMIN,
-                new BotRequest.PostAlert(
-                        Alert.Level.DOWN,
-                        TEXTS.alert().notRunning("smp_1"),
-                        List.of(TEXTS.alert().failedFor(Mention.of(DiscordId.of("400000000000000001")), "*gone*")),
-                        "https://steward.example/services/smp_1",
-                        List.of()));
+    void aRoutedAlertIsItsMentionsMarkTitleLinesAndLinkWithEveryValueEscaped() {
+        final LayoutRenderer.Drawn card = AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000002"))));
 
-        assertEquals("🛑 smp\\_1 is not running", card.getTitle());
+        assertEquals("""
+                <@400000000000000002>
+                ## 🛑 smp\\_1 is not running
+                <@400000000000000001>: \\*gone\\*""", card.text());
+        final Button open =
+                MessageComponentTree.of(card.components()).findAll(Button.class).getFirst();
+        assertEquals("https://steward.example/services/smp_1", open.getUrl());
+    }
+
+    @Test
+    void anAlertWithoutAPageCarriesNoButton() {
+        final BotRequest.PostAlert unlinked = new BotRequest.PostAlert(
+                Alert.Level.WARN, TEXTS.alert().notRunning("smp_1"), List.of(), null, List.of());
+
         assertEquals(
-                "<@400000000000000001>: \\*gone\\*\nhttps://steward.example/services/smp_1", card.getDescription());
+                List.of(),
+                MessageComponentTree.of(AdminLog.card(ADMIN, unlinked).components())
+                        .findAll(Button.class));
     }
 
     @Test
     void aBookedPaymentIsDrawnFromTheLineTheBookingWroteWithItsReferenceEscaped() {
-        final MessageEmbed card = AdminLog.card(
+        final LayoutRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 AuditLine.about(
                         JournalAction.SETTLE,
@@ -193,38 +206,41 @@ class AdminLogTest {
                                 Money.euroCents(500),
                                 Money.euroCents(0))));
 
-        assertEquals("💶 Payment settled", card.getTitle());
-        assertTrue(card.getDescription().contains("NT\\_7Q"), card.getDescription());
+        assertTrue(card.text().startsWith("## 💶 Payment settled\n"), card.text());
+        assertTrue(card.text().contains("NT\\_7Q"), card.text());
     }
 
     @Test
     void aGrantWithoutASeasonStartIsALineTheBotWritesAboutThePerson() {
         final AuditLine line =
                 SeasonStart.unanchored(DiscordId.of("400000000000000001"), Instant.parse("2026-11-02T10:00:00Z"));
-        final MessageEmbed card = AdminLog.card(ADMIN, line);
 
         assertEquals(JournalAction.UNANCHORED_GRANT, line.action());
-        assertEquals("⚠️ No season start", card.getTitle());
-        assertEquals(
-                "Access runs from <t:1793613600:f> instead of the SMP opening. Set the date in Steward under Season.",
-                card.getDescription());
-        assertEquals(List.of("By: the bot", "Concerns: <@400000000000000001>"), fields(card));
+        assertEquals("""
+                ## ⚠️ No season start
+                Access runs from <t:1793613600:f> instead of the SMP opening. Set the date in Steward under Season.
+                **By** the bot
+                **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }
 
     @Test
     void aMemberOutOfLinkCodesIsALineTheBotWritesAboutThem() {
         final AuditLine line = LinkFlow.lockedOut(DiscordId.of("400000000000000001"));
-        final MessageEmbed card = AdminLog.card(ADMIN, line);
 
         assertEquals(JournalAction.LINK_CODES_EXHAUSTED, line.action());
-        assertEquals("🔒 Too many wrong codes", card.getTitle());
-        assertEquals("Refused linking for the rest of the hour.", card.getDescription());
-        assertEquals(List.of("By: the bot", "Concerns: <@400000000000000001>"), fields(card));
+        assertEquals("""
+                ## 🔒 Too many wrong codes
+                Refused linking for the rest of the hour.
+                **By** the bot
+                **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }
 
-    private static List<String> fields(final MessageEmbed card) {
-        return card.getFields().stream()
-                .map(field -> field.getName() + ": " + field.getValue())
-                .toList();
+    private static BotRequest.PostAlert alert(final List<DiscordId> admins) {
+        return new BotRequest.PostAlert(
+                Alert.Level.DOWN,
+                TEXTS.alert().notRunning("smp_1"),
+                List.of(TEXTS.alert().failedFor(Mention.of(DiscordId.of("400000000000000001")), "*gone*")),
+                "https://steward.example/services/smp_1",
+                admins);
     }
 }

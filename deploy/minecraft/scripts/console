@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Attach to the server console. Detach with Ctrl-b then d.
-# Ctrl-C reaches the server, not this shell; stop it with `mc stop` or `docker stop`.
+# Attaches to the server console. Detach with Ctrl-b then d.
+# Ctrl-C goes to the server and not to this shell. Stop the server with `mc stop` or `docker stop`.
 exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" attach-session -t "${MC_TMUX_SESSION:-mc}"

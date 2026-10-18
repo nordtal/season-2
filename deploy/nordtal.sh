@@ -1,72 +1,72 @@
 #!/usr/bin/env bash
 #
-# Installs the season 2 stack into the current directory, on a host with nothing but Docker.
+# Installs the season 2 stack into the current directory, on a host that has only Docker.
 #
 #   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 #
-# Whatever copy starts, the run is the newest release's: it asks GitHub which release that is, and
-# runs that release's own copy of this file, which installs that release's images. NORDTAL_RELEASE
-# names another release instead, for an install only.
+# Every run asks GitHub for the newest release and runs the copy of this file that belongs to it.
+# That copy installs the images of that release. NORDTAL_RELEASE names another release, for an
+# install only.
 #
-# It stays there as ./nordtal.sh, which is how a setting is changed afterwards:
+# The script stays in the installation directory as ./nordtal.sh and changes a setting later:
 #
-#   ./nordtal.sh                       the menu: what is set, change one, then deploy
+#   ./nordtal.sh                       the menu: show the settings, change one, then deploy
 #   ./nordtal.sh --deploy              no menu; ask only for what is missing, then deploy
 #   ./nordtal.sh --build               build the agent from a checkout first (needs a JDK)
-#   ./nordtal.sh --check               every check, and stop before anything is changed
-#   ./nordtal.sh --from PATH           take the answers from this file instead of asking
-#   ./nordtal.sh --env-file PATH       where the environment file belongs on this host
+#   ./nordtal.sh --check               run every check and stop before anything changes
+#   ./nordtal.sh --from PATH           read the answers from this file instead of asking
+#   ./nordtal.sh --env-file PATH       the path of the environment file on this host
 #                                      (default: /etc/nordtal/season-2.env)
-#   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
-#   ./nordtal.sh --no-self-update      run this file as it is, without fetching the release's copy
+#   ./nordtal.sh --address IP          the public address of this host, for a host behind NAT
+#   ./nordtal.sh --no-self-update      run this file as it is, without fetching the copy of the release
 #
-# Where steward-agent already runs and is healthy, a deploy is an update run like any other: it
-# writes the request and waits for the report. Only an install, or a stack whose agent is down or
-# unhealthy, gets the agent's `up`, which is the emergency repair.
+# When steward-agent runs and is healthy, a deploy is an update run like any other: the script
+# writes the request and waits for the report. An install, or a stack whose agent is down or
+# unhealthy, gets the `up` command of the agent instead. That command repairs the stack.
 #
-# `update` asks steward-agent for a run, the way Steward's buttons do, and waits for its report:
+# `update` asks steward-agent for a run, as the buttons of Steward do, and waits for its report:
 #
-#   ./nordtal.sh update                the whole network: install what is new, restart what needs it
+#   ./nordtal.sh update                update the whole network: install what is new, restart what needs it
 #   ./nordtal.sh update --restart      restart everything, install nothing
-#   ./nordtal.sh update --backup       one backup run, now
-#   ./nordtal.sh update --down smp     stop one service and hold it down
-#   ./nordtal.sh update --start [svc]  release a hold: everything, or one service
-#   ./nordtal.sh update --in 10        let the countdown run for ten minutes first
-#   ./nordtal.sh update --no-wait      print the request id and return, instead of waiting
-#   ./nordtal.sh update --replace-local  let the run replace builds made on this host, unasked
+#   ./nordtal.sh update --backup       run one backup now
+#   ./nordtal.sh update --down smp     stop one service and keep it down
+#   ./nordtal.sh update --start [svc]  release every hold, or the hold of one service
+#   ./nordtal.sh update --in 10        count down ten minutes first
+#   ./nordtal.sh update --no-wait      print the request id and return instead of waiting
+#   ./nordtal.sh update --replace-local  replace builds made on this host without asking
 #
-# Every run first fetches the release's copy of this script and runs that, saying which version and
-# where from; without a network it runs the local copy, but it never deploys without knowing the
-# release. An update that ends DONE leaves the copy of the release it installed. A new release reaches
-# a running stack through Steward's update button as well.
+# Every run fetches the copy of the release first, runs it and prints its version and source.
+# Without a network it runs the local copy, but it never deploys without knowing the release. An
+# update that ends DONE leaves the copy of the release that it installed. Steward's update button
+# also updates a running stack.
 #
-# It asks for what only a person knows, generates the other secrets, and writes them to
-# /etc/nordtal/season-2.env with mode 600, outside the installation directory. A secret only one
-# service reads goes into that service's own file instead, /etc/nordtal-secrets/season-2/<service>/,
-# owned by the service's uid, which steward-agent never mounts; every run moves such a line there. It
-# never prints a secret or puts one on a command line.
+# The script asks for the values that only a person knows and generates the other secrets. It writes
+# them to /etc/nordtal/season-2.env with mode 600, outside the installation directory. A secret that
+# only one service reads goes to the own file of that service instead, in
+# /etc/nordtal-secrets/season-2/<service>/. That file belongs to the uid of the service, and
+# steward-agent never mounts it. Every run moves such a line there. The script never prints a secret
+# and never puts one on a command line.
 set -Eeuo pipefail
 
-# The installation is the current directory; under `curl ... | bash` there is no BASH_SOURCE[0].
+# The installation is the current directory. Under `curl ... | bash`, BASH_SOURCE[0] is empty.
 INSTALL_DIR="$PWD"
 SELF_NAME="nordtal.sh"
 INSTALLED="$INSTALL_DIR/$SELF_NAME"
-# Which release is the newest; a run renews itself from that release's tag, never from a branch.
+# A run updates itself from the tag of the newest release, never from a branch.
 RELEASES_API="${NORDTAL_RELEASES_API:-https://api.github.com/repos/nordtal/season-2/releases/latest}"
-# Set once the release is known: this file at that tag, and steward-agent at that version.
+# This file at the tag of the release, and steward-agent at its version. Set once the release is known.
 SELF_URL=""
 AGENT_IMAGE=""
-# The registry prefix of our images, known once the environment file is.
 IMAGES=""
 DEFAULT_IMAGES="ghcr.io/nordtal"
 
 DEFAULT_ENV_FILE="/etc/nordtal/season-2.env"
 DEFAULT_PROJECT="nordtal-s2"
 
-# How long to give GitHub before running what is already here.
+# Seconds to wait for GitHub before the run uses the copy that is already here.
 SELF_UPDATE_TIMEOUT=10
 
-# How long between two attempts at the name, and how often to say so out loud while nothing changes.
+# Seconds between two lookups of the name, and the interval of the message that nothing has changed.
 DNS_INTERVAL=15
 DNS_HEARTBEAT=8
 
@@ -74,15 +74,15 @@ log()  { printf '\033[36m[nordtal]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# The question table needs associative arrays (bash 4); macOS ships bash 3.2, which fails unreadably.
+# The question table needs associative arrays (bash 4). macOS ships bash 3.2.
 if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
     die "this needs bash 4 or newer and found ${BASH_VERSION:-an unknown version} at ${BASH:-bash}.
        macOS ships bash 3.2 and cannot be talked out of it. Install a current one and make sure it
        comes first in PATH:  brew install bash"
 fi
 
-# What the environment file must hold before the stack starts; absent, empty or REPLACE_ME is missing.
-# Roles and channels are optional: an unset one means that feature is not served.
+# The variables that the environment file must hold before the stack starts. A variable that is
+# absent, empty or REPLACE_ME is missing. An unset role or channel disables its feature.
 REQUIRED=(
     COMPOSE_PROFILES
     POSTGRES_DB
@@ -109,8 +109,8 @@ REQUIRED=(
     STEWARD_DISCORD_CLIENT_SECRET
 )
 
-# One directory per compose.yml volume under NORDTAL_DIR, named like the volume without its prefix.
-# A copy of compose.yml, which is not on the host yet.
+# One directory per volume of compose.yml under NORDTAL_DIR, named like the volume without its prefix.
+# The copy of compose.yml, because the host does not hold the file yet.
 DATA_DIRS=(
     "postgres-data"
     "steward-backups"
@@ -127,15 +127,15 @@ DATA_DIRS=(
     "mc-smp-plugins"
 )
 
-# Decisions without side effects, which deploy/nordtal-test.sh drives without Docker or a network.
+# Pure decisions. deploy/nordtal-test.sh runs them without Docker and without a network.
 
-# One value from an environment file, read rather than sourced, which would execute it.
+# Reads one value from an environment file without sourcing the file.
 env_value() {
     local file="$1" name="$2" line
     [[ -f "$file" ]] || return 0
     line="$(grep -m1 -E "^[[:space:]]*(export[[:space:]]+)?${name}=" "$file" || true)"
     line="${line#*=}"
-    # One layer of quotes, the way compose reads them.
+    # Removes one layer of quotes, as compose does.
     if [[ "$line" == \"*\" && ${#line} -ge 2 ]]; then
         line="${line:1:${#line}-2}"
     elif [[ "$line" == \'*\' && ${#line} -ge 2 ]]; then
@@ -144,8 +144,8 @@ env_value() {
     printf '%s' "$line"
 }
 
-# The registry prefix of our images: NORDTAL_IMAGES in the environment wins for a one-off, then the
-# environment file the deployment is configured from, then ghcr.io.
+# The registry prefix of our images. NORDTAL_IMAGES in the environment wins, then the environment
+# file of the deployment, then ghcr.io.
 images_prefix() {
     local file="$1" value="${NORDTAL_IMAGES:-}"
     [[ -n "${value//[[:space:]]/}" ]] || value="$(env_value "$file" NORDTAL_IMAGES)"
@@ -153,15 +153,14 @@ images_prefix() {
     printf '%s' "${value:-$DEFAULT_IMAGES}"
 }
 
-# Whether the file assigns the name at all, also with leading whitespace or `export`.
 has_assignment() {
     local file="$1" name="$2"
     [[ -f "$file" ]] && grep -qE "^[[:space:]]*(export[[:space:]]+)?${name}[[:space:]]*=" "$file"
 }
 
-# Rewrites the file with every assignment of the name replaced by `name=value`, or dropped when $4 is
-# `drop`. The value passes through awk's environment, never a command line, into a temporary file of
-# the same mode renamed over the destination.
+# Rewrites the file so that every assignment of the name reads `name=value`, or drops the
+# assignments when $4 is `drop`. The value reaches awk through its environment, never through a
+# command line. The result is a temporary file with the mode of the original, renamed over it.
 rewrite_assignment() {
     local file="$1" name="$2" value="$3" mode="${4:-set}" tmp
     tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
@@ -186,8 +185,8 @@ rewrite_assignment() {
     mv "$tmp" "$file"
 }
 
-# Writes `name=value` into the file, replacing an existing assignment (also with leading whitespace
-# or `export`) or appending one, in a mode 600 file renamed over the destination.
+# Writes `name=value` into the file. An existing assignment (also with leading whitespace or
+# `export`) is replaced, otherwise a line is appended. The result is renamed over the file with mode 600.
 set_assignment() {
     local file="$1" name="$2" value="$3" tmp
     if has_assignment "$file" "$name"; then
@@ -201,18 +200,16 @@ set_assignment() {
     mv "$tmp" "$file"
 }
 
-# Removes every assignment of the name from the file, comments and other lines untouched.
 remove_assignment() {
     local file="$1" name="$2"
     has_assignment "$file" "$name" || return 0
     rewrite_assignment "$file" "$name" "" drop
 }
 
-# Each secret only one service reads, kept in that service's own file instead of the shared one, which
-# steward-agent mounts whole and compose interpolates: `<name> <service> [<name in the service>]`, the
-# first being the one this script asks for and the shared file held, the last the variable the service
-# reads where that differs. A value two services share stays in the shared file. nordtal-test.sh holds
-# the services to compose.yml's mounts.
+# The secrets that only one service reads, one per line: `<name> <service> [<name in the service>]`.
+# The name is the one that this script asks for and keeps in the shared file. The optional last
+# field is the variable that the service reads, where it differs. A value that two services share
+# stays in the shared file. nordtal-test.sh compares the services with the mounts of compose.yml.
 SERVICE_SECRETS=(
     "NORDTAL_STEWARD_BUNQ_API_KEY steward-bunq"
     "NORDTAL_STEWARD_BUNQ_ACCOUNT_ID steward-bunq"
@@ -223,8 +220,8 @@ SERVICE_SECRETS=(
     "STEWARD_OFFSITE_PASSWORD steward-agent NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD"
 )
 
-# The uid each of those services runs as, which owns its file; nordtal-test.sh holds it to compose.yml's
-# `user:`, and steward-agent, which has none, runs as root.
+# The uid of each of those services. It owns the file of the service. nordtal-test.sh compares it
+# with the `user:` of compose.yml. steward-agent has no entry and runs as root.
 declare -A SERVICE_UID=(
     [steward-bunq]=10003
     [discord-bot]=10001
@@ -232,8 +229,8 @@ declare -A SERVICE_UID=(
     [steward-agent]=0
 )
 
-# Where the services' own files live when the shared file names no place: beside the shared file's
-# directory, never inside it, since steward-agent mounts that directory whole.
+# The directory of the own files of the services, when the shared file names none. It lies beside
+# the directory of the shared file and never inside it, because steward-agent mounts that directory.
 # /etc/nordtal/season-2.env gives /etc/nordtal-secrets/season-2.
 default_secrets_dir() {
     local env_file="$1" name
@@ -241,7 +238,6 @@ default_secrets_dir() {
     printf '%s-secrets/%s' "$(dirname "$env_file")" "${name%.env}"
 }
 
-# Whether a secrets directory lies outside the shared file's directory, which steward-agent mounts.
 secrets_dir_ok() {
     local env_file="$1" dir="$2" env_dir
     env_dir="$(dirname "$env_file")"
@@ -249,7 +245,6 @@ secrets_dir_ok() {
     [[ "${dir%/}/" != "${env_dir%/}/"* ]]
 }
 
-# The service whose own file holds the name, nothing for a name of the shared file.
 secret_service() {
     local wanted="$1" entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
@@ -259,7 +254,6 @@ secret_service() {
     return 0
 }
 
-# The variable a single-reader secret has in its service's own file; any other name is itself.
 service_name() {
     local wanted="$1" entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
@@ -269,7 +263,6 @@ service_name() {
     printf '%s' "$wanted"
 }
 
-# The services that have a file of their own, once each.
 secret_services() {
     local entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
@@ -278,21 +271,20 @@ secret_services() {
     done | awk '!seen[$0]++'
 }
 
-# The shared file's variable compose.yml hands a service as SECRETS_REVISION, so a changed secret
-# changes the service's configuration and the next run recreates it: SECRETS_REVISION_STEWARD_BUNQ.
+# The variable of the shared file that compose.yml passes to a service as SECRETS_REVISION, for
+# example SECRETS_REVISION_STEWARD_BUNQ. A changed secret changes it, so the next run recreates the service.
 revision_name() {
     local service="$1"
     service="${service^^}"
     printf 'SECRETS_REVISION_%s' "${service//-/_}"
 }
 
-# One service's own file under the secrets directory, which compose.yml mounts at /app/secrets.
 service_secrets_file() {
     printf '%s/%s/secrets.env' "$1" "$2"
 }
 
-# The file a name is read from and written to: its service's own when only that service reads it and
-# the shared file names a secrets directory, the shared file otherwise.
+# The file to read a name from and to write it to: the own file of its service when only that service
+# reads it and the shared file names a secrets directory, otherwise the shared file.
 home_of() {
     local env_file="$1" name="$2" service dir
     service="$(secret_service "$name")"
@@ -304,7 +296,6 @@ home_of() {
     fi
 }
 
-# Which single-reader names the shared file still assigns, one per line; never a value.
 stale_service_secrets() {
     local env_file="$1" entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
@@ -314,13 +305,14 @@ stale_service_secrets() {
     return 0
 }
 
-# Copies every single-reader secret from the shared file into its service's own file and hands each
-# directory (mode 700) and file (mode 600) to the service's uid; the secrets directory itself stays
-# root's, mode 700. A line still in the shared file is newer than the service's file, since a move
-# empties it, so its value wins; an empty one is only dropped. With `keep` the shared file keeps its
-# lines, for a running steward-agent whose compose.yml still reads them there; without, each line goes,
-# after its copy is written, so an interrupted run leaves a copy, never nothing. MOVED_SECRETS lists
-# each name copied or dropped; never a value.
+# Copies every single-reader secret from the shared file into the file of its service. The
+# directory (mode 700) and the file (mode 600) belong to the uid of the service. The secrets
+# directory itself belongs to root with mode 700. A line that is still in the shared file is newer
+# than the file of the service, because a move empties it, so its value wins. An empty line is only
+# dropped. With `keep`, the shared file keeps its lines, for a running steward-agent whose
+# compose.yml still reads them there. Without `keep`, each line goes after its copy is written, so an
+# interrupted run leaves a copy and never nothing. MOVED_SECRETS lists each name that was copied or
+# dropped, never a value.
 MOVED_SECRETS=()
 move_service_secrets() {
     local env_file="$1" dir="$2" keep="${3:-}" entry name service own value file
@@ -343,8 +335,8 @@ move_service_secrets() {
     done < <(secret_services)
 }
 
-# Writes one value into a service's own file and, when that changes the file, gives the service a new
-# SECRETS_REVISION, since compose sees nothing of the file and would leave the service running as it was.
+# Writes one value into the file of a service. When the file changes, the service gets a new
+# SECRETS_REVISION, because compose does not see the file.
 write_service_secret() {
     local env_file="$1" dir="$2" service="$3" name="$4" value="$5" file
     file="$(service_secrets_file "$dir" "$service")"
@@ -355,7 +347,6 @@ write_service_secret() {
     set_assignment "$env_file" "$(revision_name "$service")" "$(openssl rand -hex 8)"
 }
 
-# Gives one service's directory and file to its uid, as compose.yml's `user:` runs it.
 hand_secrets_to() {
     local dir="$1" service="$2" uid
     uid="${SERVICE_UID[$service]}"
@@ -364,10 +355,10 @@ hand_secrets_to() {
     chmod 600 "$(service_secrets_file "$dir" "$service")"
 }
 
-# Makes sure the shared file names a secrets directory outside the one steward-agent mounts, then moves
-# every single-reader secret into its service's own file there, or with `keep` only copies it. Needs
-# root, since each file belongs to its service's uid, and dies rather than leave a secret where the agent
-# reads it.
+# Checks that the shared file names a secrets directory outside the directory that steward-agent
+# mounts. Then it moves every single-reader secret into the file of its service, or with `keep`
+# only copies it. It needs root, because each file belongs to the uid of its service. It dies
+# instead of leaving a secret where the agent reads it.
 settle_service_secrets() {
     local env_file="$1" keep="${2:-}" dir
     dir="$(env_value "$env_file" NORDTAL_SECRETS_DIR)"
@@ -396,8 +387,8 @@ settle_service_secrets() {
     done < <(stale_copies "$env_file")
 }
 
-# Moves the single-reader secrets once the running agent's compose.yml mounts each service's own file,
-# and only copies them while it still reads them from the shared file.
+# Moves the single-reader secrets when the compose.yml of the running agent mounts the file of each
+# service. While the agent still reads them from the shared file, it only copies them.
 settle_for_agent() {
     local env_file="$1" container="$2"
     if docker exec "$container" grep -q NORDTAL_SECRETS_DIR /app/compose.yml 2>/dev/null; then
@@ -407,7 +398,6 @@ settle_for_agent() {
     fi
 }
 
-# Every other file beside the shared one that still assigns a single-reader secret, such as a backup.
 stale_copies() {
     local env_file="$1" other
     for other in "$(dirname "$env_file")"/* "$(dirname "$env_file")"/.[!.]*; do
@@ -417,7 +407,6 @@ stale_copies() {
     return 0
 }
 
-# Reads a name from the file it lives in, under the variable it has there.
 value_of() {
     local env_file="$1" name="$2" home
     home="$(home_of "$env_file" "$name")"
@@ -428,7 +417,6 @@ value_of() {
     fi
 }
 
-# Writes a name into the file it lives in, which a service's own file stays that service's.
 assign() {
     local env_file="$1" name="$2" value="$3" service dir
     if [[ "$(home_of "$env_file" "$name")" == "$env_file" ]]; then
@@ -442,7 +430,6 @@ assign() {
     hand_secrets_to "$dir" "$service"
 }
 
-# Which of the given names have no usable value where they live. Prints names, one per line, never a value.
 env_missing() {
     local file="$1" name value
     shift
@@ -454,14 +441,13 @@ env_missing() {
     done
 }
 
-# The line numbers of every REPLACE_ME left outside comments; never the lines, which hold secrets.
 env_replace_me_lines() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     grep -n 'REPLACE_ME' "$file" | grep -v '^[0-9]*:[[:space:]]*#' | cut -d: -f1 || true
 }
 
-# COMPOSE_PROFILES must include `steward`, or steward-bunq never starts and Caddy only with `mc`.
+# COMPOSE_PROFILES must include `steward`. Without it, steward-bunq never starts, and Caddy starts only with `mc`.
 profiles_include() {
     local profiles="$1" wanted="$2" profile
     local IFS=','
@@ -473,20 +459,17 @@ profiles_include() {
 
 is_absolute() { [[ "$1" == /* ]]; }
 
-# Answer shapes, checked at the prompt; they refuse only what cannot be right.
+# Answer shapes. The prompt checks them and refuses only what cannot be right.
 
 # A Discord snowflake: digits only, with a wide lower bound for older ids.
 looks_like_snowflake() { [[ "$1" =~ ^[0-9]{15,21}$ ]]; }
 
-# A host name, not a URL: letters, digits, hyphens and at least one dot.
 looks_like_host() {
     [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]
 }
 
-# An e-mail address: one @, a dot in the domain, no whitespace. Let's Encrypt rejects a bad one.
 looks_like_email() { [[ "$1" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; }
 
-# A host and a port; the port is required, since a transfer packet does no SRV lookup.
 looks_like_public_address() {
     local host="${1%:*}" port="${1##*:}"
     [[ "$1" == *:* ]] || return 1
@@ -494,16 +477,14 @@ looks_like_public_address() {
     [[ "$port" =~ ^[0-9]{1,5}$ ]] && (( port >= 1 && port <= 65535 ))
 }
 
-# A profile selection: names and commas. An unknown name is answered by `unknown_profiles`.
 looks_like_profiles() {
     [[ "$1" =~ ^[[:space:]]*[a-z0-9-]+([[:space:]]*,[[:space:]]*[a-z0-9-]+)*[[:space:]]*$ ]]
 }
 
-# The profiles compose.yml defines that a selection may name; `standby` is started by name only.
-# nordtal-test.sh holds this list equal to compose.yml's.
+# The profiles of compose.yml that a selection may name. `standby` starts by name only.
+# nordtal-test.sh compares this list with the one of compose.yml.
 SELECTABLE_PROFILES=(db bot mc steward devpack)
 
-# Prints every name in a selection that no selectable profile has, one per line; Compose ignores them.
 unknown_profiles() {
     local profiles="$1" profile known
     local IFS=','
@@ -517,7 +498,6 @@ unknown_profiles() {
     done
 }
 
-# Warns about every name in the env file's selection that selects nothing.
 warn_unknown_profiles() {
     local profiles unknown
     profiles="$(env_value "$1" COMPOSE_PROFILES)"
@@ -526,7 +506,6 @@ warn_unknown_profiles() {
        not define as a profile to select, so it selects nothing. The profiles are: ${SELECTABLE_PROFILES[*]}."
 }
 
-# Whether the installation answered §5b's question: true and false are answers, anything else is not.
 mojang_assets_answered() {
     case "$(env_value "$1" NORDTAL_MOJANG_ASSETS)" in
         true|false) return 0 ;;
@@ -534,7 +513,6 @@ mojang_assets_answered() {
     esac
 }
 
-# Yes, in English spellings only; anything else, silence included, is no.
 answer_is_yes() {
     case "${1,,}" in
         y|yes|true) return 0 ;;
@@ -542,7 +520,6 @@ answer_is_yes() {
     esac
 }
 
-# The questions, one table for both the first run and the menu, in the order the menu shows.
 QUESTIONS=(
     STEWARD_HOST
     STEWARD_ACME_EMAIL
@@ -631,8 +608,8 @@ declare -A QUESTION_HINT=(
         starts and Caddy only with 'mc'."
 )
 
-# The generated secrets: listed under the menu, never editable, since a new POSTGRES_PASSWORD breaks
-# an existing database.
+# The generated secrets. The menu lists them and never edits them, because a new POSTGRES_PASSWORD
+# breaks an existing database.
 GENERATED=(
     POSTGRES_PASSWORD
     POSTGRES_DISCORD_BOT_PASSWORD
@@ -649,7 +626,6 @@ GENERATED=(
     STEWARD_TOTP_KEY
 )
 
-# What the menu prints for a value: three dots for a set secret, the value otherwise, or "not set".
 shown_value() {
     local kind="$1" value="$2"
     if [[ -z "${value//[[:space:]]/}" ]]; then
@@ -657,13 +633,12 @@ shown_value() {
         return
     fi
     case "$kind" in
-        # The bytes of three bullets in UTF-8, because \u is only expanded in a UTF-8 locale.
+        # The three bullets as UTF-8 bytes, because \u expands only in a UTF-8 locale.
         secret|optional-secret) printf '\342\200\242\342\200\242\342\200\242' ;;
         *)                      printf '%s' "$value" ;;
     esac
 }
 
-# What a typed menu answer means: `quit`, `deploy`, `edit <n>` or nothing. A bare Return redraws.
 menu_choice() {
     local typed="$1" count="$2"
     case "${typed,,}" in
@@ -675,11 +650,10 @@ menu_choice() {
     fi
 }
 
-# Which of the addresses the name resolves to are not this host's; every one must be ours.
 addresses_not_ours() {
     local resolved="$1" ours="$2" address
     if [[ -z "${resolved//[[:space:]]/}" ]]; then
-        # A name that resolves to nothing does not match.
+        # A name without an address does not match.
         printf '(nothing - the name does not resolve)\n'
         return
     fi
@@ -688,15 +662,16 @@ addresses_not_ours() {
     done
 }
 
-# Which images on this host a pull before `up` would replace. Pure, so the test can feed it fixtures.
-# A RepoDigest alone proves nothing: the containerd store gives local builds one too.
+# The images on this host that a pull before `up` would replace. The function is pure, so the test
+# feeds it fixtures. A RepoDigest alone proves nothing, because the containerd store also gives
+# local builds one.
 #
 #   pairs             "<image><TAB><service>" per service under the active profiles
-#   local_digests     "<image><TAB><RepoDigests as JSON>" per image present on this host
-#   registry_digests  "<image><TAB><manifest digest>" per image the registry answered for
+#   local_digests     "<image><TAB><RepoDigests as JSON>" per image on this host
+#   registry_digests  "<image><TAB><manifest digest>" per image that the registry answered for
 #
-# Prints "<RISK|UNKNOWN><TAB><image><TAB><services>" per local image: RISK when it has no RepoDigests
-# or lacks the registry's digest, UNKNOWN when the registry could not be asked.
+# Prints "<RISK|UNKNOWN><TAB><image><TAB><services>" per local image. RISK means the image has no
+# RepoDigests or lacks the digest of the registry. UNKNOWN means the registry could not be asked.
 at_risk_images() {
     local pairs="$1" local_digests="$2" registry_digests="$3"
     [[ -n "$pairs" ]] || return 0
@@ -718,7 +693,7 @@ at_risk_images() {
         {
             if (!($1 in seen)) { order[++count] = $1 }
             seen[$1] = 1
-            # mawk creates services[$1] before the right side runs, so the test cannot be inline.
+            # mawk creates services[$1] before it evaluates the right side, so the test cannot be inline.
             if ($1 in services) { services[$1] = services[$1] "," $2 } else { services[$1] = $2 }
         }
         END {
@@ -742,8 +717,6 @@ at_risk_images() {
     ' <<<"$pairs"
 }
 
-# renewing this file, which is the one decision made before anything else
-# The file's own hash, shortened to twelve characters for comparing by eye.
 fingerprint() {
     local file="$1"
     if command -v sha256sum >/dev/null 2>&1; then
@@ -757,17 +730,15 @@ fingerprint() {
 
 running_from_a_file() { [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; }
 
-# The absolute path of the file this runs from.
 self_path() { printf '%s/%s' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" "$(basename "${BASH_SOURCE[0]}")"; }
 
-# A copy in a checkout is never replaced, since whoever runs it edited it.
+# A copy in a checkout is never replaced.
 from_a_checkout() {
     running_from_a_file || return 1
     local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     [[ "$(basename "$here")" == "deploy" && -f "$here/../compose.yml" ]]
 }
 
-# Fetches $1 into the file $2 with curl or wget.
 fetch_url() {
     local url="$1" into="$2"
     if command -v curl >/dev/null 2>&1; then
@@ -779,27 +750,26 @@ fetch_url() {
     fi
 }
 
-# Whether a download is this script, complete, rather than an error page or a truncated file.
 looks_like_this_script() {
     local file="$1"
     [[ -s "$file" ]] || return 1
-    # `sed -n 1p`, not a pipe into `head`; see deploy/pipe-safety-test.sh.
+    # `sed -n 1p` instead of a pipe into `head`: see deploy/pipe-safety-test.sh.
     [[ "$(sed -n '1p' "$file")" == '#!/usr/bin/env bash' ]] || return 1
     grep -q '^SELF_NAME=' "$file" || return 1
     bash -n "$file" 2>/dev/null
 }
 
-# Asking and writing answers. They read $ENV_FILE and $CHECK_ONLY, which the caller sets. `dev init`
-# asks some of QUESTIONS in the same words, and NordtalQuestionsTest holds the two together.
+# Asking and writing answers. The functions read $ENV_FILE and $CHECK_ONLY, which the caller sets.
+# `dev init` asks some of QUESTIONS in the same words, and NordtalQuestionsTest compares the two.
 
 # Asks once for one variable and writes it. `kind` is one of:
 #   plain            required, echoed while typing
 #   secret           required, echo off
-#   optional-plain   may be left empty by pressing Enter
-#   optional-secret  the same, with the echo off
-#   licence          y/N; a no writes nothing, so the run stops at the required check
-# `check` is the name of a shape function or "-" for anything non-empty.
-# `force` re-asks a variable that is already set; without it a set value is left alone.
+#   optional-plain   optional, Enter leaves it empty
+#   optional-secret  optional, echo off
+#   licence          y/N; a no writes nothing, and the check for required values then stops the run
+# `check` is the name of a shape function, or "-" for any non-empty value.
+# `force` asks again for a variable that is already set. Without it, a set value stays.
 ask_for() {
     local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" force="${6:-}" value existing
 
@@ -854,7 +824,7 @@ ask_for() {
             esac
         fi
         if [[ "$check" != "-" ]] && ! "$check" "$value"; then
-            # The value is not repeated, since it may be a secret.
+            # The prompt does not repeat the value, which may be a secret.
             warn "that does not look like it can be right. Try again."
             continue
         fi
@@ -864,7 +834,6 @@ ask_for() {
     done
 }
 
-# Writes a default value only if there is none, without asking.
 default_for() {
     local name="$1" value="$2" existing
     existing="$(env_value "$ENV_FILE" "$name")"
@@ -874,15 +843,14 @@ default_for() {
     log "$name = $value (default)"
 }
 
-# Asks one of the table's questions; `again` re-asks one that is already set.
 ask_question() {
     local name="$1" again="${2:-}"
     ask_for "$name" "${QUESTION_KIND[$name]}" "${QUESTION_CHECK[$name]}" \
         "${QUESTION_PROMPT[$name]}" "${QUESTION_HINT[$name]}" "$again"
 }
 
-# Generates one secret if there is none where it lives, a single-reader one in its service's own file;
-# REPLACE_ME counts as none.
+# Generates one secret when there is none where it lives. A single-reader secret lives in the file of
+# its service. REPLACE_ME counts as none.
 set_secret() {
     local name="$1" bytes="${2:-32}" value
     value="$(value_of "$ENV_FILE" "$name")"
@@ -899,12 +867,12 @@ set_secret() {
     log "$name generated ($bytes random bytes, hex)"
 }
 
-# Generates every secret but POSTGRES_PASSWORD that is missing, on a deploy and on an update alike, so a
-# release that adds one brings it whichever way it is installed. SECRETS_MADE says this run did.
+# Generates every missing secret except POSTGRES_PASSWORD, on a deploy and on an update. A release
+# that adds a secret therefore brings it whichever way it is installed. SECRETS_MADE records that this run generated one.
 SECRETS_MADE=false
 generate_secrets() {
-    # Each service's own database role; steward-agent sets these on the roles at every start, so a new
-    # one only needs a restart, unlike POSTGRES_PASSWORD.
+    # steward-agent sets the passwords of the database roles at every start, so a new one needs only
+    # a restart. A new POSTGRES_PASSWORD would need more.
     set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
     set_secret POSTGRES_PROXY_PASSWORD 24
     set_secret POSTGRES_LIMBO_PASSWORD 24
@@ -914,8 +882,8 @@ generate_secrets() {
     set_secret VELOCITY_FORWARDING_SECRET 24
     set_secret STEWARD_AGENT_TOKEN
     set_secret STEWARD_BUNQ_TOKEN
-    # The key steward seals each authenticator app's secret with. A new one leaves every enrolled app
-    # unreadable, so each admin adds theirs again; it is never rotated by this script.
+    # The key that steward seals the secret of each authenticator app with. A new key makes every
+    # enrolled app unreadable, so each admin adds theirs again. This script never rotates it.
     set_secret STEWARD_TOTP_KEY
     SECRETS_MADE=true
 }
@@ -927,8 +895,8 @@ deployed_projects() {
     { sed -n 's/_postgres-data$//p' <<<"$volumes"; printf '%s\n' "$agent_projects"; } | sed '/^$/d' | sort -u
 }
 
-# What this run is to the host: `adopt` its project's deployment, which a database in the installation's
-# bind-mounted data directory also is; `first`; or `second`, beside another project's deployment.
+# What this run is to the host: `adopt` the deployment of its project (a database in the bind-mounted
+# data directory of the installation counts too), `first`, or `second` beside the deployment of another project.
 deployment_kind() {
     local project="$1" projects="$2" install_dir="$3"
     if [[ -n "$projects" ]] && ! grep -qxF "$project" <<<"$projects"; then
@@ -940,28 +908,25 @@ deployment_kind() {
     fi
 }
 
-# An update run requested from the host, which works while the stack itself is broken.
-# These are decisions only; `cmd_update` below the seam reaches for Docker.
+# An update run requested from the host. It works while the stack itself is broken.
+# The functions here decide only. `cmd_update` below the seam reaches for Docker.
 
-# The kinds `steward_inbox.kind` accepts.
 UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
 
-# How long the command waits; the run itself carries on after it gives up.
+# Seconds that the command waits. The run itself continues after the command gives up.
 UPDATE_TIMEOUT_DEFAULT=1800
 
-# Seconds between two looks at a request, since every look starts a JVM inside the agent.
+# Seconds between two looks at a request. Every look starts a JVM inside the agent.
 UPDATE_POLL=10
 
-# How long steward-agent may stay silent before the watch gives up: the agent's health-check start period,
-# which covers a run that recreates the agent itself.
+# Seconds that steward-agent may stay silent before the watch gives up. This is the start period of
+# the health check of the agent, which covers a run that recreates the agent itself.
 UPDATE_GAP=300
 
-# The service names `steward_inbox_services_check` accepts, joined by commas, so a bad scope is refused here.
 update_scope_ok() {
     [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
 }
 
-# Reads the flags of `./nordtal.sh update` into the UPDATE_ variables; dies on anything unknown.
 parse_update_args() {
     UPDATE_KIND=UPDATE
     UPDATE_SCOPE=""
@@ -979,7 +944,7 @@ parse_update_args() {
                         UPDATE_SCOPE="${2:-}"
                         [[ -n "$UPDATE_SCOPE" ]] || die "update --down needs a service to stop"
                         shift 2 ;;
-            # A bare `--start` releases every hold; a following flag is not a service.
+            # A bare `--start` releases every hold. A flag after it is not a service.
             --start)    UPDATE_KIND=START;   kinds=$(( kinds + 1 ))
                         if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
                             UPDATE_SCOPE="$2"; shift 2
@@ -1009,10 +974,10 @@ parse_update_args() {
     fi
 }
 
-# The command run inside steward-agent, one word per line. The agent writes the row with the same
-# refusals as Steward's buttons, so the open run in the inbox stays the one lock and this script
-# never writes SQL of its own. An empty scope is the whole network; $4 true lets the run replace
-# builds made on this host.
+# The command that runs inside steward-agent, one word per line. The agent writes the row with the
+# same refusals as the buttons of Steward, so the open run in the inbox is the one lock, and this
+# script writes no SQL. An empty scope is the whole network. $4 true lets the run replace builds
+# made on this host.
 update_request_words() {
     local kind="$1" scope="$2" minutes="$3" replace_local="${4:-false}"
     printf '%s\n' steward-agent request "$kind" "$scope" "$minutes"
@@ -1020,10 +985,8 @@ update_request_words() {
     return 0
 }
 
-# What `steward-agent status` exits with for a run that stopped before it replaced a local build.
 UPDATE_KEPT_LOCAL=3
 
-# Whether a status means steward-agent is finished with this row, one way or another.
 update_is_over() {
     case "$1" in
         DONE|FAILED|CANCELLED) return 0 ;;
@@ -1031,23 +994,19 @@ update_is_over() {
     esac
 }
 
-# The version a release tag names: our tags carry a leading v, our images do not.
 release_of_tag() {
     local tag="$1"
     printf '%s' "${tag#v}"
 }
 
-# The tag_name out of GitHub's answer for one release, without jq; empty when there is none.
 tag_name_of() {
     sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
 }
 
-# This file as the release carries it; NORDTAL_SH_URL names another source.
 self_url_for() {
     printf '%s' "${NORDTAL_SH_URL:-https://raw.githubusercontent.com/nordtal/season-2/v$1/deploy/nordtal.sh}"
 }
 
-# The newest release's version, as GitHub names it; empty when GitHub does not answer.
 newest_release() {
     local answer tag=""
     answer="$(mktemp "${TMPDIR:-/tmp}/nordtal-release.XXXXXX")"
@@ -1059,9 +1018,9 @@ newest_release() {
     return 0
 }
 
-# Replaces the file $1 with release $2's copy of this script, or the newest release's without $2. True
-# only when it did; GitHub unreachable or an incomplete download leaves the file as it is, since a run
-# needs no network.
+# Replaces the file $1 with the copy of release $2, or of the newest release without $2. It returns
+# true only when it replaced the file. When GitHub is unreachable or the download is incomplete, the
+# file stays as it is.
 renew_file() {
     local file="$1" release="${2:-}" candidate
     [[ -n "$release" ]] || release="$(newest_release)"
@@ -1079,7 +1038,7 @@ renew_file() {
         rm -f "$candidate"
         return 1
     fi
-    # A rename, so an interrupted copy never leaves half a script behind.
+    # A rename leaves no half-written script after an interrupted copy.
     if ! install -m 755 "$candidate" "$file.new" || ! mv -f "$file.new" "$file"; then
         rm -f "$candidate" "$file.new"
         warn "could not write $file, so it stays as it is"
@@ -1089,8 +1048,7 @@ renew_file() {
     log "$file is now release $release's copy ($(fingerprint "$file"))"
 }
 
-# The release steward-agent runs in the container $1, read from its image's tag; empty when that
-# container is not running or its image has no version tag.
+# container does not run or its image has no version tag.
 agent_release() {
     local container="$1" image tag
     image="$(awk -F '\t' -v name="$container" '$1 == name { print $2 }' <<<"$(docker ps --format '{{.Names}}\t{{.Image}}')")"
@@ -1099,9 +1057,8 @@ agent_release() {
     return 0
 }
 
-# Makes the file $1 the copy of the release that steward-agent in $2 runs, which after an update run is
-# the release that run installed. The renewal before the run asks GitHub for the newest release, which
-# can still be the previous one just after a tag, or not answer at all.
+# run, that is the release the run installed. The renewal before the run asks GitHub for the newest
+# release, which can still be the previous one just after a tag, or can fail to answer.
 renew_to_installed() {
     local file="$1" container="$2" release
     release="$(agent_release "$container")"
@@ -1112,9 +1069,9 @@ renew_to_installed() {
     renew_file "$file" "$release"
 }
 
-# How a deploy reaches the stack: `request` when a healthy steward-agent runs, which carries out
-# the update like any run; `up` for an install, a repair of an agent that is down, or --build.
-# $1 is whether --build was given, $2 whether the project's agent is running and healthy.
+# How a deploy reaches the stack. `request` when a healthy steward-agent runs: the agent carries out
+# the update like any run. `up` for an install, for a repair of an agent that is down, or with --build.
+# $1 is whether --build was given. $2 is whether the agent of the project runs and is healthy.
 deploy_by() {
     local build="$1" agent_healthy="$2"
     if [[ "$build" == true || "$agent_healthy" != true ]]; then
@@ -1124,14 +1081,13 @@ deploy_by() {
     fi
 }
 
-# Follows one request until steward-agent is finished with it, then prints the run's report.
 update_wait() {
     local id="$1" container="$2"
     local waited=0 silent=0 answer status report said="" code
 
     log "waiting; Ctrl-C stops WATCHING and never the run itself"
     while :; do
-        # One line: the status, a tab and the report. Nothing at all means the row is gone.
+        # One line: the status, a tab and the report. No output means the row is gone.
         code=0
         answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null)" || code=$?
         answer="$(sed -n '1p' <<<"$answer")"
@@ -1154,7 +1110,7 @@ update_wait() {
             said="$status"
         fi
         if update_is_over "$status"; then
-            # jq if it is there, the raw JSON line if not.
+            # jq if present, otherwise the raw JSON line.
             if [[ -n "$report" ]]; then
                 if command -v jq >/dev/null 2>&1; then
                     printf '%s\n' "$report" | jq . || printf '%s\n' "$report"
@@ -1169,7 +1125,7 @@ update_wait() {
 
         (( waited += UPDATE_POLL ))
         if (( waited > UPDATE_TIMEOUT )); then
-            # Only the waiting stops; the run carries on.
+            # Only the waiting stops. The run continues.
             warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
        this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
        the run under /operations."
@@ -1179,13 +1135,13 @@ update_wait() {
     done
 }
 
-# Definitions end here; only a genuine `source` returns. Under `curl ... | bash` there is no BASH_SOURCE.
+# The definitions end here. Only a genuine `source` returns. Under `curl ... | bash` there is no BASH_SOURCE.
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
 fi
 
-# The `update` subcommand, before the deploy's self-update and its questions. It renews the file it
-# runs from first, so a host that is only ever updated runs the newest release's copy too.
+# The `update` subcommand. It runs before the self-update and the questions of the deploy. It renews
+# the file it runs from first, so a host that is only updated also runs the copy of the newest release.
 
 cmd_update() {
     parse_update_args "$@"
@@ -1196,26 +1152,26 @@ cmd_update() {
 
     warn_unknown_profiles "$UPDATE_ENV_FILE"
 
-    # One name only, since the file also holds secrets.
+    # One name only, because the file also holds secrets.
     local project container
     project="$(env_value "$UPDATE_ENV_FILE" COMPOSE_PROJECT_NAME)"
     project="${project:-$DEFAULT_PROJECT}"
     container="${project}-steward-agent-1"
 
-    # `docker ps`, never `docker inspect` on a container carrying secrets; a here-string, not a pipe.
+    # `docker ps` and never `docker inspect` on a container with secrets. A here-string, not a pipe.
     grep -qxF "$container" <<<"$(docker ps --format '{{.Names}}')" \
         || die "$container is not running, so there is nobody to ask for a run.
        \`docker compose -p $project ps\` says what is up."
 
-    # Each service's own file is written before the run, whose release mounts it. The shared file keeps
-    # the lines while the running agent's compose.yml still reads them there, since compose refuses a
-    # file that lacks one it requires; they go once that agent reads the services' files.
+    # The file of each service is written before the run, because the release of the run mounts it.
+    # The shared file keeps the lines while the compose.yml of the running agent still reads them
+    # there, because compose refuses a file that lacks a variable it requires.
     settle_for_agent "$UPDATE_ENV_FILE" "$container"
-    # This copy is the release's, so a secret that release adds is made before the run installs it.
+    # This copy belongs to the release, so a secret that the release adds is made before the run installs it.
     $SECRETS_MADE || ENV_FILE="$UPDATE_ENV_FILE" CHECK_ONLY=false generate_secrets
 
     local id
-    # A subshell, so its die ends only it; the exit here ends the command.
+    # A subshell: its die ends only the subshell, and the exit here ends the command.
     id="$(update_submit "$container")" || exit 1
     if [[ "$UPDATE_WAIT" != true ]]; then
         printf '%s\n' "$id"
@@ -1227,7 +1183,7 @@ cmd_update() {
     (( code != 0 )) || update_done "$container"
     (( code == UPDATE_KEPT_LOCAL )) || return "$code"
 
-    # The run stopped before anything moved, since it would have replaced a build made on this host.
+    # The run stopped before it moved anything, because it would have replaced a build made on this host.
     if [[ ! -t 0 ]]; then
         die "request $id stopped before replacing the builds made on this host that its report names.
        Nothing was stopped. There is no terminal here to ask, so once they may go:
@@ -1244,8 +1200,8 @@ cmd_update() {
     update_done "$container"
 }
 
-# What follows a run that ended DONE: the secrets the new agent reads from each service's file, and,
-# after an update, this file as the release that run installed.
+# What follows a run that ended DONE: the secrets that the new agent reads from the file of each
+# service and, after an update, this file as the copy of the release that the run installed.
 update_done() {
     local container="$1"
     settle_for_agent "$UPDATE_ENV_FILE" "$container"
@@ -1254,11 +1210,10 @@ update_done() {
     fi
 }
 
-# Writes the request through the agent and prints its id, saying so on stderr; dies on a refusal.
 update_submit() {
     local container="$1" id words
     mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$UPDATE_REPLACE_LOCAL")
-    # The agent prints the id on stdout and a refusal, such as a run already open, on stderr.
+    # The agent prints the id on stdout and a refusal, such as an open run, on stderr.
     id="$(docker exec "$container" "${words[@]}" | sed -n '1p' | tr -d '[:space:]')" \
         || die "steward-agent refused the request; its reason is above"
     [[ "$id" =~ ^[0-9]+$ ]] || die "steward-agent did not answer with a request id (got: '$id')"
@@ -1282,8 +1237,8 @@ if [[ "${1:-}" == update ]]; then
     exit $?
 fi
 
-# arguments
-# Kept whole, since the self-update may hand them to a newer copy.
+# Arguments
+# Kept whole, because the self-update may pass them to a newer copy.
 ARGV=("$@")
 
 FROM_FILE=""
@@ -1292,7 +1247,7 @@ ADDRESSES_GIVEN=""
 CHECK_ONLY=false
 BUILD_AGENT=false
 SELF_UPDATE=true
-# A plain run shows the menu; `--deploy`, `--check` and `--build` turn it off.
+# A plain run on a terminal shows the menu. `--deploy`, `--check` and `--build` turn it off.
 MENU=true
 
 # The help text is the comment block at the top of this file.
@@ -1317,10 +1272,10 @@ while (( $# > 0 )); do
     esac
 done
 
-# Without a terminal nothing is asked: the run has what it needs or names what is missing.
+# Without a terminal the script asks nothing. The run has what it needs, or it names what is missing.
 [[ -t 0 ]] || MENU=false
 
-# 0 · which release, and which copy of this file is running
+# 0 · The release and the running copy
 # The release decides everything below, so nothing runs without one. A copy renewed from the tag
 # gets it through NORDTAL_RELEASE and does not ask again.
 resolve_release() {
@@ -1338,7 +1293,7 @@ resolve_release() {
 RELEASE=""
 RELEASE_NAMED=false
 resolve_release
-# For the renewed copy, which must neither ask again nor take GitHub's answer for a person's.
+# For the renewed copy. It takes GitHub's answer for no one's choice and does not ask again.
 export NORDTAL_RELEASE="$RELEASE" NORDTAL_RELEASE_NAMED="$RELEASE_NAMED"
 SELF_URL="$(self_url_for "$RELEASE")"
 log "release $RELEASE"
@@ -1360,7 +1315,7 @@ renew_self() {
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
     if ! fetch_url "$SELF_URL" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
-        # Without a network it carries on, unless piped: then there is no copy to run.
+        # Without a network the run continues, unless the script is piped: then there is no copy to run.
         running_from_a_file || die "this script was piped into bash and $SELF_URL could not be
        fetched, so there is no file to run and nothing has been changed. Download it by hand and
        run that: the installation is whatever directory you run it in."
@@ -1377,7 +1332,7 @@ renew_self() {
         return 0
     fi
 
-    # Runs from the temporary file; it installs itself once the directory question is answered.
+    # The copy runs from a temporary file and installs itself after the directory question.
     chmod 755 "$candidate"
     export NORDTAL_SH_ORIGIN="$SELF_URL, fetched for this run"
     export NORDTAL_SH_TEMP="$candidate"
@@ -1388,7 +1343,7 @@ renew_self() {
         log "fetched release $RELEASE's copy; running that"
     fi
     if [[ ! -t 0 ]] && (exec </dev/tty) 2>/dev/null; then
-        # Piped in: stdin is the script, so the new copy asks on the terminal.
+        # Piped: stdin is the script, so the new copy asks on the terminal.
         exec bash "$candidate" --no-self-update "${ARGV[@]}" </dev/tty
     fi
     exec bash "$candidate" --no-self-update "${ARGV[@]}"
@@ -1401,7 +1356,6 @@ else
     log "running from a pipe - ${ORIGIN:-no file to fingerprint}"
 fi
 
-# Copies this file into the installation directory. Never called under --check.
 install_self() {
     running_from_a_file || return 0
     local source; source="$(self_path)"
@@ -1411,14 +1365,14 @@ install_self() {
        is where every world and every database in this deployment is about to live."
         log "this script is now $INSTALLED - run it again to change a setting or to deploy"
     fi
-    # Deleting the file bash is reading is safe: the open file survives the name.
+    # Deleting the file that bash reads is safe: the open file survives its name.
     [[ -n "$SELF_TEMP" && -f "$SELF_TEMP" && "$SELF_TEMP" != "$INSTALLED" ]] && rm -f "$SELF_TEMP"
     return 0
 }
 
-# 0a · is this the directory?
-# Asked once per installation. An environment file naming another NORDTAL_DIR stops the run, since
-# two installations would share a password, a project name and volumes.
+# 0a · The directory
+# Asked once per installation. An environment file that names another NORDTAL_DIR stops the run,
+# because two installations would share a password, a project name and volumes.
 if [[ -z "$ENV_FILE" ]]; then
     ENV_FILE="${STEWARD_ENV_FILE:-$DEFAULT_ENV_FILE}"
 fi
@@ -1450,7 +1404,6 @@ fi
 
 $CHECK_ONLY || install_self
 
-# 1 · what has to be on the host already
 command -v docker >/dev/null 2>&1 \
     || die "no docker on this host. Everything below needs a daemon; nothing here installs one."
 docker compose version >/dev/null 2>&1 \
@@ -1461,8 +1414,8 @@ docker info >/dev/null 2>&1 \
        already made by running a stack at all."
 log "docker $(docker version --format '{{.Server.Version}}'), compose $(docker compose version --short)"
 
-# 2 · the environment file
-# Holds every secret; compose interpolates it and steward-agent mounts it read-only.
+# 2 · The environment file
+# It holds every secret. Compose interpolates it and steward-agent mounts it read-only.
 is_absolute "$ENV_FILE" || die "--env-file has to be absolute, and '$ENV_FILE' is not. compose
        resolves a relative path against steward-agent's project directory, which is inside its
        image - so a relative path here points at a file that does not exist."
@@ -1475,13 +1428,13 @@ if [[ ! -f "$ENV_FILE" ]]; then
         [[ -f "$FROM_FILE" ]] || die "--from $FROM_FILE does not exist."
         $CHECK_ONLY || {
             install -D -m 600 "$FROM_FILE" "$ENV_FILE"
-            # Copied, never moved: the old file stays as the way back.
+            # The old file stays as the way back.
             cmp -s "$FROM_FILE" "$ENV_FILE" || die "the copy of the environment file does not match its
        source. Nothing further has been done."
             log "environment file copied to $ENV_FILE (mode 600); $FROM_FILE is left alone"
         }
     else
-        # A new host starts with an empty file that the questions below fill.
+        # A new host starts with an empty file, which the questions below fill.
         $CHECK_ONLY || {
             install -D -m 600 /dev/null "$ENV_FILE"
             log "no environment file yet - created $ENV_FILE (mode 600)"
@@ -1498,24 +1451,24 @@ fi
 IMAGES="$(images_prefix "$ENV_FILE")"
 AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
 
-# 2a · the questions
-# Asks once for each missing value. Secrets are read with echo off and never shown; a malformed
-# answer is refused at the prompt.
+# 2a · The questions
+# The script asks once for each missing value. It reads secrets with echo off and never shows them.
+# The prompt refuses a malformed answer.
 
 default_for COMPOSE_PROFILES     "db,bot,mc,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
 default_for POSTGRES_DB          "nordtal"
 default_for POSTGRES_USER        "nordtal"
-# So steward-agent mounts the file this deployment is configured from; section 3 checks it.
+# steward-agent mounts the file that the deployment is configured from. Section 3 checks it.
 default_for STEWARD_ENV_FILE     "$ENV_FILE"
-# Absolute, since compose resolves a relative bind inside steward-agent's image.
+# Absolute, because compose resolves a relative bind inside the image of steward-agent.
 default_for NORDTAL_DIR           "$INSTALL_DIR"
-# steward-agent mounts the directory: a file bind would keep a rotated file's old inode.
+# steward-agent mounts the directory, because a bind of the file would keep the old inode of a rotated file.
 default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
 default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
-# Each secret only one service reads goes into that service's own file, outside what steward-agent
-# mounts, before anything is asked; --check only says which are still in the shared file.
+# The single-reader secrets move into the own file of their service, outside what steward-agent
+# mounts, before anything is asked. --check only reports which are still in the shared file.
 if $CHECK_ONLY; then
     stale="$(stale_service_secrets "$ENV_FILE")"
     [[ -z "$stale" ]] || die "$ENV_FILE still holds $(tr '\n' ' ' <<<"$stale")which only one service
@@ -1523,7 +1476,7 @@ if $CHECK_ONLY; then
     [[ -n "$(env_value "$ENV_FILE" NORDTAL_SECRETS_DIR)" ]] \
         || warn "NORDTAL_SECRETS_DIR is not set; a real run would write the default"
 else
-    # A running agent may still read them from the shared file; without one, this release's compose.yml deploys.
+    # A running agent may still read them from the shared file. Without a running agent, the compose.yml of this release deploys.
     agent="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
     agent="${agent:-$DEFAULT_PROJECT}-steward-agent-1"
     if grep -qxF "$agent" <<<"$(docker ps --format '{{.Names}}' 2>/dev/null)"; then
@@ -1533,7 +1486,7 @@ else
     fi
 fi
 
-# The bunq pair and the root id are asked below; COMPOSE_PROFILES has a default and is changed in the menu.
+# The menu asks for the bunq pair and the root id. COMPOSE_PROFILES has a default and changes in the menu.
 for question in "${QUESTIONS[@]}"; do
     case "$question" in
         NORDTAL_STEWARD_BUNQ_*|STEWARD_ROOT_DISCORD_ID|COMPOSE_PROFILES) continue ;;
@@ -1547,16 +1500,16 @@ for question in "${QUESTIONS[@]}"; do
     ask_question "$question"
 done
 
-# The root id is optional: a tree that already has admins never reads it.
+# The root id is optional. A tree that already has admins never reads it.
 ask_question STEWARD_ROOT_DISCORD_ID || true
 
-# bunq is optional: without it nothing polls for payments. The key lives in steward-bunq's own file.
+# bunq is optional. Without it nothing polls for payments. The key lives in the own file of steward-bunq.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then
     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
 fi
 
-# Warns about the old bunq names, which nothing reads. Values are not copied: a bunq key is bound to
-# the context of the container that registered it.
+# Warns about the old bunq names, which nothing reads. The script copies no values, because a bunq
+# key is bound to the context of the container that registered it.
 for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
         warn "$ENV_FILE still has $stale. Nothing reads it - bunq lives in
@@ -1567,9 +1520,9 @@ for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     fi
 done
 
-# 2b · the menu
-# Shows every value, lets one be changed and deploys at the end. Secrets show as three dots.
-# Only a run with no arguments on a terminal gets it.
+# 2b · The menu
+# The menu shows every value, lets the user change one and deploys at the end. It shows secrets as
+# three dots. Only a run without arguments on a terminal gets it.
 show_menu() {
     local index=1 name value
     printf '\n'
@@ -1608,7 +1561,7 @@ if $MENU; then
                 choice="$(menu_choice "$typed" "${#QUESTIONS[@]}")"
                 picked="${QUESTIONS[$(( ${choice#edit } - 1 ))]}"
                 ask_question "$picked" again || true
-                # steward-bunq refuses a bunq key without an account, so ask for both.
+                # steward-bunq refuses a bunq key without an account, so the script asks for both.
                 if [[ "$picked" == NORDTAL_STEWARD_BUNQ_API_KEY \
                     && -n "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
                     && -z "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
@@ -1622,9 +1575,9 @@ if $MENU; then
     done
 fi
 
-# 3 · which deployment this is
-# Another project name would start a second, empty stack. Runs before section 4, which must not
-# invent a password for an existing database.
+# 3 · The deployment
+# Another project name would start a second, empty stack. This section runs before section 4, which
+# must not invent a password for an existing database.
 STEWARD_NAME="$(env_value "$ENV_FILE" STEWARD_HOST)"
 PROJECT="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
@@ -1648,8 +1601,8 @@ case "$(deployment_kind "$PROJECT" "$existing" "$INSTALL_DIR")" in
         ;;
 esac
 
-# Named volumes of an older installation are no longer mounted, so starting on empty directories
-# needs consent. Nothing is copied or deleted.
+# Docker no longer mounts the named volumes of an older installation, so a start on empty
+# directories needs consent. The script copies and deletes nothing.
 if $ADOPTING && ! $CHECK_ONLY; then
     if docker volume inspect "${PROJECT}_postgres-data" >/dev/null 2>&1 \
         && [[ ! -d "$INSTALL_DIR/postgres-data" ]]; then
@@ -1672,8 +1625,8 @@ if $ADOPTING && ! $CHECK_ONLY; then
     fi
 fi
 
-# 4 · generated secrets
-# Postgres reads POSTGRES_PASSWORD only on an empty data directory; an adopted host is asked.
+# 4 · The generated secrets
+# Postgres reads POSTGRES_PASSWORD only on an empty data directory. An adopted host is asked for it.
 command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and the generated secrets have to
        come from somewhere. Install it, or put every one GENERATED lists into $ENV_FILE yourself -
        and not the same value twice."
@@ -1689,9 +1642,9 @@ else
 fi
 generate_secrets
 
-# 4b · the Web Push keypair
-# Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half
-# set pair is replaced whole. The image is pulled only if absent, so a local build survives.
+# 4b · The Web Push keypair
+# `steward generate-vapid-keys` creates the pair and needs neither a database nor a config. A pair
+# with one half set is replaced whole. The script pulls the image only when it is absent, so a local build stays.
 generate_vapid_keys() {
     local image="${STEWARD_IMAGE:-$IMAGES/steward:$RELEASE}"
     local pub priv output
@@ -1744,8 +1697,8 @@ generate_vapid_keys() {
 }
 generate_vapid_keys
 
-# 4a · everything required is set
-# Firing here means this script failed to write a value it asked for or generated.
+# 4a · Everything required is set
+# This check fires only when the script failed to write a value that it asked for or generated.
 missing="$(env_missing "$ENV_FILE" "${REQUIRED[@]}")"
 if [[ -n "$missing" ]]; then
     warn "these are still missing from $ENV_FILE, or still say REPLACE_ME:"
@@ -1776,7 +1729,7 @@ declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
        into steward-agent, so the agent would mount a different file than the one this
        deployment is configured from - or nothing at all."
 
-# The derived directory and name must match the file, or steward-agent mounts the wrong one.
+# The derived directory and name must match the file. Otherwise steward-agent mounts the wrong one.
 declared_env_dir="$(env_value "$ENV_FILE" STEWARD_ENV_DIR)"
 [[ "$declared_env_dir" == "$(dirname "$ENV_FILE")" ]] || die "STEWARD_ENV_DIR inside the file says
        '$declared_env_dir', and the file is at '$ENV_FILE' (directory '$(dirname "$ENV_FILE")').
@@ -1798,9 +1751,9 @@ declared_env_file_name="$(env_value "$ENV_FILE" STEWARD_ENV_FILE_NAME)"
 
 log "every required value is set; the interface will answer on $STEWARD_NAME"
 
-# 4c · the data directories
-# Docker would create a missing one as well; here, one that cannot be created ends the run before
-# anything starts. Existing directories are left alone.
+# 4c · The data directories
+# Docker would create a missing directory as well. Here the run ends before anything starts when a
+# directory cannot be created. Existing directories stay as they are.
 log "the installation directory: $INSTALL_DIR"
 for entry in "${DATA_DIRS[@]}"; do
     directory="$INSTALL_DIR/$entry"
@@ -1813,14 +1766,14 @@ for entry in "${DATA_DIRS[@]}"; do
        cannot be created there is the end of the run."
 done
 
-# 5 · the name, and the wait
-# Caddy requests a certificate for STEWARD_HOST on start, so the name must point here first.
+# 5 · The name
+# Caddy requests a certificate for STEWARD_HOST on start, so the name must point to this host first.
 this_hosts_addresses() {
     if [[ -n "$ADDRESSES_GIVEN" ]]; then
         printf '%s' "$ADDRESSES_GIVEN"
         return
     fi
-    # Behind NAT there is no public address here; --address supplies it.
+    # Behind NAT this host has no public address. --address supplies it.
     ip -o addr show scope global 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1
 }
 
@@ -1858,9 +1811,9 @@ while true; do
 done
 log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
 
-# 5a · locally built images about to be replaced
-# The agent pulls every service before `up`, replacing a local build whose tag the registry
-# answers. compose.yml comes from the local agent image; without one there is nothing to warn.
+# 5a · Local builds that a pull would replace
+# The agent pulls every service before `up` and replaces a local build whose tag the registry has.
+# compose.yml comes from the local agent image. Without that image there is nothing to warn about.
 COMPOSE_CACHE=""
 compose_file() {
     [[ -n "$COMPOSE_CACHE" ]] && { printf '%s' "$COMPOSE_CACHE"; return 0; }
@@ -1884,8 +1837,8 @@ compose_config_json() {
     docker compose -f "$file" --env-file "$ENV_FILE" config --format json 2>/dev/null
 }
 
-# Gathers what at_risk_images decides on: service images, their local RepoDigests and the registry
-# digests. Without jq or buildx it warns and skips; neither is a prerequisite.
+# Gathers the input of at_risk_images: the service images, their local RepoDigests and the digests of
+# the registry. Without jq or buildx it warns and skips. Neither is a prerequisite.
 images_at_risk() {
     local json pairs image
     command -v jq >/dev/null 2>&1 || {
@@ -1920,7 +1873,7 @@ images_at_risk() {
         [[ -n "$line" ]] || continue
         local_digests+="$image"$'\t'"$line"$'\n'
 
-        # A failed lookup counts as unknown, not safe; `|| reg=""` keeps set -e from exiting.
+        # A failed lookup counts as unknown, not as safe. `|| reg=""` keeps set -e from exiting.
         reg="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}' 2>/dev/null)" \
             || reg=""
         [[ -n "$reg" ]] && registry_digests+="$image"$'\t'"$reg"$'\n'
@@ -1979,9 +1932,10 @@ if $CHECK_ONLY; then
 fi
 
 # 5b · Mojang's assets
-# Asked once per installation and kept in the env file. On yes, steward-agent fetches each Minecraft
-# version's client jar from Mojang, draws the item icons Steward's pickers show and deletes the jar;
-# only the icons are kept, in the database. Without an answer the pickers show names alone.
+# The script asks once per installation and keeps the answer in the env file. On yes, steward-agent
+# fetches the client jar of each Minecraft version from Mojang, draws the item icons that the pickers
+# of Steward show and deletes the jar. Only the icons stay, in the database. Without an answer, the
+# pickers show names only.
 if ! mojang_assets_answered "$ENV_FILE"; then
     if [[ -t 0 ]]; then
         printf '\n\033[36m[nordtal]\033[0m %s\n' "May steward-agent download Minecraft's client from Mojang to draw item icons?" >&2
@@ -1999,10 +1953,10 @@ if ! mojang_assets_answered "$ENV_FILE"; then
     fi
 fi
 
-# 6 · renew steward-agent
-# The one image the stack cannot replace itself; compose.yml is baked into it.
+# 6 · steward-agent
+# compose.yml is part of the image of steward-agent, which no other service can replace.
 if $BUILD_AGENT; then
-    # Needs a JDK and a checkout: the installation directory or the one this script sits in.
+    # It needs a JDK and a checkout: the installation directory or the directory of this script.
     checkout=""
     if [[ -f "$INSTALL_DIR/gradlew" && -d "$INSTALL_DIR/steward-agent" ]]; then
         checkout="$INSTALL_DIR"
@@ -2023,9 +1977,10 @@ else
        builds it from this checkout instead, and needs a JDK."
 fi
 
-# 7 · the deployment itself
-# A healthy agent gets a request, and the update run installs the newest release the way Steward's
-# button does: one-shot hand-over, migration while the servers are down, the report in the inbox.
+# 7 · The deployment itself
+# A healthy agent gets a request, and the update run installs the newest release as the button of
+# Steward does: a temporary container takes over, the migration runs while the servers are down,
+# and the report lands in the inbox.
 agent_healthy=false
 grep -qxF "${PROJECT}-steward-agent-1" \
     <<<"$(docker ps --filter health=healthy --format '{{.Names}}')" && agent_healthy=true
@@ -2042,11 +1997,11 @@ if [[ "$(deploy_by "$BUILD_AGENT" "$agent_healthy")" == request ]]; then
     fi
 fi
 
-# Otherwise a throwaway agent runs `up`, which pulls every image before stopping anything; on a
-# stack whose agent is down this is the repair. The env directory is mounted, and
+# Otherwise a temporary agent container runs `up`, which pulls every image before it stops anything.
+# On a stack whose agent is down, this repairs the stack. The container mounts the env directory, and
 # NORDTAL_STEWARD_AGENT_ENV_FILE names the file inside it.
-# An explicit NORDTAL_IMAGES is a one-off and is handed on; otherwise the agent reads the file itself, since
-# a value in its environment would outrank the file.
+# An explicit NORDTAL_IMAGES is a one-off, and the container receives it. Otherwise the agent reads
+# the file itself, because a value in its environment would outrank the file.
 images_env=()
 [[ -z "${NORDTAL_IMAGES:-}" ]] || images_env=(-e "NORDTAL_IMAGES=$IMAGES")
 log "deploying release $RELEASE - this pulls every image before it stops anything"

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
 # The emergency restore, for a host where steward-agent does not run. Otherwise a restore is a run
-# asked for on Steward's Backups page: it backs up first, counts down and replaces the database
-# itself. This script stops nothing gracefully and warns nobody.
+# that an admin asks for on the Backups page of Steward. That run backs up first, counts down and
+# replaces the database itself. This script stops nothing gracefully and warns nobody.
 #
-#   sudo bash deploy/restore.sh --list                                  what is on the disk
+#   sudo bash deploy/restore.sh --list                                  list the archives on the disk
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
 #   sudo bash deploy/restore.sh nordtal-20260913T031500Z.dump
 #
-# A volume archive REPLACES the volume's directory (or, on an older host, the named volume), so you
-# type the volume's name to confirm. A database dump goes into a NEW database beside the live one.
+# A volume archive REPLACES the directory of the volume (on an older host, the named volume), so the
+# user types the name of the volume to confirm. A database dump goes into a NEW database beside the live one.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,12 +22,12 @@ log()  { printf '\033[36m[restore]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[restore]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# Decisions without side effects, above the source guard so deploy/restore-test.sh can drive them.
+# Pure decisions. They sit above the source guard, so that deploy/restore-test.sh can run them.
 
-# The stamp steward writes into every name: UTC, fixed width, no separator a glob would mind.
+# The stamp that steward writes into every name: UTC, fixed width, and no separator that a glob would match.
 STAMP_PATTERN='[0-9]{8}T[0-9]{6}Z'
 
-# What this file is: `volume`, `database`, `partial` (an interrupted backup), `mark` (an
+# The kind of a file: `volume`, `database`, `partial` (an interrupted backup), `mark` (an
 # `<archive>.unverified` note) or `unknown`.
 archive_kind() {
     local name="$1"
@@ -38,15 +38,14 @@ archive_kind() {
     echo unknown
 }
 
-# The volume an archive belongs to, project prefix included; split at the last hyphen before the stamp.
+# The volume of an archive, project prefix included. The name is split at the last hyphen before the stamp.
 volume_of() {
     local name="$1"
     [[ "$(archive_kind "$name")" == volume ]] || return 1
     sed -E "s/-${STAMP_PATTERN}\.tar\.zst$//" <<<"$name"
 }
 
-# The installation directory for a volume: its name without the project prefix. The caller checks
-# that it exists.
+# The installation directory of a volume: its name without the project prefix. The caller checks that it exists.
 directory_for() {
     local volume="$1" project="$2" root="$3"
     [[ -n "$root" && -n "$project" ]] || return 1
@@ -54,20 +53,19 @@ directory_for() {
     printf '%s/%s' "${root%/}" "${volume#"${project}_"}"
 }
 
-# The stamp of an archive name. `sed -n 1p` reads to EOF, where `head` would fail the pipeline with 141.
+# The stamp of an archive name. `sed -n 1p` reads to EOF, where `head` would end the pipeline with 141.
 stamp_of() {
     local name="$1"
     grep -oE "$STAMP_PATTERN" <<<"$name" | sed -n '1p'
 }
 
-# Whether a typed confirmation is exactly the name; an empty name confirms nothing.
 restore_confirmed() {
     local wanted="$1" typed="$2"
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
-# A mark beside an archive in words. steward-agent writes it as one line of JSON, the run and the
-# services whose stop it could not confirm; anything else is shown as it is.
+# Describes a mark in words. steward-agent writes the mark as one line of JSON that holds the run and
+# the services whose stop it could not confirm. Any other content is shown as it is.
 mark_words() {
     local mark="$1" run services
     run="$(sed -n 's/^{"run":\([0-9]*\),"services":\[.*\]}$/\1/p' <<<"$mark")"
@@ -84,8 +82,8 @@ mark_words() {
     fi
 }
 
-# What the daemon's volume filter is asked for, one value a line: the volume's name and, when the
-# target is a directory, its path, since a bind-mounted directory is no volume to the daemon.
+# The values for the volume filter of the daemon, one per line: the name of the volume and, when the
+# target is a directory, its path. The daemon does not know a bind-mounted directory as a volume.
 holder_filters() {
     local volume="$1" target="$2"
     printf '%s\n' "$volume"
@@ -94,10 +92,8 @@ holder_filters() {
     fi
 }
 
-# sourced rather than executed
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
-# arguments
 ARCHIVE=""
 ENV_FILE="${STEWARD_ENV_FILE:-$DEFAULT_ENV_FILE}"
 BACKUPS_VOLUME=""
@@ -127,14 +123,14 @@ if [[ -f "$ENV_FILE" ]]; then
         | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
 fi
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
-# The installation directory; without it, an older host's named volumes are used.
+# The installation directory. Without it, the script uses the named volumes of an older host.
 NORDTAL_DIR=""
 if [[ -f "$ENV_FILE" ]]; then
     NORDTAL_DIR="$(grep -m1 -E '^[[:space:]]*(export[[:space:]]+)?NORDTAL_DIR=' "$ENV_FILE" \
         | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
 fi
 
-# The `docker run -v` source for a volume: its directory, else the named volume, else nothing.
+# The `docker run -v` source of a volume: its directory, else the named volume, else nothing.
 source_for() {
     local volume="$1" directory
     directory="$(directory_for "$volume" "$PROJECT" "$NORDTAL_DIR" || true)"
@@ -157,8 +153,8 @@ BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
        archives to restore from. --backups-volume names another one; --env-file points at the
        environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
 
-# The image that wrote the archives, for the same tar and zstd; every run overrides its entrypoint.
-# The project's agent container names it, running or not, since images are tagged by release.
+# The image that wrote the archives, so that tar and zstd match. The container of the agent of the
+# project names it, running or not, because images are tagged by release.
 TOOLS="${STEWARD_AGENT_IMAGE:-$(docker ps -a --filter "label=com.docker.compose.project=$PROJECT" \
     --filter label=com.docker.compose.service=steward-agent --format '{{.Image}}' | sed -n '1p')}"
 [[ -n "$TOOLS" ]] || die "project '$PROJECT' has no steward-agent container, so nothing says which
@@ -171,7 +167,7 @@ in_backups() {
 if $LIST_ONLY; then
     log "archives in $BACKUPS_SOURCE:"
     in_backups 'ls -lh /backups 2>/dev/null || echo "(empty)"'
-    # Prints every `.unverified` mark, which may be a reason to pick another archive.
+    # Prints every `.unverified` mark, because a mark can be a reason to pick another archive.
     in_backups 'for m in /backups/*.unverified; do
         [ -e "$m" ] || continue
         printf "%s\t%s\n" "$(basename "$m")" "$(cat "$m")"
@@ -205,9 +201,8 @@ esac
 in_backups "test -f '/backups/$ARCHIVE'" \
     || die "there is no $ARCHIVE in $BACKUPS_VOLUME. \`--list\` shows what is there."
 
-# a database dump: into a new database, never over the live one
 if [[ "$kind" == database ]]; then
-    # The live database is never overwritten; the dump lands beside it under its own name.
+    # The dump never overwrites the live database. It lands beside it under its own name.
     stamp="$(stamp_of "$ARCHIVE")"
     # sed -n 1p, as in stamp_of.
     container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" \
@@ -222,7 +217,7 @@ if [[ "$kind" == database ]]; then
         "createdb -U \"\$POSTGRES_USER\" '$target'" \
         || die "could not create '$target'. If it already exists, a previous run made it - drop it
        or restore under another name."
-    # The copy is for reading, so the dump's roles and grants are not applied.
+    # The copy is for reading, so the script applies no roles and grants of the dump.
     docker exec "$container" sh -c \
         "pg_restore -U \"\$POSTGRES_USER\" -d '$target' --no-owner --no-privileges '/backups/$ARCHIVE'" \
         || warn "pg_restore reported errors. The database '$target' exists and may be incomplete;
@@ -235,12 +230,11 @@ if [[ "$kind" == database ]]; then
     exit 0
 fi
 
-# a volume archive: stop, replace, start
 VOLUME="$(volume_of "$ARCHIVE")"
 
 TARGET="$(source_for "$VOLUME" || true)"
 if [[ -z "$TARGET" ]]; then
-    # Neither exists: the directory is created and named, since a typo looks the same.
+    # When neither exists, the script creates and names the directory, because a typo looks the same.
     TARGET="$(directory_for "$VOLUME" "$PROJECT" "$NORDTAL_DIR" || true)"
     [[ -n "$TARGET" ]] || die "'$VOLUME' is neither a directory in this installation nor a volume
        on this host, and there is no NORDTAL_DIR in $ENV_FILE to build a directory from. If this
@@ -253,7 +247,7 @@ if [[ -z "$TARGET" ]]; then
     mkdir -p "$TARGET"
 fi
 
-# The containers mounting it by name or by path, running or not (`-a`), as the daemon reports them.
+# The containers that mount the volume by name or by path, running or not (`-a`), as the daemon reports them.
 holders_of() {
     local filter
     holder_filters "$VOLUME" "$TARGET" | while IFS= read -r filter; do
@@ -265,7 +259,6 @@ mapfile -t running < <(holders_of)
 
 size="$(in_backups "ls -lh '/backups/$ARCHIVE' | awk '{ print \$5 }'")"
 
-# The `.unverified` mark, if any, shown before the confirmation.
 mark=""
 if in_backups "test -f '/backups/$ARCHIVE.unverified'"; then
     mark="$(mark_words "$(in_backups "cat '/backups/$ARCHIVE.unverified'")")"
@@ -294,8 +287,8 @@ read -r typed
 restore_confirmed "$VOLUME" "$typed" \
     || die "that is not '$VOLUME'. Nothing has been touched."
 
-# The archive is verified before the volume is emptied: `zstd -t` checks the frames, the tar
-# traversal checks the archive is complete. They are separate commands, not one pipeline.
+# The script verifies the archive before it empties the volume. `zstd -t` checks the frames, and the
+# traversal by tar checks that the archive is complete. They are two commands, not one pipeline.
 log "reading $ARCHIVE through before anything is touched"
 in_backups "zstd -t '/backups/$ARCHIVE'" \
     || die "'$ARCHIVE' is not a complete zstd archive - it is truncated or corrupt. Nothing has been
@@ -309,7 +302,7 @@ if (( ${#running[@]} > 0 )); then
     docker stop "${running[@]}" >/dev/null
 fi
 
-# `find -mindepth 1 -delete` rather than a glob, which would leave dotfiles behind.
+# `find -mindepth 1 -delete` instead of a glob, which would leave dotfiles behind.
 log "replacing $TARGET from $ARCHIVE"
 docker run --rm --entrypoint sh \
     -v "$BACKUPS_SOURCE:/backups:ro" \

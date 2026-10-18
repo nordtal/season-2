@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests the decisions in deploy/nordtal.sh without a Docker daemon, a resolver or a real environment file.
+# Tests the decisions of deploy/nordtal.sh without a Docker daemon, a resolver or a real environment file.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,7 +10,7 @@ failed=0
 current_case=""
 case_begin() { current_case="$1"; }
 
-# Membership without a pipe, which `grep -q` would break under `pipefail`.
+# Tests membership without a pipe, because `grep -q` in a pipe breaks under `pipefail`.
 contains() {
     local needle="$1"; shift
     local item
@@ -22,7 +22,7 @@ contains() {
 ok()  { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); }
 
-# `$0` is this script, not nordtal.sh, which is what makes nordtal.sh's source guard return early.
+# `$0` is this script, not nordtal.sh, so the source guard of nordtal.sh returns early.
 # shellcheck source=deploy/nordtal.sh
 source "$SETUP"
 
@@ -59,7 +59,7 @@ case_begin "a value is read out of the file, quotes and all"
 ok "plain, quoted, exported, empty, absent"
 
 case_begin "reading the file never runs it"
-# env_value greps instead of sourcing, so a value is never parsed or executed as shell.
+# env_value reads with grep and never sources, so a value is never parsed or run as shell.
 env_value "$ENV" DANGEROUS >/dev/null
 env_value "$ENV" BRACKETS  >/dev/null
 [[ -e "$WORK/executed" ]] && bad "a value containing a command substitution was executed"
@@ -77,7 +77,7 @@ done
 ok "four missing, two set"
 
 case_begin "the report is names, never values"
-# The report names variables, never their secret values.
+# The report names variables and never their secret values.
 grep -q 'in double quotes' <<<"$missing" && bad "a value appeared in the report"
 grep -q 'REPLACE_ME'       <<<"$missing" && bad "a value appeared in the report"
 ok "only names came back"
@@ -127,7 +127,7 @@ strays="$(addresses_not_ours $'45.155.173.214\n2a01:dead::1' "$ours")"
 ok "every resolved address has to be ours, not just one of them"
 
 case_begin "a name that resolves to nothing does not read as a match"
-# A name that resolves to nothing is wrong, not an empty list of wrong addresses.
+# A name without an address is wrong. It is not an empty list of wrong addresses.
 for nothing in "" " " $'\n'; do
     if [[ -z "$(addresses_not_ours "$nothing" "$ours")" ]]; then
         bad "an empty resolution was accepted as pointing here"
@@ -135,9 +135,8 @@ for nothing in "" " " $'\n'; do
 done
 ok "no answer is reported, not passed over"
 
-# `up` pulls every image, which replaces a locally built one under the same tag.
-# at_risk_images compares the local digest with what the registry serves, since the containerd store
-# gives a local build a RepoDigest too.
+# `up` pulls every image and replaces a local build under the same tag. at_risk_images compares the
+# local digest with the digest of the registry, because the containerd store also gives a local build a RepoDigest.
 case_begin "no local RepoDigests at all is RISK, whatever the registry says"
 pairs=$'nordtal/discord-bot:redtest-107\tdiscord-bot'
 local_digests=$'nordtal/discord-bot:redtest-107\t[]'
@@ -156,7 +155,7 @@ registry_digests=$'ghcr.io/nordtal/minecraft:0.10.3\tsha256:same0000'
 ok "an image whose local digest matches what the registry currently serves is silent"
 
 case_begin "local and registry digest disagree - RISK (the containerd-store case)"
-# The containerd store: a local build has a RepoDigest that differs from the registry's.
+# In the containerd store, a local build has a RepoDigest that differs from the one of the registry.
 pairs=$'ghcr.io/nordtal/discord-bot:0.10.3\tdiscord-bot'
 local_digests=$'ghcr.io/nordtal/discord-bot:0.10.3\t["ghcr.io/nordtal/discord-bot@sha256:a429f360e0c8"]'
 registry_digests=$'ghcr.io/nordtal/discord-bot:0.10.3\tsha256:39d016200b67'
@@ -202,7 +201,7 @@ for form in "STEWARD_AGENT_TOKEN=" "  STEWARD_AGENT_TOKEN=" "export STEWARD_AGEN
         || bad "«$form» left the token as «$written» and said it had generated one"
     count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_AGENT_TOKEN[[:space:]]*=' "$secrets")"
     [[ "$count" == "1" ]] || bad "«$form» left $count assignments of the name in the file"
-    # No other line changed.
+    # No other line changes.
     [[ "$(env_value "$secrets" BEFORE)" == "1" && "$(env_value "$secrets" AFTER)" == "2" ]] \
         || bad "«$form» disturbed the lines around it"
 done
@@ -217,7 +216,7 @@ set_assignment "$secrets" STEWARD_AGENT_TOKEN "abc"
 ok "an absent name is appended once"
 
 case_begin "an answer whose shape cannot be right is refused at the prompt"
-# A host name with a scheme is refused at the prompt, where it can still be fixed.
+# A host name with a scheme is refused at the prompt.
 for id in 214906139328839681 1234567890123456 123456789012345678901; do
     looks_like_snowflake "$id" || bad "the snowflake $id was refused"
 done
@@ -244,7 +243,7 @@ for wrong in "" "info" "info@" "@nordtal.eu" "info@nordtal" "in fo@nordtal.eu" "
 done
 ok "an address passes; a missing half, a missing dot and a space do not"
 
-# The transfer packet needs the port, which people tend to leave out.
+# The transfer packet needs the port.
 for address in play.nordtal.eu:25565 nordtal.eu:25566 45.155.173.214:25565; do
     looks_like_public_address "$address" || bad "the address $address was refused"
 done
@@ -256,7 +255,7 @@ done
 ok "host:port passes; a bare host, a bare port, a scheme and an impossible port do not"
 
 case_begin "the licence question takes yes for an answer and nothing else for one"
-# The EULA answer defaults to no.
+# The answer to the EULA defaults to no.
 for yes in y Y yes YES Yes true; do
     answer_is_yes "$yes" || bad "«$yes» was not read as yes"
 done
@@ -281,13 +280,13 @@ done
 ok "absent, empty and anything but true or false ask; true and false do not"
 
 case_begin "a written secret is never on a command line"
-# The value reaches awk through the environment, never the world-readable command line.
+# The value reaches awk through the environment and never through the command line, which every user can read.
 grep -q 'awk -v name=.*-v value=' "$SETUP" && bad "a value is still passed to awk with -v"
 grep -q 'ENVIRON\["SET_ASSIGNMENT_VALUE"\]' "$SETUP" || bad "the value does not come from the environment"
 ok "set_assignment hands the value to awk through the environment"
 
 case_begin "what a deployment demands of a person is the short list"
-# bunq stays optional; without it no payments are taken.
+# bunq is optional. Without it, the stack takes no payments.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID STEWARD_HOST STEWARD_ACME_EMAIL \
             STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_DISCORD_CLIENT_ID \
@@ -304,7 +303,7 @@ contains NORDTAL_SECRETS_DIR "${REQUIRED[@]}" || bad "NORDTAL_SECRETS_DIR is not
 ok "fifteen required; bunq is not"
 
 case_begin "a value full of shell metacharacters survives the round trip"
-# A value is written literally, never as shell.
+# The script writes a value literally and never as shell.
 secrets="$WORK/secret.env"
 printf 'NAME=old\n' > "$secrets"
 set_assignment "$secrets" NAME 'a(b)c$(touch "'"$WORK"'/executed")'
@@ -314,7 +313,7 @@ set_assignment "$secrets" NAME 'a(b)c$(touch "'"$WORK"'/executed")'
 ok "a value is text on the way in and text on the way out"
 
 case_begin "a secret is three dots, whatever is behind them"
-# A value is masked by its kind, so a new secret is masked too.
+# The mask depends on the kind of the question, so a new secret is masked too.
 [[ "$(shown_value secret "hunter2")"          == "•••" ]] || bad "a secret was printed"
 [[ "$(shown_value optional-secret "a-key")"   == "•••" ]] || bad "an optional secret was printed"
 [[ "$(shown_value secret "")"                 == "(not set)" ]] || bad "an unset secret"
@@ -324,7 +323,7 @@ case_begin "a secret is three dots, whatever is behind them"
 ok "secret and optional-secret are dots; everything else reads back as itself"
 
 case_begin "every secret in the menu is masked by kind, and no kind is missing one"
-# Every question has a kind, or `shown_value` would echo it as not a secret.
+# Every question has a kind. Otherwise `shown_value` would print a secret.
 for name in "${QUESTIONS[@]}"; do
     [[ -n "${QUESTION_KIND[$name]:-}" ]]   || bad "$name has no kind"
     [[ -n "${QUESTION_CHECK[$name]:-}" ]]  || bad "$name has no check"
@@ -372,7 +371,7 @@ case_begin "a name compose.yml selects nothing by is reported"
 ok "every name but the selectable profiles is reported, one per line"
 
 case_begin "the selectable profiles are compose.yml's"
-# Every profile compose.yml declares, standby included, which nobody selects.
+# Every profile that compose.yml declares, including `standby`, which nobody selects.
 declared="$(grep -o 'profiles: \[[^]]*\]' "$HERE/../compose.yml" | grep -o '"[a-z0-9-]*"' | tr -d '"' | sort -u)"
 listed="$(printf '%s\n' "${SELECTABLE_PROFILES[@]}" standby | sort -u)"
 [[ -n "$declared" ]] || bad "no profile found in compose.yml"
@@ -380,7 +379,7 @@ listed="$(printf '%s\n' "${SELECTABLE_PROFILES[@]}" standby | sort -u)"
 ok "SELECTABLE_PROFILES and standby are exactly compose.yml's profiles"
 
 case_begin "a downloaded file has to be this script before it replaces this script"
-# The renewal only runs a download that is complete and is the script.
+# The renewal runs only a download that is complete and is this script.
 printf '#!/usr/bin/env bash\nSELF_NAME="nordtal.sh"\necho hello\n' > "$WORK/good.sh"
 looks_like_this_script "$WORK/good.sh" || bad "a real script was refused"
 printf '<html><body>404</body></html>\n' > "$WORK/page.html"
@@ -394,9 +393,9 @@ looks_like_this_script "$WORK/empty.sh" && bad "an empty file was accepted"
 ok "the shebang, the marker and a syntax check"
 
 case_begin "update: the flags, and what they refuse"
-# An unknown flag or a value the database constraints would refuse stops the command.
+# An unknown flag, or a value that the database constraints refuse, stops the command.
 
-# `die` exits, so every refusal is checked in a subshell.
+# `die` exits, so each refusal is checked in a subshell.
 refuses() {
     local why="$1"; shift
     if ( parse_update_args "$@" ) >/dev/null 2>&1; then
@@ -423,7 +422,7 @@ parse_update_args --start limbo
 [[ "$UPDATE_KIND" == START && "$UPDATE_SCOPE" == limbo ]] || bad "--start limbo gave $UPDATE_SCOPE"
 ok "every kind this command offers is one steward_inbox.kind accepts"
 
-# A bare --start means "release every hold", so the flag after it must not be eaten as a service.
+# A bare --start releases every hold, so the flag after it is not a service.
 parse_update_args --start --no-wait
 [[ "$UPDATE_KIND" == START && -z "$UPDATE_SCOPE" && "$UPDATE_WAIT" == false ]] \
     || bad "--start swallowed the flag after it: scope='$UPDATE_SCOPE' wait=$UPDATE_WAIT"
@@ -480,7 +479,7 @@ for running in PENDING RUNNING "" unknown; do
 done
 ok "the three finished statuses end it and nothing else does"
 
-# The scope shape, held against the constraint the database carries.
+# The scope shape matches the constraint of the database.
 for good in smp limbo smp,limbo hunger-games steward; do
     update_scope_ok "$good" || bad "$good was refused"
 done
@@ -508,7 +507,7 @@ case_begin "a running, healthy agent gets a request; everything else gets up"
 ok "request, up, --build"
 
 case_begin "update: the copy that asks for a run is renewed to the newest release's first"
-# A host that is only ever updated runs the release's script, not the one it was installed with.
+# A host that is only updated runs the script of the release, not the script it was installed with.
 printf '{"tag_name": "v9.9.9"}\n' > "$WORK/latest.json"
 { cat "$SETUP"; printf '# release 9.9.9\n'; } > "$WORK/release.sh"
 cp "$SETUP" "$WORK/installed.sh"
@@ -526,7 +525,7 @@ cmp -s "$WORK/installed.sh" "$SETUP" || bad "a failed renewal changed the file"
 ok "without GitHub or with a broken download, the copy that is here runs"
 
 case_begin "update: once a run is done, the copy is the release that run installed"
-# GitHub's newest release can still be the previous one just after a tag; the agent's tag is what ran.
+# Just after a tag, the newest release on GitHub can still be the previous one. The tag of the agent is what ran.
 docker() {
     [[ "$1" == ps ]] || return 1
     printf 'nordtal-s2-smp-1\tghcr.io/nordtal/minecraft:9.9.8\n'
@@ -555,7 +554,7 @@ ok "an agent whose release is unknown leaves the copy as it is"
 unset -f docker fetch_url
 
 case_begin "update: the watch rides out steward-agent being recreated and gives up when it stays gone"
-# The stand-in docker answers the nth look with the nth line of answers; a dash is an exec that fails.
+# The stand-in docker answers the nth look with the nth line of answers. A dash is an exec that fails.
 looks_at() { cat "$WORK/looks"; }
 docker() {
     local looked
@@ -611,7 +610,7 @@ grep -q "steward-agent mounts that directory" <<<"$said" || bad "the refusal did
 ok "the default, and every place the agent would read refused"
 
 case_begin "a single-reader secret leaves the shared file for its service's own, owned by its uid"
-# chown needs root; the stand-in records what would be handed to whom.
+# chown needs root. The stand-in records what it would give to whom.
 chown() { printf '%s %s\n' "$2" "${3#"$WORK"/}" >> "$WORK/chowned"; }
 move_case() {
     rm -rf "$WORK/move" "$WORK/chowned"
@@ -643,7 +642,7 @@ for service in steward-bunq discord-bot steward steward-agent; do
     [[ "$(env_value "$WORK/move/season-2.env" "$(revision_name "$service")")" =~ ^[0-9a-f]{16}$ ]] \
         || bad "$service was given no new SECRETS_REVISION"
 done
-# find's exact -perm reads the same on GNU and BSD, unlike stat.
+# The exact -perm of find reads the same on GNU and BSD. stat does not.
 mode_is() { [[ -n "$(find "$1" -maxdepth 0 -perm "$2")" ]]; }
 mode_is "$bunq" 600 || bad "steward-bunq's file is not mode 600"
 mode_is "$WORK/move/secrets/steward-bunq" 700 || bad "steward-bunq's directory is not mode 700"
@@ -790,8 +789,8 @@ case_begin "a run under another project name beside a deployment is refused"
 ok "another project beside a running stack is a second stack"
 
 case_begin "an update generates every secret a deploy does, so a release that adds one brings it"
-# Every set_secret but POSTGRES_PASSWORD's, which postgres reads only on an empty data directory, is in
-# generate_secrets, and the update calls it.
+# generate_secrets contains every set_secret except the one for POSTGRES_PASSWORD, which postgres reads
+# only on an empty data directory. The update calls generate_secrets.
 outside="$(awk '/^generate_secrets\(\)/ { inside = 1 } inside && /^}/ { inside = 0; next }
     !inside && /^[[:space:]]*set_secret / && !/set_secret POSTGRES_PASSWORD / { print NR": "$0 }' "$SETUP")"
 [[ -z "$outside" ]] || bad "a set_secret outside generate_secrets, which an update does not reach: $outside"

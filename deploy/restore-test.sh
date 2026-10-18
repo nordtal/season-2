@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests the decisions in deploy/restore.sh without Docker and without an archive.
+# Tests the decisions of deploy/restore.sh without Docker and without an archive.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,7 +12,7 @@ case_begin() { current_case="$1"; }
 ok()  { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); }
 
-# `$0` is this script, not restore.sh, which is what makes its source guard return early.
+# `$0` is this script, not restore.sh, so the source guard of restore.sh returns early.
 # shellcheck source=deploy/restore.sh
 source "$SCRIPT"
 
@@ -23,7 +23,7 @@ kind_is() {
 }
 
 case_begin "the names steward actually writes are recognised"
-# The names TarSnapshots and DatabaseDump write; the stamp is yyyyMMdd'T'HHmmss'Z' in UTC.
+# The names that TarSnapshots and DatabaseDump write. The stamp is yyyyMMdd'T'HHmmss'Z' in UTC.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst"         volume
 kind_is "nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst" volume
 kind_is "nordtal-s2_bot-config-20260913T031500Z.tar.zst"     volume
@@ -31,7 +31,7 @@ kind_is "nordtal-20260913T031500Z.dump"                      database
 ok "four real names, three volumes and a dump"
 
 case_begin "a volume whose own name has dashes comes back whole"
-# The split is at the last hyphen before the stamp, or this lands in the existing nordtal-s2_mc-smp.
+# The split is at the last hyphen before the stamp. Otherwise the volume would be the existing nordtal-s2_mc-smp.
 [[ "$(volume_of nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-smp-plugins" ]] \
     || bad "the -plugins volume lost its suffix"
 [[ "$(volume_of nordtal-s2_mc-proxy-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-proxy" ]] \
@@ -52,7 +52,7 @@ kind_is "nordtal-20260913T031500Z.dump.partial"              partial
 ok "both kinds of interrupted backup are refused as partial"
 
 case_begin "the mark beside an archive is not an archive"
-# An `<archive>.unverified` mark is classified as `mark`, so the answer points at the archive.
+# An `<archive>.unverified` mark is a `mark`, so the answer points at the archive.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst.unverified" mark
 kind_is "nordtal-20260913T031500Z.dump.unverified"              mark
 # The archive next to a mark is still an ordinary archive.
@@ -60,7 +60,7 @@ kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst" volume
 ok "a mark is a mark, and the archive beside it is still restorable"
 
 case_begin "a mark is read as the run and the services whose stop nobody could confirm"
-# steward-agent writes the mark as a record; restore.sh says it in words before the confirmation.
+# steward-agent writes the mark as a record. restore.sh describes it in words before the confirmation.
 said="$(mark_words '{"run":312,"services":["smp","limbo"]}')"
 [[ "$said" == "run 312 stopped smp, limbo, and how they ended could not be read back" ]] \
     || bad "two services read as '$said'"
@@ -98,7 +98,7 @@ case_begin "the confirmation has to be the volume's own name"
 restore_confirmed nordtal-s2_mc-smp nordtal-s2_mc-smp || bad "the name typed back was not accepted"
 ok "the name is accepted"
 
-# "yes" and a bare Return are what somebody not reading the prompt answers.
+# "yes" and a bare Return are the answers of somebody who does not read the prompt.
 for typed in "" " " "y" "Y" "yes" "YES" "nordtal-s2_mc-smp " "NORDTAL-S2_MC-SMP" \
              "mc-smp" "nordtal-s2_mc-smp-plugins" "*"; do
     if restore_confirmed nordtal-s2_mc-smp "$typed"; then
@@ -108,7 +108,7 @@ done
 ok "yes, an empty line, the unprefixed name, a neighbouring volume and a wildcard are all refused"
 
 case_begin "an empty target confirms nothing"
-# An empty volume name must never match an empty answer.
+# An empty volume name never matches an empty answer.
 restore_confirmed "" ""  && bad "an empty target accepted an empty confirmation"
 restore_confirmed "" "y" && bad "an empty target accepted anything at all"
 ok "nothing can be confirmed against an empty name"
@@ -130,7 +130,7 @@ directory_for other_mc-smp nordtal-s2 /srv/nordtal \
 ok "prefix off, directory under the installation; no prefix and no root answer nothing"
 
 case_begin "the holders of a bind-mounted directory are asked for by its path as well"
-# Every volume of this stack is a directory; the daemon finds nobody holding it by the volume's name.
+# Every volume of this stack is a directory, so the daemon finds no container that holds it by the name of the volume.
 [[ "$(holder_filters nordtal-s2_mc-smp /srv/nordtal/mc-smp)" == $'nordtal-s2_mc-smp\n/srv/nordtal/mc-smp' ]] \
     || bad "a directory target is not asked for by its path"
 [[ "$(holder_filters nordtal-s2_mc-smp nordtal-s2_mc-smp)" == "nordtal-s2_mc-smp" ]] \

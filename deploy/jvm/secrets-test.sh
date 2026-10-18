@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests deploy/jvm/secrets.sh under the image's own /bin/sh, without Docker.
+# Tests deploy/jvm/secrets.sh under /bin/sh of the image, without Docker.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,14 +15,14 @@ bad() { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# What one variable is after the reader ran on $1, in the shell the entrypoint runs in.
+# The value of one variable after the reader ran on $1, in the shell of the entrypoint.
 exported() {
     local file="$1" name="$2"
     env -i PATH="$PATH" READER="$READER" FILE="$file" NAME="$name" \
         sh -c '. "$READER"; read_secrets "$FILE" 2>/dev/null; printenv "$NAME" || true'
 }
 
-# What the reader says on stderr for $1.
+# The message of the reader on stderr for $1.
 said() {
     env -i PATH="$PATH" READER="$READER" FILE="$1" sh -c '. "$READER"; read_secrets "$FILE" 2>&1 >/dev/null'
 }

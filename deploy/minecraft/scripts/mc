@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Send one command to the server console without needing a TTY.
+# Sends one command to the server console. It needs no TTY.
 #
 #   mc list
 #   mc "say the server restarts in 5 minutes"
 #
-# The output goes to the console, so read it with `docker logs`.
+# The output goes to the console. Read it with `docker logs`.
 set -euo pipefail
 if [ "$#" -eq 0 ]; then
     echo "usage: mc <command...>" >&2

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Opens the standby port in nordtal.nft's table while proxy-standby runs and closes it when it stops.
-# An update run starts proxy-standby only to hold the network while the proxy is replaced, so the
-# port is open for exactly that window. Runs as nordtal-standby-port.service.
+# Opens the standby port in the table of nordtal.nft while proxy-standby runs and closes it when the
+# service stops. An update run starts proxy-standby only while it replaces the proxy, so the port is
+# open for exactly that time. It runs as nordtal-standby-port.service.
 set -Euo pipefail
 
 STANDBY_LABEL="eu.nordtal.standby-of=proxy"
 
 log() { printf '%s\n' "$*"; }
 
-# The host port the project $1's Caddy publishes for the standby, PROXY_STANDBY_PORT; empty while
-# Caddy is down.
+# The host port that Caddy of project $1 publishes for the standby (PROXY_STANDBY_PORT). Empty while Caddy is down.
 standby_port() {
     local caddy
     caddy="$(docker ps --quiet --filter "label=com.docker.compose.project=$1" \
@@ -37,12 +36,12 @@ sync() {
         && log "opened $port: proxy-standby is running"
 }
 
-# The events are subscribed to before the first look, so no start or stop falls between the two.
+# The script subscribes to the events before the first look, so no start or stop falls between the two.
 exec {events}< <(docker events --filter "label=$STANDBY_LABEL" --filter event=start --filter event=die \
     --format '{{.Action}}')
 sync
 while read -r -u "$events" _; do
     sync
 done
-# The stream ends when the daemon goes away; systemd starts this again.
+# The stream ends when the daemon goes away. systemd starts the script again.
 exit 1

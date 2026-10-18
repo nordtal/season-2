@@ -8,14 +8,14 @@ import java.time.Instant;
 import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 
-/** Tests the date both {@code /phase} commands read, whose offset is derived from the date. */
+/** Tests the date that both {@code /phase} commands read. Its offset is derived from the date. */
 class SeasonDatesTest {
 
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     @Test
     void aSummerDateIsTwoHoursAheadOfUtc() {
-        // Before the last Sunday of October, so Berlin is still on CEST.
+        // Before the last Sunday of October, so Berlin is on CEST.
         assertEquals(
                 Instant.parse("2026-10-01T16:00:00Z"),
                 SeasonDates.parse("2026-10-01 18:00", BERLIN).orElseThrow());
@@ -23,7 +23,7 @@ class SeasonDatesTest {
 
     @Test
     void aWinterDateIsOneHourAheadOfUtc() {
-        // Same wall-clock time five weeks later, one hour further from UTC.
+        // The same wall-clock time five weeks later is one hour further from UTC.
         assertEquals(
                 Instant.parse("2026-11-15T17:00:00Z"),
                 SeasonDates.parse("2026-11-15 18:00", BERLIN).orElseThrow());
@@ -41,7 +41,7 @@ class SeasonDatesTest {
 
     @Test
     void anythingThatIsNotThePatternIsRefused() {
-        // Every one of these is a plausible thing to type, and none of them may be guessed at.
+        // Each is a plausible input, and none may be guessed at.
         assertTrue(SeasonDates.parse(null, BERLIN).isEmpty());
         assertTrue(SeasonDates.parse("", BERLIN).isEmpty());
         assertTrue(SeasonDates.parse("   ", BERLIN).isEmpty());

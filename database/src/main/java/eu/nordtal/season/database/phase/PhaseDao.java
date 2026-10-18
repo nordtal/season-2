@@ -7,25 +7,25 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jspecify.annotations.Nullable;
 
-/** The SQL surface of the phase model; {@link PhaseDirectory} is the API. */
+/** The SQL of the phase model. {@link PhaseDirectory} is its API. */
 interface PhaseDao {
 
-    /** Returns the stored phase name, empty only if the singleton row has been deleted. */
+    /** Returns the stored phase name, empty if the singleton row is deleted. */
     @SqlQuery("SELECT phase FROM season_phase WHERE id")
     Optional<String> currentPhase();
 
-    /** Returns the announced opening instant, empty when unset or the singleton row is gone. */
+    /** Returns the announced opening instant, empty if unset or the row is gone. */
     @SqlQuery("SELECT launch FROM season_phase WHERE id")
     Optional<Instant> launch();
 
-    /** Returns the announced instant paid access starts running, empty when unset or the row is gone. */
+    /** Returns the announced start of paid access, empty if unset or the row is gone. */
     @SqlQuery("SELECT smp_start FROM season_phase WHERE id")
     Optional<Instant> smpStart();
 
     /**
-     * Switches the phase and notifies with no payload, as one statement; the caller journals it in its transaction.
+     * Switches the phase and notifies without payload in one statement. The caller journals it.
      *
-     * @return the previous phase, the new phase and when; no row if the singleton is missing
+     * @return the previous phase, the new phase and the time. No row if the singleton is missing
      */
     @SqlQuery("""
             WITH previous AS (
@@ -57,10 +57,10 @@ interface PhaseDao {
     PhaseChange switchPhase(@Bind("phase") String phase);
 
     /**
-     * Writes {@code launch} and notifies, as one statement; the caller journals it in the same transaction.
+     * Writes {@code launch} and notifies in one statement. The caller journals it.
      *
-     * @param at the new instant, or {@code null} to clear the date
-     * @return the row's value before and after; the two grant counts are always zero
+     * @param at the new instant, null clears the date
+     * @return the value before and after. Both grant counts are zero
      */
     @SqlQuery("""
             WITH previous AS (
@@ -84,11 +84,10 @@ interface PhaseDao {
     DateChange setLaunch(@Bind("at") @Nullable Instant at);
 
     /**
-     * Writes {@code smp_start} and moves the paid access anchored to it, and notifies; the caller journals it.
-     * Per account, the earliest live grant at or after the old date lands on the new one; the rest keep their distance.
+     * Writes {@code smp_start}, moves the paid access anchored to it and notifies. The caller journals it.
+     * Per account, the earliest live grant at or after the old date moves to the new date. The rest keep their gap.
      *
-     * @param at the new instant, or {@code null} to clear the date, which moves nothing
-     * @return the row's value before and after, and how much access moved with it
+     * @param at the new instant, null clears the date and moves nothing
      */
     @SqlQuery("""
             WITH previous AS (

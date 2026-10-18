@@ -6,21 +6,25 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.DiscordRole;
-import eu.nordtal.season.discordbot.Card;
-import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
+import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.spec.layout.Element;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.Line;
+import eu.nordtal.season.messages.spec.layout.Part;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.Guild;
@@ -32,8 +36,7 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
-import net.dv8tion.jda.api.modals.Modal;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -44,10 +47,31 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 public final class OnboardingFlow extends ListenerAdapter {
 
+    /** The answer to a language, in it: the region asked in a box, the select under it. */
+    static final Layout REGION = Layout.discord(
+            "access",
+            "onboarding-region",
+            "Onboarding",
+            List.of(Element.select("regions", "access/onboarding.region.choose")),
+            Part.container(
+                    Tone.BRAND,
+                    Part.text(
+                            Line.title("access/onboarding.region.title"), Line.text("access/onboarding.region.lead"))),
+            Part.row("regions"));
+
+    /** The change message's dialog, which asks for both choices at once. */
+    static final Layout CHOICE = Layout.modal(
+            "access",
+            "onboarding-choice",
+            "Onboarding",
+            "access/onboarding.modal.title",
+            Element.input("language", "access/onboarding.modal.language"),
+            Element.input("region", "access/onboarding.modal.region"));
+
     private final Onboarding onboarding;
     private final GuildLanguages languages;
     private final GuildRoles roles;
-    private final DiscordRenderer messages;
+    private final LayoutRenderer layouts;
     private final String networkZone;
     private final Consumer<Alert> alerts;
     private final Executor lane;
@@ -62,14 +86,14 @@ public final class OnboardingFlow extends ListenerAdapter {
             final Onboarding onboarding,
             final GuildLanguages languages,
             final GuildRoles roles,
-            final DiscordRenderer messages,
+            final LayoutRenderer layouts,
             final String networkZone,
             final Consumer<Alert> alerts,
             final Executor lane) {
         this.onboarding = onboarding;
         this.languages = languages;
         this.roles = roles;
-        this.messages = messages;
+        this.layouts = layouts;
         this.networkZone = networkZone;
         this.alerts = alerts;
         this.lane = lane;
@@ -109,16 +133,8 @@ public final class OnboardingFlow extends ListenerAdapter {
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         switch (Answer.after(given, region.isPresent(), !regions.isEmpty())) {
             case ASK_REGION ->
-                hook.editOriginalEmbeds(Card.of(messages.format(
-                                        reads, MESSAGES.onboarding().region().title()))
-                                .lead(messages.format(
-                                        reads, MESSAGES.onboarding().region().lead()))
-                                .build())
-                        .setComponents(ActionRow.of(StringSelectMenu.create(Ids.ONBOARD_PICK_REGION + tag)
-                                .setPlaceholder(messages.format(
-                                        reads, MESSAGES.onboarding().region().choose()))
-                                .addOptions(regions)
-                                .build()))
+                hook.editOriginal(region(layouts, Ids.ONBOARD_PICK_REGION + tag, regions, reads)
+                                .edit())
                         .queue();
             case SAVED ->
                 hook.editOriginal(saved(reads, language.orElseThrow(), region.orElseThrow()))
@@ -128,8 +144,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                         "{} chose the language {}, which was not given or leaves no region to offer",
                         member.getId(),
                         tag);
-                hook.editOriginal(messages.format(reads, MESSAGES.onboarding().failed()))
-                        .queue();
+                hook.editOriginal(reply(reads, MESSAGES.onboarding().failed())).queue();
             }
         }
     }
@@ -143,19 +158,31 @@ public final class OnboardingFlow extends ListenerAdapter {
         final boolean given = region.isPresent() && give(member, region.get(), DiscordRole.REGION);
         final Locale reads = asked.locale();
         final Optional<Role> language = role(guild, choices.byValue(Choices.Kind.LANGUAGE, asked.tag()));
-        final String text = Answer.after(given, given, false) == Answer.SAVED && language.isPresent()
-                ? saved(reads, language.get(), region.orElseThrow())
-                : messages.format(reads, MESSAGES.onboarding().failed());
-        hook.editOriginal(new MessageEditBuilder()
-                        .setContent(text)
-                        .setEmbeds(List.of())
-                        .setComponents(List.of())
-                        .build())
+        hook.editOriginal(
+                        Answer.after(given, given, false) == Answer.SAVED && language.isPresent()
+                                ? saved(reads, language.get(), region.orElseThrow())
+                                : reply(reads, MESSAGES.onboarding().failed()))
                 .queue();
     }
 
-    private String saved(final Locale reads, final Role language, final Role region) {
-        return messages.format(reads, MESSAGES.onboarding().saved(language.getName(), region.getName()));
+    /** The region asked in {@code reads}, its select of {@code regions} under the custom id {@code id}. */
+    static LayoutRenderer.Drawn region(
+            final LayoutRenderer layouts, final String id, final List<SelectOption> regions, final Locale reads) {
+        final List<LayoutRenderer.Option> options = regions.stream()
+                .map(option -> new LayoutRenderer.Option(option.getValue(), option.getLabel(), Map.of(), null))
+                .toList();
+        return layouts.render(
+                REGION,
+                new LayoutRenderer.Filling(Map.of(), Map.of("regions", new LayoutRenderer.FilledSelect(id, options))),
+                reads);
+    }
+
+    private MessageEditData saved(final Locale reads, final Role language, final Role region) {
+        return reply(reads, MESSAGES.onboarding().saved(language.getName(), region.getName()));
+    }
+
+    private MessageEditData reply(final Locale reads, final MessageRef text) {
+        return layouts.reply(reads, text).edit();
     }
 
     private static Set<String> ids(final Member member) {
@@ -177,35 +204,31 @@ public final class OnboardingFlow extends ListenerAdapter {
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         if (spoken.isEmpty() || regions.isEmpty()) {
             log.warn("{} wanted to choose, but no language or no region has a role yet", member.getId());
-            event.reply(messages.format(locale, MESSAGES.onboarding().failed()))
+            event.reply(layouts.reply(locale, MESSAGES.onboarding().failed()).create())
                     .setEphemeral(true)
                     .queue();
             return;
         }
         final String client = Locales.tag(event.getUserLocale().toLocale());
-        final Modal modal = Modal.create(
+        final Optional<String> spokenNow = held(guild, choices, Choices.Kind.LANGUAGE, held)
+                .or(() -> offered(spoken, client))
+                .or(() -> offered(spoken, Locales.tag(locale)));
+        final Optional<String> regionNow =
+                held(guild, choices, Choices.Kind.REGION, held).or(() -> offered(regions, networkZone));
+        event.replyModal(layouts.modal(
+                        CHOICE,
                         Ids.ONBOARD_MODAL + language.tag(),
-                        messages.format(locale, MESSAGES.onboarding().modal().title()))
-                .addComponents(
-                        Label.of(
-                                messages.format(
-                                        locale, MESSAGES.onboarding().modal().language()),
-                                menu(
-                                        Ids.ONBOARD_LANGUAGE,
-                                        spoken,
-                                        held(guild, choices, Choices.Kind.LANGUAGE, held)
-                                                .or(() -> offered(spoken, client))
-                                                .or(() -> offered(spoken, Locales.tag(locale))))),
-                        Label.of(
-                                messages.format(
-                                        locale, MESSAGES.onboarding().modal().region()),
-                                menu(
-                                        Ids.ONBOARD_REGION,
-                                        regions,
-                                        held(guild, choices, Choices.Kind.REGION, held)
-                                                .or(() -> offered(regions, networkZone)))))
-                .build();
-        event.replyModal(modal).queue();
+                        new LayoutRenderer.Filling(
+                                Map.of(),
+                                Map.of(
+                                        "language",
+                                        new LayoutRenderer.FilledInput(
+                                                placeholder -> menu(Ids.ONBOARD_LANGUAGE, spoken, spokenNow)),
+                                        "region",
+                                        new LayoutRenderer.FilledInput(
+                                                placeholder -> menu(Ids.ONBOARD_REGION, regions, regionNow)))),
+                        locale))
+                .queue();
     }
 
     @Override
@@ -225,8 +248,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             if (language.isEmpty() || region.isEmpty()) {
                 log.warn("{} chose {} and {}, of which one has no role", member.getId(), tag, zone);
                 event.getHook()
-                        .editOriginal(
-                                messages.format(asked, MESSAGES.onboarding().failed()))
+                        .editOriginal(reply(asked, MESSAGES.onboarding().failed()))
                         .queue();
                 return;
             }
@@ -238,8 +260,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     .editOriginal(
                             given
                                     ? saved(reads, language.get(), region.get())
-                                    : messages.format(
-                                            reads, MESSAGES.onboarding().failed()))
+                                    : reply(reads, MESSAGES.onboarding().failed()))
                     .queue();
         });
     }

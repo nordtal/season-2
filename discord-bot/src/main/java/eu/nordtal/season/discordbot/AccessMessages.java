@@ -20,7 +20,7 @@ import java.time.Instant;
 
 /** Every message of the access bundle, one method per key. */
 @MessageSpec("access")
-@Shown(Display.DISCORD_MESSAGE)
+@Shown(Display.DISCORD_TEXT)
 @Format(TextFormat.DISCORD_MARKDOWN)
 public interface AccessMessages {
 
@@ -169,11 +169,9 @@ public interface AccessMessages {
         interface Region {
 
             @Name("Title")
-            @Shown(Display.DISCORD_EMBED_HEADING)
             MessageRef title();
 
             @Name("Lead")
-            @Shown(Display.DISCORD_EMBED)
             MessageRef lead();
 
             @Name("Choose")
@@ -250,7 +248,7 @@ public interface AccessMessages {
     interface Purchase {
 
         @Name("Choose")
-        @Shown(Display.DISCORD_SELECT)
+        @Shown({Display.DISCORD_TEXT, Display.DISCORD_SELECT})
         @Format(TextFormat.PLAIN)
         MessageRef choose();
 
@@ -473,8 +471,6 @@ public interface AccessMessages {
             MessageRef pickerPlaceholder();
 
             @Name("Pick")
-            @Shown(Display.DISCORD_SELECT)
-            @Format(TextFormat.PLAIN)
             MessageRef pick();
 
             @Name("Sent")
@@ -570,6 +566,7 @@ public interface AccessMessages {
 
     /** What the bot announces by itself. */
     @Name("Announce")
+    @Shown(Display.DISCORD_MESSAGE)
     interface Announce {
 
         @Name("Phase")

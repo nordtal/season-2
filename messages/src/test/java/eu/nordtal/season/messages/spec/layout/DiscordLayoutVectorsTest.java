@@ -97,6 +97,7 @@ class DiscordLayoutVectorsTest {
                     case LIST -> Set.of("items");
                     case LINK -> Set.of();
                     case LANGUAGES -> Set.of("languages");
+                    case INPUT -> Set.of("id");
                 };
                 if (filled == null || !filled.keySet().equals(expected)) {
                     wrong.add(layout.name() + ": " + element.id() + " is filled as " + filled);

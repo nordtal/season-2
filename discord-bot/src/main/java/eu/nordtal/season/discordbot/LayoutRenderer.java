@@ -6,6 +6,7 @@ import eu.nordtal.season.messages.spec.layout.Element;
 import eu.nordtal.season.messages.spec.layout.Layout;
 import eu.nordtal.season.messages.spec.layout.Line;
 import eu.nordtal.season.messages.spec.layout.Part;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -13,25 +14,37 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import net.dv8tion.jda.api.components.MessageTopLevelComponent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.actionrow.ActionRowChildComponent;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.label.LabelChildComponent;
 import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem;
 import net.dv8tion.jda.api.components.section.Section;
 import net.dv8tion.jda.api.components.section.SectionAccessoryComponent;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.selections.SelectMenu;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -63,13 +76,33 @@ public final class LayoutRenderer {
             values = Map.copyOf(values);
             elements = Map.copyOf(elements);
         }
+
+        /** A filling whose values are those the spec gives {@code texts}, each of the kind its text declares. */
+        public static Filling of(final Map<String, Filled> elements, final MessageRef... texts) {
+            final Map<String, Object> values = new HashMap<>();
+            for (final MessageRef text : texts) {
+                values.putAll(text.args());
+            }
+            return new Filling(values, elements);
+        }
     }
 
     /** One element as the code fills it. */
     public sealed interface Filled {}
 
-    /** A button's custom id; in a block per language the language's tag is appended to it. */
-    public record FilledButton(String id) implements Filled {}
+    /** A button's custom id and colour; in a block per language the language's tag is appended to the id. */
+    public record FilledButton(String id, ButtonStyle style) implements Filled {
+
+        public FilledButton(final String id) {
+            this(id, ButtonStyle.PRIMARY);
+        }
+    }
+
+    /** A select of guild members by its custom id, the one select whose options Discord fills in. */
+    public record FilledMembers(String id) implements Filled {}
+
+    /** A modal's field, which the code builds given its placeholder, or {@code null} when it declares none. */
+    public record FilledInput(Function<@Nullable String, LabelChildComponent> field) implements Filled {}
 
     /** A select's custom id and its options. */
     public record FilledSelect(String id, List<Option> options) implements Filled {
@@ -120,8 +153,52 @@ public final class LayoutRenderer {
      * @param attachments the names of the files its {@code attachment://} images name, which the message uploads
      * @param uploads     the stored images its {@code upload://} images show, which the message uploads too
      */
-    public record Drawn(
-            List<MessageTopLevelComponent> components, List<String> attachments, List<FileUpload> uploads) {}
+    public record Drawn(List<MessageTopLevelComponent> components, List<String> attachments, List<FileUpload> uploads) {
+
+        /** It as a new message: a reply, a direct message or a post. */
+        public MessageCreateData create() {
+            return new MessageCreateBuilder()
+                    .useComponentsV2()
+                    .setComponents(components)
+                    .setFiles(files())
+                    .build();
+        }
+
+        /**
+         * The edit that turns a message into it: Components V2 with its embeds emptied, as Discord requires.
+         * The images are uploaded anew and replace the old ones, so a swapped banner shows.
+         */
+        public MessageEditData edit() {
+            return new MessageEditBuilder()
+                    .setEmbeds(List.of())
+                    .useComponentsV2()
+                    .setComponents(components)
+                    .setFiles(files())
+                    .build();
+        }
+
+        /** Its text blocks one under the other, as an alert quotes what a member was sent. */
+        public String text() {
+            return MessageComponentTree.of(components).findAll(TextDisplay.class).stream()
+                    .map(TextDisplay::getContent)
+                    .collect(Collectors.joining("\n"));
+        }
+
+        private List<FileUpload> files() {
+            final List<FileUpload> all =
+                    new ArrayList<>(attachments.stream().map(Drawn::banner).toList());
+            all.addAll(uploads);
+            return all;
+        }
+
+        private static FileUpload banner(final String name) {
+            final InputStream stream = LayoutRenderer.class.getClassLoader().getResourceAsStream("banners/" + name);
+            if (stream == null) {
+                throw new IllegalStateException("banners/" + name + " is missing from the jar");
+            }
+            return FileUpload.fromData(stream, name);
+        }
+    }
 
     private final DiscordRenderer messages;
     private final StoredLayouts stored;
@@ -129,6 +206,46 @@ public final class LayoutRenderer {
     public LayoutRenderer(final DiscordRenderer messages, final StoredLayouts stored) {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.stored = Objects.requireNonNull(stored, "stored");
+    }
+
+    /** The texts it draws with. */
+    public DiscordRenderer messages() {
+        return messages;
+    }
+
+    /** Draws a reply of one text by the layout {@link Replies} declares for its key, filled with its values. */
+    public Drawn reply(final Locale locale, final MessageRef text) {
+        return render(Replies.of(text.key()), new Filling(text.args(), Map.of()), locale);
+    }
+
+    /**
+     * Draws a modal, or the rebuild stored over it, in {@code locale}: its title, then each field under its label.
+     *
+     * @throws IllegalArgumentException if the filling misses a field
+     */
+    public Modal modal(final Layout declared, final String id, final Filling filling, final Locale locale) {
+        final Layout layout = stored.applied(declared);
+        final Pass pass = new Pass(layout, filling, Map.of(), Map.of(), Map.of());
+        final Line title =
+                Objects.requireNonNull(layout.parts().getFirst().lines()).getFirst();
+        final List<Label> fields = new ArrayList<>();
+        for (final Part row : layout.parts().subList(1, layout.parts().size())) {
+            final Element field =
+                    pass.element(Objects.requireNonNull(row.elements()).getFirst());
+            final List<String> keys = field.keys();
+            fields.add(Label.of(
+                    cut(pass.format(locale, keys.getFirst(), Map.of()), Label.LABEL_MAX_LENGTH),
+                    filled(filling, field.id(), FilledInput.class)
+                            .field()
+                            .apply(keys.size() > 1 ? pass.format(locale, keys.get(1), Map.of()) : null)));
+        }
+        return Modal.create(
+                        id,
+                        cut(
+                                pass.format(locale, Objects.requireNonNull(title.key(), "a modal's title"), Map.of()),
+                                Modal.MAX_TITLE_LENGTH))
+                .addComponents(fields)
+                .build();
     }
 
     /**
@@ -160,7 +277,7 @@ public final class LayoutRenderer {
                             filled(filling, element.id(), FilledLanguages.class)
                                     .languages()
                                     .size());
-                case BUTTON, SELECT, LINK -> {}
+                case BUTTON, SELECT, LINK, INPUT -> {}
             }
         }
         while (true) {
@@ -338,9 +455,11 @@ public final class LayoutRenderer {
                     .limit(ROW_BUTTONS)
                     .toList()) {
                 children.add(
-                        filling.elements().get(id) instanceof FilledSelect
-                                ? select(id, locale)
-                                : button(id, locale, tag));
+                        switch (filling.elements().get(id)) {
+                            case FilledSelect _ -> select(id, locale);
+                            case FilledMembers members -> members(id, members, locale);
+                            case null, default -> button(id, locale, tag);
+                        });
             }
             return ActionRow.of(children);
         }
@@ -353,8 +472,19 @@ public final class LayoutRenderer {
                         Objects.requireNonNull(element.url(), "a link button opens no address"),
                         cut(added(locale, Objects.requireNonNull(element.labels(), "a link button has no label")), 80));
             }
-            final String customId = filled(filling, id, FilledButton.class).id() + (tag == null ? "" : tag);
-            return Button.primary(customId, cut(format(locale, element.keys().getFirst(), Map.of()), 80));
+            final FilledButton filled = filled(filling, id, FilledButton.class);
+            return Button.of(
+                    filled.style(),
+                    filled.id() + (tag == null ? "" : tag),
+                    cut(format(locale, element.keys().getFirst(), Map.of()), 80));
+        }
+
+        private EntitySelectMenu members(final String id, final FilledMembers filled, final Locale locale) {
+            components++;
+            return EntitySelectMenu.create(filled.id(), EntitySelectMenu.SelectTarget.USER)
+                    .setPlaceholder(cut(
+                            format(locale, element(id).keys().getFirst(), Map.of()), SelectMenu.PLACEHOLDER_MAX_LENGTH))
+                    .build();
         }
 
         private StringSelectMenu select(final String id, final Locale locale) {

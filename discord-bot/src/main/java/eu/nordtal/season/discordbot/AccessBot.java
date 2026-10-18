@@ -121,7 +121,13 @@ public class AccessBot implements AutoCloseable {
             PaymentRequests requests,
             Purchases purchases,
             Setting<OnboardingSpec> onboarding,
-            String networkZone) {}
+            String networkZone) {
+
+        /** The bot's texts drawn into their layouts, or the rebuilds stored over them. */
+        LayoutRenderer renderer() {
+            return new LayoutRenderer(messages, layouts);
+        }
+    }
 
     private record DiscordWiring(
             AdminLog admin,
@@ -305,12 +311,12 @@ public class AccessBot implements AutoCloseable {
                 guildRoles,
                 onboarding,
                 access,
-                core.messages(),
+                core.renderer(),
                 admin,
                 database.jdbi(),
                 clock);
         final BookingReaction bookings =
-                new BookingReaction(core.languages(), roles, admin, core.messages(), jda, seasonStart);
+                new BookingReaction(core.languages(), roles, admin, core.renderer(), jda, seasonStart);
         // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
@@ -319,14 +325,14 @@ public class AccessBot implements AutoCloseable {
                 onboarding,
                 core.languages(),
                 guildRoles,
-                core.messages(),
+                core.renderer(),
                 core.networkZone(),
                 admin::alert,
                 onboardingLane);
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
-                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, scheduler, clock);
+                core.tiers(), core.purchases(), core.requests(), core.renderer(), roles, admin, scheduler, clock);
 
         return finishWiring(
                 jda,
@@ -406,13 +412,13 @@ public class AccessBot implements AutoCloseable {
                 new LinkFlow(
                         access,
                         roles,
-                        core.messages(),
+                        core.renderer(),
                         admin,
                         new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), clock),
                         scheduler),
-                new RegisterFlow(jda, teams, access, core.messages(), scheduler));
+                new RegisterFlow(jda, teams, access, core.renderer(), scheduler));
 
-        final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart, core.messages());
+        final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart);
         final eu.nordtal.season.discordbot.announce.Announcements announcements =
                 new eu.nordtal.season.discordbot.announce.Announcements(jda, core.languages(), core.messages(), log);
 

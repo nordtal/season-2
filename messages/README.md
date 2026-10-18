@@ -98,7 +98,8 @@ tree of parts as Components V2 draws them: a container with an accent, a text bl
 button or a thumbnail beside it, a separator, a gallery, a row of buttons or one select, and a block
 repeated once per language. A text block's lines are keys, each plain, a title or a heading, or a data
 list. What the code fills in is an `Element`, placed once in the tree by its id: a button, a select, a
-data list or the block per language.
+data list, the block per language or a modal's field. A modal (`Layout.modal`) is a layout of its
+title and one field per row, whose texts are `DISCORD_MODAL` places; only its texts change.
 
 The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema: each layout with
 the values its texts may name (theirs and the globals, but not a data list's line or a select's option

@@ -120,7 +120,7 @@ public final class LayoutSchema {
             switch (element.kind()) {
                 case LIST -> lines.addAll(element.keys());
                 case SELECT -> element.keys().stream().skip(1).forEach(lines::add);
-                case BUTTON, LANGUAGES, LINK -> {}
+                case BUTTON, LANGUAGES, LINK, INPUT -> {}
             }
         }
         for (final String key : layout.keys()) {

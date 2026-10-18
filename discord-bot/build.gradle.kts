@@ -57,4 +57,9 @@ messageSpec {
     layoutClasses.add("eu.nordtal.season.discordbot.access.discord.ManagedMessages")
     layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterMessages")
     layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingMessage")
+    layoutClasses.add("eu.nordtal.season.discordbot.Replies")
+    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.PurchaseFlow")
+    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.LinkFlow")
+    layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingFlow")
+    layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterFlow")
 }

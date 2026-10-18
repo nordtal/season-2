@@ -10,7 +10,7 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
@@ -55,7 +55,7 @@ public final class AccessRoles {
     private final GuildRoles roles;
     private final Withholding withholding;
     private final AccessDirectory access;
-    private final DiscordRenderer messages;
+    private final LayoutRenderer layouts;
     /** The page in Steward an alert about a member's access opens. */
     private static final String PAGE = "/access";
 
@@ -71,7 +71,7 @@ public final class AccessRoles {
             final GuildRoles roles,
             final Withholding withholding,
             final AccessDirectory access,
-            final DiscordRenderer messages,
+            final LayoutRenderer layouts,
             final AdminLog admin,
             final Jdbi jdbi,
             final Clock clock) {
@@ -82,7 +82,7 @@ public final class AccessRoles {
         this.roles = roles;
         this.withholding = withholding;
         this.access = access;
-        this.messages = messages;
+        this.layouts = layouts;
         this.admin = admin;
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
@@ -249,21 +249,14 @@ public final class AccessRoles {
                 continue;
             }
             final Locale locale = localeOf(deadline.discordId());
-            dm(
-                    deadline.discordId(),
-                    messages.format(
-                            locale, MESSAGES.dm().expiring(deadline.validUntil(), contributionChannel(locale))));
+            dm(deadline.discordId(), MESSAGES.dm().expiring(deadline.validUntil(), contributionChannel(locale)));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
             if (!claim(deadline, "EXPIRED")) {
                 continue;
             }
-            dm(
-                    deadline.discordId(),
-                    messages.format(
-                            localeOf(deadline.discordId()),
-                            MESSAGES.dm().expired(contributionChannel(localeOf(deadline.discordId())))));
+            dm(deadline.discordId(), MESSAGES.dm().expired(contributionChannel(localeOf(deadline.discordId()))));
         }
     }
 
@@ -284,17 +277,18 @@ public final class AccessRoles {
         return access.language(discordId);
     }
 
-    /** Sends a direct message, and raises an alert when it bounces. */
-    public void dm(final DiscordId discordId, final String text) {
+    /** Sends a direct message of one text in the member's language, and raises an alert when it bounces. */
+    public void dm(final DiscordId discordId, final MessageRef message) {
+        final LayoutRenderer.Drawn drawn = layouts.reply(localeOf(discordId), message);
         jda.openPrivateChannelById(discordId.value())
                 .queue(
-                        channel -> channel.sendMessage(text)
+                        channel -> channel.sendMessage(drawn.create())
                                 .queue(
                                         ok -> log.debug("DMed {}", discordId),
                                         // Usually closed direct messages.
                                         failure -> admin.alert(dmNotDelivered(List.of(
                                                 TEXTS.alert().to(Mention.of(discordId)),
-                                                TEXTS.alert().words(text))))),
+                                                TEXTS.alert().words(drawn.text()))))),
                         failure -> admin.alert(dmNotDelivered(List.of(TEXTS.alert()
                                 .failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))))));
     }
@@ -393,7 +387,7 @@ public final class AccessRoles {
         final String id = languages.forLocale(locale).contributionChannelId();
         return Configured.isSet(id)
                 ? "<#" + id + ">"
-                : messages.format(locale, MESSAGES.dm().channel());
+                : layouts.messages().format(locale, MESSAGES.dm().channel());
     }
 
     /**

@@ -12,6 +12,7 @@ import static eu.nordtal.season.messages.spec.layout.Part.sectionWithButton;
 import static eu.nordtal.season.messages.spec.layout.Part.sectionWithThumbnail;
 import static eu.nordtal.season.messages.spec.layout.Part.separator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.Tone;
 import java.util.List;
@@ -210,5 +211,42 @@ class LayoutCheckTest {
                         "its link button site has no label",
                         "places its element tiers 2 times"),
                 LayoutCheck.rebuildProblems(PRICES, rebuild));
+    }
+
+    static final Layout CODE = Layout.modal(
+            "layouts", "code", "Link", "layouts/dialog", Element.input("code", "layouts/field", "layouts/field"));
+
+    @Test
+    void aModalOfItsTitleAndOneFieldPerRowHasNoProblem() {
+        assertEquals(List.of(), problems(CODE));
+    }
+
+    @Test
+    void aModalPlacesItsTextsWhereAModalShowsThem() {
+        assertEquals(
+                List.of("layouts/code: places layouts/title as a modal's text, but its @Shown names only DISCORD_TEXT"),
+                problems(Layout.modal(
+                        "layouts", "code", "Link", "layouts/title", Element.input("code", "layouts/field"))));
+    }
+
+    @Test
+    void aModalHoldsNothingButItsTitleAndItsFieldsEachInARowOfItsOwn() {
+        assertEquals(
+                List.of(
+                        "layouts/broken: a modal holds something other than its title and one field per row",
+                        "layouts/broken: a row holds a field beside something else"),
+                problems(withParts(
+                        List.of(Element.input("code", "layouts/field"), Element.button("buy", "layouts/buy")),
+                        Part.text(title("layouts/dialog")),
+                        row("code", "buy"))));
+    }
+
+    @Test
+    void aModalRebuiltWithATitleOfItsOwnIsRefused() {
+        final Layout rebuild = CODE.rebuilt(
+                List.of(Part.text(Line.added(Line.Style.TITLE, Map.of("en", "Code"))), row("code")), List.of());
+
+        assertTrue(LayoutCheck.rebuildProblems(CODE, rebuild)
+                .contains("a modal holds something other than its title and one field per row"));
     }
 }

@@ -11,7 +11,6 @@ import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import java.time.Duration;
@@ -26,24 +25,16 @@ public final class BotAccessEffects implements AccessChanges {
     private final AccessRoles roles;
     private final AdminLog admin;
     private final SeasonStart seasonStart;
-    private final DiscordRenderer messages;
 
-    /**
-     * Creates the effects.
-     *
-     * @param messages this bot's bundle, with the overrides the database holds
-     */
     public BotAccessEffects(
             final AccessDirectory access,
             final AccessRoles roles,
             final AdminLog admin,
-            final SeasonStart seasonStart,
-            final DiscordRenderer messages) {
+            final SeasonStart seasonStart) {
         this.access = access;
         this.roles = roles;
         this.admin = admin;
         this.seasonStart = seasonStart;
-        this.messages = messages;
     }
 
     /** Grants access: the row, the role, the direct message and the journal line, which the admin channel shows. */
@@ -52,11 +43,7 @@ public final class BotAccessEffects implements AccessChanges {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted.validFrom());
         roles.applyAccessRole(discordId, true);
-        roles.dm(
-                discordId,
-                messages.format(
-                        roles.localeOf(discordId),
-                        MESSAGES.dm().grantedSection().admin(days, granted.validUntil())));
+        roles.dm(discordId, MESSAGES.dm().grantedSection().admin(days, granted.validUntil()));
 
         admin.record(AuditLine.about(
                 JournalAction.GRANT_ACCESS,
@@ -72,9 +59,7 @@ public final class BotAccessEffects implements AccessChanges {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
-            roles.dm(
-                    discordId,
-                    messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
+            roles.dm(discordId, MESSAGES.dm().revoked());
         }
 
         admin.record(

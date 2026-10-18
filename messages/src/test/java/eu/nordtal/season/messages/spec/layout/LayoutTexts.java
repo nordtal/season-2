@@ -50,4 +50,14 @@ public interface LayoutTexts {
 
     @Name("Count")
     MessageRef count(@Arg("amount") int amount);
+
+    @Name("Dialog")
+    @Shown(Display.DISCORD_MODAL)
+    @Format(TextFormat.PLAIN)
+    MessageRef dialog();
+
+    @Name("Field")
+    @Shown(Display.DISCORD_MODAL)
+    @Format(TextFormat.PLAIN)
+    MessageRef field();
 }

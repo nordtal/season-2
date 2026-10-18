@@ -82,7 +82,7 @@ class LayoutSchemaTest {
 
         assertTrue(Files.exists(output.resolve("messages/layouts/schema.json")));
         assertEquals(
-                List.of(described(LayoutCheckTest.PRICES)),
+                List.of(described(LayoutCheckTest.PRICES), described(LayoutCheckTest.CODE)),
                 LayoutSchema.decode(Files.readString(output.resolve("messages/layouts/layouts.json"))));
     }
 

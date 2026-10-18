@@ -15,8 +15,9 @@ import org.jspecify.annotations.Nullable;
  * @param id     how the tree places it, unique in its layout
  * @param kind   what it is
  * @param keys   the texts the code draws in it as {@code bundle/key}: a button's label, a select's placeholder and
- *               then the line of its options if they have one, a data list's line; none for a block per language,
- *               whose texts are in the tree, and none for a link button
+ *               then the line of its options if they have one, a data list's line, a modal field's label and then
+ *               its placeholder if it has one; none for a block per language, whose texts are in the tree, and none
+ *               for a link button
  * @param url    the https address a link button opens, else {@code null}
  * @param labels a link button's label by language tag, else {@code null}
  */
@@ -35,6 +36,8 @@ public record Element(
         LIST,
         /** The parts it holds, once per configured language, each in that language. */
         LANGUAGES,
+        /** A field of a modal, a text input or a select, under its label. */
+        INPUT,
         /** A button an editor added that opens an address, labelled per language. */
         LINK
     }
@@ -67,6 +70,13 @@ public record Element(
 
     public static Element languages(final String id) {
         return new Element(id, Kind.LANGUAGES, List.of());
+    }
+
+    /** A modal's field, labelled by {@code label} and showing {@code placeholder} while empty when it is given. */
+    public static Element input(final String id, final String label, final String... placeholder) {
+        final List<String> keys = new ArrayList<>(List.of(label));
+        keys.addAll(List.of(placeholder));
+        return new Element(id, Kind.INPUT, keys);
     }
 
     public static Element link(final String id, final String url, final Map<String, String> labels) {

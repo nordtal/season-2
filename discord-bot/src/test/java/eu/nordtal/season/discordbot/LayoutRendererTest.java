@@ -246,6 +246,7 @@ class LayoutRendererTest {
                                     .map(tag -> Locales.parse(tag.getAsString()))
                                     .toList());
                         case LINK -> throw new IllegalArgumentException("a link button is filled by nobody");
+                        case INPUT -> throw new IllegalArgumentException("a modal's field is in no message");
                     });
         }
         return new LayoutRenderer.Filling(args(json.getAsJsonObject("values")), filled);

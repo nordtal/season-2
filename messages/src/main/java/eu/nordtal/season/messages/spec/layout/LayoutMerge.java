@@ -66,7 +66,7 @@ public final class LayoutMerge {
             walk.adapt(Change.ELEMENT_ADDED, element.id());
             switch (element.kind()) {
                 case BUTTON -> buttons.add(element.id());
-                case SELECT -> merged.add(Part.row(element.id()));
+                case SELECT, INPUT -> merged.add(Part.row(element.id()));
                 case LIST -> merged.add(Part.text(Line.list(element.id())));
                 case LANGUAGES ->
                     packaged.allParts().stream()
@@ -135,7 +135,12 @@ public final class LayoutMerge {
                 case ROW -> {
                     final List<String> elements =
                             Objects.requireNonNullElse(part.elements(), List.<String>of()).stream()
-                                    .filter(id -> keep(id, Element.Kind.BUTTON, Element.Kind.SELECT, Element.Kind.LINK))
+                                    .filter(id -> keep(
+                                            id,
+                                            Element.Kind.BUTTON,
+                                            Element.Kind.SELECT,
+                                            Element.Kind.INPUT,
+                                            Element.Kind.LINK))
                                     .toList();
                     yield elements.isEmpty() ? List.of() : List.of(with(part, part.parts(), part.lines(), elements));
                 }

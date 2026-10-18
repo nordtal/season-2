@@ -814,6 +814,10 @@ export type TextArgs = {
   "steward.answer.discord-unreachable": {
     error: Arg["text"]
   }
+  "steward.answer.document-refused": {
+    document: Arg["text"]
+    problem: Arg["text"]
+  }
   "steward.answer.draft-undrawable": {
     document: Arg["text"]
     reason: Arg["text"]
@@ -829,6 +833,9 @@ export type TextArgs = {
   }
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
+  }
+  "steward.answer.image-refused": {
+    mebibytes: Arg["number"]
   }
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.keep-section": {
@@ -861,6 +868,10 @@ export type TextArgs = {
   "steward.answer.no-code": Record<string, never>
   "steward.answer.no-database": {
     kept: Arg["choice"]
+  }
+  "steward.answer.no-document": {
+    namespace: Arg["text"]
+    name: Arg["text"]
   }
   "steward.answer.no-key": Record<string, never>
   "steward.answer.no-message": {
@@ -996,6 +1007,56 @@ export type TextArgs = {
   "steward.backups.volume-replaced": Record<string, never>
   "steward.backups.when": Record<string, never>
   "steward.backups.written": Record<string, never>
+  "steward.document-editor.accent": Record<string, never>
+  "steward.document-editor.add": Record<string, never>
+  "steward.document-editor.add-image": Record<string, never>
+  "steward.document-editor.add-line": Record<string, never>
+  "steward.document-editor.add-link": Record<string, never>
+  "steward.document-editor.add-text": Record<string, never>
+  "steward.document-editor.beside": {
+    part: Arg["choice"]
+  }
+  "steward.document-editor.changed": Record<string, never>
+  "steward.document-editor.close": Record<string, never>
+  "steward.document-editor.code": Record<string, never>
+  "steward.document-editor.components": {
+    count: Arg["number"]
+    most: Arg["number"]
+  }
+  "steward.document-editor.condition": {
+    condition: Arg["choice"]
+  }
+  "steward.document-editor.constant": Record<string, never>
+  "steward.document-editor.discard": Record<string, never>
+  "steward.document-editor.image": Record<string, never>
+  "steward.document-editor.label": Record<string, never>
+  "steward.document-editor.language": Record<string, never>
+  "steward.document-editor.link": Record<string, never>
+  "steward.document-editor.move-down": Record<string, never>
+  "steward.document-editor.move-up": Record<string, never>
+  "steward.document-editor.option": Record<string, never>
+  "steward.document-editor.outdated": Record<string, never>
+  "steward.document-editor.part": {
+    part: Arg["choice"]
+  }
+  "steward.document-editor.placeholder": Record<string, never>
+  "steward.document-editor.remove": Record<string, never>
+  "steward.document-editor.required": Record<string, never>
+  "steward.document-editor.save": Record<string, never>
+  "steward.document-editor.saved": {
+    document: Arg["text"]
+  }
+  "steward.document-editor.slot": {
+    slot: Arg["text"]
+  }
+  "steward.document-editor.style": {
+    style: Arg["choice"]
+  }
+  "steward.document-editor.upload": Record<string, never>
+  "steward.document-editor.version": {
+    version: Arg["choice"]
+  }
+  "steward.document-editor.when": Record<string, never>
   "steward.failure.agent-silent": Record<string, never>
   "steward.failure.bot-failed": Record<string, never>
   "steward.failure.bot-silent": Record<string, never>

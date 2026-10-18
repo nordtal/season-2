@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.messages;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.document.DocumentStore;
@@ -11,14 +12,19 @@ import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.document.Value;
+import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -29,9 +35,14 @@ import org.jspecify.annotations.Nullable;
 /**
  * The routes for the Discord documents.
  * steward-agent reads the declarations and documents from the jars, and an admin's document is a row.
- * Steward shows them read only, so no route writes one. The bot's own renderer draws every preview.
+ * The bot's own renderer draws every preview, and {@link DocumentCheck} refuses a save the build would refuse.
  */
 public final class DocumentsApi {
+
+    /** The largest image stored. */
+    public static final int IMAGE_MEBIBYTES = 8;
+
+    public static final int IMAGE_BYTES = IMAGE_MEBIBYTES * 1024 * 1024;
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
@@ -55,23 +66,28 @@ public final class DocumentsApi {
     /**
      * Every Discord document once, with the one an admin wrote over it.
      *
+     * @param writable  whether Steward has a database for an admin's documents
      * @param languages the network's languages, the default first
      */
-    public record DocumentList(List<DocumentView> documents, List<String> languages) {}
+    public record DocumentList(boolean writable, List<DocumentView> documents, List<String> languages) {}
 
     /**
      * @param services the services whose jars ship it
      * @param packaged the document the jar ships
      * @param hash     the SHA-256 of the packaged declaration and document
+     * @param named    every value a text may name, as {@link DocumentDeclaration#named()} lists them
      * @param written  the admin's document, carried over to the jar's declaration, or {@code null} for none
+     * @param outdated whether the admin's document was written over another packaged one than the jar's
      * @param adapted  what the carry-over changed
      */
     public record DocumentView(
             DocumentDeclaration declaration,
+            Map<String, Value> named,
             List<String> services,
             Document packaged,
             String hash,
             @Nullable Document written,
+            boolean outdated,
             List<DocumentMerge.Adaptation> adapted) {}
 
     /**
@@ -81,8 +97,16 @@ public final class DocumentsApi {
      */
     public record DocumentDraft(DocumentDeclaration declaration, Document document, String language) {}
 
-    /** A draft as the bot sends it, in Discord's own JSON: a message's payload, a modal, a content or a name. */
-    public record DocumentDrawing(JsonObject discord) {}
+    /**
+     * A draft as the bot sends it, in Discord's own JSON: a message's payload, a modal, a content or a name.
+     *
+     * @param components how many components the draft draws at its largest
+     * @param most       how many components Discord draws in one message
+     * @param problems   what a save of the draft would be refused or warned for
+     */
+    public record DocumentDrawing(JsonObject discord, int components, int most, List<DocumentCheck.Problem> problems) {}
+
+    public record Uploaded(long id, String address) {}
 
     public void list(final Context ctx) {
         ctx.json(documents());
@@ -105,7 +129,11 @@ public final class DocumentsApi {
         final List<Locale> languages =
                 MessagesApi.languages(settings).stream().map(Locales::parse).toList();
         final String drawn;
+        final int components;
+        final List<DocumentCheck.Problem> problems;
         try {
+            components = DocumentCheck.components(draft.declaration(), draft.document());
+            problems = DocumentCheck.check(draft.declaration(), draft.document(), MessageCheck.Mode.OVERRIDE);
             drawn = renderer(languages)
                     .preview(
                             new Documents.Packaged(draft.declaration(), draft.document()),
@@ -115,7 +143,106 @@ public final class DocumentsApi {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(draft.declaration().id(), String.valueOf(undrawable.getMessage())));
         }
-        ctx.json(new DocumentDrawing(Json.tree(drawn).getAsJsonObject()));
+        ctx.json(new DocumentDrawing(
+                Json.tree(drawn).getAsJsonObject(), components, DocumentCheck.COMPONENTS, problems));
+    }
+
+    /**
+     * {@code PUT /api/documents/{namespace}/{name}} stores the document in the body over the packaged one.
+     * A document the check refuses is a 400 that writes nothing. The bot edits its managed messages at once.
+     *
+     * @return the document's {@code namespace/name}
+     */
+    public String save(final Context ctx, final Actor actor) {
+        final DocumentStore stored = writable();
+        final Documents.Packaged packaged = packagedOf(ctx);
+        final DocumentDeclaration declaration = packaged.declaration();
+        final Document document;
+        try {
+            document = Document.decode(ctx.body());
+        } catch (final RuntimeException malformed) {
+            throw new RequestRefused(400, ANSWER.notJson());
+        }
+        if (document == null) {
+            throw new RequestRefused(400, ANSWER.empty());
+        }
+        final List<String> problems;
+        try {
+            problems = DocumentCheck.errors(declaration, document, MessageCheck.Mode.OVERRIDE);
+        } catch (final RuntimeException unreadable) {
+            throw new RequestRefused(
+                    400, ANSWER.documentRefused(declaration.id(), String.valueOf(unreadable.getMessage())));
+        }
+        if (!problems.isEmpty()) {
+            throw new RequestRefused(400, ANSWER.documentRefused(declaration.id(), problems.getFirst()));
+        }
+        try {
+            stored.change(
+                    new DocumentStore.StoredDocument(
+                            declaration.namespace(), declaration.name(), document, packaged.hash()),
+                    actor);
+        } catch (final IllegalArgumentException missing) {
+            throw new RequestRefused(
+                    400, ANSWER.documentRefused(declaration.id(), String.valueOf(missing.getMessage())));
+        }
+        ctx.json(documents());
+        return declaration.id();
+    }
+
+    /**
+     * {@code POST /api/document-images} stores the PNG, JPEG, GIF or WebP image in the body.
+     * It reads the type from the first bytes, not from the request header.
+     */
+    public void upload(final Context ctx, final Actor actor) {
+        final DocumentStore stored = writable();
+        final byte[] bytes = ctx.bodyAsBytes();
+        final String type =
+                mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused(IMAGE_MEBIBYTES)));
+        final long id = stored.upload(type, bytes, actor);
+        ctx.json(new Uploaded(id, DocumentStore.Image.SCHEME + id));
+    }
+
+    static Optional<String> mediaType(final byte[] bytes) {
+        if (starts(bytes, 0, new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})) {
+            return Optional.of("image/png");
+        }
+        if (starts(bytes, 0, new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff})) {
+            return Optional.of("image/jpeg");
+        }
+        if (starts(bytes, 0, ascii("GIF87a")) || starts(bytes, 0, ascii("GIF89a"))) {
+            return Optional.of("image/gif");
+        }
+        if (starts(bytes, 0, ascii("RIFF")) && starts(bytes, 8, ascii("WEBP"))) {
+            return Optional.of("image/webp");
+        }
+        return Optional.empty();
+    }
+
+    private static byte[] ascii(final String text) {
+        return text.getBytes(StandardCharsets.US_ASCII);
+    }
+
+    private static boolean starts(final byte[] bytes, final int at, final byte[] prefix) {
+        return bytes.length >= at + prefix.length
+                && Arrays.equals(bytes, at, at + prefix.length, prefix, 0, prefix.length);
+    }
+
+    private DocumentStore writable() {
+        final DocumentStore stored = store;
+        if (stored == null) {
+            throw new RequestRefused(403, ANSWER.noDatabase(StewardTexts.Kept.OVERRIDES));
+        }
+        return stored;
+    }
+
+    private Documents.Packaged packagedOf(final Context ctx) {
+        final String namespace = ctx.pathParam("namespace");
+        final String name = ctx.pathParam("name");
+        final Shipped shipped = shipped().get(namespace + "/" + name);
+        if (shipped == null) {
+            throw new RequestRefused(404, ANSWER.noDocument(namespace, name));
+        }
+        return shipped.packaged();
     }
 
     /** {@code GET /api/document-images/{id}} answers a stored image. */
@@ -192,12 +319,14 @@ public final class DocumentsApi {
                     : DocumentMerge.merge(own, admin.document(), admin.replaced());
             views.add(new DocumentView(
                     own.declaration(),
+                    own.declaration().named(),
                     List.copyOf(each.services()),
                     own.document(),
                     own.hash(),
                     admin == null ? null : merged.document(),
+                    admin != null && !admin.replaced().equals(own.hash()),
                     merged.adaptations()));
         });
-        return new DocumentList(views, MessagesApi.languages(settings));
+        return new DocumentList(store != null, views, MessagesApi.languages(settings));
     }
 }

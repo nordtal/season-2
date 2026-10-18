@@ -53,6 +53,8 @@ public interface StewardTexts {
 
         MessageEditorTexts messageEditor();
 
+        DocumentEditorTexts documentEditor();
+
         AnnouncementsPage announcements();
 
         Failures failure();
@@ -310,6 +312,15 @@ public interface StewardTexts {
 
             @Name("Draft not drawn")
             MessageRef draftUndrawable(@Arg("document") String document, @Arg("reason") String reason);
+
+            @Name("No such document")
+            MessageRef noDocument(@Arg("namespace") String namespace, @Arg("name") String name);
+
+            @Name("Document refused")
+            MessageRef documentRefused(@Arg("document") String document, @Arg("problem") String problem);
+
+            @Name("Image refused")
+            MessageRef imageRefused(@Arg("mebibytes") int mebibytes);
 
             @Name("No player to preview to")
             MessageRef previewUnlinked();

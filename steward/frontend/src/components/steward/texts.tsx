@@ -3,6 +3,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import type {
+  Document,
   DocumentList,
   DocumentView,
   MessageChanges,
@@ -15,7 +16,6 @@ import type {
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
 import { documentId, documentMatches, documentName, documentOf, languagesOf, type PageCard } from "@/lib/documents"
-import { languageName } from "@/lib/language-names"
 import {
   currentOf,
   ENGLISH,
@@ -42,6 +42,7 @@ import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
 import { exampleOf } from "@/components/steward/message-editor/examples"
 import { DiscordDocumentPreview } from "@/components/steward/message-editor/document-preview"
+import { DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
 import {
@@ -98,7 +99,7 @@ function changesOf(draft: Record<string, MessageDraft>, byId: Map<string, Messag
 }
 
 /**
- * Every Discord document and every text, each drawn as it appears. An opened text shows its editor; an opened document shows its preview in each of its languages.
+ * Every Discord document and every text, each drawn as it appears. An opened text shows its editor on a page of its own; an opened document shows its editor in its card.
  */
 export function TextsForm({
   texts,
@@ -128,6 +129,8 @@ export function TextsForm({
   const examples = useMessageExamples()
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
+  const { drafts, setDraft } = useDocumentDrafts()
+  const [beside, setBeside] = useState<Language | undefined>(undefined)
   const views = useMemo(() => documents?.documents ?? [], [documents])
   const listed = useMemo(
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
@@ -256,9 +259,6 @@ export function TextsForm({
     fallenBack,
   }
 
-  const view =
-    opened.document === undefined ? undefined : views.find((each) => documentId(each.declaration) === opened.document)
-  if (view) return <DocumentPage view={view} onClose={() => onOpen({})} {...shared} />
   const text = byId.get(opened.text ?? "")
   if (text) {
     const id = textId(text.entry)
@@ -313,6 +313,18 @@ export function TextsForm({
         renderLeaf={(leaf) => (
           <Card
             card={leaf.value}
+            editing={
+              leaf.value.kind === "document" && opened.document === documentId(leaf.value.view.declaration)
+                ? {
+                    writable: documents?.writable ?? false,
+                    draft: drafts[opened.document],
+                    onDraft: (next) => opened.document && setDraft(opened.document, next),
+                    beside,
+                    onBeside: setBeside,
+                    onClose: () => onOpen({}),
+                  }
+                : undefined
+            }
             onOpen={() =>
               onOpen(
                 leaf.value.kind === "document"
@@ -349,17 +361,71 @@ function cardName(card: PageCard): string {
   return card.kind === "document" ? documentName(card.view.declaration) : messageName(card.text.entry)
 }
 
+/** An open document's draft and the editor's settings, which the page keeps while another document is open. */
+type Editing = {
+  writable: boolean
+  draft: Document | undefined
+  onDraft: (draft: Document | undefined) => void
+  beside: Language | undefined
+  onBeside: (language: Language | undefined) => void
+  onClose: () => void
+}
+
 /**
- * One document or text as it appears, under its name. A click opens it.
+ * One document or text as it appears, under its name. A click opens it: a text on a page of its own, a document's editor
+ * in the card, beside its preview from a laptop's width and under it on a phone.
  */
-function Card({ card, onOpen, ...shared }: Shared & { card: PageCard; onOpen: () => void }) {
+function Card({
+  card,
+  editing,
+  onOpen,
+  ...shared
+}: Shared & { card: PageCard; editing?: Editing; onOpen: () => void }) {
   const name = cardName(card)
   const id = card.kind === "text" ? textId(card.text.entry) : undefined
+  if (card.kind === "document" && editing) {
+    const draft = editing.draft ?? documentOf(card.view)
+    return (
+      <article
+        aria-label={name}
+        data-open
+        className="grid min-w-0 grid-cols-1 items-start gap-4 rounded-lg border p-3 lg:grid-cols-2"
+      >
+        <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4">
+          {[ENGLISH, ...(editing.beside ? [editing.beside] : [])].map((language) => (
+            <DiscordDocumentPreview
+              key={language}
+              declaration={card.view.declaration}
+              document={draft}
+              language={language}
+            />
+          ))}
+        </div>
+        <DocumentEditor
+          view={card.view}
+          draft={draft}
+          // The network's languages and any the document is written in beyond them.
+          languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
+          writable={editing.writable}
+          beside={editing.beside}
+          onBeside={editing.onBeside}
+          onClose={editing.onClose}
+          onDraft={(next) =>
+            editing.onDraft(next && JSON.stringify(next) !== JSON.stringify(documentOf(card.view)) ? next : undefined)
+          }
+        />
+      </article>
+    )
+  }
   return (
     <article aria-label={name} className="flex min-w-0 flex-col gap-2 rounded-lg border p-3">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
-        {card.kind === "text" ? <Pills entry={card.text.entry} places={shared.places} /> : null}
+        {card.kind === "text" ? (
+          <Pills entry={card.text.entry} places={shared.places} />
+        ) : (
+          <DocumentMarks view={card.view} />
+        )}
         {card.kind === "text" && !card.text.entry.inBundle ? (
           <Badge variant="outline" className="shrink-0 text-muted-foreground">
             {t("steward.settings.not-in-bundle")}
@@ -432,25 +498,6 @@ function PageTitle({
       </nav>
       <h1 className="font-heading text-3xl font-semibold tracking-tight text-balance">{name}</h1>
     </header>
-  )
-}
-
-/**
- * An open document: its preview in each language its texts are written in. Documents are read only here.
- */
-function DocumentPage({ view, onClose, ...shared }: Shared & { view: DocumentView; onClose: () => void }) {
-  return (
-    <div className="flex flex-col gap-6">
-      <PageTitle group="DISCORD" area={view.declaration.area} name={documentName(view.declaration)} onClose={onClose} />
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        {languagesOf(documentOf(view)).map((language) => (
-          <section key={language} aria-label={languageName(language)} className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-xs font-medium text-muted-foreground">{languageName(language)}</h2>
-            <DocumentPreview view={view} language={language} {...shared} />
-          </section>
-        ))}
-      </div>
-    </div>
   )
 }
 

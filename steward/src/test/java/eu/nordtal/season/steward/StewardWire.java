@@ -13,6 +13,7 @@ import eu.nordtal.season.database.phase.PhaseChange;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
+import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Item;
@@ -118,6 +119,7 @@ public final class StewardWire {
             DocumentsApi.DocumentList.class,
             DocumentsApi.DocumentDraft.class,
             DocumentsApi.DocumentDrawing.class,
+            DocumentsApi.Uploaded.class,
             MessageCheck.Problem.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
@@ -195,6 +197,7 @@ public final class StewardWire {
             Map.entry(DocumentSpec.Shape.class, "DocumentShape"),
             Map.entry(DocumentMerge.Adaptation.class, "DocumentAdaptation"),
             Map.entry(DocumentMerge.Change.class, "DocumentChange"),
+            Map.entry(DocumentCheck.Problem.class, "DocumentProblem"),
             Map.entry(Declaration.class, "MessageDeclaration"),
             Map.entry(Kind.class, "ValueKind"));
 

@@ -110,6 +110,17 @@ public final class Routes {
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
         config.routes.get("/api/documents", api.documents::list, Gate.KEY_HELD);
+        config.routes.put(
+                "/api/documents/{namespace}/{name}",
+                ctx -> Journaling.line(
+                        ctx, new JournalDetail.MessagesSaved(api.documents.save(ctx, caller.actor(ctx)))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.post(
+                "/api/document-images",
+                ctx -> api.documents.upload(ctx, caller.actor(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
         config.routes.get("/api/document-images/{id}", api.documents::image, Gate.KEY_HELD);
         // Draws a draft for the admin alone and changes nothing.
         config.routes.post("/api/documents/render", api.documents::render, Gate.KEY_HELD, Unjournaled.SHOWN_TO_ONESELF);

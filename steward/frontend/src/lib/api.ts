@@ -76,6 +76,7 @@ export function currentCsrf(): string | null {
 
 type Options = {
   method?: "GET" | "POST" | "PUT" | "DELETE"
+  /** A file is sent as its bytes, anything else as JSON. */
   body?: unknown
   signal?: AbortSignal
 }
@@ -100,7 +101,9 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
 async function send<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET"
   const headers: Record<string, string> = {}
-  if (options.body !== undefined) headers["Content-Type"] = "application/json"
+  const file = options.body instanceof Blob ? options.body : undefined
+  if (options.body !== undefined)
+    headers["Content-Type"] = file ? file.type || "application/octet-stream" : "application/json"
   if (method !== "GET" && csrfToken) headers["X-Steward-CSRF"] = csrfToken
 
   let response: Response
@@ -109,7 +112,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
       method,
       headers,
       credentials: "same-origin",
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: file ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       signal: options.signal,
     })
   } catch (cause) {

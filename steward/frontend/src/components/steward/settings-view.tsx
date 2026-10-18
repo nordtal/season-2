@@ -248,7 +248,15 @@ function NodeList<L>({
               )}
             >
               {group.map((leaf) => (
-                <div key={leaf.id} className={cn("min-w-0", !list && !cards && leaf.wide && "col-span-full")}>
+                <div
+                  key={leaf.id}
+                  className={cn(
+                    "min-w-0",
+                    !list && !cards && leaf.wide && "col-span-full",
+                    // An open card holds its editor and takes the whole row.
+                    cards && "has-[[data-open]]:col-span-full",
+                  )}
+                >
                   {renderLeaf(leaf, highlight && leaf.ids.includes(highlight.id) ? highlight : null)}
                 </div>
               ))}

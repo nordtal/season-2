@@ -155,7 +155,7 @@ public final class DocumentMerge {
                     final List<Part> inner = parts(part.inner());
                     yield inner.isEmpty() ? List.of() : List.of(with(part, inner, part.lines(), null, part.items()));
                 }
-                case SEPARATOR, GALLERY -> List.of(part);
+                case SEPARATOR, GALLERY, FILE -> List.of(part);
             };
         }
 

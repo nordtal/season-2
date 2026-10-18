@@ -96,6 +96,8 @@ class GateTest {
             Map.entry("PUT /api/setting-groups/{service}/{name}", Gate.KEY_HELD),
             Map.entry("PUT /api/services/{name}/plugin-file", Gate.KEY_HELD),
             Map.entry("PUT /api/messages", Gate.KEY_HELD),
+            Map.entry("PUT /api/documents/{namespace}/{name}", Gate.KEY_HELD),
+            Map.entry("POST /api/document-images", Gate.KEY_HELD),
             Map.entry("POST /api/access/revoke", Gate.KEY_HELD),
             Map.entry("POST /api/people/{id}/playtime", Gate.KEY_HELD),
             Map.entry("POST /api/pack-exemptions/exempt", Gate.KEY_HELD),

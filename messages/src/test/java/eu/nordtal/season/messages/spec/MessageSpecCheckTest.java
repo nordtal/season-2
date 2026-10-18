@@ -148,10 +148,15 @@ class MessageSpecCheckTest {
 
         @Name("Other line")
         MessageRef other(@Arg("text") @Takes("not a bundle/*") @Example("not a bundle/line") MessageRef text);
+
+        @Name("Shared line")
+        MessageRef shared(
+                @Arg("text") @Takes({"taking-whole/*", "values/*"}) @Example("values/someone") MessageRef text);
     }
 
     @Test
     void aWholeBundleIsNamedAsOneAndItsOwnExampleIsAKeyItDeclares() {
+        // shared previews a key of the other bundle it takes, which is no problem.
         assertEquals(
                 List.of(
                         "line: @Example names taking-whole/absent, which this bundle does not declare",

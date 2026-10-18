@@ -21,9 +21,10 @@ import java.util.regex.Pattern;
  */
 public final class MessageSpecCheck {
 
-    /** A former name: a key of this bundle, or {@code bundle/key}. */
+    /** A bundle's name, as {@code bundle/*} names the whole bundle. */
     private static final Pattern BUNDLE = Pattern.compile("[a-z][a-z0-9-]*");
 
+    /** A former name: a key of this bundle, or {@code bundle/key}. */
     private static final Pattern FORMER = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private MessageSpecCheck() {}
@@ -143,7 +144,11 @@ public final class MessageSpecCheck {
             return List.of(entry.key() + ": @Takes names " + taken + ", which is not bundle/*");
         }
         final String example = arg.example();
-        if (name.equals(bundle) && example != null && !declared.contains(example.substring(bundle.length() + 1))) {
+        // An example from another bundle is a key of another take; the schema already refused one of none.
+        if (name.equals(bundle)
+                && example != null
+                && example.startsWith(bundle + "/")
+                && !declared.contains(example.substring(bundle.length() + 1))) {
             return List.of(entry.key() + ": @Example names " + example + ", which this bundle does not declare");
         }
         return List.of();

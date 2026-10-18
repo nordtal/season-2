@@ -4,17 +4,16 @@ import eu.nordtal.season.database.notify.Channel;
 import java.util.Objects;
 import java.util.UUID;
 
-/** What the process holding the bank key is asked to do about one payment request; each record is one kind. */
+/** A request to the process that holds the bank key, about one payment request. Each record is one kind. */
 public sealed interface BankRequest {
 
-    /** The bank's inbox table, announced where every other change of a payment is. */
+    /** The bank's inbox table, announced on the payment channel. */
     InboxTable<BankRequest> TABLE =
             InboxTable.of("bank_inbox", Channel.PAYMENT, BankRequest.class).withRows(OpenTab.class, CancelTab.class);
 
-    /** Returns the payment request this is about. */
     UUID payment();
 
-    /** Makes the bunq.me tab for an open request that has none; asking again after a refusal is the retry. */
+    /** Makes the bunq.me tab for an open request without one. Asking again after a refusal is the retry. */
     record OpenTab(UUID payment) implements BankRequest {
 
         public OpenTab {
@@ -22,7 +21,7 @@ public sealed interface BankRequest {
         }
     }
 
-    /** Takes a request's tab away at bunq, whatever the request's status; one without a tab needs nothing. */
+    /** Cancels the tab of a request at bunq. A request without a tab needs nothing. */
     record CancelTab(UUID payment) implements BankRequest {
 
         public CancelTab {

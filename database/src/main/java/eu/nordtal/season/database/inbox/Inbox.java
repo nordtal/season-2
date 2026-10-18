@@ -32,13 +32,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * One consumer's inbox: submit, claim, progress, settle, expire and cancel, each announced on the table's channel.
- * A notification is never the state: a consumer that wakes up claims until nothing is due. It borrows its pool.
+ * A notification is not the state: a woken consumer claims until nothing is due. It borrows its pool.
  */
 public final class Inbox<P> {
 
     private static final Logger log = LoggerFactory.getLogger(Inbox.class);
 
-    /** How a request is written and announced in one statement, so a notification only exists for a committed row. */
+    /** Writes a request and announces it in one statement, so a notification exists only for a committed row. */
     private static final String SUBMIT = """
             WITH inserted AS (
                 INSERT INTO <table> (kind, <payloadColumn> actor_kind, actor_id, scheduled_for, expires)
@@ -50,7 +50,7 @@ public final class Inbox<P> {
             SELECT inserted.*, pg_notify(:channel, '') AS notified FROM inserted
             """;
 
-    /** How a row nobody asked for is written already settled, begun {@code took} seconds ago, and announced. */
+    /** Writes a row that nobody asked for, already settled and begun {@code took} seconds ago, and announces it. */
     private static final String RECORD = """
             WITH inserted AS (
                 INSERT INTO <table> (kind, <payloadColumn> actor_kind, actor_id, status,
@@ -63,7 +63,7 @@ public final class Inbox<P> {
             SELECT inserted.*, pg_notify(:channel, '') AS notified FROM inserted
             """;
 
-    /** Takes the oldest due row; {@code SKIP LOCKED} keeps two consumers from ever claiming one row. */
+    /** Takes the oldest due row. {@code SKIP LOCKED} stops two consumers from claiming one row. */
     private static final String CLAIM = """
             WITH claimable AS (
                 SELECT id FROM <table>
@@ -82,7 +82,7 @@ public final class Inbox<P> {
             SELECT claimed.*, pg_notify(:channel, '') AS notified FROM claimed
             """;
 
-    /** Moves one row from one status to another, and only from that one, so a second call changes nothing. */
+    /** Moves one row from one status to another, and only from that one. */
     private static final String MOVE = """
             WITH moved AS (
                 UPDATE <table>
@@ -96,7 +96,7 @@ public final class Inbox<P> {
             SELECT moved.*, pg_notify(:channel, '') AS notified FROM moved
             """;
 
-    /** Every column, with a pending row past its expiry read as expired, so an asker needs no write to see it. */
+    /** Selects every column and reads a pending row past its expiry as expired. */
     private static final String READ = """
             SELECT id, kind, <payloadColumn>
                    CASE WHEN status = 'PENDING' AND expires <= now() THEN 'EXPIRED' ELSE status END AS status,
@@ -113,15 +113,15 @@ public final class Inbox<P> {
         this.table = Objects.requireNonNull(table, "table");
     }
 
-    /** Returns the inbox over {@code table}, borrowing a pool somebody else owns and closes. */
+    /** Returns the inbox over {@code table}, which borrows a pool that somebody else closes. */
     public static <P> Inbox<P> over(final DataSource dataSource, final InboxTable<P> table) {
         return new Inbox<>(dataSource, table);
     }
 
     /**
-     * Returns the inbox of its one consumer at that consumer's start, failing what its last start left running.
+     * Returns the inbox of the one consumer at its start and fails what its last start left running.
      *
-     * @param consumer who answers the table, as a sentence names it: "the bot", "smp"
+     * @param consumer how a sentence names it: "the bot", "smp"
      */
     public static <P> Inbox<P> takeOver(final DataSource dataSource, final InboxTable<P> table, final String consumer) {
         Objects.requireNonNull(consumer, "consumer");
@@ -133,12 +133,11 @@ public final class Inbox<P> {
         return inbox;
     }
 
-    /** Returns the table this inbox works on. */
     public InboxTable<P> table() {
         return table;
     }
 
-    /** Writes a request that is due at once and waits however long it takes, and wakes the consumer. */
+    /** Writes a request that is due at once and wakes the consumer. */
     public Request<P> submit(final P payload, final Actor actor) {
         return submit(payload, actor, Schedule.NOW);
     }
@@ -148,7 +147,7 @@ public final class Inbox<P> {
         return jdbi.inTransaction(handle -> insert(handle, payload, actor, schedule));
     }
 
-    /** Writes a request and its journal line in one transaction, so neither exists without the other. */
+    /** Writes a request and its journal line in one transaction. */
     public Request<P> submit(final P payload, final Actor actor, final Schedule schedule, final AuditLine journal) {
         Objects.requireNonNull(journal, "journal");
         return jdbi.inTransaction(handle -> {
@@ -157,10 +156,7 @@ public final class Inbox<P> {
         });
     }
 
-    /**
-     * Writes a request through a transaction the caller holds, so it commits with the caller's own statements.
-     * The consumer is woken when that transaction commits.
-     */
+    /** Writes a request in the caller's transaction. The consumer wakes when that transaction commits. */
     public Request<P> submitWithin(final Handle handle, final P payload, final Actor actor) {
         return insert(Objects.requireNonNull(handle, "handle"), payload, actor, Schedule.NOW);
     }
@@ -184,7 +180,7 @@ public final class Inbox<P> {
         return request;
     }
 
-    /** Defines the payload column where the table still has one, and binds it as JSON for a kind that is no row. */
+    /** Binds the payload as JSON for a kind that is not a row. */
     private Query withPayload(final Query query, final P payload) {
         if (!table.hasPayload()) {
             return query.define("payloadColumn", "").define("payloadValue", "");
@@ -194,7 +190,6 @@ public final class Inbox<P> {
                 .bind("payload", table.isRow(payload.getClass()) ? null : DatabaseJson.encode(payload));
     }
 
-    /** Writes a kind's own row, one column per component, for the request it belongs to. */
     private void insertRow(final Handle handle, final long id, final P payload) {
         if (!table.isRow(payload.getClass())) {
             return;
@@ -223,7 +218,6 @@ public final class Inbox<P> {
         }
     }
 
-    /** Reads a kind's own row back into its record, each component from the column of its name. */
     private <T> T readRow(final Handle handle, final long id, final Class<T> type) {
         return handle.createQuery("SELECT * FROM <row> WHERE request = :id")
                 .define("row", table.rowTable(type))
@@ -250,7 +244,7 @@ public final class Inbox<P> {
                         new IllegalStateException(table + " request " + id + " has no row in " + table.rowTable(type)));
     }
 
-    /** Claims the oldest due request and marks it running; call it until empty, since one signal may stand for many. */
+    /** Claims the oldest due request and marks it running. Call it until empty, as one signal may stand for many. */
     public Optional<Request<P>> claim() {
         return jdbi.withHandle(handle -> handle.createQuery(CLAIM)
                 .define("table", table.name())
@@ -260,7 +254,7 @@ public final class Inbox<P> {
     }
 
     /**
-     * Rewrites a running request's answer without settling it; a settled row is left alone.
+     * Rewrites the answer of a running request without settling it. A settled row stays.
      *
      * @return whether a running row was updated
      */
@@ -270,9 +264,9 @@ public final class Inbox<P> {
     }
 
     /**
-     * Settles a running request; a row that is no longer running stays as it is.
+     * Settles a running request. A row that is not running stays.
      *
-     * @return the settled row, or empty when it was not running
+     * @return the settled row, or empty if it was not running
      */
     public Optional<Request<P>> settle(final long id, final Outcome outcome) {
         final Settled settled = Settled.of(outcome);
@@ -280,9 +274,9 @@ public final class Inbox<P> {
     }
 
     /**
-     * Writes a request its consumer carried out without being asked, already settled, and announces it.
+     * Writes a request that its consumer carried out unasked, already settled, and announces it.
      *
-     * @param took how long it ran, which puts its request and its start that far before now on the database's clock
+     * @param took how long it ran: request and start lie that far before now on the database's clock
      */
     public Request<P> record(final P payload, final Actor actor, final Outcome outcome, final Duration took) {
         Objects.requireNonNull(payload, "payload");
@@ -305,7 +299,7 @@ public final class Inbox<P> {
         });
     }
 
-    /** The status an outcome settles a row in, and the answer it writes. */
+    /** The status an outcome settles a row in, and the answer written. */
     private record Settled(InboxStatus status, @Nullable Object answer) {
 
         static Settled of(final Outcome outcome) {
@@ -319,10 +313,10 @@ public final class Inbox<P> {
     }
 
     /**
-     * Withdraws a request that has not been claimed.
+     * Withdraws a request that nobody claimed.
      *
-     * @param answer what to record, such as who withdrew it, or {@code null}
-     * @return the cancelled row, or empty when it was claimed or settled already
+     * @param answer what to record, such as who withdrew it. May be null
+     * @return the cancelled row, or empty if it was claimed or settled
      */
     public Optional<Request<P>> cancel(final long id, final @Nullable Object answer) {
         return move(id, InboxStatus.PENDING, InboxStatus.CANCELLED, answer);
@@ -342,11 +336,7 @@ public final class Inbox<P> {
                 .findOne());
     }
 
-    /**
-     * Gives up on every pending request whose patience has run out; the consumer's drain calls it.
-     *
-     * @return how many rows this call expired
-     */
+    /** Expires every pending request past its patience and returns how many. */
     public int expireDue() {
         return count("""
                 WITH expired AS (
@@ -359,21 +349,21 @@ public final class Inbox<P> {
     }
 
     /**
-     * Fails every request left running, which only the one consumer may call, at its start; {@link #takeOver} does.
+     * Fails every request left running, at the start of the one consumer. {@link #takeOver} calls it.
      *
      * @param answer what to write into those rows
-     * @return how many there were
+     * @return the rows failed
      */
     public int settleOrphans(final Object answer) {
         return settleOrphans(answer, List.of());
     }
 
     /**
-     * Fails every request left running but the spared ones, which another process still carries out.
+     * Fails every request left running except the spared ones, which another process still runs.
      *
      * @param answer what to write into those rows
      * @param spared the ids to leave running
-     * @return how many there were
+     * @return the rows failed
      */
     public int settleOrphans(final Object answer, final Collection<Long> spared) {
         return count(
@@ -390,7 +380,7 @@ public final class Inbox<P> {
                         "spared", spared.toArray(Long[]::new)));
     }
 
-    /** Returns one row whole, as JSON, so it can outlive the table being replaced by a restore. */
+    /** Returns one row as JSON, so it can outlive a table that a restore replaces. */
     public Optional<String> carry(final long id) {
         return jdbi.withHandle(
                 handle -> handle.createQuery("SELECT cast(to_jsonb(t) AS text) FROM <table> t WHERE id = :id")
@@ -401,8 +391,8 @@ public final class Inbox<P> {
     }
 
     /**
-     * Fails every row a restored dump held open, then writes a carried row back and counts the ids on from it.
-     * One transaction, so a restore never leaves two open runs or none.
+     * Fails every row that a restored dump held open, writes a carried row back and counts the ids on from it.
+     * It runs in one transaction, so a restore never leaves two open runs or none.
      *
      * @param row what {@link #carry} returned
      * @param answer what to write into the rows the dump held open
@@ -427,7 +417,7 @@ public final class Inbox<P> {
                     .define("table", table.name())
                     .bind("row", row)
                     .execute();
-            // The proxy and the agent may hold a countdown the dump knows nothing of; this tells them to look again.
+            // The proxy and the agent may hold a countdown that the dump does not know, so they read again.
             handle.createQuery("SELECT pg_notify(:channel, '') IS NULL")
                     .bind("channel", table.channel().sqlName())
                     .mapTo(Boolean.class)
@@ -441,9 +431,9 @@ public final class Inbox<P> {
     }
 
     /**
-     * Deletes every settled request that finished longer ago than {@code age}; a pending row is work, not history.
+     * Deletes every settled request that finished longer ago than {@code age}. A pending row stays.
      *
-     * @return how many rows went
+     * @return the rows deleted
      */
     public int purge(final Duration age) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
@@ -456,7 +446,7 @@ public final class Inbox<P> {
                 .execute());
     }
 
-    /** Returns one request, whatever state it is in, or empty if there is no such row; overdue reads as expired. */
+    /** Returns one request in any state, or empty if the row does not exist. An overdue row reads as expired. */
     public Optional<Request<P>> find(final long id) {
         return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE id = :id")
                 .define("table", table.name())
@@ -466,7 +456,6 @@ public final class Inbox<P> {
                 .findOne());
     }
 
-    /** Returns the most recent requests of one kind, newest first. */
     public List<Request<P>> recent(final Class<? extends P> kind, final int limit) {
         return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE kind = :kind ORDER BY id DESC LIMIT :limit")
                 .define("table", table.name())
@@ -478,9 +467,8 @@ public final class Inbox<P> {
     }
 
     /**
-     * Returns a text that changes whenever a row of this inbox is written, or reads as expired from now on.
-     *
-     * Every write gives a row a newer {@code xmin}; a watcher compares two versions instead of reading the rows.
+     * Returns a text that changes whenever a row of this inbox is written or starts to read as expired.
+     * Every write gives a row a newer {@code xmin}, so a watcher compares versions instead of reading rows.
      */
     public String version() {
         return jdbi.withHandle(handle -> handle.createQuery("""
@@ -493,7 +481,7 @@ public final class Inbox<P> {
                 .one());
     }
 
-    /** Returns when the next pending request becomes due, or empty when there is none. */
+    /** Returns when the next pending request is due, or empty if none is. */
     public Optional<Instant> nextDue() {
         return jdbi.withHandle(handle -> handle.createQuery("""
                         SELECT min(scheduled_for) FROM <table> WHERE status = 'PENDING'
@@ -505,10 +493,10 @@ public final class Inbox<P> {
     }
 
     /**
-     * Expires what is overdue, then claims and answers every due request, oldest first; a re-entrant call does nothing.
-     * A handler that throws settles its request {@code FAILED} with the message, never retried.
+     * Expires overdue requests, then claims and answers every due request, oldest first.
+     * A re-entrant call does nothing. A handler that throws fails its request with the message, never retried.
      *
-     * @return how many requests were settled
+     * @return the requests settled
      */
     public int drain(final Handler<P> handler) {
         Objects.requireNonNull(handler, "handler");
@@ -536,7 +524,7 @@ public final class Inbox<P> {
         try {
             outcome = handler.handle(request);
         } catch (final RuntimeException failure) {
-            // The message, not the stack trace: a web interface reads the row.
+            // The message without the stack trace, as a web interface reads the row.
             log.error("{} request {} ({}) failed", table, request.id(), request.kind(), failure);
             outcome = Outcome.failed(Map.of("error", String.valueOf(failure.getMessage())));
         }
@@ -545,7 +533,7 @@ public final class Inbox<P> {
         }
     }
 
-    /** Drains on every signal of the hub, on the hub's thread; a handler that takes long hands its work elsewhere. */
+    /** Drains on every signal of the hub, on its thread. A slow handler passes its work on. */
     public void listen(final SignalHub hub, final Handler<P> handler) {
         Objects.requireNonNull(handler, "handler");
         hub.on(table.channel(), "the " + table + " inbox", () -> drain(handler));
@@ -555,7 +543,7 @@ public final class Inbox<P> {
     @FunctionalInterface
     public interface Handler<P> {
 
-        /** Returns what became of the request; throwing settles it {@code FAILED}. */
+        /** Returns the outcome. A throw settles the request {@code FAILED}. */
         Outcome handle(Request<P> request);
     }
 
@@ -573,7 +561,7 @@ public final class Inbox<P> {
         return (row, context) -> map(row, handle, null);
     }
 
-    /** Reads a row whose payload is {@code known}, or else from its kind's row or its JSON. */
+    /** Reads a row with the payload {@code known} if given, else from the row of its kind or its JSON. */
     private Request<P> map(final ResultSet row, final Handle handle, final @Nullable P known) throws SQLException {
         final long id = row.getLong("id");
         final String kind = row.getString("kind");

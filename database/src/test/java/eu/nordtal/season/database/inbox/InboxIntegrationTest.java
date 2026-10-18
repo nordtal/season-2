@@ -45,7 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** The one inbox implementation against PostgreSQL, on the bot's table, which every other table shares columns with. */
+/** The inbox implementation against PostgreSQL, on the table of the bot. */
 class InboxIntegrationTest {
 
     private static final DiscordId SOMEONE = DiscordId.of("400000000000000002");
@@ -72,7 +72,7 @@ class InboxIntegrationTest {
     @Test
     void aRequestSubmittedElsewhereWakesItsConsumerThroughTheHubAndNotAPoll() throws Exception {
         final CountDownLatch carriedOut = new CountDownLatch(1);
-        // The hub's reconciliation is a minute: an answer within seconds can only have come from the signal.
+        // The hub reconciles every minute, so an answer within seconds came from the signal.
         try (SignalHub hub = SignalHub.open(
                 database.jdbcUrl(),
                 database.username(),
@@ -85,7 +85,7 @@ class InboxIntegrationTest {
                 return Outcome.done(Map.of("revoked", "1"));
             });
             hub.start();
-            // Past the connect's own drain, so only the notification can pick the row up.
+            // Past the drain of the connect, so only the notification can pick the row up.
             TimeUnit.MILLISECONDS.sleep(500);
 
             final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
@@ -429,7 +429,7 @@ class InboxIntegrationTest {
         inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN, Schedule.within(Duration.ofMillis(300)));
         final String waiting = inbox.version();
         TimeUnit.MILLISECONDS.sleep(500);
-        // Nothing wrote the row, yet it reads as expired from now on, so the version has to say so.
+        // Nothing wrote the row, yet it reads as expired from now on, so the version says so.
         assertFalse(waiting.equals(inbox.version()), "an expiry left the version alone");
     }
 

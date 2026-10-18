@@ -10,13 +10,12 @@ import eu.nordtal.season.messages.RefusalReason;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** A {@link Refusal} as an inbox row's outcome stores it: the reason's name and the message's key and values. */
+/** A {@link Refusal} as stored in the outcome of an inbox row: reason name, message key and values. */
 final class StoredRefusal {
 
-    /** A reason read back from a row, which knows its name and not its enum. */
+    /** A reason read back from a row, which knows its name but not its enum. */
     private record Named(String name) implements RefusalReason {}
 
-    /** The stored shape. */
     private record Stored(String reason, String key, Map<String, Object> args) {}
 
     private StoredRefusal() {}
@@ -40,7 +39,7 @@ final class StoredRefusal {
                 new MessageRef(stored.get("key").getAsString(), args));
     }
 
-    /** A number comes back as the whole number it was when it has no fraction, so {@code 3} is not {@code 3.0}. */
+    /** Returns a number without fraction as a whole number, so {@code 3} is not {@code 3.0}. */
     private static Object value(final JsonElement element) {
         if (element.isJsonPrimitive()) {
             final JsonPrimitive primitive = element.getAsJsonPrimitive();

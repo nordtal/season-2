@@ -5,7 +5,6 @@ import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.MilestoneContext;
-import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -226,12 +225,8 @@ public final class ObjectiveGui extends Menu {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
         } else if (definition.type() == ObjectiveType.HAND_IN) {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().clickToHandIn()));
-            lore.add(renderer.format(
-                    locale,
-                    MESSAGES.smp()
-                            .objectives()
-                            .items((definition.items() == null ? List.<String>of() : definition.items())
-                                    .stream().map(GameKeys::item).toList())));
+            lore.addAll(
+                    WantedItems.lines(renderer, locale, definition.items() == null ? List.of() : definition.items()));
         } else {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }

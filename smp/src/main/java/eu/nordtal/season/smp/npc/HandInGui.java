@@ -3,7 +3,6 @@ package eu.nordtal.season.smp.npc;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
@@ -16,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -55,14 +55,16 @@ public final class HandInGui extends Menu {
         // Shows the first wanted material as a sample item.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
 
-        final ItemStack button = BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().handin().confirm()),
-                List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
+        final ItemStack button =
+                BlankItem.of(renderer.format(locale, MESSAGES.smp().handin().confirm()), neededLines(renderer, locale));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
-    private List<GameContent> wantedItems() {
-        return wanted.stream().map(GameKeys::item).toList();
+    private List<Component> neededLines(final MessageRenderer renderer, final Locale locale) {
+        final List<Component> lines = new ArrayList<>();
+        lines.add(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded)));
+        lines.addAll(WantedItems.lines(renderer, locale, List.copyOf(wanted)));
+        return lines;
     }
 
     /** Returns the material of the first wanted item. {@link TrackNames} validates the names. */
@@ -77,7 +79,7 @@ public final class HandInGui extends Menu {
         return BlankItem.described(
                 new ItemStack(material),
                 renderer.format(locale, MESSAGES.smp().handin().wanted()),
-                List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
+                neededLines(renderer, locale));
     }
 
     public Objective objective() {

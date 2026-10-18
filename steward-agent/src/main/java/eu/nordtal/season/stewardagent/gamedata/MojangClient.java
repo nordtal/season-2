@@ -21,7 +21,7 @@ import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A version's client jar from Mojang's launcher metadata, verified against its sha1 and kept only while it is drawn.
+ * Fetches the client jar of a version from the launcher metadata of Mojang and verifies its sha1.
  *
  * Nothing of it is stored: the icons drawn from it go into the database, the jar into a temporary file.
  */
@@ -53,7 +53,6 @@ final class MojangClient implements ClientJars {
         }
     }
 
-    /** The client jar a version's metadata names, with its sha1. */
     RemoteFile client(final String minecraftVersion) throws IOException {
         final JsonObject manifest = parse(http.get(MANIFEST), MANIFEST);
         URI metadata = null;

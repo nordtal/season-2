@@ -15,10 +15,8 @@ import org.jspecify.annotations.Nullable;
 @FunctionalInterface
 interface AssetSource {
 
-    /** The bytes at {@code path}, such as {@code assets/minecraft/items/oak_log.json}, or none. */
     byte @Nullable [] bytes(String path);
 
-    /** An item definition, a model or anything else JSON, or none when it is missing or broken. */
     default @Nullable JsonObject json(final String path) {
         final byte[] bytes = bytes(path);
         if (bytes == null) {
@@ -31,7 +29,6 @@ interface AssetSource {
         }
     }
 
-    /** A texture by its resource id, such as {@code minecraft:block/oak_log}, or none. */
     default @Nullable BufferedImage texture(final String id) {
         final byte[] bytes = bytes(path(id, "textures", ".png"));
         if (bytes == null) {

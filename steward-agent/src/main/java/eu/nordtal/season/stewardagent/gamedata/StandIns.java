@@ -7,7 +7,6 @@ import org.jspecify.annotations.Nullable;
 /** Box models for renderers the game draws in code, laid out on their entity textures as the game unfolds a box. */
 final class StandIns {
 
-    /** A chest: its body, its lid and the lock, on a 64 pixel chest texture named {@code #chest}. */
     static final JsonArray CHEST = elements(
             box(new double[] {1, 0, 1, 15, 10, 15}, 0, 19, 14, 10, 14, null, "#chest", 0),
             box(new double[] {1, 9, 1, 15, 14, 15}, 0, 0, 14, 5, 14, "up", "#chest", 0),
@@ -80,7 +79,6 @@ final class StandIns {
         return face;
     }
 
-    /** The box with every face tinted by tint {@code index}, or left as drawn for {@code -1}. */
     private static JsonObject tinted(final JsonObject box, final int index) {
         if (index >= 0 && box.get("faces") instanceof JsonObject faces) {
             for (final String side : faces.keySet()) {

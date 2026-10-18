@@ -19,16 +19,13 @@ import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
 /**
- * Names the drawing code: a hash of every class of this package that draws, so a fix to any of them is a new painter.
- *
- * A sheet records the painter that drew it, and {@link GameAssets} draws again when it is not the running one.
+ * Names the drawing code by a hash of every class of this package that draws, so a fix to any of them is a new painter.
  */
 final class Painter {
 
-    /** The classes of this package that fetch, schedule or name, and so change nothing in a drawing. */
+    /** The classes of this package that fetch, schedule or name and change nothing in a drawing. */
     private static final Set<String> NOT_DRAWING = Set.of("GameAssets", "MojangClient", "ClientJars", "Painter");
 
-    /** How many hex digits of the hash are kept. */
     private static final int LENGTH = 16;
 
     private static final class Running {
@@ -37,12 +34,10 @@ final class Painter {
 
     private Painter() {}
 
-    /** The identity of the painter this process runs, stable for one build of the classes. */
     static String id() {
         return Running.ID;
     }
 
-    /** The hash of the named class files, in name order. */
     static String identify(final Map<String, byte[]> classes) {
         final MessageDigest digest = digest();
         new TreeMap<>(classes).forEach((name, bytes) -> {

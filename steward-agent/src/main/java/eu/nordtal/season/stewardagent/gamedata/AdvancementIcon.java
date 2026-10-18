@@ -9,15 +9,13 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The icon an advancement shows when its item carries banner patterns, read from the client jar's data.
- * An item's own icon cannot show them, so the sheet gives the advancement a slot under its own id.
+ * The icon of an advancement whose item carries banner patterns, in a slot of the advancement's own id.
  *
  * @param item the icon's item, such as {@code minecraft:white_banner}
  * @param patterns the banner patterns it carries, bottom first
  */
 record AdvancementIcon(String item, List<BannerLayer> patterns) {
 
-    /** The icon of {@code advancement}, or none when it has no definition or its item carries no banner patterns. */
     static @Nullable AdvancementIcon of(final AssetSource assets, final String advancement) {
         final JsonObject definition =
                 assets.json(AssetSource.dataPath(AssetSource.id(advancement), "advancement", ".json"));
@@ -50,7 +48,9 @@ record AdvancementIcon(String item, List<BannerLayer> patterns) {
                 : new AdvancementIcon(AssetSource.id(item.getAsString()), List.copyOf(patterns));
     }
 
-    /** The texture of a pattern named by id or declared inline: its asset id under {@code entity/banner}. */
+    /**
+     * Returns the texture of a pattern given by id or inline: its asset id under {@code entity/banner}.
+     */
     private static @Nullable String textureOf(final AssetSource assets, final @Nullable JsonElement pattern) {
         final JsonObject declared;
         if (pattern instanceof JsonObject inline) {

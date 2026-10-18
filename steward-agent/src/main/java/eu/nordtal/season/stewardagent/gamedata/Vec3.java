@@ -9,7 +9,6 @@ record Vec3(double x, double y, double z) {
 
     static final Vec3 ZERO = new Vec3(0, 0, 0);
 
-    /** Three numbers of a model file, {@code absent} for each one it leaves out. */
     static Vec3 of(final @Nullable JsonElement element, final double absent) {
         final double[] values = {absent, absent, absent};
         if (element instanceof JsonArray array) {
@@ -70,9 +69,7 @@ record Vec3(double x, double y, double z) {
         return new Vec3(x * cos - y * sin, x * sin + y * cos, z);
     }
 
-    /** Rotated by the unit quaternion {@code (qx, qy, qz, qw)}, as a model's transformation names one. */
     Vec3 rotate(final double qx, final double qy, final double qz, final double qw) {
-        // v' = v + 2w(q x v) + 2(q x (q x v))
         final Vec3 q = new Vec3(qx, qy, qz);
         final Vec3 twice = q.cross(this).times(2);
         return plus(twice.times(qw)).plus(q.cross(twice));

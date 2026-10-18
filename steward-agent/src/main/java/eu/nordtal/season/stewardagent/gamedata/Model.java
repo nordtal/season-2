@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A model with its parents folded in: the textures, the elements and the GUI pose an icon is drawn from.
  *
- * @param textures every texture variable, the child's winning over its parent's
+ * @param textures every texture variable, the child's over the parent's
  * @param elements the boxes of the nearest model that has any, none for a flat item
  * @param gui the nearest {@code display.gui}, none for the identity
  * @param generated whether the chain ends in {@code item/generated}, which draws the layers flat
@@ -24,10 +24,9 @@ record Model(
         @Nullable Pose gui,
         boolean generated) {
 
-    /** Parents are followed at most this far, so a loop in a broken pack ends. */
     private static final int DEEPEST = 32;
 
-    /** Follows {@code id}'s parents in {@code assets}; a missing model is an empty one. */
+    /** A missing model is an empty one. */
     static Model resolve(final AssetSource assets, final String id) {
         final Map<String, String> textures = new HashMap<>();
         JsonArray elements = null;
@@ -67,7 +66,6 @@ record Model(
         return new Model(Map.copyOf(textures), elements, gui, generated);
     }
 
-    /** A texture entry's sprite: the plain string, or the {@code sprite} of an object such as a glass pane's. */
     private static @Nullable String sprite(final JsonElement entry) {
         if (entry instanceof JsonObject declared) {
             return declared.get("sprite") instanceof JsonPrimitive sprite ? sprite.getAsString() : null;
@@ -88,7 +86,9 @@ record Model(
         return current.startsWith("#") ? null : AssetSource.id(current);
     }
 
-    /** A {@code display} entry: scaled, rotated about z, then y, then x in degrees, then moved in pixels. */
+    /**
+     * A {@code display} entry: scale, then rotation about z, y and x in degrees, then translation in pixels.
+     */
     record Pose(Vec3 rotation, Vec3 translation, Vec3 scale) {
 
         static final Pose IDENTITY = new Pose(Vec3.ZERO, Vec3.ZERO, new Vec3(1, 1, 1));
@@ -100,7 +100,6 @@ record Model(
                     Vec3.of(pose.get("scale"), 1));
         }
 
-        /** Where a point in model pixels, centred on the block's middle, lands. */
         Vec3 apply(final Vec3 centred) {
             return centred.times(scale)
                     .rotateZ(rotation.z())

@@ -199,7 +199,8 @@ starts the services it stopped. A server moves together with its jars or not at 
 refuses to stop, the run installs nothing. The server jar is the newest `STABLE` build of
 `SERVER_VERSION`. `postgres` and `caddy` are recreated like any service, and the countdown names them.
 Recreating `caddy` disconnects every player. Its image is tagged with a hash of `deploy/caddy`, not with
-the release, so a run recreates it only when that directory changed.
+the release, so a new release alone does not recreate it: only a change to that directory or to its
+service in `compose.yml` does.
 
 `steward-agent` never recreates itself. A temporary `steward-agent` container of the new release runs
 an update to that release and recreates the agent last. Its log is `steward-backups/runs/<id>.log`.

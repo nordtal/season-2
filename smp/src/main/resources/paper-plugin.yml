@@ -6,7 +6,7 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.2"
 
-# The name tags draw through PacketEvents, so a server without it fails at start; TAB is used when present.
+# The name tags need PacketEvents. A server without it fails at start. TAB is used when present.
 dependencies:
   server:
     packetevents:

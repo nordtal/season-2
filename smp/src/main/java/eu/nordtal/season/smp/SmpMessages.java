@@ -19,12 +19,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-/** Every message of the smp bundle, one method per key. */
 @MessageSpec("smp")
 @Shown(Display.CHAT)
 public interface SmpMessages {
 
-    /** The messages; stateless, so one instance serves every caller. */
     SmpMessages MESSAGES = MessageSpecs.create(SmpMessages.class);
 
     Smp smp();
@@ -34,7 +32,6 @@ public interface SmpMessages {
 
         World world();
 
-        /** A world's name, by its role. */
         default MessageRef world(final WorldRole role) {
             return switch (role) {
                 case NORDTAL -> world().nordtal();
@@ -371,7 +368,7 @@ public interface SmpMessages {
 
         Smp.Milestone milestone();
 
-        /** Returns a milestone's shipped name, or empty for one only the {@code milestones} group knows. */
+        /** Returns the bundled name of milestone {@code key}, or empty if only the {@code milestones} group has it. */
         default Optional<MessageRef> milestoneName(final String key) {
             return Optional.ofNullable(
                     switch (key) {
@@ -729,7 +726,7 @@ public interface SmpMessages {
 
         Settings settings();
 
-        /** The names Steward's settings show for the values of the milestones group's choices. */
+        /** The names that Steward's settings show for the choices of the {@code milestones} group. */
         @Name("Settings")
         @Shown(Display.STEWARD)
         interface Settings {

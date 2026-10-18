@@ -72,44 +72,34 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The season 2 SMP: Nordtal, the Nether and the End, with milestones, aura, prestige, duels, POIs and graves.
- *
- * A startup refusal stops the server rather than letting it run degraded and do damage nobody can undo.
- */
+/** A refusal at start stops the server. */
 public final class SmpPlugin extends NordtalPlugin {
 
     private Setting<SmpSpec> config;
     private Setting<MilestonesSpec> milestoneSettings;
 
-    /** Its own group so a reload can re-read it, unlike the {@code config} group, which is bound once at enable. */
+    /** A group of its own, so a reload can read it again. */
     private Setting<SoundsSpec> soundSettings;
 
-    /** Swapped by a reload; every listener holds this one instance. */
+    /** Reloaded in place by {@code reloadOwn}. */
     SmpSounds sounds;
 
-    /** Its own group, taken while running: a change redraws every name tag. */
+    /** A group of its own that applies while the server runs. A change redraws every name tag. */
     private Setting<NameTagConfigurationSpec> nameTagSettings;
 
-    /** Every player's name tag, started at enable. */
     DisplayTags nameTags;
 
-    /** The name colours; volatile, since a reload replaces them and renders read them through a supplier. */
     volatile PrestigeColours prestigeColours;
 
-    /** The track's rows, which the plugin starts over, fills from the settings and reads for the surfaces. */
     TrackDao trackRows;
-    /** The aura book, one for every feature that pays or takes aura. */
     AuraDao aura;
 
     Announcer announcer;
     private SmpAdmin admin;
-    /** What the last reload refused the track for, or empty when it took it. */
+    /** The problems of the last track reload, or empty when the reload took the track. */
     private volatile List<String> trackProblems = List.of();
 
-    /**
-     * The milestone track; volatile, since a reload writes it async and suggestions read it per keystroke.
-     */
+    /** A reload replaces the track. */
     volatile MilestoneTrack track;
 
     Worlds worlds;
@@ -133,7 +123,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     SpawnNpc npc;
-    /** Stopped at disable, while players are still here. */
+
     @Nullable
     BukkitCinematics cinematics;
 
@@ -164,7 +154,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 .then(console("objective")
                         .then(Commands.literal("complete")
                                 .then(Commands.argument("key", StringArgumentType.word())
-                                        // The active milestone's open objectives only; any other key is refused.
+                                        // Suggests the objectives of the active milestone. Any other key is refused.
                                         .suggests((context, builder) -> suggest(
                                                 builder,
                                                 season.active().objectives().stream()
@@ -194,7 +184,6 @@ public final class SmpPlugin extends NordtalPlugin {
         return List.of("messages/smp");
     }
 
-    /** Seen 32 chunks far; simulated at the usual 10, since the simulation is what costs the host memory and ticks. */
     @Override
     protected Distances distanceDefaults() {
         return new Distances(32, 10);
@@ -222,7 +211,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected boolean refusesWithoutIdentity() {
-        // A login smp cannot identify would lose that player's progress.
+        // A player that the plugin cannot identify would lose progress, so the login is refused.
         return true;
     }
 
@@ -237,14 +226,13 @@ public final class SmpPlugin extends NordtalPlugin {
         final Boxes regions = ConfigBoxes.spawnRegions(spec);
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
-        // Everything below this line touches the database, so it happens off the main thread.
         PaperScheduler.of(this).execute(this::loadSeasonState);
 
         announcer = SmpStart.declareHudAndStartAnnouncer(this);
 
         nameTags = DisplayTags.start(this, nameTagSettings.get());
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
-        // Every name this server holds wears what chat shows: the flag, the prestige colour and the crest.
+        // A name with an identity gets the chat prefix: flag, prestige colour and crest.
         composeNames((name, reader) -> identities()
                 .held(name.player())
                 .map(identity -> wired.composition().chatPrefix(name.name(), identity))
@@ -268,9 +256,8 @@ public final class SmpPlugin extends NordtalPlugin {
 
         admin = admin();
         registerCommands(sounds);
-        // Before the surfaces, so the pass that starts the track over also draws it; any pass catches a missed switch.
+        // This handler runs before the surface handler, so one pass starts the track over and draws it.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
-        // Surfaces are drawn far more often than their data changes, so they re-read only on its signal.
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         answer(SmpRequest.TABLE, request -> switch (request) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
@@ -307,12 +294,11 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     private void loadFeedbackPalettes() {
-        // A wrong sound key silences its own category rather than refusing the start.
+        // An invalid sound key silences its category and does not refuse the start.
         sounds = SmpSounds.of(soundSettings.get(), getLogger()::warning);
         prestigeColours = prestigeColours();
     }
 
-    /** The name colours of the network's prestige group, which the base has just read. */
     private PrestigeColours prestigeColours() {
         return PrestigeColours.parse(
                 NetworkSettings.prestigeColours(prestigeSettings()),
@@ -321,7 +307,6 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     private Worlds bootstrapWorlds(final SmpSpec config) {
-        // A world generated without them is vanilla terrain permanently, and Nordtal's terrain is never re-rolled.
         final Datapacks.Result packs = Datapacks.check(config.requiredDatapacks());
         if (!packs.ok()) {
             throw fatal("smp is not starting: " + packs.describe() + ". Datapacks are read once at server "
@@ -337,7 +322,7 @@ public final class SmpPlugin extends NordtalPlugin {
                     + "deployment behind a world nobody recognises.");
         }
 
-        // Not a refusal: a first join that cannot be placed just spawns where the server always would.
+        // A missing first-join world is a warning, not a refusal.
         if (Bukkit.getWorld(config.firstJoinSpawn().world()) == null) {
             getLogger()
                     .warning("first-join-spawn names the world '"
@@ -351,7 +336,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void disable() {
-        // A staging still running holds a potion effect on the player.
+        // A running staging leaves a potion effect on the player.
         final BukkitCinematics staging = cinematics;
         if (staging != null) {
             quietly("cinematics.stop", staging::stop);
@@ -394,13 +379,13 @@ public final class SmpPlugin extends NordtalPlugin {
         });
     }
 
-    /** The track actions of the console and the inbox, closing and unlocking through the running engine. */
+    /** Returns the admin actions of the console and the inbox. */
     private SmpAdmin admin() {
         return new SmpAdmin(
                 trackRows,
                 aura,
                 new SmpAdmin.Track() {
-                    // Null: an admin's completion has nobody behind it.
+                    // null: no player completed it.
                     @Override
                     public void finishObjective(final String milestone, final ObjectiveRow objective) {
                         engine.finishObjective(milestone, objective, null);
@@ -416,7 +401,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 getLogger());
     }
 
-    /** {@code /smp aura <player> <delta>}: a correction for somebody online, recorded as the console's. */
+    /** Changes the aura of an online player and records the change as the console's. */
     private int changeAura(final CommandContext<CommandSourceStack> context) {
         final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
         if (player == null) {
@@ -429,14 +414,13 @@ public final class SmpPlugin extends NordtalPlugin {
         return run(context, () -> admin.changeAura(player.getUniqueId(), player.getName(), delta));
     }
 
-    /** {@code /smp nametags redraw}: drops every name tag and draws it again from the {@code nametags} group. */
     private int redrawNameTags(final CommandContext<CommandSourceStack> context) {
         nameTags.reload(nameTagSettings.get());
         tell(context.getSource().getSender(), Answer.done(MESSAGES.smp().admin().nameTagsRedrawn()));
         return Command.SINGLE_SUCCESS;
     }
 
-    /** {@code /smp access <player>}: whether somebody online is linked, has access and is paying. */
+    /** Reports whether an online player is linked, has access and is paying. */
     private int showAccess(final CommandContext<CommandSourceStack> context) {
         final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
         if (player == null) {
@@ -473,21 +457,20 @@ public final class SmpPlugin extends NordtalPlugin {
         return builder.buildFuture();
     }
 
-    /** Starts the track over when the phase stamped a fresh start this server has not applied yet. */
+    /** Starts the track over if the phase marked a fresh start that is not applied yet. */
     void startTrackOverIfDue() {
         if (trackRows.startOverIfDue() > 0) {
             getLogger().info("the season started over: every milestone is locked and every objective is empty");
         }
     }
 
-    /** Reads the data every surface draws, on the signal hub's thread, so no render waits on the database. */
+    /** Reads the data of the surfaces on the thread of the signal hub. */
     void refreshSurfaceData() {
         try {
             java.util.Optional<String> active = trackRows.activeMilestoneKey();
             final List<String> completed = trackRows.completedMilestoneKeys();
             if (!completed.equals(season.completedKeys())
                     || (active.isEmpty() && track.next(completed).isPresent())) {
-                // A phase switch started the track over, or nothing has started it yet.
                 loadSeasonState();
                 active = trackRows.activeMilestoneKey();
             }
@@ -498,16 +481,12 @@ public final class SmpPlugin extends NordtalPlugin {
             gates.setActiveMilestone(active);
             Objects.requireNonNull(boards).setLeaderboard(aura.topAura(10));
         } catch (final RuntimeException exception) {
-            // Surfaces keep showing what they last knew.
+            // The surfaces keep their last data.
             getLogger().warning("could not refresh the boards and HUD: " + exception);
         }
     }
 
-    /**
-     * Finishes, async, every objective whose reloaded target is already reached.
-     *
-     * Idempotent in SQL, so a lowered target completes at once and a reload that changed nothing does nothing.
-     */
+    /** Finishes every objective of the active milestone whose amount reaches its reloaded target. */
     private void completeWhateverTheNewTargetsAlreadyReach() {
         trackRows
                 .activeMilestoneKey()
@@ -524,7 +503,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected List<String> reloadOwn() {
-        // Sounds go first, since they are iterated on live; each group fails on its own.
+        // Each group fails on its own.
         final List<String> problems = new ArrayList<>();
         try {
             soundSettings.reload();
@@ -538,7 +517,6 @@ public final class SmpPlugin extends NordtalPlugin {
         } catch (final SettingsException | RuntimeException failure) {
             problems.add("the name tags: " + failure.getMessage());
         }
-        // The base re-read the prestige group before this.
         prestigeColours = prestigeColours();
         reloadMilestoneTrack();
         problems.addAll(trackProblems);
@@ -553,10 +531,9 @@ public final class SmpPlugin extends NordtalPlugin {
 
             final List<TrackValidation.Problem> problems;
             if (candidate == null) {
-                // The file is structurally broken; there is nothing to compare.
+                // The track could not be parsed.
                 problems = reloaded.problems();
             } else {
-                // A renamed key orphans progress, a moved target rewrites the ledger, an unknown name never counts.
                 problems = new ArrayList<>(TrackValidation.validate(
                         candidate, new StoredProgress(trackRows.storedMilestones(), trackRows.storedObjectives())));
                 problems.addAll(TrackNames.validate(candidate, TrackNames.Server.running()));
@@ -566,9 +543,8 @@ public final class SmpPlugin extends NordtalPlugin {
                 problems.forEach(problem -> getLogger().severe("  " + problem));
                 trackProblems =
                         problems.stream().map(TrackValidation.Problem::toString).toList();
-                // The reloads fail independently, so a broken track must not block a fixed message.
             } else {
-                // Rows first: if {@code ensureRows} throws, the track stays unset.
+                // ensureRows runs first, so the track stays unchanged if it throws.
                 ensureRows(candidate);
                 trackProblems = List.of();
                 track = candidate;
@@ -584,12 +560,10 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     /**
-     * Writes one row per milestone and one per objective, in one transaction.
-     *
-     * Otherwise a failed reload could leave the targets {@code ObjectiveEngine#credit} reads half updated.
+     * Writes one row per milestone and one per objective in one transaction.
+     * The transaction keeps the targets that {@code ObjectiveEngine#credit} reads from being half updated.
      */
     private void ensureRows(final MilestoneTrack definition) {
-        // The plugin's own DAO joins the transaction this thread holds open.
         jdbi().useTransaction(handle -> {
             for (final Milestone milestone : definition.milestones()) {
                 trackRows.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
@@ -601,14 +575,12 @@ public final class SmpPlugin extends NordtalPlugin {
         });
     }
 
-    /**
-     * Reads the track's progress and puts Nordtal's border where the completed milestones say, without animating it.
-     */
+    /** Reads the track progress and sets the border of Nordtal to the size of the completed milestones. */
     void loadSeasonState() {
         final MilestoneTrack now = track;
         ensureRows(now);
         final List<String> completed = trackRows.completedMilestoneKeys();
-        // A reset after the read changes the count, so the activation does nothing and the next tick decides.
+        // If a reset happens after the read, the count differs and the activation changes nothing.
         if (trackRows.activeMilestoneKey().isEmpty()) {
             now.next(completed).ifPresent(next -> {
                 if (trackRows.activateAfter(next.key(), completed.size()) > 0) {
@@ -631,9 +603,8 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     /**
-     * Returns why to refuse the start, or null when Nordtal's balloon sits between radius 10 and 21.5 of the centre.
-     *
-     * So the opening border of 20 withholds travel and the first expansion to 43 hands it over.
+     * Returns the reason to refuse the start.
+     * Returns null when every balloon in Nordtal is between radius 10 and 21.5 of the border centre.
      */
     private @Nullable String checkNordtalBalloon(final SmpSpec config, final Boxes balloons) {
         final List<Box> inNordtal = balloons.in(config.worldNordtal());

@@ -6,34 +6,34 @@ plugins {
     id("nordtal.plugin-descriptor")
 }
 
-// How Steward shows this module's settings; steward-agent reads it out of the jar.
+// Steward shows the settings of this module as this descriptor says. steward-agent reads it from the jar.
 pluginDescriptor {
     followsMessages.set(true)
-    // The track is drawn compactly by Steward's own milestones editor rather than as cards from its schema.
+    // Steward edits the milestones group with its milestones editor and not with cards from the schema.
     editors.put("milestones", "milestones")
 }
 
-// The base runs prepare() and enable() before anything reads SmpPlugin's fields.
+// The base class calls prepare() and enable() before any code reads the fields of SmpPlugin.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option("NullAway:KnownInitializers", "eu.nordtal.season.smp.SmpPlugin.prepare,eu.nordtal.season.smp.SmpPlugin.enable")
     }
 }
 
-// Files outside every source set that tests read; undeclared, an edit would leave :smp:test UP-TO-DATE.
+// Tests read these files outside the source sets. Without this declaration, an edit leaves :smp:test UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
 }
 
 dependencies {
-    // The assembled resource pack: the fonts the menu tests measure against only exist there.
+    // The assembled resource pack. The menu tests measure fonts that exist only in it.
     "resourcePack"(project(":resource-pack", "pack"))
 
     testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":pack-rendering")))
 
-    // JDBI, which :database and :settings only compile against.
+    // :database and :settings only compile against JDBI.
     implementation(libs.jdbi.core)
     implementation(libs.jdbi.sqlobject)
 
@@ -41,7 +41,7 @@ dependencies {
 
     implementation(libs.jdbi.postgres)
 
-    // The name tags, shaded into this plugin.
+    // The :display-tags module, shaded into this plugin.
     implementation(project(":display-tags"))
 
     testImplementation(testFixtures(project(":database")))

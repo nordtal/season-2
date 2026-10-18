@@ -61,7 +61,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.25.0", "47"),
             Map.entry("0.26.0", "47"),
             Map.entry("0.27.0", "53"),
-            Map.entry("0.28.0", "70"));
+            Map.entry("0.28.0", "70"),
+            Map.entry("0.28.1", "70"));
 
     /**
      * What a release's own code no longer uses, keyed as a privilege is listed, with that release.

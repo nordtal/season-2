@@ -54,7 +54,8 @@ An update to a newer release goes to a one-shot:
    `RUNNING` and is the lock.
 2. It pulls `steward-agent` at that release and starts the one-shot from that image's `compose.yml`.
 3. The one-shot (`steward-agent run ID`) plans again, counts down, stops what changes, runs `migrate`,
-   installs, starts and verifies.
+   installs, starts and verifies. Until `migrate` has applied its newest migration, it writes no run
+   rows, since their tables may not exist. The report carries those steps.
 4. The one-shot renews the long-running agent at its release, waits until it is healthy and settles
    the row.
 

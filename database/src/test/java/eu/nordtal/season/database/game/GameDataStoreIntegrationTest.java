@@ -13,7 +13,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 
-/** The servers' game data and the icons against a real PostgreSQL and the real migrations; skipped without Docker. */
+/** The game data of the servers and the icons against PostgreSQL and the real migrations. */
 class GameDataStoreIntegrationTest {
 
     private static final GameCatalogue CATALOGUE = new GameCatalogue(

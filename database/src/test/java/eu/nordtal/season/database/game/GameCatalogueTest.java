@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Several servers' catalogues read as one: each entry once, the datapacks of all, other versions left out. */
+/** The catalogues of several servers read as one: each entry once, the datapacks of all, other versions left out. */
 class GameCatalogueTest {
 
     private static GameCatalogue.Entry entry(final String id) {

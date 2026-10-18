@@ -11,12 +11,12 @@ import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What one Minecraft server knows of the game: every registry the pickers draw from, and its tags.
+ * What one Minecraft server knows of the game: the registries the pickers draw from, and their tags.
  *
- * @param minecraftVersion the version the server runs, such as {@code 26.2}, which names the icons for it
- * @param datapacks the datapacks enabled when it was exported, by name
- * @param registries the entries of each registry, by its name, such as {@code item} or {@code advancement}
- * @param tags the tags of each registry, by the same name
+ * @param minecraftVersion the version the server runs, such as {@code 26.2}
+ * @param datapacks the names of the datapacks enabled at export
+ * @param registries the entries of each registry by name, such as {@code item} or {@code advancement}
+ * @param tags the tags of each registry by name
  */
 public record GameCatalogue(
         String minecraftVersion,
@@ -24,7 +24,7 @@ public record GameCatalogue(
         Map<String, List<Entry>> registries,
         Map<String, List<Tag>> tags) {
 
-    /** The registries a server exports, by the name its entries are filed under. */
+    /** The names of the registries a server exports. */
     public static final List<String> REGISTRIES = List.of(
             "item",
             "block",
@@ -38,9 +38,7 @@ public record GameCatalogue(
             "damage_type");
 
     /**
-     * What several servers of one version know together: every entry and tag any of them has, by id, the first kept.
-     *
-     * Servers of one version share the vanilla registries; a datapack on one adds what only it has.
+     * Merges the catalogues of servers of one version into every entry and tag any has, by id, the first kept.
      */
     public static GameCatalogue union(final String minecraftVersion, final Collection<GameCatalogue> catalogues) {
         final Set<String> datapacks = new TreeSet<>();
@@ -70,17 +68,17 @@ public record GameCatalogue(
     }
 
     /**
-     * One entry of a registry; the fields after {@code text} belong to the one registry that has them.
+     * One entry of a registry. The fields after {@code text} belong to the registry that has them.
      *
      * @param id the namespaced key a setting stores, such as {@code minecraft:oak_log}
-     * @param key the translation key, or none for an entry the game names nowhere, such as a sound
-     * @param text the English the server renders the key to, or none without a key
-     * @param parent an advancement's parent, none for a root
-     * @param description the English of an advancement's description, as its tooltip shows it
-     * @param frame an advancement's frame: {@code task}, {@code goal} or {@code challenge}
+     * @param key the translation key, none for an entry the game does not name, such as a sound
+     * @param text the English text of the key, none without a key
+     * @param parent the parent of an advancement, none for a root
+     * @param description the English description of an advancement
+     * @param frame the frame of an advancement: {@code task}, {@code goal} or {@code challenge}
      * @param icon the item an advancement shows
      * @param hidden whether an advancement stays hidden until it is made
-     * @param subject the registry a statistic counts per entry of, such as {@code block}, none for one it does not
+     * @param subject the registry a statistic counts per entry of, such as {@code block}, none otherwise
      */
     public record Entry(
             String id,
@@ -93,12 +91,12 @@ public record GameCatalogue(
             @Nullable Boolean hidden,
             @Nullable String subject) {
 
-        /** An entry with a name and nothing of its registry's own. */
+        /** Creates an entry that has only a name. */
         public static Entry named(final String id, final @Nullable String key, final @Nullable String text) {
             return new Entry(id, key, text, null, null, null, null, null, null);
         }
     }
 
-    /** One tag of a registry and the ids in it, with nested tags already resolved. */
+    /** One tag of a registry with its ids, nested tags resolved. */
     public record Tag(String id, List<String> values) {}
 }

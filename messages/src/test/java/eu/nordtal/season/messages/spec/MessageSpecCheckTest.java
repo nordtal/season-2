@@ -10,7 +10,6 @@ import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** A value's example and the keys a message value takes have to be ones it can take. */
 class MessageSpecCheckTest {
 
     enum Phase {
@@ -156,7 +155,7 @@ class MessageSpecCheckTest {
 
     @Test
     void aWholeBundleIsNamedAsOneAndItsOwnExampleIsAKeyItDeclares() {
-        // shared previews a key of the other bundle it takes, which is no problem.
+        // shared previews a key of the other bundle that it takes. This is allowed.
         assertEquals(
                 List.of(
                         "line: @Example names taking-whole/absent, which this bundle does not declare",

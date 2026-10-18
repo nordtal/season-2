@@ -24,9 +24,9 @@ import java.util.Map;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
-/**
- * The vectors the browser's web target is tested on: the tree this parser hands it and the plain text it must show.
- * The frontend's texts test reads the same file, so both sides agree on the shape and on every choice made.
+/** Vectors for the web target of the browser: the tree that the parser produces and the plain text it must show.
+ *
+ * The texts test of the frontend reads the same file.
  */
 class WebTargetVectorsTest {
 
@@ -81,12 +81,13 @@ class WebTargetVectorsTest {
         }
     }
 
-    /** Whether the vector is a text with MiniMessage tags, as a Minecraft text is; Steward's own have none. */
+    /** Whether the vector is a text with MiniMessage tags, as a Minecraft text is.
+     * Steward's own have none.
+     */
     private static boolean markup(final JsonObject vector) {
         return vector.has("markup") && vector.get("markup").getAsBoolean();
     }
 
-    /** The arguments as Steward or a row hands them over: read back by the one codec into maps. */
     private static Map<?, ?> asRead(final JsonElement args) {
         return Json.decode(args.toString(), Map.class);
     }

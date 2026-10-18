@@ -12,7 +12,7 @@ import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 
-/** The texts the layout tests and the shared vectors place, shown as a text block unless a key says otherwise. */
+/** Each text shows as a text block unless a key says otherwise. */
 @MessageSpec("layouts")
 @Shown(Display.DISCORD_TEXT)
 @Format(TextFormat.DISCORD_MARKDOWN)

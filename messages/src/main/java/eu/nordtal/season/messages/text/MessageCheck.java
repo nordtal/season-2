@@ -23,9 +23,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The one validator of a message text; what it refuses is refused everywhere.
- * It is the build's check of every packaged text, Steward's save of an override and a process's load of overrides.
+/** The one validator of a message text.
+ * The build, Steward's save of an override and a process's load of overrides all use it.
  */
 public final class MessageCheck {
 
@@ -36,25 +35,22 @@ public final class MessageCheck {
 
     private static final CheckMessages.Check SAYS = CheckMessages.TEXTS.check();
 
-    /** Each word of {@link TermMessages#SYNONYMS} as a whole word in any case, with the key of its term. */
+    /** Maps each word of {@link TermMessages#SYNONYMS} to the key of its term. */
     private static final Map<Pattern, String> SYNONYMS = synonyms();
 
-    /** Stands in for every word while a text is measured, so a limit holds in any language. */
     private static final Words MEASURE = (key, values) -> "........";
 
-    /** Whose text is checked, which decides what it may use. */
+    /** Tells whose text is checked. That decides what the text may use. */
     public enum Mode {
-        /** A text the jar ships: colours only by tone, and every argument used. */
+        /** A text the jar ships. It uses colours only by tone and uses every argument. */
         PACKAGED,
-        /** An admin's override: any colour, and an argument left out is only a warning. */
+        /** An admin's override. It may use any colour, and an unused argument is only a warning. */
         OVERRIDE
     }
 
     /**
-     * One thing wrong with a text.
-     *
-     * @param error whether it refuses the text, rather than warning about it
-     * @param text  what is wrong, a message of the {@code check} bundle, for an admin to read
+     * @param error whether the problem refuses the text instead of warning about it
+     * @param text the problem as a message of the {@code check} bundle
      */
     public record Problem(boolean error, MessageRef text) {}
 
@@ -63,7 +59,7 @@ public final class MessageCheck {
     private final List<Problem> problems = new ArrayList<>();
     private final Set<String> used = new LinkedHashSet<>();
 
-    /** The value each open {@code <click:open_url>} leads to, or an empty name for a literal address. */
+    /** Holds the value of each open {@code <click:open_url>} tag, or an empty name for a literal address. */
     private final Deque<String> links = new ArrayDeque<>();
 
     private MessageCheck(final Declaration declaration, final Mode mode) {
@@ -71,7 +67,6 @@ public final class MessageCheck {
         this.mode = mode;
     }
 
-    /** Returns every problem of {@code text}, errors and warnings, in the order found; none for a good text. */
     public static List<Problem> check(final String text, final Declaration declaration, final Mode mode) {
         final MessageText parsed;
         try {
@@ -88,7 +83,6 @@ public final class MessageCheck {
         return List.copyOf(check.problems);
     }
 
-    /** Returns only the errors of {@code text}, each in English as the packaged texts say it. */
     public static List<String> errors(final String text, final Declaration declaration, final Mode mode) {
         return check(text, declaration, mode).stream()
                 .filter(Problem::error)
@@ -96,12 +90,10 @@ public final class MessageCheck {
                 .toList();
     }
 
-    /** Returns a problem in English with the packaged texts, for the build's refusal and a process's log. */
     public static String english(final MessageRef problem) {
         return English.MESSAGES.format(Locales.DEFAULT, problem);
     }
 
-    /** The {@code check} bundle as packaged, loaded on the first problem told in English. */
     private static final class English {
 
         private static final Messages MESSAGES =
@@ -110,7 +102,7 @@ public final class MessageCheck {
         private English() {}
     }
 
-    /** Checks one run of nodes, a case's own: every tag it opens it closes. */
+    /** Every tag a run opens must close in it. */
     private void sequence(final List<Node> nodes) {
         final Deque<String> open = new ArrayDeque<>();
         for (final Node node : nodes) {
@@ -181,7 +173,7 @@ public final class MessageCheck {
     private void tag(final Node.Tag tag, final Deque<String> open) {
         final String name = tag.name();
         final boolean allowed = mode == Mode.PACKAGED ? Tags.packaged(name) : Tags.override(name);
-        // A closing tag is refused with its opening one, or as closing nothing.
+        // A closing tag is refused together with its opening tag, or as closing nothing.
         if (!allowed && tag.shape() != Node.Tag.Shape.CLOSE) {
             error(
                     mode == Mode.PACKAGED && Tags.colour(name)
@@ -239,7 +231,6 @@ public final class MessageCheck {
         }
     }
 
-    /** Notes where an open link leads, so the text it shows can be told from its address. */
     private void link(final Node.Tag tag) {
         if (!"click".equals(tag.name())) {
             return;
@@ -261,7 +252,7 @@ public final class MessageCheck {
         }
     }
 
-    /** A game term is written by its one name, never by a word {@link TermMessages#SYNONYMS} lists for it. */
+    /** A text writes a game term by its one name. */
     private void synonyms(final String literal) {
         SYNONYMS.forEach((word, term) -> {
             final Matcher found = word.matcher(literal);
@@ -281,7 +272,7 @@ public final class MessageCheck {
         return Map.copyOf(patterns);
     }
 
-    /** The kind a placeholder is declared with, noting it as used; {@code null} and an error for an unknown one. */
+    /** Returns {@code null} and reports an error for an unknown placeholder. */
     private @Nullable Kind known(final String name) {
         used.add(name);
         final Kind kind = declaration.values().get(name);
@@ -301,7 +292,7 @@ public final class MessageCheck {
         }
     }
 
-    /** With every value at its example, the text must fit where it is shown. */
+    /** Checks that the text fits with every value at its example. */
     private void length(final MessageText text) {
         if (declaration.limit() <= 0) {
             return;

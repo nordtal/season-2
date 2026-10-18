@@ -38,45 +38,39 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Every user-visible text of season 2 by language and key; lookup falls back to English, then to the key.
- * Plain text is rendered here, components by {@code :message-rendering} from the same {@link Prepared} pieces. The
- * README says how overrides, variants and the {@code values} bundle layer over the packaged texts.
+ * The texts of season 2 by language and key. A lookup falls back to English, then to the key.
+ * This class renders plain text, and {@code :message-rendering} renders components from the same
+ * {@link Prepared} pieces. The README describes the layers over the packaged texts.
  */
 public final class Messages {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Messages.class);
 
-    /** The bundle of the words values are shown with, under every other. */
+    /** The bundle of the words that show values. It lies under every other bundle. */
     public static final String VALUES = "values";
 
-    /** The bundle of the one name of each game term, which {@code TermMessages} declares. */
     public static final String TERMS = "terms";
 
-    /** The bundles, least specific first, by name: {@code smp} for {@code messages/smp}. */
+    /** The bundle names, least specific first. */
     private final List<String> bundles;
 
     private final List<Locale> locales;
     private final MessageEnvironment environment;
 
-    /** Bundle to language tag to key to its variants, as the jar ships them. */
     private final Map<String, Map<String, Map<String, List<String>>>> packaged;
 
-    /** Bundle to its schema, for a bundle that ships one. */
     private final Map<String, MessageSchema.Bundle> schemas;
 
-    /** Key to what its texts may name, from the bundle that declares it last. */
+    /** The last bundle that declares a key decides its declaration and format. */
     private final Map<String, Declaration> declarations;
 
-    /** Key to how its texts are written, from the bundle that declares it last. */
     private final Map<String, TextFormat> formats;
 
-    /** The rows last layered, kept so {@link #within} carries them along. */
     private volatile List<MessageOverride> overrides = List.of();
 
-    /** Language tag to key to its parsed variants; {@link #override} swaps it from the hub's thread. */
     private volatile Map<String, Map<String, List<MessageText>>> byLanguage;
 
-    /** Keys, and key and placeholder pairs, already reported, so a hot loop logs once and not per call. */
+    /** The keys and the pairs of key and placeholder already logged. */
     private final Set<String> reported = ConcurrentHashMap.newKeySet();
 
     private Messages(
@@ -98,10 +92,9 @@ public final class Messages {
     }
 
     /**
-     * Loads a bundle from the classpath of this class's own class loader.
+     * Loads a bundle with the class loader of this class.
      *
-     * @param root    the resource directory, e.g. {@code messages/access}
-     * @param locales the languages to load; English is always loaded
+     * @param locales English is always loaded.
      * @throws IllegalStateException if the English file is missing
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
@@ -110,10 +103,9 @@ public final class Messages {
     }
 
     /**
-     * Loads a bundle from a specific class loader, such as a Paper plugin's.
+     * Loads a bundle with the given class loader, such as the one of a Paper plugin.
      *
-     * @param root    the resource directory, e.g. {@code messages/access}
-     * @param locales the languages to load; English is always loaded
+     * @param locales English is always loaded.
      * @throws IllegalStateException if the English file is missing
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
@@ -122,10 +114,10 @@ public final class Messages {
     }
 
     /**
-     * Loads several bundles as one, later roots winning, over the {@code values} bundle.
+     * Loads several bundles as one over the {@code values} bundle. A later root wins.
      *
      * @param roots   the resource directories, least specific first, at least one
-     * @param locales the languages to load; English is always loaded
+     * @param locales English is always loaded.
      * @throws IllegalStateException if no root supplies English
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
@@ -145,7 +137,7 @@ public final class Messages {
         final Map<String, MessageSchema.Bundle> schemas = new LinkedHashMap<>();
         boolean english = false;
         for (final String bundle : bundles) {
-            // The values bundle ships in this module's jar, which a plugin's class loader may not see first.
+            // A plugin's class loader may not see the values bundle of this jar first.
             final ClassLoader loader = VALUES.equals(bundle) ? Messages.class.getClassLoader() : classLoader;
             final Map<String, Map<String, List<String>>> byLanguage = new LinkedHashMap<>();
             for (final Locale locale : loaded) {
@@ -174,7 +166,7 @@ public final class Messages {
                 List.of());
     }
 
-    /** {@code messages/smp} and {@code messages/smp/} both name the bundle {@code smp}. */
+    /** Maps {@code messages/smp} and {@code messages/smp/} to the bundle {@code smp}. */
     private static String bundleOf(final String root) {
         final String trimmed = root.endsWith("/") ? root.substring(0, root.length() - 1) : root;
         if (!trimmed.startsWith("messages/") || trimmed.indexOf('/', "messages/".length()) >= 0) {
@@ -183,7 +175,7 @@ public final class Messages {
         return trimmed.substring("messages/".length());
     }
 
-    /** The schema the bundle's spec wrote into the jar, or {@code null} for a bundle without one, as in a test. */
+    /** Returns the schema in the jar, or {@code null} for a bundle without one, as in a test. */
     private static MessageSchema.@Nullable Bundle schemaOf(final ClassLoader classLoader, final String bundle) {
         final String resource = "messages/" + bundle + "/schema.json";
         try (InputStream stream = classLoader.getResourceAsStream(resource)) {
@@ -218,20 +210,19 @@ public final class Messages {
     }
 
     /**
-     * Returns the same bundles for one process, whose globals and time zone every message can name.
-     * A process calls it once at startup; the overrides layered so far come along.
+     * Returns the same bundles for one process, whose globals and time zone a message can name.
+     * A process calls it once at startup.
      */
     public Messages within(final MessageEnvironment environment) {
         return new Messages(
                 bundles, locales, Objects.requireNonNull(environment, "environment"), packaged, schemas, overrides);
     }
 
-    /** Returns the process this instance renders for. */
     public MessageEnvironment environment() {
         return environment;
     }
 
-    /** Returns every bundle whose overrides apply here: the loaded ones and those a key was moved out of. */
+    /** Returns the loaded bundles and those that a key moved out of. */
     public Set<String> bundles() {
         final Set<String> named = new TreeSet<>(bundles);
         formerNames().forEach(name -> named.add(name.substring(0, name.indexOf('/'))));
@@ -251,9 +242,9 @@ public final class Messages {
     }
 
     /**
-     * Layers an admin's overrides over the packaged bundles, replacing the rows layered before.
-     * A key's rows in a language replace its packaged variants there, a former name's where the current has none;
-     * a row naming no declared key is left out, and a stale or refused one is left out with a warning.
+     * Layers an admin's overrides over the packaged bundles and replaces the rows layered before.
+     * The rows of a key replace its packaged variants in their language, those of a former name if
+     * the current name has none. Rows of undeclared keys and stale or refused rows are left out.
      */
     public void override(final List<MessageOverride> rows) {
         final List<MessageOverride> taken = List.copyOf(rows);
@@ -263,7 +254,7 @@ public final class Messages {
     }
 
     private Map<String, Map<String, List<MessageText>>> compose(final List<MessageOverride> rows) {
-        // Bundle/key to language to variant to row, so a key's variants are replaced as one.
+        // The rows by bundle/key, language and variant, so a key's variants are replaced together.
         final Map<String, Map<String, Map<Integer, MessageOverride>>> stored = new HashMap<>();
         for (final MessageOverride row : rows) {
             stored.computeIfAbsent(row.bundle() + "/" + row.key(), ignored -> new HashMap<>())
@@ -275,7 +266,7 @@ public final class Messages {
             final String language = Locales.tag(locale);
             final Map<String, List<MessageText>> merged = new HashMap<>();
             boolean any = false;
-            // Least specific first, so a process's own key wins over the one it inherits from a shared bundle.
+            // Least specific first, so a key of the process wins over a shared bundle's.
             for (final String bundle : bundles) {
                 final Map<String, Map<String, List<String>>> shipped = Objects.requireNonNull(packaged.get(bundle));
                 final Map<String, List<String>> own = shipped.get(language);
@@ -313,8 +304,8 @@ public final class Messages {
     }
 
     /**
-     * Whether an override was written over the packaged texts this jar ships.
-     * One a release changed underneath is reported, and the packaged text shows until an admin takes it over again.
+     * Returns whether the override was written over the packaged texts of this jar.
+     * A stale override is logged, and the packaged text shows until an admin saves it again.
      */
     private static boolean fresh(
             final String bundle,
@@ -334,7 +325,6 @@ public final class Messages {
         return false;
     }
 
-    /** Whether an override's texts pass the one validator; a refused one is reported and the packaged text shows. */
     private boolean valid(final String bundle, final String key, final String language, final List<String> texts) {
         final Declaration declaration = declarations.get(key);
         if (declaration == null) {
@@ -362,7 +352,7 @@ public final class Messages {
             try {
                 parsed.add(MessageText.parse(text, markup));
             } catch (final MessageSyntaxException e) {
-                // The build refuses such a packaged text, so this is a jar built around the check.
+                // Only a jar built around the check gets here.
                 LOGGER.warn("The text of {}/{} cannot be read and shows as written: {}", bundle, key, e.getMessage());
                 parsed.add(MessageText.verbatim(text, markup));
             }
@@ -370,13 +360,11 @@ public final class Messages {
         return List.copyOf(parsed);
     }
 
-    /** Whether a key's texts are MiniMessage; a key no schema describes is, as every Minecraft bundle's are. */
     private boolean markup(final String key) {
         final Declaration declaration = declarations.get(key);
         return declaration == null || declaration.markup();
     }
 
-    /** The rows stored for a key in a language, under its name or else a former one, or {@code null}. */
     private @Nullable List<MessageOverride> overridden(
             final Map<String, Map<String, Map<Integer, MessageOverride>>> stored,
             final String bundle,
@@ -401,9 +389,9 @@ public final class Messages {
     }
 
     /**
-     * Returns the packaged texts of a key in a language, as an override records them, or none.
+     * Returns the packaged texts of a key in a language, or an empty list.
      *
-     * @param bundle the bundle that declares the key, such as {@code paper-common}
+     * @param bundle the bundle that declares the key
      */
     public List<String> packaged(final String bundle, final String key, final Locale locale) {
         final Map<String, Map<String, List<String>>> shipped = packaged.get(bundle);
@@ -422,12 +410,12 @@ public final class Messages {
         return List.copyOf(unique.values());
     }
 
-    /** Returns a key's text as written, without filling it, falling back to English and then to the key itself. */
+    /** Returns the text of the key as written, falling back to English, then to the key. */
     public String get(final Locale locale, final String key) {
         return text(locale, key).source();
     }
 
-    /** One of a key's texts, at random where it has several, falling back to English and then to the key itself. */
+    /** Returns a random text of the key, falling back to English, then to the key. */
     private MessageText text(final @Nullable Locale locale, final String key) {
         Objects.requireNonNull(key, "key");
         final Map<String, List<MessageText>> bundle =
@@ -449,32 +437,26 @@ public final class Messages {
     }
 
     /**
-     * A message chosen for one reader, its choices made and its values found, for a target to turn into its form.
+     * A message for one reader, with its choices made and its values found.
      *
-     * @param pieces   the text's pieces
-     * @param language the language it was chosen in
-     * @param zone     the zone its times are shown in
-     * @param format   how it is written, which tells a target whether its values must be escaped
-     * @param words    the words its values are shown with
+     * @param format tells a target whether to escape the values
      */
     public record Prepared(List<Piece> pieces, Locale language, ZoneId zone, TextFormat format, Words words) {
 
-        /** Returns whether its tags are MiniMessage's. */
         public boolean markup() {
             return format == TextFormat.MINIMESSAGE;
         }
     }
 
-    /** Returns a message prepared for a reader; the one path every target renders from. */
     public Prepared prepare(final Viewer viewer, final MessageRef message) {
         return prepare(viewer, message, text(viewer.language(), message.key()));
     }
 
     /**
-     * Returns a message prepared from a text an admin is trying in place of its key's own.
-     * It is written in the key's way and filled with the message's values, though no override holds it.
+     * Returns the message prepared from a text that an admin tries in place of the key's text.
+     * No override holds the text.
      *
-     * @throws MessageSyntaxException when the text cannot be read
+     * @throws MessageSyntaxException if the text cannot be parsed
      */
     public Prepared prepare(final Viewer viewer, final MessageRef message, final String text) {
         return prepare(viewer, message, MessageText.parse(text, markup(message.key())));
@@ -498,7 +480,6 @@ public final class Messages {
                 words(new Viewer(language, zone, viewer.player())));
     }
 
-    /** A text read as MiniMessage is MiniMessage; any other is written as its key declares, plain by default. */
     private TextFormat format(final String key, final MessageText text) {
         if (text.markup()) {
             return TextFormat.MINIMESSAGE;
@@ -507,18 +488,16 @@ public final class Messages {
         return declared == null || declared == TextFormat.MINIMESSAGE ? TextFormat.PLAIN : declared;
     }
 
-    /** Renders a message as plain text for a reader known only by language. */
     public String format(final @Nullable Locale locale, final MessageRef message) {
         return format(Viewer.of(locale), message);
     }
 
-    /** Renders a message as plain text: a console, a log, a line drawn in the pack's own sheet. */
+    /** Renders the message as plain text, such as for a console or a log. */
     public String format(final Viewer viewer, final MessageRef message) {
         final Prepared prepared = prepare(viewer, message);
         return PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words());
     }
 
-    /** The {@code values} bundle's words in one language, and a message in a message, as plain text for the reader. */
     private Words words(final Viewer reader) {
         final Locale language = reader.language();
         final ZoneId zone = Objects.requireNonNull(reader.zone(), "zone");
@@ -550,8 +529,8 @@ public final class Messages {
     }
 
     /**
-     * Returns every key's parsed texts in a language as they read now, overrides layered, English where it has none.
-     * A receiver that renders in its own target, the browser, is handed these.
+     * Returns the parsed texts of every key in a language.
+     * The overrides are layered, and English fills a key the language lacks.
      */
     public Map<String, List<MessageText>> texts(final Locale locale) {
         final Map<String, List<MessageText>> texts =
@@ -560,18 +539,17 @@ public final class Messages {
         return texts;
     }
 
-    /** Returns whether that language has its own translation for the key, not counting the English fallback. */
+    /** Returns whether the language has its own text for the key, not the English fallback. */
     public boolean hasTranslation(final Locale locale, final String key) {
         final Map<String, List<MessageText>> bundle = byLanguage.get(Locales.tag(locale));
         return bundle != null && bundle.containsKey(key);
     }
 
-    /** Returns the languages this process was loaded in, in their order, English first. */
     public List<Locale> locales() {
         return locales;
     }
 
-    /** Returns the languages this bundle loaded a file for, always including {@code en}. */
+    /** Returns the languages that have a file, always including {@code en}. */
     public Set<String> languages() {
         return byLanguage.keySet();
     }

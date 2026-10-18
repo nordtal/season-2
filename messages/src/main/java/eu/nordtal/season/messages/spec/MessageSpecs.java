@@ -12,15 +12,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Turns a {@link MessageSpec} interface into an object whose methods return filled {@link MessageRef}s. */
+/** Implements a {@link MessageSpec} interface with a proxy. */
 public final class MessageSpecs {
 
     private MessageSpecs() {}
 
     /**
-     * Returns the messages of {@code spec}, an interface annotated {@link MessageSpec}.
-     *
-     * @throws IllegalArgumentException if {@code spec} is not such an interface
+     * @throws IllegalArgumentException if {@code spec} is not an interface annotated with
+     *     {@link MessageSpec}
      */
     public static <T> T create(final Class<T> spec) {
         if (!spec.isInterface() || !spec.isAnnotationPresent(MessageSpec.class)) {
@@ -40,7 +39,7 @@ public final class MessageSpecs {
         return key != null ? key.value() : kebab(method.getName());
     }
 
-    /** Returns {@code noSuchMember} as {@code no-such-member}; a digit run is its own word. */
+    /** Returns {@code noSuchMember} as {@code no-such-member}. A run of digits is one word. */
     static String kebab(final String name) {
         final StringBuilder out = new StringBuilder(name.length() + 8);
         for (int i = 0; i < name.length(); i++) {
@@ -66,7 +65,6 @@ public final class MessageSpecs {
                 && method.getReturnType() != MessageRef.class;
     }
 
-    /** Returns the placeholder names of a key method, in parameter order. */
     static List<String> args(final Method method) {
         final List<String> names = new ArrayList<>();
         for (final Parameter parameter : method.getParameters()) {
@@ -98,7 +96,7 @@ public final class MessageSpecs {
                 return switch (method.getName()) {
                     case "toString" -> type.getSimpleName() + "[" + prefix + "]";
                     case "hashCode" -> System.identityHashCode(proxy);
-                    // Every proxy has its own handler, so sharing this handler is being this proxy.
+                    // Each proxy has its own handler, so a proxy equals only itself.
                     case "equals" ->
                         args[0] != null
                                 && Proxy.isProxyClass(args[0].getClass())

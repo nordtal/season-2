@@ -2,10 +2,8 @@ package eu.nordtal.season.messages.text;
 
 import java.math.BigDecimal;
 
-/**
- * The plural category of a number.
- * Every language the network ships says {@code one} for exactly 1 without decimals and {@code other} otherwise;
- * a language whose rules differ needs its own rule here, chosen by language, before its first bundle.
+/** Every language the network ships uses {@code one} for exactly 1 without decimals and {@code other} otherwise.
+ * A language with other rules needs its own rule here before its first bundle.
  */
 final class PluralRules {
 

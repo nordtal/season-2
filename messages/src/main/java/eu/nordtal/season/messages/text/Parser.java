@@ -9,7 +9,9 @@ import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Reads a message text into nodes, one left-to-right pass; see {@link MessageText} for the syntax. */
+/** Reads a message text into nodes in one left-to-right pass.
+ * {@link MessageText} describes the syntax.
+ */
 final class Parser {
 
     private static final CheckMessages.Check.Syntax SAYS =
@@ -33,7 +35,7 @@ final class Parser {
         return nodes;
     }
 
-    /** Reads until the end, or until the {@code }} that closes a case. */
+    /** Reads until the end of the text, or until the {@code }} that closes a case. */
     private List<Node> sequence(final @Nullable String plural, final boolean inCase) {
         final List<Node> nodes = new ArrayList<>();
         final StringBuilder literal = new StringBuilder();
@@ -83,7 +85,6 @@ final class Parser {
         }
     }
 
-    /** At an opening brace: a value, a plural or a select. */
     private Node placeholder(final @Nullable String plural) {
         final int start = at;
         at++;
@@ -163,7 +164,7 @@ final class Parser {
         return word();
     }
 
-    /** At a {@code <}: a tag, or {@code null} when what follows is no tag and the character is text. */
+    /** Returns {@code null} when no tag follows at a {@code <} and the character is text. */
     private Node.@Nullable Tag tag() {
         final int start = at;
         int cursor = at + 1;
@@ -210,7 +211,7 @@ final class Parser {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
     }
 
-    /** One tag argument after its {@code :}, or {@code null} when the tag never closes. */
+    /** Returns {@code null} when the tag never closes. */
     private Node.Tag.@Nullable Arg argument() {
         final char quote =
                 at < text.length() && (text.charAt(at) == '\'' || text.charAt(at) == '"') ? text.charAt(at) : 0;

@@ -26,17 +26,17 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A message as data: its key and each value with its kind, so a row or a browser renders it later, in its own target.
- * A value is {@code {"kind": "instant", "value": "2026-10-03T18:40:00Z"}}, a duration in seconds; a context is stored
- * as its attributes. Plain maps and lists, which the one codec writes and reads; the browser reads the same shape.
+ * A message as plain maps and lists, which the browser reads in the same shape.
+ * A value is {@code {"kind": "instant", "value": "2026-10-03T18:40:00Z"}} and a duration is in
+ * seconds. A context is stored as its attributes.
  */
 public final class MessageJson {
 
     private MessageJson() {}
 
     /**
-     * Returns every key's texts in a language as the web target reads them: key to its variants, each the parsed tree.
-     * Overrides are layered and English fills a key the language lacks, as {@link Messages#texts} answers.
+     * Returns the variants of every key in a language, each as its parsed tree.
+     * As in {@link Messages#texts}, the overrides apply and English fills a key the language lacks.
      */
     public static Map<String, List<List<Object>>> texts(final Messages messages, final Locale language) {
         final Map<String, List<List<Object>>> json = new TreeMap<>();
@@ -49,7 +49,7 @@ public final class MessageJson {
         return json;
     }
 
-    /** Returns {@code {"key": …, "args": {name: {kind, value}}}}, a context's attributes under their dotted names. */
+    /** Returns {@code {"key": …, "args": {name: {kind, value}}}}. */
     public static Map<String, Object> encode(final MessageRef message) {
         final Map<String, Object> json = new LinkedHashMap<>();
         json.put("key", message.key());
@@ -57,7 +57,7 @@ public final class MessageJson {
         return json;
     }
 
-    /** Returns each value with its kind; a value of no kind is left out, which renders as the replacement word. */
+    /** Returns each value with its kind and names a context's attributes with dots. */
     public static Map<String, Object> encodeArgs(final Map<String, ?> args) {
         final Map<String, Object> json = new LinkedHashMap<>();
         Contexts.flatten(args, MessageEnvironment.NONE, null).forEach((name, value) -> {
@@ -71,14 +71,13 @@ public final class MessageJson {
         return json;
     }
 
-    /** Reads what {@link #encode} wrote, as the one codec reads it back into maps. */
     public static MessageRef decode(final Map<?, ?> json) {
         return new MessageRef(
                 String.valueOf(json.get("key")),
                 json.get("args") instanceof final Map<?, ?> args ? decodeArgs(args) : Map.of());
     }
 
-    /** Reads what {@link #encodeArgs} wrote; a value it cannot read is left out, so it shows the replacement word. */
+    /** Reads what {@link #encodeArgs} wrote and leaves out a value it cannot read. */
     public static Map<String, Object> decodeArgs(final Map<?, ?> json) {
         final Map<String, Object> args = new LinkedHashMap<>();
         json.forEach((name, typed) -> {
@@ -145,7 +144,7 @@ public final class MessageJson {
         };
     }
 
-    /** A choice comes back as its word, which a {@code select} chooses on and a text shows, as the enum did. */
+    /** A choice becomes its word, which a {@code select} chooses on. */
     private static @Nullable Object value(final Map<?, ?> typed) {
         final Object value = typed.get("value");
         final Kind kind = Kind.byToken(String.valueOf(typed.get("kind"))).orElse(null);
@@ -192,13 +191,13 @@ public final class MessageJson {
         }
     }
 
-    /** A whole number stays whole, as JSON does not tell 1 from 1.0 and the codec reads every number as a double. */
+    /** Keeps a whole number whole, because the codec reads every number as a double. */
     private static BigDecimal number(final String json) {
         final BigDecimal read = new BigDecimal(json);
         return read.scale() > 0 && read.stripTrailingZeros().scale() <= 0 ? read.setScale(0) : read;
     }
 
-    /** A field a value must have; one missing throws, which leaves the value out. */
+    /** Throws if the field is missing, which leaves the value out. */
     private static <T> T field(final Map<?, ?> json, final String name, final Class<T> type) {
         return type.cast(Objects.requireNonNull(json.get(name), name));
     }

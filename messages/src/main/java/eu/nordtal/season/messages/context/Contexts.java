@@ -12,23 +12,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The registry of context types: what each record offers as attributes, and how a message's contexts become values.
- * Each component of a type's record is an attribute with a kind, which its Java type decides, and a static example;
- * a component that is itself a context is expanded one level deep, as {@code winner.team.name}.
+ * The registry of context types.
+ * Each component of a record is an attribute. Its Java type decides its kind, and it has a static
+ * example. A component that is itself a context is expanded one level: {@code winner.team.name}.
  */
 public final class Contexts {
 
-    /** The roles every message has, with their types, in the order the Steward UI lists them. */
+    /** The roles of every message with their types. */
     public static final Map<String, Class<? extends MessageContext>> GLOBALS = Map.of(
             "server", ServiceContext.class,
             "season", SeasonContext.class,
             "network", NetworkContext.class,
             "viewer", PlayerContext.class);
 
-    /** The order of {@link #GLOBALS}, which {@code Map.of} does not keep. */
+    /** The order in which Steward lists {@link #GLOBALS}. */
     public static final List<String> GLOBAL_ROLES = List.of("server", "season", "network", "viewer");
 
-    /** The attribute every player role has besides its components. */
     public static final String SELF = "self";
 
     private static final Map<Class<?>, List<Attribute>> ATTRIBUTES = new ConcurrentHashMap<>();
@@ -38,20 +37,17 @@ public final class Contexts {
     /**
      * One attribute of a context type.
      *
-     * @param name    its name, dotted for a nested context's attribute
-     * @param kind    what it shows
-     * @param example what an editor shows for it
+     * @param name    the name, with dots for the attribute of a nested context
+     * @param example the value that an editor shows
      */
     public record Attribute(String name, Kind kind, String example) {}
 
-    /** Returns whether {@code type} is a context record. */
     public static boolean isContext(final Class<?> type) {
         return type.isRecord()
                 && MessageContext.class.isAssignableFrom(type)
                 && type.isAnnotationPresent(ContextType.class);
     }
 
-    /** Returns the type's key, e.g. {@code player}. */
     public static String type(final Class<?> type) {
         final ContextType annotation = type.getAnnotation(ContextType.class);
         if (annotation == null) {
@@ -60,15 +56,14 @@ public final class Contexts {
         return annotation.value();
     }
 
-    /** Returns the name an admin reads for the type. */
     public static String name(final Class<?> type) {
         return type.getAnnotation(ContextType.class).name();
     }
 
     /**
-     * Returns the type's attributes, in component order, a nested context's expanded in place.
+     * Returns the attributes of the type in component order, with a nested context expanded.
      *
-     * @throws IllegalStateException when a component has no kind, or nests a context two levels deep
+     * @throws IllegalStateException if a component has no kind or nests a context two levels deep
      */
     public static List<Attribute> attributes(final Class<?> type) {
         return ATTRIBUTES.computeIfAbsent(type, t -> List.copyOf(collect(t, "", 0)));
@@ -103,10 +98,10 @@ public final class Contexts {
     }
 
     /**
-     * Returns {@code values} with each context replaced by one {@code role.attribute} entry per attribute.
-     * The environment's global roles join where the message did not name them, and the reader as {@code viewer}.
+     * Returns {@code values} with each context replaced by its {@code role.attribute} entries.
+     * The result adds the environment's global roles that {@code values} lacks, and {@code viewer}.
      *
-     * @param reader the player reading, or {@code null} for a console or a reader not yet known
+     * @param reader the reading player, or {@code null} for a console or an unknown reader
      */
     public static Map<String, Object> flatten(
             final Map<String, ?> values, final MessageEnvironment environment, final @Nullable PlayerContext reader) {

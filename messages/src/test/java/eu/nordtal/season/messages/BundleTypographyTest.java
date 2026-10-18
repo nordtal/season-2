@@ -9,11 +9,7 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds every bundle to the separator rules of CONVENTIONS.md.
- *
- * A value never separates two things with a text symbol, and a comment never draws a banner.
- */
+/** A value never separates two items with a text symbol. A comment never draws a banner. */
 class BundleTypographyTest {
 
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
@@ -65,7 +61,6 @@ class BundleTypographyTest {
         assertEquals(Set.of(), banners, "a banner comment (# ----- section) is decoration: name the section plainly");
     }
 
-    /** Returns {@code bundle/language key} of every value the test matches, with its tags removed when asked. */
     private static Set<String> valuesMatching(final Predicate<String> test, final boolean withoutTags) {
         final Set<String> found = new TreeSet<>();
         BundleFiles.bundles().forEach((bundle, languages) -> {

@@ -16,21 +16,19 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that "no such command" and "you may not type that" are one sentence everywhere.
+ * "No such command" and "you may not type that" are one sentence everywhere.
  *
- * Two sentences would let a player enumerate the command tree. That both refusers render only this key is
- * {@code :architecture}'s rule; the bundles that word it are checked here.
+ * Two sentences would let a player list the command tree. {@code :architecture} checks that both
+ * refusers render only this key. This test checks the bundles that word it.
  */
 class OneRefusalLineTest {
 
-    /** The one key, in paper-common's bundle and in the proxy's, which share no bundle. */
     private static final String KEY = "command.unknown";
 
-    /** The two bundles carrying it, each missing its language and extension. */
     private static final List<String> BUNDLES = List.of(
             "paper-common/src/main/resources/messages/paper-common/", "proxy/src/main/resources/messages/proxy/");
 
-    /** Reads both bundles off the file, since neither module is on a classpath a test here can load. */
+    /** Reads both bundles from the file system, as neither module is on a classpath a test here can load. */
     @Test
     void theOneKeySaysTheSameInPaperAndInTheProxy() throws java.io.IOException {
         for (final String language : List.of("en", "de")) {
@@ -52,7 +50,6 @@ class OneRefusalLineTest {
         }
     }
 
-    /** Nothing else in the repository may declare a second key that means the same. */
     @Test
     void noBundleDeclaresASecondRefusalKey() {
         final List<String> suspects = new ArrayList<>();

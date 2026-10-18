@@ -16,12 +16,11 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
-/** Finds every message bundle in the repository and reads its files, for the tests that hold them all to a rule. */
+/** Finds every message bundle in the repository and reads its files. */
 final class BundleFiles {
 
     private BundleFiles() {}
 
-    /** Returns every message bundle directory in the repository, with the language codes in it. */
     static Map<String, Set<String>> bundles() {
         final Map<String, Set<String>> found = new TreeMap<>();
         for (final Path module : childDirectories(RepositoryRoot.path())) {
@@ -36,7 +35,9 @@ final class BundleFiles {
         return found;
     }
 
-    /** Reads a bundle as UTF-8 through a {@link Reader}, since the {@code InputStream} overload reads Latin-1. */
+    /** Reads a bundle as UTF-8 through a {@link Reader}.
+     * The {@code InputStream} overload reads Latin-1.
+     */
     static Properties load(final String bundle, final String language) {
         final Properties properties = new Properties();
         final Path file = file(bundle, language);
@@ -48,7 +49,6 @@ final class BundleFiles {
         return properties;
     }
 
-    /** Returns the lines of a bundle file as they stand on disk, comments included. */
     static List<String> lines(final String bundle, final String language) {
         final Path file = file(bundle, language);
         try {

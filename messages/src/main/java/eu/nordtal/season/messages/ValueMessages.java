@@ -10,9 +10,9 @@ import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 
 /**
- * The words values are shown with, in every process beneath its own bundles.
- * They are each kind's replacement word, a duration's units, a list's last joint, yes and no; declared here, so the
- * build checks them and an admin can change them, and read by key through {@code Words}.
+ * The words that show values in every process.
+ * They are the replacement word of each kind, the units of a duration, the last joint of a list
+ * and yes and no. {@code Words} reads them by key. The build checks them. An admin can change them.
  */
 @MessageSpec(value = "values", format = TextFormat.PLAIN)
 @Shown({

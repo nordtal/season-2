@@ -5,13 +5,10 @@ import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** One part of a parsed message text. */
 public sealed interface Node {
 
-    /**
-     * Characters shown as they are; in a tag's argument, the argument's own markup as written.
-     *
-     * @param text the characters, escapes already resolved outside an argument
+    /** Characters shown as they are.
+     * In a tag's argument they are the argument's own markup as written.
      */
     record Literal(String text) implements Node {
 
@@ -20,13 +17,7 @@ public sealed interface Node {
         }
     }
 
-    /**
-     * A value, {@code {name}} or {@code {name, kind}} or {@code {name, kind, style}}.
-     *
-     * @param name  the placeholder, such as {@code winner.team.name}
-     * @param kind  the kind's token as the text wrote it, or {@code null}
-     * @param style the style as the text wrote it, or {@code null}
-     */
+    /** A value written as {@code {name}}, {@code {name, kind}} or {@code {name, kind, style}}. */
     record Value(
             String name, @Nullable String kind, @Nullable String style) implements Node {
 
@@ -38,9 +29,8 @@ public sealed interface Node {
     /**
      * {@code {name, plural, one {…} other {…}}} or {@code {name, select, a {…} other {…}}}.
      *
-     * @param name   the placeholder chosen on
-     * @param plural whether the cases are plural categories and {@code =n} rather than choices
-     * @param cases  each case's text, in the order written
+     * @param plural whether the cases are plural categories and {@code =n}, rather than select
+     *     choices
      */
     record Choice(String name, boolean plural, Map<String, List<Node>> cases) implements Node {
 
@@ -50,16 +40,10 @@ public sealed interface Node {
         }
     }
 
-    /** {@code #} inside a plural case: the number chosen on. */
+    /** {@code #} in a plural case. It stands for the number the plural depends on. */
     record Pound(String name) implements Node {}
 
-    /**
-     * A MiniMessage tag, kept as structure so a value inside an argument is escaped for where it stands.
-     *
-     * @param name  the tag's name, lowercase, such as {@code click} or {@code #8ba888}
-     * @param args  its arguments after the name
-     * @param shape whether it opens, closes or stands alone
-     */
+    /** A MiniMessage tag, kept as structure so a value inside an argument is escaped for where it stands. */
     record Tag(String name, List<Arg> args, Shape shape) implements Node {
 
         public Tag {
@@ -68,19 +52,13 @@ public sealed interface Node {
             Objects.requireNonNull(shape, "shape");
         }
 
-        /** How a tag stands in the text. */
         public enum Shape {
             OPEN,
             CLOSE,
             SELF_CLOSING
         }
 
-        /**
-         * One argument, {@code :value} or {@code :'value'}.
-         *
-         * @param parts literal markup and values, in order
-         * @param quote the quote it was written in, or {@code 0} for none
-         */
+        /** One argument, {@code :value} or {@code :'value'}. */
         public record Arg(List<Node> parts, char quote) {
 
             public Arg {

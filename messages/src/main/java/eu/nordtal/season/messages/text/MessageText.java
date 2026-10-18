@@ -3,10 +3,9 @@ package eu.nordtal.season.messages.text;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * One text of a bundle, parsed once, in the one syntax of every format; the messages README describes it.
- * A MiniMessage text also reads its tags as structure, so a value inside a tag's argument is never spliced into
- * markup unescaped; every other format keeps {@code <} as a character.
+/** One text of a bundle, parsed once. The messages README describes the syntax.
+ * A MiniMessage text reads its tags as structure, so a value inside a tag's argument is never spliced into markup
+ * unescaped. Every other format keeps {@code <} as a character.
  */
 public final class MessageText {
 
@@ -21,8 +20,6 @@ public final class MessageText {
     }
 
     /**
-     * Parses a text.
-     *
      * @param markup whether the text is MiniMessage, whose tags are read as tags
      * @throws MessageSyntaxException when the text cannot be read
      */
@@ -36,17 +33,14 @@ public final class MessageText {
         return new MessageText(source, markup, List.of(new Node.Literal(source)));
     }
 
-    /** Returns the text as written. */
     public String source() {
         return source;
     }
 
-    /** Returns whether the text is MiniMessage. */
     public boolean markup() {
         return markup;
     }
 
-    /** Returns the parsed parts, in order. */
     public List<Node> nodes() {
         return nodes;
     }

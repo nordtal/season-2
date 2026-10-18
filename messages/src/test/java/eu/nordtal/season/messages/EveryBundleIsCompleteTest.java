@@ -14,15 +14,11 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/**
- * Checks that every bundle in the repository is complete in both languages and agrees with the numbers it shows.
- *
- * The English-only bundles ship one language. A missing German key falls back to English silently, so the tree is
- * walked to cover new modules without a line here.
+/** A missing German key falls back to English without a message.
+ * The test walks the tree, so a new module needs no line here.
  */
 class EveryBundleIsCompleteTest {
 
-    /** The bundles known to exist, a floor that fails a walk which silently finds nothing. */
     private static final Set<String> KNOWN = Set.of(
             "database/src/main/resources/messages/database",
             "discord-bot/src/main/resources/messages/access",
@@ -32,16 +28,19 @@ class EveryBundleIsCompleteTest {
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
 
-    /**
-     * A counted noun after a number, past the tags that close around the number; parsed without markup, a tag is text.
+    /** Matches a counted noun after a number, past the tags that close around the number.
+     * The parser reads a tag as text.
      *
-     * German nouns alike in both numbers are left out, but for those whose verb follows the count.
+     * German nouns with one form for both numbers are left out, except those whose verb follows the
+     * count.
      */
     private static final Pattern COUNTED = Pattern.compile("(</?[a-z][^>]*>)*\\s+("
             + "seconds?|minutes?|hours?|days?|players?|participants?|teams?|members?|milestones?|kills?"
             + "|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?|Teams?|Teilnehmende|Teilnehmer|Meilenstein(?:en?)?)\\b");
 
-    /** The bundles only admins read, which are English: Steward's page, the words it shares, and the check's. */
+    /**
+     * The English bundles that only admins read: Steward's page, its shared words and the check's.
+     */
     private static final Set<String> ENGLISH_ONLY = Set.of(
             "steward/src/main/resources/messages/steward",
             "database/src/main/resources/messages/admin",
@@ -104,7 +103,7 @@ class EveryBundleIsCompleteTest {
             for (final String key : english.stringPropertyNames()) {
                 final String translation = german.getProperty(key);
                 if (translation == null) {
-                    continue; // everyKeyExistsInBothLanguages says this, and says it better
+                    continue;
                 }
                 final Set<String> original = placeholders(english.getProperty(key));
                 if (!original.equals(placeholders(translation))) {
@@ -136,10 +135,10 @@ class EveryBundleIsCompleteTest {
                         + " choose it, as in {seconds, plural, one {second} other {seconds}}");
     }
 
-    /**
-     * Returns whether a value is followed, past any tags, by a counted noun that no plural choice on it chose.
+    /** Returns whether a value is followed, past any tags, by a counted noun that no plural choice on it chose.
      *
-     * @param chosen the values an enclosing plural already chose on, which may be followed by their noun
+     * @param chosen the values an enclosing plural already chose on, which may be followed by their
+     *     noun
      */
     private static boolean nounAfterUnchosenNumber(final List<Node> nodes, final Set<String> chosen) {
         boolean afterNumber = false;
@@ -170,7 +169,6 @@ class EveryBundleIsCompleteTest {
         return false;
     }
 
-    /** Every bundle that ships German, which is every one but the English-only ones. */
     private static Set<String> translated() {
         final Set<String> translated = new TreeSet<>(BundleFiles.bundles().keySet());
         translated.removeAll(ENGLISH_ONLY);
@@ -187,7 +185,6 @@ class EveryBundleIsCompleteTest {
         return new TreeSet<>(BundleFiles.load(bundle, language).stringPropertyNames());
     }
 
-    /** Returns every name a text shows or chooses on, as the parser reads it; tags are left as characters. */
     private static Set<String> placeholders(final String text) {
         final Set<String> names = new TreeSet<>();
         collect(MessageText.parse(text, false).nodes(), names);
@@ -203,7 +200,7 @@ class EveryBundleIsCompleteTest {
                     choice.cases().values().forEach(inner -> collect(inner, into));
                 }
                 default -> {
-                    // Literals, a plural's # and tags name nothing.
+                    // Literals, the # of a plural and tags name nothing.
                 }
             }
         }

@@ -6,7 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** The placeholder a parameter fills: {@code {name}} in the text, {@code <name>} for a Component. */
+/** Names the placeholder of the parameter: {@code {name}}, or {@code <name>} for a Component. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER})

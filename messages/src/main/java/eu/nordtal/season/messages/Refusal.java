@@ -3,8 +3,8 @@ package eu.nordtal.season.messages;
 import java.util.Objects;
 
 /**
- * A request refused: why, as a type a caller branches on, and what to tell whoever asked, as a message.
- * The same shape answers an inbox row, a command and an HTTP call; each renders the message in its own language.
+ * The refusal of a request, with a reason for the caller and a message for whoever asked.
+ * An inbox row, a command and an HTTP call render the message in their own language.
  */
 public record Refusal(RefusalReason reason, MessageRef message) {
 

@@ -1,9 +1,9 @@
 # messages
 
-The message system without Adventure, so the bot and Steward can load it: bundles and the admins'
-overrides over them (`Messages`), a message chosen and filled (`MessageRef`), the specs that declare
-every key (`spec`), the contexts a message can name (`context`), and the refusal model (`Refusal`,
-`Refused`) that an inbox, a command and an HTTP answer share. A process hands its
+The `messages` module loads message bundles without Adventure, so the bot and Steward can use it.
+`Messages` holds the bundles and the admins' overrides, `MessageRef` names a message with its values,
+`spec` declares every key and `context` declares the contexts a message can name. `Refusal` and
+`Refused` model a refusal for an inbox, a command and an HTTP answer. A process passes its
 `MessageEnvironment` (service, season) to its bundles at startup with `Messages.within`.
 
 ```mermaid
@@ -15,152 +15,145 @@ flowchart LR
     prepared --> web["web: lib/texts.ts<br/>steward frontend"]
 ```
 
-One parser (`MessageText`), one validator (`MessageCheck`) and one formatter of values (`ValueText`)
-stand behind every target; the browser walks that parser's tree and formats as `ValueText` does,
-which the shared vectors hold.
+`MessageText` parses every text, `MessageCheck` validates it and `ValueText` formats its values for
+every target. The browser walks the tree of `MessageText` and formats values as `ValueText` does.
+The shared vectors hold both to the same result.
 
 ## Writing a text
 
 A value is `{role}` or `{role.attr}`, optionally with a kind and a style: `{left, duration, short}`.
-`{n, plural, one {# day} other {# days}}` and `{open, select, true {open} other {closed}}` are ICU's,
-and nothing else of MessageFormat is. The kinds are a closed set, each rendered once per target:
+`{n, plural, one {# day} other {# days}}` and `{open, select, true {open} other {closed}}` are the
+only MessageFormat syntax a text may use. The kinds are a closed set:
 
-| kind       | Java type            | styles (the first is the default)                                                               |
-| ---------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| `text`     | a `CharSequence`     |                                                                                                 |
-| `number`   | any `Number`         | grouped, `plain`; at most two fraction digits                                                   |
-| `duration` | `Duration`           | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`), `minutes` (`1d 6h 30m`) |
-| `instant`  | `Instant`            | `datetime`, `date`, `time`, `relative`, in the reader's zone                                    |
-| `money`    | `Money`              | in the reader's language: `€3.00`, `3,00 €`                                                     |
-| `list`     | a `List`             | `and`, `or`                                                                                     |
-| `name`     | `DisplayName`        | with the process's name card, `plain` without                                                   |
-| `mention`  | `Mention`            |                                                                                                 |
-| `item`     | `GameContent`        |                                                                                                 |
-| `glyph`    | `Glyph`              |                                                                                                 |
-| `choice`   | `Boolean` or an enum | what `select` chooses on; an enum constant reads in kebab case                                  |
-| `message`  | `MessageRef`         | another message, rendered for the same reader in the same target                                |
+| kind       | styles (the first is the default)                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| `text`     |                                                                                                 |
+| `number`   | grouped, `plain`, at most two fraction digits                                                   |
+| `duration` | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`), `minutes` (`1d 6h 30m`) |
+| `instant`  | `datetime`, `date`, `time`, `relative`, in the reader's zone                                    |
+| `money`    | in the reader's language: `€3.00`, `3,00 €`                                                     |
+| `list`     | `and`, `or`                                                                                     |
+| `name`     | with the process's name card, `plain` without                                                   |
+| `mention`  |                                                                                                 |
+| `item`     |                                                                                                 |
+| `glyph`    |                                                                                                 |
+| `choice`   | what `select` chooses on; an enum constant reads in kebab case                                  |
+| `message`  | another message, rendered for the same reader in the same target                                |
 
-A Minecraft text is MiniMessage. A packaged text paints only with tones (`<good>`, `<bad>`, `<warn>`,
-`<muted>`, `<accent>`, `<brand>`, `<emphasis>`, `<faint>`, `<neutral>`), which each process's `colours`
-group maps to hex; an admin's override may also name colours and gradients. A value may stand in a
-hover text and, quoted, in a click's target, and in no other tag argument. `<glyph:name>` draws a
-glyph of the pack and `<action:name>…</action>` a click whose command the code binds.
+A Minecraft text is MiniMessage. A packaged text colours only with the tones of `Tone`, such as
+`<good>`. The `colours` group of each process maps the tones to hex. An admin's override may also
+name colours and gradients. A value may appear in a hover text and, quoted, in a click's target, and
+in no other tag argument. `<glyph:name>` draws a glyph of the pack. `<action:name>…</action>` is a
+click whose command the code binds.
 
 ## Values and contexts
 
-A message declares its values in its spec (`@Arg`), and a value's kind follows its Java type. A
-context (`MessageContext`) is a record annotated `@ContextType` in the module that owns it: each
-component is an attribute with a kind and a static example, and a component that is itself a context
-is expanded one level, as `{winner.team.name}`. `Contexts` is the registry. Every message also has
-`server`, `season`, `network` and `viewer`, and every player role has `self`.
+A message declares its values in its spec with `@Arg`, and the Java type of a value gives its kind.
+A context (`MessageContext`) is a record annotated `@ContextType` in the module that owns it, and
+`Contexts` is the registry. Every message also has the roles `server`, `season`, `network` and
+`viewer`, and every player role has `self`.
 
-- A reader is a `Viewer`: a language, a zone and, in game, the player. An instant shows in the
-  reader's zone, else the network's; in Discord it is Discord's own timestamp, and `relative` is
-  the countdown Discord keeps current.
-- A missing value shows its kind's replacement word from the `values` bundle (`someone`, `jemand`)
-  and logs a warning; `{x}` is never printed. The build refuses a spec parameter of no kind.
-- `GameContent` is the game's own line: a translatable component the client reads in its language,
-  English elsewhere.
-- A `message` value is a phrase written once and placed in many texts. It is never rendered ahead
-  into a string: only the target knows the reader's language and how to draw the tones. `@Takes`
-  names the keys it may take (`key`, `bundle/key`, or `bundle/*` for any key of that bundle, which needs an
-  `@Example`), and without an `@Example` the first is previewed.
+- An instant shows in the reader's zone, else in the network's. In Discord it is Discord's own
+  timestamp, and `relative` is the countdown that Discord keeps current.
+- A missing value shows the replacement word of its kind from the `values` bundle (`someone`,
+  `jemand`) and logs a warning. `{x}` is never printed. The build refuses a spec parameter without a
+  kind.
+- `GameContent` is a translatable component that the client reads in its language. Other targets
+  show English.
+- A `message` value is a phrase written once and placed in many texts. It is never rendered into a
+  string ahead of time, because only the target knows the reader's language and how to draw the
+  tones. `@Takes` names the keys it may take: `key`, `bundle/key`, or `bundle/*` for any key of that
+  bundle, which needs an `@Example`. Without an `@Example`, the first key is previewed.
 
 ## A message as data
 
-`MessageJson` writes a message as `{"key", "args"}`, each value `{"kind", "value"}`: a duration in
-seconds, an instant as ISO text, money as `{"minor", "currency"}`, a name as `{"player", "name"}`, a
-mention as `{"member", "name"}`, an item as `{"key", "english", "args"}`, a list as typed values. A
-row that stores a message stores that, and a target renders it when somebody reads it.
+`MessageJson` writes a message as `{"key", "args"}` with each value as `{"kind", "value"}`. A row
+that stores a message stores this form, and a target renders it when somebody reads it.
 
-`NodeJson` is a parsed text as the browser walks it: a literal is a string, a value `{"v", "k", "s"}`,
-a choice `{"c", "plural", "cases"}`, a plural's `#` `{"pound"}`, a tag `{"tag", "shape", "args"}`.
-`MessageJson.texts` is every key's variants as such trees, overrides layered. The browser reads message
-syntax in one place only, Steward's translation editor (`lib/message-tree.ts`, this parser line by
-line). The vectors in `src/test/resources/web-target.json` give a text, its tree, its values and the
-plain text it shows; `WebTargetVectorsTest` holds this side to them, the frontend's
-`message-tree.test.ts` and `texts.test.ts` the browser's.
+The browser reads message syntax only in Steward's translation editor (`lib/message-tree.ts`), which
+follows `MessageText` line by line. It walks the `NodeJson` trees of `MessageJson.texts`.
+`WebTargetVectorsTest`, `message-tree.test.ts` and `texts.test.ts` hold both sides to the vectors in
+`src/test/resources/web-target.json`.
 
 ## Where a text is shown
 
-A key names every place it really appears (`Display`) with `@Shown`, on the spec, a section or the
-key, the nearest winning: a run's state is shown in Steward and in the admin channel's run card, a
-milestone's name on the board, the boss bar, a menu, chat, a title and an announcement. Each place
-says where it is (`Display.Surface`: the game, Discord or Steward), which groups the key on Steward's
-Translations page and decides how each place is previewed there. The key's length limit is the strictest of
-its places (`Display.strictest`), and `schema.json` lists the places in order.
+`@Shown` names every place where a key appears (`Display`). It sits on the spec, a section or the
+key, and the nearest one wins. A place has a surface (`Display.Surface`: the game, Discord or
+Steward). The surface groups the key on Steward's Translations page and decides how Steward previews
+the place. The length limit of a key is the strictest limit of its places (`Display.strictest`).
 
 ## Discord layouts
 
-A Discord message is a `Layout` (`spec.layout`), declared once as a `static final` field in the module
-whose code fills it and named in its build with `messageSpec { layoutClasses.add(...) }`. It has a
-name (its identity, in kebab case), the bundle it ships under, an area that groups it, its surface and a
-tree of parts as Components V2 draws them: a container with an accent, a text block, a section with a
-button or a thumbnail beside it, a separator, a gallery, a row of buttons or one select, and a block
-repeated once per language. A text block's lines are keys, each plain, a title or a heading, or a data
-list. What the code fills in is an `Element`, placed once in the tree by its id: a button, a select, a
-data list, the block per language or a modal's field. A modal (`Layout.modal`) is a layout of its
-title and one field per row, whose texts are `DISCORD_MODAL` places; only its texts change. A button or select
-filled with nothing is left out, a row with it when nothing else is in it, and so is a text block of only
-headings and data lists that are all empty.
+A Discord message is a `Layout` (`spec.layout`). The module whose code fills the layout declares it
+once as a `static final` field and names the class in its build with
+`messageSpec { layoutClasses.add(...) }`. A layout has a name in kebab case, a bundle, an area, a
+surface and a tree of Components V2 parts.
 
-The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema: each layout with
-the values its texts may name (theirs and the globals, but not a data list's line or a select's option
-line, which each item fills) and every key it shows, its message values' `@Takes` included. It refuses
-an element missing, placed twice or placed where its kind does not belong, a key placed where its
-`@Shown` does not say it is shown, a value two texts name as different kinds, a message value without
-`@Takes`, and what Discord cannot draw. steward-agent carries the layouts with the bundle
-(`MessageBundle.layouts`). A key shown in two or more layouts is a building block of them
-(`LayoutSchema.buildingBlocks`).
+The code fills an `Element`, which the tree places once by its id. A modal (`Layout.modal`) is a
+layout of a title and one field per row. Its texts are `DISCORD_MODAL` places, and only its texts
+change. A button or select that is filled with nothing is left out. So is a row that holds nothing
+else, and so is a text block that holds only headings and empty data lists.
 
-An editor's rebuild of a layout keeps its identity and the elements the code fills in, and may move
-them, place fewer keys, add a line of its own text per language (`Line.added`) and link buttons
-(`Element.link`, an `https://` address and a label per language). `LayoutCheck.rebuildProblems`
-holds it to the packaged layout, whose `LayoutSchema.hash` it keeps. An image is
-`attachment://`, `https://` or `upload://<id>`, an image an admin uploaded in Steward, which the
-bot sends as an attachment. Steward stores rebuilds in the database (`LayoutStore`), and the bot
-re-reads them on `nordtal_messages`.
+The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema. It lists each
+layout with the values its texts may name and every key the layout shows. A data list's line and a
+select's option line may also name the values of each item. The task refuses a layout that places an
+element wrongly, places a key where its `@Shown` does not list the place, or asks Discord for
+something it cannot draw.
 
-A release that changes a rebuilt layout keeps the rebuild (`LayoutMerge`): an element or key the
-release removed goes, a section or block per language whose element went leaves what it held, and a
-new element is placed at the end, buttons in rows. An added text that names a value the layout no
-longer has shows that value's replacement word. A rebuild that still does not fit is set aside for the
-packaged layout. Every change is an `Adaptation`, which Steward lists.
+steward-agent ships the layouts with the bundle (`MessageBundle.layouts`). A key shown in two or more
+layouts is a building block of them (`LayoutSchema.buildingBlocks`).
 
-The vectors in `src/test/resources/discord-layouts.json` give a declaration, its texts, what the code
-fills in and the components Discord is sent; `DiscordLayoutVectorsTest` holds the declaration and the
-filling to the specs.
+An editor can rebuild a layout. The rebuild keeps the layout's identity and the elements the code
+fills. It may move them, place fewer keys, add a line of its own text per language (`Line.added`) and
+add link buttons (`Element.link`). `LayoutCheck.rebuildProblems` compares the rebuild with the
+packaged layout and keeps its `LayoutSchema.hash`. An image is `attachment://`, `https://` or
+`upload://<id>`, an image that an admin uploaded in Steward and that the bot sends as an attachment.
+Steward stores rebuilds in the database (`LayoutStore`), and the bot reads them again on
+`nordtal_messages`.
+
+`LayoutMerge` keeps a rebuild when a release changes the layout:
+
+- An element or key that the release removed is removed from the rebuild.
+- A section or block per language whose element was removed keeps what it held.
+- A new element is placed at the end, and new buttons go in rows.
+- An added text that names a value the layout no longer has shows the replacement word of that value.
+- A rebuild that still does not fit is replaced by the packaged layout.
+
+Every change is an `Adaptation`, which Steward lists.
 
 ## The check
 
-`MessageSpecCheck` holds every spec against its bundles on the build's `messageSchema` task, in the
-packaged mode; Steward runs the same `MessageCheck` on an admin's override, where what is an error in
-a release is a warning. It refuses an undeclared value, a kind or style a value does not have, an
-unclosed or unknown tag, a colour in a packaged text, a value in a tag argument that takes none and a
-text longer than the strictest of its places allows; a text that never shows a value it is given is
-an error in a bundle and a warning in an override. So are a line break in a text shown only where the game draws
-one line (`Display.oneLine`: a title, a subtitle, the action bar, a boss bar) and a link whose visible text is its own
-address, which shows a name instead and may show the address in a hover text. The same holds for a word that `TermMessages.SYNONYMS`
-lists for a game term: a text writes the term as the `terms` bundle names it. The build also refuses a key shown nowhere.
+The `messageSchema` task of the build runs `MessageSpecCheck`, which holds every spec against its
+bundles in the packaged mode. Steward runs the same `MessageCheck` on an admin's override, where an
+error of a release is a warning. Each problem is a message of the English-only `check` bundle
+(`CheckMessages`), so an admin can read and change it in the editor. The build and a log show it in
+the packaged English (`MessageCheck.english`). `GET /api/message-check` returns the problems of a
+text for a key.
 
-Each problem is a message of the English-only `check` bundle (`CheckMessages`), never a sentence in
-code, so an admin reads and changes it in the editor, and the build and a log say it in the packaged
-English (`MessageCheck.english`). `GET /api/message-check` answers a text's problems for a key.
+- The check refuses an undeclared value, an unknown tag, a colour in a packaged text and a text that
+  is longer than the strictest limit of its places.
+- It refuses a word that `TermMessages.SYNONYMS` lists for a game term.
+- The build refuses a key that is shown nowhere.
+- A text that never shows a value it is given is an error in a bundle and a warning in an override.
+  So is a line break in a text that is shown only where the game draws one line (`Display.oneLine`),
+  and so is a link whose visible text is its own address.
 
 ## Packaged texts and overrides
 
-A bundle is packaged in the jar as `messages/<bundle>/<language>.properties`, read in `PackagedTexts`.
-A key may hold several texts, one chosen at random each time: `key=`, then `key[1]=`, `key[2]=` without a gap.
+`PackagedTexts` reads a bundle from `messages/<bundle>/<language>.properties` in the jar. A key may
+hold several texts, and one is chosen at random each time: `key=`, then `key[1]=`, `key[2]=` without
+a gap.
 
-An admin's change is rows of `message_override`, one per bundle, key, language and variant, which
-Steward writes and every process reads at start and on the signal hub's `nordtal_messages`. A Paper
+An admin's change is rows of `message_override`, one per bundle, key, language and variant. Steward
+writes them. Every process reads them at start and on the signal hub's `nordtal_messages`. A Paper
 plugin reads them off the main thread and shows the packaged texts until the hub has connected.
 
-- An override's texts replace the packaged ones of that language as a set. It keeps the packaged texts
-  it replaced and their hash.
-- A process sets aside an override whose hash no longer matches its jar (the admin wrote it over a
-  text this release changed) or that the validator refuses; the packaged text shows until an admin
-  saves the override again. Every process logs it, and Steward lists them at `GET /api/message-fallbacks`.
-- A row for a key the bundle does not declare is left out.
-- A renamed key names its former names with `@Formerly` (`key` or `bundle/key`), which the schema
-  carries into the jar; an override under a former name follows the key, and one under the current name wins.
+- The texts of an override replace the packaged texts of that language as a set. The override keeps
+  the packaged texts it replaced and their hash.
+- A process sets an override aside when its hash no longer matches the jar or the validator refuses
+  it. The hash no longer matches when the admin wrote the override over a text that this release
+  changed. The packaged text shows until an admin saves the override again. Every process logs the
+  override, and Steward lists them at `GET /api/message-fallbacks`.
+- `@Formerly` names the former names of a renamed key (`key` or `bundle/key`), and the schema copies
+  them into the jar. An override under a former name follows the key. An override under the current
+  name wins.

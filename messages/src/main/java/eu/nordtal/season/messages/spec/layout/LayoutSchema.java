@@ -34,25 +34,19 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * What the build writes of a module's layouts into {@code messages/<bundle>/layouts.json}, beside its schema.
- * Each declaration comes with the values its texts may name and every key it shows.
- */
+/** Writes a module's layouts into {@code messages/<bundle>/layouts.json} at build time, beside the schema. */
 public final class LayoutSchema {
 
-    /** A key as a layout places it. */
     static final Pattern KEY = Pattern.compile("([a-z][a-z0-9-]*)/([A-Za-z0-9][A-Za-z0-9_.-]*)");
 
     private LayoutSchema() {}
 
     /**
-     * One layout as {@code layouts.json} carries it.
-     *
-     * @param layout the declaration
-     * @param values what a text placed in it may name: the union of its texts' values and the globals, a data
-     *               list's line and a select's option line left out since each item or option fills it
-     * @param shows  every key it shows as {@code bundle/key}: its own, its elements' and every key a message value
-     *               of one of them may take
+     * @param values the placeholders a text placed in the layout may name: the union of its texts'
+     *     values and the globals, without the line of a data list and the option line of a select,
+     *     since each item or option fills them
+     * @param shows every key the layout shows as {@code bundle/key}: its own, its elements' and
+     *     every key a message value of one of them may take
      */
     public record Entry(Layout layout, Declaration values, List<String> shows) {
 
@@ -63,10 +57,9 @@ public final class LayoutSchema {
         }
     }
 
-    /** A key's spec and the schema of the bundle that declares it. */
     record Found(MessageSchema.Bundle bundle, MessageSchema.Entry entry) {}
 
-    /** The schema of each bundle by name: the module's own specs, else the schema a jar on the classpath carries. */
+    /** Returns the schema of each bundle by name, from the module's specs or else from a jar on the classpath. */
     public static Function<String, Optional<MessageSchema.Bundle>> schemas(final List<Class<?>> specs) {
         final Map<String, Optional<MessageSchema.Bundle>> known = new HashMap<>();
         specs.forEach(spec -> known.put(MessageSchema.bundle(spec), Optional.of(MessageSchema.of(spec))));
@@ -85,7 +78,6 @@ public final class LayoutSchema {
         }
     }
 
-    /** The spec of {@code key}, a {@code bundle/key}, or empty when it is none or no bundle declares it. */
     static Optional<Found> find(final String key, final Function<String, Optional<MessageSchema.Bundle>> schemas) {
         final Matcher matcher = KEY.matcher(key);
         if (!matcher.matches()) {
@@ -98,7 +90,7 @@ public final class LayoutSchema {
                         .map(entry -> new Found(bundle, entry)));
     }
 
-    /** Returns {@code layout} as {@code layouts.json} carries it, telling {@code problems} what does not add up. */
+    /** Returns the layout's entry and reports every inconsistency to {@code problems}. */
     public static Entry describe(
             final Layout layout,
             final Function<String, Optional<MessageSchema.Bundle>> schemas,
@@ -114,7 +106,7 @@ public final class LayoutSchema {
         final Map<String, String> namedBy = new HashMap<>();
         final Map<String, String> examples = new HashMap<>();
         final Set<String> actions = new HashSet<>();
-        // Each item fills a data list's line, and each option a select's.
+        // Each item fills the line of a data list and each option the line of a select.
         final Set<String> lines = new HashSet<>();
         for (final Element element : layout.elements()) {
             switch (element.kind()) {
@@ -181,7 +173,7 @@ public final class LayoutSchema {
         return List.copyOf(shown);
     }
 
-    /** Every key of {@code bundle} as {@code bundle/key}, or a problem through the caller when there is no such one. */
+    /** Returns {@code bundle/*} when no schema exists. */
     private static List<String> wholeBundle(
             final String bundle, final Function<String, Optional<MessageSchema.Bundle>> schemas) {
         return schemas.apply(bundle)
@@ -191,7 +183,7 @@ public final class LayoutSchema {
                 .orElse(List.of(bundle + "/*"));
     }
 
-    /** Every key shown in two or more of the layouts, to the layouts it is shown in as {@code bundle/name}. */
+    /** Maps each key shown in two or more layouts to those layouts as {@code bundle/name}. */
     public static Map<String, List<String>> buildingBlocks(final Collection<Entry> entries) {
         final Map<String, List<String>> usages = new LinkedHashMap<>();
         for (final Entry entry : entries) {
@@ -205,9 +197,7 @@ public final class LayoutSchema {
     }
 
     /**
-     * Every layout {@code holder} declares as a {@code static final} field.
-     *
-     * @throws IllegalArgumentException if it declares none
+     * @throws IllegalArgumentException if {@code holder} declares no {@code static final} layout
      */
     public static List<Layout> declared(final Class<?> holder) {
         final List<Layout> layouts = new ArrayList<>();
@@ -259,17 +249,14 @@ public final class LayoutSchema {
         }
     }
 
-    /** Returns the SHA-256 of the layout as JSON in lower-case hex, which a release that changes it changes. */
     public static String hash(final Layout layout) {
         return Sha256.hex(Json.encode(layout));
     }
 
-    /** Returns the layouts as the JSON {@code layouts.json} holds. */
     public static String json(final List<Entry> entries) {
         return Json.encode(entries) + "\n";
     }
 
-    /** Reads a {@code layouts.json}. */
     public static List<Entry> decode(final String json) {
         return List.of(Json.decode(json, Entry[].class));
     }

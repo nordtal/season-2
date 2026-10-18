@@ -5,16 +5,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A parsed text as JSON, so the browser's web target walks the one parser's tree instead of parsing the text again.
- * A literal is a string, a value {@code {"v", "k", "s"}}, a choice {@code {"c", "plural", "cases"}}, a plural's
- * {@code #} {@code {"pound"}} and a tag {@code {"tag", "shape", "args"}}; the messages README shows each.
+/** Converts a parsed text to JSON, which the browser's web target walks instead of parsing the text again.
+ * The messages README shows the shape of each node.
  */
 public final class NodeJson {
 
     private NodeJson() {}
 
-    /** Returns {@code nodes} as lists, maps and strings the one codec writes, in order. */
     public static List<Object> of(final List<Node> nodes) {
         final List<Object> json = new ArrayList<>(nodes.size());
         nodes.forEach(node -> json.add(of(node)));

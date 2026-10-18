@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** A layout's tree against its elements, against the specs of the keys it places and against what Discord draws. */
 class LayoutCheckTest {
 
     static final Layout PRICES = Layout.discord(
@@ -56,7 +55,7 @@ class LayoutCheckTest {
                 problems(withParts(List.of(Element.button("buy", "layouts/buy")), Part.text(title("layouts/title")))));
     }
 
-    /** A declaration read from JSON can hold an element of no texts, which is reported and does not stop the check. */
+    /** A declaration read from JSON can hold an element without texts. The check reports it and continues. */
     @Test
     void aSelectThatDrawsNoTextIsRefused() {
         assertEquals(

@@ -7,9 +7,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Every place the texts below it are shown, the one an editor previews first leading.
- * On the spec, a section's accessor, a section's interface or a message; the nearest one wins, and a key that
- * none reaches is refused by {@link MessageSpecCheck}.
+ * Lists the places where the texts below it are shown. An editor previews the first place first.
+ * The nearest annotation wins, and {@link MessageSpecCheck} refuses a key that none reaches.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

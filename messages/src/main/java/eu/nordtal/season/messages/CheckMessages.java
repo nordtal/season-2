@@ -10,15 +10,14 @@ import eu.nordtal.season.messages.spec.TextFormat;
 import java.util.List;
 
 /**
- * What the one validator says is wrong with a text, in English only.
- * An admin reads it in Steward, a developer in the build's refusal and a log. It lives beside the validator, which may
- * depend on no other bundle; Steward serves it with its own, so an admin can change it.
+ * The problems that {@code MessageCheck} reports for a text, in English only.
+ * The validator may depend on no other bundle, so this bundle lives beside it. Steward serves it
+ * with its own bundles, so an admin can change it.
  */
 @MessageSpec(value = "check", format = TextFormat.PLAIN)
 @Shown(Display.STEWARD)
 public interface CheckMessages {
 
-    /** The texts; stateless, so one instance serves every caller. */
     CheckMessages TEXTS = MessageSpecs.create(CheckMessages.class);
 
     Check check();
@@ -28,7 +27,7 @@ public interface CheckMessages {
 
         Syntax syntax();
 
-        /** A text that cannot be read at all; {@code at} counts characters from 1. */
+        /** {@code at} counts characters from 1. */
         @Name("Unreadable text")
         interface Syntax {
 

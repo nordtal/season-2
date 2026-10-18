@@ -16,22 +16,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Every kind's value as plain text, once; the one formatter of durations, dates and money.
- * It serves the console, a log and every word of a Minecraft line that is not a name, an item or a glyph.
+/** Formats every kind's value as plain text.
+ * The console, a log and every word of a Minecraft line that is not a name, an item or a glyph use it.
  */
 public final class ValueText {
 
-    /** Where a game's line places an argument: {@code %s} in turn, or {@code %2$s} by position. */
     private static final Pattern ARGUMENT = Pattern.compile("%(?:(\\d+)\\$)?s");
 
     private ValueText() {}
 
     /**
-     * Returns a value as a reader in {@code locale} and {@code zone} reads it.
-     *
-     * @param value the value, or {@code null} for the kind's replacement word
-     * @param style one of the kind's {@link Kind#styles()}, or {@code null} for its default
+     * @param value the value, else {@code null} for the kind's replacement word
+     * @param style one of the kind's {@link Kind#styles()}, else {@code null} for the default
      */
     public static String of(
             final Kind kind,
@@ -76,7 +72,9 @@ public final class ValueText {
         return format.format(decimal);
     }
 
-    /** The two largest units that are not zero, so a countdown reads {@code 2 hours and 5 minutes}; or a style's. */
+    /** Formats a duration as the two largest units that are not zero, or as the style asks.
+     * An example is {@code 2 hours and 5 minutes}.
+     */
     private static String duration(final Duration duration, final @Nullable String style, final Words words) {
         final long total = Math.max(0, duration.toSeconds());
         if ("clock".equals(style)) {
@@ -90,7 +88,7 @@ public final class ValueText {
         final long[] amounts = {total / 86_400, total / 3600 % 24, total / 60 % 60, total % 60};
         final String[] units = {"days", "hours", "minutes", "seconds"};
         if ("minutes".equals(style)) {
-            // Every unit down to the minute, so a span typed in days, hours and minutes reads back as it was typed.
+            // The minutes style shows each non-zero unit down to the minute.
             final List<String> parts = new ArrayList<>();
             for (int unit = 0; unit < units.length - 1; unit++) {
                 if (amounts[unit] > 0 || (unit == units.length - 2 && parts.isEmpty())) {
@@ -119,7 +117,7 @@ public final class ValueText {
 
     private static String instant(
             final Instant instant, final @Nullable String style, final Locale locale, final ZoneId zone) {
-        // relative is Discord's own countdown; as text it is the moment itself.
+        // Discord draws {@code relative} as a countdown. As text it is the moment itself.
         final DateTimeFormatter format = switch (style == null ? "datetime" : style) {
             case "date" -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM);
             case "time" -> DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT);
@@ -134,7 +132,6 @@ public final class ValueText {
         return format.format(BigDecimal.valueOf(money.minor(), money.currency().getDefaultFractionDigits()));
     }
 
-    /** The English text with each argument, in its own kind, where the game's line places it. */
     private static String content(
             final GameContent content, final Locale locale, final ZoneId zone, final Words words) {
         if (content.args().isEmpty()) {
@@ -166,10 +163,7 @@ public final class ValueText {
         return join(shown, or, words);
     }
 
-    /**
-     * Joins items already shown as text with the reader's words: {@code a, b and c}, or {@code a, b or c}.
-     * Every target that shows a list as text joins it here.
-     */
+    /** Joins items already shown as text, as {@code a, b and c} or, with {@code or}, {@code a, b or c}. */
     public static String join(final List<String> shown, final boolean or, final Words words) {
         if (shown.isEmpty()) {
             return words.missing(Kind.LIST);

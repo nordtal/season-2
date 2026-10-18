@@ -1,6 +1,6 @@
 package eu.nordtal.season.messages.spec;
 
-/** How a text is written, which decides what an editor offers for it. */
+/** The format of a text. It decides what an editor offers for it. */
 public enum TextFormat {
     /** Adventure's MiniMessage: colours, decorations, hover, click, glyphs. */
     MINIMESSAGE,

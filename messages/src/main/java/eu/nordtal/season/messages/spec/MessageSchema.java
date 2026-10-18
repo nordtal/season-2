@@ -31,9 +31,9 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a {@link MessageSpec} says about its bundle, as data, for steward.
- *
- * Written into the jar as {@code messages/<bundle>/schema.json} at build time, in the order of the English file.
+ * The data of a {@link MessageSpec} for Steward.
+ * The build writes it into the jar as {@code messages/<bundle>/schema.json} in the order of the
+ * English file.
  */
 public final class MessageSchema {
 
@@ -42,13 +42,11 @@ public final class MessageSchema {
     /**
      * One argument of a message.
      *
-     * @param name    the placeholder, or for a context the role, or for an action its name
-     * @param kind    the kind's token of a single value, or {@code null} for a context or an action
-     * @param context the context type of a role, or {@code null}
-     * @param example a single value's example, or {@code null}
-     * @param action  whether it is an action a text places with {@code <action:name>}
-     * @param takes   for a value that is a message, the keys it may take as {@link Takes} names them; {@code null},
-     *                and absent from the JSON, for any other value and for one that names none
+     * @param name    the placeholder, the role of a context or the name of an action
+     * @param kind    the kind's token, {@code null} for a context or an action
+     * @param action  whether a text places it with {@code <action:name>}
+     * @param takes   the keys that {@link Takes} names for a message value. It is {@code null}, and
+     *                absent from the JSON, for other values and a message value without keys.
      */
     public record Arg(
             @Nullable String name,
@@ -58,7 +56,6 @@ public final class MessageSchema {
             boolean action,
             @Nullable List<String> takes) {
 
-        /** An argument that names no keys it may take. */
         public Arg(
                 final @Nullable String name,
                 final @Nullable String kind,
@@ -70,16 +67,13 @@ public final class MessageSchema {
     }
 
     /**
-     * @param key         the bundle key
-     * @param name        the name an admin reads
-     * @param description a sentence for a hard case, or {@code null}
-     * @param args        the placeholders, in parameter order
-     * @param section     the names of the sections around it, outermost first
-     * @param format      how it is written
-     * @param shown       every place it is shown, the one an editor previews first leading; empty only in a spec
-     *                    {@link MessageSpecCheck} refuses
-     * @param formerly    the names it had before, {@code key} in this bundle or {@code bundle/key}; {@code null},
-     *                    and absent from the JSON, for a key never renamed
+     * One key of a bundle.
+     *
+     * @param section  the names of the sections around the key, outermost first
+     * @param shown    every place where the key is shown. An editor previews the first place first.
+     *                 {@link MessageSpecCheck} refuses an empty list.
+     * @param formerly the former names, {@code key} in this bundle or {@code bundle/key}. It is
+     *                 {@code null}, and absent from the JSON, for a key that was never renamed.
      */
     public record Entry(
             String key,
@@ -91,13 +85,12 @@ public final class MessageSchema {
             List<Display> shown,
             @Nullable List<String> formerly) {
 
-        /** Returns how many characters it may have: the strictest limit of its places, {@code 0} for none. */
+        /** Returns the strictest limit of the places, or {@code 0} for none. */
         public int limit() {
             return Display.strictest(shown);
         }
     }
 
-    /** Returns the bundle a spec describes. */
     public static String bundle(final Class<?> spec) {
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
         if (annotation == null) {
@@ -106,7 +99,7 @@ public final class MessageSchema {
         return annotation.value();
     }
 
-    /** Returns every key the spec declares, in the order of its English file. */
+    /** Returns every key of the spec in the order of its English file. */
     public static List<Entry> entries(final Class<?> spec) {
         final List<Entry> entries = new ArrayList<>();
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
@@ -218,7 +211,7 @@ public final class MessageSchema {
         return new Arg(name, kind.token(), null, shown, false, takes == null ? null : choices);
     }
 
-    /** The values a {@code select} tells apart: an enum's constants, {@code true} and {@code false}, else none. */
+    /** Returns the values a {@code select} tells apart: enum constants, else true and false. */
     private static List<String> choices(final Class<?> type) {
         if (type == boolean.class || type == Boolean.class) {
             return List.of("true", "false");
@@ -229,7 +222,7 @@ public final class MessageSchema {
                 : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
-    /** Returns the context types a spec's messages name, plus those of the global roles, by key. */
+    /** Returns the context types that the messages name and the global roles use, by key. */
     static Map<String, Class<?>> contextTypes(final Class<?> spec) {
         final Map<String, Class<?>> types = new TreeMap<>();
         collect(spec, types, 0);
@@ -254,7 +247,6 @@ public final class MessageSchema {
         }
     }
 
-    /** A section's name: on the method that opens it, or on its interface. */
     static @Nullable String sectionName(final Method method) {
         final Name own = method.getAnnotation(Name.class);
         if (own != null) {
@@ -264,13 +256,12 @@ public final class MessageSchema {
         return type == null ? null : type.value();
     }
 
-    /** One language of the spec's bundle, key to its variants; empty when the bundle has no such file. */
+    /** Returns the variants of each key in one language, empty if the bundle has no file for it. */
     static Map<String, List<String>> texts(final Class<?> spec, final String language) {
         final Map<String, List<String>> texts = PackagedTexts.read(spec.getClassLoader(), bundle(spec), language);
         return texts == null ? Map.of() : texts;
     }
 
-    /** The keys of the English file in the order they are written. */
     private static List<String> fileOrder(final Class<?> spec) {
         final String resource = "messages/" + bundle(spec) + "/en.properties";
         final List<String> keys = new ArrayList<>();
@@ -306,12 +297,10 @@ public final class MessageSchema {
         return line.length();
     }
 
-    /** Returns the schema as the JSON steward and every process read. */
     public static String json(final Class<?> spec) {
         return Json.encode(of(spec)) + "\n";
     }
 
-    /** Returns the schema of a spec. */
     public static Bundle of(final Class<?> spec) {
         final Map<String, ContextJson> contexts = new LinkedHashMap<>();
         contextTypes(spec)
@@ -332,17 +321,16 @@ public final class MessageSchema {
         return new Bundle(bundle(spec), entries(spec), contexts, globals);
     }
 
-    /** Reads a {@code schema.json}. */
     public static Bundle decode(final java.io.Reader json) {
         return Json.decode(json, Bundle.class);
     }
 
-    /** Whether a key {@link Takes} names is a whole bundle, {@code bundle/*}. */
+    /** Returns whether a key that {@link Takes} names is a whole bundle, {@code bundle/*}. */
     public static boolean whole(final String taken) {
         return taken.endsWith("/*");
     }
 
-    /** Whether {@code key} is one of {@code choices}, or a key of a bundle one of them names whole. */
+    /** Returns whether {@code key} is in {@code choices} or in a bundle that one names whole. */
     private static boolean takes(final List<String> choices, final String key) {
         return choices.contains(key)
                 || choices.stream()
@@ -350,17 +338,16 @@ public final class MessageSchema {
     }
 
     /**
-     * The shape of {@code schema.json}: every message of a bundle, the context types they name and the globals.
+     * The content of {@code schema.json}.
      *
-     * @param bundle   the bundle
-     * @param messages its messages, in the order of the English file
-     * @param contexts each context type by key
-     * @param globals  the roles every message has
+     * @param messages the messages in the order of the English file
+     * @param contexts the context types by key
+     * @param globals  the roles of every message
      */
     public record Bundle(
             String bundle, List<Entry> messages, Map<String, ContextJson> contexts, List<GlobalJson> globals) {
 
-        /** Returns what {@code entry}'s texts may name, as the one validator reads it. */
+        /** Returns what the texts of {@code entry} may name. */
         public Declaration declaration(final Entry entry) {
             final Map<String, Kind> values = new HashMap<>();
             final Map<String, String> examples = new HashMap<>();
@@ -419,33 +406,26 @@ public final class MessageSchema {
     }
 
     /**
-     * A context type as the schema lists it.
+     * A context type in the schema.
      *
      * @param name       the name an admin reads
-     * @param attributes its attributes, a nested context's dotted
+     * @param attributes the attributes, with dots for those of a nested context
      */
     public record ContextJson(String name, List<AttributeJson> attributes) {}
 
     /**
      * One attribute of a context type.
      *
-     * @param name    the attribute, dotted for a nested context's
-     * @param kind    its kind's token
-     * @param example what an editor shows for it
+     * @param name the name, with dots for the attribute of a nested context
      */
     public record AttributeJson(String name, String kind, String example) {}
 
-    /**
-     * A role every message has.
-     *
-     * @param name    the role
-     * @param context its context type
-     */
+    /** A role of every message. */
     public record GlobalJson(String name, String context) {}
 
     /**
-     * Writes {@code <output directory>/messages/<bundle>/schema.json} per spec, and {@code layouts.json} beside it.
-     * A bundle gets the layouts listed under it; a spec or a layout the checks fault is refused.
+     * Writes {@code <output>/messages/<bundle>/schema.json} per spec and {@code layouts.json}.
+     * A bundle gets the layouts listed under it. A spec or a layout that fails a check is refused.
      */
     public static void main(final String[] args) throws Exception {
         if (args.length < 2) {

@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/** One message per value kind, for {@link ValueKindsTest}. */
 @MessageSpec(value = "kinds", format = TextFormat.PLAIN)
 @Shown(Display.CHAT)
 public interface KindsMessages {

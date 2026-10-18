@@ -15,21 +15,18 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-/**
- * Holds a {@link MessageSpec} and its bundle to each other, key by key, through the one validator.
+/** Checks a {@link MessageSpec} against its bundle, key by key.
  * Every packaged text is checked as {@link MessageCheck.Mode#PACKAGED}.
  */
 public final class MessageSpecCheck {
 
-    /** A bundle's name, as {@code bundle/*} names the whole bundle. */
     private static final Pattern BUNDLE = Pattern.compile("[a-z][a-z0-9-]*");
 
-    /** A former name: a key of this bundle, or {@code bundle/key}. */
     private static final Pattern FORMER = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private MessageSpecCheck() {}
 
-    /** Returns one line per problem, empty when spec and bundle agree. */
+    /** Returns one line per problem. */
     public static List<String> problems(final Class<?> spec) {
         final List<String> problems = new ArrayList<>();
         final MessageSchema.Bundle schema = MessageSchema.of(spec);
@@ -100,9 +97,8 @@ public final class MessageSpecCheck {
         }
     }
 
-    /**
-     * The selects whose example is no case of theirs but other, since an editor previews a select by its example.
-     * A boolean is exempt: the one value its cases leave out is what other stands for.
+    /** Returns the names of the selects whose example is not one of their cases but {@code other}.
+     * A boolean is exempt.
      */
     private static List<String> unpicked(final String text, final Declaration declaration) {
         final List<String> names = new ArrayList<>();
@@ -132,7 +128,7 @@ public final class MessageSpecCheck {
         }
     }
 
-    /** A whole bundle is {@code bundle/*}, and an example of this bundle's own is a key it declares. */
+    /** An example from this bundle must be a key it declares. */
     private static List<String> wholeBundle(
             final MessageSchema.Entry entry,
             final MessageSchema.Arg arg,
@@ -144,7 +140,7 @@ public final class MessageSpecCheck {
             return List.of(entry.key() + ": @Takes names " + taken + ", which is not bundle/*");
         }
         final String example = arg.example();
-        // An example from another bundle is a key of another take; the schema already refused one of none.
+        // The schema has already refused an example that is no key of any take.
         if (name.equals(bundle)
                 && example != null
                 && example.startsWith(bundle + "/")
@@ -154,7 +150,6 @@ public final class MessageSpecCheck {
         return List.of();
     }
 
-    /** A key a message value takes is one: in this bundle a key it declares, in another as {@code bundle/key}. */
     private static List<String> takenKeys(
             final Class<?> spec, final List<MessageSchema.Entry> entries, final Set<String> declared) {
         final List<String> problems = new ArrayList<>();
@@ -178,7 +173,6 @@ public final class MessageSpecCheck {
         return problems;
     }
 
-    /** A former name must be one, not a key this bundle still declares. */
     private static List<String> formerNames(
             final Class<?> spec, final List<MessageSchema.Entry> entries, final Set<String> declared) {
         final List<String> problems = new ArrayList<>();

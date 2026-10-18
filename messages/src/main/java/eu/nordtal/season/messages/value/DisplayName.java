@@ -3,11 +3,10 @@ package eu.nordtal.season.messages.value;
 import eu.nordtal.season.common.id.PlayerId;
 import java.util.Objects;
 
-/**
- * A player's name as a message shows it: in Minecraft with the player's hover card, as plain text elsewhere.
+/** A player's name as a message shows it.
+ * Minecraft shows it with the player's hover card, other targets as plain text.
  *
- * @param player whose name it is, which a hover card and {@code self} are read by
- * @param name   the Minecraft name
+ * @param player the player, which the hover card and {@code self} are read from
  */
 public record DisplayName(PlayerId player, String name) {
 

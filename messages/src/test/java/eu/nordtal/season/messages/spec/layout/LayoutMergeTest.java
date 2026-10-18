@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** An editor's rebuild carried over a release that changed the packaged layout it was written over. */
 class LayoutMergeTest {
 
     private static final Layout BEFORE = Layout.discord(
@@ -27,7 +26,7 @@ class LayoutMergeTest {
                     Tone.BRAND, Part.text(title("layouts/title")), Part.text(heading("layouts/prices"), list("tiers"))),
             row("buy"));
 
-    /** The next release: the price list and the donation text go, a renew button and a donation list come. */
+    /** The next release removes the price list and the donation text and adds a renew button and a donation list. */
     private static final Layout AFTER = Layout.discord(
             "layouts",
             "prices",
@@ -41,7 +40,7 @@ class LayoutMergeTest {
 
     private static final Line ADDED = Line.added(null, Map.of("en", "Thanks!"));
 
-    /** The editor moved the button up beside the title, added a text, and kept the prices under it. */
+    /** The editor moves the button beside the title, adds a text and keeps the prices under it. */
     private static final List<Part> REBUILD = List.of(
             sectionWithButton("buy", Part.text(title("layouts/title"), ADDED)),
             Part.text(heading("layouts/prices"), list("tiers")));
@@ -130,7 +129,7 @@ class LayoutMergeTest {
 
     @Test
     void aRebuildThatCannotBeCarriedOverIsSetAsideForThePackagedLayout() {
-        // An editor's link button whose id the release now declares for its own element.
+        // The release now declares the id of an editor's link button for its own element.
         final Element clash = Element.link("renew", "https://nordtal.eu", Map.of("en", "Renew"));
 
         final LayoutMerge.Merged merged = LayoutMerge.merge(

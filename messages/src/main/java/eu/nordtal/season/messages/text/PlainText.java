@@ -6,12 +6,14 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 
-/** The plain target: a console, a log, a GUI line drawn in the pack's own sheet. Markup is left out. */
+/** The plain target for a console, a log or a GUI line drawn in the pack's own sheet. */
 public final class PlainText {
 
     private PlainText() {}
 
-    /** Returns the pieces as plain text, a {@code <newline>} as a line break and every other tag left out. */
+    /** Returns the pieces as plain text.
+     * A {@code <newline>} is a line break and every other tag is left out.
+     */
     public static String of(final List<Piece> pieces, final Locale locale, final ZoneId zone, final Words words) {
         final StringBuilder out = new StringBuilder();
         for (final Piece piece : pieces) {

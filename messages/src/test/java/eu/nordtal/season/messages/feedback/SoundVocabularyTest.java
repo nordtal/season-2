@@ -6,14 +6,12 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/**
- * Checks that {@link Feedback} is a closed set of names, so a module's config file is the only source of a sound.
+/** {@link Feedback} is a closed set of names, so the config file of a module is the only source of a sound.
  *
- * That a call site picks a category and never a sound is {@code :architecture}'s rule.
+ * {@code :architecture} checks that a call site picks a category and never a sound.
  */
 class SoundVocabularyTest {
 
-    /** Checks that the enum has no members, so the config file stays the only source of a sound. */
     @Test
     void feedbackCarriesNothingButItsConstants() {
         assertEquals(
@@ -22,7 +20,7 @@ class SoundVocabularyTest {
                 "ten categories, of which open/close is two constants, plus STAGING and RECLAIMED."
                         + " A THIRTEENTH IS A DECISION FOR THE OWNER - a"
                         + " vocabulary that grows to fit each new call site is not a vocabulary");
-        // values/valueOf are the enum's API; $values is javac's array holder, not always marked synthetic.
+        // values/valueOf are the API of the enum, and $values is the array holder of javac, not always synthetic.
         assertEquals(
                 List.of(),
                 Stream.of(Feedback.class.getDeclaredMethods())

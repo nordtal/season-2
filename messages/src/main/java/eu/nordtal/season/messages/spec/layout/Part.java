@@ -6,15 +6,15 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One part of a Discord layout's tree, as Components V2 draws it; its type says which of the other components it has.
+ * One part of a Discord layout's tree, as Components V2 draws it.
  *
- * @param type     what it is
- * @param accent   a container's accent colour as {@code #rrggbb}, or {@code null} for none
- * @param parts    what a container holds, a section's text blocks, or what a block per language repeats
- * @param lines    a text block's lines, drawn one under the other
- * @param element  the element of a block per language, or a section's button
+ * @param accent a container's accent colour as {@code #rrggbb}, else {@code null}
+ * @param parts what a container holds, a section's text blocks, or what a block per language
+ *     repeats
+ * @param element the element of a block per language, or a section's button
  * @param elements a row's buttons, or its one select
- * @param media    a gallery's images, or a section's one thumbnail, each {@code attachment://name} or an https URL
+ * @param media a gallery's images, or a section's one thumbnail, each {@code attachment://name} or
+ *     an https URL
  */
 public record Part(
         Type type,
@@ -25,21 +25,18 @@ public record Part(
         @Nullable List<String> elements,
         @Nullable List<String> media) {
 
-    /** The kinds of part. */
     public enum Type {
         /** A box with an accent colour along its edge, as an embed is drawn. */
         CONTAINER,
-        /** A text block. */
         TEXT,
         /** One to three text blocks with a button or a thumbnail beside them. */
         SECTION,
-        /** A divider line. */
         SEPARATOR,
         /** One image or several side by side. */
         GALLERY,
         /** An action row: up to five buttons, or one select. */
         ROW,
-        /** The parts it holds, once per configured language; its element names it. */
+        /** Repeats the parts it holds once per configured language. Its element names it. */
         LANGUAGES
     }
 
@@ -83,7 +80,6 @@ public record Part(
         return new Part(Type.LANGUAGES, null, List.of(parts), null, element, null, null);
     }
 
-    /** Adds this part and every part it holds to {@code into}, each before the parts it holds. */
     void collect(final List<Part> into) {
         into.add(this);
         if (parts != null) {

@@ -3,37 +3,37 @@ package eu.nordtal.season.messages;
 import java.util.Locale;
 
 /**
- * The one palette's names: how a line or a word should read at a glance.
- * A packaged text names colours only by tone, as {@code <good>}; a command's reply names one as a whole. Each
- * adapter paints it, Discord ignores it, and it names no Adventure type, because the bot loads it.
+ * The names of the palette. A packaged text names a colour only by its tone, as {@code <good>}.
+ * A command's reply names one tone for the whole reply. Each adapter paints the tones and Discord
+ * ignores them. The enum names no Adventure type, because the bot loads it.
  */
 public enum Tone {
 
-    /** Nothing to flag: an ordinary reply, a chat line's words. */
+    /** An ordinary reply or chat line. */
     NEUTRAL("#d0d0d8"),
 
-    /** It worked, it is current, it came back. */
+    /** A success. */
     GOOD("#8ba888"),
 
-    /** It failed, it is refused. */
+    /** A failure or a refusal. */
     BAD("#a8888b"),
 
-    /** Not a failure, but not what was asked for either: stopped, too late, still waiting. */
+    /** Neither success nor failure, such as stopped or waiting. */
     WARN("#b08a4a"),
 
-    /** Supporting detail under a line that carries the news. */
+    /** Detail under a main line. */
     MUTED("#aaaaaa"),
 
-    /** A heading, a title, an icon that opens a line. */
+    /** A heading, title or opening icon. */
     ACCENT("#b08a4a"),
 
-    /** The network's own name and links. */
+    /** The name and links of the network. */
     BRAND("#4a63d8"),
 
-    /** The word in a line that matters most: a name, a number, a place. */
+    /** The key word of a line, such as a name, number or place. */
     EMPHASIS("#ffffff"),
 
-    /** Barely there: a hint, a rule, a separator. */
+    /** A hint, rule or separator. */
     FAINT("#555555");
 
     private final String hex;
@@ -42,12 +42,11 @@ public enum Tone {
         this.hex = hex;
     }
 
-    /** Returns the colour the tone has where the {@code colours} settings name none, as {@code #rrggbb}. */
+    /** Returns the default colour as {@code #rrggbb}. */
     public String hex() {
         return hex;
     }
 
-    /** Returns the tag a text names the tone by, such as {@code good}. */
     public String tag() {
         return name().toLowerCase(Locale.ROOT);
     }

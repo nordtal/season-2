@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The one name of each game term in every language; a text uses no other word for it.
- * A new term is declared here before a text uses it. {@code MessageCheck} refuses the words in {@link #SYNONYMS}.
+ * The one name of each game term in every language. A text uses no other word for a term.
+ * {@code MessageCheck} refuses the words in {@link #SYNONYMS}.
  */
 @MessageSpec(value = "terms", format = TextFormat.PLAIN)
 @Shown({
@@ -39,7 +39,7 @@ import java.util.Map;
 })
 public interface TermMessages {
 
-    /** The words a text never writes, in any language, by the key of the term it writes instead. */
+    /** The words that a text never writes, by the key of the term it writes instead. */
     Map<String, List<String>> SYNONYMS = Map.of(
             "access", List.of("membership", "Mitgliedschaft", "Abo"),
             "contribution-channel", List.of("payment channel", "Zahlungskanal"),

@@ -269,7 +269,7 @@ class DocumentsApiIntegrationTest {
         draft.add("declaration", Json.tree("""
                 {"namespace":"smp","name":"wheel","area":"Menus","shape":"MENU",
                   "values":{"spins":{"kind":"text","example":"3"}},
-                  "slots":[{"id":"hub","type":"ITEM","required":true,"values":{"target":{"kind":"text","example":"Spawn"}}},
+                  "slots":[{"id":"hub","type":"ITEM","required":true,"values":{"target":{"kind":"item","example":"item.minecraft.diamond"}}},
                     {"id":"left","type":"LABEL","required":true,"values":{}}]}"""));
         draft.add("document", Json.tree("""
                 {"parts":[
@@ -286,7 +286,7 @@ class DocumentsApiIntegrationTest {
         assertEquals(0, drawing.getAsJsonArray("problems").size(), drawing.toString());
         assertEquals("wheel-de", menu.get("title").getAsString());
         assertEquals(
-                "[{\"slot\":\"hub\",\"type\":\"ITEM\",\"lines\":[\"to-de Spawn\",\"3 spins-de\"]},"
+                "[{\"slot\":\"hub\",\"type\":\"ITEM\",\"lines\":[\"to-de Diamond\",\"3 spins-de\"]},"
                         + "{\"slot\":\"left\",\"type\":\"LABEL\",\"lines\":[\"3 left-de\"]}]",
                 menu.getAsJsonArray("parts").toString());
     }

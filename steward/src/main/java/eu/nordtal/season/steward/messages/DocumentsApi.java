@@ -35,7 +35,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.jspecify.annotations.Nullable;
 
@@ -199,14 +202,24 @@ public final class DocumentsApi {
             if (part.type() == Part.Type.ITEM) {
                 final MenuDocument.Drawn drawn = document.itemOf(slot, entry, lists);
                 final List<String> lines = new ArrayList<>();
-                lines.add(mini.serialize(drawn.name()));
-                drawn.lore().forEach(line -> lines.add(mini.serialize(line)));
+                lines.add(mini.serialize(named(drawn.name())));
+                drawn.lore().forEach(line -> lines.add(mini.serialize(named(line))));
                 parts.add(new MenuPart(slot, part.type(), lines));
             } else if (part.type() == Part.Type.LABEL) {
                 parts.add(new MenuPart(slot, part.type(), List.of(document.labelOf(slot, entry))));
             }
         }
-        return new MenuDrawing(mini.serialize(document.title()), parts);
+        return new MenuDrawing(mini.serialize(named(document.title())), parts);
+    }
+
+    /** Puts each translated name's English fallback in its place: a browser has no client to translate it. */
+    private static Component named(final Component component) {
+        final Component named = component instanceof final TranslatableComponent translated
+                ? Component.text(Objects.requireNonNullElse(translated.fallback(), translated.key()))
+                        .style(translated.style())
+                        .children(translated.children())
+                : component;
+        return named.children(named.children().stream().map(DocumentsApi::named).toList());
     }
 
     /**

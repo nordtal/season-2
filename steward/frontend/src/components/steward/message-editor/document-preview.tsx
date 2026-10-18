@@ -93,7 +93,7 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
       </div>
       <ul className="flex flex-wrap items-start gap-3">
         {menu.parts.map((part, index) => (
-          <li key={index} className="flex min-w-0 flex-col gap-1">
+          <li key={index} className="flex shrink-0 flex-col gap-1">
             <span className="font-mono text-[11px] text-[#404040]">{part.slot}</span>
             {part.type === "ITEM" ? (
               <McTooltip>

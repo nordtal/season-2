@@ -182,7 +182,7 @@ export function textId(entry: MessageEntry): string {
 }
 
 /**
- * Returns the Translations page as a tree: a branch per group, then a Discord document's area or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
+ * Returns the Translations page as a tree: a branch per group, then a document's area (a menu's under the game) or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
  */
 export function textsTree(
   texts: MessageText[],
@@ -194,7 +194,12 @@ export function textsTree(
   const grouped = pageCards(texts, views, service)
     .map((card) => ({
       card,
-      group: card.kind === "document" ? ("DISCORD" as const) : groupOf(card.text.entry, places),
+      group:
+        card.kind === "text"
+          ? groupOf(card.text.entry, places)
+          : card.view.declaration.shape === "MENU"
+            ? ("GAME" as const)
+            : ("DISCORD" as const),
     }))
     .map((each) => ({ ...each, page: each.card.kind === "text" ? pageGroupOf(each.card.text.entry) : undefined }))
     .toSorted(

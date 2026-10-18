@@ -18,7 +18,9 @@ import eu.nordtal.season.stewardagent.source.SourceHttp;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
-/** Resolve and apply, built in one place so the command line and the daemon produce the same report. */
+/**
+ * Builds resolve and apply in one place, so the command line and the daemon produce the same report.
+ */
 public final class Runs {
 
     private Runs() {}
@@ -54,7 +56,7 @@ public final class Runs {
     /**
      * Fetches everything the plan calls for and moves it into place, restarting nothing.
      *
-     * Every file moved into place is noted in {@code plugins} with this agent's release, which is the run's.
+     * Every moved file is recorded in {@code plugins} with the release of this agent.
      */
     public static ApplyResult apply(
             final RunSpec config,
@@ -75,7 +77,9 @@ public final class Runs {
         return result;
     }
 
-    /** Notes every file the apply moved into place; nothing without a release, which only a test runs as. */
+    /**
+     * Records every moved file. Without a release, which only a test runs as, it records nothing.
+     */
     static void record(
             final ApplyResult result,
             final @Nullable String release,

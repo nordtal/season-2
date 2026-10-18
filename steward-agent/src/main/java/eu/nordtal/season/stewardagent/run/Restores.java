@@ -14,13 +14,13 @@ import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
-/** The restore kind: one archive put back into its volume or the database, with everything on it down. */
+/** Puts one archive back into its volume or the database while everything that uses it is down. */
 final class Restores {
 
     private Restores() {}
 
     /**
-     * Puts one archive back, after a fresh backup of what it replaces, while everything that runs on it is down.
+     * Backs up what the archive replaces, then puts the archive back.
      *
      * A volume archive stops the services that mount the volume; a dump stops every service on the database.
      */
@@ -60,7 +60,7 @@ final class Restores {
         }
         final List<String> users = Kinds.running(runner, topology.usersOf(volume));
         final Run.Payload put = (steps, stopped) -> {
-            // The volume as it is now, so a restore of the wrong archive is itself undone by a restore.
+            // A restore of the wrong archive is undone by a restore of this copy.
             final UpdateReport saved = steps.save(stopped.report(), List.of(volume));
             if (saved.line(volume).state() != UpdateReport.State.SAVED) {
                 record.ended(RunStep.Kind.RESTORE, archive, RunStep.Outcome.SKIPPED, RunStep.Reason.NOT_SAVED);
@@ -104,7 +104,7 @@ final class Restores {
 
     private static Kinds.Planned restoreDatabase(
             final Runner runner, final UpdateRequest request, final String dump, final Steps record) {
-        // With everything running, as every backup takes it, and before anything is stopped.
+        // The dump runs before anything stops, as in every backup.
         final SnapshotResult dumped = Kinds.dump(runner, record);
         if (!dumped.ok()) {
             return Kinds.failed(List.of(
@@ -128,7 +128,6 @@ final class Restores {
                 planned, replace, UpdateReport.Undertaking.RESTORE_DATABASE, true, Runner.Doubt.FAILS_THE_RUN));
     }
 
-    /** The archive's own line on the report, and a failed run when it did not go back. */
     private static Run.Done putBack(final UpdateReport report, final SnapshotResult result, final String archive) {
         return putBack(
                 report,
@@ -137,7 +136,6 @@ final class Restores {
                 Note.failed(Step.INSTALL, TEXTS.report().restoreFailed()).on(archive));
     }
 
-    /** The same, with the note a failure carries. */
     private static Run.Done putBack(
             final UpdateReport report, final SnapshotResult result, final String archive, final Note failure) {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
@@ -155,7 +153,6 @@ final class Restores {
         return new Run.Done(result.ok() ? report.with(line) : report.with(line).withNote(failure), !result.ok());
     }
 
-    /** A report with one planned line per service, each naming the archive it is stopped for. */
     private static UpdateReport stopping(final List<String> services, final String archive) {
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : services) {

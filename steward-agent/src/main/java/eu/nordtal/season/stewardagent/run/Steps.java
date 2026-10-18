@@ -11,12 +11,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * One run's steps as rows, each written when it begins and ended with its outcome; {@link #NONE} writes nothing.
  *
- * A write that fails is logged and the run goes on: a missing row costs the record, never the network.
+ * A failed write is logged and the run goes on.
  */
 @Slf4j
 final class Steps {
 
-    /** Writes nothing, for a test of one step that has no run row. */
     static final Steps NONE = new Steps(RunRecorder.NONE, 0);
 
     private final RunRecorder recorder;
@@ -27,12 +26,10 @@ final class Steps {
         this.run = run;
     }
 
-    /** Begins a step about the whole run. */
     Step begin(final Kind step) {
         return begin(step, null);
     }
 
-    /** Begins a step about one service, volume or archive. */
     Step begin(final Kind step, final @Nullable String service) {
         long id = 0;
         try {
@@ -43,12 +40,11 @@ final class Steps {
         return new Step(id);
     }
 
-    /** A step that began and ended at once, as a check or a refusal does. */
     void ended(final Kind step, final @Nullable String service, final Outcome outcome, final @Nullable Reason reason) {
         begin(step, service).end(outcome, reason);
     }
 
-    /** Ends every step still open, as a run that stops early leaves them. */
+    /** Ends every step still open, for a run that stops early. */
     void endOpen(final Outcome outcome, final @Nullable Reason reason) {
         write(() -> recorder.endOpen(run, outcome, reason));
     }
@@ -61,7 +57,6 @@ final class Steps {
         }
     }
 
-    /** One step's row, open until it is ended, and the facts written against it. */
     final class Step {
 
         private final long id;
@@ -92,7 +87,6 @@ final class Steps {
             }
         }
 
-        /** An artefact the step resolves, installs or sees, with what it goes from and to. */
         Step change(
                 final String artefact,
                 final @Nullable String from,

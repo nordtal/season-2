@@ -9,13 +9,15 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the sources answered, written as the run's resolve steps: one per service with the artefacts that move.
+ * Writes what the sources answered as resolve steps, one per service with artefacts that move.
  *
  * The plan's records of the sources give each step its outcome and reason; a record of no service is the run's.
  */
 final class Resolved {
 
-    /** The reason each kind of record of the sources stands for; any other that is not done failed its source. */
+    /**
+     * Maps each kind of source record to a reason. Any other record that is not done failed its source.
+     */
     private static final Map<String, RunStep.Reason> REASONS = Map.of(
             "report.images-unread", RunStep.Reason.UNVERIFIABLE,
             "report.images-uncompared", RunStep.Reason.UNVERIFIABLE,
@@ -41,7 +43,7 @@ final class Resolved {
         }
     }
 
-    /** Writes one resolve step per service that has work or a record, each with the artefacts that move. */
+    /** Writes one resolve step for each service that has work or a record. */
     static void services(final Steps record, final UpdateReport planned) {
         for (final UpdateReport.ServiceLine line : planned.services()) {
             final List<UpdateReport.Change> moving = line.changes().stream()
@@ -88,7 +90,6 @@ final class Resolved {
                 .orElse(Ended.DONE);
     }
 
-    /** The version a change goes to, or none when no version names it. */
     private static @Nullable String versionOf(final UpdateReport.Change change) {
         return UpdateReport.Change.NONE.equals(change.to()) ? null : change.to();
     }

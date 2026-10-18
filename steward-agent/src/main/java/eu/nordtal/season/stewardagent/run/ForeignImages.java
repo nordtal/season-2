@@ -17,14 +17,13 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-/** What {@link Runner} puts into a plan about every image, and the images it renews once the rest is back. */
+/** Plans the images of the services that are not ours and recreates the stale ones. */
 final class ForeignImages {
 
     private ForeignImages() {}
 
     /**
-     * Puts what the registries say about the images into the plan, so that a stale image is work.
-     * Never the agent's own, which a one-shot renews, one no label lets a run renew, or one nobody could check.
+     * Adds what the registries say about the images to the plan, so that a stale image is work.
      *
      * @param scope the services this run is for, empty for the whole network; nothing outside it gets a line
      */
@@ -37,7 +36,7 @@ final class ForeignImages {
         final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
         UpdateReport report = planned;
 
-        // Named first: an image that could not be compared is UNKNOWN, never silently current.
+        // An image that could not be compared is UNKNOWN, never current.
         if (!images.unverifiable().isEmpty()) {
             final List<String> unverifiable =
                     images.unverifiable().stream().sorted().toList();
@@ -68,11 +67,11 @@ final class ForeignImages {
             }
             final String service = entry.getKey();
             if (AgentWire.SERVICE.equals(service) || Topology.MIGRATE.equals(service)) {
-                // The agent is handed over and renewed last; migrate runs from the install, made new by it.
+                // The one-shot recreates the agent last, and migrate runs from the install.
                 continue;
             }
             if (renewedAfter.contains(service)) {
-                // Renewed later by #renewForeign; no line here, since `stop` acts on lines.
+                // {@code renewForeign} recreates it, and {@code stop} acts only on lines.
                 continue;
             }
             if (!recreatable.contains(service)) {
@@ -94,7 +93,7 @@ final class ForeignImages {
     }
 
     /**
-     * The services renewed once the rest is back, in renewal order: postgres last, as the report goes through it.
+     * Returns the services recreated once the rest is back, postgres last.
      *
      * Each tag pins a major version, which a run must never change: Postgres will not start on another's data.
      */
@@ -105,15 +104,14 @@ final class ForeignImages {
                 .toList();
     }
 
-    /** Those of {@link #foreign} that are {@code OUTDATED}, in its order. */
     static List<String> staleForeign(final AgentWire.Topology topology, final ImageResult images) {
         return foreign(topology).stream().filter(images::isOutdated).toList();
     }
 
     /**
-     * Makes each of them again after the Minecraft services are back, pulling first when asked, then waits for health.
+     * Recreates the stale services once Minecraft is back, pulling first when asked, and waits for health.
      *
-     * A failure fails the line and the run, and rolls nothing back: the old container keeps running.
+     * A failure fails the line and the run. The old container keeps running.
      */
     static UpdateReport renewForeign(
             final ContainerOps containers,
@@ -159,7 +157,7 @@ final class ForeignImages {
                             null)));
             progress.accept(report);
         }
-        // This process writes the run's final report through postgres after returning from here.
+        // The caller writes the final report of the run.
         return asked.isEmpty() ? report : run.verify(report, asked, waiting);
     }
 }

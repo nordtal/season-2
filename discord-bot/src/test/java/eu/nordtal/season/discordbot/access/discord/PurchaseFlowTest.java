@@ -43,7 +43,7 @@ class PurchaseFlowTest {
 
         assertAll(
                 () -> assertEquals(
-                        "How long do you want access for?",
+                        "How long do you want access?",
                         ((TextDisplay) drawn.components().getFirst()).getContent()),
                 () -> assertEquals(Ids.DAYS_SELECT, select.getCustomId()),
                 () -> assertEquals(
@@ -83,7 +83,7 @@ class PurchaseFlowTest {
         assertAll(
                 () -> assertEquals("""
                         **30 days of access** for €5.00.
-                        Including a €3.00 donation, which grants the permanent donor role.
+                        This includes a donation of €3.00. It gives you the permanent donor role.
                         Total: **€8.00**""", ((TextDisplay) drawn.components().getFirst()).getContent()),
                 () -> assertEquals(
                         "Remove the donation",

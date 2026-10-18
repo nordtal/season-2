@@ -12,8 +12,7 @@ public final class Shutdown {
      * Loads this class while its jar exists.
      * Call it in {@code onEnable}, so that a replaced jar does not break {@code onDisable}.
      */
-    public static void warmUp() {
-    }
+    public static void warmUp() {}
 
     /** Runs {@code step}, and logs a failure with the text {@code what} instead of throwing it. */
     public static void quietly(final String what, final Runnable step, final BiConsumer<String, Throwable> warn) {

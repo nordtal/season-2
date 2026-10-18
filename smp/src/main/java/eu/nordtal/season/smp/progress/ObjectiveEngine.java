@@ -124,7 +124,7 @@ public final class ObjectiveEngine implements Contributions {
         return settled.credited();
     }
 
-    /** Computes the spin share of each row with {@link Payout#shareOf} over the contributions so far. */
+    /** Computes the spin share of each row with {@link Payout#shareOf}: what completing the objective now pays. */
     @Override
     public List<OwnContributionRow> ownContributions(final String milestoneKey, final DiscordId discordId) {
         final Optional<Milestone> milestone = track.get().milestone(milestoneKey);
@@ -145,7 +145,7 @@ public final class ObjectiveEngine implements Contributions {
                             row.key(),
                             row.mine(),
                             row.target(),
-                            Payout.shareOf(budget, row.target(), contributions, discordId.value()),
+                            Payout.shareOf(budget, row.reached(), row.target(), contributions, discordId.value()),
                             budget);
                 })
                 .toList();
@@ -262,8 +262,7 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Splits the aura and spin budgets of the objective among its contributors with {@link Payout}.
-     * Both budgets are scaled by {@link Payout#scaled} to the amount reached.
+     * Pays the aura and spin budgets of the objective to its contributors with {@link Payout#paid}.
      */
     private void payOut(final ObjectiveRow objective, final Objective definition, final String milestoneKey) {
         final List<ContributionRow> contributors = progress.contributionsOf(objective.id());
@@ -275,20 +274,26 @@ public final class ObjectiveEngine implements Contributions {
             contributions.put(row.discordId().value(), row.amount());
         }
 
-        final int auraBudget = Payout.scaled(definition.auraBudget(), objective.amount(), objective.target());
-        final int spinBudget = Payout.scaled(definition.spinBudget(), objective.amount(), objective.target());
+        final List<Payout.Share> auraShares =
+                byPlayer(Payout.paid(definition.auraBudget(), objective.amount(), objective.target(), contributions));
+        final List<Payout.Share> spinShares =
+                byPlayer(Payout.paid(definition.spinBudget(), objective.amount(), objective.target(), contributions));
 
         // Paying in the order of the player id makes concurrent payouts lock rows in the same order.
-        for (final Payout.Share share : byPlayer(Payout.split(auraBudget, objective.target(), contributions))) {
+        for (final Payout.Share share : auraShares) {
             aura.addAura(
                     DiscordId.of(share.contributorId()), share.total(), new AuraCause.Contribution(objective.id()));
         }
-        for (final Payout.Share share : byPlayer(Payout.split(spinBudget, objective.target(), contributions))) {
+        for (final Payout.Share share : spinShares) {
             prizes.grant(DiscordId.of(share.contributorId()), share.total());
         }
         plugin.getLogger()
                 .info("objective " + milestoneKey + "/" + objective.key() + " paid " + contributions.size()
-                        + " contributor(s) out of " + auraBudget + " aura and " + spinBudget + " spins");
+                        + " contributor(s) " + sum(auraShares) + " aura and " + sum(spinShares) + " spins");
+    }
+
+    private static int sum(final List<Payout.Share> shares) {
+        return shares.stream().mapToInt(Payout.Share::total).sum();
     }
 
     /** Returns the shares with a positive total, sorted by player id. */

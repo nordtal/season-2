@@ -24,7 +24,53 @@ public final class Payout {
     /** The least that a qualifier receives from the equal part. */
     public static final int MINIMUM_QUALIFIER_SHARE = 1;
 
+    /** The least that every contributor of a completed objective receives while the full budget lasts. */
+    public static final int MINIMUM_SHARE = 1;
+
     private Payout() {}
+
+    /**
+     * Splits the {@link #scaled} budget, raised to {@link #MINIMUM_SHARE} per contributor and capped at {@code budget}.
+     * A contributor the split leaves below the minimum takes it from the largest share.
+     *
+     * @param contributions the amount per {@code discord_id}, entries of zero or less are ignored
+     * @return one share per positive contribution, sorted by total descending, then by id; empty for a budget of 0
+     */
+    public static List<Share> paid(
+            final int budget, final long reached, final long target, final Map<String, Long> contributions) {
+        final Map<String, Long> positive = new LinkedHashMap<>();
+        contributions.forEach((id, amount) -> {
+            if (id != null && amount != null && amount > 0L) {
+                positive.put(id, amount);
+            }
+        });
+        final long minimums = (long) positive.size() * MINIMUM_SHARE;
+        final int total = (int) Math.min(budget, Math.max(scaled(budget, reached, target), minimums));
+        final Map<String, Share> shares = new LinkedHashMap<>();
+        split(total, target, positive).forEach(share -> shares.put(share.contributorId(), share));
+        for (final String id : ranked(positive, positive.keySet())) {
+            while (shares.containsKey(id) && shares.get(id).total() < MINIMUM_SHARE) {
+                final Share donor = sorted(shares.values()).get(0);
+                if (donor.total() <= MINIMUM_SHARE) {
+                    break;
+                }
+                shares.put(
+                        donor.contributorId(),
+                        donor.proportional() > 0
+                                ? new Share(donor.contributorId(), donor.equal(), donor.proportional() - 1)
+                                : new Share(donor.contributorId(), donor.equal() - 1, 0));
+                final Share share = shares.get(id);
+                shares.put(id, new Share(id, share.equal(), share.proportional() + 1));
+            }
+        }
+        return sorted(shares.values());
+    }
+
+    private static List<Share> sorted(final java.util.Collection<Share> shares) {
+        return shares.stream()
+                .sorted(Comparator.comparingInt(Share::total).reversed().thenComparing(Share::contributorId))
+                .toList();
+    }
 
     /**
      * The payout to one contributor.
@@ -141,16 +187,20 @@ public final class Payout {
     }
 
     /**
-     * Returns the total that {@link #split} gives {@code contributorId}, or zero for a {@code target} of zero or less.
+     * Returns the total that {@link #paid} gives {@code contributorId}, or zero for a {@code target} of zero or less.
      *
      * @param contributions the amount per {@code discord_id}
      */
     public static int shareOf(
-            final int budget, final long target, final Map<String, Long> contributions, final String contributorId) {
+            final int budget,
+            final long reached,
+            final long target,
+            final Map<String, Long> contributions,
+            final String contributorId) {
         if (target <= 0) {
             return 0;
         }
-        return split(budget, target, contributions).stream()
+        return paid(budget, reached, target, contributions).stream()
                 .filter(share -> share.contributorId().equals(contributorId))
                 .mapToInt(Share::total)
                 .findFirst()

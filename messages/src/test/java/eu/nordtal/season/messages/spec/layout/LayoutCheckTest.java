@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.messages.Tone;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /** A layout's tree against its elements, against the specs of the keys it places and against what Discord draws. */
@@ -137,7 +138,7 @@ class LayoutCheckTest {
                         "layouts/broken: a section holds something other than text blocks",
                         "layouts/broken: a gallery holds 0 images, Discord draws 1 to 10",
                         "layouts/broken: a text block has no lines",
-                        "layouts/broken: an image is at ftp://example.org/a.png, neither attachment:// nor https://",
+                        "layouts/broken: an image is at ftp://example.org/a.png, not attachment://, upload:// or https://",
                         "layouts/broken: a row holds a select beside something else"),
                 problems(withParts(
                         List.of(
@@ -167,5 +168,48 @@ class LayoutCheckTest {
     @Test
     void twoLayoutsOfOneNameInOneBundleAreRefused() {
         assertEquals(List.of("layouts/prices: declared more than once"), problems(PRICES, PRICES));
+    }
+
+    @Test
+    void aRebuildThatMovesTheCodesElementsAndAddsTextsLinksAndUploadsIsSound() {
+        final Layout rebuild = Layout.discord(
+                "layouts",
+                "prices",
+                "Contribution",
+                List.of(
+                        Element.button("buy", "layouts/buy"),
+                        Element.list("tiers", "layouts/tier"),
+                        Element.link("site", "https://nordtal.eu", Map.of("en", "Site", "de", "Seite"))),
+                row("buy", "site"),
+                container(
+                        Tone.BRAND,
+                        Part.text(Line.added(Line.Style.TITLE, Map.of("en", "Hello {player}"))),
+                        Part.text(heading("layouts/prices"), list("tiers")),
+                        gallery("upload://7")));
+
+        assertEquals(List.of(), LayoutCheck.rebuildProblems(PRICES, rebuild));
+        assertEquals(
+                List.of(Map.of("en", "Hello {player}"), Map.of("de", "Seite", "en", "Site")), rebuild.addedTexts());
+    }
+
+    @Test
+    void aRebuildThatDropsAnElementOrPlacesAForeignKeyIsRefused() {
+        final Layout rebuild = Layout.discord(
+                "layouts",
+                "prices",
+                "Contribution",
+                List.of(Element.list("tiers", "layouts/tier"), Element.link("site", "ftp://nordtal.eu", Map.of())),
+                Part.text(text("layouts/count"), list("tiers"), new Line("layouts/title", "tiers", null)),
+                row("site"));
+
+        assertEquals(
+                List.of(
+                        "it does not keep the elements the code fills in as declared",
+                        "it places layouts/count, which the layout does not",
+                        "a line is not one of a key, a data list or an added text",
+                        "its link button site opens no https:// address",
+                        "its link button site has no label",
+                        "places its element tiers 2 times"),
+                LayoutCheck.rebuildProblems(PRICES, rebuild));
     }
 }

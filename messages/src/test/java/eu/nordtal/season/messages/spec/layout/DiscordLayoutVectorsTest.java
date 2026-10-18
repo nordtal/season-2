@@ -95,6 +95,7 @@ class DiscordLayoutVectorsTest {
                     case BUTTON -> Set.of("id");
                     case SELECT -> Set.of("id", "options");
                     case LIST -> Set.of("items");
+                    case LINK -> Set.of();
                     case LANGUAGES -> Set.of("languages");
                 };
                 if (filled == null || !filled.keySet().equals(expected)) {

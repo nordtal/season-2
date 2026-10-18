@@ -109,6 +109,14 @@ an element missing, placed twice or placed where its kind does not belong, a key
 (`MessageBundle.layouts`). A key shown in two or more layouts is a building block of them
 (`LayoutSchema.buildingBlocks`).
 
+An editor's rebuild of a layout keeps its identity and the elements the code fills in, and may move
+them, place fewer keys, add a line of its own text per language (`Line.added`) and link buttons
+(`Element.link`, an `https://` address and a label per language). `LayoutCheck.rebuildProblems`
+holds it to the packaged layout, whose `LayoutSchema.hash` it keeps. An image is
+`attachment://`, `https://` or `upload://<id>`, an image an admin uploaded in Steward, which the
+bot sends as an attachment. Steward stores rebuilds in the database (`LayoutStore`), and the bot
+re-reads them on `nordtal_messages`.
+
 The vectors in `src/test/resources/discord-layouts.json` give a declaration, its texts, what the code
 fills in and the components Discord is sent; `DiscordLayoutVectorsTest` holds the declaration and the
 filling to the specs.

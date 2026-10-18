@@ -1008,9 +1008,9 @@
               "code": "FE20A",
               "constant": "GUI_WHEEL_RING",
               "texture": "nordtal:ui/gui/wheel_ring.png",
-              "height": 204,
+              "height": 222,
               "ascent": 13,
-              "about": "The wheel's panel, 176 by 204: a band round twelve prize cells, a hub, and a white frame on the winning cell."
+              "about": "The wheel's panel, 176 by 222: a band round twelve prize cells on rows 1 to 5, a hub, a white frame on the winning cell and a pointer above it on row 0."
             },
             {
               "code": "FE210",

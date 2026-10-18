@@ -37,7 +37,4 @@ public interface Failures {
 
     @Name("Bot silent")
     MessageRef botSilent();
-
-    @Name("No points")
-    MessageRef noPoints();
 }

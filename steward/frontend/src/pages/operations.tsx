@@ -1,6 +1,5 @@
-import { ArrowRightIcon, CheckIcon, CopyIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -557,33 +556,5 @@ function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string
         })}
       </TableBody>
     </Table>
-  )
-}
-
-/**
- * Copies to the clipboard and spells out a failure, because `navigator.clipboard` needs a secure context.
- */
-export function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
-  const [copied, setCopied] = useState(false)
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      disabled={disabled}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text)
-          setCopied(true)
-          window.setTimeout(() => setCopied(false), 2000)
-          toast.success(t("steward.operations.command-copied"))
-        } catch {
-          toast.error(t("steward.operations.cannot-copy"))
-        }
-      }}
-    >
-      {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
-      {copied ? t("steward.operations.copied") : t("steward.operations.copy")}
-    </Button>
   )
 }

@@ -11,6 +11,7 @@
     "**/package-lock.json",
     "resource-pack/src/**",
     "**/src/test/resources/**",
-    "steward/frontend/src/lib/texts.gen.json"
+    "steward/frontend/src/lib/texts.gen.json",
+    "steward/frontend/src/lib/text-pages.gen.json"
   ]
 }

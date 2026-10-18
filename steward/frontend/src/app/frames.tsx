@@ -1,4 +1,5 @@
 import { Outlet } from "@tanstack/react-router"
+import type { CSSProperties } from "react"
 
 import { NavList } from "@/app/app-sidebar"
 import { useCrumbs } from "@/app/breadcrumbs"
@@ -14,7 +15,7 @@ import { useSidebar } from "@/components/ui/sidebar"
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
   return (
-    <div className="relative flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] [--page-gutter:var(--gutter)] md:[--gutter:1.5rem]">
+    <div className="relative flex h-(--app-height) w-full bg-background [--col:17rem] [--gutter:1rem] [--page-gutter:var(--gutter)] md:[--gutter:1.5rem]">
       {nav.isMobile ? <PhoneFrame me={me} nav={nav} /> : <DesktopFrame me={me} nav={nav} />}
     </div>
   )
@@ -38,7 +39,7 @@ function useNav() {
 }
 
 /**
- * Opening the column moves nothing in the island. The island drops its surface and path and becomes the head of the column.
+ * Opening the column moves nothing in the island. The island drops its surface and path and becomes the head of the column, search and account included.
  */
 function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle } = nav
@@ -59,7 +60,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       </aside>
 
       <div
-        className={`fixed top-(--island-top) left-(--gutter) z-50 gap-2 flex max-w-[calc(100vw-2*var(--gutter)-7rem)] items-center rounded-xl border p-1 transition-[background-color,border-color,box-shadow] ${MOTION} ${
+        className={`fixed top-(--island-top) left-(--gutter) z-50 gap-2 flex max-w-[calc(100vw-2*var(--gutter))] items-center rounded-xl border p-1 transition-[background-color,border-color,box-shadow] ${MOTION} ${
           shown ? "border-transparent bg-transparent shadow-none" : "border-border bg-card shadow-sm"
         }`}
       >
@@ -75,18 +76,25 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         >
           <Trail crumbs={crumbs} />
         </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <SearchButton />
+          <UserMenu me={me} align="start" plain />
+        </div>
       </div>
 
-      <div className="fixed top-(--island-top) right-(--gutter) z-30 flex items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-sm">
-        <SearchButton />
-        <UserMenu me={me} plain />
-      </div>
-
+      {/* `--content-top` is the room the closed column's island takes above the page, and zero beside the open column. */}
       <div
         className={`flex min-w-0 flex-1 flex-col transition-[margin] ${MOTION}`}
-        style={{ marginLeft: shown ? "var(--col)" : 0 }}
+        style={
+          {
+            marginLeft: shown ? "var(--col)" : 0,
+            "--content-top": shown ? "0px" : "calc(var(--island-top) + var(--control-min-height) + 10px)",
+          } as CSSProperties
+        }
       >
-        <Content className="pt-[calc(var(--island-top)+var(--control-min-height)+2.125rem)] [--content-bottom:max(1.5rem,env(safe-area-inset-bottom))]" />
+        <Content
+          className={`pt-[calc(var(--content-top)+1.5rem)] transition-[padding-top] ${MOTION} [--content-bottom:max(1.5rem,env(safe-area-inset-bottom))]`}
+        />
       </div>
     </>
   )

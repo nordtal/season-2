@@ -125,6 +125,15 @@ describe("the frame on a desktop", () => {
     expect((await screen.findByRole("link", { name: /smp/ })).getAttribute("aria-current")).toBe("page")
   })
 
+  it.each([true, false])("carries search and account in the island with the navigation open: %s", async (open) => {
+    drawAt("/services/smp", { open })
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
+    expect(within(island).getByRole("button", { name: "Search pages" })).toBeTruthy()
+    expect(within(island).getByRole("button", { name: /Account/ })).toBeTruthy()
+  })
+
   it("has the account within reach of the island, and opens the settings from it", async () => {
     drawAt("/")
 

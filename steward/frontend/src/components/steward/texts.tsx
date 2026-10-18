@@ -391,7 +391,7 @@ function Card({
         data-open
         className="grid min-w-0 grid-cols-1 items-start gap-4 rounded-lg border p-3 lg:grid-cols-2"
       >
-        <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4">
+        <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]">
           {[ENGLISH, ...(editing.beside ? [editing.beside] : [])].map((language) => (
             <DocumentPreview key={language} declaration={card.view.declaration} document={draft} language={language} />
           ))}

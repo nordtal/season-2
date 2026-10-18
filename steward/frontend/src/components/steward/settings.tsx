@@ -77,7 +77,10 @@ export function ServiceSettings({
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
       <nav
         aria-label={t("steward.settings.files")}
-        className={cn("flex flex-col gap-0.5 lg:sticky lg:top-4", file !== undefined && "max-lg:hidden")}
+        className={cn(
+          "flex flex-col gap-0.5 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]",
+          file !== undefined && "max-lg:hidden",
+        )}
       >
         {failure ? <Failure error={failure} /> : null}
         {loading ? (

@@ -42,7 +42,7 @@ class ContainersImagesTest {
             try {
                 closeable.close();
             } catch (Exception ignored) {
-                // A test that is already over.
+                // The test is over.
             }
         }
     }
@@ -96,7 +96,7 @@ class ContainersImagesTest {
 
     @Test
     void aGenuinelyPulledCurrentImageStillComesBackUpToDate() throws IOException {
-        // The fix must not blunt the check that already works: a Pull image with a matching digest is still current.
+        // A Pull image with a matching digest is current.
         final String digest = "c36a132e4bfe218c139d1459b70049fe3e4dabf2c28bec2b725da73ce97c2cb4";
         final Containers ops = ops(request -> {
             if (request.contains("/images/")) {
@@ -283,7 +283,7 @@ class ContainersImagesTest {
                     final String body = answer.to(request);
                     final String head;
                     if (body == null) {
-                        // 404, the shape a daemon sends for an image it no longer has.
+                        // The 404 of a daemon for an image it no longer has.
                         final String notFound = "{\"message\":\"No such image\"}";
                         head = "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n"
                                 + "Content-Length: " + notFound.getBytes(StandardCharsets.UTF_8).length

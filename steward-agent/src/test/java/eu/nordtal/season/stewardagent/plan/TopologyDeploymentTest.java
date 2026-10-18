@@ -34,10 +34,12 @@ class TopologyDeploymentTest {
     private static final List<Topology.Service> SERVERS =
             DeclaredTopology.topology().servers();
 
-    /** The compose service running PostgreSQL, which every process with a login reaches. */
+    /** The compose service that runs PostgreSQL. */
     private static final String DATABASE = "postgres";
 
-    /** Every service that runs one of our jars on the image template; each writes the readiness marker. */
+    /**
+     * Every service that runs a jar of ours on the image template. Each writes the readiness marker.
+     */
     private static final List<String> JVM_SERVICES =
             List.of(Topology.DISCORD_BOT, Topology.STEWARD, AgentWire.SERVICE, BankWire.SERVICE);
 
@@ -45,7 +47,7 @@ class TopologyDeploymentTest {
 
     @Test
     void noServiceOfOursRunsAJarFromAVolume() {
-        // A jar in a volume outlives the image it came with, and nothing but the image may say which version runs.
+        // A jar in a volume outlives its image, so only the image says which version runs.
         final String entrypoint = RepositoryRoot.read("deploy/jvm/entrypoint.sh");
         assertFalse(entrypoint.contains("JAR_DIR"), "deploy/jvm/entrypoint.sh picks a jar from a directory again");
         for (final String name : JVM_SERVICES) {
@@ -163,7 +165,7 @@ class TopologyDeploymentTest {
         final ComposeFile.Service agent = compose.service(AgentWire.SERVICE);
         assertEquals(agent.text("image"), migrate.text("image"), "the schema is the agent's release's");
         assertEquals(List.of(Compose.MIGRATE), migrate.list("command"));
-        // Restarted, an exited migration would run on a loop; completed, it is what everything waits for.
+        // A restarted migration that exited would run in a loop.
         assertEquals(Optional.of("no"), migrate.text("restart"));
         assertFalse(migrate.has("profiles"), "a selection without the migrate service starts nothing");
         assertFalse(
@@ -200,7 +202,7 @@ class TopologyDeploymentTest {
         assertTrue(
                 saved.contains(project() + "_mc-hunger-games"),
                 "the backup does not save the hunger games world: " + saved);
-        // A snapshot of a running PGDATA fails at RESTORE and nowhere else; the database is dumped instead.
+        // A snapshot of a running PGDATA fails at RESTORE, so the database is dumped instead.
         assertTrue(
                 saved.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
                 "the backup tars a live database directory: " + saved);
@@ -223,20 +225,20 @@ class TopologyDeploymentTest {
         final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
         for (final String mount : compose.service(AgentWire.SERVICE).mounts()) {
             if (destinationOf(mount).startsWith(root)) {
-                // A restore unpacks into the same mount the backup reads, so a read-only one fails only then.
+                // A restore unpacks into the mount the backup reads, so a read-only mount fails only then.
                 assertFalse(mount.endsWith(":ro"), "steward-agent mounts " + destinationOf(mount) + " read-only");
             }
         }
     }
 
-    /** The compose project name, which is the prefix Docker puts on every volume in it. */
+    /** The compose project name, which Docker puts in front of every volume. */
     private String project() {
         return compose.projectName()
                 .orElseThrow(() -> new AssertionError("compose.yml has no top-level name:, so the"
                         + " volume prefix is the directory name and depends on where somebody cloned this repository"));
     }
 
-    /** The volumes a backup saves: every mount under steward-agent's backup sources, as the agent reads them. */
+    /** The volumes a backup saves: every mount under the backup sources of steward-agent. */
     private List<String> backupSet() {
         final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
         final List<String> saved = new java.util.ArrayList<>();
@@ -308,7 +310,7 @@ class TopologyDeploymentTest {
 
     @Test
     void everyServiceNameStewardLooksUpIsAServiceComposeYmlDefines() {
-        // A name the code uses that compose.yml lacks cannot be found or stopped; steward looks itself up too.
+        // A name that compose.yml lacks cannot be found or stopped. Steward looks itself up too.
         final List<String> asked = List.of(
                 Topology.PROXY,
                 Topology.LIMBO,
@@ -440,7 +442,7 @@ class TopologyDeploymentTest {
         }
     }
 
-    /** {@link RunSpec} answering nothing but its own defaults. */
+    /** A {@link RunSpec} with its defaults only. */
     private static RunSpec defaults() {
         return new RunSpec() {
 
@@ -485,7 +487,7 @@ class TopologyDeploymentTest {
         return ComposeFile.sourceOf(mount);
     }
 
-    /** The container path a mount lands on, whatever the source expression contains. */
+    /** The container path of a mount, whatever its source expression contains. */
     private static String destinationOf(final String mount) {
         final String withoutMode =
                 mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
@@ -510,7 +512,9 @@ class TopologyDeploymentTest {
                                 + " comes up without somebody asking for a run."));
     }
 
-    /** Every image of ours, as compose.yml names it: the one prefix, the repository, then the release. */
+    /**
+     * Every image of ours as compose.yml names it: the prefix, the repository, then the release.
+     */
     private static final java.util.regex.Pattern OURS = java.util.regex.Pattern.compile(
             "\\$\\{NORDTAL_IMAGES:-ghcr\\.io/nordtal}/([a-z-]+):\\$\\{NORDTAL_RELEASE:\\?[^}]+}");
 
@@ -597,7 +601,7 @@ class TopologyDeploymentTest {
 
     @Test
     void packetEventsReallyIsRequiredBySmpWhichIsWhyTheTopologyListsIt() {
-        // Checked against the manifest that enforces it rather than against a comment about it.
+        // The manifest is the rule, and a comment about it is not.
         final String manifest = "smp/src/main/resources/paper-plugin.yml";
         final String text = RepositoryRoot.read(manifest);
 
@@ -611,7 +615,7 @@ class TopologyDeploymentTest {
 
     @Test
     void noMinecraftServiceExistsInComposeYmlThatTheTopologyDoesNotKnowAbout() {
-        // Catches a backend added to compose.yml and not here, which steward would then quietly never touch.
+        // Catches a backend that compose.yml has and this list lacks, which steward would never touch.
         final Set<String> known = new LinkedHashSet<>();
         SERVERS.forEach(service -> known.add(service.name()));
         // The standbys are Minecraft services too, deliberately no servers: their jars are copied.
@@ -630,10 +634,10 @@ class TopologyDeploymentTest {
 
     @Test
     void everyVariableTheMinecraftEntrypointReadsIsAVariableComposeYmlPassesIn() {
-        // Written as "every knob" rather than one name, so a variable added later arrives already covered.
+        // Every knob, so a variable added later is covered.
         final String entrypoint = RepositoryRoot.read("deploy/minecraft/entrypoint.sh");
 
-        // `VAR="${VAR:-...}"` is how the entrypoint states a knob with a default; the quote is part of the shape.
+        // The entrypoint states a knob with a default as `VAR="${VAR:-...}"`, quote included.
         final java.util.Set<String> knobs = new LinkedHashSet<>();
         final java.util.regex.Matcher reads = java.util.regex.Pattern.compile(
                         "^([A-Z][A-Z0-9_]+)=\"?\\$\\{\\1:-", java.util.regex.Pattern.MULTILINE)
@@ -645,7 +649,7 @@ class TopologyDeploymentTest {
                 knobs.contains("JVM_OPTS"),
                 "the entrypoint no longer reads JVM_OPTS the way this test recognises a knob - " + knobs);
 
-        // DATA and LEVEL_NAME are deliberately internal: a knob is wired into compose or listed here, never dropped.
+        // DATA and LEVEL_NAME are internal. Every other knob is wired into compose or listed here.
         final java.util.Set<String> internal = java.util.Set.of("DATA", "LEVEL_NAME");
         knobs.removeAll(internal);
 

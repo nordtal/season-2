@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The loop, without a network, a database or four volumes.
  *
- * It checks when the loop wakes for a due restart, and that a drain empties the queue rather than taking one row.
+ * It checks when the loop wakes for a due restart and that a drain empties the queue.
  */
 class UpdateServerTest {
 
@@ -45,7 +45,7 @@ class UpdateServerTest {
 
     @Test
     void aCountdownEndingSoonerThanThePollShortensTheWaitToExactlyThat() {
-        // The bug this exists to avoid: a slow poll firing a restart seconds after the counter hit zero on camera.
+        // A slow poll must not fire a restart seconds after the counter hit zero.
         directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(4));
 
         assertEquals(
@@ -55,7 +55,7 @@ class UpdateServerTest {
 
     @Test
     void workThatIsAlreadyOverdueStillWaitsASecond() {
-        // A row that is due but cannot be claimed would otherwise spin this loop as fast as the database can answer.
+        // A row that is due and cannot be claimed would make the loop spin.
         directory.at(NOW.minusSeconds(30));
         directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         directory.at(NOW);
@@ -110,7 +110,7 @@ class UpdateServerTest {
 
     @Test
     void aWakeUpDrainsLongBeforeTheWaitRunsOut() throws Exception {
-        // The hub rings on every signal and every reconnect; the wait itself is only the reconciliation.
+        // The hub rings on every signal and every reconnect. The wait is only the reconciliation.
         final CountDownLatch ran = new CountDownLatch(1);
         final UpdateServer server = new UpdateServer(
                 directory,
@@ -126,7 +126,7 @@ class UpdateServerTest {
         thread.setDaemon(true);
         thread.start();
         try {
-            // Parked on the doorbell first, so the row can only be found through the wake-up.
+            // Parked on the doorbell first, so the row is found only through the wake-up.
             final long parked = System.nanoTime() + Duration.ofSeconds(5).toNanos();
             while (thread.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < parked) {
                 Thread.onSpinWait();
@@ -141,7 +141,9 @@ class UpdateServerTest {
         assertFalse(thread.isAlive(), "close() has to end the wait, not only the next drain");
     }
 
-    /** A run handed to a one-shot stays open: the one-shot settles it, and until then it keeps every other run out. */
+    /**
+     * A run handed to a one-shot stays open until the one-shot settles it, and keeps every other run out.
+     */
     @Test
     void aRunHandedToAOneShotIsLeftOpenForIt() {
         final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
@@ -160,7 +162,9 @@ class UpdateServerTest {
         assertTrue(directory.finished().isEmpty(), directory.finished().toString());
     }
 
-    /** Once the one-shot is gone without settling its row, the next wake-up fails the row, so the lock is let go. */
+    /**
+     * When the one-shot is gone without settling its row, the next wake-up fails the row and releases the lock.
+     */
     @Test
     void aRunWhoseOneShotIsGoneIsFailedAtTheNextWakeUp() {
         final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
@@ -185,7 +189,7 @@ class UpdateServerTest {
                 directory.find(submitted.id()).orElseThrow().status());
     }
 
-    /** While a run is handed to a one-shot the agent claims nothing, in the drain that handed it and after. */
+    /** While a run is handed to a one-shot, the agent claims nothing. */
     @Test
     void nothingIsClaimedUntilTheRunHandedToAOneShotIsSettled() {
         final UpdateRequest update = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
@@ -214,7 +218,7 @@ class UpdateServerTest {
         assertEquals(List.of(UpdateKind.UPDATE, UpdateKind.BACKUP), ran);
     }
 
-    /** The one-shot carries out the run handed to it, and only that one, and settles the row itself. */
+    /** The one-shot carries out only the run handed to it and settles the row itself. */
     @Test
     void theOneShotCarriesOutTheRunHandedToItAndSettlesIt() {
         final UpdateRequest handed = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);

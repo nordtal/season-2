@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** What a service's volumes are handed to before it starts, read from its definition as {@code config} prints it. */
+/**
+ * Tests the hand-over of a service's volumes before it starts, read from its definition as {@code config} prints it.
+ */
 class HandOverTest {
 
     private final Compose compose =

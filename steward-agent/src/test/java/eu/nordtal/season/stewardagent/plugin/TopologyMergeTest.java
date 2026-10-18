@@ -46,7 +46,7 @@ class TopologyMergeTest {
         assertTrue(find(merged, Topology.SMP).plugins().contains("worldedit"));
         assertFalse(find(merged, Topology.LIMBO).plugins().contains("worldedit"));
         assertFalse(find(merged, Topology.PROXY).plugins().contains("worldedit"));
-        // The fixed rows are still there and still first; reordering them would reorder every report.
+        // The fixed rows stay first, because reordering them would reorder every report.
         assertEquals(Topology.SMP, find(merged, Topology.SMP).plugins().getFirst());
     }
 
@@ -56,7 +56,7 @@ class TopologyMergeTest {
 
         final Topology.Service smp = find(merged, Topology.SMP);
         assertTrue(smp.optional().contains("worldedit"));
-        // An added plugin must not hold the SMP for lacking a build, like CoreProtect; the label's own stay required.
+        // An added plugin without a build, like CoreProtect, must not hold the SMP. The label's plugins stay required.
         assertFalse(smp.optional().contains(Topology.SMP));
         assertFalse(smp.optional().contains(Topology.PACKETEVENTS));
         // The jar prefixes the label gives survive the merge, since the plugins tab names a jar by them.
@@ -68,7 +68,7 @@ class TopologyMergeTest {
         final List<Topology.Service> merged = servicesWith(
                 List.of(added(Topology.PROXY, "simple-voice-chat"), added(Topology.SMP, "simple-voice-chat")));
 
-        // One Modrinth project, two jars: without the suffix both resolve to one artefact id, whichever wins.
+        // One Modrinth project with two jars: without the suffix both resolve to one artefact id.
         assertTrue(find(merged, Topology.PROXY).plugins().contains("simple-voice-chat-velocity"));
         assertFalse(find(merged, Topology.PROXY).plugins().contains("simple-voice-chat"));
         assertTrue(find(merged, Topology.SMP).plugins().contains("simple-voice-chat"));
@@ -76,7 +76,7 @@ class TopologyMergeTest {
 
     @Test
     void aRowNamingAServiceThatDoesNotExistIsIgnoredNotRefused() {
-        // A row addressed to a service name that no longer exists must not fail the resolve for the other services.
+        // A row for a service name that no longer exists must not fail the resolve of the other services.
         final List<Topology.Service> merged = servicesWith(List.of(added("network-control", "worldedit")));
 
         assertEquals(SERVERS.size(), merged.size());

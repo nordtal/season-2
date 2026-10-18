@@ -15,7 +15,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** What {@code compose config} says about the services, read the way a backup and a restore need it. */
+/**
+ * Tests what {@code compose config} says about the services, read as a backup and a restore need it.
+ */
 class ComposeTopologyTest {
 
     /** Two servers, the bot, and the agent mounting what a backup saves, as compose config prints them. */
@@ -115,7 +117,9 @@ class ComposeTopologyTest {
         assertEquals(List.of("migrate"), read.oneShots());
     }
 
-    /** The repository's own file: migrate exits by design, and a standby restarts like the service it stands in for. */
+    /**
+     * The file of the repository: migrate exits by design, and a standby restarts like the service it replaces.
+     */
     @Test
     void theRepositorysOnlyOneShotIsMigrate() {
         assertEquals(List.of("migrate"), DeclaredTopology.topology().oneShots());
@@ -140,7 +144,9 @@ class ComposeTopologyTest {
         assertNull(read.services().get(2).wiring());
     }
 
-    /** A wire to a service the page does not draw would end nowhere, so every name a wiring gives is drawn. */
+    /**
+     * A wire to a service the page does not draw would end nowhere, so every name a wiring gives is drawn.
+     */
     @Test
     void everyServiceTheRepositorysWiringNamesIsDrawn() {
         final List<AgentWire.Service> drawn = DeclaredTopology.topology().services().stream()

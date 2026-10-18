@@ -18,7 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The parser, fed a {@code /proc} that is a directory of captured text.
  *
- * The fixtures are captured from a real host and unedited, so a size in kB and a bare counter stay distinct.
+ * The fixtures are unedited captures of a real host, so a size in kB and a bare counter stay distinct.
  */
 class HostMetricsTest {
 
@@ -74,7 +74,7 @@ class HostMetricsTest {
     @TempDir
     Path proc;
 
-    /** The filesystem the temporary directory is on, a real one so the disk half is not faked. */
+    /** The filesystem of the temporary directory, a real one, so the disk half is not faked. */
     @TempDir
     Path disk;
 
@@ -109,7 +109,7 @@ class HostMetricsTest {
         assertEquals(5_493_088_256L, snapshot.memoryAvailableBytes());
         assertEquals(1_387_778_048L, snapshot.memoryFreeBytes());
 
-        // Available is nearly four times free, and that gap is why both are in the record, not just one.
+        // Available is nearly four times free, so the record holds both.
         assertTrue(snapshot.memoryAvailableBytes() > snapshot.memoryFreeBytes());
     }
 
@@ -138,7 +138,7 @@ class HostMetricsTest {
     void theFirstReadCannotKnowTheCpuPercentageAndSaysSoTheSecondCan() throws IOException {
         final HostMetrics metrics = metrics();
 
-        // A first reading is a counter since boot, and there is nothing to subtract it from.
+        // A first reading is a counter since boot with nothing to subtract it from.
         assertFalse(
                 metrics.read().cpuPercent().isPresent(),
                 "the first read has no previous reading and must not invent 0.0");
@@ -156,13 +156,13 @@ class HostMetricsTest {
         final HostMetrics metrics = metrics();
         metrics.read();
 
-        // What a caller polling faster than the jiffy resolution sees: dividing by a zero interval is a NaN.
+        // A caller that polls faster than the jiffy resolution divides by a zero interval and gets NaN.
         assertFalse(metrics.read().cpuPercent().isPresent());
     }
 
     @Test
     void aMissingMemavailableThrowsNamingTheFieldRatherThanReportingZero() throws IOException {
-        // MemAvailable has existed for a decade; its absence means this is not the file we think it is.
+        // MemAvailable has existed for a decade, and its absence means this is another file.
         write(
                 "meminfo",
                 MEMINFO.lines().filter(line -> !line.startsWith("MemAvailable")).reduce("", (a, b) -> a + b + "\n"));
@@ -176,7 +176,7 @@ class HostMetricsTest {
 
     @Test
     void aUnitThatIsNotKbThrowsQuotingTheLineRatherThanBeingReadAsKb() throws IOException {
-        // If the kernel ever prints a size in MB, reading it as kilobytes is wrong by 1024 and looks plausible.
+        // A size in MB read as kilobytes is wrong by 1024 and looks plausible.
         write("meminfo", MEMINFO.replace("MemTotal:       16372536 kB", "MemTotal:          15988 MB"));
 
         final IOException thrown =
@@ -194,7 +194,7 @@ class HostMetricsTest {
 
     @Test
     void theDiskHalfIsTheFilestoresWithUsedMeasuredAgainstUnallocated() throws IOException {
-        // Numbers move while the test runs on a live filesystem, so the snapshot must lie between two live reads.
+        // The numbers move on a live filesystem, so the snapshot lies between two live reads.
         final FileStore before = Files.getFileStore(disk);
         final long usedBefore = before.getTotalSpace() - before.getUnallocatedSpace();
         final long freeBefore = before.getUsableSpace();

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * How a stop ended, which the stop call itself does not say.
  *
- * A hand-written daemon reports the exit code at once, where a real one would wait out the grace period.
+ * A hand-written daemon reports the exit code at once, where a real one waits out the grace period.
  */
 class ContainersStopTest {
 
@@ -48,14 +48,14 @@ class ContainersStopTest {
             try {
                 closeable.close();
             } catch (Exception ignored) {
-                // A test that is already over.
+                // The test is over.
             }
         }
     }
 
     @Test
     void aContainerDockerHadToKillIsARefusedStopNotASuccessfulOne() throws IOException {
-        // 137 is SIGKILL after the grace period ran out mid-write: a world half saved, then tarred as a backup.
+        // 137 is SIGKILL after the grace period ran out mid-write, leaving a half-saved world that a backup tars.
         final RedeployResult result = ops(137).stop("smp-container");
 
         assertFalse(result.triggered(), result.message());
@@ -78,7 +78,7 @@ class ContainersStopTest {
 
     @Test
     void aContainerThatHasNotExitedAtAllIsNotReadAsKilled() throws IOException {
-        // -1 is "the daemon said nothing about it"; refusing on that would fail an older daemon lacking the field.
+        // -1 means the daemon said nothing, and refusing on it would fail an older daemon without the field.
         final RedeployResult result = ops(null).stop("smp-container");
 
         assertTrue(result.triggered());
@@ -105,7 +105,9 @@ class ContainersStopTest {
                         + " has to say what was not read: " + result.message());
     }
 
-    /** A one-shot is judged by how its last run ended, so the table carries when that was and the code. */
+    /**
+     * A one-shot is judged by how its last run ended, so the table carries the time and the code.
+     */
     @Test
     void aStoppedContainerSaysWhenItEndedAndWithWhatCodeAndOneThatNeverRanSaysNeither() throws IOException {
         final String finished = "{\"Status\":\"exited\",\"ExitCode\":3,\"StartedAt\":\"2026-10-06T01:00:00Z\","
@@ -265,7 +267,7 @@ class ContainersStopTest {
 
     @FunctionalInterface
     private interface Answer {
-        /** The JSON body, an empty string for a 204, or {@code null} to hang up unanswered. */
+        /** The JSON body, an empty string for a 204, or {@code null} to hang up. */
         String to(String request);
     }
 }

@@ -19,13 +19,11 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The stage directions of a run: the standbys it needs, what a failed one costs, and players still online.
+ * Tests the standbys a run needs, what a failed one costs, and the wait for players.
  *
- * Every clock is driven rather than slept through.
+ * Every clock is driven.
  */
 class ChoreographyTest {
-
-    // The trigger rule
 
     @Test
     void theLimboBringsALimboTheProxyBringsAProxyAndTheSmpBringsNeither() {
@@ -36,7 +34,7 @@ class ChoreographyTest {
                 Choreography.standbysFor(DeclaredTopology.topology(), Set.of("limbo", "proxy")),
                 "the order is compose.yml's, so a swap always starts the proxy first");
 
-        // A run that moves the SMP needs a waiting room the whole time, and if it leaves limbo alone, limbo IS it.
+        // A run that moves the SMP needs a waiting room, and when it leaves limbo alone, limbo is the waiting room.
         assertEquals(
                 List.of(),
                 Choreography.standbysFor(DeclaredTopology.topology(), Set.of("smp")),
@@ -51,8 +49,6 @@ class ChoreographyTest {
                 Choreography.standbysFor(DeclaredTopology.topology(), Set.of("hunger-games", "discord-bot")));
     }
 
-    // Opening the window
-
     @Test
     void theStandbysAreStartedBeforeAnythingElseHappensAndFromTheLocalImage() {
         final FakeContainers containers = new FakeContainers().running("proxy", "limbo", "smp");
@@ -62,7 +58,7 @@ class ChoreographyTest {
 
         assertTrue(window.opened(), Told.joined(window.refusal()));
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
-        // recreate-local, not recreate: the standby must run the image its live service runs, often built here.
+        // The standby must run the image its live service runs, which is often built here.
         assertEquals(
                 List.of("recreate-local:proxy-standby", "recreate-local:limbo-standby"),
                 containers.calls,
@@ -98,7 +94,7 @@ class ChoreographyTest {
         assertNotNull(refusal);
         assertTrue(refusal.contains("limbo-standby"), refusal);
         assertTrue(refusal.contains("unhealthy"), refusal);
-        // And it leaves nothing behind: a refused run does not park a second network on this host unnoticed.
+        // A refused run leaves no second network behind.
         assertTrue(
                 containers.calls.contains("stop:limbo-standby-container-2"),
                 "a refused window stops what it started - " + containers.calls);
@@ -118,8 +114,6 @@ class ChoreographyTest {
         assertTrue(window.isEmpty());
         assertEquals(List.of(), containers.calls, "an SMP-only run touches no standby at all");
     }
-
-    // Waiting for the players
 
     @Test
     void anEmptyServerIsNotWaitedForAtAll() {
@@ -160,7 +154,7 @@ class ChoreographyTest {
 
     @Test
     void nobodyHavingSaidIsNotNobodyBeingThere() {
-        // The failure this Optional exists for: a proxy that stopped writing must never be read as "zero players".
+        // A proxy that stopped writing is not read as zero players.
         final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
         final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
@@ -186,8 +180,6 @@ class ChoreographyTest {
                 said,
                 "each server keeps its own count, and no answer is told apart from players still on");
     }
-
-    // Closing the window
 
     @Test
     void theStandbyIsStoppedAgainOnceItIsEmptyAndOnlyOnce() {
@@ -248,8 +240,6 @@ class ChoreographyTest {
                 "it waited for the two players to go home before pulling the standby out" + " from under them");
     }
 
-    // The doubles
-
     private static Driven driven() {
         return new Driven();
     }
@@ -283,7 +273,7 @@ class ChoreographyTest {
         }
     }
 
-    /** An {@link Occupancy} that answers from a map, with no notion of staleness. */
+    /** An {@link Occupancy} that answers from a map and has no staleness. */
     private static final class Counts implements Occupancy {
 
         private final Map<String, Integer> players = new LinkedHashMap<>();

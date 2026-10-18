@@ -50,7 +50,7 @@ class EnvFileFreshnessTest {
 
     @Test
     void theRealPosixBackedLinkCountOfAnOrdinaryFileIsNotZero() throws IOException {
-        // No fake: the default LinkCounter must read an ordinary file as healthy too.
+        // The default LinkCounter must also read an ordinary file as healthy.
         tempEnvFile = Files.createTempFile("env-file-", ".env");
         Files.writeString(tempEnvFile, "DEMO_VALUE=before\n");
         final Compose compose = new Compose(Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2");

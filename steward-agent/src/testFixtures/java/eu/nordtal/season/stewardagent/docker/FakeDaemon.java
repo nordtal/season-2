@@ -30,7 +30,9 @@ public final class FakeDaemon implements AutoCloseable {
     /** Whether the daemon answers the container list with a 500, as one mid-restart does. */
     public final AtomicBoolean broken = new AtomicBoolean();
 
-    /** Whether a followed log keeps producing lines; a quiet one writes nothing at all, as a quiet server does. */
+    /**
+     * Whether a followed log keeps producing lines. A quiet one writes nothing, like a quiet server.
+     */
     public final AtomicBoolean chatty = new AtomicBoolean(true);
 
     /** How many log follows are open at this end, counted until the reader hangs up. */
@@ -39,7 +41,9 @@ public final class FakeDaemon implements AutoCloseable {
     /** Every exec request body, so a test can see what reached the console. */
     public final List<String> execs = new CopyOnWriteArrayList<>();
 
-    /** Stopped containers beside smp, as a one-shot or a standby leaves one, listed and inspected but without a log. */
+    /**
+     * Stopped containers beside smp, as a one-shot or a standby leaves them, listed and inspected, with no log.
+     */
     public final List<Stopped> stopped = new CopyOnWriteArrayList<>();
 
     /**
@@ -92,7 +96,7 @@ public final class FakeDaemon implements AutoCloseable {
             final String body = length == 0 ? "" : readBody(client, length);
             route(client, method, path, body);
         } catch (final IOException gone) {
-            // The other end hung up, which is how every follow ends.
+            // Every follow ends when the other end hangs up.
         }
     }
 
@@ -158,11 +162,13 @@ public final class FakeDaemon implements AutoCloseable {
                 .findFirst();
     }
 
-    /** A follow: a line now, then one every 120 ms while chatty, until the reader closes its end. */
+    /**
+     * A follow: a line now, then one every 120 ms while chatty, until the reader closes its end.
+     */
     private void follow(final SocketChannel client) throws IOException {
         follows.incrementAndGet();
         final AtomicBoolean hungUp = new AtomicBoolean();
-        // Only a read sees a hangup while nothing is written, which is what a quiet log is.
+        // Only a read sees a hangup while nothing is written.
         Thread.ofVirtual().name("fake-daemon-hangup").start(() -> {
             try {
                 final ByteBuffer one = ByteBuffer.allocate(1);

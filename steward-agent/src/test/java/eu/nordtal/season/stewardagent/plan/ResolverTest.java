@@ -36,7 +36,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** The whole of step 1, against recorded API responses and a volume tree on disk. */
+/** Tests step 1 against recorded API responses and a volume tree on disk. */
 class ResolverTest {
 
     /** The SHA-1 the release's .zip.sha1 asset is made to contain in these tests. */
@@ -50,7 +50,7 @@ class ResolverTest {
     @TempDir
     Path volumes;
 
-    /** Where the proxy's pack is stored; {@code null} stands for a run without a database. */
+    /** Where the proxy's pack is stored. {@code null} is a run without a database. */
     private @Nullable MemorySettingStore settings = new MemorySettingStore();
 
     private FakeHttp http;
@@ -61,9 +61,9 @@ class ResolverTest {
                 .serving("/repos/nordtal/season-2/releases", "github-season-v0.1.0.json")
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
-                // Velocity is asked again by loader filter, not project; the longer substring wins in FakeHttp.
+                // Velocity is asked again by loader filter, and the longer substring wins in FakeHttp.
                 .serving("loaders=%5B%22velocity%22%5D", "modrinth-voicechat-velocity.json")
-                // A recorded EMPTY array is what Modrinth answers for CoreProtect on this platform: no version matches.
+                // Modrinth answers an empty array for CoreProtect on this platform.
                 .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
@@ -78,7 +78,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // 4.0.0 names the whole 4.x line; what resolves is 4.2.0, the version the proxy plugin is compiled against.
+        // 4.0.0 names the 4.x line, and 4.2.0 is the version the proxy plugin is compiled against.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(
                 List.of(),
@@ -90,7 +90,7 @@ class ResolverTest {
     @Test
     void aVelocityNewerThanTheApiProxyWasBuiltForIsNamedNotRefused() throws IOException {
         installCurrentEverything();
-        // Same family, one release added: the run must not fail, it should simply predate the API it lands on.
+        // The run must not fail when one release of the same family is added.
         http.answering("/projects/velocity", """
                 {"project":{"id":"velocity","name":"Velocity"},
                  "versions":{"4.0.0":["4.3.0-SNAPSHOT","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
@@ -103,7 +103,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // MISSING not OUTDATED: a different prefix is a different jar, exactly like a Paper version bump.
+        // A different prefix is a different jar: MISSING and not OUTDATED.
         assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
         assertEquals(
@@ -148,7 +148,7 @@ class ResolverTest {
             assertEquals("voicechat-bukkit-2.6.23.jar", change.installed(), service);
         }
 
-        // limbo and the proxy carry no SERVER row for voicechat: nothing installs it, so it must not read as current.
+        // limbo and the proxy have no SERVER row for voicechat, so it does not read as current.
         assertTrue(
                 plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
@@ -162,7 +162,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // A different loader and jar, from Modrinth.PRE_RELEASE_EXCEPTIONS: asserts the exception is reached.
+        // The loader and jar come from Modrinth.PRE_RELEASE_EXCEPTIONS.
         final Change change = changeFor(plan, "proxy", "voicechat-velocity");
         assertEquals(Change.Status.UP_TO_DATE, change.status(), Told.plan(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
@@ -186,7 +186,7 @@ class ResolverTest {
         assertNull(change.installed());
         assertNotNull(change.reason());
 
-        // Distinct from UNRESOLVED: a failure row skips the whole service, so a missing build must not read as one.
+        // A failure row skips the whole service, so a missing build is not one.
         assertFalse(change.status().isFailure(), Told.plan(plan));
         assertFalse(change.status().isWork(), Told.plan(plan));
         assertTrue(
@@ -202,7 +202,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // Everything else is current, so CoreProtect alone must not turn the report into a claim of work done.
+        // CoreProtect alone must not turn the report into a claim of work done.
         assertFalse(plan.hasWork(), Told.plan(plan));
         assertFalse(plan.hasMissing(), Told.plan(plan));
 
@@ -220,7 +220,7 @@ class ResolverTest {
     @Test
     void aModrinthOutageIsStillAFailureItIsTheOneThatMustNotReadAsFine() throws IOException {
         installCurrentEverything();
-        // Same artefact, the other reason for no file: asserted from both sides of the new status.
+        // The other reason for no file, asserted from both sides of the new status.
         http.failing(
                 "/project/Lu3KuzdV/version",
                 new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
@@ -313,7 +313,7 @@ class ResolverTest {
         assertTrue(plan.hasWork());
         assertEquals(Change.Status.MISSING, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.MISSING, statusOf(plan, "limbo", "paper"));
-        // MISSING is work, never a failure: the answer "install all of it" is a complete answer.
+        // MISSING is work and not a failure.
         assertFalse(plan.changes().stream()
                 .filter(change -> "limbo".equals(change.service()))
                 .anyMatch(change -> change.status().isFailure()));
@@ -321,7 +321,7 @@ class ResolverTest {
 
     @Test
     void aVolumeThatIsNotMountedIsUnknownAndUnknownIsNotUpToDate() {
-        // Nothing is created: an unmounted volume must not read as "the SMP has no plugins and needs all of them".
+        // An unmounted volume must not read as "the SMP has no plugins".
         final UpdatePlan plan = resolve();
 
         assertTrue(plan.hasFailures());
@@ -338,7 +338,7 @@ class ResolverTest {
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "packetevents"));
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "voicechat"));
-        // An operator asks about our own jars; losing that to a third-party CDN outage makes the report worth less.
+        // The outage of a third-party CDN must not hide the report about our own jars.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
         assertTrue(plan.hasFailures());
         assertFalse(plan.hasWork());
@@ -357,7 +357,7 @@ class ResolverTest {
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "proxy", "resource-pack"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
-        // A 404 is not an outage: it is a repository with no published release, and the message has to say so.
+        // A 404 is a repository with no published release, and the message says so.
         final Change change = changeFor(plan, "smp", "smp");
         assertNotNull(change.reason());
         assertTrue(
@@ -384,7 +384,7 @@ class ResolverTest {
     @Test
     void aPluginRenamedByItsPublisherShowsUpAsMissingAndUnclaimedAtOnce() throws IOException {
         installCurrentEverything();
-        // packetevents-paper-* instead of -spigot-*: the two rows together make a renamed jar obvious.
+        // -paper- instead of -spigot-: the two rows together show a renamed jar.
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-paper-2.13.0.jar");
 
         final UpdatePlan plan = resolve();
@@ -465,7 +465,7 @@ class ResolverTest {
     @Test
     void aReleaseWithoutAPackZipKeepsTheInstalledPackLikeASeasonJar() throws IOException {
         installCurrentEverything();
-        // Renamed so that neither asset ends in .zip or .zip.sha1 any more: the release carries no pack.
+        // Neither asset ends in .zip or .zip.sha1 any more, so the release carries no pack.
         http.answering(
                 "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json")
@@ -585,7 +585,7 @@ class ResolverTest {
 
         final UpdateReport report = PlanReport.of(resolve());
 
-        // The applier installs plugins beside a paper row it could not check, so the line must say it moves.
+        // The applier installs plugins beside a paper row it could not check, so the line says it moves.
         assertTrue(report.line("smp").isMoving(), report.toString());
     }
 
@@ -667,7 +667,7 @@ class ResolverTest {
                 .resolve();
     }
 
-    /** A {@link RunSpec} whose every section but {@link RunSpec#volumesRoot} is a plain default. */
+    /** A {@link RunSpec} that is a plain default except {@link RunSpec#volumesRoot}. */
     private RunSpec testConfig() {
         return new RunSpec() {
 
@@ -678,7 +678,7 @@ class ResolverTest {
 
             @Override
             public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup, and BackupSpec's own defaults are fine.
+                // This test is not about a backup.
                 return new BackupSpec() {
                     @Override
                     public RetentionSpec retention() {

@@ -6,7 +6,9 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The budget alone, on plain values: which archives go when the backups outgrow their share of the disk. */
+/**
+ * Tests the budget on plain values: which archives go when the backups outgrow their share of the disk.
+ */
 class DiskBudgetTest {
 
     private static final String SMP = "nordtal-s2_mc-smp";
@@ -36,7 +38,7 @@ class DiskBudgetTest {
                 .over(List.of(
                         held(SMP, 1, 40, true),
                         held(SMP, 2, 40, true),
-                        // Newer, but its stop was not verified, so the one before it is what a restore trusts.
+                        // Newer, but its stop was not verified, so a restore trusts the one before it.
                         held(SMP, 3, 40, false),
                         held(PLUGINS, 1, 5, true)));
 

@@ -16,7 +16,7 @@ class ModrinthTest {
 
     @Test
     void packeteventsThePrimaryFileIsTakenAndTheSourcesJarInTheSameVersionIsNot() throws IOException {
-        // Matching on '.jar' alone would let source code load as a plugin, one with no code the server can find.
+        // Matching on '.jar' alone would load source code as a plugin with no code the server can find.
         final Modrinth modrinth =
                 new Modrinth(new FakeHttp().serving("/project/HYKaKraK/version", "modrinth-packetevents.json"));
 
@@ -57,7 +57,7 @@ class ModrinthTest {
         final IOException failure =
                 assertThrows(IOException.class, () -> modrinth.newest("voicechat", "9eGKb6K1", "27.0", "paper"));
 
-        // "The plugin has no 26.2 build yet" must not become "install the 26.1 build instead".
+        // "The plugin has no 26.2 build yet" must not become "install the 26.1 build".
         assertTrue(failure.getMessage().contains("no stable release"), failure.getMessage());
     }
 
@@ -73,7 +73,7 @@ class ModrinthTest {
         assertThrows(IOException.class, () -> modrinth.newest("voicechat", "9eGKb6K1", MC, "paper"));
     }
 
-    /** Three velocity builds, all pre-releases, the shape the real project has. */
+    /** Three velocity builds, all pre-releases, like the real project. */
     private static final String VELOCITY_PRE_RELEASES = """
             [{"version_number":"velocity-2.6.4","version_type":"alpha","date_published":"2025-09-19T11:08:43Z",
               "files":[{"filename":"voicechat-velocity-2.6.4.jar","primary":true,
@@ -94,15 +94,15 @@ class ModrinthTest {
         final RemoteFile file = modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity");
 
         assertEquals("voicechat-velocity-2.6.18.jar", file.fileName());
-        // Newest by date, not first in the list and not the highest version_type: the rule every artefact gets.
+        // Newest by date, as for every artefact, and not first in the list or the highest version_type.
         assertEquals("velocity-2.6.18", file.version());
     }
 
     @Test
     void theExceptionIsOneArtefactIdAndNothingElseLeansOnIt() {
-        // A named constant makes the case for a new entry 'a stable release has never existed', not 'one is available'.
+        // A named constant makes a new entry mean "a stable release has never existed" and not "one is available".
         assertEquals(List.of("voicechat-velocity"), Modrinth.PRE_RELEASE_EXCEPTIONS);
-        // The id lives here, not imported, so source keeps depending on nothing but http; a drift here is silent.
+        // The id is here and not imported, so source depends on nothing but http. A drift is silent.
         assertEquals(
                 List.of(eu.nordtal.season.internalapi.agent.Topology.VOICE_CHAT_PROXY),
                 Modrinth.PRE_RELEASE_EXCEPTIONS,

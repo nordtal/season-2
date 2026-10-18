@@ -30,7 +30,7 @@ class TopologyStandbyTest {
 
     @Test
     void everyStandbyIsItsModelAgainOnItsOwnVolumes() {
-        // A standby has to feel identical to its model, and differ only in the volumes and the published port.
+        // A standby differs from its model only in the volumes and the published port.
         for (final String standby : DeclaredTopology.topology().standbys()) {
             assertStandbyMatchesItsModel(
                     DeclaredTopology.topology().services().stream()
@@ -43,7 +43,7 @@ class TopologyStandbyTest {
     }
 
     private void assertStandbyMatchesItsModel(final String model, final String standby) {
-        // Without the standby service there is nobody to transfer players to, and an update takes the network down.
+        // Without the standby service no player can be transferred, and an update takes the network down.
         final ComposeFile.Service defined = compose.service(standby);
         final ComposeFile.Service itsModel = compose.service(model);
 
@@ -59,7 +59,7 @@ class TopologyStandbyTest {
                 itsModel.profiles().contains("standby"),
                 model + " is in the standby profile, so the pair would start together");
 
-        // The volumes must not be shared: two Paper processes on one /data fight over session.lock.
+        // Two Paper processes on one /data fight over session.lock.
         for (final String mountPoint : List.of(":/data", ":/data/plugins")) {
             assertNotEquals(
                     ComposeFile.sourceOf(itsModel.mountEndingIn(mountPoint)),
@@ -69,7 +69,7 @@ class TopologyStandbyTest {
                             + " server started twice.");
         }
 
-        // The same plugins/ rule the live services keep: what the agent fills has to be what the container reads.
+        // What the agent fills is what the container reads, the plugins/ rule of the live services.
         final String onSteward = compose.service(AgentWire.SERVICE).mounts().stream()
                 .filter(mount -> mount.endsWith(":/volumes/" + standby + "/plugins"))
                 .findFirst()
@@ -91,7 +91,7 @@ class TopologyStandbyTest {
         final Map<String, String> theirs = new java.util.LinkedHashMap<>(itsModel.environment());
         final Map<String, String> ours = new java.util.LinkedHashMap<>(defined.environment());
 
-        // A proxy cannot tell which of the two it is; this one variable must be present on both and differ.
+        // A proxy cannot tell which of the two it is, so this variable is on both and differs.
         for (final Map.Entry<String, String> apart : TELLS_THE_PAIR_APART.entrySet()) {
             final String key = apart.getKey();
             if (!theirs.containsKey(key) && !ours.containsKey(key)) {
@@ -153,7 +153,7 @@ class TopologyStandbyTest {
                 udpParts.get(1),
                 "the guard publishes the standby's Minecraft and voice on two different host ports");
 
-        // Not the live proxy's own port: sharing it sends a transferred player back to the proxy they are leaving.
+        // Sharing the port of the live proxy sends a transferred player back to the proxy it leaves.
         final String game = compose.service(GUARD).ports().stream()
                 .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
                 .findFirst()
@@ -164,7 +164,7 @@ class TopologyStandbyTest {
                 "the guard publishes the standby on"
                         + " the same host port as the live proxy, so a transfer sends a player nowhere");
 
-        // Two literals are two chances to write 25566 and 25567 the wrong way round, so both are asserted here.
+        // Both literals are asserted, so 25566 and 25567 cannot be swapped.
         final Map<String, String> environment = compose.service(Topology.PROXY).environment();
         assertEquals(
                 tcpParts.get(1),
@@ -174,7 +174,7 @@ class TopologyStandbyTest {
 
     @Test
     void theProxiesAreToldTheAddressPlayersReachThisNetworkOn() {
-        // A transfer names an address to the client, so a compose name or a bind address cannot stand in for it.
+        // A transfer names an address to the client, so a compose name or a bind address does not do.
         final Map<String, String> environment = compose.service(Topology.PROXY).environment();
         final String address = environment.get("NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS");
         assertNotNull(

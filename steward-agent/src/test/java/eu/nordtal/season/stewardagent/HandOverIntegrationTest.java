@@ -19,8 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * {@code up} hands a confined service's volume to its uid before the container starts, against a real daemon.
  *
- * A scratch project of its own in a temporary directory, on a small image; it skips itself without the docker CLI
- * or that image.
+ * The test uses its own scratch project in a temporary directory on a small image. It skips without the CLI or image.
  */
 class HandOverIntegrationTest {
 
@@ -72,7 +71,7 @@ class HandOverIntegrationTest {
         assertEquals(4321L, uid(old), output.toString());
         assertEquals(before, uid(untouched), "a service without a user had its volume handed to someone");
 
-        // Handed back the same way, so the temporary directory can go wherever the test runs.
+        // The same command gives ownership back, so the temporary directory can go anywhere.
         final List<String> back = compose.handOverCommand(
                 "box", new Compose.Owner(Long.toString(before), Long.toString(group), List.of("/data")));
         assertEquals(0, exec(back.toArray(String[]::new)), back.toString());

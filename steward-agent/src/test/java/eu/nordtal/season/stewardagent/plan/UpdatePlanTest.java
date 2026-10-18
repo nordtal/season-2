@@ -10,7 +10,9 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** {@link UpdatePlan#onlyMissing()}, the filter a bootstrap runs through, so it installs no upgrades. */
+/**
+ * Tests {@link UpdatePlan#onlyMissing()}, the filter of a bootstrap, which installs no upgrades.
+ */
 class UpdatePlanTest {
 
     private static Change change(final String artifact, final Change.Status status) {
@@ -52,7 +54,7 @@ class UpdatePlanTest {
 
     @Test
     void aSourceThatCouldNotBeReachedIsNotMistakenForAMissingFile() {
-        // GitHub being down means UNRESOLVED, not missing; onlyMissing() must count that as work, not an empty volume.
+        // GitHub being down means UNRESOLVED and not missing, so onlyMissing() counts it as work.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "PacketEvents", TEXTS.report().words("Modrinth answered 503")),
                 change("VoiceChat", Change.Status.MOUNT_MISSING));
@@ -70,7 +72,7 @@ class UpdatePlanTest {
 
     @Test
     void b4TheUnresolvedRowsSurviveSoTheReportCannotClaimUnbrokenSuccess() {
-        // A resolved plugin next to an unresolved season jar must not report success while a jar goes uninstalled.
+        // A resolved plugin beside an unresolved season jar must not report success while a jar stays uninstalled.
         final UpdatePlan plan = planOf(
                 Change.unresolved(
                         "smp", "season", TEXTS.report().words("could not read nordtal/season-2@latest: HTTP 403")),

@@ -15,13 +15,13 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * What a backup is worth when nobody could watch the servers stop.
+ * Tests the backup of a run whose stops nobody could verify.
  *
  * Each archive gets its mark after it exists, so the order in {@link FakeContainers#calls} is the assertion.
  */
 class UnverifiedStopBackupTest {
 
-    /** The run these steps belong to, which a mark beside an archive names. */
+    /** The run that a mark beside an archive names. */
     private static final long RUN = 312L;
 
     private final List<UpdateReport> progress = new ArrayList<>();
@@ -36,7 +36,7 @@ class UnverifiedStopBackupTest {
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp", "bot-config"));
 
-        // Every volume, not the first: the same unreadable stop applies to all of them equally.
+        // The unreadable stop applies to every volume.
         assertEquals(
                 List.of(
                         "stop:smp-container",
@@ -102,7 +102,7 @@ class UnverifiedStopBackupTest {
 
     @Test
     void reportedFailedIsNotTheSameAsNotBackedUp() {
-        // The whole risk of settling FAILED, in one test: FAILED is a note about evidence that must exist.
+        // FAILED is a note about evidence, so the evidence must exist.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
@@ -121,7 +121,7 @@ class UnverifiedStopBackupTest {
                 saved.line("bot-config").state(),
                 "both volumes were saved, and the run is a failure anyway - the two facts are"
                         + " supposed to hold at the same time");
-        // A set, not a list: order is asserted on the shared call list, not on the marks.
+        // A set, because the order is asserted on the shared call list.
         assertEquals(
                 Set.of("/backups/mc-smp-20260913T000000Z.tar.zst", "/backups/bot-config-20260913T000000Z.tar.zst"),
                 snapshots.marks().keySet(),
@@ -132,7 +132,7 @@ class UnverifiedStopBackupTest {
 
     @Test
     void theRunNamesTheStopsItCouldNotConfirmInTheOrderTheyWereMade() {
-        // Runner reads exactly this to settle a backup FAILED; the list itself is checked, not only its effects.
+        // Runner reads this list to settle a backup FAILED, so the test checks the list.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopUnverified(Topology.LIMBO);
         final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), progress::add);
@@ -149,7 +149,7 @@ class UnverifiedStopBackupTest {
 
     @Test
     void anOrdinaryRunMarksNothingAndLeavesItsLinesClean() {
-        // The other half of the claim, easy to lose: a mark on every archive is a mark nobody reads.
+        // A mark on every archive is a mark nobody reads.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
         final UpdateRun run = new UpdateRun(RUN, containers, snapshots, progress::add);
@@ -170,7 +170,7 @@ class UnverifiedStopBackupTest {
 
     @Test
     void aVolumeThatSavedNothingIsNotMarkedThereIsNoArchiveToMark() {
-        // A mark beside a file never written is a warning about nothing, replacing what the tar actually said.
+        // A mark beside a file that was never written replaces what the tar said.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
@@ -190,7 +190,6 @@ class UnverifiedStopBackupTest {
                 "the tar's own reason is what a person acts on: " + Told.said(saved.line("mc-smp")));
     }
 
-    /** A plan where the first service has work and the rest do not. */
     private static UpdateReport planned(final String... services) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (int i = 0; i < services.length; i++) {

@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 /**
  * A stop against a real daemon waits the grace compose gave the service, and no fixed one of its own.
  *
- * It needs a scratch project named by {@code NORDTAL_TEST_PROJECT} with a service {@code slow} whose
- * {@code stop_grace_period} is a few seconds and whose process ignores SIGTERM; it skips itself otherwise.
+ * It needs a scratch project named by {@code NORDTAL_TEST_PROJECT} with a service {@code slow} whose {@code
+ * stop_grace_period} is a few seconds and whose process ignores SIGTERM. It skips otherwise.
  */
 class StopGraceIntegrationTest {
 

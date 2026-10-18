@@ -24,7 +24,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** A release jar on its way from GitHub to disk, held against the digest the release names for it. */
+/**
+ * Tests a release jar on its way from GitHub to disk against the digest the release names for it.
+ */
 class DownloadsTest {
 
     private static final byte[] JAR = "the smp jar as GitHub serves it".getBytes(StandardCharsets.UTF_8);

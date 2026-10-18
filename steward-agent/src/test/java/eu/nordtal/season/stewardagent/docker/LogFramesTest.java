@@ -14,7 +14,7 @@ import java.util.Deque;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** What the reader does at the end of a frame, the end of a read and the end of the stream. */
+/** Tests the reader at the end of a frame, of a read and of the stream. */
 class LogFramesTest {
 
     private static final String LINE = "[04:45:12 INFO]: Zoë fell into lava \u2013 hard luck\n";
@@ -107,7 +107,7 @@ class LogFramesTest {
         return lines;
     }
 
-    /** A stream that hands over exactly these chunks, one per read. */
+    /** A stream that hands over these chunks, one per read. */
     private static InputStream delivering(final byte[]... chunks) {
         final Deque<byte[]> queue = new ArrayDeque<>(List.of(chunks));
         return new InputStream() {

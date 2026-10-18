@@ -9,7 +9,7 @@ import eu.nordtal.season.settings.Setting;
 import eu.nordtal.season.settings.SettingsException;
 import org.junit.jupiter.api.Test;
 
-/** What the runs group refuses, and what it starts with; a refused change keeps the values in use. */
+/** Tests what the runs group refuses and starts with. A refused change keeps the values in use. */
 class AgentSettingsTest {
 
     private final MemorySettingStore store = new MemorySettingStore();

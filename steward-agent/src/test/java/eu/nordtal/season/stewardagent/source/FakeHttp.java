@@ -27,7 +27,7 @@ public final class FakeHttp implements Http {
         return this;
     }
 
-    /** Serves a literal body, for the pack's 41-byte .sha1 asset and hand-built edge cases. */
+    /** Serves a literal body, such as the 41-byte .sha1 asset of the pack. */
     public FakeHttp answering(final String match, final String body) {
         routes.put(match, body);
         return this;

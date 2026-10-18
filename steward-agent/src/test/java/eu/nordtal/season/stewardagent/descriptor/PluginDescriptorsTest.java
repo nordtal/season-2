@@ -69,7 +69,9 @@ class PluginDescriptorsTest {
                 found.stream().map(AgentWire.Descriptor::id).toList());
     }
 
-    /** The bot has no folder beside its data, so its bundles are found in its image as its descriptor is. */
+    /**
+     * The bot has no folder beside its data, so its bundles are found in its image, like its descriptor.
+     */
     @Test
     void theBundlesAreReadFromTheJarsTheDescriptorsAreFoundIn() throws IOException {
         final Map<String, byte[]> bot = new java.util.HashMap<>(descriptor("discord-bot", "{}", true));
@@ -131,7 +133,9 @@ class PluginDescriptorsTest {
         assertEquals("steward-agent", found.getFirst().service());
     }
 
-    /** A jar of an older release in a plugins volume still carries a name and a logo, which Steward never reads. */
+    /**
+     * A jar of an older release in a plugins volume still carries a name and a logo, which Steward never reads.
+     */
     @Test
     void anOlderJarsNameAndLogoAreReadPastAndNotPassedOn() throws IOException {
         writeJar(

@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * What a standby's {@code plugins/} holds after a run.
  *
- * A replacement must come up on the same jars and the same data files as the service it replaces.
+ * A replacement comes up on the same jars and data files as the service it replaces.
  */
 class StandbysTest {
 
@@ -124,7 +124,7 @@ class StandbysTest {
     void aServiceWithoutAStandbyInComposeYmlGetsNoRowAtAll() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
 
-        // No proxy-standby directory: an older stack without this feature must not grow a skipped line in the report.
+        // An older stack without this feature must not get a skipped line in the report.
         assertEquals(List.of(), Standbys.fill(volumes, List.of(Topology.PROXY), DeclaredTopology.topology()));
     }
 
@@ -154,7 +154,7 @@ class StandbysTest {
                 Standbys.fill(volumes, List.of(Topology.PROXY), DeclaredTopology.topology());
 
         assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
-        // The status alone could also mean an unhandled exception; the row must name which directory was empty.
+        // The status alone could be an unhandled exception, so the row names the empty directory.
         assertTrue(
                 String.valueOf(outcomes.getFirst().detail()).contains("refuse to start"),
                 "the failure does not say what an empty standby costs: " + detail(outcomes));

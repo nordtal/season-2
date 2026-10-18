@@ -8,7 +8,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * A backup refuses to save anything when a service it asked to stop is still running.
+ * Tests that a backup saves nothing while a service it asked to stop still runs.
  *
  * The database dump's own line names no container, so it is not counted as a service that was asked.
  */

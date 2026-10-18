@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The docker client against a real daemon, checked against the {@code docker} CLI reading the same one.
  *
- * It skips itself where there is no socket.
+ * It skips without a socket.
  */
 class DockerIntegrationTest {
 
@@ -136,7 +136,7 @@ class DockerIntegrationTest {
     void aCommandThatFailsSaysSoInItsExitCodeNotOnlyInItsOutput() {
         final Docker.Container running = someContainerToActOn();
 
-        // Without the exit code a failed command reads as a quiet one, which is how a partial backup file wins.
+        // Without the exit code a failed command reads as a quiet one, and a partial backup file wins.
         final Docker.ExecResult answer = docker.exec(running.id(), List.of("sh", "-c", "echo nope >&2; exit 3"));
 
         assertEquals(3, answer.exitCode());
@@ -148,7 +148,7 @@ class DockerIntegrationTest {
     void driftAppearsWhenATagIsBentByHandAndGoesAwayWhenItIsPutBack() throws Exception {
         // It pulls and retags, which changes the daemon's store for everybody on it.
         assumeTrue(TestProject.acting().isPresent(), TestProject.VARIABLE + " names no scratch project - skipping");
-        // Two images that exist, are small, and have nothing to do with this stack.
+        // Two small images that have nothing to do with this stack.
         cli("docker", "pull", "-q", "alpine:3.20");
         cli("docker", "pull", "-q", "alpine:3.19");
         final String honest = imageIdOf("alpine:3.20");
@@ -201,7 +201,9 @@ class DockerIntegrationTest {
         assertFalse(thrown.getMessage().isBlank());
     }
 
-    /** A running container of the scratch project, since an exec changes what it runs; skipped without one. */
+    /**
+     * A running container of the scratch project, because an exec changes what it runs. Skipped without one.
+     */
     private static Docker.Container someContainerToActOn() {
         assumeTrue(TestProject.acting().isPresent(), TestProject.VARIABLE + " names no scratch project - skipping");
         return someRunningContainer();
@@ -222,7 +224,7 @@ class DockerIntegrationTest {
                 .get(0);
     }
 
-    /** Runs the docker command line and hands back its output, one line per entry. */
+    /** Runs the docker command line and returns its output, one line per entry. */
     private static List<String> cli(final String... command) throws IOException, InterruptedException {
         final Process process =
                 new ProcessBuilder(command).redirectErrorStream(true).start();

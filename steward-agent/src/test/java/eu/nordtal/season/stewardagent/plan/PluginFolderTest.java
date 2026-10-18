@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * {@link PluginFolder}, the name of the directory a removal deletes.
  *
- * Neither the filename nor a nested {@code name:} may decide it, since the wrong answer deletes the wrong directory.
+ * Neither the filename nor a nested {@code name:} decides it, because a wrong answer deletes the wrong directory.
  */
 class PluginFolderTest {
 
@@ -39,7 +39,7 @@ class PluginFolderTest {
 
     @Test
     void theFolderIsTheDescriptorsNameNotTheJars() throws IOException {
-        // The jar is voicechat-bukkit-<version>.jar and the folder is plugins/voicechat/: name, not filename.
+        // The jar is voicechat-bukkit-<version>.jar and the folder is plugins/voicechat/.
         final Path path = jar(
                 "voicechat-bukkit-2.6.24.jar",
                 Map.of("plugin.yml", "name: voicechat\nversion: 2.6.24\nmain: de.maxhenkel.voicechat.Voicechat\n"));
@@ -60,7 +60,7 @@ class PluginFolderTest {
 
     @Test
     void aNameNestedUnderCommandsOrLibrariesIsNotThePluginsName() throws IOException {
-        // Nested keys come first deliberately: a matcher taking the first name: it finds must not pass by accident.
+        // The nested keys come first, so a matcher that takes the first name: it finds fails.
         final Path path = jar("thing-1.0.0.jar", Map.of("plugin.yml", """
                 api-version: '1.21'
                 commands:
@@ -84,7 +84,7 @@ class PluginFolderTest {
         final Path path = directory.resolve("broken-1.0.0.jar");
         Files.writeString(path, "this is not a zip");
 
-        // The caller is a page listing ten plugins; one unreadable jar must not empty the list.
+        // One unreadable jar must not empty the list of ten plugins.
         assertNull(PluginFolder.nameIn(path));
     }
 }

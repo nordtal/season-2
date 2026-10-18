@@ -26,7 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * What this client does when the other end of the socket stops talking.
  *
- * These bind a socket and answer by hand, since a real daemon will not accept and then fall silent on request.
+ * A real daemon does not accept and fall silent on request, so these bind a socket and answer by hand.
  */
 class DockerSocketTest {
 
@@ -43,7 +43,7 @@ class DockerSocketTest {
             try {
                 closeable.close();
             } catch (Exception ignored) {
-                // A test that is already over.
+                // The test is over.
             }
         }
     }
@@ -88,7 +88,7 @@ class DockerSocketTest {
 
     @Test
     void aStopIsWaitedForUntilDockerHasKilledTheContainerNotJustForTheSocketsTimeout() throws Exception {
-        // Docker answers a stop only after the grace period, so a wait equal to it reports a kill as a refusal.
+        // Docker answers a stop only after the grace period, so an equal wait reports a kill as a refusal.
         final Path socket = listening(client -> {
             Thread.sleep(900);
             write(client, "HTTP/1.1 204 No Content\r\n\r\n");
@@ -114,10 +114,10 @@ class DockerSocketTest {
                 // Read the request before answering: a channel closed with unread bytes sends RST, losing the reply.
                 client.read(ByteBuffer.allocate(4096));
                 answer.answer(client);
-                // Held open until the test is over: closing it early is a different failure from the one being tested.
+                // Held open until the test is over, because closing it early is another failure.
                 Thread.sleep(30_000);
             } catch (Exception ended) {
-                // The test finished and shut the pool down.
+                // The test shut the pool down.
             }
             return null;
         });

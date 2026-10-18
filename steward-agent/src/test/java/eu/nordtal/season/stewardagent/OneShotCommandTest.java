@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The two compose command lines a run of another release rests on: the one-shot, and the migration it waits for. */
+/**
+ * Tests the two compose command lines of a run of another release: the one-shot and the migration it waits for.
+ */
 class OneShotCommandTest {
 
     private final Compose compose =
@@ -32,7 +34,9 @@ class OneShotCommandTest {
                 command.subList(command.indexOf("run"), command.size()));
     }
 
-    /** Waited for, with its exit status as compose's own, and made through {@code up} so its container is current. */
+    /**
+     * The command waits for the migration, returns its exit status and runs through {@code up}, so it is current.
+     */
     @Test
     void theMigrationIsWaitedForAndItsExitStatusIsComposes() {
         final List<String> command = compose.migrateCommand();

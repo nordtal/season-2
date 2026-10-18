@@ -48,7 +48,7 @@ class RunLogTest {
         Files.writeString(folder.resolve("notes.txt"), "kept by hand");
 
         try (RunLog ignored = RunLog.keep(backups, 13)) {
-            // Opening is what prunes.
+            // Opening prunes.
         }
 
         try (Stream<Path> left = Files.list(folder)) {

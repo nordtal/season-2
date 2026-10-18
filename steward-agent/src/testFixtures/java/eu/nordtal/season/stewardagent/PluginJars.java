@@ -29,7 +29,7 @@ public final class PluginJars {
         foreign(jar, all);
     }
 
-    /** A jar someone else built, such as Paper's, which carries no descriptor: only {@code entries}. */
+    /** A jar someone else built, such as Paper's, with {@code entries} and no descriptor. */
     public static void foreign(final Path jar, final Map<String, String> entries) throws IOException {
         Files.createDirectories(jar.getParent());
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {

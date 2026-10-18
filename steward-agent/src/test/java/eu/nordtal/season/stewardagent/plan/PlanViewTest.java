@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The updates page gets a plan's notes as the records a run writes, with step, outcome and service. */
+/** Tests that the updates page gets the notes of a plan as the records a run writes. */
 class PlanViewTest {
 
     @Test

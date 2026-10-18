@@ -36,14 +36,14 @@ class RestartScopeTest {
 
     @Test
     void aHeldServiceIsNeverRestartedNamedByTheScopeOrNot() {
-        // A hold is a standing decision somebody took; a scope is one request.
+        // A hold is a standing decision and a scope is one request.
         assertEquals(List.of(), restarted(List.of("smp"), List.of("smp")));
         assertFalse(restarted(List.of(), List.of("smp")).contains("smp"));
     }
 
     @Test
     void aScopeNamingSomethingThatIsNotAMinecraftServiceRestartsNothing() {
-        // The dangerous reading of "no match" is "then everything"; postgres is not restarted by asking for it here.
+        // A scope without a match restarts nothing and not everything.
         assertEquals(List.of(), restarted(List.of("postgres"), List.of()));
     }
 

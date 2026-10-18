@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The kernel's OOM killer takes limbo and proxy first, as {@code oom_score_adj} in compose.yml says.
  *
- * Nothing else reads the value, so deleting it or equalising it would only show at the next OOM. A value a service
- * inherits counts as its own.
+ * Nothing else reads the value, so deleting or equalising it would show only at the next OOM. An inherited value counts
+ * as the own value.
  */
 class OomLightningRodTest {
 
@@ -71,7 +71,7 @@ class OomLightningRodTest {
         });
     }
 
-    /** Returns the {@code oom_score_adj} one service ends up with, inherited or its own, or {@code null}. */
+    /** Returns the {@code oom_score_adj} of one service, inherited or own, or {@code null}. */
     private static Integer oomScoreAdj(final String service) {
         return ComposeFile.get()
                 .service(service)

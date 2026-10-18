@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Recreate uses the image that is here; that the route never pulls is {@code :architecture}'s rule. */
+/**
+ * Tests that recreate uses the local image. {@code :architecture} enforces that the route never pulls.
+ */
 class RecreateDoesNotPullTest {
 
     private final Compose compose =

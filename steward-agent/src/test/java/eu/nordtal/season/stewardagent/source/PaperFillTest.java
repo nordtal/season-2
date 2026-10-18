@@ -64,7 +64,7 @@ class PaperFillTest {
 
     @Test
     void velocitysFamily400ResolvesTo420TheFourSnapshotsInItIgnored() throws IOException {
-        // `4.0.0` is Fill's name for the whole 4.x line, so the family name is not a version anybody runs.
+        // `4.0.0` is Fill's name for the 4.x line and no version anybody runs.
         final PaperFill fill =
                 new PaperFill(new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
 
@@ -82,7 +82,7 @@ class PaperFillTest {
 
     @Test
     void n4100IsNewerThan490WhichIsTheOneThingSortingTextGetsWrong() throws IOException {
-        // Lexicographically "4.10.0" < "4.9.0", so a text sort silently installs the older proxy and never fails.
+        // Lexicographically "4.10.0" < "4.9.0", so a text sort installs the older proxy without failing.
         final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
                 {"versions":{"4.0.0":["4.9.0","4.10.0","4.8.3"]}}
                 """));
@@ -102,7 +102,7 @@ class PaperFillTest {
 
     @Test
     void aFamilyCarryingOnlySnapshotsFailsAndNeverFallsBackToAnotherFamily() {
-        // A silent fallback to 3.0.0 would move the network to a different Velocity major, unasked, and must not.
+        // A silent fallback to 3.0.0 would move the network to another Velocity major.
         final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
                 {"versions":{"4.0.0":["4.2.0-SNAPSHOT","4.1.2-SNAPSHOT"],"3.0.0":["3.5.1"]}}
                 """));

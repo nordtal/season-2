@@ -31,7 +31,7 @@ class AbsentFixedPluginsTest {
         return new Installation.Jar(Path.of("/plugins", name), name);
     }
 
-    /** What the smp volume on the dev host holds: everything but CoreProtect. */
+    /** The smp volume on the dev host holds everything but CoreProtect. */
     private static final List<Installation.Jar> SMP_TODAY =
             List.of(jar("packetevents-spigot-2.13.0.jar"), jar("smp-0.9.5.jar"), jar("voicechat-bukkit-2.6.24.jar"));
 

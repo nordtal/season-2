@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 /**
  * steward-agent's real routes over a {@link FakeDaemon}, behind the real guard, on a port of the test's choosing.
  *
- * The deployments are left to {@code more}, since a real one would run compose against the host.
+ * {@code more} supplies the deployments, because a real one would run compose against the host.
  */
 public final class AgentStandIn implements AutoCloseable {
 

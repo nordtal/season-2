@@ -36,7 +36,7 @@ class VersionPairTest {
 
     @Test
     void onlyTheHalfThatMovedIsNamed() {
-        // 26.2 is on both sides, so it is not the jump; only the half that moved is worth the width to name.
+        // 26.2 is on both sides and is not the jump. Only the half that moved is named.
         assertEquals(
                 new VersionPair("118", "131"),
                 VersionPair.of("paper-26.2-118.jar", "paper-26.2-131.jar").orElseThrow());
@@ -84,7 +84,7 @@ class VersionPairTest {
 
     @Test
     void thePublishedVersionIsUsedWhenTheTwoNamesDoNotComeApart() {
-        // The hash stays: an invented version is worse than an ugly string, and the source published this one.
+        // The hash stays, because the source published it.
         final UpdateReport report = PlanReport.of(plan(new Change(
                 "proxy",
                 "resource-pack",

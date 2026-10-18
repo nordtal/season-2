@@ -10,10 +10,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** A {@link ContainerOps} that answers from a map and records every call in order in {@link #calls}. */
+/** A {@link ContainerOps} that answers from a map and records every call in {@link #calls}. */
 final class FakeContainers implements ContainerOps {
 
-    /** Every stop and start, in the order they were asked for. */
+    /** Every stop and start, in order. */
     final List<String> calls = new ArrayList<>();
 
     /** service -> its current runtime. Mutated by the test to make a server come back, or not. */
@@ -22,25 +22,24 @@ final class FakeContainers implements ContainerOps {
     private boolean reachable = true;
     private boolean stopFails;
 
-    /** Services whose stop succeeds and whose ending cannot be read back afterwards. */
+    /** Services whose stop succeeds and whose end cannot be read back. */
     private final java.util.Set<String> stopUnverified = new java.util.LinkedHashSet<>();
 
-    /** service -> what the drift check found. Absent means UNKNOWN, which is never work. */
+    /** The result of the drift check per service. Absent means UNKNOWN. */
     private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
 
-    /** Services whose deploy or recreate is refused, like a 404 on the project id or a failed pull. */
+    /** Services whose deploy or recreate is refused. */
     private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
 
-    /** Services whose image this host does not have, as a one-shot meets the next release's. */
+    /** Services whose image this host does not have. */
     private final java.util.Set<String> imageNotHere = new java.util.LinkedHashSet<>();
 
-    /** volume -> what it settles as. Absent means "succeeds". */
+    /** How each volume settles. Absent means success. */
     private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
 
-    /** Volumes whose snapshot is refused outright before anything is written. */
+    /** Volumes whose snapshot is refused before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
 
-    /** compose.yml's services as they ship, with the backup set its mounts give. */
     private final AgentWire.Topology topology = new AgentWire.Topology(
             eu.nordtal.season.stewardagent.topology.DeclaredTopology.topology().services(),
             List.of(
@@ -66,7 +65,6 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /** The registry has a newer image for these services. */
     FakeContainers imageOutdated(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.OUTDATED);
@@ -74,7 +72,6 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /** These were checked and are current, which is not the same as never checked. */
     FakeContainers imageCurrent(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.UP_TO_DATE);
@@ -82,22 +79,19 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /** The deploy of these services is refused, so they keep running their old image. */
     FakeContainers recreateRefused(final String... names) {
         recreateRefused.addAll(List.of(names));
         return this;
     }
 
-    /** This host has no image for these yet, so a recreate is refused and only a fetch makes one. */
     FakeContainers imageNotHere(final String... names) {
         imageNotHere.addAll(List.of(names));
         return this;
     }
 
-    /** Services whose container comes up and never passes its healthcheck. */
     private final java.util.Set<String> neverHealthy = new java.util.LinkedHashSet<>();
 
-    /** These come back {@code running} and {@code unhealthy} for ever, like a standby whose plugin failed to enable. */
+    /** These come back {@code running} and {@code unhealthy} for ever. */
     FakeContainers neverHealthy(final String... names) {
         neverHealthy.addAll(List.of(names));
         return this;
@@ -113,7 +107,7 @@ final class FakeContainers implements ContainerOps {
 
     @Override
     public RedeployResult deploy(final String service) {
-        // "recreate:" not "deploy:", so every existing order assertion keeps meaning what it meant.
+        // "recreate:" and not "deploy:", so the existing order assertions keep their meaning.
         return made("recreate:" + service, service);
     }
 
@@ -170,7 +164,7 @@ final class FakeContainers implements ContainerOps {
         if (recreateRefused.contains(service)) {
             return RedeployResult.refused("refused");
         }
-        // A recreate is a new container; a different id here fails a test that relies on the old one.
+        // A recreate makes a new container, so the id changes.
         services.put(
                 service,
                 new ServiceRuntime(
@@ -181,30 +175,28 @@ final class FakeContainers implements ContainerOps {
         return RedeployResult.triggered("HTTP 200");
     }
 
-    /** The daemon is not answering at all, which the whole run must refuse to start on. */
+    /** The daemon does not answer. */
     FakeContainers unreachable() {
         reachable = false;
         return this;
     }
 
-    /** Every stop is refused, so nothing may be installed and nothing may be started. */
+    /** Every stop is refused. */
     FakeContainers stopFails() {
         stopFails = true;
         return this;
     }
 
-    /** These stops are accepted, but the inspect afterwards fails, so nothing can say how they ended. */
+    /** These stops are accepted and the inspect afterwards fails. */
     FakeContainers stopUnverified(final String... names) {
         stopUnverified.addAll(List.of(names));
         return this;
     }
 
-    /** A service that is up but whose plugin died: running, unhealthy. */
     void sick(final String service) {
         services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy"));
     }
 
-    /** Every container that was started passes its healthcheck, as all of them do a while later. */
     void settle() {
         services.replaceAll((name, entry) -> "starting".equals(entry.health())
                 ? new ServiceRuntime(name, entry.containerId(), "running", "healthy")
@@ -215,13 +207,11 @@ final class FakeContainers implements ContainerOps {
         services.put(service, new ServiceRuntime(service, service + "-container", "running", "healthy"));
     }
 
-    /** This volume's snapshot never starts. */
     FakeContainers backupRefused(final String volume) {
         backupRefused.add(volume);
         return this;
     }
 
-    /** This volume's snapshot starts and then reports failed. */
     FakeContainers backupFails(final String volume) {
         backupSucceeds.put(volume, false);
         return this;
@@ -257,7 +247,7 @@ final class FakeContainers implements ContainerOps {
     @Override
     public RedeployResult start(final String containerId) {
         calls.add("start:" + containerId);
-        // Started, and NOT healthy: that is the whole distinction the verify step exists for.
+        // Started and not healthy.
         services.computeIfPresent(
                 service(containerId),
                 (name, entry) -> new ServiceRuntime(name, entry.containerId(), "running", "starting"));

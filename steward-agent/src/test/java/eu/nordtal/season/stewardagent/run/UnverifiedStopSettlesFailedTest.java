@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * How a run that stopped servers is settled, and the one rule in it that is not about a failed line.
+ * Tests how a run that stopped servers settles.
  *
  * An unverified stop settles the run {@code FAILED} with a failed record; on a restart the record is a warning.
  */
@@ -49,7 +49,7 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void notesTheRunAlreadyMadeSurviveBeingSettled() {
-        // The backup path writes its retention line before this is reached; a fresh report here would lose it.
+        // The backup path writes its retention line first, and a fresh report would lose it.
         final UpdateReport swept = green().withNote(UpdateReport.Note.done(
                 UpdateReport.Step.BACKUP, TEXTS.report().words("kept the newest 7 of each and removed 3")));
 
@@ -65,7 +65,7 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void anOrdinaryRunSettlesDoneWithNothingAddedToIt() {
-        // The expensive half to get wrong: a rule that always failed the nightly backup gets ignored by everyone.
+        // A rule that always failed the nightly backup would be ignored.
         final UpdateReport settled = Runner.settle(green(), List.of(), false, FAILS);
 
         assertEquals(UpdateReport.Stage.DONE, settled.stage());
@@ -83,7 +83,7 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void aFailedLineStillFailsARunWithNoUnverifiedStops() {
-        // Most likely to be dropped while rearranging the other two: a dump that did not run is a FAILED line.
+        // A dump that did not run is a FAILED line.
         final UpdateReport report = green().with(new UpdateReport.ServiceLine(
                 Snapshots.DATABASE,
                 UpdateReport.State.FAILED,
@@ -98,7 +98,7 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void theStageIsAlwaysDecidedNeverLeftWhereTheRunHadGotTo() {
-        // What arrives here is a report at VERIFYING; setting the stage on only one branch would leave it stuck there.
+        // The report arrives at VERIFYING, and the stage must change on every branch.
         assertEquals(UpdateReport.Stage.VERIFYING, green().stage(), "the fixture is the input shape");
         assertTrue(Runner.settle(green(), List.of(), false, FAILS).stage().isFinished());
         assertTrue(Runner.settle(green(), List.of(Topology.SMP), false, FAILS)
@@ -109,7 +109,7 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void aRestartIsNotFailedOverAnUnverifiedStopAndIsStillWarnedAboutIt() {
-        // Both halves on one returned object; either alone is a defect that reads as working.
+        // Both halves must be on the returned object.
         final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), false, SAID);
 
         assertEquals(
@@ -124,7 +124,6 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void theQuieterModeStillFailsOnAFailedLineAndKeepsItsRecordAWarning() {
-        // One parenthesis: a misplaced one here compiles, reads almost the same, and makes every restart a success.
         final UpdateReport report = green().with(new UpdateReport.ServiceLine(
                 Topology.LIMBO,
                 UpdateReport.State.FAILED,
@@ -144,14 +143,16 @@ class UnverifiedStopSettlesFailedTest {
 
     @Test
     void anOrdinaryRestartSettlesDoneWithNothingAddedToIt() {
-        // Which is nearly every restart. A note on all of them is a note on none of them.
+        // A note on every restart is a note on none.
         final UpdateReport settled = Runner.settle(green(), List.of(), false, SAID);
 
         assertEquals(UpdateReport.Stage.DONE, settled.stage());
         assertEquals(List.of(), settled.notes());
     }
 
-    /** A report in which everything went right, at the {@code VERIFYING} stage {@code settle} receives. */
+    /**
+     * A report in which everything went right, at the {@code VERIFYING} stage {@code settle} receives.
+     */
     private static UpdateReport green() {
         return UpdateReport.at(UpdateReport.Stage.VERIFYING)
                 .with(new UpdateReport.ServiceLine(

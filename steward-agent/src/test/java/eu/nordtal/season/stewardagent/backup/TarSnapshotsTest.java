@@ -67,7 +67,7 @@ class TarSnapshotsTest {
         assertTrue(Files.exists(archive));
         assertFalse(Files.exists(Path.of(result.file() + ".partial")), "a finished save leaves no partial behind");
 
-        // Unpack it somewhere else and compare the bytes.
+        // Unpacked elsewhere, then the bytes are compared.
         final Path restored = Files.createDirectories(root.resolve("restored"));
         assertEquals(
                 0,
@@ -144,7 +144,7 @@ class TarSnapshotsTest {
         assertEquals(
                 "nordtal-s2_mc-smp-20260914T044507Z.tar.zst",
                 Path.of(later.file()).getFileName().toString());
-        // Fixed width and UTC, so sorting the text sorts the nights, which is what prune leans on instead of mtime.
+        // Fixed width and UTC, so sorting the text sorts the nights. Prune relies on that and not on mtime.
         assertTrue(
                 Path.of(earlier.file())
                                 .getFileName()
@@ -207,14 +207,14 @@ class TarSnapshotsTest {
         final TarSnapshots snapshots = snapshots(NIGHT);
         final SnapshotResult good = snapshots.save(VOLUME, WALL);
         assertTrue(good.ok(), good.message());
-        // The gate says yes to the real thing, which is the half of the claim that is easy to lose.
+        // The gate accepts the real archive.
         assertNull(snapshots.unreadable(Path.of(good.file()), WALL));
 
         final Path garbage = outputRoot().resolve("garbage.tar.zst.partial");
         Files.writeString(garbage, "this is not a zstd frame and never was");
         assertNotNull(snapshots.unreadable(garbage, WALL), "garbage must not pass as an archive");
 
-        // A real archive cut in half: what zstd -t alone would often wave through, and what a killed tar leaves.
+        // A real archive cut in half, which zstd -t alone often waves through and a killed tar leaves.
         final Path truncated = outputRoot().resolve("half.tar.zst.partial");
         final byte[] whole = Files.readAllBytes(Path.of(good.file()));
         Files.write(
@@ -239,17 +239,17 @@ class TarSnapshotsTest {
                         "/dev/null"));
         assertNotNull(snapshots.unreadable(empty, WALL), "an empty archive must not pass as a backup");
 
-        // None of the three was ever renamed: only the one real save is a .tar.zst in there.
+        // None of the three was renamed, so the one real save is the only .tar.zst.
         assertEquals(List.of(Path.of(good.file()).getFileName().toString()), archivesIn(outputRoot()));
     }
 
     @Test
     void pruneKeepsTheNewestPerVolumeAndNeverMixesThem() throws IOException {
-        // Four nights of smp, three of limbo, two of hunger-games, oldest first so mtime fallback picks the wrong ones.
+        // Four nights of smp, three of limbo, two of hunger-games, oldest first, so an mtime fallback picks wrong.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-limbo", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-hunger-games", "20260912T044500Z", "20260913T044500Z");
-        // Not ours: an operator's own file in the same directory, which must survive untouched.
+        // A file of an operator in the same directory survives untouched.
         Files.writeString(outputRoot().resolve("README.txt"), "restore instructions");
 
         final List<String> removed =
@@ -299,7 +299,7 @@ class TarSnapshotsTest {
 
     @Test
     void aDayThatHasSettledKeepsItsLastRunOnTheDiskAndNotOnlyOnPaper() throws IOException {
-        // Three runs on one day and two on the next, all inside the grace window measured from the newest one.
+        // Three runs on one day and two on the next, all inside the grace window measured from the newest.
         archive(
                 "nordtal-s2_mc-smp",
                 "20260910T044500Z",
@@ -363,7 +363,7 @@ class TarSnapshotsTest {
 
     @Test
     void aMarkIsSweptWithTheArchiveItBelongsToAndNeverWithoutIt() throws IOException {
-        // An orphaned warning names a file that is no longer there, and a directory full of those goes unread.
+        // An orphaned warning names a file that is gone, and a directory full of them goes unread.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
         mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
@@ -398,7 +398,7 @@ class TarSnapshotsTest {
         sized("nordtal-s2_mc-limbo-20260913T044500Z.tar.zst", 100);
         dump("20260913T044500Z");
 
-        // A disk of 1000 bytes and a budget of 50 percent: 1300 bytes have to come down to 500.
+        // A disk of 1000 bytes with a budget of 50 percent: 1300 bytes come down to 500.
         final Snapshots.Pruned pruned = new TarSnapshots(
                         sourcesRoot(), outputRoot(), Clock.fixed(NIGHT, ZoneOffset.UTC), disk(1000, 0))
                 .prune(days(30), IN_BACKUP, 50);
@@ -440,7 +440,7 @@ class TarSnapshotsTest {
 
     @Test
     void pruneKeepsTheNewestDatabaseDumpsTooAndCountsThemApartFromTheVolumes() throws IOException {
-        // Neither ARCHIVE nor PARTIAL_ARCHIVE matches .dump, so the sweep must walk past every database dump.
+        // Neither ARCHIVE nor PARTIAL_ARCHIVE matches .dump, so the sweep walks past every database dump.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
 
@@ -462,7 +462,7 @@ class TarSnapshotsTest {
 
     @Test
     void pruneSweepsADayOldPartialDumpAndLeavesAFreshOneAlone() throws IOException {
-        // A dump killed mid-write leaves the debris the tar side sweeps, under the same grace a live dump must survive.
+        // A dump killed mid-write leaves the debris the tar side sweeps, under the same grace a live dump survives.
         Files.createDirectories(outputRoot());
         Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
         Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
@@ -517,7 +517,7 @@ class TarSnapshotsTest {
             assertTrue(
                     Pipeline.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
                     "one second is the pipeline's whole allowance, not each stage's");
-            // destroyForcibly is a signal, not a funeral; this waits for the process to actually be gone.
+            // destroyForcibly only signals, so this waits until the process is gone.
             assertTrue(
                     sleeping.getLast().waitFor(10, java.util.concurrent.TimeUnit.SECONDS),
                     "everything goes, not just the stage that was still running");
@@ -538,7 +538,7 @@ class TarSnapshotsTest {
         }
     }
 
-    /** Stages that do nothing but end at a known moment, started together as one pipeline. */
+    /** Stages that only end at a known moment, started together as one pipeline. */
     private static List<Process> sleepers(final double... seconds) throws IOException {
         final List<ProcessBuilder> builders = new ArrayList<>();
         for (final double duration : seconds) {
@@ -548,7 +548,9 @@ class TarSnapshotsTest {
         return ProcessBuilder.startPipeline(builders);
     }
 
-    /** The flat retention these tests were written against: N days, nothing weekly or monthly, no grace. */
+    /**
+     * The flat retention these tests were written against: N days, nothing weekly or monthly, no grace.
+     */
     private static Retention days(final int daily) {
         return new Retention(daily, 0, 0, 0);
     }
@@ -569,13 +571,15 @@ class TarSnapshotsTest {
         return Files.createDirectories(sourcesRoot().resolve(volume));
     }
 
-    /** An archive of exactly {@code bytes}, for the budget, which weighs files and never reads them. */
+    /**
+     * An archive of exactly {@code bytes} for the budget, which weighs files and never reads them.
+     */
     private void sized(final String name, final int bytes) throws IOException {
         Files.createDirectories(outputRoot());
         Files.write(outputRoot().resolve(name), new byte[bytes]);
     }
 
-    /** A filesystem of {@code total} bytes with {@code usable} of them still writable. */
+    /** A filesystem of {@code total} bytes of which {@code usable} are writable. */
     private static TarSnapshots.Space disk(final long total, final long usable) {
         return new TarSnapshots.Space() {
             @Override
@@ -590,7 +594,7 @@ class TarSnapshotsTest {
         };
     }
 
-    /** Writes archives that are real enough for prune, which reads names and never content. */
+    /** Writes archives that suffice for prune, which reads names and never content. */
     private void archive(final String volume, final String... stamps) throws IOException {
         Files.createDirectories(outputRoot());
         for (final String stamp : stamps) {
@@ -598,7 +602,7 @@ class TarSnapshotsTest {
         }
     }
 
-    /** Dumps that are real enough for prune, which reads names and never content. */
+    /** Writes dumps that suffice for prune, which reads names and never content. */
     private void dump(final String... stamps) throws IOException {
         Files.createDirectories(outputRoot());
         for (final String stamp : stamps) {

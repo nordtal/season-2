@@ -32,9 +32,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every kind of run, driven through the one sequence against a real database: the row is what the proxy reads.
+ * Drives every kind of run through the one sequence against a real database.
  *
- * The containers are stand-ins and the clock is driven, so a thirty-second countdown takes no time.
+ * The containers are stand-ins and the clock is driven.
  */
 class RunnerTest {
 
@@ -42,7 +42,7 @@ class RunnerTest {
     private final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
     private final List<UpdateReport> progress = new ArrayList<>();
 
-    /** Removes only what a test added, and writes each removal into the calls beside the stops and starts. */
+    /** Removes only what a test added and records each removal in the calls. */
     private final PluginRemoval removal = new PluginRemoval() {
         @Override
         public boolean has(final String service, final String artifact) {
@@ -112,7 +112,7 @@ class RunnerTest {
                 "the feeds see the countdown too: " + progress);
         allTold(outcome);
         assertEquals(List.of("report.nothing-changes"), Told.toldKeys(outcome.report(), "smp"));
-        // The fake runtime counts no players, so the move cannot say whether anybody stayed.
+        // The fake runtime counts no players.
         assertEquals(
                 List.of(
                         "COUNTDOWN DONE",
@@ -127,7 +127,7 @@ class RunnerTest {
     /**
      * A one-shot is a release ahead of the schema until its run migrates, so it writes no table the database lacks.
      *
-     * The database is at the newest migration of 0.27.0, before a run's steps were rows.
+     * The database is at the newest migration of 0.27.0.
      */
     @Test
     void aRunOnTheSchemaBeforeItsOwnMigrationWritesNoTableThatIsNotThereYet() {
@@ -453,7 +453,9 @@ class RunnerTest {
         allTold(outcome);
     }
 
-    /** Started on a half-emptied volume, Paper writes defaults over the gaps and may generate a fresh world. */
+    /**
+     * Paper started on a half-emptied volume writes defaults over the gaps and may generate a new world.
+     */
     @Test
     void aVolumeRestoreThatFailsAfterEmptyingTheVolumeLeavesItsServerDownAndHeld() {
         snapshots.fails("restore");
@@ -536,7 +538,7 @@ class RunnerTest {
         assertEquals(List.of(), containers.calls);
     }
 
-    /** Every change of the run, stored and on the way, is a message: no kind but an install names a version. */
+    /** Every change of the run is a message. Only an install names a version. */
     private void allTold(final Outcome outcome) {
         assertEquals(List.of(), Told.untold(outcome.report()), outcome.report());
         for (final UpdateReport report : progress) {
@@ -544,7 +546,7 @@ class RunnerTest {
         }
     }
 
-    /** The run's steps as rows, in order: the step, what it is about, its outcome and its reason. */
+    /** The steps of the run as rows: step, subject, outcome and reason. */
     private List<String> steps(final long run) {
         final List<String> steps = new java.util.ArrayList<>();
         try (java.sql.Connection connection = database.dataSource().getConnection();
@@ -562,19 +564,20 @@ class RunnerTest {
         return steps;
     }
 
-    /** Submits a request of any kind due now and claims it. */
+    /** Submits a request due now and claims it. */
     private UpdateRequest claimed(final StewardRequest request) {
         directory.submit(request, Actor.HOST, Duration.ZERO);
         return directory.claimNext().orElseThrow();
     }
 
-    /** Submits a run due now and claims it, as the loop does. */
     private UpdateRequest claimed(final UpdateKind kind, final List<String> services) {
         directory.submit(kind, Actor.HOST, Duration.ZERO, services);
         return directory.claimNext().orElseThrow();
     }
 
-    /** A clock that moves only when the run sleeps, and lets every started server pass its healthcheck meanwhile. */
+    /**
+     * A clock that moves only when the run sleeps and lets every started server pass its healthcheck meanwhile.
+     */
     private Waiting driven() {
         return new Waiting() {
             private Instant now = Instant.now();

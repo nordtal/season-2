@@ -168,7 +168,7 @@ class ApplierTest {
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
-        // "old" is what install() writes; a run dying between the two phases must not reuse a jar it never verified.
+        // "old" is what install() writes. A run that dies between the phases must not reuse an unverified jar.
         assertEquals("downloaded smp-0.2.0.jar", Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
     }
 
@@ -341,7 +341,7 @@ class ApplierTest {
 
     @Test
     void aRunWhereEverythingWasSkippedDoesNotReadAsARunWhereNothingWasNeeded() {
-        // Every volume unmounted and every row skipped must not close the report with "Nothing needed doing."
+        // Unmounted volumes with every row skipped must not close the report with "Nothing needed doing."
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -361,7 +361,7 @@ class ApplierTest {
 
     @Test
     void b4ABootstrapWhoseSeasonJarIsUnresolvedInstallsNothingForThatServer() {
-        // A resolved plugin next to an unresolved season jar must not let the entrypoint start on a partial install.
+        // A resolved plugin beside an unresolved season jar must not let the entrypoint start on a partial install.
         final UpdatePlan bootstrap = plan(
                         Change.unresolved(
                                 "smp", "smp", TEXTS.report().words("could not read nordtal/season-2@latest: HTTP 403")),
@@ -396,7 +396,7 @@ class ApplierTest {
     void m1APackThatCannotBeResolvedFallsBackAndDoesNotHoldTheJarsBack() throws IOException {
         install("proxy", "plugins/proxy-0.1.0.jar");
 
-        // A release with no .sha1 beside the pack zip must not skip the whole service while the other backends update.
+        // A release without a .sha1 beside the pack zip must not skip the service while the other backends update.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -422,7 +422,7 @@ class ApplierTest {
 
     @Test
     void m1ThePackStillGetsARowWhenTheServiceReallyIsBlocked() {
-        // A skipped service must still report on the one row a player can see: what the client is being sent.
+        // A skipped service still reports the one row a player sees: what the client is sent.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -467,7 +467,7 @@ class ApplierTest {
 
             @Override
             public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup, and BackupSpec's own defaults are fine.
+                // This test is not about a backup.
                 return new BackupSpec() {
                     @Override
                     public RetentionSpec retention() {

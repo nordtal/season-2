@@ -1,74 +1,60 @@
 # database
 
-Everything that reads or writes PostgreSQL: access and links, the season phase, who is online, the
-audit log, payments, update runs, the inboxes, the signal hub and the migrations under
-`src/main/resources/db/migration`. JDBI, HikariCP and the driver are `compileOnly`, so a consumer
-brings the runtime it already has; this module never migrates.
+The `database` module reads and writes PostgreSQL for every service. It holds the migrations in
+`src/main/resources/db/migration` and the code for access, the season phase, online players, the
+audit log, payments, update runs, inboxes and signals.
 
-| piece          | what it is                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access         | read through `AccessReader`, written through `AccessDirectory`; plugins and the proxy only read                                                                                       |
-| Player card    | `PlayerCard` builds the hover every name carries (role, `Prestige` crest, play time) from a process's `PlayerIdentity`                                                                |
-| Refused writes | `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`) and a message of the `messages/database` bundle                                                                  |
-| Signals        | one `SignalHub` per process, the only `LISTEN` connection, one refresh per `Channel`                                                                                                  |
-| Game data      | `GameDataStore`: each server's `GameCatalogue` and the icons drawn per Minecraft version; `GameCatalogue.union` merges                                                                |
-| Command trees  | `CommandTreeStore`: each server's `CommandTree` flattened into indexed nodes; `CommandTree.of` is the one walk                                                                        |
-| Registration   | discord-bot's: a round per `Game` with its teams; the game server moves the round's `RegistrationState`                                                                               |
-| Inboxes        | `Inbox` over every consumer's table (`Inboxes` lists them); a kind's record is a row of its own table or JSON                                                                         |
-| Bookings       | `Bookings` books a payment in one transaction; `Tiers` is the rule for what an amount buys                                                                                            |
-| Journal        | `Journal.write` is the only writer of `journal_entry`; a `JournalDetail` writes its family's table and renders its line                                                               |
-| Alerts         | a row of `admin_alert`: a title and lines below it in the admin bundle, and what it measured as `Measure`s                                                                            |
-| Announcements  | one message per language of the bundle's `announcement` section, rendered by the bot in each channel's language                                                                       |
-| Season phase   | one row every process follows on its hub                                                                                                                                              |
-| Runs           | a request in `steward_inbox`, one open at a time by a unique index; its steps and their facts are rows a `RunRecorder` writes, beside the `UpdateReport` still written as its outcome |
+JDBI, HikariCP and the driver are `compileOnly`, so a consumer supplies its own runtime. The module
+never migrates.
 
 ## Conventions
 
-- **Signals.** Every refresh runs on connect, on every signal and once a minute, so a lost
-  notification costs a minute and a reconnect re-reads in full. Long work rings a `Doorbell` for its
-  own thread; `Channel` names who emits and who listens.
-- **Inboxes.** Submit, claim with `SKIP LOCKED`, progress, settle, expire and cancel are each announced
-  on the table's channel. The answer is an `Outcome`: done, refused with a `Refusal`, or failed; a
-  handler that throws fails its request, never retried. A pending row past its patience reads as
-  expired. `scheduled_for` lets any request wait for its time. Servers take a few typed kinds each
-  (the SMP's track actions, the Hunger Games start, a preview); settings and overrides reach every
-  process on the hub, so no server is asked to reload.
-- **Previews.** `PREVIEW_MESSAGE` is the one kind every consumer of a text shares: a `MessagePreview`
-  with the typed example values, where the key is shown and the key's own service's colours. It shows
-  to that admin alone and writes no journal line; a server refuses with `NOT_HERE` once the player
-  left, the bot with `NOT_DELIVERED`.
-- **Messages in rows.** A row stores a message in `MessageJson`'s shape, never a sentence, written by
-  `DatabaseJson`; alerts and run reports each render through the reader's own target.
-  A value without typed words keeps them as `alert.words`, `report.words` or `announcement.words`. The journal
-  stores no message: a `JournalDetail` keeps its values in columns and renders its line when it is read.
-- **Who asked** is `:common`'s `Actor` (a person by Discord id, Steward, or the host's installer),
-  stored as `actor_kind` and `actor_id` and never as a name.
-- **Bookings.** Paid, the access appended through `Grants`, the donor flag, the journal line and the
-  bot's `PAYMENT_BOOKED`: all or nothing. A bank payment books at most one request, which the unique
-  index on `bunq_payment_id` decides.
-- **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
-- **The season phase.** A switch into `SMP` from before the season stamps `fresh_start`, and smp
-  starts its own track over once per stamp whenever it next sees the phase.
-- **A run's countdown** is typed columns the proxy reads: `scheduled_for`, `countdown_end` and
-  `moving`, never the report JSON.
+- `AccessDirectory` writes access. Plugins and the proxy only read it, through `AccessReader`.
+- `SignalHub` is the only `LISTEN` connection of a process. It refreshes every `Channel` on connect,
+  on each signal and once a minute. A `Doorbell` wakes the thread of a long task.
+- An `Inbox` claims a request with `SKIP LOCKED` and announces each change on the table's channel.
+  The answer is an `Outcome`: done, refused with a `Refusal`, or failed. A handler that throws fails
+  its request, which is never retried.
+- A pending request past its patience reads as expired. `scheduled_for` delays any request.
+- `PREVIEW_MESSAGE` is the inbox kind every consumer of a text shares. It writes no journal line. A
+  server refuses it with `NOT_HERE` when the player has left, and the bot with `NOT_DELIVERED`.
+- A row stores a message as `MessageJson`, written by `DatabaseJson`, never as a sentence. The reader
+  renders it.
+- `Journal.write` is the only writer of `journal_entry`. A `JournalDetail` keeps its values in
+  columns and renders its line when it is read.
+- `:common`'s `Actor` says who asked. The row stores it as `actor_kind` and `actor_id`, never as a
+  name.
+- `Bookings` marks the payment as paid, appends the access through `Grants`, sets the donor flag,
+  writes the journal line and sends `PAYMENT_BOOKED`. It does all of this in one transaction. The
+  unique index on `bunq_payment_id` lets a bank payment book at most one request.
+- Every directory that decides by the clock takes an `InstantSource`.
+- A switch into `SMP` from before the season stamps `fresh_start`. smp starts its own track over once
+  per stamp.
+- A run is a row of `steward_inbox`, and a unique index allows one open run. The proxy reads the
+  run's countdown from the columns `scheduled_for`, `countdown_end` and `moving`, never from the
+  report JSON.
 
 ## Roles and migrations
 
-The `migrate` service, from steward-agent's image, migrates as the owner of every table. Every other
-service logs in as its own `DatabaseRole`, and V1 grants each what it owns and what it reads or writes
-of someone else's, the shared read models through one read role. V1 names the roles by Flyway
-placeholder and never creates one: the migrator creates them first (`DatabaseRole.provision`) with the
-passwords its environment carries. `DatabaseRoleIntegrationTest` holds the grants.
+The `migrate` service of steward-agent's image migrates as the owner of every table. Every other
+service logs in as its own `DatabaseRole`. V1 grants each role the tables it owns and the tables of
+others that it reads or writes. The shared read models go through one read role.
 
-**Migrations expand before they contract.** An update runs `migrate` while the proxy's and limbo's
-standbys still run the previous release, so a migration never drops, renames or narrows what that
-release reads or writes, and never adds a required column without a default to a table it inserts
-into. The old shape goes a release after the code stopped using it.
+V1 names the roles by Flyway placeholder and creates none. `DatabaseRole.provision` creates them
+first, with the passwords from its environment. `DatabaseRoleIntegrationTest` checks the grants.
+
+A migration never drops, renames or narrows what the previous release reads or writes. It never adds
+a required column without a default to a table the previous release inserts into. The proxy's and
+limbo's standbys run the previous release during an update, after `migrate` has run. The old shape
+goes one release after the code stopped using it.
+
 `MigrationsExpandBeforeTheyContractIntegrationTest` migrates to the installed release's newest
-migration and holds the standbys' grants after the rest: a release adds its newest migration to the
-test's list when it bumps `version`. A pushed migration never changes (`MigrationsAreImmutableTest`).
+migration and checks the standbys' grants after the rest. A release that bumps `version` adds its
+newest migration to the test's list. A pushed migration never changes (`MigrationsAreImmutableTest`).
 
-The test fixtures publish `TestDatabase`, the one way a test reaches PostgreSQL: one container per
-test JVM with the roles created and migrated once, a new database cloned for every `fresh()` (or an
-unmigrated one from `empty()`), and `dataSourceAs(role)` to log in as a service would. Its image is
-`compose.yml`'s default, which `TestDatabaseImageTest` holds.
+## Tests
+
+Tests reach PostgreSQL only through `TestDatabase` from the test fixtures. It starts one container
+per test JVM. `fresh()` returns a new migrated database and `empty()` an unmigrated one.
+`dataSourceAs(role)` logs in as a service. The image is the default of `compose.yml`, which
+`TestDatabaseImageTest` checks.

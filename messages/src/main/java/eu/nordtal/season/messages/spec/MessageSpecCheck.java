@@ -22,6 +22,8 @@ import java.util.regex.Pattern;
 public final class MessageSpecCheck {
 
     /** A former name: a key of this bundle, or {@code bundle/key}. */
+    private static final Pattern BUNDLE = Pattern.compile("[a-z][a-z0-9-]*");
+
     private static final Pattern FORMER = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private MessageSpecCheck() {}
@@ -129,6 +131,24 @@ public final class MessageSpecCheck {
         }
     }
 
+    /** A whole bundle is {@code bundle/*}, and an example of this bundle's own is a key it declares. */
+    private static List<String> wholeBundle(
+            final MessageSchema.Entry entry,
+            final MessageSchema.Arg arg,
+            final String taken,
+            final String bundle,
+            final Set<String> declared) {
+        final String name = taken.substring(0, taken.length() - 2);
+        if (!BUNDLE.matcher(name).matches()) {
+            return List.of(entry.key() + ": @Takes names " + taken + ", which is not bundle/*");
+        }
+        final String example = arg.example();
+        if (name.equals(bundle) && example != null && !declared.contains(example.substring(bundle.length() + 1))) {
+            return List.of(entry.key() + ": @Example names " + example + ", which this bundle does not declare");
+        }
+        return List.of();
+    }
+
     /** A key a message value takes is one: in this bundle a key it declares, in another as {@code bundle/key}. */
     private static List<String> takenKeys(
             final Class<?> spec, final List<MessageSchema.Entry> entries, final Set<String> declared) {
@@ -139,6 +159,7 @@ public final class MessageSpecCheck {
                 for (final String taken : Objects.requireNonNullElse(arg.takes(), List.<String>of())) {
                     final String own = taken.startsWith(bundle + "/") ? taken.substring(bundle.length() + 1) : taken;
                     if (MessageSchema.whole(taken)) {
+                        problems.addAll(wholeBundle(entry, arg, taken, bundle, declared));
                         continue;
                     }
                     if (!FORMER.matcher(taken).matches()) {

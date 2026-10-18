@@ -189,7 +189,7 @@
     ]
   },
   {
-    "name": "a block whose data list is empty and a row whose button is left out are not drawn",
+    "name": "a block whose data list is empty, a box or section left with nothing and a row whose button is left out are not drawn",
     "layout": {
       "name": "left-out",
       "bundle": "layouts",
@@ -197,7 +197,9 @@
       "surface": "DISCORD",
       "elements": [
         { "id": "buy", "kind": "BUTTON", "keys": ["layouts/buy"] },
-        { "id": "tiers", "kind": "LIST", "keys": ["layouts/tier"] }
+        { "id": "tiers", "kind": "LIST", "keys": ["layouts/tier"] },
+        { "id": "offers", "kind": "LIST", "keys": ["layouts/tier"] },
+        { "id": "extras", "kind": "LIST", "keys": ["layouts/tier"] }
       ],
       "parts": [
         {
@@ -208,12 +210,21 @@
             { "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }, { "list": "tiers" }] }
           ]
         },
+        {
+          "type": "SECTION",
+          "parts": [{ "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }, { "list": "offers" }] }],
+          "media": ["https://nordtal.eu/icon.png"]
+        },
+        {
+          "type": "CONTAINER",
+          "parts": [{ "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }, { "list": "extras" }] }]
+        },
         { "type": "ROW", "elements": ["buy"] }
       ]
     },
     "language": "en",
     "texts": { "en": { "layouts/title": "Contribution", "layouts/prices": "Prices", "layouts/buy": "Buy", "layouts/tier": "{days} days for {price}" } },
-    "filling": { "values": {}, "elements": { "buy": {}, "tiers": { "items": [] } } },
+    "filling": { "values": {}, "elements": { "buy": {}, "tiers": { "items": [] }, "offers": { "items": [] }, "extras": { "items": [] } } },
     "components": [{ "type": 17, "accent_color": 4875224, "components": [{ "type": 10, "content": "## Contribution" }] }]
   }
 ]

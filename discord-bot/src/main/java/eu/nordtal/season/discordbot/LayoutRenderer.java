@@ -474,7 +474,7 @@ public final class LayoutRenderer {
             return ActionRow.of(children);
         }
 
-        /** A row of only elements left out, or a block of only headings and data lists that are all empty. */
+        /** Whether a part has nothing left to draw, which Discord refuses for a box or a section. */
         private boolean empty(final Part part) {
             return switch (part.type()) {
                 case ROW ->
@@ -490,6 +490,9 @@ public final class LayoutRenderer {
                                                     .isEmpty()
                                             : line.style() != null);
                 }
+                case CONTAINER, SECTION ->
+                    Objects.requireNonNullElse(part.parts(), List.<Part>of()).stream()
+                            .allMatch(this::empty);
                 default -> false;
             };
         }

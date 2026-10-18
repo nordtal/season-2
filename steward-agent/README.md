@@ -1,105 +1,133 @@
 # steward-agent
 
-`steward-agent` holds the Docker socket and the volumes, and carries out every run. It carries
-`compose.yml` in its own image. The same image is the `migrate` service, the only process that runs
-Flyway's `migrate`: it creates every role, applies the schema and exits. Every service with a database
-login waits for it.
+`steward-agent` holds the Docker socket and the volumes. It starts, stops and updates the other
+services, and it carries out every run. Its image contains `compose.yml`.
 
-`steward` mounts no socket and reaches the agent through `:internal-api`'s `AgentClient`.
-`:architecture` refuses `java.net.UnixDomainSocketAddress` anywhere else.
+The same image is the `migrate` service. `migrate` is the only process that runs Flyway's `migrate`:
+it creates every role, applies the schema and exits. Every service with a database login waits for it.
+
+`steward` mounts no Docker socket and calls the agent through `AgentClient` in `:internal-api`.
+`:architecture` refuses `java.net.UnixDomainSocketAddress` in every other module.
+
+## Commands
 
 ```bash
-steward-agent up                          # pull, up, wait, exit with the code
-steward-agent serve                       # the API, then runs (the container's default)
-steward-agent migrate                     # roles, schema, exit
-steward-agent run ID                      # the one-shot: carry out one run, exit
-steward-agent request KIND [a,b] [MIN]    # ask for a run as a button would, print its id
-steward-agent status ID                   # print the run's status and report
+# Pull every image, start the stack and wait until it is healthy. The exit code tells the result.
+steward-agent up
+# Serve the API and carry out runs. This is the container's default.
+steward-agent serve
+# Create the roles, apply the schema and exit.
+steward-agent migrate
+# Carry out the run with this id and exit.
+steward-agent run ID
+# Write a run request, as a button does, and print its id.
+steward-agent request KIND [a,b] [MIN]
+# Print the status and the report of a run.
+steward-agent status ID
 ```
 
-`request` and `status` write and read the run's `steward_inbox` row. The host reaches them through
+`request` and `status` write and read a row of `steward_inbox`. The host calls them with
 `docker exec <project>-steward-agent-1`.
 
-## What it refuses
+## What the agent refuses
 
-- **Recreating itself.** A one-shot renews `steward-agent`.
-- **Running another release.** An update to a newer release goes to a one-shot at that release.
-- **Pulling dependencies.** Every `up` carries `--no-deps`.
-- **Scheduling.** A run starts only from a `steward_inbox` row. The sampler runs on its own clock and
-  only reads.
-- **Handing out secrets.** No route returns a container's environment or the env file.
+- `steward-agent` never recreates itself. A temporary container recreates it.
+- The agent never runs a release other than its own. For an update to a newer release, it starts a
+  temporary container from that release's image (see "Updating to another release").
+- Every `up` carries `--no-deps`, so the agent never starts a dependency by itself.
+- The agent starts a run only for a row of `steward_inbox`. Only the sampler runs on its own clock,
+  and it only reads `docker stats` and `/proc`.
+- No route returns a container's environment or the env file.
 
 ## Runs
 
 ```mermaid
 flowchart LR
-    row["steward_inbox row"] --> plan --> standbys["open standbys"] --> count["count down"] --> evac["evacuate"]
-    evac --> stop --> payload["carry out the payload"] --> start --> verify --> close["close standbys"]
-    close --> renew["renew caddy, pack-host, postgres"] --> settle
+    row["steward_inbox row"] --> plan --> standbys["open standbys"] --> count["count down"] --> evac["move players away"]
+    evac --> stop --> payload["do the request's work"] --> start --> verify --> close["close standbys"]
+    close --> renew["recreate caddy, pack-host, postgres"] --> settle["finish the row"]
 ```
 
-Every kind runs this sequence. `Run` is the sequence, `Kinds` holds one planner per kind, and
-`StewardRequest` types the payload. Caddy, pack-host and postgres are renewed only after the standbys
-have stopped, since caddy carries their ports.
+A standby is a service that stands in for another one, such as `proxy-standby`. Every kind of run
+follows this sequence. `Run` implements it, `Kinds` holds one planner per kind, and
+`StewardRequest` types the request's data.
 
-A run's report is a list of records, one per step and service. Each holds an outcome, the service and a
-message of the admin bundle (`ReportTexts` in `:database`). Steward's run page shows every record. The
-bot's card shows the failed ones of a failed or stopped run.
+The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
+publishes the standbys' ports.
 
-### Another release
+A report is a list of records. Each record holds a step, an outcome, a service and a message of the
+admin bundle (`ReportTexts` in `:database`). Steward's run page shows all records. The bot's card
+shows only the failed records, and only for a run that failed or was stopped.
 
-An update to a newer release goes to a one-shot:
+## Updating to another release
 
-1. `serve` writes `<project>-steward-agent-run` into the row's `runner` column. The row stays
-   `RUNNING` and is the lock.
-2. It pulls `steward-agent` at that release and starts the one-shot from that image's `compose.yml`.
-3. The one-shot (`steward-agent run ID`) plans again, counts down, stops what changes, runs `migrate`,
-   installs, starts and verifies. Until `migrate` has applied its newest migration, it writes no run
-   rows, since their tables may not exist. The report carries those steps.
-4. The one-shot renews the long-running agent at its release, waits until it is healthy and settles
-   the row.
+`serve` runs only runs of its own release. For an update to a newer release, it starts a temporary
+container of that release. It does the same when the agent's own container is out of date. The steps
+are:
 
-Until the row is settled, the agent serves state, logs, the console and the plan, and claims no
-request. A one-shot that vanishes without settling its row is marked failed at the next wake-up. The
-one-shot's output is `steward-backups/runs/<id>.log`; the newest ten stay.
+1. `serve` writes `<project>-steward-agent-run` into the `runner` column of the row. The row keeps
+   the status `RUNNING` and works as the lock.
+2. `serve` pulls `steward-agent` at that release and copies `compose.yml` out of the image.
+3. `serve` starts the temporary container from that `compose.yml` with `compose run --rm`.
+4. The container (`steward-agent run ID`) plans again, counts down, stops what changes, runs
+   `migrate`, installs, starts and verifies.
+5. The container writes no run rows before `migrate` has applied its newest migration, since the
+   tables of those rows may not exist before. The report holds those steps.
+6. The container recreates the long-running agent at the new release and waits until it is healthy.
+7. The container finishes the row.
 
-## Versions
+Between step 1 and step 7, the agent serves state, logs, the console and the plan, and it starts no
+other run. If the container is gone and the row is unfinished, the next wake-up marks the row failed.
+The agent refuses an older release.
 
-| what                                                 | source                                                    |
-| ---------------------------------------------------- | --------------------------------------------------------- |
-| the season-2 jars, the resource pack and its `.sha1` | GitHub releases of `nordtal/season-2`, `/releases/latest` |
-| PacketEvents                                         | Modrinth v2                                               |
-| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                    |
-| what is installed                                    | the volumes under `volumes-root`                          |
+The container writes its output to `steward-backups/runs/<id>.log` and keeps the newest ten logs.
 
-## Rules
+## Sources of versions
 
-- `serve` acts only on rows in its inbox and never migrates.
-- An update stops the services whose jars or containers change, runs `migrate`, installs, starts them
-  and waits until they are healthy.
-- A run stages artefacts in `.nordtal-staging` inside the server's volume and moves them only when all
+| what                                                 | source                                                         |
+| ---------------------------------------------------- | -------------------------------------------------------------- |
+| the season-2 jars, the resource pack and its `.sha1` | `/releases/latest` of the GitHub repository `nordtal/season-2` |
+| PacketEvents                                         | Modrinth v2, filtered by the Minecraft version and `paper`     |
+| Paper and Velocity                                   | PaperMC Fill v3, the newest `STABLE` build                     |
+| what is installed                                    | the volumes under `volumes-root`                               |
+| the resource pack the proxy offers                   | the `url` and `sha1` of the proxy's `pack` settings            |
+
+The agent checks every jar against the sha256 `digest` of its release asset.
+
+## Guarantees
+
+- `serve` acts only on rows of its inbox and never migrates.
+- An update stops the services whose jars or containers change, runs `migrate`, installs the new
+  files, starts the services and waits until they are healthy.
+- A run stages artefacts in `.nordtal-staging` in the server's volume. It moves them only when all
   are present.
-- A deployment pulls every image before it stops anything. A failed pull is tolerated only when the
-  image is on the host.
-- A version not tagged for the platform is refused.
-- Two steward processes cannot serve or move jars at once (advisory locks).
+- A deployment pulls every image before it stops anything. It tolerates a failed pull only when the
+  image is already on the host.
+- The agent refuses a version that is not tagged for the platform.
+- Two steward processes cannot serve or move jars at the same time, because of advisory locks.
 
-## The API
+## API
 
-`AgentWire` holds the paths and records, `AgentClient` the client, both in `:internal-api`. Every
-route but `GET /api/health` needs `X-Steward-Token`, and the service refuses to start without
-`NORDTAL_STEWARD_AGENT_TOKEN`. A refusal is a `Refusal`: `502` when Docker or Compose failed, `400`
-for a request the agent will not run.
+`AgentWire` in `:internal-api` holds the paths and records, and `AgentClient` is the client. Every
+route except `GET /api/health` needs the header `X-Steward-Token`. The agent refuses to start without
+`NORDTAL_STEWARD_AGENT_TOKEN`.
 
-The labels in `compose.yml` drive the servers and the network page. Nothing in Java or TypeScript
+A failed request returns a `Refusal`. Status `502` means that Docker or Compose failed, and status
+`400` means that the agent will not run the request.
+
+The labels in `compose.yml` control the servers and the network page. No Java or TypeScript code
 mirrors them.
 
-## Building and testing
+## Build and test
 
 ```bash
-./gradlew :steward-agent:test           # no network; the fixtures are recorded API answers
-./gradlew :steward-agent:imageContext   # stage the jar and compose.yml in build/image/
+# Run the tests. They use no network, and their fixtures are recorded API answers.
+./gradlew :steward-agent:test
+# Copy the jar and compose.yml into build/image/.
+./gradlew :steward-agent:imageContext
+# Build the image.
 docker build -f deploy/jvm/Dockerfile --build-arg MODULE=steward-agent -t ghcr.io/nordtal/steward-agent:dev .
 ```
 
-`FakeDaemon` answers like Docker, and `AgentStandIn` serves this API over it for steward's tests.
+`FakeDaemon` answers like Docker. `AgentStandIn` serves this API on top of it for the tests of
+`steward`.

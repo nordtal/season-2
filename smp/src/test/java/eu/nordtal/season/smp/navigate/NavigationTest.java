@@ -52,4 +52,17 @@ class NavigationTest {
         assertFalse(target.isIn("nordtal"), "the same numbers in another world are another place");
         assertEquals(NavigationTarget.Kind.LAST_DEATH, target.kind());
     }
+
+    @Test
+    void reachingTheTargetEndsTheNavigationOnce() {
+        final NavigationTarget target = NavigationTarget.poi(UUID.randomUUID(), "the tavern", "nordtal", 100, 70, 100);
+        navigation.set(player, target);
+
+        assertTrue(navigation.arrive(player, "nordtal", 103, 100.5).isEmpty(), "two and a half blocks away");
+        assertTrue(navigation.arrive(player, "nordtal_nether", 100.5, 100.5).isEmpty(), "the same spot elsewhere");
+        assertEquals(target, navigation.arrive(player, "nordtal", 102.5, 100.5).orElseThrow(), "two blocks away");
+
+        assertFalse(navigation.isNavigating(player));
+        assertTrue(navigation.arrive(player, "nordtal", 100.5, 100.5).isEmpty(), "an ended navigation ends once");
+    }
 }

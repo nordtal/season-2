@@ -73,6 +73,7 @@ public final class NavigateCommand {
         return Commands.literal("navigate")
                 .requires(source -> source.getSender() instanceof Player)
                 .executes(this::openGui)
+                .then(Commands.literal("cancel").executes(this::cancel))
                 .build();
     }
 
@@ -166,6 +167,18 @@ public final class NavigateCommand {
                 new NavigateGui(renderer, identities, navigation, player, lastDeath, pois).open(player);
             });
         });
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int cancel(final CommandContext<CommandSourceStack> context) {
+        final PaperUser user = user(context);
+        final UUID uuid = ((Player) context.getSource().getSender()).getUniqueId();
+        if (!navigation.isNavigating(uuid)) {
+            user.reply(MESSAGES.smp().navigate().nothingToCancel(), Feedback.REFUSED, Tone.NEUTRAL);
+            return Command.SINGLE_SUCCESS;
+        }
+        navigation.clear(uuid);
+        user.reply(MESSAGES.smp().navigate().stopped(), Tone.NEUTRAL);
         return Command.SINGLE_SUCCESS;
     }
 

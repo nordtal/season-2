@@ -113,7 +113,12 @@ final class SmpStart {
                 .getPluginManager()
                 .registerEvents(
                         new NavigateListener(
-                                plugin, plugin.jdbi().onDemand(PlaceDao.class), plugin.navigation, plugin.identities()),
+                                plugin,
+                                plugin.jdbi().onDemand(PlaceDao.class),
+                                plugin.navigation,
+                                plugin.identities(),
+                                plugin.renderer(),
+                                plugin.sounds),
                         plugin);
         return listener;
     }

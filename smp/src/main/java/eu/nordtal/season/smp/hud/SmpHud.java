@@ -9,6 +9,7 @@ import eu.nordtal.season.packrendering.hud.Bearing;
 import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.smp.milestone.MilestoneNames;
+import eu.nordtal.season.smp.navigate.NavigatePage;
 import eu.nordtal.season.smp.navigate.Navigation;
 import eu.nordtal.season.smp.navigate.NavigationTarget;
 import eu.nordtal.season.smp.state.SeasonState;
@@ -70,10 +71,7 @@ public final class SmpHud {
             return List.of();
         }
         final NavigationTarget target = wanted.get();
-        // Non-null when kind() is POI, because NavigationTarget.poi() is the only factory that sets it.
-        final String label = target.kind() == NavigationTarget.Kind.POI
-                ? Objects.requireNonNull(target.label())
-                : messages.format(locale, target.name());
+        final String label = NavigatePage.label(target, messages, locale);
 
         // A target in another world has no direction.
         if (!target.isIn(player.getWorld().getName())) {
@@ -84,10 +82,10 @@ public final class SmpHud {
 
         final Location at = Objects.requireNonNull(player.getLocation());
         final int arrow = Bearing.arrowIndex(at.getX(), at.getZ(), at.getYaw(), target.x(), target.z());
-        final long distance = Math.round(Math.hypot(target.x() - at.getX(), target.z() - at.getZ()));
+        final long distance = Math.round(target.distanceFrom(at.getX(), at.getZ()));
 
         return List.of(
-                Pill.of(Glyphs.BOSSBAR_ARROWS.get(arrow), label),
+                Pill.of(Bearing.arrow(arrow), label),
                 Pill.of(messages.format(locale, MESSAGES.smp().hud().distance(distance))));
     }
 

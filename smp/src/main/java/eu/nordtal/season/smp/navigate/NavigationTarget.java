@@ -42,6 +42,11 @@ public record NavigationTarget(
         };
     }
 
+    /** Returns the horizontal distance from {@code fromX}, {@code fromZ} to the middle of the target block. */
+    public double distanceFrom(final double fromX, final double fromZ) {
+        return Math.hypot(x + 0.5 - fromX, z + 0.5 - fromZ);
+    }
+
     public boolean isIn(final String worldName) {
         return world.equals(worldName);
     }

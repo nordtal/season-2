@@ -2,9 +2,27 @@ package eu.nordtal.season.packrendering.hud;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.packrendering.Glyphs;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class BearingTest {
+
+    @Test
+    void everyArrowIsAsWideAsTheWidest() {
+        final int widest = Glyphs.BOSSBAR_ARROWS.stream()
+                .mapToInt(BossBarAdvances::width)
+                .max()
+                .orElseThrow();
+        assertEquals(
+                java.util.List.of(widest),
+                IntStream.range(0, Glyphs.BOSSBAR_ARROWS.size())
+                        .map(index -> BossBarAdvances.width(Bearing.arrow(index)))
+                        .distinct()
+                        .boxed()
+                        .toList(),
+                "a pill around an arrow changes its width while the arrow turns");
+    }
 
     @Test
     void targetDirectlyAheadIsIndexZero() {

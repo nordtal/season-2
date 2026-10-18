@@ -147,7 +147,7 @@ class WebRoutesTest extends WebTestSupport {
         final HttpResponse<String> second = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
 
         assertEquals(409, second.statusCode(), second.body());
-        assertTrue(second.body().contains("Run #" + id + " is still pending"), second.body());
+        assertTrue(second.body().contains("Run #" + id + " (down) is still pending"), second.body());
         settleOpenRuns();
     }
 

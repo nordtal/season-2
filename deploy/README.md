@@ -83,12 +83,12 @@ mode 600 and belongs to the uid of the service. Compose mounts the directory rea
 [`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts. `steward-agent` mounts only
 its own directory, so it reads neither the bank key nor the bot token:
 
-| service         | secrets of the service (the name in the environment file, where it differs)                                                                                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                                                                                                |
-| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                                                                                              |
+| service         | secrets of the service (the name in the environment file, where it differs)                                                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                                                                                               |
+| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                                                                                             |
 | `steward`       | `NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET` (`STEWARD_DISCORD_CLIENT_SECRET`), `NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY` (`STEWARD_WEB_PUSH_PRIVATE_KEY`), `NORDTAL_STEWARD_WEB_TOTP_KEY` (`STEWARD_TOTP_KEY`) |
-| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                                                                                                            |
+| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                                                                                                           |
 
 `nordtal.sh` asks for these values and writes them into the service's file. Every run (the menu,
 `--deploy` and `update`) moves such a line out of the environment file. A line that someone puts back
@@ -382,13 +382,13 @@ is for a repository forked into a new season, which starts on an empty host.
 
 ## Troubleshooting
 
-| symptom                                                         | cause                                                                        |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| a log names a setting                                           | a stored value was refused; Steward shows the reason on the group            |
-| `FATAL: set EULA=true`                                          | the image does not accept the EULA for you                                   |
-| every login fails with _"Unable to connect you to the backend"_ | the forwarding secret differs somewhere                                      |
-| Velocity exits with _"Your configuration is invalid"_           | `velocity.toml` names a server that its `[servers]` does not define          |
-| the proxy shows a "network misconfigured" screen                | the proxy could not start; its log says why                                  |
-| a backend answers _"Server full"_                               | the backend was not restarted after a limit change                           |
-| everybody is refused with a countdown                           | the phase is `PRE_LAUNCH`; `/phase set PRE_EVENT` opens the network          |
+| symptom                                                         | cause                                                                           |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| a log names a setting                                           | a stored value was refused; Steward shows the reason on the group               |
+| `FATAL: set EULA=true`                                          | the image does not accept the EULA for you                                      |
+| every login fails with _"Unable to connect you to the backend"_ | the forwarding secret differs somewhere                                         |
+| Velocity exits with _"Your configuration is invalid"_           | `velocity.toml` names a server that its `[servers]` does not define             |
+| the proxy shows a "network misconfigured" screen                | the proxy could not start; its log says why                                     |
+| a backend answers _"Server full"_                               | the backend was not restarted after a limit change                              |
+| everybody is refused with a countdown                           | the phase is `PRE_LAUNCH`; `/phase set PRE_EVENT` opens the network             |
 | `docker rm -f` fails with _"did not receive an exit event"_     | a console is mirrored with `tmux pipe-pane`; only a Docker daemon restart helps |

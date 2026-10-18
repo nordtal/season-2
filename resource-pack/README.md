@@ -71,23 +71,23 @@ Steward raises the pack alert when the URL stops answering.
 `fonts` lists one entry per font, in the order that `Glyphs` follows. The `about` of a font, block,
 glyph or list becomes the doc comment of its constant.
 
-| level | key                          | meaning                                                                                                         |
-| ----- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| font  | `font`                       | the font id, such as `nordtal:board`; with `{row}` in it, one font per row                                      |
-| font  | `rows`, `pitch`              | the number of row fonts that `{row}` writes, counted from 0, and the pixels between one row and the next        |
-| font  | `constant`                   | the Java constant of the font id, or of the list of row ids                                                     |
-| font  | `numbering`                  | `"own"` lets the code points of the font repeat those of another font                                           |
-| font  | `spaces`                     | the `space` provider: each entry has a `code`, an `advance` in pixels and an optional `constant`                |
-| font  | `blocks`, `lists`            | the code points in ascending order; Java lists (`constant`, `about`) that a glyph joins with `list`             |
-| block | `range`, `title`             | a range such as `FE000-FE00F`, and the name of the block in `Glyphs` and in every message about it              |
-| block | `texture`                    | makes the block one sheet whose glyphs are the cells of one row, left to right                                  |
-| block | `chars`                      | replaces `range` and `glyphs`: rows of ordinary characters, one per sheet row; `\u0000` is no cell             |
-| block | `height`, `ascent`, `status` | the default of every glyph in the block; a sheet needs both `height` and `ascent`                               |
-| glyph | `code`, `constant`           | the code point in capital hex and its constant in `Glyphs`; a glyph without a constant is reached by its list   |
-| glyph | `name`                       | its `<glyph:name>`, lowercase and hyphenated; every glyph of `minecraft:default` has one and no other does      |
-| glyph | `texture`                    | `nordtal:<path>.png` under `src/assets/nordtal/textures`; the cells of a sheet take the texture of the block    |
-| glyph | `height`, `ascent`           | the values of the bitmap provider, unless the block sets them                                                   |
-| glyph | `status`                     | `keep` is shipping art, `final candidate` can ship, `placeholder` is for testing; unset is unjudged            |
+| level | key                          | meaning                                                                                                       |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| font  | `font`                       | the font id, such as `nordtal:board`; with `{row}` in it, one font per row                                    |
+| font  | `rows`, `pitch`              | the number of row fonts that `{row}` writes, counted from 0, and the pixels between one row and the next      |
+| font  | `constant`                   | the Java constant of the font id, or of the list of row ids                                                   |
+| font  | `numbering`                  | `"own"` lets the code points of the font repeat those of another font                                         |
+| font  | `spaces`                     | the `space` provider: each entry has a `code`, an `advance` in pixels and an optional `constant`              |
+| font  | `blocks`, `lists`            | the code points in ascending order; Java lists (`constant`, `about`) that a glyph joins with `list`           |
+| block | `range`, `title`             | a range such as `FE000-FE00F`, and the name of the block in `Glyphs` and in every message about it            |
+| block | `texture`                    | makes the block one sheet whose glyphs are the cells of one row, left to right                                |
+| block | `chars`                      | replaces `range` and `glyphs`: rows of ordinary characters, one per sheet row; `\u0000` is no cell            |
+| block | `height`, `ascent`, `status` | the default of every glyph in the block; a sheet needs both `height` and `ascent`                             |
+| glyph | `code`, `constant`           | the code point in capital hex and its constant in `Glyphs`; a glyph without a constant is reached by its list |
+| glyph | `name`                       | its `<glyph:name>`, lowercase and hyphenated; every glyph of `minecraft:default` has one and no other does    |
+| glyph | `texture`                    | `nordtal:<path>.png` under `src/assets/nordtal/textures`; the cells of a sheet take the texture of the block  |
+| glyph | `height`, `ascent`           | the values of the bitmap provider, unless the block sets them                                                 |
+| glyph | `status`                     | `keep` is shipping art, `final candidate` can ship, `placeholder` is for testing; unset is unjudged           |
 
 The build checks every rule before it writes anything. It names each broken rule by its place, such as
 `glyphs.json > nordtal:bossbar > Status icons`.
@@ -148,12 +148,12 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 
 ## Vanilla overrides
 
-| file                                                           | effect                                                                     |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so only the composed HUD shows |
-| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                          |
+| file                                                           | effect                                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so only the composed HUD shows   |
+| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                            |
 | `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
-| `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                         |
+| `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
 
 `de_de.json` is the only place where the client language decides what a player sees, and it holds
 these three pause-menu strings only. `menu.game` names a glyph, so a language file is the one place

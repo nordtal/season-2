@@ -46,6 +46,20 @@ class SmpSettingsTest {
         assertEquals("minecraft:ui.button.click", sounds.select().key());
     }
 
+    /** An installation keeps the row of the removed {@code balloons} setting. */
+    @Test
+    void aStoredRowForTheRemovedBalloonsStillLoads() throws Exception {
+        final SmpSpec config = store.checked(
+                "smp",
+                CONFIG,
+                Map.of(
+                        "balloons",
+                        "[{\"world\":\"nordtal\",\"min-x\":3994,\"min-y\":84,\"min-z\":2187,"
+                                + "\"max-x\":3996,\"max-y\":86,\"max-z\":2189}]"));
+
+        assertEquals("nordtal", config.worldNordtal());
+    }
+
     @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
         final SmpSpec written = Specs.createDefault(SmpSpec.class);
@@ -53,21 +67,10 @@ class SmpSettingsTest {
         storeLeaves(Specs.gsonBuilder().create().toJsonTree(written), "", values);
         final SmpSpec reread = new MemorySettingStore().checked("smp", CONFIG, values);
 
-        assertEquals(written.balloons().size(), reread.balloons().size());
         assertEquals(written.boards().size(), reread.boards().size());
         assertEquals(written.duelPlatforms().size(), reread.duelPlatforms().size());
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
         assertEquals(written.npc().world(), reread.npc().world());
-        assertEquals(
-                written.balloons().getFirst().world(),
-                reread.balloons().getFirst().world());
-
-        // {@code balloon-spawn-points} is a spec of specs, so the test checks all five numbers of each point.
-        final BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
-        assertAll(
-                () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
-                () -> assertPoint(written.balloonSpawnPoints().nether(), points.nether(), "nether"),
-                () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end"));
 
         final FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
         assertAll(
@@ -102,15 +105,6 @@ class SmpSettingsTest {
             return;
         }
         values.put(path, tree.toString());
-    }
-
-    private static void assertPoint(final SpawnPointSpec written, final SpawnPointSpec reread, final String which) {
-        assertAll(
-                () -> assertEquals(written.x(), reread.x(), which + ": x"),
-                () -> assertEquals(written.y(), reread.y(), which + ": y"),
-                () -> assertEquals(written.z(), reread.z(), which + ": z"),
-                () -> assertEquals(written.yaw(), reread.yaw(), which + ": yaw"),
-                () -> assertEquals(written.pitch(), reread.pitch(), which + ": pitch"));
     }
 
     @Test

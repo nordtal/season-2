@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.region;
 
-import eu.nordtal.season.smp.config.BalloonSpec;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.SpawnRegionSpec;
 import java.util.ArrayList;
@@ -36,21 +35,6 @@ public final class ConfigBoxes {
                     region.maxX(),
                     region.maxY(),
                     region.maxZ()));
-        }
-        return new Boxes(boxes);
-    }
-
-    public static Boxes balloons(final SmpSpec config) {
-        final List<Box> boxes = new ArrayList<>();
-        for (final BalloonSpec balloon : config.balloons()) {
-            boxes.add(new Box(
-                    balloon.world(),
-                    balloon.minX(),
-                    balloon.minY(),
-                    balloon.minZ(),
-                    balloon.maxX(),
-                    balloon.maxY(),
-                    balloon.maxZ()));
         }
         return new Boxes(boxes);
     }

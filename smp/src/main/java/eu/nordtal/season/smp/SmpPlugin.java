@@ -52,12 +52,10 @@ import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
-import eu.nordtal.season.smp.region.Box;
 import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
-import eu.nordtal.season.smp.travel.BalloonDisplay;
 import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -103,7 +101,6 @@ public final class SmpPlugin extends NordtalPlugin {
     volatile MilestoneTrack track;
 
     Worlds worlds;
-    private Boxes balloons;
     final SeasonState season = new SeasonState();
 
     @Nullable
@@ -126,9 +123,6 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     BukkitCinematics cinematics;
-
-    @Nullable
-    BalloonDisplay balloonDisplay;
 
     private PlayerSurfacesListener presence;
 
@@ -202,11 +196,6 @@ public final class SmpPlugin extends NordtalPlugin {
         loadMilestoneTrack();
         loadFeedbackPalettes();
         worlds = bootstrapWorlds(config.get());
-        balloons = ConfigBoxes.balloons(config.get());
-        final String placement = checkNordtalBalloon(config.get(), balloons);
-        if (placement != null) {
-            throw fatal("smp is not starting: " + placement);
-        }
     }
 
     @Override
@@ -252,7 +241,7 @@ public final class SmpPlugin extends NordtalPlugin {
         duels = activities.duels();
         SmpStart.registerActivityListeners(this, spec, activities);
         npc = SmpStart.wireNpc(this, spec);
-        balloonDisplay = SmpStart.restoreGravesAndRegisterWorld(this, balloons, regions, wired.effects());
+        SmpStart.restoreGravesAndRegisterWorld(this, regions);
 
         admin = admin();
         registerCommands(sounds);
@@ -264,9 +253,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
         });
-        getLogger()
-                .info(track.size() + " milestones, " + regions.all().size() + " protected boxes, "
-                        + balloons.all().size() + " balloons");
+        getLogger().info(track.size() + " milestones, " + regions.all().size() + " protected boxes");
     }
 
     @Override
@@ -344,10 +331,6 @@ public final class SmpPlugin extends NordtalPlugin {
         final SpawnNpc figure = npc;
         if (figure != null) {
             quietly("npc.remove", figure::remove);
-        }
-        final BalloonDisplay display = balloonDisplay;
-        if (display != null) {
-            quietly("balloonDisplay.remove", display::remove);
         }
         final Duels running = duels;
         if (running != null) {
@@ -600,31 +583,5 @@ public final class SmpPlugin extends NordtalPlugin {
                             + season.unlocked() + ", Nordtal's border "
                             + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
         });
-    }
-
-    /**
-     * Returns the reason to refuse the start.
-     * Returns null when every balloon in Nordtal is between radius 10 and 21.5 of the border centre.
-     */
-    private @Nullable String checkNordtalBalloon(final SmpSpec config, final Boxes balloons) {
-        final List<Box> inNordtal = balloons.in(config.worldNordtal());
-        if (inNordtal.isEmpty()) {
-            return "no balloon is configured in '" + config.worldNordtal() + "', so nobody could " + "ever leave it.";
-        }
-        for (final Box box : inNordtal) {
-            final double distance = box.horizontalDistanceFrom(config.borderCentreX(), config.borderCentreZ());
-            if (distance <= 10.0 || distance >= 21.5) {
-                return String.format(
-                        Locale.ROOT,
-                        "Nordtal's balloon sits at radius %.1f of the border centre %d/%d. It has to "
-                                + "be outside 10 and inside 21.5, because that is what makes border "
-                                + "20 withhold travel and the opening expansion to 43 hand it "
-                                + "over.",
-                        distance,
-                        config.borderCentreX(),
-                        config.borderCentreZ());
-            }
-        }
-        return null;
     }
 }

@@ -57,11 +57,7 @@ class SmpRulesTest {
 
     /** Everything that outlives a reload and reads the milestone track. */
     private static final List<String> TRACK_READERS = List.of(
-            ENGINE,
-            POLLER,
-            "eu.nordtal.season.smp.progress.GateHolders",
-            "eu.nordtal.season.smp.npc.NpcListener",
-            "eu.nordtal.season.smp.travel.BalloonListener");
+            ENGINE, POLLER, "eu.nordtal.season.smp.progress.GateHolders", "eu.nordtal.season.smp.npc.NpcListener");
 
     private static JavaClasses classes;
 
@@ -93,7 +89,6 @@ class SmpRulesTest {
                         "GateHolders#<init>",
                         "SmpPlugin#track"))
                 .andShould(callFrom("wireNpc", "NpcListener#<init>", "SmpPlugin#track"))
-                .andShould(callFrom("restoreGravesAndRegisterWorld", "BalloonListener#<init>", "SmpPlugin#track"))
                 .check(classes);
         // A reload writes the field off the server thread, and every reader is on it.
         assertTrue(

@@ -85,14 +85,6 @@ public interface SmpSpec {
         return List.of("Terralith", "Dungeons and Taverns");
     }
 
-    @Order(19)
-    @Name("Balloons")
-    @Key("balloons")
-    @NoExplanationNeeded
-    default List<BalloonSpec> balloons() {
-        return DefaultSmp.BALLOONS;
-    }
-
     @Order(20)
     @Name("Boards")
     @Key("boards")
@@ -244,14 +236,6 @@ public interface SmpSpec {
     @NoExplanationNeeded
     default List<WheelPrizeSpec> duelLoadoutBow() {
         return DefaultSmp.DUEL_LOADOUT_BOW;
-    }
-
-    @Order(42)
-    @Name("Balloon spawn points")
-    @Key("balloon-spawn-points")
-    @NoExplanationNeeded
-    default BalloonSpawnPointsSpec balloonSpawnPoints() {
-        return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
 
     /** {@code smp_player.welcome_shown} records the first join. */

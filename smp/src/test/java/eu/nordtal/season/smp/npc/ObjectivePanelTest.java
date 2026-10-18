@@ -308,9 +308,7 @@ class ObjectivePanelTest {
             slots.forEach(slot -> {
                 assertEquals(
                         card, ObjectivePanel.cardOf(slot), "slot " + slot + " does not answer the card it belongs to");
-                assertTrue(
-                        SlotGeometry.column(slot) != 4,
-                        "column 4 is the gap between the two cards, as it is on the balloon");
+                assertTrue(SlotGeometry.column(slot) != 4, "column 4 is the gap between the two cards");
             });
             all.addAll(slots);
         }

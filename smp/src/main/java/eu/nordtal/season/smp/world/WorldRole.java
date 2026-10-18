@@ -7,10 +7,10 @@ public enum WorldRole {
     /** The permanent build world. It holds the spawn, grows with milestones and is never regenerated. */
     NORDTAL(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD),
 
-    /** Reachable by balloon or portal, after its milestone is unlocked. */
+    /** Reachable by Nether portal, after its milestone is unlocked. */
     NETHER(Glyphs.BOSSBAR_ICON_DIM_NETHER),
 
-    /** Reachable by balloon only. The vanilla exit portal leaves it, and only after the dragon. */
+    /** Reachable by End portal, after its milestone is unlocked. The vanilla exit portal leaves it after the dragon. */
     END(Glyphs.BOSSBAR_ICON_DIM_END);
 
     private final String glyph;

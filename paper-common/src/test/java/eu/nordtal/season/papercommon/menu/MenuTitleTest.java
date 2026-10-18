@@ -135,14 +135,12 @@ class MenuTitleTest {
                             + " top lands at y + 7 - ascent. 13 puts it at 0, the window's own top"
                             + " edge; anything else offsets the whole panel vertically");
         }
-        assertTrue(
-                PANELS.size() >= MenuTitle.MAX_ROWS + 1,
-                "six chest panels and the travel panel were expected; found " + PANELS.size());
+        assertTrue(PANELS.size() >= MenuTitle.MAX_ROWS, "six chest panels were expected; found " + PANELS.size());
     }
 
     @Test
     void everyOverlayLandsOnASlotRowItsAscentIs13MinusAYInsideTheWindow() {
-        assertTrue(!OVERLAYS.isEmpty(), "the travel overlays were expected in gui.json");
+        assertTrue(!OVERLAYS.isEmpty(), "the overlays were expected in gui.json");
         for (final int codePoint : OVERLAYS.keySet()) {
             final int y = 13 - ASCENTS.get(codePoint);
             assertTrue(
@@ -155,10 +153,10 @@ class MenuTitleTest {
     @Test
     void aCanvasDrawsEveryOverlayAtTheXItWasGivenAndEndsOnTheAnchor() {
         final int width = 68;
-        final Component surface = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
-                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 9, width)
-                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 9, width)
-                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 99, width)
+        final Component surface = MenuTitle.on(Glyphs.GUI_PANEL_6)
+                .overlay(Glyphs.GUI_CARD_TOP, 9, width)
+                .overlay(Glyphs.GUI_CARD_BOTTOM, 9, width)
+                .overlay(Glyphs.GUI_CARD_BOTTOM, 99, width)
                 .panel();
 
         final Map<Integer, List<Integer>> landed = new HashMap<>();
@@ -174,12 +172,12 @@ class MenuTitleTest {
 
         assertEquals(
                 List.of(0),
-                landed.get(Glyphs.GUI_TRAVEL_PANEL.codePointAt(0)),
+                landed.get(Glyphs.GUI_PANEL_6.codePointAt(0)),
                 "the panel has to start on the window's left edge");
-        assertEquals(List.of(9), landed.get(Glyphs.GUI_TRAVEL_HERE_TOP.codePointAt(0)));
+        assertEquals(List.of(9), landed.get(Glyphs.GUI_CARD_TOP.codePointAt(0)));
         assertEquals(
                 List.of(9, 99),
-                landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
+                landed.get(Glyphs.GUI_CARD_BOTTOM.codePointAt(0)),
                 "a canvas draws in the order things were added to it, and the two at x = 9 came"
                         + " before the one at 99. Until 2026-09-09 it sorted right to left, because"
                         + " the font had no positive advance - which paints a list row's plate over"
@@ -192,10 +190,10 @@ class MenuTitleTest {
     void anOverlayThatDoesNotFitTheWindowIsRefused() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 120, 68));
+                () -> MenuTitle.on(Glyphs.GUI_PANEL_6).overlay(Glyphs.GUI_CARD_TOP, 120, 68));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, -1, 68));
+                () -> MenuTitle.on(Glyphs.GUI_PANEL_6).overlay(Glyphs.GUI_CARD_TOP, -1, 68));
     }
 
     @Test
@@ -257,11 +255,11 @@ class MenuTitleTest {
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             compositions.add(plain(MenuTitle.panel(rows)));
         }
-        compositions.add(plain(MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
-                .overlay(Glyphs.GUI_TRAVEL_LOCKED_TOP, 9, 68)
-                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 9, 68)
-                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 99, 68)
-                .overlay(Glyphs.GUI_TRAVEL_HERE_BOTTOM, 99, 68)
+        compositions.add(plain(MenuTitle.on(Glyphs.GUI_PANEL_6)
+                .overlay(Glyphs.GUI_CARD_DONE_TOP, 9, 68)
+                .overlay(Glyphs.GUI_CARD_BOTTOM, 9, 68)
+                .overlay(Glyphs.GUI_CARD_TOP, 99, 68)
+                .overlay(Glyphs.GUI_CARD_DONE_BOTTOM, 99, 68)
                 .panel()));
         for (final String composition : compositions) {
             composition
@@ -294,8 +292,6 @@ class MenuTitleTest {
                     "panel_" + rows + ".png: the slot cells at x = 8 do not start where the client"
                             + " draws its slots");
         }
-        // The travel panel has cards where the chest slots would be, so only the player's rows.
-        assertEquals(List.of(138, 156, 174, 196), recessTops(read("nordtal:ui/gui/travel.png")));
     }
 
     /** The rows at x = 8 where a slot recess (the palette's dark slot colour) begins. */

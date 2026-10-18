@@ -50,10 +50,6 @@ public final class WorldEffects implements Listener {
         }
     }
 
-    public void travelled(final Location at) {
-        at.getWorld().spawnParticle(Particle.CLOUD, at.clone().add(0, 1, 0), 30, 0.4, 0.6, 0.4, 0.02);
-    }
-
     public void graveOpened(final Location at) {
         at.getWorld().spawnParticle(Particle.SOUL, at.clone().add(0.5, 1.0, 0.5), 14, 0.25, 0.35, 0.25, 0.01);
     }

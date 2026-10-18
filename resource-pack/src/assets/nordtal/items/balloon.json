@@ -1,7 +1,0 @@
-{
-    "_comment": "Item model definition for the hot-air balloon (pack_format 88 / MC 26.2 items model system). Selected in-game by giving the placeholder item an item_model component of \"nordtal:balloon\"; the plugin spawns it on an ItemDisplay entity rather than handing it to a player.",
-    "model": {
-        "type": "minecraft:model",
-        "model": "nordtal:item/balloon"
-    }
-}

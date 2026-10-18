@@ -29,10 +29,6 @@ public final class Boxes {
         return at(world, x, y, z).isPresent();
     }
 
-    public List<Box> in(final String world) {
-        return boxes.stream().filter(box -> box.world().equals(world)).toList();
-    }
-
     public List<Box> all() {
         return boxes;
     }

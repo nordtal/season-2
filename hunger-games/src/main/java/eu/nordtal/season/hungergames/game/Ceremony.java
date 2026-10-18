@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The post-game ceremony: everyone back to the lobby, the result announced, the game marked {@code DECIDED}. */
+/** Teleports the players to the lobby and announces the result. */
 public final class Ceremony {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
@@ -37,12 +37,11 @@ public final class Ceremony {
     }
 
     /**
-     * Everything the ceremony needs, read off the main thread before it starts, so {@code Ceremony} holds no DAO.
+     * The data of the announcement.
      *
-     * @param outcome what {@code WinTracker} decided
-     * @param winnerMcUuid the winner's Minecraft account, or {@code null} when there is none
-     * @param kills member id to kill count; members with none are absent
-     * @param names member id to the player through the identity service, in roster order; one never seen is absent
+     * @param winnerMcUuid the Minecraft UUID of the winner, {@code null} without a winner
+     * @param kills the kills by member id, without members that have none
+     * @param names the player of each member id
      */
     public record Decision(
             WinTracker.Outcome outcome,
@@ -50,14 +49,9 @@ public final class Ceremony {
             Map<UUID, Integer> kills,
             Map<UUID, PlayerContext> names) {}
 
-    /**
-     * Teleports everyone in the world back to the lobby and announces the result in each player's language.
-     *
-     * Main thread, no database: the caller already wrote the game as decided.
-     */
+    /** Teleports every player in the world to the lobby and announces the result in the language of the player. */
     public void run(final World world, final Location lobby, final UUID gameId, final Decision decision) {
         for (final Player player : world.getPlayers()) {
-            // Fire-and-forget: a failed teleport still gets the announcement, wherever the player stands.
             final var _ = player.teleportAsync(lobby);
         }
 
@@ -70,7 +64,7 @@ public final class Ceremony {
                 decision.outcome().winnerMemberId());
     }
 
-    /** One line for everybody; {@code BIG_SUCCESS} for the winner and {@code NETWORK_EVENT} for everybody else. */
+    /** Sends the lines to the player. The winner gets {@code BIG_SUCCESS}, every other player {@code NETWORK_EVENT}. */
     private void announce(final Player player, final Decision decision) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         for (final MessageRef line : lines(decision)) {
@@ -81,20 +75,18 @@ public final class Ceremony {
                 player.getUniqueId().equals(decision.winnerMcUuid()) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
     }
 
-    /** The announcement, line by line, the same for every reader but their language. */
+    /** Returns the lines of the announcement. */
     static List<MessageRef> lines(final Decision decision) {
         final WinTracker.Outcome outcome = decision.outcome();
         final List<MessageRef> lines = new ArrayList<>();
         lines.add(MESSAGES.hg().ceremony().header());
 
-        // Four endings, four sentences: a tiebreak printed as a plain win contradicts what players just saw.
         if (outcome.winnerMemberId() != null && outcome.tie()) {
             lines.add(MESSAGES.hg()
                     .win()
                     .tieBroken(
                             player(decision, outcome.winnerMemberId()), outcome.winnerKills(), outcome.loserKills()));
         } else if (outcome.winnerMemberId() != null) {
-            // The one line with an icon; the glyph is a parameter since Glyphs names code points.
             lines.add(MESSAGES.hg().win().player(player(decision, outcome.winnerMemberId())));
         } else if (outcome.tie()) {
             lines.add(MESSAGES.hg().win().noWinner(outcome.winnerKills()));
@@ -102,7 +94,6 @@ public final class Ceremony {
             lines.add(MESSAGES.hg().ceremony().noWinner());
         }
 
-        // Only a member who played can have a kill, and every one of them has a name.
         decision.names().forEach((member, named) -> {
             final int kills = decision.kills().getOrDefault(member, 0);
             if (kills > 0) {
@@ -114,17 +105,12 @@ public final class Ceremony {
         return lines;
     }
 
-    /**
-     * A member as the tab list names them.
-     *
-     * Only a member who never logged in has no name on record, and such a member cannot have played.
-     */
+    /** Returns the player of the member. */
     private static PlayerContext player(final Decision decision, final UUID memberId) {
         final PlayerContext named = decision.names().get(memberId);
         if (named != null) {
             return named;
         }
-        // The member id stands in for an account nobody has, so no hover card and no reader is them.
         return PlayerContext.of(PlayerId.of(memberId), "?");
     }
 }

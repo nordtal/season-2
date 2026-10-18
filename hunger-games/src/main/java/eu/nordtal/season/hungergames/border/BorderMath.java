@@ -1,15 +1,15 @@
 package eu.nordtal.season.hungergames.border;
 
-/** The border's pure arithmetic: the death step and the target rules, free of Bukkit for unit tests. */
+/** The arithmetic of the border shrinks. */
 public final class BorderMath {
 
     private BorderMath() {}
 
     /**
-     * Returns the diameter every death removes: the diameter range divided by one fewer than the participants.
+     * Returns the diameter that a death removes: the difference of the diameters divided by the participants minus one.
      *
-     * @param effectiveParticipants the count after countdown-time demotions, fixed for the game
-     * @throws IllegalArgumentException if fewer than two participants, or the diameters are not a valid start/end pair
+     * @throws IllegalArgumentException if there are fewer than two participants or the start is not greater than the
+     * end
      */
     public static double deathStep(
             final double startDiameter, final double endDiameter, final int effectiveParticipants) {
@@ -23,20 +23,12 @@ public final class BorderMath {
         return (startDiameter - endDiameter) / (effectiveParticipants - 1);
     }
 
-    /**
-     * Returns where a death-triggered shrink should target next, clamped to {@code floor}.
-     *
-     * @param currentTarget the in-flight target if shrinking, otherwise the border's actual size
-     */
+    /** Returns the current target minus the step, at least {@code floor}. */
     public static double nextShrinkTarget(final double currentTarget, final double step, final double floor) {
         return Math.max(floor, currentTarget - step);
     }
 
-    /**
-     * Returns how long a death-triggered shrink takes, in milliseconds, at least 0.
-     *
-     * The wall speed is already a diameter rate, so it applies to the diameter delta directly.
-     */
+    /** Returns the milliseconds that a shrink takes at the wall speed. */
     public static long shrinkDurationMillis(
             final double fromDiameter, final double toDiameter, final double wallSpeedDiameterPerSecond) {
         if (wallSpeedDiameterPerSecond <= 0) {
@@ -46,7 +38,7 @@ public final class BorderMath {
         return Math.round((delta / wallSpeedDiameterPerSecond) * 1000.0);
     }
 
-    /** Returns how long a passive shrink takes, in milliseconds, at least 0. */
+    /** Returns the milliseconds that a passive shrink takes. */
     public static long passiveShrinkDurationMillis(
             final double fromDiameter, final double toDiameter, final double passiveShrinkDiameterPerHour) {
         if (passiveShrinkDiameterPerHour <= 0) {

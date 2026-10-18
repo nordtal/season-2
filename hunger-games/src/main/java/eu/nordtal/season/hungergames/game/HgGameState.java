@@ -1,6 +1,6 @@
 package eu.nordtal.season.hungergames.game;
 
-/** {@code hg_game.state}: a game starts in its countdown and ends decided, or aborted by a restart. */
+/** The values of {@code hg_game.state}. */
 public enum HgGameState {
     COUNTDOWN,
     RUNNING,

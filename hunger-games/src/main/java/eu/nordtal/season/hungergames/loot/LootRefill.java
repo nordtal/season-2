@@ -30,9 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Schedules the loot refills configured under {@code refill-tiers}.
- *
- * Each refill clears and restocks the chest of every loot point still inside the border.
+ * Schedules the refills of {@code refill-tiers}. A refill clears and fills the chest of every loot point inside the
+ * border.
  */
 public final class LootRefill {
 
@@ -48,7 +47,7 @@ public final class LootRefill {
 
     private final List<Scheduler.Task> scheduled = new ArrayList<>();
 
-    /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
+    /** The release time. {@link #scheduleAll} sets it and {@link #cancelAll} clears it. */
     private volatile @Nullable Instant releasedAt;
 
     private final Clock clock;
@@ -72,7 +71,7 @@ public final class LootRefill {
         this.sounds = sounds;
     }
 
-    /** When the next refill is due, or {@code null} when none is; derived for the HUD, so it cannot go stale. */
+    /** Returns the time of the next refill, or {@code null} when none is left. */
     public @Nullable Instant nextRefillAt() {
         final Instant released = releasedAt;
         if (released == null) {
@@ -89,11 +88,10 @@ public final class LootRefill {
         return soonest;
     }
 
-    /** Schedules every configured tier's refill, relative to the moment the game was released. */
+    /** Schedules the refill of each tier relative to the release time. */
     public void scheduleAll(final Instant releasedAt) {
         this.releasedAt = releasedAt;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
-            // A tier already due by now refills at once.
             final Duration remaining =
                     Duration.ofMinutes(tier.delayMinutes()).minus(Duration.between(releasedAt, clock.instant()));
             scheduled.add(PaperScheduler.of(plugin).onMainAfter(remaining, () -> refill(tier)));
@@ -148,7 +146,7 @@ public final class LootRefill {
         }
     }
 
-    /** {@code NETWORK_EVENT}, and not chat alone: the one announcement here a player is expected to act on. */
+    /** Sends the refill announcement to the players in the world. */
     private void announce() {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(renderer.format(

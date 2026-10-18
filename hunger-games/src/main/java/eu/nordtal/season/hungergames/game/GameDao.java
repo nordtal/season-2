@@ -17,9 +17,7 @@ import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The SQL of this plugin's games and events, and of the round of registration it starts them from.
- *
- * The round is discord-bot's: this plugin moves its state alone. Every write signals {@link Channel#HUNGER_GAMES}.
+ * The SQL of the games, their events and the rounds of registration. Every write notifies {@link Channel#HUNGER_GAMES}.
  */
 @Notifies(Channel.HUNGER_GAMES)
 public interface GameDao {
@@ -36,14 +34,14 @@ public interface GameDao {
     @RegisterConstructorMapper(Round.class)
     Optional<Round> currentRound(@Bind("game") String game);
 
-    /** Returns the round the lobby waits in, which only an open one is. */
+    /** Returns the current round if it is open. */
     default Optional<UUID> openRound() {
         return currentRound()
                 .filter(round -> round.state() == RegistrationState.OPEN)
                 .map(Round::id);
     }
 
-    /** Returns the game in its countdown or running, of which the schema allows one. */
+    /** Returns the game in {@code COUNTDOWN} or {@code RUNNING}. */
     @SqlQuery("""
             SELECT id, registration_id, state, started, ended, winner_member_id FROM hg_game
             WHERE state IN ('COUNTDOWN', 'RUNNING')
@@ -52,9 +50,9 @@ public interface GameDao {
     Optional<HgGame> gameUnderWay();
 
     /**
-     * Starts a game from an open round and closes the round to the bot, in one transaction.
+     * Creates a game from an open round and closes the round, in one transaction.
      *
-     * @return the new game, or empty when the round was no longer open
+     * @return the new game, or empty when the round is not open
      */
     @Transaction
     default Optional<UUID> startGame(final UUID registrationId) {
@@ -78,14 +76,14 @@ public interface GameDao {
             """)
     UUID insertGame(@Bind("registrationId") UUID registrationId);
 
-    /** Marks the end of the countdown. */
+    /** Sets the game to {@code RUNNING}. */
     @SqlQuery("""
             WITH released AS (UPDATE hg_game SET state = 'RUNNING' WHERE id = :id AND state = 'COUNTDOWN' RETURNING id)
             SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM released) AS notified
             """)
     int release(@Bind("id") UUID id);
 
-    /** Decides a game and ends its round, so that the next registration opens a new one. */
+    /** Sets the game to {@code DECIDED} and ends its round. */
     @Transaction
     default void decideGame(final UUID id, final @Nullable UUID winnerMemberId) {
         markDecided(id, winnerMemberId);
@@ -114,9 +112,9 @@ public interface GameDao {
     int endRoundOf(@Bind("id") UUID gameId);
 
     /**
-     * Aborts the game a restart interrupted and opens its round again, with its teams, for an admin to start anew.
+     * Aborts the game in {@code COUNTDOWN} or {@code RUNNING} and opens its round again.
      *
-     * @return the game aborted, or empty when none was under way
+     * @return the aborted game, or empty when no game was under way
      */
     @Transaction
     default Optional<HgGame> abortInterrupted() {
@@ -154,19 +152,19 @@ public interface GameDao {
             @Bind("actorId") @Nullable UUID actorId,
             @Bind("victimId") @Nullable UUID victimId);
 
-    /** Records the tiebreak of the last two deaths with its winner as the actor, none when nobody won it. */
+    /** Stores a {@code TIE} event with the winner of the tiebreak as the actor, or without an actor. */
     default void recordTie(final UUID gameId, final @Nullable UUID winnerMemberId) {
         recordEvent(gameId, "TIE", winnerMemberId, null);
     }
 
-    /** The kill tiebreaker: how many KILL events this member is the actor of, for this game. */
+    /** Returns the number of {@code KILL} events of the member in the game. */
     @SqlQuery("""
             SELECT count(*) FROM hg_event
             WHERE game_id = :gameId AND type = 'KILL' AND actor_id = :actorId
             """)
     int killCount(@Bind("gameId") UUID gameId, @Bind("actorId") UUID actorId);
 
-    /** The kill tally of every member of a game in one round trip; members with no kills are absent. */
+    /** Returns the number of {@code KILL} events of each member of the game, without members that have none. */
     @SqlQuery("""
             SELECT actor_id, count(*) AS kills FROM hg_event
             WHERE game_id = :gameId AND type = 'KILL' AND actor_id IS NOT NULL

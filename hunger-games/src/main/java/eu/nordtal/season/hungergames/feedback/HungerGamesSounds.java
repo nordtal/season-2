@@ -11,14 +11,9 @@ import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The one place in {@code hunger-games} that names a sound to Bukkit, on the main thread.
- *
- * {@code :common} cannot reference Paper, and {@code :architecture} allows no second call site.
- */
+/** Plays the sounds of the {@code sounds} group on the main thread. */
 public final class HungerGamesSounds {
 
-    /** Volatile because a settings change swaps the whole registry mid-game. */
     private volatile FeedbackSounds sounds;
 
     private final Consumer<String> problems;
@@ -34,9 +29,8 @@ public final class HungerGamesSounds {
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds} group, after the settings signal.
-     *
-     * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
+     * Replaces the sounds with those of the reloaded group. A category that {@link FeedbackSounds#failed} switched off
+     * is on again.
      */
     public void reload(final SoundsSpec spec) {
         this.sounds = parse(spec, problems);
@@ -52,11 +46,6 @@ public final class HungerGamesSounds {
         return FeedbackSounds.parse(declared, problems);
     }
 
-    /**
-     * Which config entry belongs to which category.
-     *
-     * No {@code default}, so a new {@link Feedback} category does not compile until it has a sound.
-     */
     private static SoundsSpec.SoundSpec specOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {
             case SMALL_SUCCESS -> spec.smallSuccess();
@@ -75,19 +64,16 @@ public final class HungerGamesSounds {
     }
 
     /**
-     * Plays {@code category} for one player, where they are standing, on the main thread.
-     *
-     * {@code player} may be null: a body standing in for a disconnected participant has nobody to hear it.
+     * Plays the category to the player at the location of the player. The player may be {@code null}, which plays
+     * nothing.
      */
     public void play(final @Nullable Player player, final Feedback category) {
-        // One read of the volatile field for lookup and failure; a reload could swap registries between two reads.
         final FeedbackSounds current = sounds;
         final FeedbackSound sound = current.sound(category);
         if (sound == null || player == null || !player.isOnline()) {
             return;
         }
         try {
-            // MASTER rather than a themed category.
             player.playSound(
                     java.util.Objects.requireNonNull(player.getLocation()),
                     sound.key(),
@@ -95,12 +81,11 @@ public final class HungerGamesSounds {
                     sound.volume(),
                     sound.pitch());
         } catch (final RuntimeException exception) {
-            // The platform disagreed; silence the category once rather than log a stack trace per death.
             current.failed(category, exception, problems);
         }
     }
 
-    /** Whether this category will play nothing, so a caller can skip work it would only discard. */
+    /** Returns whether the category plays nothing. */
     public boolean isSilent(final Feedback category) {
         return sounds.isSilent(category);
     }

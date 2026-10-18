@@ -6,12 +6,12 @@ plugins {
     id("nordtal.plugin-descriptor")
 }
 
-// How Steward shows this module's settings; steward-agent reads it out of the jar.
+// steward-agent reads the settings display from the jar.
 pluginDescriptor {
     followsMessages.set(true)
 }
 
-// The base runs prepare() and enable() before anything reads HungerGamesPlugin's fields.
+// The plugin base class calls prepare() and enable() before any other code reads the fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
@@ -25,7 +25,7 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-// Files outside any source set that tests read; undeclared, editing one leaves :hunger-games:test UP-TO-DATE.
+// The tests read these files.
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
@@ -33,23 +33,17 @@ repositoryRootTestInputs {
 }
 
 dependencies {
-    // JDBI, which :database and :settings only compile against.
     implementation(libs.jdbi.core)
     implementation(libs.jdbi.sqlobject)
 
-    // The pool :settings opens.
     implementation(libs.hikaricp)
 
-    // HungerGamesDao installs JDBI's PostgresPlugin.
     implementation(libs.jdbi.postgres)
 
-    // KillCountsIntegrationTest runs killCounts on the real schema: count(*) is bigint, which no fake catches.
     testImplementation(testFixtures(project(":database")))
-    // RepositoryRoot and ComposeFile, which the tests of the deployment files read through.
     testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":settings")))
 
-    // A test builds a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
 }
 

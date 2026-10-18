@@ -21,17 +21,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tracks who is still alive and decides the game.
- *
- * Deaths within {@link #SIMULTANEOUS_WINDOW} go to {@link Tiebreak}; a same-team final two is only announced.
+ * Tracks which participants are alive and decides the game. {@link Tiebreak} decides deaths within {@link
+ * #SIMULTANEOUS_WINDOW}.
  */
 public final class WinTracker {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WinTracker.class);
 
-    /**
-     * How close together two deaths count as "the same moment"; a strict same-tick check would be nearly unreachable.
-     */
+    /** The largest time between two deaths that count as simultaneous. */
     private static final Duration SIMULTANEOUS_WINDOW = Duration.ofMillis(500);
 
     private final GameDao dao;
@@ -39,10 +36,10 @@ public final class WinTracker {
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    /** The living participants of the current game; one is removed on death. */
+    /** The living participants. */
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
 
-    /** Every participant's team, by member id, for the final two. */
+    /** The team of each participant, by member id. */
     private final java.util.Map<UUID, UUID> teamOf = new ConcurrentHashMap<>();
 
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
@@ -63,7 +60,7 @@ public final class WinTracker {
         this.sounds = sounds;
     }
 
-    /** Starts a game with these participants alive: a member who never linked is not one, and so never is. */
+    /** Sets the participants alive. */
     public void reset(final List<Participant> participants) {
         aliveSince.clear();
         teamOf.clear();
@@ -85,12 +82,10 @@ public final class WinTracker {
     }
 
     /**
-     * Records one member's death, and returns the outcome once the game has ended.
+     * Records a death.
      *
-     * @param gameId the running game
-     * @param victimMemberId who died
-     * @param killerMemberId who killed them, if anyone; border and environment deaths have none
-     * @return the outcome, if the game just ended
+     * @param killerMemberId the killer, {@code null} for a death by the border or the environment
+     * @return the outcome, or empty when the game goes on
      */
     public Optional<Outcome> recordDeath(
             final UUID gameId, final UUID victimMemberId, final @Nullable UUID killerMemberId) {
@@ -111,7 +106,6 @@ public final class WinTracker {
         }
 
         if (aliveSince.isEmpty() && simultaneous) {
-            // The last two died at the same moment; recentDeaths holds the two victim member ids in order.
             recentDeaths.add(victimMemberId);
             while (recentDeaths.size() > 2) {
                 recentDeaths.poll();
@@ -123,10 +117,8 @@ public final class WinTracker {
                 final int secondKills = dao.killCount(gameId, second);
                 final Optional<UUID> winner = Tiebreak.resolve(first, firstKills, second, secondKills);
                 dao.recordTie(gameId, winner.orElse(null));
-                // The kill counts travel with the outcome: the ceremony prints "3 kills to 2", not just "won".
                 return Optional.of(winner.map(id -> Outcome.tieBroken(
                                 id, Math.max(firstKills, secondKills), Math.min(firstKills, secondKills)))
-                        // Equal by definition in this branch: Tiebreak returns empty only then.
                         .orElseGet(() -> Outcome.tieNoWinner(firstKills)));
             }
         } else {
@@ -141,14 +133,13 @@ public final class WinTracker {
                     "hunger-games: all participants dead in game {} with no resolvable tiebreak "
                             + "(deaths not simultaneous) - treating as no winner",
                     gameId);
-            // Not a tie: nothing was compared, so the ceremony says "no winner", not a fabricated tie.
             return Optional.of(Outcome.noWinner());
         }
 
         return Optional.empty();
     }
 
-    /** Announces a final two who share a team; the passive border shrink resolves the stalemate. */
+    /** Announces that the last two participants share a team. */
     public void announceIfSameTeamFinalTwo(final World world) {
         final List<UUID> alive = List.copyOf(aliveSince.keySet());
         if (alive.size() != 2) {
@@ -162,22 +153,21 @@ public final class WinTracker {
             player.sendMessage(renderer.format(
                     identities.languageOf(player.getUniqueId()),
                     MESSAGES.hg().win().sameTeamFinalTwo()));
-            // NETWORK_EVENT: about two other people, who are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }
 
     /**
-     * The result of a game ending, in the four shapes the ceremony tells apart.
+     * The end of a game.
      *
-     * @param winnerMemberId the winner, or {@code null} when the game ended without one
-     * @param tie whether the tiebreaker decided this outcome, with or without a winner
-     * @param winnerKills on a tiebreak, the higher or the shared kill count; zero otherwise
-     * @param loserKills on a tiebreak, the lower kill count; zero otherwise
+     * @param winnerMemberId the winner, {@code null} without a winner
+     * @param tie whether the tiebreak decided the outcome
+     * @param winnerKills the higher or shared kills of a tiebreak, otherwise zero
+     * @param loserKills the lower kills of a tiebreak, otherwise zero
      */
     public record Outcome(@Nullable UUID winnerMemberId, boolean tie, int winnerKills, int loserKills) {
 
-        /** The ordinary ending: one player left standing. */
+        /** One participant is alive. */
         static Outcome win(final UUID winnerMemberId) {
             return new Outcome(winnerMemberId, false, 0, 0);
         }
@@ -187,12 +177,12 @@ public final class WinTracker {
             return new Outcome(winnerMemberId, true, winnerKills, loserKills);
         }
 
-        /** The last two died together with the same number of kills, so nobody wins. */
+        /** The last two died together with equal kills. */
         static Outcome tieNoWinner(final int kills) {
             return new Outcome(null, true, kills, kills);
         }
 
-        /** Everybody is dead and no tiebreak applies, which should not happen. */
+        /** Nobody is alive and no tiebreak applied. */
         static Outcome noWinner() {
             return new Outcome(null, false, 0, 0);
         }

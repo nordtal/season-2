@@ -6,33 +6,29 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Everything about the running game that lives only in memory, not in the {@code hg_*} rows.
- *
- * {@code WorldBorder} exposes no in-transition state, so the shrink is tracked here, reset per game.
- */
+/** The state of the running game that is not stored in the {@code hg_*} tables. */
 public final class GameState {
 
     private volatile @Nullable UUID gameId;
-    /** {@code true} from release, the end of the countdown, onward. */
+    /** Whether the countdown has finished. */
     private volatile boolean running;
 
     private volatile int effectiveParticipants;
     private volatile double borderStep;
 
-    /** {@code true} while a border shrink (death-triggered or passive) is in flight. */
+    /** Whether the border is shrinking. */
     private volatile boolean shrinking;
-    /** The diameter the current shrink is heading toward. Meaningless while {@link #shrinking} is false. */
+    /** The diameter the current shrink ends at. */
     private volatile double shrinkTarget;
-    /** When the current shrink should finish, which decides whether a new death extends it. */
+    /** The end of the current shrink. */
     private volatile @Nullable Instant shrinkEndsAt;
-    /** {@code true} when the in-flight shrink is the slow passive one rather than a death-triggered one. */
+    /** Whether the current shrink is the passive one and not the one a death starts. */
     private volatile boolean passiveShrink;
 
-    /** The last time any player died or was eliminated, which drives the quiet-period timer. */
+    /** The time of the last death or elimination. */
     private volatile @Nullable Instant lastDeathAt;
 
-    /** Minecraft UUID -> the instant PvP protection ends for that player. */
+    /** The end of the PvP protection of each player, by Minecraft UUID. */
     private final Map<UUID, Instant> protectedUntil = new ConcurrentHashMap<>();
 
     public @Nullable UUID gameId() {
@@ -52,17 +48,17 @@ public final class GameState {
         this.protectedUntil.clear();
     }
 
-    /** Marks the game as released, once, when the countdown finishes. */
+    /** Sets the game to running. */
     public void release() {
         this.running = true;
     }
 
-    /** Returns whether the countdown has finished; false during COUNTDOWN. */
+    /** Returns whether the countdown has finished. */
     public boolean isRunning() {
         return running;
     }
 
-    /** Clears all state once a game ends, so a stale gameId cannot leak into the next game. */
+    /** Deletes the game id and sets the game to not running. */
     public void clear() {
         this.gameId = null;
         this.running = false;

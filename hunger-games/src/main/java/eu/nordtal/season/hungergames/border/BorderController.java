@@ -22,9 +22,8 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death.
- *
- * A death extends a shrink in flight; a quiet period starts a slow passive one. {@link GameState} tracks both.
+ * Controls the world border. The border is centred on the spawn and shrinks by one step on every death.
+ * After {@code borderQuietPeriodSeconds} without a death, it shrinks slowly to the end diameter.
  */
 public final class BorderController {
 
@@ -56,7 +55,7 @@ public final class BorderController {
         this.sounds = sounds;
     }
 
-    /** Sets the border up at game start and begins watching for the quiet period. */
+    /** Sets the border to the start diameter and starts the quiet period check. */
     public void begin(final UUID gameId, final GameState state) {
         final WorldBorder border = world.getWorldBorder();
         border.setCenter(world.getSpawnLocation());
@@ -73,7 +72,7 @@ public final class BorderController {
         }
     }
 
-    /** Called whenever a player dies or an unattended body is eliminated; extends or starts a shrink by one step. */
+    /** Shrinks the border by one step after a death or an elimination. */
     public void onDeath(final GameState state) {
         state.markDeath(clock.instant());
 
@@ -82,7 +81,6 @@ public final class BorderController {
         final double target = BorderMath.nextShrinkTarget(from, state.borderStep(), config.borderEndDiameter());
 
         if (target >= from) {
-            // Already at the floor; nothing to extend.
             return;
         }
 
@@ -97,7 +95,6 @@ public final class BorderController {
 
     private void checkQuietPeriod(final GameState state) {
         if (state.isShrinking()) {
-            // Already running (death-triggered or passive); if it has finished, clear the flag for the next check.
             if (state.shrinkEndsAt() != null && clock.instant().isAfter(state.shrinkEndsAt())) {
                 state.endShrink();
             }
@@ -129,7 +126,6 @@ public final class BorderController {
         announcePassive();
     }
 
-    /** {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}: a shrink is a clock running out, not news about somebody. */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(renderer.format(
@@ -148,11 +144,7 @@ public final class BorderController {
         }
     }
 
-    /**
-     * Returns whether a position is still inside the current border.
-     *
-     * A loot point the border has passed counts as absent, and an unattended body outside it dies.
-     */
+    /** Returns whether the location is inside the border. */
     public boolean isInside(final Location location) {
         return world.getWorldBorder().isInside(location);
     }

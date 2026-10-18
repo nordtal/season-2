@@ -63,20 +63,19 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
-/** The hunger games start event of season 2. */
+/** The plugin of the Hunger Games. */
 public final class HungerGamesPlugin extends NordtalPlugin {
 
     private Setting<HungerGamesSpec> config;
 
-    /** Its own group, so the settings signal can re-read it mid-game, unlike {@link #config}. */
+    /** The sounds group, which {@link #reloadSounds} reloads while a game runs. */
     private Setting<SoundsSpec> soundSettings;
 
-    /** Held so the settings signal can swap what it answers; every listener has this one instance. */
     private HungerGamesSounds sounds;
 
     private World world;
 
-    /** The season phase as the signal hub last read it; a game only starts during the start event. */
+    /** The phase of the season as the signal hub last read it. */
     private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
 
     private GameDao dao;
@@ -106,7 +105,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected boolean playersUseCommandRoot() {
-        // A player marks their own team ready with /hg ready.
         return true;
     }
 
@@ -130,7 +128,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     protected void prepare() {
         config = setting(Group.of("config", HungerGamesSpec.class).checkedBy(HungerGamesCheck::check));
         soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
-        // Built before anything that plays one: a bad key here is reported and the category silenced.
         sounds = HungerGamesSounds.of(soundSettings.get(), getLogger()::warning);
         final World found = resolveWorld(config.get());
         if (found == null) {
@@ -148,7 +145,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
-        // Every name in the arena is drawn alike: the flag and a grey name, so no colour reads as a team.
         composeNames(new ArenaComposition(identities()));
         dao = jdbi().onDemand(GameDao.class);
         rosters = jdbi().onDemand(RosterDao.class);
@@ -185,7 +181,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         }
     }
 
-    /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
+    /** Creates the border, loot, HUD, lobby, ceremony and manager and starts the lobby broadcast. */
     private void wireGameSystems(final HungerGamesSpec spec) {
         final BorderController borderController =
                 new BorderController(this, world, spec, renderer(), identities(), sounds, clock());
@@ -193,7 +189,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         final LootRefill refill =
                 new LootRefill(this, world, spec, borderController, renderer(), identities(), sounds, clock());
         loot = refill;
-        // winTracker before the HUD, which reads the living count off it on every redraw.
         winTracker = new WinTracker(dao, renderer(), identities(), sounds, clock());
         final GameHud lines =
                 new GameHud(world, spec, renderer().raw(), borderController, state, winTracker, refill, clock());
@@ -207,16 +202,14 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
         abortInterrupted();
 
-        // Lobby map slicing, tolerant of missing artwork.
         new LobbyMaps(this, spec, renderer().raw().locales()).render(world);
 
         waiting.startBroadcasting(world);
     }
 
-    /** Registers the freeze, presence, system line and combat listeners. */
+    /** Registers the freeze, presence and combat listeners. */
     private void wireListeners() {
         listen(new FreezeListener(manager));
-        // The five system lines; the death line keeps the game's own line for killer and weapon.
         final SystemLines systemLines = systemLines();
         presence = new DisconnectBodies(this, identities(), bodies, state, renderer(), systemLines, players());
         listen(presence);
@@ -236,9 +229,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     }
 
     /**
-     * Starts a game from the open round, or says why not; never on the main thread.
-     *
-     * Below the recommended minimum only a confirmed start goes ahead, since the asker has seen the numbers.
+     * Starts a game from the open round or returns the refusal. Below the recommended minimum only a confirmed start
+     * succeeds.
      */
     private Answer startGame(final boolean confirmed) {
         final Optional<HgGame> underWay = dao.gameUnderWay();
@@ -258,11 +250,9 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         }
         final Optional<UUID> started = dao.startGame(round.get());
         if (started.isEmpty()) {
-            // Another start closed the round between the check and here.
             return Answer.refused(
                     ServerRefusal.WRONG_STATE.with(eu.nordtal.season.hungergames.game.HgGameState.COUNTDOWN.name()));
         }
-        // The round is closed now, so this roster is the one the game is played with.
         final List<Participant> playing = Demotion.resolve(rosters.roster(round.get()));
         getLogger()
                 .info("game " + started.get() + " started with " + playing.size() + " resolvable participants"
@@ -271,7 +261,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         return Answer.done(MESSAGES.hg().admin().started(playing.size()));
     }
 
-    /** {@code /hg ready-status}: every registered team and whether it has said it is ready. */
+    /** Handles {@code /hg ready-status}. It lists every registered team and whether it is ready. */
     private int readyStatus(final CommandContext<CommandSourceStack> context) {
         final PaperUser console = PaperUser.console(this, context.getSource().getSender(), renderer(), this::colours);
         final Lobby waiting = Objects.requireNonNull(lobby);
@@ -286,14 +276,13 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 byTeam.merge(entry.teamName(), entry.ready(), (one, two) -> one && two);
             }
             console.reply(MESSAGES.hg().admin().readyHeader(), Tone.NEUTRAL);
-            // The admin is looking for who is NOT ready yet, so the tone carries the answer.
             byTeam.forEach((team, ready) -> console.reply(
                     MESSAGES.hg().admin().readyLine(new TeamContext(team), ready), ready ? Tone.GOOD : Tone.MUTED));
         });
         return Command.SINGLE_SUCCESS;
     }
 
-    /** {@code /hg ready}: marks the sender's team ready, which only a player can be. */
+    /** Handles {@code /hg ready}. It marks the team of the sender as ready. */
     private int markReady(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
         final PaperUser user = PaperUser.of(
@@ -319,7 +308,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** Runs off the main thread, so the names are read before anyone stands on a tower. */
+    /** Starts the game on the manager and schedules the loot after the countdown. */
     private void startGame(final UUID gameId, final List<Participant> participants) {
         final Map<UUID, PlayerContext> names = new Names(access()::identities)
                 .of(participants.stream().map(Participant::mcUuid).toList());
@@ -358,12 +347,11 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
         final Location lobbyLocation = new Location(
                 found, spec.lobby().x(), spec.lobby().y(), spec.lobby().z());
-        // No query: the caller read everything off the main thread, and gameId is still set before state.clear().
         ceremony.run(found, lobbyLocation, Objects.requireNonNull(state.gameId()), decision);
         state.clear();
     }
 
-    /** Aborts a game the last stop interrupted, so its round is open again and an admin starts it anew. */
+    /** Aborts a game that the last server stop interrupted. */
     private void abortInterrupted() {
         dao.abortInterrupted()
                 .ifPresent(game -> getLogger()

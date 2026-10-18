@@ -9,7 +9,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/** Maps one row of {@code hg_game}. */
+/** Maps a row of {@code hg_game}. */
 public final class HgGameMapper implements RowMapper<HgGame> {
 
     @Override

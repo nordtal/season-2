@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps one row of {@link RosterDao#ROSTER}. */
+/** Maps a row of {@link RosterDao#ROSTER}. */
 public final class RosterEntryMapper implements RowMapper<RosterEntry> {
 
     @Override

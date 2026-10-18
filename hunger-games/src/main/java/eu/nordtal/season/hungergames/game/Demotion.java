@@ -9,16 +9,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Computes the effective participant list at countdown time, after demotion.
- *
- * A duo whose partner never linked an account becomes a solo team with full hearts, keeping its name and colour.
- */
+/** Resolves the participants of a game. A team whose partner has no linked account becomes a solo team. */
 public final class Demotion {
 
     private Demotion() {}
 
-    /** One {@link Participant} per member with an {@code mc_uuid}; only they can be teleported or given a body. */
+    /** Returns a {@link Participant} for each member that has an {@code mc_uuid}. */
     public static List<Participant> resolve(final List<RosterEntry> roster) {
         final Map<UUID, List<RosterEntry>> byTeam = new LinkedHashMap<>();
         for (final RosterEntry entry : roster) {
@@ -44,7 +40,7 @@ public final class Demotion {
         return participants;
     }
 
-    /** How many distinct teams the resolved participants belong to, which is the colour count. */
+    /** Returns the number of teams of the participants. */
     public static int effectiveTeamCount(final List<Participant> participants) {
         final Set<UUID> teams = new java.util.HashSet<>();
         for (final Participant participant : participants) {

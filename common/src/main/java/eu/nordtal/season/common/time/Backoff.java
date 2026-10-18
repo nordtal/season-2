@@ -3,12 +3,7 @@ package eu.nordtal.season.common.time;
 import java.time.Duration;
 import java.util.Objects;
 
-/**
- * How long to pause between tries: {@code first}, then twice the last pause, never more than {@code max}.
- *
- * @param first the first pause, positive
- * @param max   the longest pause, at least {@code first}
- */
+/** The pauses between tries: {@code first}, then twice the last pause, up to {@code max}. */
 public record Backoff(Duration first, Duration max) {
 
     public Backoff {
@@ -19,12 +14,10 @@ public record Backoff(Duration first, Duration max) {
         }
     }
 
-    /** Returns a backoff that pauses {@code every} time the same. */
     public static Backoff fixed(final Duration every) {
         return new Backoff(every, every);
     }
 
-    /** Returns the pause after one of {@code last}. */
     public Duration after(final Duration last) {
         final Duration doubled = last.multipliedBy(2);
         return doubled.compareTo(max) > 0 ? max : doubled;

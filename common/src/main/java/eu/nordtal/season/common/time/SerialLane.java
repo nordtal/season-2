@@ -4,7 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 
-/** {@link Scheduler#serial()}: one task at a time, each handed to the scheduler when the one before it ended. */
+/** {@link Scheduler#serial()}: runs one task at a time. */
 final class SerialLane implements Executor {
 
     private final Executor threads;
@@ -36,7 +36,6 @@ final class SerialLane implements Executor {
         try {
             next.run();
         } finally {
-            // A throw is the scheduler's to log; the lane goes on either way.
             threads.execute(this::runNext);
         }
     }

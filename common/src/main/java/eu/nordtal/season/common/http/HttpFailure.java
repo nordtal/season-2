@@ -3,10 +3,9 @@ package eu.nordtal.season.common.http;
 import java.io.IOException;
 import java.net.URI;
 
-/** An answer that was not a 2xx, unlike a plain {@link IOException}, where nothing answered. */
+/** An answer with a status other than 2xx. {@link IOException} covers a request that got no answer. */
 public final class HttpFailure extends IOException {
 
-    /** How much of a body the message keeps: an error is one sentence in a page of JSON, and it ends up in Discord. */
     private static final int BODY_SHOWN = 300;
 
     private final URI uri;
@@ -24,7 +23,7 @@ public final class HttpFailure extends IOException {
         this.body = body;
     }
 
-    /** Returns the same failure with {@code hint} after the status, saying what it usually means for this caller. */
+    /** Returns the failure with {@code hint} after the status. */
     public HttpFailure withHint(final String hint) {
         return new HttpFailure(uri, status, body, hint);
     }

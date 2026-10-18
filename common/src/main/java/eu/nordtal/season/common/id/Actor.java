@@ -4,35 +4,32 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Who asked for something, stored as {@code actor_kind} and {@code actor_id} and carried as this record on the wire.
+ * Who asked for something. {@code actor_kind} and {@code actor_id} store it, and the internal wire carries it.
  *
- * @param kind   a person, Steward or the bot on its own, or somebody on the host
- * @param person the Discord id when {@link Kind#PERSON}, {@code null} otherwise
+ * @param person the Discord id if {@code kind} is {@link Kind#PERSON}, otherwise {@code null}
  */
 public record Actor(Kind kind, @Nullable DiscordId person) {
 
-    /** Nobody asked: Steward on its own, such as the nightly backup, or a server announcing its own progress. */
+    /** Steward itself, for example the nightly backup. */
     public static final Actor STEWARD = new Actor(Kind.STEWARD, null);
 
     /** Somebody on the host, through the installer. */
     public static final Actor HOST = new Actor(Kind.HOST, null);
 
-    /** The Discord bot on its own, telling the admins what it saw; only the journal records it. */
+    /** The Discord bot itself. Only the journal records it. */
     public static final Actor BOT = new Actor(Kind.BOT, null);
 
-    /** What kind of actor, stored verbatim in {@code actor_kind}. */
     public enum Kind {
 
         /** A signed-in person, named by {@link Actor#person()}. */
         PERSON,
 
-        /** Steward itself; nobody pressed anything. */
+        /** Steward itself. */
         STEWARD,
 
-        /** The installer on the host, which works while the stack itself is broken. */
+        /** The installer on the host. */
         HOST,
 
-        /** The Discord bot itself, noting what it saw; nobody pressed anything. */
         BOT
     }
 
@@ -43,22 +40,15 @@ public record Actor(Kind kind, @Nullable DiscordId person) {
         }
     }
 
-    /** Returns the person with this Discord id. */
     public static Actor person(final DiscordId id) {
         return new Actor(Kind.PERSON, Objects.requireNonNull(id, "id"));
     }
 
-    /**
-     * Reads the two columns back.
-     *
-     * @param kind {@code actor_kind}
-     * @param id   {@code actor_id}, {@code null} unless the kind is {@code PERSON}
-     */
+    /** Returns the actor stored as {@code actor_kind} {@code kind} and {@code actor_id} {@code id}. */
     public static Actor of(final String kind, final @Nullable String id) {
         return new Actor(Kind.valueOf(kind), DiscordId.ofNullable(id));
     }
 
-    /** Returns the value of {@code actor_id}, or {@code null} for anyone but a person. */
     public @Nullable String id() {
         return person == null ? null : person.value();
     }

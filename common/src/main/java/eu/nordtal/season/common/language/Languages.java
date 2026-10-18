@@ -4,11 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * The languages the network speaks, as language tags, the fallback first; the network's settings hold the list.
- *
- * @param tags lowercase language tags, the first one {@link Locales#DEFAULT}'s
- */
+/** The network's languages as language tags, the fallback first. */
 public record Languages(List<String> tags) {
 
     public Languages {
@@ -21,12 +17,11 @@ public record Languages(List<String> tags) {
         }
     }
 
-    /** Returns the languages as locales, in order, for a bundle to load. */
     public Locale[] locales() {
         return tags.stream().map(Locales::parse).toArray(Locale[]::new);
     }
 
-    /** Returns the languages after the fallback, which a screen for nobody in particular shows underneath. */
+    /** Returns the languages after the fallback. */
     public List<Locale> others() {
         return tags.subList(1, tags.size()).stream().map(Locales::parse).toList();
     }

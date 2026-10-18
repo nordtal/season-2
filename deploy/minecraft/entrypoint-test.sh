@@ -324,6 +324,27 @@ expect_property "$data/server.properties" white-list false
 expect_property "$data/server.properties" max-players 20
 ok "white-list=true corrected"
 
+case_begin "a fresh volume locates structures beyond the border"
+data=$(volume backend-locate-fresh)
+backend "$data"
+expect_status 0
+grep -qxF "  locate-structures-outside-world-border: true" "$data/config/paper-world-defaults.yml" 2>/dev/null \
+    || bad "paper-world-defaults.yml does not set locate-structures-outside-world-border: true"
+ok "paper-world-defaults.yml seeded"
+
+case_begin "a default Paper wrote is switched to locate beyond the border"
+data=$(volume backend-locate-written)
+mkdir -p "$data/config"
+printf 'environment:\n  generate-flat-bedrock: false\n  locate-structures-outside-world-border: false\n  max-block-ticks: 65536\n' \
+    > "$data/config/paper-world-defaults.yml"
+backend "$data"
+expect_status 0
+grep -qxF "  locate-structures-outside-world-border: true" "$data/config/paper-world-defaults.yml" \
+    || bad "locate-structures-outside-world-border is still false"
+grep -qxF "  max-block-ticks: 65536" "$data/config/paper-world-defaults.yml" \
+    || bad "the other settings were lost"
+ok "locate-structures-outside-world-border corrected"
+
 
 echo "entrypoint.sh: the cached server jar"
 

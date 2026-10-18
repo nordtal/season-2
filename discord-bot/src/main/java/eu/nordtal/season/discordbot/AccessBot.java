@@ -222,7 +222,10 @@ public class AccessBot implements AutoCloseable {
                                                         previewed.preview().text())))),
                 wiring.adminRole(),
                 core.messages(),
-                core.documents());
+                core.documents(),
+                // An admin's save edits the managed messages at once.
+                () -> scheduler.execute(
+                        () -> publishManaged(jda, core.languages(), core.tiers(), core.messages(), core.documents())));
 
         // Last, so the marker file exists only after the constructor has finished.
         final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
@@ -423,8 +426,7 @@ public class AccessBot implements AutoCloseable {
             final DiscordWiring wiring) {
         // First, because every reconcile below reads a role that this call finds or creates.
         wiring.onboarding().resolveRoles();
-        new ManagedMessages(jda, languages, tiers, messages, documents, database.jdbi()).publishAll();
-        new RegisterMessages(jda, languages, messages, documents, database.jdbi()).publishAll();
+        publishManaged(jda, languages, tiers, messages, documents);
         wiring.guildState().reconcile();
         wiring.channels().publish();
         wiring.roles().reconcile();
@@ -448,6 +450,17 @@ public class AccessBot implements AutoCloseable {
         return () -> inbox.drain(handler);
     }
 
+    /** Posts or edits every managed message, as the documents currently held draw it. */
+    private void publishManaged(
+            final JDA jda,
+            final GuildLanguages languages,
+            final Tiers tiers,
+            final DiscordRenderer messages,
+            final StoredDocuments documents) {
+        new ManagedMessages(jda, languages, tiers, messages, documents, database.jdbi()).publishAll();
+        new RegisterMessages(jda, languages, messages, documents, database.jdbi()).publishAll();
+    }
+
     private SignalHub listen(
             final DatabaseSpec databaseConfig,
             final DatabaseSettings settings,
@@ -458,7 +471,8 @@ public class AccessBot implements AutoCloseable {
             final Runnable drainInbox,
             final AdminRole adminRole,
             final DiscordRenderer messages,
-            final StoredDocuments documents) {
+            final StoredDocuments documents,
+            final Runnable documentsChanged) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
                 databaseConfig.username(),
@@ -476,7 +490,7 @@ public class AccessBot implements AutoCloseable {
             log.info("No language has a status-channel; the sidebar status is off");
         }
         MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
-        documents.follow(hub);
+        documents.follow(hub, documentsChanged);
         settings.listen(hub, onboarding::settingsChanged);
         hub.start();
         return hub;

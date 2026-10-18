@@ -52,7 +52,8 @@ COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `StoredDocuments`: the documents (`src/main/resources/documents/discord/`) that `DocumentRenderer` of
   [`discord-rendering`](../discord-rendering/README.md) draws. Everything the bot posts is one. If an
-  admin wrote a document in Steward (re-read on `nordtal_messages`), the next publish draws it.
+  admin wrote a document in Steward (re-read on `nordtal_messages`), the bot edits its managed
+  messages at once.
   `DocumentMerge` adapts it when a release changed the packaged document.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/documents/`: the documents with their translations.

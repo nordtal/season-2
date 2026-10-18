@@ -1977,6 +1977,7 @@ export type TextArgs = {
     group: Arg["choice"]
   }
   "steward.texts.none": Record<string, never>
+  "steward.texts.parts": Record<string, never>
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>
   "steward.texts.shown-in": Record<string, never>

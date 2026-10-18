@@ -427,6 +427,14 @@ export type MessageSyntax = {
   kinds: Record<string, string[]>
 }
 
+export type Layouts = {
+  writable: boolean
+  layouts: LayoutView[]
+  buildingBlocks: Record<string, string[]>
+  languages: string[]
+  tiers: Tier[]
+}
+
 export type MessageProblem = {
   error: boolean
   text: MessageRef
@@ -797,6 +805,19 @@ export type Warning = {
 
 export type MessageFallbackReason = "STALE" | "REFUSED"
 
+export type LayoutView = {
+  entry: LayoutEntry
+  hash: string
+  rebuild?: Layout
+  adapted: LayoutAdaptation[]
+  fallbacks: LayoutAddedFallback[]
+}
+
+export type Tier = {
+  days: number
+  priceCents: number
+}
+
 export type NetworkBox = {
   name: string
   section: string
@@ -933,6 +954,32 @@ export type MessageEntry = {
 
 export type MessagePreviewTarget = "GAME" | "DISCORD"
 
+export type LayoutEntry = {
+  layout: Layout
+  values: MessageDeclaration
+  shows: string[]
+}
+
+export type Layout = {
+  name: string
+  bundle: string
+  area: string
+  surface: MessageSurface
+  elements: LayoutElement[]
+  parts: LayoutPart[]
+}
+
+export type LayoutAdaptation = {
+  change: LayoutChange
+  subject: string
+}
+
+export type LayoutAddedFallback = {
+  language: string
+  text: string
+  problems: MessageRef[]
+}
+
 export type Gauge =
   | "DISK_PERCENT"
   | "MEMORY_PERCENT"
@@ -1001,6 +1048,36 @@ export type MessageArg = {
   exampleWords: Record<string, string>
 }
 
+export type MessageDeclaration = {
+  values: Record<string, ValueKind>
+  roles: string[]
+  actions: string[]
+  markup: boolean
+  limit: number
+  examples: Record<string, string>
+  oneLine: boolean
+}
+
+export type LayoutElement = {
+  id: string
+  kind: LayoutElementKind
+  keys: string[]
+  url?: string
+  labels?: Record<string, string>
+}
+
+export type LayoutPart = {
+  type: LayoutPartType
+  accent?: string
+  parts?: LayoutPart[]
+  lines?: LayoutLine[]
+  element?: string
+  elements?: string[]
+  media?: string[]
+}
+
+export type LayoutChange = "ELEMENT_ADDED" | "ELEMENT_REMOVED" | "KEY_REMOVED" | "SET_ASIDE"
+
 export type ChangeState = "MOVING" | "UNSUPPORTED"
 
 export type LineAct = "STOP" | "BACKUP" | "INSTALL" | "RESTORE" | "RECREATE" | "RENEW" | "START" | "VERIFY"
@@ -1018,3 +1095,30 @@ export type LineSeen = {
 }
 
 export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"
+
+export type ValueKind =
+  | "TEXT"
+  | "NUMBER"
+  | "DURATION"
+  | "INSTANT"
+  | "MONEY"
+  | "LIST"
+  | "DISPLAY_NAME"
+  | "MENTION"
+  | "ITEM"
+  | "GLYPH"
+  | "CHOICE"
+  | "MESSAGE"
+
+export type LayoutElementKind = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "LINK"
+
+export type LayoutPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "ROW" | "LANGUAGES"
+
+export type LayoutLine = {
+  key?: string
+  list?: string
+  style?: LayoutLineStyle
+  texts?: Record<string, string>
+}
+
+export type LayoutLineStyle = "TITLE" | "HEADING"

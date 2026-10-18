@@ -4,8 +4,12 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { Translations } from "@/pages/translations"
+import type { Opened } from "@/components/steward/texts"
 import type {
   CommandRun,
+  Layout,
+  Layouts,
+  LayoutView,
   MessageEntry,
   MessageFallback,
   MessageProblem,
@@ -72,8 +76,37 @@ export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}):
   return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
+/**
+ * A declared Discord layout of the access bundle that shows `shows`. Without parts it draws each of them as a line of one container.
+ */
+export function view(over: Partial<Layout> & { name: string }, shows: string[]): LayoutView {
+  const layout: Layout = {
+    bundle: "access",
+    area: "Contribution",
+    surface: "DISCORD",
+    elements: [],
+    parts: [{ type: "CONTAINER", accent: "#4a63d8", parts: [{ type: "TEXT", lines: shows.map((key) => ({ key })) }] }],
+    ...over,
+  }
+  return {
+    entry: {
+      layout,
+      values: { values: {}, roles: [], actions: [], markup: false, limit: 0, examples: {}, oneLine: false },
+      shows,
+    },
+    hash: "packaged",
+    adapted: [],
+    fallbacks: [],
+  }
+}
+
+export function layouts(views: LayoutView[], over: Partial<Layouts> = {}): Layouts {
+  return { writable: true, layouts: views, buildingBlocks: {}, languages: ["en"], tiers: [], ...over }
+}
+
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
 export type Around = {
+  layouts?: Layouts
   fallbacks?: MessageFallback[]
   check?: (text: string) => MessageProblem[]
   /** Answers a preview's body with the request's name. */
@@ -93,6 +126,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
       return json(saved)
     }
     if (url === "/api/messages") return json(texts)
+    if (url === "/api/layouts") return json(around.layouts ?? layouts([]))
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})
     if (url === "/api/message-fallbacks") return json(around.fallbacks ?? [])
@@ -116,18 +150,21 @@ export function draw(node: ReactNode) {
   return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>)
 }
 
-/** The page as its route draws it, with `?service=` kept in state instead of the URL. */
+/** The page as its route draws it, with its search parameters kept in state instead of the URL. */
 export function Page({ service: first }: { service?: string }) {
   const [service, setService] = useState(first)
-  return <Translations service={service} onService={setService} />
+  const [opened, setOpened] = useState<Opened>({})
+  return <Translations service={service} onService={setService} opened={opened} onOpen={setOpened} />
 }
 
 export async function open(label: string | RegExp) {
   fireEvent.click(await screen.findByRole("button", { name: label }))
 }
 
-/** A key is a row until it is opened; its field only exists once it is. */
+/** Opens the card `name` names; an open layout goes back to the list first. */
 export async function openKey(name: string) {
+  const back = screen.queryByRole("button", { name: "Translations" })
+  if (back) fireEvent.click(back)
   fireEvent.click(await screen.findByRole("button", { name }))
 }
 

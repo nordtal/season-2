@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 import type { MessageTexts } from "@/lib/api"
-import { useMessageTexts } from "@/lib/queries"
+import { useLayouts, useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
 import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
@@ -10,13 +10,19 @@ import { SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { QueryState } from "@/components/steward/query-state"
 import type { Target } from "@/components/steward/settings-view"
-import { TEXTS_FILE, TextsForm } from "@/components/steward/texts"
+import { type Opened, TEXTS_FILE, TextsForm } from "@/components/steward/texts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export type TranslationsSearch = { service?: string }
+export type TranslationsSearch = { service?: string } & Opened
 
+/** Keeps the service filter and the open layout and text, each only when it is a word. */
 export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
-  return typeof search.service === "string" && search.service !== "" ? { service: search.service } : {}
+  return Object.fromEntries(
+    (["service", "layout", "text"] as const).flatMap((name) => {
+      const value = search[name]
+      return typeof value === "string" && value !== "" ? [[name, value]] : []
+    }),
+  )
 }
 
 /** The first choice of the filter. A service is named in lowercase, so none is called this. */
@@ -31,25 +37,37 @@ let jumps = 0
 export function TranslationsPage() {
   const search = useSearch({ from: "/translations" })
   const navigate = useNavigate({ from: "/translations" })
+  const { service, ...opened } = search
+  const onOpen = useCallback(
+    (next: Opened) => void navigate({ search: (kept) => ({ service: kept.service, ...next }) }),
+    [navigate],
+  )
   return (
     <Translations
-      service={search.service}
-      onService={(service) => void navigate({ search: service ? { service } : {}, replace: true })}
+      service={service}
+      onService={(next) => void navigate({ search: (kept) => ({ ...kept, service: next }), replace: true })}
+      opened={opened}
+      onOpen={onOpen}
     />
   )
 }
 
 /**
- * Every text of every bundle, grouped by where it appears and then by topic. A text that the command palette found is opened in the language it was found in.
+ * Every text of every bundle as the layouts that show it, grouped by where they appear and then by area. A text that the command palette found opens in its layout, in the language it was found in.
  */
 export function Translations({
   service,
   onService,
+  opened,
+  onOpen,
 }: {
   service: string | undefined
   onService: (service: string | undefined) => void
+  opened: Opened
+  onOpen: (opened: Opened) => void
 }) {
   const texts = useMessageTexts()
+  const layouts = useLayouts()
   const [target, setTarget] = useState<Target | null>(null)
   const [query, setQuery] = useState("")
   const header = useRef<HTMLElement>(null)
@@ -68,27 +86,40 @@ export function Translations({
     return onPendingTextJump(land)
   }, [])
 
+  const title = (
+    <PageHeader
+      ref={header}
+      title={t("steward.shell.page", { page: "translations" })}
+      actions={
+        <>
+          <ServiceFilter texts={texts.data} service={service} onService={onService} />
+          <SearchField
+            value={query}
+            onValueChange={setQuery}
+            label={t("steward.texts.search")}
+            className={CONTROL_WIDTH}
+          />
+        </>
+      }
+    />
+  )
   return (
     // The editors and previews read best at a bounded width.
     <div className="flex max-w-5xl flex-col gap-6">
-      <PageHeader
-        ref={header}
-        title={t("steward.shell.page", { page: "translations" })}
-        actions={
-          <>
-            <ServiceFilter texts={texts.data} service={service} onService={onService} />
-            <SearchField
-              value={query}
-              onValueChange={setQuery}
-              label={t("steward.texts.search")}
-              className={CONTROL_WIDTH}
-            />
-          </>
-        }
-      />
+      {texts.data ? null : title}
       <QueryState query={texts} rows={8}>
         {(read) => (
-          <TextsForm texts={read} service={service} target={target} search={{ query, onQuery: setQuery, at: header }} />
+          <TextsForm
+            texts={read}
+            layouts={layouts.data}
+            layoutsSettled={!layouts.isPending}
+            service={service}
+            target={target}
+            search={{ query, onQuery: setQuery, at: header }}
+            opened={opened}
+            onOpen={onOpen}
+            header={title}
+          />
         )}
       </QueryState>
     </div>

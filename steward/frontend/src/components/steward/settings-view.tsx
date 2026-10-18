@@ -64,6 +64,7 @@ export function TreeView<L>({
   above,
   collapsed,
   list,
+  cards,
   search: outside,
   searchLabel = t("steward.settings.search-file"),
   empty = t("steward.settings.empty-file"),
@@ -79,6 +80,8 @@ export function TreeView<L>({
   above?: ReactNode
   collapsed?: boolean
   list?: boolean
+  /** Leaves are cards, one column on a phone and two from a tablet's width. */
+  cards?: boolean
   /** The page clears it for a jump. */
   search?: OutsideSearch
   searchLabel?: string
@@ -161,6 +164,7 @@ export function TreeView<L>({
           highlight={highlight}
           renderLeaf={renderLeaf}
           list={list}
+          cards={cards}
         />
       )}
       <PinnedRow>
@@ -198,6 +202,7 @@ function NodeList<L>({
   highlight,
   renderLeaf,
   list,
+  cards,
 }: {
   nodes: TreeNode<L>[]
   isOpen: (id: string) => boolean
@@ -206,6 +211,7 @@ function NodeList<L>({
   highlight: Highlight | null
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   list?: boolean
+  cards?: boolean
 }) {
   const groups: Array<TreeLeaf<L>[] | TreeBranch<L>> = []
   for (const node of nodes) {
@@ -227,13 +233,15 @@ function NodeList<L>({
               key={`leaves-${group[0].id}`}
               className={cn(
                 // A leaf's text starts where a branch's label does: past the caret's column, at every depth.
-                list
-                  ? "flex flex-col pl-6"
-                  : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2 pl-8",
+                cards
+                  ? "grid grid-cols-1 gap-3 py-2 pl-6 md:grid-cols-2"
+                  : list
+                    ? "flex flex-col pl-6"
+                    : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2 pl-8",
               )}
             >
               {group.map((leaf) => (
-                <div key={leaf.id} className={cn("min-w-0", !list && leaf.wide && "col-span-full")}>
+                <div key={leaf.id} className={cn("min-w-0", !list && !cards && leaf.wide && "col-span-full")}>
                   {renderLeaf(leaf, highlight && leaf.ids.includes(highlight.id) ? highlight : null)}
                 </div>
               ))}
@@ -281,6 +289,7 @@ function NodeList<L>({
                   highlight={highlight}
                   renderLeaf={renderLeaf}
                   list={list}
+                  cards={cards}
                 />
               </div>
             ) : null}

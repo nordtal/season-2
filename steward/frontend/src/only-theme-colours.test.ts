@@ -21,6 +21,7 @@ const EXEMPT = new Map<string, string>([
   ["lib/rich-text.ts", "Minecraft's chat colours"],
   ["components/steward/message-preview.tsx", "Minecraft's white, the colour of unstyled game text"],
   ["components/steward/message-editor/preview.tsx", "the game's and Discord's own surfaces in the previews"],
+  ["components/steward/message-editor/layout-preview.tsx", "Discord's own surfaces in a layout's preview"],
   ["components/steward/message-editor/visual-editor.tsx", "a text as the game or Discord draws it"],
   ["components/steward/message-editor/colour-menu.tsx", "a colour a person picks for a text"],
   ["components/steward/colour-control.tsx", "a colour a person picks, on Minecraft's chat background"],

@@ -1,4 +1,5 @@
-import type { ConfigEntry, MessageEntry, MessageText } from "@/lib/api"
+import type { ConfigEntry, LayoutView, MessageEntry, MessageText } from "@/lib/api"
+import { layoutId, layoutOf, pageLayouts, type PageLayout } from "@/lib/layouts"
 import { entryHaystack } from "@/lib/settings-search"
 import { groupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
 import { choice, t } from "@/lib/texts"
@@ -181,24 +182,40 @@ export function textId(entry: MessageEntry): string {
 }
 
 /**
- * Returns the Translations page as a tree: a branch per group, then each text's topic. Bundles that share a topic share its branch.
+ * Returns the Translations page as a tree: a branch per group, then a declared layout's area or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
  */
-export function textsTree(texts: MessageText[], places: Places): TreeNode<MessageText>[] {
-  const builder = new Builder<MessageText>()
-  const grouped = texts
-    .map((text) => ({ text, group: groupOf(text.entry, places) }))
+export function textsTree(
+  texts: MessageText[],
+  places: Places,
+  views: readonly LayoutView[] = [],
+): TreeNode<PageLayout>[] {
+  const builder = new Builder<PageLayout>()
+  const grouped = pageLayouts(texts, views)
+    .map((card) => ({
+      card,
+      group: card.kind === "layout" ? layoutOf(card.view).surface : groupOf(card.text.entry, places),
+    }))
     .toSorted((a, b) => TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group))
-  for (const { text, group } of grouped) {
-    const entry = text.entry
-    let parent = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
+  for (const { card, group } of grouped) {
+    const root = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
+    // A top topic is named by its label, so a layout's area and the texts of the same topic share one branch.
+    const top = (label: string) => builder.branch(`${group}:@${label}`, label, root).id
+    if (card.kind === "layout") {
+      const layout = layoutOf(card.view)
+      const id = `layout:${layoutId(layout)}`
+      builder.add(top(layout.area), { kind: "leaf", id, ids: card.view.entry.shows, value: card, wide: true })
+      continue
+    }
+    const entry = card.text.entry
     const segments = entry.key.split(".")
-    for (let at = 0; at < segments.length - 1; at++) {
+    let parent = segments.length > 1 ? top(entry.section[0] ?? humanise(segments[0])) : root
+    for (let at = 1; at < segments.length - 1; at++) {
       const id = `${group}:${segments.slice(0, at + 1).join(".")}`
       builder.branch(id, entry.section[at] ?? humanise(segments[at]), parent)
       parent = id
     }
     const id = textId(entry)
-    builder.add(parent, { kind: "leaf", id, ids: [id], value: text, wide: true })
+    builder.add(parent, { kind: "leaf", id, ids: [id], value: card, wide: true })
   }
   return builder.build()
 }

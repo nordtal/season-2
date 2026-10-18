@@ -1425,6 +1425,7 @@
     "steward.texts.all-services": [["All services"]],
     "steward.texts.group": [[{"c":"group","plural":false,"cases":{"game":["In game"],"discord":["Discord"],"steward":["Steward & Admin"],"values":["Building blocks"],"other":[{"v":"group"}]}}]],
     "steward.texts.none": [["No texts."]],
+    "steward.texts.parts": [["Texts"]],
     "steward.texts.search": [["Search the texts"]],
     "steward.texts.service": [["Service"]],
     "steward.texts.shown-in": [["Shown in"]],

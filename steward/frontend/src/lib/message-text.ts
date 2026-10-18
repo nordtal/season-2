@@ -25,6 +25,18 @@ export function shownOf(entry: MessageEntry, language: Language): string[] {
 }
 
 /**
+ * Returns the first variant a key shows in `language` with its draft applied: `null` in the draft is the packaged text.
+ */
+export function currentOf(
+  entry: MessageEntry,
+  draft: Record<Language, string[] | null> | undefined,
+  language: Language,
+) {
+  const typed = draft?.[language]
+  return (typed === undefined ? shownOf(entry, language) : (typed ?? packagedOf(entry, language)))[0] ?? ""
+}
+
+/**
  * Returns the languages of some keys, English first: those the network speaks, a jar ships or an admin wrote.
  */
 export function languagesOf(entries: MessageEntry[], network: readonly Language[] = []): Language[] {

@@ -147,17 +147,17 @@ describe("the pills", () => {
     )
     draw(<Page />)
 
-    const first = await screen.findByRole("button", { name: "First" })
+    const first = await screen.findByRole("article", { name: "First" })
     expect(within(first).getByLabelText("Shown in").textContent).toBe("MenuDiscord messageSteward")
-    const second = screen.getByRole("button", { name: "Second" })
+    const second = screen.getByRole("article", { name: "Second" })
     expect(within(second).getByLabelText("Shown in").textContent).toBe("In gameNotification")
   })
 
-  it("sit on a closed text's name line, above its value", async () => {
+  it("sit on a card's name line, above its preview", async () => {
     twoKeys()
     draw(<Page />)
 
-    const row = await screen.findByRole("button", { name: "First" })
+    const row = await screen.findByRole("article", { name: "First" })
     const line = within(row).getByLabelText("Shown in").parentElement!
     expect(line.textContent).toContain("First")
     expect(line.textContent).not.toContain("Hello")
@@ -367,8 +367,8 @@ function twoKeys() {
   )
 }
 
-describe("one key open at a time", () => {
-  it("draws each key as its name and a rendered line, with no field until it is opened", async () => {
+describe("one text open at a time", () => {
+  it("draws each text as its name and its preview, with no field until it is opened", async () => {
     twoKeys()
     draw(<Page />)
 
@@ -379,21 +379,7 @@ describe("one key open at a time", () => {
     expect(screen.queryByRole("textbox")).toBeNull()
   })
 
-  it("draws an open key as its name and places alone, with its editor and preview in the same card", async () => {
-    twoKeys()
-    draw(<Page />)
-
-    await openKey("First")
-    const row = screen.getByRole("button", { name: "First" })
-    expect(row.textContent).not.toContain("Hello")
-    expect(row.textContent).toContain("Chat")
-    const card = row.parentElement!
-    expect(card.contains(await screen.findByRole("textbox", { name: "First" }))).toBe(true)
-    expect(card.contains(screen.getByRole("figure"))).toBe(true)
-    expect(screen.getByRole("button", { name: "Second" }).textContent).toContain("two")
-  })
-
-  it("closes the open key when another is opened, and keeps its draft", async () => {
+  it("keeps the draft of a text when another is opened", async () => {
     twoKeys()
     draw(<Page />)
 
@@ -408,7 +394,7 @@ describe("one key open at a time", () => {
     screen.getByRole("button", { name: "Save 1" })
   })
 
-  it("drops the drafts of every key with Discard, and the open one shows its stored text again", async () => {
+  it("drops the drafts of every text with Discard, and the open one shows its stored text again", async () => {
     twoKeys()
     draw(<Page />)
 
@@ -421,7 +407,8 @@ describe("one key open at a time", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard" }))
 
     expect(asTextArea(screen.getByRole("textbox", { name: "Second" })).value).toBe("two")
-    expect(screen.getByRole("button", { name: "First" }).textContent).toContain("Hello")
+    fireEvent.click(screen.getByRole("button", { name: "Translations" }))
+    expect((await screen.findByRole("button", { name: "First" })).textContent).toContain("Hello")
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
   })
 })

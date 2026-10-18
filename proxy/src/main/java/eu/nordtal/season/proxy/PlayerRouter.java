@@ -264,7 +264,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      * Without a registered {@code limbo} the player goes straight there.
      */
     static String viaWaitingRoom(final String server, final PhaseServers servers, final Set<String> available) {
-        return server.equals(servers.smp()) && available.contains(servers.limbo()) ? servers.limbo() : server;
+        final String limbo = servers.limbo();
+        return server.equals(servers.smp()) && available.contains(limbo) ? limbo : server;
     }
 
     /** Connects the player unless the player is on the server. */

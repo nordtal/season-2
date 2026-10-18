@@ -421,7 +421,7 @@ class UpdateFeedTest {
         feed.tick();
 
         final String shown = lines(board.posted.get(0).card());
-        assertTrue(shown.contains("✅ **smp** *running* paper 133 → 134 and image renewed\n"), shown);
+        assertTrue(shown.contains("✅ **smp** *running* paper 133 → 134 and image updated\n"), shown);
         assertTrue(shown.contains("✅ **proxy** *running* resource-pack f8fb664 → 0.24.0"), shown);
     }
 
@@ -501,8 +501,8 @@ class UpdateFeedTest {
         assertEquals(
                 """
                 **smp** could not be stopped: exit \\*1\\*
-                **hunger\\_games** not stopped, so nothing was installed; the rest started again
-                failed unexpectedly: boom""",
+                **hunger\\_games** not stopped, so nothing was installed, the rest started again
+                failed: boom""",
                 field(card, "Why"),
                 "the failed lines first, then the failed records; nothing that went right and no warning");
     }
@@ -539,7 +539,7 @@ class UpdateFeedTest {
         assertEquals("⏳ Restarting shortly", title(UpdateKind.RESTART, UpdateReport.Stage.COUNTDOWN));
         assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, UpdateReport.Stage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, UpdateReport.Stage.NOTHING_TO_DO));
-        assertEquals("⏹️ Plugin removal stopped", title(UpdateKind.REMOVE_PLUGIN, UpdateReport.Stage.CANCELLED));
+        assertEquals("⏹️ Plugin removal cancelled", title(UpdateKind.REMOVE_PLUGIN, UpdateReport.Stage.CANCELLED));
         for (final UpdateKind kind : UpdateKind.values()) {
             for (final UpdateReport.Stage stage : UpdateReport.Stage.values()) {
                 final String shown = title(kind, stage);

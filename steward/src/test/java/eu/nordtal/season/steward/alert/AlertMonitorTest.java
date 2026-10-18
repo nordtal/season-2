@@ -217,7 +217,7 @@ class AlertMonitorTest {
         final Alert alert = book.claimUnrouted().getFirst().alert();
         assertEquals("The backup failed", AdminPlain.of(alert.title()));
         assertEquals(
-                List.of("Run " + failed + ".", "database not saved", "failed unexpectedly: boom"),
+                List.of("Run " + failed + ".", "database not saved", "failed: boom"),
                 AdminPlain.of(alert.detail()),
                 "the failed lines and records, each led by its service, and nothing that went right");
     }

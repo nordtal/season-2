@@ -377,7 +377,7 @@ class ResolverTest {
         assertTrue(
                 Told.notes(PlanReport.of(plan))
                         .contains("SOURCES WARNING smp: also holds SomeoneElsesPlugin-1.0.0.jar,"
-                                + " which nothing in the plan claims"),
+                                + " which the plan does not use"),
                 Told.plan(plan));
     }
 
@@ -496,7 +496,7 @@ class ResolverTest {
 
         assertEquals(Change.Status.UNRESOLVED, pack.status());
         assertNotNull(pack.reason());
-        assertTrue(Told.english(pack.reason()).contains("carries no pack zip"), Told.english(pack.reason()));
+        assertTrue(Told.english(pack.reason()).contains("has no pack zip"), Told.english(pack.reason()));
     }
 
     @Test

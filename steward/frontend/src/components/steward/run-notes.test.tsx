@@ -86,7 +86,7 @@ describe("RunNotes - a run's records as a view", () => {
     fireEvent.click(within(outcomes).getByRole("button", { name: "failed 1" }))
     expect(within(outcomes).getByRole("button", { name: "failed 1" }).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual([
-      "failedhunger-gamesnot stopped, so nothing was installed; the rest started again",
+      "failedhunger-gamesnot stopped, so nothing was installed, the rest started again",
     ])
 
     fireEvent.click(within(outcomes).getByRole("button", { name: "all 5" }))

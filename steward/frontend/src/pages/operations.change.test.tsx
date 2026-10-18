@@ -15,7 +15,7 @@ describe("a change in a run's report", () => {
     expect(container.textContent).toBe("imageout of date")
   })
 
-  it("renders a container made again from a pulled image through its argument", () => {
+  it("renders a container recreated from a pulled image through its argument", () => {
     const { container } = render(
       <Change
         change={{
@@ -26,7 +26,7 @@ describe("a change in a run's report", () => {
         }}
       />,
     )
-    expect(container.textContent).toBe("containermade again from a pulled image")
+    expect(container.textContent).toBe("containerrecreated from a pulled image")
   })
 
   it("renders a backup's size and time from their values, the size a message of its own", () => {

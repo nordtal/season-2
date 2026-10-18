@@ -148,7 +148,7 @@ class ChoreographyTest {
 
         assertEquals(RunStep.Reason.PLAYERS_STAYED, left.reason());
         assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
-        assertEquals("PLAYERS WARNING smp: stopped with 1 player still on after 10s", said);
+        assertEquals("PLAYERS WARNING smp: stopped after 10s, 1 player still on", said);
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
 
@@ -174,8 +174,8 @@ class ChoreographyTest {
 
         assertEquals(
                 List.of(
-                        "PLAYERS WARNING smp: stopped with 2 players still on after 10s",
-                        "PLAYERS WARNING hunger-games: stopped with 1 player still on after 10s",
+                        "PLAYERS WARNING smp: stopped after 10s, 2 players still on",
+                        "PLAYERS WARNING hunger-games: stopped after 10s, 1 player still on",
                         "PLAYERS WARNING limbo: no recent player count, stopped after 10s"),
                 said,
                 "each server keeps its own count, and no answer is told apart from players still on");

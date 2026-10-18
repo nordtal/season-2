@@ -138,7 +138,7 @@ class AdminLogTest {
 
         assertEquals("""
                 ## 🎟️ Access granted
-                30 days of access, until <t:1793613600:D>.
+                Granted 30 days of access until <t:1793613600:D>.
                 **By** Steward
                 **Concerns** <@400000000000000002>
                 **Minecraft** `00000000-0000-0000-0000-000000000001`""", card.text());
@@ -212,7 +212,7 @@ class AdminLogTest {
         assertEquals(JournalAction.UNANCHORED_GRANT, line.action());
         assertEquals("""
                 ## ⚠️ No season start
-                Access runs from <t:1793613600:f> instead of the SMP opening. Set the date in Steward under Season.
+                Access starts at <t:1793613600:f>, not at the SMP opening. Set the date in Steward under Season.
                 **By** the bot
                 **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }

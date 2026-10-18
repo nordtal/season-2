@@ -188,7 +188,7 @@ class UpdateRunTest {
                         + " season on it - which is what the first deployment actually did, and is"
                         + " why every process writes a readiness marker");
         assertTrue(
-                Told.said(verified.line(Topology.SMP)).contains("not back within"),
+                Told.said(verified.line(Topology.SMP)).contains("not healthy within"),
                 Told.said(verified.line(Topology.SMP)));
     }
 
@@ -233,7 +233,7 @@ class UpdateRunTest {
         final UpdateReport verified = run.verify(started, stopped.services(), impatient());
 
         assertEquals(UpdateReport.State.HEALTHY, verified.line(Topology.SMP).state());
-        assertEquals("smp 0.7.0, image renewed", changes(verified.line(Topology.SMP)));
+        assertEquals("smp 0.7.0, image updated", changes(verified.line(Topology.SMP)));
     }
 
     @Test
@@ -549,7 +549,7 @@ class UpdateRunTest {
                 "which version is running is the question an admin has next, and a bare FAILED"
                         + " sends somebody to look at a server that is fine: " + detail);
         assertFalse(
-                detail.contains("not back within"),
+                detail.contains("not running within"),
                 "a service that came back must not also be reported as down: " + detail);
     }
 
@@ -569,7 +569,7 @@ class UpdateRunTest {
         final String detail = Told.said(verified.line(Topology.SMP));
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
         assertTrue(
-                detail.contains("not back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
+                detail.contains("not running within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
                 "how long was waited is half of what makes this actionable: " + detail);
         assertTrue(
                 detail.contains("running, starting"),

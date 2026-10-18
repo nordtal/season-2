@@ -20,7 +20,7 @@ class UnverifiedStopSettlesFailedTest {
     private static final Runner.Doubt FAILS = Runner.Doubt.FAILS_THE_RUN;
     private static final Runner.Doubt SAID = Runner.Doubt.IS_ONLY_SAID;
 
-    private static final String UNREAD = "stopped, but how it ended could not be read back";
+    private static final String UNREAD = "stopped, but its end state could not be read";
 
     @Test
     void anUnverifiedStopFailsTheRunOnItsOwnWithEveryLineGreen() {

@@ -1,12 +1,36 @@
 package eu.nordtal.season.database.update;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 import org.jspecify.annotations.Nullable;
 
 /** The SQL of the steps and facts of a run. {@link UpdateDirectory} is its API. */
 interface RunStepDao {
+
+    /** Returns the steps of the run in the order they began. */
+    @SqlQuery("SELECT step, service, outcome FROM run_step WHERE run = :run ORDER BY seq")
+    @UseRowMapper(StepMapper.class)
+    List<RunProgress.Step> steps(@Bind("run") long run);
+
+    /** Reads a row of {@link #steps}. */
+    final class StepMapper implements RowMapper<RunProgress.Step> {
+
+        @Override
+        public RunProgress.Step map(final ResultSet row, final StatementContext context) throws SQLException {
+            final String outcome = row.getString("outcome");
+            return new RunProgress.Step(
+                    RunStep.Kind.valueOf(row.getString("step")),
+                    row.getString("service"),
+                    outcome == null ? null : RunStep.Outcome.valueOf(outcome));
+        }
+    }
 
     /** Writes a step that begins now, numbered after the last step of the run. */
     @SqlQuery("""

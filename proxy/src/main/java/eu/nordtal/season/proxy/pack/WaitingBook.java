@@ -45,6 +45,9 @@ public final class WaitingBook {
 
         /** The reason on the screen of the player. */
         private @Nullable WaitReason shown;
+
+        /** The percentage sent with {@link #shown}, {@code -1} for none. */
+        private int percent = -1;
     }
 
     private final boolean packOffered;
@@ -187,6 +190,25 @@ public final class WaitingBook {
         queue.leave(uuid);
     }
 
+    /**
+     * Records the percentage of the running update for a player who sees its screen.
+     *
+     * @return {@code true} when the player sees the update screen with another number, so the caller sends it
+     */
+    public boolean claimProgress(final UUID uuid, final int percent) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return false;
+        }
+        synchronized (session) {
+            if (session.shown != WaitReason.UPDATE || session.percent == percent) {
+                return false;
+            }
+            session.percent = percent;
+            return true;
+        }
+    }
+
     /** Returns whether a released player waits for a slot onto {@code smp}. */
     public boolean anyQueued() {
         return queue.isWaiting();
@@ -242,6 +264,7 @@ public final class WaitingBook {
                     return WaitingDecision.idle();
                 }
                 session.shown = reason.get();
+                session.percent = -1;
                 return WaitingDecision.show(reason.get());
             }
 

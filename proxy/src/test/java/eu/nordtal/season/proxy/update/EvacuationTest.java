@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,13 @@ class EvacuationTest {
                 NOW.minusSeconds(60),
                 null,
                 null);
+    }
+
+    @Test
+    void theProgressOfARunNeverGoesDown() {
+        assertEquals(OptionalInt.of(40), Evacuation.higher(OptionalInt.of(40), OptionalInt.of(36)));
+        assertEquals(OptionalInt.of(40), Evacuation.higher(OptionalInt.of(40), OptionalInt.empty()));
+        assertEquals(OptionalInt.of(5), Evacuation.higher(OptionalInt.empty(), OptionalInt.of(5)));
     }
 
     @Test

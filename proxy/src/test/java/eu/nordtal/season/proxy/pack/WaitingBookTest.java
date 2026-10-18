@@ -245,6 +245,31 @@ class WaitingBookTest {
     }
 
     @Test
+    void anUpdatePercentIsSentEachTimeItChanges() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        assertEquals(
+                WaitingDecision.show(WaitReason.UPDATE),
+                book.decide(player, PLAYABLE, false, true, DESTINATION, true, false));
+
+        assertTrue(book.claimProgress(player, 10), "the first number has to reach the screen");
+        assertFalse(book.claimProgress(player, 10), "the tick runs every second; the same number is not resent");
+        assertTrue(book.claimProgress(player, 12));
+    }
+
+    @Test
+    void aPercentBelongsToTheUpdateScreenOnly() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        assertEquals(Action.SHOW, decide(book));
+
+        assertFalse(book.claimProgress(player, 10), "the pack screen has no number");
+    }
+
+    @Test
     void aChangedTitleIsSent() {
         final WaitingBook book = book();
         book.entered(player);

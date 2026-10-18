@@ -114,8 +114,8 @@ import org.slf4j.Logger;
         authors = {"nordtal"})
 public final class ProxyPlugin {
 
-    /** How often a waiting queue onto {@code smp} is swept. */
-    private static final Duration QUEUE_TICK = Duration.ofSeconds(1);
+    /** How often a waiting queue onto {@code smp} or a running update is swept. */
+    private static final Duration BUSY_TICK = Duration.ofSeconds(1);
 
     /** The clock. */
     private final Clock clock = NetworkTime.clock();
@@ -431,8 +431,8 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, packs);
         final Duration sweepInterval = Duration.ofSeconds(shared.loaded().gate().limboSweepIntervalSeconds());
         final var _ = scheduler.every(sweepInterval, sweepInterval, packs::sweep);
-        // The queue's interval is shorter than the sweep's, so a waiting queue is swept every second.
-        final var _ = scheduler.every(QUEUE_TICK, QUEUE_TICK, packs::sweepQueue);
+        // A waiting queue and an update's percentage change faster than the sweep runs, so they are swept every second.
+        final var _ = scheduler.every(BUSY_TICK, BUSY_TICK, packs::sweepBusy);
         shared.phaseWatch().refresh();
         return router;
     }
@@ -537,6 +537,7 @@ public final class ProxyPlugin {
                 new Evacuation(proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming());
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
+        packs.whenProgressing(evacuation::progress);
         onlineWriter.whenHurrying(() -> restartWatch.isCountingDown() || evacuation.isAnyMoving());
         return new Updates(restartWatch, evacuation);
     }

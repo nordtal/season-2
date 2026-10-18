@@ -1,6 +1,7 @@
 package eu.nordtal.season.limboprotocol;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -90,6 +91,38 @@ class LimboProtocolTest {
         assertEquals(Optional.empty(), WaitReason.parse(""));
         // Deliberately case-sensitive: the enum constant's name is the protocol, not a label.
         assertEquals(Optional.empty(), WaitReason.parse("pack"));
+    }
+
+    @Test
+    void aWaitCarriesTheRunsPercentage() {
+        final LimboProtocol.Message message =
+                LimboProtocol.decode(LimboProtocol.wait(WaitReason.UPDATE, 45)).orElseThrow();
+
+        assertEquals(WaitReason.UPDATE, message.reason());
+        assertEquals(45, message.percent());
+    }
+
+    @Test
+    void aWaitWithoutAPercentageHasNone() {
+        assertNull(LimboProtocol.decode(LimboProtocol.wait(WaitReason.UPDATE))
+                .orElseThrow()
+                .percent());
+    }
+
+    @Test
+    void aPercentageAboveAHundredIsDropped() throws IOException {
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(LimboProtocol.VERSION);
+            out.writeByte(1);
+            out.writeUTF("UPDATE");
+            out.writeByte(101);
+        }
+        final LimboProtocol.Message message =
+                LimboProtocol.decode(bytes.toByteArray()).orElseThrow();
+
+        assertEquals(WaitReason.UPDATE, message.reason());
+        assertNull(message.percent());
     }
 
     @Test

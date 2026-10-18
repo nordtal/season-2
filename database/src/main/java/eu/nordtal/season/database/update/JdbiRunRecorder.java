@@ -19,6 +19,11 @@ final class JdbiRunRecorder implements RunRecorder {
         this.current = current;
     }
 
+    /** Returns the steps of the run, none on a schema this code was not built for. */
+    List<RunProgress.Step> steps(final long run) {
+        return current.getAsBoolean() ? dao.steps(run) : List.of();
+    }
+
     /** Writes the stage of the report on the row of the run. */
     void stage(final long run, final UpdateReport.Stage stage) {
         when(() -> dao.stage(run, stage.name()));

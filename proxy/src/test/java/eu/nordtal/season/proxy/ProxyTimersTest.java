@@ -20,7 +20,7 @@ class ProxyTimersTest {
             "onlineWriter::tick",
             "writer::flushAll",
             "packs::sweep",
-            "packs::sweepQueue",
+            "packs::sweepBusy",
             "standbyReturn::check",
             "readiness::refresh");
 

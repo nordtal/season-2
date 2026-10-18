@@ -58,7 +58,7 @@ public final class LimboChannel implements PluginMessageListener {
         }
         if (decoded.get().type() != LimboProtocol.Type.READY) {
             final WaitReason reason = Objects.requireNonNull(decoded.get().reason(), "reason");
-            room.show(player, reason);
+            room.show(player, reason, decoded.get().percent());
             return;
         }
 

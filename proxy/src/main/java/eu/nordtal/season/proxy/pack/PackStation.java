@@ -11,6 +11,7 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.limboprotocol.LimboProtocol;
+import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.proxy.config.PackSpec;
 import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.LoginRoster;
@@ -19,10 +20,12 @@ import eu.nordtal.season.proxy.routing.PhaseRouting;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -58,6 +61,9 @@ public final class PackStation {
 
     /** Whether an admin keeps the backend stopped. */
     private volatile java.util.function.Predicate<String> held = server -> false;
+
+    /** How far the running update is. */
+    private volatile Supplier<OptionalInt> progress = OptionalInt::empty;
 
     public PackStation(
             final ProxyServer proxy,
@@ -95,6 +101,11 @@ public final class PackStation {
     /** Sets the check whether an update run has stopped a backend. */
     public void whenUpdating(final java.util.function.Predicate<String> updating) {
         this.updating = Objects.requireNonNull(updating, "updating");
+    }
+
+    /** Sets the source of the percentage of the running update. */
+    public void whenProgressing(final Supplier<OptionalInt> progress) {
+        this.progress = Objects.requireNonNull(progress, "progress");
     }
 
     /** Sets the check whether an admin keeps a backend stopped. */
@@ -247,9 +258,9 @@ public final class PackStation {
         return seen;
     }
 
-    /** Sweeps the waiting room while a player waits for a slot onto {@code smp}. */
-    public void sweepQueue() {
-        if (book.anyQueued()) {
+    /** Sweeps the waiting room while a player waits for a slot onto {@code smp} or an update shows its progress. */
+    public void sweepBusy() {
+        if (book.anyQueued() || progress.get().isPresent()) {
             final int _ = sweep();
         }
     }
@@ -272,12 +283,18 @@ public final class PackStation {
         final WaitingDecision decision = book.decide(
                 uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
 
+        final OptionalInt percent = progress.get();
         switch (decision.action()) {
-            case IDLE -> {}
-            case SHOW ->
-                sendToLimbo(
-                        player,
-                        LimboProtocol.wait(Objects.requireNonNull(decision.reason(), "SHOW always carries a reason")));
+            case IDLE -> {
+                if (percent.isPresent() && book.claimProgress(uuid, percent.getAsInt())) {
+                    sendToLimbo(player, LimboProtocol.wait(WaitReason.UPDATE, percent.getAsInt()));
+                }
+            }
+            case SHOW -> {
+                final WaitReason reason = Objects.requireNonNull(decision.reason(), "SHOW always carries a reason");
+                final boolean numbered = percent.isPresent() && book.claimProgress(uuid, percent.getAsInt());
+                sendToLimbo(player, LimboProtocol.wait(reason, numbered ? percent.getAsInt() : null));
+            }
             case TIMED_OUT -> {
                 logger.warn(
                         "{} never answered the resource pack offer within {}s",

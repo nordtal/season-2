@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +43,12 @@ public final class Evacuation {
     /** The players whose move to the waiting room Velocity has not answered yet. */
     private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
 
+    /** How far the run that moves players is, held at its highest. */
+    private volatile OptionalInt progress = OptionalInt.empty();
+
+    /** The run {@link #progress} belongs to. */
+    private long progressRun;
+
     /** Whether the warning about the missing waiting room was logged. */
     private volatile boolean warnedAboutWaitingRoom;
 
@@ -68,6 +75,11 @@ public final class Evacuation {
         return !moving.isEmpty();
     }
 
+    /** Returns how far the run that has moved players is, or empty when nothing is known. */
+    public OptionalInt progress() {
+        return progress;
+    }
+
     /** Returns whether an admin keeps the server stopped. */
     public boolean isHeld(final String server) {
         return server != null && held.contains(server);
@@ -87,6 +99,7 @@ public final class Evacuation {
         final Set<String> next = imminent(running);
         if (next.isEmpty()) {
             moving = Set.of();
+            progress = OptionalInt.empty();
             warnedAboutWaitingRoom = false;
             return;
         }
@@ -108,10 +121,12 @@ public final class Evacuation {
                         servers.limboStandby());
             }
             moving = Set.of();
+            progress = OptionalInt.empty();
             return;
         }
 
         moving = next;
+        track(running.orElseThrow());
         evacuate(next, room, running.orElseThrow().id());
     }
 
@@ -153,9 +168,33 @@ public final class Evacuation {
         return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
+    /** Returns the higher of the two, so a step row that appears late never lowers the shown percentage. */
+    static OptionalInt higher(final OptionalInt held, final OptionalInt now) {
+        if (held.isEmpty()) {
+            return now;
+        }
+        if (now.isEmpty()) {
+            return held;
+        }
+        return OptionalInt.of(Math.max(held.getAsInt(), now.getAsInt()));
+    }
+
     /** Returns the services that the request stops. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
+    }
+
+    /** Reads how far the run is and keeps the highest value of the run. A failed read keeps the last one. */
+    private void track(final UpdateRequest run) {
+        final OptionalInt now;
+        try {
+            now = updates.progressOf(run);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not read the steps of run {}", run.id(), failure);
+            return;
+        }
+        progress = run.id() == progressRun ? higher(progress, now) : now;
+        progressRun = run.id();
     }
 
     /** Stores the number of moved players. A failed write is logged. */

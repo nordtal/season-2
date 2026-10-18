@@ -6,6 +6,7 @@ import eu.nordtal.season.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -232,6 +233,11 @@ public interface UpdateDirectory {
      */
     default void putBack(final String row, final MessageRef why) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
+    }
+
+    /** Returns how far the run is, as {@link RunProgress} counts it, or empty when nothing is known. */
+    default OptionalInt progressOf(final UpdateRequest run) {
+        return OptionalInt.empty();
     }
 
     /** Returns where the steps and facts of a run are written. */

@@ -46,8 +46,6 @@ import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
-import net.dv8tion.jda.api.components.textinput.TextInput;
-import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
@@ -339,8 +337,7 @@ public final class DocumentRenderer {
     public String preview(final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
         final DocumentDeclaration declaration = draft.declaration();
         final Map<String, Object> values = Value.examples(declaration.named());
-        final Map<String, Filled> slots = new HashMap<>();
-        declaration.slots().forEach(slot -> slots.put(slot.id(), example(slot, languages)));
+        final Map<String, Filled> slots = ExampleSlots.of(declaration, languages);
         return switch (declaration.shape()) {
             case MESSAGE ->
                 new MessageCreateBuilder()
@@ -359,21 +356,23 @@ public final class DocumentRenderer {
         };
     }
 
-    private static Filled example(final Slot slot, final List<Locale> languages) {
-        return switch (slot.type()) {
-            case BUTTON -> new FilledButton(slot.id());
-            case SELECT ->
-                new FilledSelect(
-                        slot.id(),
-                        List.of(new Option(
-                                slot.id(), slot.lined() ? null : slot.id(), Value.examples(slot.values()), null)));
-            case LIST -> new FilledList(List.of(Value.examples(slot.values())));
-            case LANGUAGES -> new FilledLanguages(languages);
-            case INPUT ->
-                new FilledInput(placeholder -> TextInput.create(slot.id(), TextInputStyle.SHORT)
-                        .setPlaceholder(placeholder)
-                        .build());
-            case ITEM, LABEL -> throw new IllegalArgumentException("the game fills a menu's " + slot.id());
+    /**
+     * Draws a message or a plain draft as a member receives it, every value and slot at its example.
+     *
+     * @throws IllegalArgumentException if the draft is a modal, a channel's name or a menu, which no message holds
+     * @throws RuntimeException if the draft cannot be drawn
+     */
+    public MessageCreateData message(
+            final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
+        final DocumentDeclaration declaration = draft.declaration();
+        final Map<String, Object> values = Value.examples(declaration.named());
+        return switch (declaration.shape()) {
+            case MESSAGE ->
+                draw(draft, values, ExampleSlots.of(declaration, languages), locale)
+                        .create();
+            case PLAIN -> MessageCreateData.fromContent(plain(draft, values, locale));
+            case MODAL, CHANNEL_NAME, MENU ->
+                throw new IllegalArgumentException("a " + declaration.shape() + " is not sent as a message");
         };
     }
 

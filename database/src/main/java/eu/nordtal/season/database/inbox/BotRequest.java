@@ -140,7 +140,7 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Sends an admin a text that the admin tries, as a direct message. Refused if Discord does not deliver it. */
+    /** Sends an admin a text or a whole document that the admin tries, as a direct message. Refused if undelivered. */
     record PreviewMessage(DiscordId person, MessagePreview preview) implements BotRequest {
 
         public PreviewMessage {

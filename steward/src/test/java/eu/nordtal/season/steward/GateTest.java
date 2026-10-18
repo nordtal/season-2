@@ -111,6 +111,7 @@ class GateTest {
             Map.entry("POST /api/web-push/test", Gate.KEY_HELD),
             Map.entry("PUT /api/alerts/preferences", Gate.KEY_HELD),
             Map.entry("POST /api/message-preview", Gate.KEY_HELD),
+            Map.entry("POST /api/document-preview", Gate.KEY_HELD),
             Map.entry("POST /api/documents/render", Gate.KEY_HELD));
 
     @Test

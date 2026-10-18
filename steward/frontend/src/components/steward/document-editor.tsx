@@ -1,4 +1,12 @@
-import { ArrowDownIcon, ArrowUpIcon, LockSimpleIcon, PlusIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  LockSimpleIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
+  TrashIcon,
+  XIcon,
+} from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type {
@@ -28,11 +36,12 @@ import {
 import { documentName } from "@/lib/documents"
 import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { useDocumentDrawing, useSaveDocument } from "@/lib/queries"
+import { useCommandRun, useDocumentDrawing, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { cn } from "cn"
 import { toast } from "sonner"
+import { RequestOutcome } from "@/components/steward/game-actions"
 import { Failure } from "@/components/steward/query-state"
 import {
   AccentField,
@@ -105,6 +114,9 @@ export function DocumentEditor({
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
   const name = documentName(view.declaration)
+  // A member receives only a message or a plain text; a modal, a channel's name and a menu are no direct message.
+  const sendable = view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
+  const send = useSendDraft(view)
 
   function submit() {
     save.mutate(
@@ -177,7 +189,21 @@ export function DocumentEditor({
         onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
       />
       {save.error ? <Failure error={save.error} /> : null}
+      {send.error ? <Failure error={send.error} /> : null}
+      {send.run ? <RequestOutcome run={send.run} /> : null}
       <div className="flex flex-wrap justify-end gap-2">
+        {sendable ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mr-auto"
+            disabled={refused || send.busy}
+            onClick={() => send.send(draft, beside ?? ENGLISH)}
+          >
+            <PaperPlaneTiltIcon aria-hidden />
+            {t("steward.message-editor.send-in-discord")}
+          </Button>
+        ) : null}
         <Button type="button" variant="ghost" disabled={!changed || save.isPending} onClick={() => onDraft(undefined)}>
           {t("steward.document-editor.discard")}
         </Button>
@@ -187,6 +213,26 @@ export function DocumentEditor({
       </div>
     </section>
   )
+}
+
+/** Sends the draft as it stands to the admin alone, as the bot's direct message. */
+function useSendDraft(view: DocumentView) {
+  const action = useGameAction()
+  const [id, setId] = useState<string | null>(null)
+  const run = useCommandRun(id)
+  const settled = run.data !== undefined && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
+  return {
+    busy: action.isPending || (id !== null && !settled && !run.error),
+    error: action.error ?? run.error,
+    run: id === null ? undefined : run.data,
+    send: (document: Document, language: Language) => {
+      setId(null)
+      action.mutate(
+        { path: "/api/document-preview", body: { declaration: view.declaration, document, language } },
+        { onSuccess: (asked) => setId(asked.id) },
+      )
+    },
+  }
 }
 
 /** The packaged document beside the admin's, when a release changed the packaged one after the admin saved. */

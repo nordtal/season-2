@@ -35,6 +35,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
@@ -285,10 +286,10 @@ public final class AccessRoles {
      *
      * @return whether Discord delivered it
      */
-    public boolean dmAndWait(final DiscordId discordId, final String text) {
+    public boolean dmAndWait(final DiscordId discordId, final MessageCreateData message) {
         try {
             jda.openPrivateChannelById(discordId.value())
-                    .flatMap(channel -> channel.sendMessage(text))
+                    .flatMap(channel -> channel.sendMessage(message))
                     .complete();
             return true;
         } catch (final RuntimeException bounced) {

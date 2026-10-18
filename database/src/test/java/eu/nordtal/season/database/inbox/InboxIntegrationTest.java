@@ -17,6 +17,8 @@ import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
+import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.value.DisplayName;
 import eu.nordtal.season.messages.value.Mention;
@@ -226,6 +228,29 @@ class InboxIntegrationTest {
         smp.submit(preview, ADMIN);
 
         final Request<SmpRequest> claimed = smp.claim().orElseThrow();
+        assertEquals("PREVIEW_MESSAGE", claimed.kind());
+        assertEquals(preview, claimed.payload());
+    }
+
+    @Test
+    void aDraftedDocumentReachesTheBotWhole() throws SQLException {
+        final BotRequest.PreviewMessage preview = new BotRequest.PreviewMessage(
+                DiscordId.of("1"),
+                MessagePreview.of(
+                        new Documents.Packaged(Documents.decode("""
+                                        [{"namespace":"bot","name":"welcome","area":"Join","shape":"MESSAGE",
+                                          "values":{"player":{"kind":"text","example":"Alex"}},
+                                          "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""").getFirst(), Document.decode("""
+                                        {"parts":[
+                                          {"type":"CONTAINER","accent":"#5865f2","parts":[
+                                            {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"Hallo {player}"}}]}]},
+                                          {"type":"GALLERY","media":["upload://7"]},
+                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}""")), "de"));
+        final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
+        execute("DELETE FROM bot_inbox");
+        bot.submit(preview, ADMIN);
+
+        final Request<BotRequest> claimed = bot.claim().orElseThrow();
         assertEquals("PREVIEW_MESSAGE", claimed.kind());
         assertEquals(preview, claimed.payload());
     }

@@ -44,6 +44,7 @@ class JournaledRoutesTest {
             Map.entry("POST /auth/webauthn/authenticate/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/totp/enrol/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF),
+            Map.entry("POST /api/document-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/documents/render", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/document-images", Unjournaled.SHOWN_ONCE_SAVED));
 

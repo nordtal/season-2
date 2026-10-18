@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDraft, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
+import { words } from "@/lib/query-fixtures"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
 
@@ -227,6 +228,32 @@ describe("an open document", () => {
     expect(saved[0][0]).toBe("discord/contribution")
     expect(JSON.stringify(saved[0][1])).toContain('"en":"Support"')
     expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("Changed")).toBeTruthy()
+  })
+
+  it("sends the draft as it stands to the admin as a direct message", async () => {
+    const asked: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        preview: (body) => {
+          asked.push(body)
+          return "bot:7"
+        },
+        commands: { "bot:7": { id: "bot:7", status: "DONE", result: words("Sent to you in Discord.") } },
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+    fireEvent.click(within(editor).getByRole("button", { name: "Send it to me in Discord" }))
+
+    expect(await within(editor).findByText("Sent to you in Discord.")).toBeTruthy()
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatchObject({ declaration: { name: "contribution" }, language: "en" })
+    expect(JSON.stringify(asked[0])).toContain('"en":"Support"')
   })
 
   it("refuses a save the check refuses and names why", async () => {

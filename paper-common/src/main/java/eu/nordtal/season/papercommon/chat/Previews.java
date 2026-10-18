@@ -9,6 +9,7 @@ import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.ToneColours;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
@@ -43,10 +44,13 @@ public final class Previews {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
         final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
+        // Steward sends a document to the bot, never here.
+        final MessageRef message = Objects.requireNonNull(preview.message(), "a game server previews a key's text");
+        final String drafted = Objects.requireNonNull(preview.text(), "text");
         // The key's own service paints the text, and that need not be this server.
         final Component text = preview.colours().isEmpty()
-                ? renderer.format(viewer, preview.message(), preview.text())
-                : renderer.format(viewer, preview.message(), preview.text(), paletteOf(preview.colours()));
+                ? renderer.format(viewer, message, drafted)
+                : renderer.format(viewer, message, drafted, paletteOf(preview.colours()));
         switch (preview.shown()) {
             case TITLE -> reader.showTitle(Title.title(Lines.joined(text), Component.empty()));
             case SUBTITLE -> reader.showTitle(Title.title(Component.empty(), Lines.joined(text)));

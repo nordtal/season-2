@@ -164,6 +164,9 @@ what a save would be refused for. A Discord document is drawn with the bot's own
 `discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A
 menu is drawn with the game's `MenuDocument` as its title, then each item's name and lore and each
 label, in MiniMessage.
+`POST /api/document-preview` sends a draft of a message or a plain document to the admin alone: the bot
+draws it with the same renderer, every value at its example, and sends it as a direct message. It
+refuses a modal, a channel name, a menu and a draft a save would refuse.
 `GET /api/discord/channels` answers the live channels.
 
 `POST /api/document-images` stores a PNG, JPEG, GIF or WebP image of at most 8 MiB, and

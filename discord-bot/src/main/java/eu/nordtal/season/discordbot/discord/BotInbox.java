@@ -34,7 +34,8 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
      *     returns whether it was posted
      * @param alert posts an alert to the admin channel and returns whether it was posted
      * @param paid sends the payer a message about the booked payment
-     * @param preview sends an admin the previewed text as a direct message and returns whether Discord delivered it
+     * @param preview sends an admin the previewed text or document as a direct message and returns whether Discord
+     *     delivered it
      */
     public BotInbox(
             final AccessChanges effects,

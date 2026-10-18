@@ -14,6 +14,7 @@ import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
@@ -56,6 +57,7 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
+import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -68,6 +70,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -77,6 +81,7 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 @Slf4j
 public class AccessBot implements AutoCloseable {
@@ -210,16 +215,7 @@ public class AccessBot implements AutoCloseable {
                                 .post(tag, locale -> core.messages().format(locale, message)),
                         wiring.admin()::postAlert,
                         wiring.bookings()::tell,
-                        previewed -> wiring.roles()
-                                .dmAndWait(
-                                        previewed.person(),
-                                        core.messages()
-                                                .format(
-                                                        Locales.parse(previewed
-                                                                .preview()
-                                                                .language()),
-                                                        previewed.preview().message(),
-                                                        previewed.preview().text())))),
+                        previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)))),
                 wiring.adminRole(),
                 core.messages(),
                 core.documents(),
@@ -231,6 +227,20 @@ public class AccessBot implements AutoCloseable {
         final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
 
         return hub;
+    }
+
+    /** Draws an admin's preview as members receive it: a key's text, or a whole document. */
+    private static MessageCreateData previewed(final CoreServices core, final BotRequest.PreviewMessage previewed) {
+        final MessagePreview preview = previewed.preview();
+        final Locale language = Locales.parse(preview.language());
+        final Documents.Packaged document = preview.document();
+        return document == null
+                ? MessageCreateData.fromContent(core.messages()
+                        .format(
+                                language,
+                                Objects.requireNonNull(preview.message(), "message"),
+                                Objects.requireNonNull(preview.text(), "text")))
+                : core.renderer().message(document, List.of(core.languages().locales()), language);
     }
 
     private CoreServices loadCoreServices(

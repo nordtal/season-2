@@ -12,6 +12,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
@@ -63,6 +64,9 @@ class DocumentsApiIntegrationTest {
     private int port;
     private DocumentStore store;
 
+    /** The preview of the last {@code POST /api/document-preview}. */
+    private MessagePreview previewed;
+
     @BeforeEach
     void start() throws IOException {
         // Short, because a Unix socket path has a length limit.
@@ -87,6 +91,7 @@ class DocumentsApiIntegrationTest {
                     config.routes.post("/api/document-images", ctx -> documents.upload(ctx, Actor.STEWARD));
                     config.routes.get("/api/document-images/{id}", documents::image);
                     config.routes.post("/api/documents/render", documents::render);
+                    config.routes.post("/api/document-preview", ctx -> previewed = documents.preview(ctx));
                 })
                 .start(0);
         port = app.port();
@@ -301,6 +306,41 @@ class DocumentsApiIntegrationTest {
 
         send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 422);
         send("POST", "/api/documents/render", "{".getBytes(UTF_8), 400);
+    }
+
+    @Test
+    void aDraftIsPreviewedAsTheWholeDocumentWithoutAKey() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));
+        draft.add("document", Json.tree(WELCOME.replace("Welcome {player}", "Hello {player}")));
+        draft.addProperty("language", "de");
+
+        send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
+
+        assertEquals(
+                MessagePreview.of(
+                        new Documents.Packaged(
+                                Documents.decode(DECLARATIONS).getFirst(),
+                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}"))),
+                        "de"),
+                previewed);
+    }
+
+    @Test
+    void aDraftNoMessageHoldsOrASaveWouldRefuseIsNotPreviewed() throws Exception {
+        final JsonObject withoutJoin = new JsonObject();
+        withoutJoin.add(
+                "declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));
+        withoutJoin.add("document", Json.tree("""
+                {"parts":[{"type":"TEXT","lines":[{"text":{"en":"Hi"}}]}]}"""));
+        withoutJoin.addProperty("language", "en");
+        final JsonObject modal = withoutJoin.deepCopy();
+        modal.getAsJsonObject("declaration").addProperty("shape", "MODAL");
+
+        assertTrue(send("POST", "/api/document-preview", withoutJoin.toString().getBytes(UTF_8), 400)
+                .contains("Nothing was sent"));
+        assertTrue(send("POST", "/api/document-preview", modal.toString().getBytes(UTF_8), 400)
+                .contains("is not a message"));
     }
 
     private static Documents.Packaged packaged() {

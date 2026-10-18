@@ -7,14 +7,14 @@ import java.util.Objects;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
-/** One staged moment: images shown in the title slot for some ticks each, plus an effect and a sound. */
+/** A sequence of title images with an optional subtitle, effect and sound. */
 public final class Cinematic {
 
     /**
-     * One image and how long it stays.
+     * One title image.
      *
-     * @param image the picture, naming its font if it needs one
-     * @param ticks how long it is on screen before the next one, at least 1
+     * @param image the image, naming its font if it needs one
+     * @param ticks how long it stays on screen, at least 1
      */
     public record Frame(Component image, int ticks) {
 
@@ -29,10 +29,10 @@ public final class Cinematic {
     }
 
     /**
-     * A potion effect held for the length of the staging.
+     * A potion effect that lasts as long as the staging.
      *
-     * @param type      the effect's namespaced key, such as {@code minecraft:blindness}
-     * @param amplifier the level, 0 being the first
+     * @param type      the namespaced key of the effect, such as {@code minecraft:blindness}
+     * @param amplifier the level, starting at 0
      */
     public record Effect(String type, int amplifier) {
 
@@ -47,7 +47,6 @@ public final class Cinematic {
         }
     }
 
-    /** Which image is on screen from which tick. */
     public record Cue(int atTick, Frame frame) {}
 
     private final List<Frame> frames;
@@ -75,22 +74,18 @@ public final class Cinematic {
         return frames;
     }
 
-    /** Returns the line under every image, or {@code null} when there is none. */
     public @Nullable Component subtitle() {
         return subtitle;
     }
 
-    /** Returns the effect held for {@link #totalTicks()}, or {@code null} when there is none. */
     public @Nullable Effect effect() {
         return effect;
     }
 
-    /** Returns the category played once at the start, or {@code null} when the moment is silent. */
     public @Nullable Feedback sound() {
         return sound;
     }
 
-    /** Returns how long the whole thing lasts, in ticks. */
     public int totalTicks() {
         int total = 0;
         for (final Frame frame : frames) {
@@ -99,7 +94,7 @@ public final class Cinematic {
         return total;
     }
 
-    /** Returns every image with the tick it appears on, the first at zero. */
+    /** Returns every image with the tick it appears on. The first cue is at tick 0. */
     public List<Cue> cues() {
         final List<Cue> cues = new ArrayList<>(frames.size());
         int at = 0;
@@ -119,13 +114,12 @@ public final class Cinematic {
 
         private Builder() {}
 
-        /** Adds one image, shown for {@code ticks} after everything already added. */
+        /** Adds an image that stays {@code ticks} after the images already added. */
         public Builder frame(final Component image, final int ticks) {
             frames.add(new Frame(image, ticks));
             return this;
         }
 
-        /** Adds several images that each stay the same length. */
         public Builder frames(final List<Component> images, final int ticksEach) {
             for (final Component image : images) {
                 frame(image, ticksEach);
@@ -133,19 +127,17 @@ public final class Cinematic {
             return this;
         }
 
-        /** Sets the line under every image; {@code null} leaves it out. */
         public Builder subtitle(final @Nullable Component subtitle) {
             this.subtitle = subtitle;
             return this;
         }
 
-        /** Sets the effect held for the whole staging; {@code null} leaves it out. */
         public Builder effect(final @Nullable Effect effect) {
             this.effect = effect;
             return this;
         }
 
-        /** Sets the sound played once at the start; {@code null} or a blank key leaves it out. */
+        /** Sets the sound. A {@code null} or blank key sets none. */
         public Builder sound(final @Nullable Feedback sound) {
             this.sound = sound;
             return this;

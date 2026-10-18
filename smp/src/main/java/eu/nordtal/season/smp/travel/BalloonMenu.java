@@ -8,31 +8,25 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * What a balloon shows, worked out without a server so it can be tested as a table.
- *
- * Every world keeps a fixed card: the current one is marked and a locked one greyed, never moved or hidden.
- */
+/** No state moves or hides a card. */
 public final class BalloonMenu {
 
-    /** Where a balloon can send somebody, and whether it can right now. */
     public enum State {
-        /** The world the player is standing in. Shown, never travelled to. */
+        /** The world of the balloon. It is never a travel target. */
         HERE,
-        /** Unlocked and one click away. */
         OPEN,
-        /** Its milestone is not finished. Greyed, in place, with the reason. */
+        /** The milestone of the world is not finished. The card is greyed and shows the reason. */
         LOCKED
     }
 
     /**
-     * One card in the grid.
+     * One card of the grid.
      *
-     * @param destination which world it goes to
-     * @param state       whether it can be used
+     * @param destination the world the card travels to
+     * @param state       whether the card can be used
      * @param column      0 for the left card, 1 for the right
      * @param row         0 for the upper card, 1 for the lower
-     * @param slots       the twelve inventory slots the card covers
+     * @param slots       the twelve inventory slots of the card
      */
     public record Entry(WorldRole destination, State state, int column, int row, List<Integer> slots) {
 
@@ -45,18 +39,16 @@ public final class BalloonMenu {
         }
     }
 
-    /** The inventory is six rows of nine; the cards cover all of it but column 4 and the hole. */
+    /** The inventory has six rows. The cards cover every slot except column 4 and the empty cell of the grid. */
     public static final int ROWS = 6;
 
-    /** A card is three slot rows tall and four slot columns wide. */
     public static final int CARD_ROWS = 3;
 
     public static final int CARD_COLUMNS = 4;
 
-    /** The slot column each card column starts at: 0..3 and 5..8, leaving 4 as the gap. */
     private static final int[] CARD_COLUMN_START = {0, 5};
 
-    /** The three cards' places in the 2 x 2 grid, read left to right; the empty cell comes last. */
+    /** The cards in the 2 x 2 grid, row by row. The empty cell comes last. */
     private static final WorldRole[][] PLACES = {
         {WorldRole.NORDTAL, WorldRole.NETHER},
         {WorldRole.END},
@@ -65,10 +57,10 @@ public final class BalloonMenu {
     private BalloonMenu() {}
 
     /**
-     * Builds the grid for a player standing at the balloon in {@code here}.
+     * Returns the cards for a balloon in {@code here}.
      *
-     * @param here     the world the balloon stands in
-     * @param unlocked which unlocks the completed milestones have handed out
+     * @param here     the world of the balloon
+     * @param unlocked the unlocks that completed milestones grant
      */
     public static List<Entry> of(final WorldRole here, final Set<Unlock> unlocked) {
         final List<Entry> entries = new ArrayList<>(3);
@@ -82,12 +74,10 @@ public final class BalloonMenu {
         return List.copyOf(entries);
     }
 
-    /** The slot column a card column starts at. */
     public static int slotColumn(final int column) {
         return CARD_COLUMN_START[column];
     }
 
-    /** The slot row a card row starts at. */
     public static int slotRow(final int row) {
         return row * CARD_ROWS;
     }
@@ -109,12 +99,10 @@ public final class BalloonMenu {
         return switch (destination) {
             case NETHER -> unlocked.contains(Unlock.NETHER) ? State.OPEN : State.LOCKED;
             case END -> unlocked.contains(Unlock.END) ? State.OPEN : State.LOCKED;
-            // Nordtal is never locked here: it is where a player already is or is coming back to.
             case NORDTAL -> State.OPEN;
         };
     }
 
-    /** The card occupying a clicked slot, or empty for the gap column. */
     public static Optional<Entry> at(final List<Entry> entries, final int slot) {
         return entries.stream().filter(entry -> entry.slots().contains(slot)).findFirst();
     }

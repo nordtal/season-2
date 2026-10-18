@@ -34,18 +34,16 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The two boards at the spawn, rendered <b>per player, in their own language</b>.
- *
+ * Shows the two boards at the spawn to each player in the language of that player.
  * A Text Display shows one text to everyone, so each board is one non-persistent entity per viewer.
  */
 public final class Boards {
 
-    /** Once every five seconds, on the HUD's clock; the numbers behind a board change a few times an hour. */
     public static final Duration REFRESH = Duration.ofSeconds(5);
 
     private static final int BAR_WIDTH = 20;
 
-    /** Wide enough that a board never wraps, yet an ordinary varint on the client, unlike {@code Integer.MAX_VALUE}. */
+    /** The line width that prevents wrapping. It encodes as an ordinary varint, unlike {@code Integer.MAX_VALUE}. */
     private static final int NO_WRAPPING = 10_000;
 
     private static final int LEADERBOARD_SIZE = 10;
@@ -74,7 +72,6 @@ public final class Boards {
         this.identities = identities;
     }
 
-    /** Takes every board down; the HUD's clock stopped before. */
     public void stop() {
         displays.values().forEach(byKind -> byKind.values().forEach(TextDisplay::remove));
         displays.clear();
@@ -91,7 +88,7 @@ public final class Boards {
         }
     }
 
-    /** Draws both boards for everybody in their world. Main thread. */
+    /** Draws both boards for each player in their world. Main thread only. */
     public void renderAll() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             for (final BoardSpec spec : config.boards()) {
@@ -109,7 +106,6 @@ public final class Boards {
         if (world == null) {
             return;
         }
-        // A board is at the spawn, so only people in that world could see it.
         if (!player.getWorld().equals(world)) {
             return;
         }
@@ -128,12 +124,11 @@ public final class Boards {
             entity.setSeeThrough(false);
             entity.setPersistent(false);
             entity.setViewRange(1.0f);
-            // Every line starts at the same x.
             entity.setAlignment(TextDisplay.TextAlignment.LEFT);
-            // A wrapped continuation carries no frame; see {@link BoardFrame}.
+            // A wrapped line would lack the frame, see BoardFrame.
             entity.setLineWidth(NO_WRAPPING);
         });
-        // Hidden from everybody, then shown to its owner: visible for a tick means seen in the wrong language.
+        // The board is hidden from everybody and then shown to its owner, so nobody sees it in the wrong language.
         for (final Player other : Bukkit.getOnlinePlayers()) {
             if (!other.equals(owner)) {
                 other.hideEntity(plugin, display);
@@ -149,16 +144,15 @@ public final class Boards {
         };
     }
 
-    // Names travel as parameters so {@code MessageRenderer} escapes them.
+    // Names are message parameters, so MessageRenderer escapes them.
     private Component objectiveText(final Locale locale, final int width) {
         final Component title =
                 renderer.format(locale, MESSAGES.smp().board().objective().title());
         final List<Component> lines = new ArrayList<>();
 
-        // One read, so the name and the rows are the same milestone's.
+        // A single read keeps the name and the rows of one milestone together.
         final SeasonState.Active active = season.active();
         if (active.unread()) {
-            // Before the first refresh, the title alone rather than "finished".
             return BoardFrame.render(width, title, lines);
         }
         if (active.key() == null) {
@@ -213,7 +207,6 @@ public final class Boards {
         return BoardFrame.render(width, title, lines);
     }
 
-    /** Returns a player's Minecraft name, remembered for the session, since this repository stores none. */
     private String nameOf(final UUID uuid) {
         return namesByUuid.computeIfAbsent(uuid, key -> {
             final String name = Bukkit.getOfflinePlayer(key).getName();

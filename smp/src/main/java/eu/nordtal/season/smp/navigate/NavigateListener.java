@@ -12,7 +12,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
-/** Remembering where somebody died, and forgetting a target when its player leaves. */
 public final class NavigateListener implements Listener {
 
     private final Plugin plugin;
@@ -28,7 +27,7 @@ public final class NavigateListener implements Listener {
         this.identities = identities;
     }
 
-    /** Records where a death happened, one row per player, overwritten by the next. */
+    /** Stores the death place of the player, replacing the previous one. */
     @EventHandler(ignoreCancelled = true)
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();

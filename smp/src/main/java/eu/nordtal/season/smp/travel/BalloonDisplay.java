@@ -20,13 +20,12 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 /**
- * The balloon a player sees at the spawn: one {@link ItemDisplay} per balloon box, scaled to fill it.
- *
- * Non-persistent and removed at disable; any left by a crash are swept from the box at start.
+ * Shows one {@link ItemDisplay} per balloon box, scaled to fill the box.
+ * {@link #remove()} deletes them at disable, and {@link #spawn()} deletes leftovers first.
  */
 public final class BalloonDisplay {
 
-    /** The pack's balloon item model, {@code resource-pack/src/assets/nordtal/items/balloon.json}. */
+    /** The item model {@code resource-pack/src/assets/nordtal/items/balloon.json}. */
     public static final Key MODEL = Key.key("nordtal", "balloon");
 
     private final Plugin plugin;
@@ -38,7 +37,10 @@ public final class BalloonDisplay {
         this.balloons = balloons;
     }
 
-    /** Puts a balloon in every configured box, removing any this plugin left behind first, on the main thread. */
+    /**
+     * Creates a balloon in every configured box. Main thread only.
+     * It first removes the balloons of this plugin that remain.
+     */
     public void spawn() {
         remove();
         for (final Box box : balloons.all()) {
@@ -59,7 +61,6 @@ public final class BalloonDisplay {
                 entity.setPersistent(false);
                 entity.setInvulnerable(true);
                 entity.setSilent(true);
-                // The model is authored in a one-block cube centred on the entity.
                 entity.setTransformation(new Transformation(
                         new Vector3f(),
                         new AxisAngle4f(),
@@ -71,14 +72,13 @@ public final class BalloonDisplay {
         }
     }
 
-    /** The item the display shows: anything at all, wearing the balloon model. */
     static ItemStack item() {
         final ItemStack stack = ItemStack.of(Material.PAPER);
         stack.setData(DataComponentTypes.ITEM_MODEL, MODEL);
         return stack;
     }
 
-    /** The box's centre, half a block in from each inclusive corner block. */
+    /** Returns the centre of {@code box}, counting each corner block as a whole block. */
     static Location centre(final World world, final Box box) {
         return new Location(
                 world,
@@ -87,7 +87,6 @@ public final class BalloonDisplay {
                 (box.minZ() + box.maxZ() + 1) / 2.0);
     }
 
-    /** Removes any balloon display this plugin left in the box before the last restart. */
     private void sweep(final World world, final Location centre, final Box box) {
         final double reach =
                 Math.max(box.maxX() - box.minX(), Math.max(box.maxY() - box.minY(), box.maxZ() - box.minZ())) + 1.0;

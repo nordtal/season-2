@@ -10,9 +10,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The Paper half of the staging device; timing lives in {@link Cinematics}.
- *
- * A quit or a death cancels it, and a quit clears the effect before the player is saved.
+ * A quit or a death cancels the staging of that player.
+ * A quit clears the effect before the server saves the player.
  */
 public final class BukkitCinematics implements Listener {
 
@@ -27,9 +26,9 @@ public final class BukkitCinematics implements Listener {
     }
 
     /**
-     * Starts one for this player, on the main thread.
+     * Starts {@code cinematic} for {@code player}. Main thread only.
      *
-     * @return whether it started; {@code false} if this player is already in one
+     * @return {@code false} if the player already has a staging
      */
     public boolean start(final Player player, final Cinematic cinematic) {
         return cinematics.start(player.getUniqueId(), cinematic, new PlayerStage(plugin, player.getUniqueId(), sounds));
@@ -49,11 +48,7 @@ public final class BukkitCinematics implements Listener {
         cinematics.cancel(event.getEntity().getUniqueId());
     }
 
-    /**
-     * Stops everything, at plugin disable.
-     *
-     * Paper disables plugins before it saves players, so this is the last chance to clear the effect.
-     */
+    /** Cancels every staging at plugin disable. */
     public void stop() {
         cinematics.cancelAll();
     }

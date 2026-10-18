@@ -9,10 +9,9 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/** The places {@code /navigate} knows: every POI and where each player last died; never called from the main thread. */
+/** Callers never use this DAO on the main thread. */
 public interface PlaceDao {
 
-    /** Every POI, in the order they were created. */
     @SqlQuery("""
             SELECT poi.id         AS id,
                    poi.name       AS name,
@@ -43,9 +42,8 @@ public interface PlaceDao {
     int deletePoi(@Bind("id") UUID id);
 
     /**
-     * Remembers where somebody died, for {@code /navigate}'s built-in target.
-     *
-     * Upserts, because dying is often the first thing that needs an {@code smp_player} row.
+     * Stores the death place of a player, replacing the previous one.
+     * It creates the {@code smp_player} row when none exists.
      */
     @SqlUpdate("""
             INSERT INTO smp_player (discord_id, last_death_world, last_death_x, last_death_y, last_death_z)

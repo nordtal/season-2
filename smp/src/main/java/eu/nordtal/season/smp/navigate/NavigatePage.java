@@ -9,45 +9,37 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * What {@code /navigate}'s window shows on one page, decided without Bukkit so a test can hold it.
- *
- * Its strings go through {@code MenuFont} and are plain bundle values, never MiniMessage.
- */
+/** The strings pass through {@code MenuFont} and contain no MiniMessage. */
 public final class NavigatePage {
 
     private NavigatePage() {}
 
-    /** How many pages {@code total} destinations fill, at least one so an empty list still draws. */
+    /** Returns the number of pages for {@code total} destinations, at least 1. */
     public static int pages(final int total) {
         return Math.max(1, (total + NavigatePanel.ENTRIES_PER_PAGE - 1) / NavigatePanel.ENTRIES_PER_PAGE);
     }
 
-    /** Clamps a page number into range, so a stale click cannot open a page that is not there. */
     public static int clamp(final int page, final int total) {
         return Math.max(0, Math.min(page, pages(total) - 1));
     }
 
-    /** The destinations on {@code page}, in order: possibly fewer than a full page, never more. */
     public static List<NavigationTarget> slice(final List<NavigationTarget> targets, final int page) {
         final int from = Math.min(page * NavigatePanel.ENTRIES_PER_PAGE, targets.size());
         final int to = Math.min(from + NavigatePanel.ENTRIES_PER_PAGE, targets.size());
         return List.copyOf(targets.subList(from, to));
     }
 
-    /** What a destination is called on its row: a POI's own text, or the built-in kind's message. */
     public static String label(final NavigationTarget target, final Messages messages, final Locale locale) {
         if (target.kind() == NavigationTarget.Kind.POI) {
-            // Non-null exactly when kind() is POI: NavigationTarget.poi() is the only factory that supplies one.
+            // {@code label()} is set only by {@code NavigationTarget.poi()}, so it is non-null for a POI.
             return Objects.requireNonNull(target.label());
         }
         return messages.format(locale, target.name());
     }
 
     /**
-     * What stands at the right edge of a row: blocks when in the player's world, else the words for "another world".
-     *
-     * The distance is computed when the menu opens; the HUD is what tracks the target live.
+     * Returns the distance in blocks when {@code target} is in {@code world}, otherwise the text for another world.
+     * The menu computes it once when it opens.
      */
     public static String distance(
             final NavigationTarget target,
@@ -67,7 +59,6 @@ public final class NavigatePage {
                 locale, MESSAGES.smp().navigate().distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
     }
 
-    /** Every drawn row of one page, in order. */
     public static List<NavigatePanel.Entry> entries(
             final List<NavigationTarget> targets,
             final int page,
@@ -89,7 +80,6 @@ public final class NavigatePage {
         return List.copyOf(out);
     }
 
-    /** The {@code 2/3} between the two page buttons. */
     public static String pageLabel(final int page, final int total, final Messages messages, final Locale locale) {
         return messages.format(locale, MESSAGES.smp().navigate().page(page + 1, pages(total)));
     }

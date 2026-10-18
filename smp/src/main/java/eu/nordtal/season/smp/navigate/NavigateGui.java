@@ -19,11 +19,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every public POI.
- *
- * There is no entry for another player, and a page turn opens a new inventory because a title cannot be redrawn.
- */
 public final class NavigateGui extends Menu {
 
     private final MessageRenderer renderer;
@@ -102,11 +97,7 @@ public final class NavigateGui extends Menu {
         return List.copyOf(out);
     }
 
-    /**
-     * The same list, drawn on another page: what a page button opens.
-     *
-     * The viewer is a parameter, because a menu that holds a {@code Player} keeps a logged-out one alive.
-     */
+    /** Returns this list on page {@code wanted}. The menu keeps no {@code Player}, so the caller passes the viewer. */
     public NavigateGui onPage(final int wanted, final Player viewer) {
         return new NavigateGui(renderer, locale, navigation, targets, wanted, viewer);
     }
@@ -140,7 +131,7 @@ public final class NavigateGui extends Menu {
     }
 
     private ItemStack entryItem(final NavigationTarget target) {
-        // A POI name is player-typed: it goes in as a parameter so MessageRenderer escapes a `<click:...>`.
+        // A POI name is a message parameter, so MessageRenderer escapes any tag in it.
         return BlankItem.of(
                 renderer.format(
                         locale, MESSAGES.smp().navigate().target(NavigatePage.label(target, renderer.raw(), locale))),
@@ -160,7 +151,7 @@ public final class NavigateGui extends Menu {
         }
         if (slot == NavigatePanel.PREV_SLOT || slot == NavigatePanel.NEXT_SLOT) {
             final int wanted = page + (slot == NavigatePanel.PREV_SLOT ? -1 : 1);
-            // A greyed button is still a button, so the refusal is a sound and not silence.
+            // A click on a page button without a page plays the refusal sound.
             return wanted < 0 || wanted >= NavigatePage.pages(targets.size())
                     ? MenuClick.refused()
                     : MenuClick.opening(onPage(wanted, player));

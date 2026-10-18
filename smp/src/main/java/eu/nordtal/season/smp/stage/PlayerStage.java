@@ -14,14 +14,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One player's screen, as far as a staging is concerned.
- *
- * Tracked by UUID, since a captured {@code Player} of somebody who reconnected stays offline for ever.
- */
+/** It stores the UUID and not the {@code Player}, which stays offline after the player reconnects. */
 public final class PlayerStage implements CinematicStage {
 
-    /** How much longer than its own length a frame stays, so scheduler jitter cannot open a gap between frames. */
     private static final Duration OVERHANG = Duration.ofMillis(500);
 
     private static final long MILLIS_PER_TICK = 50L;
@@ -30,7 +25,6 @@ public final class PlayerStage implements CinematicStage {
     private final UUID who;
     private final FeedbackPlayer sounds;
 
-    /** What was actually applied, so {@link #clear()} removes that and not a guess. */
     private @Nullable PotionEffectType applied;
 
     public PlayerStage(final Plugin plugin, final UUID who, final FeedbackPlayer sounds) {
@@ -65,7 +59,6 @@ public final class PlayerStage implements CinematicStage {
             return;
         }
         applied = type;
-        // No ambient, particles or icon: this is a picture.
         player.addPotionEffect(new PotionEffect(type, ticks, effect.amplifier(), false, false, false));
     }
 
@@ -81,18 +74,16 @@ public final class PlayerStage implements CinematicStage {
     public void clear() {
         final Player player = Bukkit.getPlayer(who);
         if (player == null) {
-            // Nothing to clean up: the title and effect were saved with the player who left.
             return;
         }
         player.clearTitle();
         if (applied != null) {
-            // Removes the whole effect, so nobody comes out of this still blind.
             player.removePotionEffect(applied);
             applied = null;
         }
     }
 
-    /** Returns the effect this server knows by that key, or {@code null} with one warning; never fatal on a join. */
+    /** Returns the effect type of {@code type}, or {@code null} after one warning. It never throws. */
     private @Nullable PotionEffectType resolve(final String type) {
         try {
             final PotionEffectType resolved = Registry.MOB_EFFECT.get(Key.key(type));

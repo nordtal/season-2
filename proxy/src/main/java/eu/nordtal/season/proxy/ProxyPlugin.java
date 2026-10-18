@@ -379,7 +379,10 @@ public final class ProxyPlugin {
                 Duration.ofSeconds(config.applyTimeoutSeconds()),
                 Duration.ofSeconds(shared.loaded().gate().limboReadyGraceSeconds()),
                 shared.role(),
-                accessQueue(shared),
+                new AccessQueue(
+                        shared.phaseServers().smp(),
+                        () -> Duration.ofSeconds(shared.loaded().queue().get().smpIntervalSeconds()),
+                        clock),
                 clock);
         final PackStation packs = new PackStation(
                 proxy,
@@ -394,15 +397,6 @@ public final class ProxyPlugin {
                 shared.backendHealth());
         packs.registerChannel();
         return packs;
-    }
-
-    /** Creates the queue onto {@code smp}, whose interval follows the live setting. */
-    private AccessQueue accessQueue(final Shared shared) {
-        final Setting<QueueSpec> setting = shared.loaded().queue();
-        return new AccessQueue(
-                shared.phaseServers().smp(),
-                () -> Duration.ofSeconds(setting.get().smpIntervalSeconds()),
-                clock);
     }
 
     /** Creates the router and the sweep of the waiting room. */

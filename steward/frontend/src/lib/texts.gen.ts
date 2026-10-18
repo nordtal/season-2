@@ -773,6 +773,10 @@ export type TextArgs = {
   "steward.announcements.where": {
     languages: Arg["number"]
   }
+  "steward.answer.added-text-refused": {
+    layout: Arg["text"]
+    language: Arg["text"]
+  }
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.answer-unreadable": Record<string, never>
@@ -813,6 +817,9 @@ export type TextArgs = {
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
+  "steward.answer.image-refused": {
+    mebibytes: Arg["number"]
+  }
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.keep-section": {
     path: Arg["text"]
@@ -846,6 +853,10 @@ export type TextArgs = {
     kept: Arg["choice"]
   }
   "steward.answer.no-key": Record<string, never>
+  "steward.answer.no-layout": {
+    bundle: Arg["text"]
+    layout: Arg["text"]
+  }
   "steward.answer.no-message": {
     bundle: Arg["text"]
     key: Arg["text"]
@@ -898,6 +909,10 @@ export type TextArgs = {
   "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
   "steward.answer.push-unconfigured": Record<string, never>
+  "steward.answer.rebuild-refused": {
+    layout: Arg["text"]
+    problem: Arg["text"]
+  }
   "steward.answer.secret-setting": {
     path: Arg["text"]
   }

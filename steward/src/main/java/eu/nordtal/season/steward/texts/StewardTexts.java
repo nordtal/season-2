@@ -302,6 +302,18 @@ public interface StewardTexts {
             @Name("Override refused")
             MessageRef overrideRefused(@Arg("key") String key, @Arg("language") String language);
 
+            @Name("No such layout")
+            MessageRef noLayout(@Arg("bundle") String bundle, @Arg("layout") String layout);
+
+            @Name("Rebuild refused")
+            MessageRef rebuildRefused(@Arg("layout") String layout, @Arg("problem") String problem);
+
+            @Name("Added text refused")
+            MessageRef addedTextRefused(@Arg("layout") String layout, @Arg("language") String language);
+
+            @Name("Image refused")
+            MessageRef imageRefused(@Arg("mebibytes") int mebibytes);
+
             @Name("Preview refused")
             MessageRef previewRefused(@Arg("key") String key, @Arg("language") String language);
 

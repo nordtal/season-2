@@ -54,6 +54,7 @@ import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
+import eu.nordtal.season.steward.messages.LayoutsApi;
 import eu.nordtal.season.steward.metric.Metrics;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import eu.nordtal.season.steward.push.WebPushSender;
@@ -424,6 +425,8 @@ public final class Web {
 
     public Javalin start(final int port) {
         app = Javalin.create(cfg -> {
+                    // Javalin refuses a body above a megabyte; an uploaded layout image may be larger.
+                    cfg.http.maxRequestSize = LayoutsApi.IMAGE_BYTES;
                     configureFrontend(cfg);
                     registerAuthCore(cfg);
                     registerLiveRoute(cfg);

@@ -34,7 +34,6 @@ class SettingsDocumentTest {
         return SettingsDocument.of(group, store.overrides(List.of("smp")), NAMES::get);
     }
 
-    /** The texts the plugin's bundle names the stage kinds with: one of the two only. */
     private static final Map<String, String> NAMES = Map.of("example.kind.counted", "Counted");
 
     private static SettingsDocument.Entry entry(final SettingsDocument document, final String path) {

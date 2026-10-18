@@ -17,17 +17,12 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * Steward's settings, each value checked once at load, so a bad one names its key and group at startup.
- *
- * The connection comes from the environment; {@code steward} and {@code web} live in the database.
- */
+/** Holds the settings of Steward. Each value is checked once at load, so a bad value names its key and group at startup. */
 public final class StewardSettings {
 
-    /** The service whose settings these are. */
     public static final String SERVICE = "steward";
 
-    /** Steward's environment: {@code NORDTAL_STEWARD} for the steward group, {@code NORDTAL_STEWARD_<GROUP>} else. */
+    /** {@code NORDTAL_STEWARD} for the steward group, else {@code NORDTAL_STEWARD_<GROUP>}. */
     public static final Environment ENVIRONMENT =
             Environment.of("NORDTAL_STEWARD").withMain("steward");
 
@@ -35,42 +30,36 @@ public final class StewardSettings {
 
     private StewardSettings() {}
 
-    /** Returns the steward group, whose defaults are the real values; a change re-arms the two clocks. */
     public static Group<StewardSpec> stewardGroup() {
         return Group.of("steward", StewardSpec.class)
                 .checkedBy(StewardSettings::checkSteward)
                 .whileRunning();
     }
 
-    /** Loads the steward group. */
     public static Setting<StewardSpec> steward(final Settings settings) throws SettingsException {
         return settings.load(stewardGroup());
     }
 
-    /** Returns the alerts group, which applies while steward runs, at the monitor's next reading. */
+    /** Returns the alerts group. A change applies at the next reading of the monitor. */
     public static Group<AlertsSpec> alertsGroup() {
         return Group.of("alerts", AlertsSpec.class)
                 .checkedBy(StewardSettings::checkAlerts)
                 .whileRunning();
     }
 
-    /** Loads the alerts group. */
     public static Setting<AlertsSpec> alerts(final Settings settings) throws SettingsException {
         return settings.load(alertsGroup());
     }
 
-    /** Loads the web group; its secrets are environment variables and never stored. */
     public static Setting<WebSpec> web(final Settings settings) throws SettingsException {
         return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
     }
 
-    /** Loads the connection to the database from the environment, refusing an empty password. */
     public static Setting<DatabaseSpec> database() throws SettingsException {
         return EnvironmentSettings.of(ENVIRONMENT)
                 .load(Group.of("database", DatabaseSpec.class).checkedBy(StewardSettings::checkDatabase));
     }
 
-    /** Returns steward's settings in the database behind {@code dataSource}. */
     public static DatabaseSettings stored(final DataSource dataSource, final Logger logger) {
         return DatabaseSettings.over(SettingStore.using(dataSource), SERVICE, ENVIRONMENT, logger);
     }
@@ -83,7 +72,7 @@ public final class StewardSettings {
     private static void checkWeb(final WebSpec config) {
         Checks.requirePositive("port", config.port());
         Checks.requirePositive("session-days", config.sessionDays());
-        // A ceiling too: it is multiplied into a cookie's Max-Age, which is an int.
+        // The ceiling keeps Max-Age within an int.
         if (config.sessionDays() > 365) {
             throw new IllegalArgumentException("session-days is " + config.sessionDays()
                     + " - a session lasting longer than a season is not a session");
@@ -104,7 +93,6 @@ public final class StewardSettings {
             throw new IllegalArgumentException("jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/db)");
         }
         if (config.password() == null || config.password().isBlank()) {
-            // Refused here rather than three seconds later as a pool that cannot connect.
             throw new IllegalArgumentException("password is empty."
                     + " NORDTAL_STEWARD_DATABASE_PASSWORD is what compose.yml sets"
                     + " from POSTGRES_PASSWORD; an empty one means the variable did not"
@@ -113,12 +101,12 @@ public final class StewardSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    /** Refuses a poll or a watermark that cannot work; the credentials are steward-bunq's and checked there. */
+    /** steward-bunq checks the credentials. */
     private static void requireBunq(final StewardSpec.BunqSpec bunq) {
         Checks.requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
         Checks.requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
 
-        // Blank is normal: the first start stamps its own instant.
+        // An empty watermark is valid.
         final String watermark = bunq.watermark();
         if (watermark != null && !watermark.isBlank()) {
             try {
@@ -130,9 +118,6 @@ public final class StewardSettings {
         }
     }
 
-    /**
-     * The address this interface answers on, parsed since Discord compares the redirect URI built from it as a string.
-     */
     static void requirePublicUrl(final @Nullable String url) {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException("public-url is empty - it is the address this"
@@ -163,7 +148,7 @@ public final class StewardSettings {
         }
     }
 
-    /** Holds the security keys' domain against public-url, since a browser refuses a mismatch in silence. */
+    /** Checks the relying party ID against {@code publicUrl}. A browser refuses a mismatch without a message. */
     static void requireRelyingParty(final @Nullable String relyingPartyId, final String publicUrl) {
         if (relyingPartyId == null || relyingPartyId.isBlank()) {
             throw new IllegalArgumentException("webauthn.relying-party-id is empty - it is the"
@@ -174,7 +159,7 @@ public final class StewardSettings {
             throw new IllegalArgumentException("webauthn.relying-party-id is a DOMAIN, not a URL"
                     + " - no scheme, no port, no path. Was: " + relyingPartyId);
         }
-        // At least two labels catches a bare TLD; localhost is the one named exception below.
+        // Two labels at least, to refuse a bare TLD. Localhost is the only exception.
         final boolean loopback = LOCALHOST.equals(id) && LOCALHOST.equals(hostOf(publicUrl));
         if (!loopback && (!id.contains(".") || id.startsWith(".") || id.endsWith("."))) {
             throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
@@ -193,13 +178,12 @@ public final class StewardSettings {
         }
     }
 
-    /** The host of {@code public-url}, lowercased, or {@code null} when it names none. */
     private static @Nullable String hostOf(final String publicUrl) {
         final String host;
         try {
             host = new URI(publicUrl).getHost();
         } catch (URISyntaxException notAUrl) {
-            // requirePublicUrl runs first and says this better; reaching here means it did not.
+            // requirePublicUrl runs first and reports this.
             throw new IllegalArgumentException("public-url is not a URL: " + notAUrl.getMessage());
         }
         return host == null ? null : host.toLowerCase(java.util.Locale.ROOT);

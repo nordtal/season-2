@@ -31,13 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The one way an alert leaves Steward: to the browsers and into the admin channel of every admin who wants it.
- *
- * A row is marked routed before it is sent, so an alert reaches a channel at most once and never twice.
+ * Sends each alert to the browsers and to the admin channel of every admin who wants it.
+ * A row is marked routed before it is sent, so a channel gets an alert at most once.
  */
 public final class AlertRouter {
 
-    /** How long the bot has to post an alert before the request expires unclaimed. */
     static final Duration BOT_PATIENCE = Duration.ofHours(1);
 
     private static final Logger log = LoggerFactory.getLogger(AlertRouter.class);
@@ -51,12 +49,7 @@ public final class AlertRouter {
     private final String publicUrl;
     private final Messages texts;
 
-    /**
-     * @param sender null without a VAPID keypair, which leaves the admin channel as the only way out
-     * @param publicUrl Steward's own address, which a post in the admin channel links to
-     * @param texts the admin texts with their overrides, which a push is rendered from, since a lock screen renders
-     *     nothing itself
-     */
+    /** @param sender null without a VAPID keypair, so the admin channel is the only channel */
     public AlertRouter(
             final AlertBook book,
             final AlertPreferences preferences,
@@ -76,7 +69,6 @@ public final class AlertRouter {
         this.texts = Objects.requireNonNull(texts, "texts");
     }
 
-    /** Routes every alert not yet routed; a failure is logged, since the next signal tries again. */
     public void route() {
         final List<RaisedAlert> raised;
         try {
@@ -98,15 +90,15 @@ public final class AlertRouter {
         }
     }
 
-    /** {@link PushSender.Result} outside the push package: it went, that browser is gone, or it failed. */
+    /** Maps {@link PushSender.Result} for callers outside the push package. */
     public enum Delivery {
         SENT,
-        /** The push service says that subscription no longer exists; the row has been removed. */
+        /** The push service reports the subscription as gone. The row has been removed. */
         GONE,
         FAILED
     }
 
-    /** Sends one sample of {@code type} to one browser, whatever its admin chose, or null without a VAPID keypair. */
+    /** Sends a sample of {@code type} to one browser. Returns null without a VAPID keypair. */
     public @Nullable Delivery sendSample(final PushSubscriptions.Subscription subscription, final AlertType type) {
         if (sender == null || subscriptions == null) {
             return null;
@@ -130,14 +122,14 @@ public final class AlertRouter {
             }
             switch (send(subscription, payload)) {
                 case SENT -> Objects.requireNonNull(subscriptions).touchSent(subscription.endpoint());
-                // A dead subscription (404/410) is removed, or it keeps failing forever.
+                // A 404 or 410 means the subscription is dead, so the row is removed.
                 case EXPIRED -> Objects.requireNonNull(subscriptions).expired(subscription.endpoint());
                 case FAILED -> log.warn("push to {} failed (not a 404/410)", subscription.endpoint());
             }
         }
     }
 
-    /** Asks the bot to post it when one admin wants it there, mentioning those admins unless it is an all-clear. */
+    /** Asks the bot to post the alert for the admins who want it there. An OK alert mentions nobody. */
     private void post(final Alert alert, final AlertPreferences.Chosen chosen, final List<DiscordId> everyAdmin) {
         final List<DiscordId> wanting = everyAdmin.stream()
                 .filter(admin -> chosen.wants(admin, alert.type(), AlertChannel.DISCORD))
@@ -173,7 +165,7 @@ public final class AlertRouter {
         }
     }
 
-    /** The push body {@code sw.js} reads: the title and the level in words, rendered here as plain text. */
+    /** Builds the push body that {@code sw.js} reads. */
     String payloadOf(final Alert alert) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", alert.type().key());
@@ -184,7 +176,6 @@ public final class AlertRouter {
         return Json.encode(body);
     }
 
-    /** A real-looking alert of that type, to show what one looks like. */
     static Alert sample(final AlertType type) {
         return switch (type) {
             case SERVICE ->

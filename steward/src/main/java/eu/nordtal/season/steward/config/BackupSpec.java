@@ -7,7 +7,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** When the nightly {@code BACKUP} is asked for; what it saves, keeps and copies off the host is the agent's. */
+/** Schedules the nightly {@code BACKUP}. The agent decides what it saves, keeps and copies off the host. */
 @ConfigSpec
 public interface BackupSpec {
 
@@ -19,7 +19,6 @@ public interface BackupSpec {
         return "04:45";
     }
 
-    /** All seven weekdays by default. */
     @Order(8)
     @Name("Days")
     @Key("days")

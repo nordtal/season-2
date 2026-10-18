@@ -37,11 +37,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The WebAuthn ceremonies, and the only class in this repository that speaks Jackson.
- *
- * Everything crossing its surface is a {@code String}, so the library's mapper and Gson never meet one object.
- */
+/** Runs the WebAuthn ceremonies with the Yubico library. Requests cross its methods as JSON {@code String}s. */
 public final class WebAuthn {
 
     private static final Logger log = LoggerFactory.getLogger(WebAuthn.class);
@@ -49,10 +45,8 @@ public final class WebAuthn {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** What the browser shows in its dialog and stores beside the key. */
     private static final String DISPLAY_NAME = "Nordtal Steward";
 
-    /** How long the browser is told to keep its dialog open; advisory only. */
     private static final Duration DIALOG = Duration.ofMinutes(2);
 
     private final RelyingPartyV2<Credentials.Key> relyingParty;
@@ -68,39 +62,36 @@ public final class WebAuthn {
                         .name(DISPLAY_NAME)
                         .build())
                 .credentialRepositoryV2(credentials)
-                // Narrower than the relying party id: the one page a browser may have been on.
+                // The origin is narrower than the relying party id.
                 .origins(Set.of(originOf(publicUrl)))
-                // No trust source is configured, so every authenticator counts as untrusted.
+                // Accepts every authenticator, since no attestation trust source is configured.
                 .allowUntrustedAttestation(true)
                 .build();
     }
 
-    /** The browser's origin, from the address an operator wrote down: scheme, host and port. */
     static String originOf(final String publicUrl) {
         final URI parsed = URI.create(publicUrl);
         final String authority = parsed.getPort() < 0 ? parsed.getHost() : parsed.getHost() + ":" + parsed.getPort();
         return parsed.getScheme() + "://" + authority;
     }
 
-    /** The domain keys are registered against, for the interface to show. */
     public String relyingPartyId() {
         return relyingPartyId;
     }
 
-    /** Starts a registration, answered as one request to park and one to hand the browser. */
     public Ceremony startRegistration(final DiscordId discordId, final String displayName) {
         final PublicKeyCredentialCreationOptions request =
                 relyingParty.startRegistration(StartRegistrationOptions.builder()
                         .user(UserIdentity.builder()
-                                // The handle, not name/displayName, is what anything is looked up by.
+                                // Lookups use the handle, not the name.
                                 .name(displayName)
                                 .displayName(displayName)
                                 .id(Credentials.handleOf(discordId))
                                 .build())
                         .authenticatorSelection(AuthenticatorSelectionCriteria.builder()
-                                // DISCOURAGED: sign-in is never usernameless, and slots are scarce.
+                                // Sign-in is never usernameless.
                                 .residentKey(ResidentKeyRequirement.DISCOURAGED)
-                                // PREFERRED, not REQUIRED: a key with no PIN set would else be refused.
+                                // REQUIRED would refuse a key without a PIN.
                                 .userVerification(UserVerificationRequirement.PREFERRED)
                                 .build())
                         .timeout(DIALOG.toMillis())
@@ -108,7 +99,7 @@ public final class WebAuthn {
         try {
             return new Ceremony(request.toJson(), request.toCredentialsCreateJson());
         } catch (IOException impossible) {
-            // Only reachable with a second jackson-databind on the classpath.
+            // Happens only with a second jackson-databind on the classpath.
             throw new IllegalStateException(
                     "the registration request could not be serialised -"
                             + " check for a second jackson-databind on the classpath",
@@ -116,16 +107,7 @@ public final class WebAuthn {
         }
     }
 
-    /**
-     * Finishes a registration and writes the key down.
-     *
-     * @param parked what {@link #startRegistration} said to park
-     * @param answer the browser's {@code PublicKeyCredential}, as it serialised it
-     * @param label what the person calls this key
-     * @param discordId whose account this is, checked against the parked request
-     * @return the key as it was stored
-     * @throws Refused with a message safe to show: a replayed challenge, a known key, a bad signature or origin
-     */
+    /** @throws Refused when the answer fails verification */
     public Registered finishRegistration(
             final String parked, final String answer, final String label, final DiscordId discordId) throws Refused {
         final PublicKeyCredentialCreationOptions request;
@@ -133,7 +115,7 @@ public final class WebAuthn {
         try {
             request = PublicKeyCredentialCreationOptions.fromJson(parked);
         } catch (IOException unreadable) {
-            // Only reachable if the column was edited by hand, or the jar changed mid-ceremony.
+            // Happens only if the column was edited by hand or the jar changed mid-ceremony.
             throw new Refused(ANSWER.ceremonyStale(true), unreadable);
         }
         try {
@@ -142,7 +124,7 @@ public final class WebAuthn {
             throw new Refused(ANSWER.answerUnreadable(), malformed);
         }
 
-        // Checked against the parked request so a session that changed hands cannot attach a key.
+        // The stored request must belong to the same account.
         final String intended = Credentials.accountOf(request.getUser().getId()).orElse("");
         if (!intended.equals(discordId.value())) {
             throw new Refused(ANSWER.ceremonyOtherAccount(true), null);
@@ -173,19 +155,14 @@ public final class WebAuthn {
         return new Registered(result.getKeyId().getId(), label.trim(), result.isUserVerified(), result.isBackedUp());
     }
 
-    /**
-     * Starts an authentication for one account, answered as one request to park and one to hand the browser.
-     *
-     * @throws Refused when the account has no key, which the caller turns into the setup page
-     */
     public Ceremony startAssertion(final DiscordId discordId) throws Refused {
         if (credentials.of(discordId).isEmpty()) {
-            // An empty allowCredentials would make the browser offer every passkey it holds.
+            // An empty allowCredentials makes the browser offer every passkey.
             throw new Refused(ANSWER.noKey(), null);
         }
         final AssertionRequest request = relyingParty.startAssertion(StartAssertionOptions.builder()
                 .userHandle(Credentials.handleOf(discordId))
-                // Matches registration: REQUIRED would refuse the bare USB key registration accepted.
+                // REQUIRED would refuse a key that registration accepted.
                 .userVerification(UserVerificationRequirement.PREFERRED)
                 .timeout(DIALOG.toMillis())
                 .build());
@@ -199,22 +176,14 @@ public final class WebAuthn {
         }
     }
 
-    /**
-     * Finishes an authentication: verifies the signature and moves the counter on.
-     *
-     * @param parked what {@link #startAssertion} said to park
-     * @param answer the browser's {@code PublicKeyCredential}, as it serialised it
-     * @param discordId whose session this is, checked against the parked request
-     * @return the key that answered
-     * @throws Refused with a message safe to show: a replayed challenge, another's key, a bad signature or origin
-     */
+    /** @throws Refused when the answer fails verification */
     public Held finishAssertion(final String parked, final String answer, final DiscordId discordId) throws Refused {
         final AssertionRequest request;
         final PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> response;
         try {
             request = AssertionRequest.fromJson(parked);
         } catch (IOException unreadable) {
-            // The column holds one ceremony; this means a registration was started and finished as one.
+            // The column holds one ceremony. A failure means a registration was finished as an assertion.
             throw new Refused(ANSWER.ceremonyStale(false), unreadable);
         }
         try {
@@ -240,23 +209,21 @@ public final class WebAuthn {
             throw new Refused(ANSWER.keyRefused(false, String.valueOf(refused.getMessage())), refused);
         }
         if (!result.isSuccess()) {
-            // The library throws on every failure it knows about; this covers the one it does not.
+            // The library throws on known failures. This covers any other.
             throw new Refused(ANSWER.keyNotAccepted(), null);
         }
         credentials.used(result.getCredential().getCredentialId(), result.getSignatureCount());
         return new Held(result.getCredential().label(), result.isUserVerified());
     }
 
-    /** The key that just answered, for the journal and for the sentence on screen. */
     public record Held(String label, boolean userVerified) {}
 
-    /** One request in two forms: the library's JSON to park, and the same wrapped for {@code navigator.credentials}. */
+    /** Holds {@code parked}, the library's JSON to store, and {@code forBrowser}, the same request for {@code navigator.credentials}. */
     public record Ceremony(String parked, String forBrowser) {}
 
-    /** What was written down, for the answer the browser gets back. */
     public record Registered(ByteArray credentialId, String label, boolean userVerified, boolean backedUp) {}
 
-    /** A ceremony that did not pass, with why as a message of Steward's bundle, which is safe to show. */
+    /** {@code why} is safe to show. */
     public static final class Refused extends Exception {
 
         private static final long serialVersionUID = 1L;

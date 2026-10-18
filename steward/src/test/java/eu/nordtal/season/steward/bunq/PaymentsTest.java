@@ -43,10 +43,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * A pass against a stand-in for steward-bunq and a real database, logged in as steward.
- * What a match books, and that a booking is everything or nothing.
- */
+/** Tests a pass against a stand-in for steward-bunq and a database, as the Steward role. A booking happens completely or not at all. */
 class PaymentsTest {
 
     private static final String TOKEN = "bank-token";
@@ -54,10 +51,10 @@ class PaymentsTest {
     private static final DiscordId OTHER = DiscordId.of("100000000000000002");
     private static final Tiers PRICES = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 500);
 
-    /** What the stand-in answers for a tab's payments, by tab id. */
+    /** The payments of each tab that the stand-in returns, by tab id. */
     private static final Map<Long, List<BankWire.Payment>> TAB_PAYMENTS = new ConcurrentHashMap<>();
 
-    /** What the stand-in answers for the recent payments. */
+    /** The recent payments that the stand-in returns. */
     private static final List<BankWire.Payment> RECENT = new CopyOnWriteArrayList<>();
 
     private static Javalin bunq;
@@ -84,7 +81,7 @@ class PaymentsTest {
                 new InternalClient(BankWire.SERVICE, "http://127.0.0.1:" + bunq.port(), TOKEN, Duration.ofSeconds(5)));
         final TestDatabase database = TestDatabase.fresh();
         owner = database.dataSource();
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         steward = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
@@ -162,7 +159,7 @@ class PaymentsTest {
                                 && paid.person().equals(PAYER),
                         told.toString()));
 
-        // bunq answers the same payment on the next pass, which books nothing twice.
+        // bunq returns the same payment on the next pass, which books nothing again.
         payments.pass();
         assertEquals(1, told().size());
     }
@@ -268,7 +265,7 @@ class PaymentsTest {
                         handle -> handle.createQuery(sql).mapTo(Integer.class).one());
     }
 
-    /** What the bot was asked, oldest first. */
+    /** The requests of the bot, oldest first. */
     private static List<BotRequest> told() {
         return Inbox.<BotRequest>over(owner, BotRequest.TABLE).recent(BotRequest.PaymentBooked.class, 50).stream()
                 .map(eu.nordtal.season.database.inbox.Request::payload)

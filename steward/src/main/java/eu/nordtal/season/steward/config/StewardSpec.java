@@ -10,14 +10,12 @@ import eu.nordtal.season.spec.annotation.Secret;
 import java.util.List;
 
 /**
- * The {@code steward} group: the bank, the clocks and the agent Steward asks.
- *
- * Where versions come from is steward-agent's {@code runs} group, since the agent carries out every run.
+ * Holds the {@code steward} group: the bank, the clocks and the agent that Steward asks.
+ * The {@code runs} group of steward-agent holds where versions come from.
  */
 @ConfigSpec
 public interface StewardSpec {
 
-    /** For one call to steward-agent or steward-bunq. */
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
@@ -26,39 +24,31 @@ public interface StewardSpec {
         return 30;
     }
 
-    /** Without a token a season sells nothing. */
     @Order(13)
     @Name("bunq")
     @Key("bunq")
     @NoExplanationNeeded
     BunqSpec bunq();
 
-    /** What the nightly backup saves and stops; its clock only writes a request row, like the Backup button. */
     @Order(14)
     @Name("Backup")
     @Key("backup")
     @NoExplanationNeeded
     BackupSpec backup();
 
-    /**
-     * Off unless its time is set.
-     *
-     * When set, a whole-network update is asked for on the chosen days, with the same countdown a manual one gets.
-     */
+    /** Stays off until a time is set. Then it asks for a whole-network update on the chosen days, with the countdown of a manual update. */
     @Order(18)
     @Name("Update schedule")
     @Key("update")
     @NoExplanationNeeded
     UpdateSpec update();
 
-    /** Without a token, no container can be shown or changed. */
     @Order(17)
     @Name("Agent")
     @Key("agent")
     @NoExplanationNeeded
     AgentSpec agent();
 
-    /** Payments: where steward-bunq answers and how often it is asked; purchases are the {@code access} group's. */
     @ConfigSpec
     interface BunqSpec {
 
@@ -79,7 +69,6 @@ public interface StewardSpec {
             return "";
         }
 
-        /** How often the bank itself is asked; an HTTP call to bunq, separate from the bot's own poll. */
         @Order(3)
         @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
@@ -88,7 +77,7 @@ public interface StewardSpec {
             return 30;
         }
 
-        /** The first start stamps it itself. */
+        /** The first start sets it. */
         @Order(4)
         @Name("Watermark")
         @Key("watermark")
@@ -97,7 +86,6 @@ public interface StewardSpec {
             return "";
         }
 
-        /** How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path. */
         @Order(5)
         @Name("Recent payment count")
         @Key("recent-payment-count")
@@ -107,7 +95,6 @@ public interface StewardSpec {
         }
     }
 
-    /** How this container reaches steward-agent, its only way to Docker and the volumes. */
     @ConfigSpec
     interface AgentSpec {
 
@@ -129,11 +116,9 @@ public interface StewardSpec {
         }
     }
 
-    /** When a whole-network {@code UPDATE} is asked for without anybody pressing the button. */
     @ConfigSpec
     interface UpdateSpec {
 
-        /** An admin can always start one by hand. */
         @Order(1)
         @Name("At")
         @Key("at")
@@ -142,7 +127,6 @@ public interface StewardSpec {
             return "";
         }
 
-        /** Ignored while the time is empty. */
         @Order(2)
         @Name("Days")
         @Key("days")

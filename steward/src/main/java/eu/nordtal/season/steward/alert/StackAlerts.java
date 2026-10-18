@@ -18,23 +18,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Holds one reading of the stack against the thresholds: every measured alert there is right now, red first.
- *
- * This is the only place that decides whether a service, a backup, the disk or the memory is in trouble.
- */
+/** Turns a {@link StackReading} and the {@link Thresholds} into the measured alerts, red first. */
 public final class StackAlerts {
 
-    /** {@code TarSnapshots}' names, as {@code backup-name.ts} reads them. */
+    /** Matches the names of {@code TarSnapshots}, as {@code backup-name.ts} does. */
     private static final Pattern VOLUME_ARCHIVE = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.tar\\.zst(\\.partial)?$");
 
-    /** {@code DatabaseDump}'s names, as {@code backup-name.ts} reads them. */
+    /** Matches the names of {@code DatabaseDump}, as {@code backup-name.ts} does. */
     private static final Pattern DATABASE_DUMP = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.dump(\\.partial)?$");
 
-    /** The subject of the alert about the resource pack. */
     static final String PACK = "resource pack";
 
-    /** Where the proxy's pack settings are shown. */
     static final String PROXY_PAGE = "/services/proxy";
 
     private static final String DUMP = "database dump";
@@ -45,7 +39,6 @@ public final class StackAlerts {
 
     private StackAlerts() {}
 
-    /** Returns every alert the reading gives, red ones first, otherwise in the order the checks run. */
     public static List<Alert> of(final StackReading reading, final Thresholds thresholds, final Instant now) {
         final List<Alert> alerts = new ArrayList<>();
         services(reading.services(), alerts);
@@ -57,7 +50,6 @@ public final class StackAlerts {
         return List.copyOf(alerts);
     }
 
-    /** A service stopped or unhealthy is red unless its stop is meant; no service at all is yellow. */
     private static void services(final List<StackReading.Service> services, final List<Alert> alerts) {
         if (services.isEmpty()) {
             alerts.add(new Alert(
@@ -101,11 +93,7 @@ public final class StackAlerts {
         }
     }
 
-    /**
-     * Whether a service is red: stopped without meaning to be, failing its healthcheck, or failed in its one run.
-     *
-     * A service a run is moving is never red, since the run waits for it and reports what it found.
-     */
+    /** Returns true for a service stopped against its purpose, failing its health check or failed. A service with purpose MOVING is never down. */
     public static boolean down(final StackReading.Service service) {
         if (service.purpose() == StackReading.Purpose.MOVING) {
             return false;
@@ -120,12 +108,10 @@ public final class StackAlerts {
         };
     }
 
-    /** An exit nobody read is not a failure; only a code other than zero is. */
     private static boolean failed(final @Nullable Integer exitCode) {
         return exitCode != null && exitCode != 0;
     }
 
-    /** An older image, or a registry that did not answer, is yellow: nothing is broken yet. */
     private static void drift(final StackReading reading, final List<Alert> alerts) {
         final List<String> outdated = reading.services().stream()
                 .filter(StackReading.Service::outdated)
@@ -155,7 +141,6 @@ public final class StackAlerts {
         }
     }
 
-    /** A pack that does not answer is red: every player who joins fails to download it. */
     private static void pack(final @Nullable String deadPack, final List<Alert> alerts) {
         if (deadPack != null) {
             alerts.add(alert(
@@ -169,9 +154,8 @@ public final class StackAlerts {
     }
 
     /**
-     * Both kinds of backup must exist, and the newest file of every series in the backup set must be young enough.
-     *
-     * A series of a volume that left the set is not judged: its last archives age out by retention.
+     * Adds alerts for a missing backup or dump, a volume without an archive and a series with a file that is too old.
+     * Series of volumes outside the backup set are ignored.
      */
     private static void backups(
             final StackReading reading, final Thresholds thresholds, final Instant now, final List<Alert> alerts) {
@@ -216,11 +200,7 @@ public final class StackAlerts {
         newest.forEach((series, at) -> stale(reading, series, at, thresholds, now, alerts));
     }
 
-    /**
-     * A series whose newest file is older than permitted.
-     *
-     * The dump is red; a volume is yellow while every service on it runs, and red once one does not.
-     */
+    /** Adds an alert when the newest file of the series is too old. The dump is DOWN. A volume is DOWN when a service on it is down, else WARN. */
     private static void stale(
             final StackReading reading,
             final String series,
@@ -245,7 +225,7 @@ public final class StackAlerts {
                 thresholds));
     }
 
-    /** The newest archive copied off this host must be young enough; none is yellow, since the disk still has them. */
+    /** Adds a WARN alert for no offsite copy and a DOWN alert for an old one. */
     private static void offsite(
             final List<StackReading.Archive> finished,
             final Thresholds thresholds,
@@ -267,7 +247,6 @@ public final class StackAlerts {
         }
     }
 
-    /** A backup series {@code hours} old, past the permitted age. */
     private static Alert old(
             final Alert.Level level,
             final String subject,
@@ -284,7 +263,7 @@ public final class StackAlerts {
                 BACKUPS_PAGE);
     }
 
-    /** Disk and memory at or over their thresholds are yellow; numbers that could not be read are never over. */
+    /** Adds a WARN alert for disk or memory at or over its threshold. */
     private static void host(
             final StackReading.@Nullable Host host, final Thresholds thresholds, final List<Alert> alerts) {
         if (host == null) {
@@ -316,18 +295,16 @@ public final class StackAlerts {
         }
     }
 
-    /** Whether a service that runs on the saved volume {@code series} is red. */
     private static boolean serviceDown(final StackReading reading, final String series) {
         final List<String> users = reading.mountedBy().getOrDefault(series, List.of());
         return reading.services().stream().anyMatch(service -> users.contains(service.name()) && down(service));
     }
 
-    /** A volume as compose.yml names it: Docker's name without the {@code <project>_} prefix compose gives it. */
+    /** Returns the {@code compose.yml} name of a volume, without the {@code <project>_} prefix of Docker. */
     static String volumeName(final String series) {
         return series.substring(series.indexOf('_') + 1);
     }
 
-    /** One volume by its name, or the one database dump series, or null for a file that is neither. */
     private static @Nullable String seriesOf(final String name) {
         if (DATABASE_DUMP.matcher(name).matches()) {
             return DUMP;
@@ -340,7 +317,6 @@ public final class StackAlerts {
         return whole <= 0 ? 0 : (double) part / whole * 100;
     }
 
-    /** An alert with one line below its title. */
     private static Alert alert(
             final AlertType type,
             final Alert.Level level,

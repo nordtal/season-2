@@ -15,17 +15,12 @@ import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The authenticator app's routes: enrolling one, stepping up with its code, and removing it.
- *
- * Adding a factor beside another asks for a step-up with that one, as a further security key does.
- */
+/** Routes for enrolling an authenticator app, stepping up with its code and removing it. */
 public final class AuthenticatorApp {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** The issuer an app files the account under; the account is the admin's name. */
     private static final String ISSUER = "Nordtal Steward";
 
     private final Function<Context, Sessions.Session> requireSession;
@@ -44,7 +39,6 @@ public final class AuthenticatorApp {
         this.sessions = sessions;
     }
 
-    /** Its routes: doors of their own, as the key's ceremonies are, and a removal gated like a key's. */
     public void register(final JavalinConfig cfg) {
         cfg.routes.post("/auth/totp/enrol/start", this::startEnrolment, Gate.SIGNED_IN, Unjournaled.CEREMONY_START);
         cfg.routes.post(
@@ -71,19 +65,16 @@ public final class AuthenticatorApp {
         return Objects.requireNonNull(sessions, "no database - this route is not available without one");
     }
 
-    /** What the enrolment dialog draws: the secret to type, the URI to scan, and that URI as a QR code. */
     public record Enrolment(String secret, String uri, Qr qr) {}
 
-    /** A QR code as one SVG path of unit squares, {@code size} modules a side, without its quiet zone. */
+    /** Holds a QR code as an SVG path of unit squares, {@code size} modules per side, without a quiet zone. */
     public record Qr(int size, String path) {}
 
-    /** The typed code and, for a step-up, how long it holds. */
     private static final class Typed {
         private @Nullable String code;
         private @Nullable String hold;
     }
 
-    /** {@code POST /auth/totp/enrol/start}: a fresh secret, which counts for nothing until a code confirms it. */
     public void startEnrolment(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Authenticators apps = authenticators();
@@ -96,18 +87,17 @@ public final class AuthenticatorApp {
         ctx.json(new Enrolment(Totp.base32(secret), uri, qrOf(uri)));
     }
 
-    /** {@code POST /auth/totp/enrol/finish}: one code the app shows makes it a factor, under the rule of the start. */
     public void finishEnrolment(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Authenticators apps = authenticators();
         final String code = codeOf(ctx).code();
-        // Checked again here, since the step-up may have ended between the two routes.
+        // The step-up may have ended since the start route.
         final boolean further = secondFactor.anyFactor(who);
         if (further) {
             secondFactor.requireKeyRecently(who);
         }
         accept(apps.check(who.signedInDiscordId(), code, true));
-        // The first factor added is held, as the first key is; a further one leaves the step-up as it was.
+        // The first factor counts as held. A further factor leaves the step-up unchanged.
         if (!further) {
             sessions().markVerified(who.id(), SecondFactor.StepUpLength.DEFAULT.length());
         }
@@ -115,7 +105,6 @@ public final class AuthenticatorApp {
         ctx.status(204);
     }
 
-    /** {@code POST /auth/totp/verify}: the app's code instead of the key, at the door and for a step-up alike. */
     public void verify(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Authenticators apps = authenticators();
@@ -129,7 +118,7 @@ public final class AuthenticatorApp {
         ctx.status(204);
     }
 
-    /** {@code DELETE /api/authenticator}: removes the app, unless it is the account's last factor. */
+    /** Refuses to remove the last factor. */
     public void remove(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final int keys = secondFactor.keysOf(who);
@@ -153,7 +142,6 @@ public final class AuthenticatorApp {
         return new CodeAndHold(typed.code, SecondFactor.StepUpLength.of(typed.hold));
     }
 
-    /** Turns anything but an accepted code into the refusal the dialog shows under the field. */
     private static void accept(final Authenticators.Checked checked) {
         switch (checked.outcome()) {
             case ACCEPTED -> {}
@@ -166,7 +154,6 @@ public final class AuthenticatorApp {
         }
     }
 
-    /** The URI as a QR code at medium error correction, one {@code h1v1h-1z} square per dark module. */
     static Qr qrOf(final String uri) {
         final QrCode qr = QrCode.encodeText(uri, QrCode.Ecc.MEDIUM);
         final StringBuilder path = new StringBuilder();

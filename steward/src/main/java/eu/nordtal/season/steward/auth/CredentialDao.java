@@ -11,15 +11,9 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The SQL behind {@link Credentials}, which is the API.
- *
- * Nothing in here is secret: a public key is public, and a credential id is handed to any browser signing in.
- */
 @RegisterConstructorMapper(Credentials.Key.class)
 public interface CredentialDao {
 
-    /** Records a key and the transports it named, together. */
     @Transaction
     default void add(
             final byte[] credentialId,
@@ -54,7 +48,6 @@ public interface CredentialDao {
             """)
     void addTransports(@Bind("credentialId") byte[] credentialId, @Bind("transports") String[] transports);
 
-    /** Every key of one account, in the order they were registered. */
     @SqlQuery("""
             SELECT credential_id, discord_id, public_key, signature_count, label,
                    ARRAY(SELECT transport FROM steward_credential_transport t
@@ -76,22 +69,18 @@ public interface CredentialDao {
             """)
     Optional<Credentials.Key> byId(@Bind("credentialId") byte[] credentialId);
 
-    /** Whether this credential id is known on any account, since two accounts must never share one. */
     @SqlQuery("SELECT EXISTS(SELECT 1 FROM steward_credential WHERE credential_id = :credentialId)")
     boolean exists(@Bind("credentialId") byte[] credentialId);
 
-    /** Removes every key of one account, called only by {@code forget-factors} on the host, never over HTTP. */
     @SqlUpdate("DELETE FROM steward_credential WHERE discord_id = :discordId")
     int forget(@Bind("discordId") DiscordId discordId);
 
-    /** Removes one key, only if it belongs to the account asking, since any signing-in browser learns key ids. */
     @SqlUpdate("""
             DELETE FROM steward_credential
             WHERE credential_id = :credentialId AND discord_id = :discordId
             """)
     int remove(@Bind("credentialId") byte[] credentialId, @Bind("discordId") DiscordId discordId);
 
-    /** Renames one key of one account, scoped like {@link #remove}. */
     @SqlUpdate("""
             UPDATE steward_credential SET label = :label
             WHERE credential_id = :credentialId AND discord_id = :discordId
@@ -101,7 +90,7 @@ public interface CredentialDao {
             @Bind("discordId") DiscordId discordId,
             @Bind("label") String label);
 
-    /** Writes the counter and the time after an assertion; {@code GREATEST} keeps a replay from moving it backwards. */
+    /** Writes the counter and the time. {@code GREATEST} keeps a replay from lowering the counter. */
     @SqlUpdate("""
             UPDATE steward_credential
             SET signature_count = GREATEST(signature_count, :signatureCount),

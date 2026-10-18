@@ -16,7 +16,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The one judgement of the stack: what is wrong, how badly, and what a meant stop is not. */
+/** Tests the judgement of the stack: what is wrong, how badly, and that an intended stop raises nothing. */
 class StackAlertsTest {
 
     private static final Instant NOW = Instant.parse("2026-10-02T12:00:00Z");
@@ -33,12 +33,12 @@ class StackAlertsTest {
         return List.of(archive("db-20261002T110000Z.dump", 1), archive("smp-world-20261002T110000Z.tar.zst", 1));
     }
 
-    /** An archive the offsite repository also has. */
+    /** Builds an archive that the offsite repository also has. */
     private static StackReading.Archive archive(final String name, final long hoursOld) {
         return new StackReading.Archive(name, NOW.minus(Duration.ofHours(hoursOld)), false, true);
     }
 
-    /** An archive only this host's disk has. */
+    /** Builds an archive that only the disk of this host has. */
     private static StackReading.Archive local(final String name, final long hoursOld) {
         return new StackReading.Archive(name, NOW.minus(Duration.ofHours(hoursOld)), false, false);
     }
@@ -58,7 +58,7 @@ class StackAlertsTest {
                 NOW);
     }
 
-    /** The backup set a reading would have if every volume that has an archive is in it. */
+    /** Builds the backup set that contains every volume with an archive. */
     private static List<String> volumesOf(final List<StackReading.Archive> archives) {
         return archives.stream()
                 .map(StackReading.Archive::name)
@@ -114,7 +114,7 @@ class StackAlertsTest {
                 withServices(new StackReading.Service("migrate", "created", null, StackReading.Purpose.ONCE, false)));
     }
 
-    /** An update stops what it replaces; the run waits for those itself, so nothing is raised while it moves them. */
+    /** An update run stops the services it replaces. Nothing is raised while it moves them. */
     @Test
     void aServiceARunIsMovingIsNeverRedStoppedOrUnhealthy() {
         assertEquals(

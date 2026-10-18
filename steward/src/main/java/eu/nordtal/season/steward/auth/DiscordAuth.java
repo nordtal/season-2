@@ -22,9 +22,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Signing in with Discord, and reading the signer's guild membership with their own token rather than the bot's.
- */
+/** Signs a user in with Discord. */
 public final class DiscordAuth {
 
     private static final StewardTexts.Steward.Answer REFUSED =
@@ -32,7 +30,6 @@ public final class DiscordAuth {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordAuth.class);
 
-    /** Discord's API base. */
     public static final String DISCORD_API = "https://discord.com/api/v10";
 
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
@@ -41,7 +38,6 @@ public final class DiscordAuth {
     private final WebSpec.DiscordSpec config;
     private final String redirectUri;
     private final String api;
-    /** How long an answer may take once connected, since a connect timeout alone never ends a stalled answer. */
     private static final Duration ANSWER = Duration.ofSeconds(15);
 
     private final WebClient web;
@@ -50,7 +46,6 @@ public final class DiscordAuth {
         this(config, publicUrl, DISCORD_API);
     }
 
-    /** The same sign-in against a different API base, for a test's stand-in. */
     public DiscordAuth(final WebSpec.DiscordSpec config, final String publicUrl, final String api) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
@@ -58,7 +53,7 @@ public final class DiscordAuth {
         this.web = WebClient.create(Duration.ofSeconds(10), ANSWER);
     }
 
-    /** Refuses a plaintext API base off this machine, which would send the client secret in cleartext. */
+    /** Refuses a plaintext API base on any other machine. */
     private static String plaintextOnlyToOurselves(final String api) {
         final URI uri = URI.create(api);
         if ("https".equalsIgnoreCase(uri.getScheme())) {
@@ -68,7 +63,7 @@ public final class DiscordAuth {
         if ("http".equalsIgnoreCase(uri.getScheme())
                 && ("127.0.0.1".equals(host)
                         || "localhost".equals(host)
-                        // With the brackets: URI.getHost() answers "[::1]", never "::1".
+                        // URI.getHost() returns an IPv6 host with brackets.
                         || "[::1]".equals(host)
                         || "[0:0:0:0:0:0:0:1]".equalsIgnoreCase(host))) {
             return api;
@@ -78,7 +73,6 @@ public final class DiscordAuth {
                 + " else.");
     }
 
-    /** What is missing before anybody can sign in, or empty when the configuration is complete. */
     public Optional<String> whatIsMissing() {
         if (config.clientId().isBlank()) {
             return Optional.of("discord.client-id");
@@ -96,11 +90,6 @@ public final class DiscordAuth {
         return redirectUri;
     }
 
-    /**
-     * Where the browser is sent, with this session's one-time {@code state}.
-     *
-     * {@code prompt=consent} makes signing out mean something; it is not a second factor.
-     */
     public URI authorizeUrl(final String state) {
         return URI.create(AUTHORIZE
                 + "?response_type=code"
@@ -111,11 +100,7 @@ public final class DiscordAuth {
                 + "&state=" + encode(state));
     }
 
-    /**
-     * Exchanges the code and says who this is, refusing anybody who is not in the guild.
-     *
-     * Whether they may in is the admin tree's decision; Discord's roles decide nothing here.
-     */
+    /** Exchanges {@code code} for the user and refuses a user who is not in the guild. */
     public Outcome signIn(final String code) {
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
@@ -134,7 +119,7 @@ public final class DiscordAuth {
             user = getJson("/users/@me", accessToken);
             member = getJson("/users/@me/guilds/" + config.guildId() + "/member", accessToken);
         } catch (AuthException e) {
-            // A 404 here is somebody not in the guild, not an outage.
+            // A 404 means the user is not in the guild.
             return Outcome.refused(e.status() == 404 ? REFUSED.notInGuild() : e.why());
         }
 
@@ -174,7 +159,6 @@ public final class DiscordAuth {
         return Json.decode(response.body(), JsonObject.class);
     }
 
-    /** Every call to Discord, each under the {@link #ANSWER} deadline. */
     private Reply send(final Exchange exchange) {
         try {
             return exchange.send();
@@ -185,7 +169,6 @@ public final class DiscordAuth {
         }
     }
 
-    /** One call to Discord, sent when {@link #send} asks for it. */
     @FunctionalInterface
     private interface Exchange {
         Reply send() throws IOException;
@@ -195,16 +178,13 @@ public final class DiscordAuth {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    /** Who signed in. */
     public record Account(String id, String name) {
 
-        /** Returns them as the actor of whatever they ask for. */
         public Actor actor() {
             return Actor.person(DiscordId.of(id));
         }
     }
 
-    /** Signed in, or refused with a reason a person can act on. */
     public record Outcome(
             @Nullable Account account, @Nullable MessageRef refusal) {
 

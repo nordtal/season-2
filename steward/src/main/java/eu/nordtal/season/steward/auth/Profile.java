@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** {@code /api/me} and {@code /api/message-examples}: what the signed-in account is told about itself. */
+/** Serves {@code /api/me} and {@code /api/message-examples}. */
 public final class Profile {
 
     private static final Logger log = LoggerFactory.getLogger(Profile.class);
@@ -67,13 +67,12 @@ public final class Profile {
         return Objects.requireNonNull(exampleValues, "this route needs exampleValues, which this instance has none of");
     }
 
-    /** {@code GET /api/message-examples}: one example value per placeholder type and property. */
     public void messageExamples(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         ctx.json(exampleValues().of(who.signedInDiscordId(), who.signedInDisplayName()));
     }
 
-    /** One registered security key; {@code backedUp} is absent when the authenticator did not say. */
+    /** {@code backedUp} is null when the authenticator did not report it. */
     public record SecurityKey(
             String id,
             String label,
@@ -82,11 +81,7 @@ public final class Profile {
             @Nullable List<String> transports,
             @Nullable Boolean backedUp) {}
 
-    /**
-     * {@code GET /api/me}: who is signed in, the CSRF token every write needs, and what the key covers.
-     *
-     * Everything about the session is absent while nobody is signed in.
-     */
+    /** The session fields are null while nobody is signed in. */
     public record Me(
             boolean signedIn,
             @Nullable DiscordId id,
@@ -105,10 +100,8 @@ public final class Profile {
             List<StepUpHold> stepUpHolds,
             @Nullable String discordAvatarUrl) {}
 
-    /** The account's authenticator app, once a code has confirmed it. */
     public record Authenticator(Instant addedAt, @Nullable Instant lastUsedAt) {}
 
-    /** One length a step-up may hold for, as the step-up sheet offers it; the first is the default. */
     public record StepUpHold(SecondFactor.StepUpLength hold, long minutes) {}
 
     private static final List<StepUpHold> HOLDS = Arrays.stream(SecondFactor.StepUpLength.values())
@@ -119,7 +112,6 @@ public final class Profile {
         return authenticators != null && authenticators.offered();
     }
 
-    /** The confirmed app of one account, as {@code /api/me} shows it, or null. */
     private @Nullable Authenticator appOf(final DiscordId discordId) {
         return authenticators == null
                 ? null
@@ -129,7 +121,6 @@ public final class Profile {
                         .orElse(null);
     }
 
-    /** The keys of one account, as {@code /api/me} lists them. */
     private List<SecurityKey> keysOf(final DiscordId discordId) {
         final List<SecurityKey> listed = new ArrayList<>();
         for (final Credentials.Key key : credentials().of(discordId)) {
@@ -144,11 +135,7 @@ public final class Profile {
         return listed;
     }
 
-    /**
-     * The Discord avatar {@code /api/people} would print for this account, or empty on any failure.
-     *
-     * Read from the {@code person} row directly, since the roster's list call pages the whole access list.
-     */
+    /** Returns the Discord avatar URL from the {@code person} row, or empty on any failure. */
     private Optional<String> avatarOf(final DiscordId discordId) {
         try {
             return data().access()
@@ -171,7 +158,7 @@ public final class Profile {
             return;
         }
         final Sessions.Session who = found.get();
-        // The CSRF token is written with the row, and this route is the one place it may be read.
+        // Only this route returns the CSRF token.
         ctx.json(new Me(
                 true,
                 who.signedInDiscordId(),

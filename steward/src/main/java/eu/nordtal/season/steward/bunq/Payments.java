@@ -28,15 +28,10 @@ import java.util.regex.Matcher;
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-/**
- * Does everything that has to happen at bunq, driven by the bank's inbox and the {@code payment_request} table.
- * A pass expires, answers the bank's inbox (tabs to make, tabs to cancel), then matches by tab and by reference and
- * books each match through {@link Bookings}; what cannot be booked is raised as a payment alert.
- */
+/** Runs the payment handling. A pass expires requests, answers the bank inbox, matches payments by tab and by reference and books them through {@link Bookings}. */
 @Slf4j
 public final class Payments {
 
-    /** Who raises a payment alert, the same name steward's other alerts carry. */
     private static final String RAISED_BY = "steward";
 
     private final Bank bunq;
@@ -48,18 +43,7 @@ public final class Payments {
     private final Instant watermark;
     private final int recentPaymentCount;
 
-    /**
-     * Wires up one pass over the payment queue.
-     *
-     * @param bunq the bank
-     * @param requests the seam
-     * @param bookings where a matched payment is booked, in one transaction
-     * @param tiers the price list a payment is booked by
-     * @param alerts where a payment nobody can book is raised, once per bank payment
-     * @param inbox the bank's inbox, whose one consumer this is
-     * @param watermark payments created before it are ignored, completely and forever
-     * @param recentPaymentCount how many recent payments the fallback scan reads per pass
-     */
+    /** @param watermark payments created before it are ignored */
     public Payments(
             final Bank bunq,
             final PaymentRequests requests,
@@ -79,11 +63,6 @@ public final class Payments {
         this.recentPaymentCount = recentPaymentCount;
     }
 
-    /**
-     * Runs one pass.
-     *
-     * Never throws: a loop that dies on one bad response silently stops noticing payments.
-     */
     public void pass() {
         step("the expiry sweep", this::expireOverdue);
         step("answering the bank's inbox", () -> inbox.drain(this::answer));
@@ -91,7 +70,7 @@ public final class Payments {
         step("matching payments against their reference", this::matchByReference);
     }
 
-    /** Guards one step of the pass, so one failing step does not cost the others. */
+    /** Logs a failure of the step, so the other steps still run. */
     private void step(final String what, final Runnable work) {
         try {
             work.run();
@@ -104,7 +83,6 @@ public final class Payments {
         }
     }
 
-    /** Closes what is past its TTL and asks the bank's inbox to cancel its tab, which the next step does. */
     private void expireOverdue() {
         for (final PaymentRequest request : requests.dueForExpiry()) {
             if (requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.STEWARD)) {
@@ -113,7 +91,6 @@ public final class Payments {
         }
     }
 
-    /** Makes or cancels one request's tab; a request that no longer needs it is done with nothing to do. */
     private Outcome answer(final Request<BankRequest> asked) {
         final Optional<PaymentRequest> found = requests.byId(asked.payload().payment());
         if (found.isEmpty()) {
@@ -133,7 +110,7 @@ public final class Payments {
         try {
             tab = bunq.createTab(request.amountCents(), request.reference());
         } catch (final Bank.TabRefused refused) {
-            // The payer is shown a text for the code, and pressing again is the retry; bunq's words stay in this log.
+            // The payer sees a text for the refusal code. The words of bunq stay in this log.
             log.warn(
                     "bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
             requests.failTab(request.id(), refused.refusal());
@@ -145,7 +122,7 @@ public final class Payments {
             return Outcome.done(Map.of("tab", String.valueOf(tab.id())));
         }
 
-        // The row closed since it was read, so its live, unclaimed tab is cancelled here.
+        // The request closed after it was read, so the new tab is cancelled.
         log.warn("Request {} closed while its tab was being created; cancelling tab {}", request.reference(), tab.id());
         bunq.cancelTab(tab.id());
         return Outcome.done(Map.of("cancelled", String.valueOf(tab.id())));
@@ -158,7 +135,7 @@ public final class Payments {
         final long tabId = request.tab().orElseThrow();
         final boolean accepted = bunq.cancelTab(tabId);
 
-        // Recorded either way, since cancelTab returns false for an already-cancelled tab.
+        // cancelTab returns false for an already cancelled tab, so the cancel is recorded anyway.
         if (requests.recordCancelled(request.id())) {
             log.info(
                     "Cancelled bunq.me tab {} for {}{}",
@@ -192,7 +169,6 @@ public final class Payments {
             final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(
                     payment.description().toUpperCase(Locale.ROOT));
             if (!matcher.find()) {
-                // Money unrelated to this network; reporting every one would flood the admin channel.
                 log.debug("Payment {} carries no NT- reference; ignoring it", paymentId);
                 continue;
             }
@@ -220,7 +196,6 @@ public final class Payments {
         }
     }
 
-    /** Books a matched payment, and raises what cannot be booked as an alert for an admin. */
     private void attribute(
             final PaymentRequest request, final long paymentId, final int cents, final PaymentMatch how) {
         final Bookings.Booking booking;
@@ -252,7 +227,7 @@ public final class Payments {
                         request.reference(),
                         how,
                         booked.told().days());
-            // Closed since it was read; the reference scan sees the payment again on a closed request.
+            // The request closed after it was read.
             case Bookings.Booking.NotOpen closed -> {}
             case Bookings.Booking.BelowMinimum below ->
                 needsALook(
@@ -261,7 +236,7 @@ public final class Payments {
         }
     }
 
-    /** Raises a payment an admin has to look at, once for every bank payment however many passes see it. */
+    /** Raises an alert once per bank payment. */
     private void needsALook(final long paymentId, final MessageRef detail) {
         if (alerts.raiseOnce(
                 "payment:" + paymentId,
@@ -277,7 +252,6 @@ public final class Payments {
         }
     }
 
-    /** Returns whether a payment may be considered at all: created after the watermark and not booked already. */
     private boolean eligible(final BankWire.Payment payment) {
         return !Instant.parse(payment.created()).isBefore(watermark) && !requests.alreadyBooked(payment.id());
     }

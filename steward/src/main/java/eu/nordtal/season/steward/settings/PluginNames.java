@@ -20,9 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The plain English names a service's texts give its choices' values, an admin's override before the jar's text.
- *
- * The jars are read on the first name asked; where steward-agent cannot answer, every value goes unnamed.
+ * Names the values of a service's choices from its texts. An admin override takes precedence over the text in the jar.
+ * When steward-agent cannot answer, no value has a name.
  */
 final class PluginNames implements SettingsDocument.Names {
 
@@ -39,7 +38,6 @@ final class PluginNames implements SettingsDocument.Names {
         this.service = service;
     }
 
-    /** The names of {@code service}'s jars, read through {@code agent} with the overrides of {@code overrides}. */
     static SettingsDocument.Names of(
             final AgentClient agent, final @Nullable MessageOverrideStore overrides, final String service) {
         return new PluginNames(agent, overrides, service);
@@ -82,7 +80,7 @@ final class PluginNames implements SettingsDocument.Names {
         return names;
     }
 
-    /** The English override of each key, by bundle and key, its first variant. */
+    /** Maps {@code bundle/key} to the English override text of variant 0. */
     private Map<String, String> overridden(final Map<String, MessageEntry> entries) {
         final MessageOverrideStore store = overrides;
         if (store == null || entries.isEmpty()) {
@@ -95,7 +93,6 @@ final class PluginNames implements SettingsDocument.Names {
                 .collect(Collectors.toMap(row -> row.bundle() + "/" + row.key(), MessageOverride::text));
     }
 
-    /** A name's words without its markup; one that cannot be read is shown as written. */
     private static String plain(final String source, final boolean markup) {
         try {
             final List<Piece> pieces = Filling.fill(MessageText.parse(source, markup), Map.of(), Map.of(), name -> {});

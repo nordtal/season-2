@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.Test;
 
-/** The authenticator app's codes against the RFCs' own test vectors, and the sealed form its secret is stored in. */
+/** Tests the codes against the RFC test vectors and the sealed form of the secret. */
 class TotpTest {
 
-    /** RFC 4226 Appendix D and RFC 6238 Appendix B both use this ASCII secret for SHA-1. */
+    /** The secret of the RFC 4226 and RFC 6238 test vectors for SHA-1. */
     private static final byte[] RFC_SECRET = "12345678901234567890".getBytes(StandardCharsets.US_ASCII);
 
     @Test

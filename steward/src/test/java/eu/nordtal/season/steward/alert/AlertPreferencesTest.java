@@ -15,14 +15,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** {@code steward_alert_preference}, where a missing row is the type's default on that channel. */
+/** Tests {@code steward_alert_preference}, where a missing row means the default of the type. */
 class AlertPreferencesTest {
 
     private static final DiscordId ADMIN = DiscordId.of("42");
 
     private static DataSource dataSource;
 
-    /** The owner, for fixtures and for whatever stands in for another service. */
+    /** The owner role, for fixtures and for other services. */
     private static DataSource owner;
 
     private AlertPreferences preferences;
@@ -31,7 +31,7 @@ class AlertPreferencesTest {
     static void startDatabase() {
         final TestDatabase database = TestDatabase.fresh();
         owner = database.dataSource();
-        // The role steward logs in as, so a statement it was never granted fails here first.
+        // Connects as the role that Steward uses, so a missing grant fails here.
         dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
@@ -75,7 +75,7 @@ class AlertPreferencesTest {
             statement.execute("INSERT INTO steward_alert_preference (discord_id, alert_type, channel, enabled,"
                     + " updated_at) VALUES ('42', 'sunspots', 'PUSH', false, now())");
         }
-        // A routing round that threw on a row a later release left behind would route nothing at all.
+        // A row of an unknown type from a later release must not stop routing.
         assertTrue(preferences.all().wants(ADMIN, AlertType.SERVICE, AlertChannel.PUSH));
         assertEquals(AlertType.values().length, preferences.of(ADMIN).size());
     }

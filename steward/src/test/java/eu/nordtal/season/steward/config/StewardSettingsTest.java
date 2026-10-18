@@ -10,11 +10,7 @@ import eu.nordtal.season.settings.SettingsException;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the steward group refuses, and what it starts with.
- *
- * A refused change keeps the values in use.
- */
+/** Tests what the steward group refuses and what it starts with. A refused change keeps the values in use. */
 class StewardSettingsTest {
 
     private final MemorySettingStore store = new MemorySettingStore();
@@ -23,7 +19,7 @@ class StewardSettingsTest {
         return StewardSettings.steward(store.settings(StewardSettings.SERVICE));
     }
 
-    /** Stores {@code value} at {@code path} as an admin would and takes the group again. */
+    /** Stores {@code value} at {@code path} as an admin does and loads the group again. */
     private SettingsException refused(final String path, final Object value) throws SettingsException {
         final Setting<StewardSpec> steward = steward();
         store.set(StewardSettings.SERVICE, "steward", path, value);
@@ -34,7 +30,7 @@ class StewardSettingsTest {
     void noBankTokenIsAValidDeployment() throws Exception {
         final StewardSpec.BunqSpec bunq = steward().get().bunq();
 
-        // Empty is the default and the load succeeds: a season with no bank account must still be able to start.
+        // An empty value is the default and loads, so a season without a bank account starts.
         assertEquals("", bunq.token());
         assertEquals("http://steward-bunq:8082", bunq.url());
         assertEquals(30, bunq.pollIntervalSeconds());
@@ -44,7 +40,7 @@ class StewardSettingsTest {
 
     @Test
     void aWatermarkThatIsNotAnInstantIsRefused() throws Exception {
-        // An unreadable watermark must not surface as a poll that books nothing, indistinguishable from a quiet bank.
+        // An unreadable watermark is refused, not left as a poll that books nothing.
         final SettingsException error = refused("bunq.watermark", "1 September 2026");
 
         final String message = String.valueOf(error.getMessage()) + error.getCause();

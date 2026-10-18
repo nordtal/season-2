@@ -10,7 +10,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The one filter every route but the frontend bundle passes through. */
+/** Checks the {@link Gate} of every route except the frontend bundle. */
 public final class Gatekeeper {
 
     private static final Logger log = LoggerFactory.getLogger(Gatekeeper.class);
@@ -23,11 +23,7 @@ public final class Gatekeeper {
         this.secondFactor = secondFactor;
     }
 
-    /**
-     * The one door, in front of every matched endpoint, reading the {@link Gate} off the route.
-     *
-     * Checks run in the order a person experiences them: who, then a key at all, then held here, then held recently.
-     */
+    /** The checks run in order: session, any key, key held, key recent. */
     public void guard(final Context ctx) {
         final Gate gate = gateOf(ctx);
         if (gate == Gate.ANYONE) {
@@ -47,7 +43,7 @@ public final class Gatekeeper {
         }
     }
 
-    /** The one decision this route carries; zero or more than one are refused rather than guessed. */
+    /** Returns the {@link Gate} of the route, or {@code ANYONE} for a frontend path without one. */
     private static Gate gateOf(final Context ctx) {
         final List<Gate> decided = ctx.routeRoles().stream()
                 .filter(Gate.class::isInstance)
@@ -68,20 +64,11 @@ public final class Gatekeeper {
         throw new UndecidedRoute();
     }
 
-    /**
-     * Whether a path lies under {@code /api} or {@code /auth}; everything else is the frontend bundle, open to anyone.
-     *
-     * {@code GateTest} fails the build when something is registered outside these prefixes without a decision.
-     */
     static boolean isOurs(final String path) {
         return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api") || path.equals("/auth");
     }
 
-    /**
-     * Sets the frontend bundle's cache headers after the request is answered.
-     *
-     * Hashed {@code /assets} are immutable; {@code index.html} is {@code no-cache}, so it is always revalidated.
-     */
+    /** Files under {@code /assets/} are immutable, all others {@code no-cache}. */
     public static void cacheHeaders(final Context ctx) {
         if (isOurs(ctx.path())) {
             return;
@@ -89,7 +76,7 @@ public final class Gatekeeper {
         ctx.header("Cache-Control", ctx.path().startsWith("/assets/") ? "max-age=31536000, immutable" : "no-cache");
     }
 
-    /** Double submit: a form from another site can carry the cookie but cannot read the token {@code /api/me} gives. */
+    /** Refuses a write whose CSRF header differs from the CSRF token of the session. */
     private void requireCsrfToken(final Context ctx) {
         final String sent = ctx.header("X-Steward-CSRF");
         final String expected = session.apply(ctx).map(Sessions.Session::csrf).orElse(null);
@@ -103,7 +90,6 @@ public final class Gatekeeper {
         return method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE");
     }
 
-    /** A route registered without a {@link Gate}; a 500, since nothing the caller did is wrong. */
     private static final class UndecidedRoute extends InternalServerErrorResponse {
 
         private UndecidedRoute() {

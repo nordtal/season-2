@@ -9,11 +9,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The bank as steward sees it: steward-bunq on the internal network, which alone holds the key and the bunq SDK.
- *
- * Every answer is already whole cents in EUR; nothing here knows how bunq writes an amount or a date.
- */
+/** Calls steward-bunq on the internal network, which alone holds the key and the bunq SDK. Every amount is in whole euro cents. */
 @Slf4j
 public final class Bank {
 
@@ -25,16 +21,11 @@ public final class Bank {
         this.client = client;
     }
 
-    /** Asks whether a bank account is behind steward-bunq, and which. */
     public BankWire.Account account() {
         return Json.decode(client.get(BankWire.ACCOUNT), BankWire.Account.class);
     }
 
-    /**
-     * Opens a bunq.me tab.
-     *
-     * @throws TabRefused naming why, with the words steward-bunq answered for the log
-     */
+    /** @throws TabRefused with the reason and the words that steward-bunq answered */
     public BankWire.Tab createTab(final int amountCents, final String description) {
         try {
             return Json.decode(
@@ -45,7 +36,7 @@ public final class Bank {
         }
     }
 
-    /** bunq or steward-bunq made no tab: why, and the words that came back. */
+    /** Signals that bunq or steward-bunq made no tab. {@link #refusal} holds the reason. */
     public static final class TabRefused extends RuntimeException {
 
         private final TabRefusal refusal;
@@ -55,7 +46,7 @@ public final class Bank {
             this.refusal = refusal;
         }
 
-        /** Reads steward-bunq's answer: no body is steward-bunq not answering, a 503 with one is its missing key. */
+        /** Reads the answer of steward-bunq. No body means it did not answer. A 503 with a body means its key is missing. */
         static TabRefused of(final InternalClient.Failure failure) {
             final BankWire.Refused said = refusedIn(failure.body());
             if (said == null) {
@@ -93,7 +84,7 @@ public final class Bank {
         }
     }
 
-    /** Closes a tab so it can no longer be paid; {@code false} when the bank did not, or could not be asked. */
+    /** Returns false when the bank did not accept the cancel or could not be asked. */
     public boolean cancelTab(final long tabId) {
         try {
             return Json.decode(client.post(BankWire.of(BankWire.CANCEL, tabId), "{}"), BankWire.Cancelled.class)
@@ -104,7 +95,6 @@ public final class Bank {
         }
     }
 
-    /** Returns the payments that settled one tab, possibly none. */
     public List<BankWire.Payment> paymentsFor(final long tabId) {
         return Json.decode(client.get(BankWire.of(BankWire.TAB_PAYMENTS, tabId)), PAYMENTS);
     }

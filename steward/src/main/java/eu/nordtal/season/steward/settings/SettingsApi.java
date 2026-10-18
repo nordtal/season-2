@@ -17,9 +17,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Every process's settings: the groups it published, and the rows an admin changes.
- *
- * A change is a row and a signal; the process takes it at once where the group is live, else at its next start.
+ * Serves the setting groups of every process and saves changed values as rows.
+ * A process takes a change at once when its group is live, else at its next start.
  */
 public final class SettingsApi {
 
@@ -30,10 +29,6 @@ public final class SettingsApi {
     private final AgentClient agent;
     private final @Nullable MessageOverrideStore overrides;
 
-    /**
-     * @param agent where the jars are read whose texts name a group's choices
-     * @param overrides the admins' changes to those texts, or {@code null} without a database
-     */
     public SettingsApi(
             final SettingStore store, final AgentClient agent, final @Nullable MessageOverrideStore overrides) {
         this.store = store;
@@ -41,12 +36,10 @@ public final class SettingsApi {
         this.overrides = overrides;
     }
 
-    /** {@code GET /api/setting-groups}: every published group. */
     public void list(final Context ctx) {
         ctx.json(store.groups().stream().map(SettingsDocument::describe).toList());
     }
 
-    /** Every group and every stored override, which together change whenever a page of settings would. */
     public java.util.List<Object> read() {
         final java.util.List<SettingStore.Group> groups = store.groups();
         final java.util.List<String> services =
@@ -54,16 +47,11 @@ public final class SettingsApi {
         return java.util.List.of(groups.stream().map(SettingsDocument::describe).toList(), store.overrides(services));
     }
 
-    /** {@code GET /api/setting-groups/{service}/{name}}: one group as the form draws it. */
     public void one(final Context ctx) {
         ctx.json(documentOf(groupOf(ctx)).document(null));
     }
 
-    /**
-     * {@code PUT /api/setting-groups/{service}/{name}}: writes the changed values as rows, behind the revision read.
-     *
-     * Answers the group as it now stands, with {@code reload} saying whether it applies at once.
-     */
+    /** Writes the changed values as rows when the revision matches. The response is the group, with {@code reload} saying whether the change applies at once. */
     public void save(final Context ctx, final Actor actor) {
         final SettingStore.Group group = groupOf(ctx);
         final JsonObject body = bodyOf(ctx.body());

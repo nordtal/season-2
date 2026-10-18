@@ -6,16 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * {@code public-url}, the one value that leaves the process, as Discord's redirect URI.
- *
- * A wrong value comes back as Discord's {@code invalid_request}, so the check is stricter than a prefix.
- */
+/** Tests {@code public-url}, which leaves the process as the Discord redirect URI. Discord answers a wrong value with {@code invalid_request}. */
 class PublicUrlTest {
 
     @Test
     void aSchemeIsNotAUrl() {
-        // A prefix check would say yes to both, so the first sign-in gets Discord's refusal instead.
+        // A prefix check accepts both, and Discord refuses them at the first sign-in.
         assertThrows(IllegalArgumentException.class, () -> StewardSettings.requirePublicUrl("https://"));
         assertThrows(IllegalArgumentException.class, () -> StewardSettings.requirePublicUrl("http:///path"));
     }
@@ -59,12 +55,12 @@ class PublicUrlTest {
 
     @Test
     void aRelyingPartyMustBeTheAddressOrAParentOfIt() {
-        // The production pair, and the two shapes of it that are correct.
+        // The production pair and its two correct shapes.
         StewardSettings.requireRelyingParty("nordtal.eu", "https://steward.dev.nordtal.eu");
         StewardSettings.requireRelyingParty("nordtal.eu", "https://nordtal.eu");
         StewardSettings.requireRelyingParty("steward.dev.nordtal.eu", "https://steward.dev.nordtal.eu");
 
-        // A naive endsWith accepts `ordtal.eu` for `nordtal.eu`, so the dot is part of the comparison.
+        // A plain endsWith accepts `ordtal.eu` for `nordtal.eu`, so the comparison includes the dot.
         final IllegalArgumentException wrong = assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("ordtal.eu", "https://steward.dev.nordtal.eu"));
@@ -72,12 +68,12 @@ class PublicUrlTest {
                 wrong.getMessage().contains("ordtal.eu") && wrong.getMessage().contains("steward.dev.nordtal.eu"),
                 "the message has to name both values, or nobody can see what does not match: " + wrong.getMessage());
 
-        // A bare TLD is a suffix of the host too, which is why a second condition rejects public suffixes.
+        // A bare TLD is a suffix of the host too, so a second condition rejects public suffixes.
         final IllegalArgumentException tld = assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
         assertTrue(tld.getMessage().contains("registrable"), tld.getMessage());
-        // Narrower than the address: a key registered here would never be offered at all.
+        // A narrower ID: a key registered there is never offered.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("other.nordtal.eu", "https://steward.dev.nordtal.eu"));
@@ -85,23 +81,23 @@ class PublicUrlTest {
 
     @Test
     void theLoopbackIsTheOneNamedException() {
-        // localhost is not a public suffix, every browser takes it, and it is a secure context.
+        // localhost is no public suffix, every browser accepts it and it is a secure context.
         StewardSettings.requireRelyingParty("localhost", "http://localhost:5173");
         StewardSettings.requireRelyingParty("localhost", "https://localhost");
         StewardSettings.requireRelyingParty("LocalHost", "http://LOCALHOST:8080");
 
-        // It widens nothing: the exception is one value against one host, not every single label.
+        // The exception widens nothing: it covers one value for one host, not every single label.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("localhost", "https://steward.dev.nordtal.eu"));
-        // The other direction: an address on localhost does not accept some other single label.
+        // Reverse: an address on localhost does not accept another single label.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("intranet", "http://localhost:5173"));
-        // A name that merely ends in localhost is a different host, the same near miss the dot guards against.
+        // A name that only ends in localhost is another host, the near miss that the dot guards against.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StewardSettings.requireRelyingParty("localhost", "http://notlocalhost:5173"));

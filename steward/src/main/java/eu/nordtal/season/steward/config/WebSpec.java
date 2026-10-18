@@ -8,11 +8,7 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Secret;
 
-/**
- * The {@code web} group: how the web interface signs people in and what it pushes to them.
- *
- * Every secret arrives as an environment variable, so the file itself holds none.
- */
+/** Holds the {@code web} group. Its secrets are environment variables. */
 @ConfigSpec
 public interface WebSpec {
 
@@ -24,7 +20,6 @@ public interface WebSpec {
         return 8080;
     }
 
-    /** Pins both the Discord redirect URI and the WebAuthn origin; startup checks the constraint. */
     @Order(2)
     @Name("Public URL")
     @Key("public-url")
@@ -33,18 +28,12 @@ public interface WebSpec {
         return "https://steward.dev.nordtal.eu";
     }
 
-    /**
-     * The bot's own Discord application, reused.
-     *
-     * Discord only decides who may register a security key; webauthn is a second, mandatory gate.
-     */
     @Order(3)
     @Name("Discord")
     @Key("discord")
     @NoExplanationNeeded
     DiscordSpec discord();
 
-    /** Defensible only because a security key guards every dangerous action. */
     @Order(4)
     @Name("Session length (days)")
     @Key("session-days")
@@ -71,7 +60,6 @@ public interface WebSpec {
     @NoExplanationNeeded
     WebPushSpec webPush();
 
-    /** Seals every authenticator app's secret in the database; a new key makes every enrolled one unreadable. */
     @Order(8)
     @Name("Authenticator app key")
     @Key("totp-key")
@@ -81,11 +69,10 @@ public interface WebSpec {
         return "";
     }
 
-    /** Which domain a security key is registered against; the display name is fixed in code. */
+    /** The display name is fixed in code. */
     @ConfigSpec
     interface WebAuthnSpec {
 
-        /** Every subdomain of it becomes a trusted sign-in surface, so it cannot be taken back. */
         @Order(1)
         @Name("Relying party ID")
         @Key("relying-party-id")
@@ -95,7 +82,6 @@ public interface WebSpec {
         }
     }
 
-    /** A VAPID keypair, which proves to a push service which deployment sent a message. */
     @ConfigSpec
     interface WebPushSpec {
 
@@ -125,11 +111,10 @@ public interface WebSpec {
         }
     }
 
-    /** Where the identity display's Minecraft head comes from, a pure function of {@code mc_uuid} and this URL. */
+    /** Sets where the Minecraft head comes from, as a function of {@code mc_uuid} and this URL. */
     @ConfigSpec
     interface AvatarSpec {
 
-        /** It is the one piece of player data an admin's page view lets out. */
         @Order(1)
         @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
@@ -139,7 +124,6 @@ public interface WebSpec {
         }
     }
 
-    /** The Discord application and the guild whose roles decide who may sign in. */
     @ConfigSpec
     interface DiscordSpec {
 
@@ -151,7 +135,6 @@ public interface WebSpec {
             return "";
         }
 
-        /** The sign-in page names the missing value rather than failing at Discord. */
         @Order(2)
         @Name("Client secret")
         @Key("client-secret")
@@ -160,7 +143,6 @@ public interface WebSpec {
             return "";
         }
 
-        /** This one decides who reaches the interface, the bot's who reaches the game. */
         @Order(3)
         @Name("Guild ID")
         @Key("guild-id")
@@ -169,7 +151,6 @@ public interface WebSpec {
             return "";
         }
 
-        /** As after a fresh install or the restore of an early dump. */
         @Order(4)
         @Name("Root's Discord ID")
         @Key("root-id")

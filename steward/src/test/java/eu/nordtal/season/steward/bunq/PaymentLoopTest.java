@@ -9,11 +9,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * One pass at a time, and the channel both halves of the seam agree on.
- *
- * A second pass would ask bunq the same questions twice, and a caller that finds one running has nothing to add.
- */
+/** Tests that only one pass runs at a time. */
 class PaymentLoopTest {
 
     @Test
@@ -38,7 +34,7 @@ class PaymentLoopTest {
         first.start();
         assertTrue(inside.await(5, TimeUnit.SECONDS), "the first pass never started");
 
-        // The notification arriving while the bank is still answering the poll.
+        // A signal arrives during the pass of the poll.
         loop.pass();
         assertEquals(
                 1,
@@ -49,7 +45,7 @@ class PaymentLoopTest {
         release.countDown();
         first.join(5_000);
 
-        // Once the first pass is done the next wake-up runs, so the lock was released.
+        // After the first pass ends, the next wake-up runs.
         loop.pass();
         assertEquals(2, passes.get(), "the lock was not released");
     }

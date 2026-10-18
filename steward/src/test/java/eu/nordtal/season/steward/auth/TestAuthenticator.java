@@ -16,17 +16,13 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.util.Base64;
 
-/**
- * A software security key that produces real {@code none} attestations and signed assertions for the tests.
- *
- * Every method takes the origin and the challenge, so a test can hand over wrong ones for the verifier to refuse.
- */
+/** A software security key that produces {@code none} attestations and signed assertions for tests. */
 public final class TestAuthenticator {
 
     private static final Gson GSON = new Gson();
     private static final Base64.Encoder URL = Base64.getUrlEncoder().withoutPadding();
 
-    /** UP (user present) | UV (user verified) | AT (attested credential data follows). */
+    /** The flags UP (user present), UV (user verified) and AT (attested credential data follows). */
     private static final byte FLAGS = 0x01 | 0x04 | 0x40;
 
     private final KeyPair keyPair;
@@ -44,15 +40,15 @@ public final class TestAuthenticator {
         new SecureRandom().nextBytes(credentialId);
     }
 
-    /** The credential id this authenticator will answer for, base64url as the browser sends it. */
+    /** The credential id of this authenticator, as base64url. */
     public String credentialId() {
         return URL.encodeToString(credentialId);
     }
 
     /**
-     * A registration answer to the request the server just issued.
+     * Returns a registration answer to the request that the server just issued.
      *
-     * @param creationOptions what {@code /auth/webauthn/register/start} returned, verbatim
+     * @param creationOptions the response of {@code /auth/webauthn/register/start}, unchanged
      * @param origin the page the browser claims to have been on
      */
     public String register(final String creationOptions, final String origin) {
@@ -61,7 +57,7 @@ public final class TestAuthenticator {
         return register(creationOptions, origin, publicKey.get("challenge").getAsString());
     }
 
-    /** The same, with a challenge the caller chooses, so a test can answer a question nobody asked. */
+    /** Returns a registration answer for a challenge of the caller. */
     public String register(final String creationOptions, final String origin, final String challenge) {
         final JsonObject publicKey =
                 GSON.fromJson(creationOptions, JsonObject.class).getAsJsonObject("publicKey");
@@ -87,9 +83,9 @@ public final class TestAuthenticator {
     }
 
     /**
-     * An assertion answer to the challenge the server just issued.
+     * Returns an assertion answer to the challenge that the server just issued.
      *
-     * @param requestOptions what {@code /auth/webauthn/authenticate/start} returned, verbatim
+     * @param requestOptions the response of {@code /auth/webauthn/authenticate/start}, unchanged
      * @param origin the page the browser claims to have been on
      */
     public String assertion(final String requestOptions, final String origin) {
@@ -98,7 +94,7 @@ public final class TestAuthenticator {
         return assertion(requestOptions, origin, publicKey.get("challenge").getAsString(), 0);
     }
 
-    /** The same, with a challenge and a signature counter the caller chooses; a counter going back is a clone. */
+    /** Returns an assertion answer for a challenge and a signature counter of the caller. */
     public String assertion(
             final String requestOptions, final String origin, final String challenge, final long signCount) {
         final JsonObject publicKey =
@@ -108,7 +104,7 @@ public final class TestAuthenticator {
         final String clientData = "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge + "\",\"origin\":\""
                 + origin + "\",\"crossOrigin\":false}";
         final byte[] clientDataBytes = clientData.getBytes(StandardCharsets.UTF_8);
-        // No attested credential data, so no AT flag: an assertion carries only rpIdHash, flags and the counter.
+        // An assertion has no attested credential data and no AT flag.
         final ByteBuffer authData = ByteBuffer.allocate(32 + 1 + 4);
         authData.put(sha256(relyingPartyId.getBytes(StandardCharsets.UTF_8)));
         authData.put((byte) (0x01 | 0x04));
@@ -143,7 +139,7 @@ public final class TestAuthenticator {
         return GSON.toJson(credential);
     }
 
-    /** {@code {fmt: "none", attStmt: {}, authData: …}}, the whole of a self-asserted registration. */
+    /** Builds the attestation object of a self-asserted registration: {@code {fmt: "none", attStmt: {}, authData: …}}. */
     private byte[] attestationObject(final String relyingPartyId) {
         return CBORObject.NewMap()
                 .Add("fmt", "none")
@@ -152,7 +148,7 @@ public final class TestAuthenticator {
                 .EncodeToBytes();
     }
 
-    /** rpIdHash, flags, signCount, a zero aaguid, credentialIdLength, credentialId and the COSE public key. */
+    /** Builds the authenticator data: rpIdHash, flags, signCount, a zero aaguid, credentialIdLength, credentialId and the COSE public key. */
     private byte[] authenticatorData(final String relyingPartyId) {
         final byte[] cose = coseKey();
         final ByteBuffer data = ByteBuffer.allocate(32 + 1 + 4 + 16 + 2 + credentialId.length + cose.length);
@@ -166,7 +162,7 @@ public final class TestAuthenticator {
         return data.array();
     }
 
-    /** The public key as COSE_Key: EC2 / ES256 / P-256, with x and y as 32 bytes each. */
+    /** Builds the public key as COSE_Key: EC2, ES256, P-256, with x and y of 32 bytes each. */
     private byte[] coseKey() {
         final ECPublicKey pub = (ECPublicKey) keyPair.getPublic();
         return CBORObject.NewMap()
@@ -178,7 +174,7 @@ public final class TestAuthenticator {
                 .EncodeToBytes();
     }
 
-    /** A coordinate as exactly 32 bytes, since {@code BigInteger.toByteArray()} yields 31 or 33 about half the time. */
+    /** Returns a coordinate as 32 bytes. {@code BigInteger.toByteArray()} can return 31 or 33. */
     private static byte[] coordinate(final BigInteger value) {
         final byte[] raw = value.toByteArray();
         final byte[] padded = new byte[32];

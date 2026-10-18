@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.discordbot.config.Configured;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -93,7 +94,10 @@ public final class ManagedMessage {
     }
 
     private static List<FileUpload> uploads(final LayoutRenderer.Drawn content) {
-        return content.attachments().stream().map(ManagedMessage::upload).toList();
+        final List<FileUpload> all = new ArrayList<>(
+                content.attachments().stream().map(ManagedMessage::upload).toList());
+        all.addAll(content.uploads());
+        return all;
     }
 
     private static FileUpload upload(final String banner) {

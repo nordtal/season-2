@@ -24,7 +24,9 @@ public final class LayoutCheck {
 
     private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9]*(-[a-z0-9]+)*");
     private static final Pattern ACCENT = Pattern.compile("#[0-9a-f]{6}");
-    private static final Pattern MEDIA = Pattern.compile("(attachment://[A-Za-z0-9_.-]+|https://\\S+)");
+    private static final Pattern MEDIA =
+            Pattern.compile("(attachment://[A-Za-z0-9_.-]+|upload://[1-9][0-9]*|https://\\S+)");
+    private static final Pattern LINK = Pattern.compile("https://\\S+");
 
     /** What Components V2 allows: text blocks in a section, images in a gallery, buttons in a row. */
     private static final int SECTION_TEXTS = 3;
@@ -47,6 +49,40 @@ public final class LayoutCheck {
             }
         }
         return problems;
+    }
+
+    /**
+     * Returns one line per problem of an editor's rebuild of {@code packaged}, empty when it is sound.
+     * A rebuild keeps the packaged identity and every element the code fills in, places only keys the packaged
+     * layout places, and adds texts and link buttons of its own; what an added text says is not checked here.
+     */
+    public static List<String> rebuildProblems(final Layout packaged, final Layout rebuild) {
+        final List<String> problems = new ArrayList<>();
+        if (!packaged.name().equals(rebuild.name())
+                || !packaged.bundle().equals(rebuild.bundle())
+                || !packaged.area().equals(rebuild.area())
+                || packaged.surface() != rebuild.surface()) {
+            problems.add("it is not a rebuild of " + packaged.bundle() + "/" + packaged.name());
+        }
+        final List<Element> coded = rebuild.elements().stream()
+                .filter(element -> element.kind() != Element.Kind.LINK)
+                .toList();
+        if (!coded.equals(packaged.elements())) {
+            problems.add("it does not keep the elements the code fills in as declared");
+        }
+        final Set<String> declared = new HashSet<>(packaged.keys());
+        rebuild.keys().stream()
+                .filter(key -> !declared.contains(key))
+                .distinct()
+                .forEach(key -> problems.add("it places " + key + ", which the layout does not"));
+        structure(rebuild.parts(), false, false, problems);
+        elements(rebuild, problems);
+        return problems;
+    }
+
+    /** How many of a key, a data list and an added text the line is. */
+    private static int sources(final Line line) {
+        return (line.key() == null ? 0 : 1) + (line.list() == null ? 0 : 1) + (line.texts() == null ? 0 : 1);
     }
 
     private static List<String> problems(
@@ -73,7 +109,7 @@ public final class LayoutCheck {
             media.stream()
                     .filter(address -> !MEDIA.matcher(address).matches())
                     .forEach(address ->
-                            problems.add("an image is at " + address + ", neither attachment:// nor https://"));
+                            problems.add("an image is at " + address + ", not attachment://, upload:// or https://"));
             structure(
                     inner,
                     inContainer || part.type() == Part.Type.CONTAINER,
@@ -104,8 +140,12 @@ public final class LayoutCheck {
                 if (lines.isEmpty()) {
                     problems.add("a text block has no lines");
                 }
-                if (lines.stream().anyMatch(line -> (line.key() == null) == (line.list() == null))) {
-                    problems.add("a line is not either a key or a data list");
+                if (lines.stream().anyMatch(line -> sources(line) != 1)) {
+                    problems.add("a line is not one of a key, a data list or an added text");
+                }
+                if (lines.stream()
+                        .anyMatch(line -> line.texts() != null && line.texts().isEmpty())) {
+                    problems.add("an added text has no language");
                 }
             }
             case SECTION -> {
@@ -152,10 +192,18 @@ public final class LayoutCheck {
             final boolean fits = switch (element.kind()) {
                 case BUTTON, LIST -> keys == 1;
                 case SELECT -> keys == 1 || keys == 2;
-                case LANGUAGES -> keys == 0;
+                case LANGUAGES, LINK -> keys == 0;
             };
             if (!fits) {
                 problems.add("its " + noun(element.kind()) + " " + element.id() + " draws " + keys + " texts");
+            }
+            if (element.kind() == Element.Kind.LINK) {
+                if (element.url() == null || !LINK.matcher(element.url()).matches()) {
+                    problems.add("its link button " + element.id() + " opens no https:// address");
+                }
+                if (element.labels() == null || element.labels().isEmpty()) {
+                    problems.add("its link button " + element.id() + " has no label");
+                }
             }
         }
         final Map<String, Integer> placed = new LinkedHashMap<>();
@@ -205,7 +253,8 @@ public final class LayoutCheck {
             problems.add("places " + id + ", which it does not declare");
             return;
         }
-        if (element.kind() != where) {
+        // A link button stands wherever a button does.
+        if (element.kind() != where && !(where == Element.Kind.BUTTON && element.kind() == Element.Kind.LINK)) {
             problems.add("places the " + noun(element.kind()) + " " + id + " where a " + noun(where) + " belongs");
         }
         placed.merge(id, 1, Integer::sum);
@@ -217,6 +266,7 @@ public final class LayoutCheck {
             case SELECT -> "select";
             case LIST -> "data list";
             case LANGUAGES -> "block per language";
+            case LINK -> "link button";
         };
     }
 
@@ -242,7 +292,7 @@ public final class LayoutCheck {
             for (final String key : element.keys()) {
                 placed.add(
                         switch (element.kind()) {
-                            case BUTTON -> new Placed(key, "a button's label", List.of(Display.DISCORD_BUTTON));
+                            case BUTTON, LINK -> new Placed(key, "a button's label", List.of(Display.DISCORD_BUTTON));
                             case SELECT -> new Placed(key, "a select's text", List.of(Display.DISCORD_SELECT));
                             case LIST, LANGUAGES ->
                                 new Placed(key, "a data list's line", List.of(Display.DISCORD_TEXT));

@@ -485,12 +485,11 @@ public final class MessagesApi {
         for (final Display place : Display.values()) {
             places.put(place.name(), place.surface());
         }
-        return new Texts(overrides != null, texts, languages(), colours, places);
+        return new Texts(overrides != null, texts, languages(settings), colours, places);
     }
 
     /** The network's languages as its settings name them now, the default first; the defaults without a database. */
-    private List<String> languages() {
-        final SettingStore store = settings;
+    static List<String> languages(final @Nullable SettingStore store) {
         if (store != null) {
             try {
                 return NetworkSettings.languages(DatabaseSettings.current(

@@ -3,6 +3,7 @@ package eu.nordtal.season.messages.spec.layout;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -57,5 +58,30 @@ public record Layout(
         }
         elements.forEach(element -> keys.addAll(element.keys()));
         return keys;
+    }
+
+    /** This layout as an editor rebuilt it: the rebuild's tree, and the link buttons it added beside the elements. */
+    public Layout rebuilt(final List<Part> rebuiltParts, final List<Element> links) {
+        final List<Element> all = new ArrayList<>(elements);
+        all.addAll(links);
+        return new Layout(name, bundle, area, surface, all, rebuiltParts);
+    }
+
+    /** Every text an editor added, each by language tag: the added lines in order, then the link buttons' labels. */
+    public List<Map<String, String>> addedTexts() {
+        final List<Map<String, String>> texts = new ArrayList<>();
+        for (final Part part : allParts()) {
+            for (final Line line : Objects.requireNonNullElse(part.lines(), List.<Line>of())) {
+                if (line.texts() != null) {
+                    texts.add(line.texts());
+                }
+            }
+        }
+        for (final Element element : elements) {
+            if (element.labels() != null) {
+                texts.add(element.labels());
+            }
+        }
+        return texts;
     }
 }

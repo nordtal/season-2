@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
@@ -117,6 +118,23 @@ public final class Routes {
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.get("/api/layouts", api.layouts::list, Gate.KEY_HELD);
+        config.routes.put(
+                "/api/layouts/{bundle}/{layout}",
+                ctx -> Journaling.line(ctx, new JournalDetail.MessagesSaved(api.layouts.save(ctx, caller.actor(ctx)))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.delete(
+                "/api/layouts/{bundle}/{layout}",
+                ctx -> Journaling.line(ctx, new JournalDetail.MessagesSaved(api.layouts.remove(ctx))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.post(
+                "/api/layout-images",
+                ctx -> api.layouts.upload(ctx, caller.actor(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
+        config.routes.get("/api/layout-images/{id}", api.layouts::image, Gate.KEY_HELD);
     }
 
     /** The host numbers, the nightly schedule, the backup list, its download and its restore, and the feed. */

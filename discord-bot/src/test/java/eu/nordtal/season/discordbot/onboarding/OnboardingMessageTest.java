@@ -8,6 +8,7 @@ import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.Mark;
+import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Messages;
 import java.util.List;
@@ -34,7 +35,7 @@ class OnboardingMessageTest {
     private static final DiscordRenderer RENDERER =
             DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN));
 
-    private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER);
+    private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER, StoredLayoutsStandIn.none());
 
     @Test
     void theWelcomeIsOneBoxInTheDefaultLanguageOverItsBanner() {

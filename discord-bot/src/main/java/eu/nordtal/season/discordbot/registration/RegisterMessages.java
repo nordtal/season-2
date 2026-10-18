@@ -4,6 +4,7 @@ import eu.nordtal.season.database.registration.Game;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
+import eu.nordtal.season.discordbot.StoredLayouts;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.layout.Element;
@@ -38,9 +39,13 @@ public final class RegisterMessages {
     private final ManagedMessage managed;
 
     public RegisterMessages(
-            final JDA jda, final GuildLanguages languages, final DiscordRenderer messages, final Jdbi jdbi) {
+            final JDA jda,
+            final GuildLanguages languages,
+            final DiscordRenderer messages,
+            final StoredLayouts layouts,
+            final Jdbi jdbi) {
         this.languages = languages;
-        this.renderer = new LayoutRenderer(messages);
+        this.renderer = new LayoutRenderer(messages, layouts);
         this.managed = new ManagedMessage(jda, jdbi);
     }
 

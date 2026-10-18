@@ -13,6 +13,7 @@ import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
@@ -115,6 +116,7 @@ public class AccessBot implements AutoCloseable {
     private record CoreServices(
             GuildLanguages languages,
             DiscordRenderer messages,
+            StoredLayouts layouts,
             Tiers tiers,
             PaymentRequests requests,
             Purchases purchases,
@@ -165,7 +167,7 @@ public class AccessBot implements AutoCloseable {
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
-            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
+            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.layouts(), wiring);
 
             this.signals = finishStartup(
                     databaseConfig, settings, accessConfig, core, wiring, phases, updates, botConfig.stewardUrl());
@@ -229,7 +231,8 @@ public class AccessBot implements AutoCloseable {
                                                         previewed.preview().message(),
                                                         previewed.preview().text())))),
                 wiring.adminRole(),
-                core.messages());
+                core.messages(),
+                core.layouts());
 
         // Last on purpose: a marker on disk means the constructor finished.
         final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
@@ -255,7 +258,14 @@ public class AccessBot implements AutoCloseable {
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
         return new CoreServices(
-                languages, messages, tiers, requests, purchases, onboarding, languageAndTime.defaultTimeZone());
+                languages,
+                messages,
+                new StoredLayouts(LayoutStore.using(database.dataSource())),
+                tiers,
+                requests,
+                purchases,
+                onboarding,
+                languageAndTime.defaultTimeZone());
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
@@ -354,6 +364,7 @@ public class AccessBot implements AutoCloseable {
                 database.jdbi(),
                 admin::alert,
                 core.messages(),
+                core.layouts(),
                 lane);
     }
 
@@ -428,11 +439,12 @@ public class AccessBot implements AutoCloseable {
             final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
+            final StoredLayouts layouts,
             final DiscordWiring wiring) {
         // First: every reconcile below reads a role it found or created.
         wiring.onboarding().resolveRoles();
-        new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
-        new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
+        new ManagedMessages(jda, languages, tiers, messages, layouts, database.jdbi()).publishAll();
+        new RegisterMessages(jda, languages, messages, layouts, database.jdbi()).publishAll();
         wiring.guildState().reconcile();
         wiring.channels().publish();
         wiring.roles().reconcile();
@@ -476,7 +488,8 @@ public class AccessBot implements AutoCloseable {
             final PurchaseFlow purchaseFlow,
             final Runnable drainInbox,
             final AdminRole adminRole,
-            final DiscordRenderer messages) {
+            final DiscordRenderer messages,
+            final StoredLayouts layouts) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
                 databaseConfig.username(),
@@ -495,6 +508,7 @@ public class AccessBot implements AutoCloseable {
             log.info("No language has a status-channel; the sidebar status is off");
         }
         MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
+        layouts.follow(messages.raw().bundles(), hub);
         settings.listen(hub, onboarding::settingsChanged);
         hub.start();
         return hub;

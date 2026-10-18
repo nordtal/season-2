@@ -196,6 +196,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V70__a_run_s_steps_and_facts_are_rows.sql",
                 "d9b616c9b269fe9dce81d54e86fa9f6d5fca70459a4d3dedeba7394e374f90e0");
+        FROZEN.put(
+                "V71__a_discord_layout_is_stored_as_an_editor_rebuilt_it.sql",
+                "8c3cc78c3ff1d82c64fb3814819406cde554f0da76a91eb7b19698f4e555631b");
     }
 
     @Test

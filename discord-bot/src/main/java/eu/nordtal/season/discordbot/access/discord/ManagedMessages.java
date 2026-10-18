@@ -7,6 +7,7 @@ import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
+import eu.nordtal.season.discordbot.StoredLayouts;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.layout.Element;
@@ -71,10 +72,11 @@ public final class ManagedMessages {
             final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
+            final StoredLayouts layouts,
             final Jdbi jdbi) {
         this.languages = languages;
         this.tiers = tiers;
-        this.renderer = new LayoutRenderer(messages);
+        this.renderer = new LayoutRenderer(messages, layouts);
         this.managed = new ManagedMessage(jda, jdbi);
     }
 

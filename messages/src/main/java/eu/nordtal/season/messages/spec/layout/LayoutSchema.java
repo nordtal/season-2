@@ -1,5 +1,6 @@
 package eu.nordtal.season.messages.spec.layout;
 
+import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.MessageSchema;
@@ -119,7 +120,7 @@ public final class LayoutSchema {
             switch (element.kind()) {
                 case LIST -> lines.addAll(element.keys());
                 case SELECT -> element.keys().stream().skip(1).forEach(lines::add);
-                case BUTTON, LANGUAGES -> {}
+                case BUTTON, LANGUAGES, LINK -> {}
             }
         }
         for (final String key : layout.keys()) {
@@ -241,6 +242,11 @@ public final class LayoutSchema {
             Files.createDirectories(file.getParent());
             Files.writeString(file, json(bundle.getValue()), StandardCharsets.UTF_8);
         }
+    }
+
+    /** Returns the SHA-256 of the layout as JSON in lower-case hex, which a release that changes it changes. */
+    public static String hash(final Layout layout) {
+        return Sha256.hex(Json.encode(layout));
     }
 
     /** Returns the layouts as the JSON {@code layouts.json} holds. */

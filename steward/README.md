@@ -157,6 +157,18 @@ Discord place arrives as a direct message from the bot, a game place on the admi
 server, filled with the editor's examples, in the filtered service's palette if there is one. One
 `PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
 
+### Discord layouts
+
+`GET /api/layouts` answers each packaged Discord layout (`messages.LayoutsApi`) with its values, the
+keys it shows, its hash and the rebuild stored over it, `stale` once the jar's layout changed under
+it, beside the building blocks, the network's languages and the contribution tiers; the live channels
+are `GET /api/discord/channels`. `PUT /api/layouts/{bundle}/{layout}` stores a rebuild: the parts
+and the link buttons the editor added. It saves only what `LayoutCheck.rebuildProblems` passes and
+an added text `MessageCheck` does not err on, answers its warnings and writes nothing otherwise;
+`DELETE` brings the packaged layout back. `POST /api/layout-images` stores a PNG, JPEG, GIF or WebP
+of at most 8 MiB (Discord takes 20 MiB a file) once by its bytes and answers its `upload://<id>`
+address, which `GET /api/layout-images/{id}` serves to the page.
+
 ## Configuration
 
 The connection and every secret come from the environment; everything else is three groups in the

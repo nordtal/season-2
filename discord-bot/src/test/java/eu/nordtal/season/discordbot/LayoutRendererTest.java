@@ -11,11 +11,13 @@ import com.google.gson.JsonParser;
 import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.layout.Element;
 import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.spec.layout.Line;
 import eu.nordtal.season.messages.spec.layout.Part;
 import java.io.IOException;
@@ -32,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
 import net.dv8tion.jda.api.components.MessageTopLevelComponent;
+import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +50,8 @@ class LayoutRendererTest {
         try (URLClassLoader loader =
                 new URLClassLoader(new URL[] {resources.toUri().toURL()}, null)) {
             final LayoutRenderer renderer = new LayoutRenderer(
-                    DiscordRenderer.of(Messages.load(loader, "messages/layouts", Locale.ENGLISH, Locale.GERMAN)));
+                    DiscordRenderer.of(Messages.load(loader, "messages/layouts", Locale.ENGLISH, Locale.GERMAN)),
+                    StoredLayoutsStandIn.none());
             final JsonArray vectors = JsonParser.parseString(
                             Files.readString(resources.resolve("discord-layouts.json"), StandardCharsets.UTF_8))
                     .getAsJsonArray();
@@ -119,8 +123,49 @@ class LayoutRendererTest {
         assertEquals(20, drawn.components().size());
     }
 
+    @Test
+    void aStoredRebuildIsDrawnWithItsAddedTextItsLinkButtonAndItsUploadedImage() {
+        final Layout declared = Layout.discord(
+                "access",
+                "change",
+                "Onboarding",
+                List.of(Element.button("change", "access/onboarding.change.button")),
+                Part.text(Line.title("access/onboarding.change.title")),
+                Part.row("change"));
+        final LayoutRenderer renderer = renderer(StoredLayoutsStandIn.holding(
+                List.of(new LayoutStore.StoredLayout(
+                        "access",
+                        "change",
+                        List.of(
+                                Part.text(Line.added(Line.Style.HEADING, Map.of("en", "Read first", "de", "Zuerst"))),
+                                Part.gallery("upload://7"),
+                                Part.row("change", "site")),
+                        List.of(Element.link("site", "https://nordtal.eu", Map.of("en", "Site"))),
+                        LayoutSchema.hash(declared))),
+                List.of(new LayoutStore.LayoutImage(7, "image/png", new byte[] {1}))));
+
+        final LayoutRenderer.Drawn drawn = renderer.render(
+                declared,
+                new LayoutRenderer.Filling(Map.of(), Map.of("change", new LayoutRenderer.FilledButton(Ids.ONBOARD))),
+                Locale.GERMAN);
+
+        final String sent = sent(drawn.components()).toString();
+        assertAll(
+                () -> assertTrue(sent.contains("\"### Zuerst\""), sent),
+                () -> assertTrue(sent.contains("attachment://upload-7.png"), sent),
+                () -> assertTrue(sent.contains("https://nordtal.eu") && sent.contains("\"Site\""), sent),
+                () -> assertEquals(
+                        List.of("upload-7.png"),
+                        drawn.uploads().stream().map(FileUpload::getName).toList()));
+    }
+
     private static LayoutRenderer renderer() {
-        return new LayoutRenderer(DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN)));
+        return renderer(StoredLayoutsStandIn.none());
+    }
+
+    private static LayoutRenderer renderer(final StoredLayouts stored) {
+        return new LayoutRenderer(
+                DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN)), stored);
     }
 
     private static String onlyText(final List<MessageTopLevelComponent> components) {
@@ -167,6 +212,9 @@ class LayoutRendererTest {
         final JsonObject elements = json.getAsJsonObject("elements");
         final Map<String, LayoutRenderer.Filled> filled = new HashMap<>();
         for (final Element element : layout.elements()) {
+            if (element.kind() == Element.Kind.LINK) {
+                continue;
+            }
             final JsonObject one = elements.getAsJsonObject(element.id());
             filled.put(
                     element.id(),
@@ -197,6 +245,7 @@ class LayoutRendererTest {
                             new LayoutRenderer.FilledLanguages(one.getAsJsonArray("languages").asList().stream()
                                     .map(tag -> Locales.parse(tag.getAsString()))
                                     .toList());
+                        case LINK -> throw new IllegalArgumentException("a link button is filled by nobody");
                     });
         }
         return new LayoutRenderer.Filling(args(json.getAsJsonObject("values")), filled);

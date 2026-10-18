@@ -47,7 +47,8 @@ class JournaledRoutesTest {
             Map.entry("POST /auth/webauthn/register/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/webauthn/authenticate/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/totp/enrol/start", Unjournaled.CEREMONY_START),
-            Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF));
+            Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF),
+            Map.entry("POST /api/layout-images", Unjournaled.SHOWN_ONCE_SAVED));
 
     private static Javalin app;
 

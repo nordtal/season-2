@@ -264,6 +264,7 @@ public final class Steward {
                 new PluginsForward(agent, data.updates()),
                 // The overrides every process re-reads on the signal a save sends.
                 eu.nordtal.season.database.message.MessageOverrideStore.using(database.dataSource()),
+                eu.nordtal.season.database.layout.LayoutStore.using(database.dataSource()),
                 settings,
                 CLOCK,
                 scheduler);

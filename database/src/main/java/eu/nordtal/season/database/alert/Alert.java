@@ -6,13 +6,13 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * One thing an admin should hear of, told in messages of the admin bundle, which each channel renders for its reader.
+ * One thing an admin should hear of, told in messages of the admin bundle.
  *
- * @param subject what it is about, such as {@code smp} or {@code disk}: a name, which tells two alerts of a type apart
- * @param title one line, for a lock screen and the admin channel
- * @param detail the lines below it; may be empty
- * @param measured what it measured, as typed values; empty for an alert that measures nothing, such as an event
- * @param path the page in Steward that can act on it
+ * @param subject what it is about, such as {@code smp} or {@code disk}
+ * @param title one line, for the lock screen and the admin channel
+ * @param detail the lines below the title, may be empty
+ * @param measured what it measured, empty for an event
+ * @param path the Steward page that can act on it
  */
 public record Alert(
         AlertType type,
@@ -23,13 +23,12 @@ public record Alert(
         List<Measure> measured,
         String path) {
 
-    /** How bad it is; {@link #OK} clears what an earlier alert of the same type raised. */
+    /** How bad an alert is. {@link #OK} clears an earlier alert of the same type. */
     public enum Level {
         OK,
         WARN,
         DOWN;
 
-        /** Returns the name the browser and a push carry: the constant, lowercased. */
         public String key() {
             return name().toLowerCase(Locale.ROOT);
         }
@@ -48,7 +47,7 @@ public record Alert(
         }
     }
 
-    /** An alert that measured nothing. */
+    /** Creates an alert without measures. */
     public Alert(
             final AlertType type,
             final Level level,
@@ -59,7 +58,7 @@ public record Alert(
         this(type, level, subject, title, detail, List.of(), path);
     }
 
-    /** An alert whose title says it all. */
+    /** Creates an alert without detail and measures. */
     public Alert(
             final AlertType type, final Level level, final String subject, final MessageRef title, final String path) {
         this(type, level, subject, title, List.of(), path);

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** {@link AlertBook} against the real migrations: the bot raises, steward claims each row once and in order. */
+/** {@link AlertBook} against the real migrations: the bot raises and steward claims each row once, in order. */
 class AlertBookIntegrationTest {
 
     private static TestDatabase database;

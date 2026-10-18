@@ -4,37 +4,37 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What an alert is about, the unit an admin switches on and off per {@link AlertChannel}.
+ * What an alert is about. An admin switches each type on or off per {@link AlertChannel}.
  *
- * The first six are measured by steward and cleared again; the last three are single events.
+ * Steward measures and clears the first six types. The last three are single events.
  */
 public enum AlertType {
 
-    /** A service is stopped or reports itself unhealthy, or Docker answered with no services at all. */
+    /** A service is stopped or unhealthy, or Docker lists no services. */
     SERVICE(true, false, true),
 
-    /** A kind of backup is missing, or a series is older than the permitted age. */
+    /** A backup kind is missing or a series is older than allowed. */
     BACKUP(true, false, true),
 
     /** The disk is fuller than its threshold. */
     DISK(true, false, true),
 
-    /** Host memory is more used than its threshold. */
+    /** Host memory use is above its threshold. */
     MEMORY(true, false, true),
 
     /** A container runs an older image than the registry has, or the registry did not answer. */
     DRIFT(false, false, true),
 
-    /** The resource pack the proxy offers does not answer, so every player who joins fails to download it. */
+    /** The resource pack that the proxy offers does not answer. */
     PACK(true, true, true),
 
     /** A run failed. */
     RUN(true, true, false),
 
-    /** A payment needs a look, or a purchase failed. */
+    /** A payment needs review or a purchase failed. */
     PAYMENT(true, true, false),
 
-    /** The bot could not carry something out in Discord: a role, a direct message or a link. */
+    /** The bot could not do something in Discord: a role, a direct message or a link. */
     BOT(false, true, false);
 
     private final boolean push;
@@ -47,7 +47,7 @@ public enum AlertType {
         this.measured = measured;
     }
 
-    /** Returns whether an admin who never chose gets this type on {@code channel}. */
+    /** Returns whether this type is on for {@code channel} by default. */
     public boolean wantedByDefault(final AlertChannel channel) {
         return switch (channel) {
             case PUSH -> push;
@@ -55,17 +55,15 @@ public enum AlertType {
         };
     }
 
-    /** Returns whether steward measures this type and clears it again, rather than it being one event. */
+    /** Returns whether steward measures and clears this type. */
     public boolean measured() {
         return measured;
     }
 
-    /** Returns the name the browser sends and receives: the constant, lowercased. */
     public String key() {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    /** Returns the type of a {@link #key()}, or null for a word this build does not know. */
     public static @Nullable AlertType of(final @Nullable String key) {
         for (final AlertType type : values()) {
             if (type.key().equals(key)) {

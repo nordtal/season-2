@@ -12,7 +12,7 @@ class ReleaseTest {
         assertEquals(Release.Standing.OWN, Release.of("0.10.3", "0.10.3"));
     }
 
-    /** Numbers, not text: 0.10.0 is after 0.9.9, which a string comparison gets backwards. */
+    /** Compares numbers and not text: 0.10.0 is after 0.9.9. */
     @Test
     void aLaterReleaseIsNewerByNumberNotByText() {
         assertEquals(Release.Standing.NEWER, Release.of("v0.10.0", "0.9.9"));
@@ -26,7 +26,7 @@ class ReleaseTest {
         assertEquals(Release.Standing.OWN, Release.of("v0.10.3", null));
     }
 
-    /** The newest published release is the one to run, so a name nothing can order is still handed over. */
+    /** The newest published release runs, and a name nothing can order is still handed over. */
     @Test
     void aReleaseNothingCanOrderIsHandedOver() {
         assertEquals(Release.Standing.NEWER, Release.of("v1.0.0-rc1", "0.10.3"));

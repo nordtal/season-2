@@ -18,7 +18,6 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The archives on the disk and one archive's download. */
 final class ArchiveFiles {
 
     private static final Logger log = LoggerFactory.getLogger(ArchiveFiles.class);
@@ -58,7 +57,7 @@ final class ArchiveFiles {
         final Path resolved = backups.resolve(name).normalize();
         final Path parent = resolved.getParent();
         if (!resolved.startsWith(backups.normalize()) || parent == null || !parent.equals(backups.normalize())) {
-            // Never reached by a plain filename: the second, independent check.
+            // A plain filename never reaches this second, independent check.
             throw new BadRequestResponse("not the name of a finished backup: " + name);
         }
         if (!Files.isRegularFile(resolved)) {
@@ -80,8 +79,9 @@ final class ArchiveFiles {
     }
 
     /**
-     * One row of the archive list, or nothing if that entry is not a file any more.
-     * One stat per entry, so a file changing meanwhile cannot disagree with itself; the database is in the backup.
+     * Returns the row of one entry, or nothing when the entry is no longer a file.
+     *
+     * It reads the entry once, so a file that changes meanwhile cannot disagree with itself.
      */
     static Optional<AgentWire.Archive> row(final Path entry, final Predicate<String> inBackup) {
         final BasicFileAttributes attributes;

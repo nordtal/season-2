@@ -12,16 +12,11 @@ import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Draws one item's icon as the inventory shows it, from the item definition and the models in the client jar.
- *
- * Layers or boxes in the GUI pose, first frames, default tints; what the game draws in code gets a stand-in.
- */
+/** Draws the icon of one item as the inventory shows it, from the item definition and the models in the client jar. */
 final class IconPainter {
 
     private static final int WHITE = 0xFFFFFFFF;
 
-    /** A dye's colour on a banner, as the game tints the cloth with it. */
     private static final Map<String, Integer> DYES = Map.ofEntries(
             Map.entry("white", 0xF9FFFE),
             Map.entry("orange", 0xF9801D),
@@ -61,7 +56,6 @@ final class IconPainter {
         this.assets = assets;
     }
 
-    /** The icon of {@code item}, such as {@code minecraft:oak_log}, or none when the jar has no definition for it. */
     @Nullable
     BufferedImage paint(final String item) {
         return paint(item, List.of());
@@ -79,7 +73,9 @@ final class IconPainter {
         return draw(raster, model, Transformation.NONE, stack) ? raster.image() : null;
     }
 
-    /** Draws the branch of a definition the inventory shows when nothing about the stack is special. */
+    /**
+     * Draws the branch of a definition that the inventory shows for a stack without special data.
+     */
     private boolean draw(final Raster raster, final JsonObject node, final Transformation outer, final Stack stack) {
         final String type = kind(node);
         final Transformation transformation =
@@ -136,7 +132,6 @@ final class IconPainter {
         return layers(raster, model, tints);
     }
 
-    /** A generated item: {@code layer0} and the layers above it, each with its own tint. */
     private boolean layers(final Raster raster, final Model model, final List<Integer> tints) {
         boolean drawn = false;
         for (int layer = 0; ; layer++) {
@@ -207,22 +202,16 @@ final class IconPainter {
         return drawn;
     }
 
-    /** What is drawn: an item, and the banner patterns its stack carries. */
     private record Stack(String item, List<BannerLayer> patterns) {}
 
     /** A rectangle of a texture measured on one {@code width} wide. */
     private record Crop(String texture, int width, int x, int y, int w, int h) {}
 
-    /** The inventory's light: the top brightest, the face turned left lighter than the one turned right. */
     private static double light(final Vec3 normal) {
         return Math.min(1, 0.6 + 0.46 * Math.max(0, normal.y()) + 0.28 * Math.max(0, -normal.x()));
     }
 
-    /**
-     * A stand-in for a renderer the game draws in code, such as a chest's, a head's or a banner's.
-     *
-     * The flat base model, the entity's boxes or face, a block texture named like the item, else the particle.
-     */
+    /** Draws a stand-in for a renderer the game draws in code, such as a chest, a head or a banner. */
     private boolean special(
             final Raster raster, final JsonObject node, final Stack stack, final Transformation transformation) {
         final String item = stack.item();
@@ -262,7 +251,6 @@ final class IconPainter {
         return true;
     }
 
-    /** A head as its mob's face. */
     private boolean head(final Raster raster, final JsonObject renderer, final String kind) {
         final String mob = kind.equals("player_head") ? "player" : text(renderer, "kind");
         final Crop face = mob == null ? null : HEADS.get(mob.toLowerCase(Locale.ROOT));
@@ -285,7 +273,6 @@ final class IconPainter {
         return true;
     }
 
-    /** A chest as the boxes of its entity model, in the chest item's own inventory pose. */
     private boolean chest(final Raster raster, final JsonObject renderer) {
         final String texture = text(renderer, "texture");
         if (texture == null) {
@@ -301,11 +288,7 @@ final class IconPainter {
         return boxes(raster, model, List.of(), Transformation.NONE);
     }
 
-    /**
-     * A banner as the game draws it, its cloth tinted with its dye and each pattern laid over it in its own.
-     *
-     * The pole, the bar and the cloth are placed by the item's transformation and posed like the base model.
-     */
+    /** Draws a banner as the game does: the cloth tinted with its dye and each pattern laid over it in its own dye. */
     private boolean banner(
             final Raster raster,
             final Model base,
@@ -339,7 +322,6 @@ final class IconPainter {
         return new IconPainter(withCloth).boxes(raster, banner, List.of(), transformation);
     }
 
-    /** The banner's cloth with every pattern laid over it, each masked by its texture and tinted by its dye. */
     private @Nullable BufferedImage patterned(final int base, final List<BannerLayer> patterns) {
         final BufferedImage cloth = assets.texture("minecraft:entity/banner/base");
         if (cloth == null) {
@@ -357,7 +339,6 @@ final class IconPainter {
         return result;
     }
 
-    /** Lays {@code mask}, multiplied by {@code tint} and scaled to {@code target}'s size, over what is there. */
     private static void lay(final BufferedImage target, final BufferedImage mask, final int tint) {
         for (int y = 0; y < target.getHeight(); y++) {
             for (int x = 0; x < target.getWidth(); x++) {
@@ -375,7 +356,6 @@ final class IconPainter {
         }
     }
 
-    /** {@code top} laid over {@code bottom}, both as ARGB. */
     private static int over(final int top, final int bottom) {
         final int alpha = top >>> 24;
         final int below = bottom >>> 24;
@@ -393,13 +373,12 @@ final class IconPainter {
         return result;
     }
 
-    /** A dye's colour as an opaque tint; white for a name no dye has. */
+    /** Returns a dye's colour as an opaque tint, white for an unknown name. */
     private static int dye(final @Nullable String colour) {
         final Integer dye = colour == null ? null : DYES.get(colour.toLowerCase(Locale.ROOT));
         return dye == null ? WHITE : 0xFF000000 | dye;
     }
 
-    /** A full block of one texture in the GUI pose of {@code block/block}. */
     private void cube(final Raster raster, final BufferedImage texture) {
         final Model.Pose pose = new Model.Pose(new Vec3(30, 225, 0), Vec3.ZERO, new Vec3(0.625, 0.625, 0.625));
         final Vec3 from = Vec3.ZERO;

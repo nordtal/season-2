@@ -33,13 +33,12 @@ public final class Sampler implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(Sampler.class);
 
-    /** Every 30 seconds. */
     public static final Duration PERIOD = Duration.ofSeconds(30);
 
     /** An hour of rounds, so a steward that restarts within it misses none. */
     static final int KEPT = 120;
 
-    /** How long one round may take before it is abandoned for this tick. */
+    /** The time after which a round is abandoned for this tick. */
     private static final Duration ROUND_TIMEOUT = Duration.ofSeconds(20);
 
     private final Docker docker;
@@ -49,7 +48,6 @@ public final class Sampler implements AutoCloseable {
 
     private final Deque<AgentWire.Round> rounds = new ArrayDeque<>();
 
-    /** Takes the rounds, and asks every container of one round at once. */
     private final Scheduler scheduler;
 
     private Scheduler.@Nullable Task ticking;
@@ -67,7 +65,7 @@ public final class Sampler implements AutoCloseable {
         this.scheduler = scheduler;
     }
 
-    /** Takes a round now, which has no CPU yet, and one every period after it. */
+    /** Takes a round now, which has no CPU yet, and one every period. */
     public synchronized void start() {
         ticking = scheduler.every(Duration.ZERO, PERIOD, this::tickQuietly);
         log.info("sampling the host and the containers every {}s", PERIOD.toSeconds());
@@ -93,7 +91,9 @@ public final class Sampler implements AutoCloseable {
         return round;
     }
 
-    /** The rounds taken after {@code after}, oldest first; {@code null} asks for every round still held. */
+    /**
+     * Returns the rounds after {@code after}, oldest first. {@code null} returns every round still held.
+     */
     public List<AgentWire.Round> after(final @Nullable Instant after) {
         synchronized (rounds) {
             return rounds.stream()
@@ -102,14 +102,12 @@ public final class Sampler implements AutoCloseable {
         }
     }
 
-    /** The newest round, or {@code null} before the first one. */
     public AgentWire.@Nullable Round latest() {
         synchronized (rounds) {
             return rounds.peekLast();
         }
     }
 
-    /** The newest reading of each service, empty before the first round. */
     public Map<String, AgentWire.Reading> latestByService() {
         final AgentWire.Round round = latest();
         return round == null ? Map.of() : round.services();
@@ -171,13 +169,12 @@ public final class Sampler implements AutoCloseable {
         return readings;
     }
 
-    /** What one container answered, before it is folded into its service. */
     record Reading(String service, long memoryBytes, long memoryLimitBytes, OptionalDouble cpuPercent) {}
 
     /**
      * One reading per service, summed over its containers.
      *
-     * A service whose containers gave no CPU reading has no CPU rather than a zero.
+     * A service whose containers gave no CPU reading has no CPU, not zero.
      */
     static Map<String, AgentWire.Reading> byService(final List<Reading> readings, final Instant at) {
         final Map<String, long[]> memory = new LinkedHashMap<>();

@@ -8,20 +8,18 @@ import java.util.List;
 /**
  * Saves the volumes and the database, synchronously, and sweeps old archives.
  *
- * The servers stay down while {@link #save} blocks, which is why every result reports a duration.
+ * The servers stay down while {@link #save} blocks, so every result reports a duration.
  */
 public interface Snapshots {
 
-    /** The name the database dump goes by, in a result and on a run's report line. */
     String DATABASE = "database";
 
-    /** The name the copy off this host goes by, in a result and on a run's report line. */
     String OFFSITE = "offsite";
 
     /**
      * Dumps the database while everything runs, since pg_dump's snapshot needs nothing stopped.
      *
-     * @return a failure naming why when the deployment dumps no database at all
+     * @return a failure when the deployment has no database to dump
      */
     SnapshotResult saveDatabase();
 
@@ -33,11 +31,11 @@ public interface Snapshots {
     SnapshotResult save(String volume);
 
     /**
-     * Writes a sidecar mark saying the servers behind this archive were stopped unverified.
+     * Writes a sidecar mark for an archive whose servers stopped unverified.
      *
-     * @param archive the path {@link SnapshotResult#file()} came back with
-     * @param mark the run and the services whose ending could not be read back, which restore.sh shows before a restore
-     * @return whether it was written; one that could not be is logged and keeps the backup
+     * @param archive the path from {@link SnapshotResult#file()}
+     * @param mark the run and the services whose end could not be read, which restore.sh shows before a restore
+     * @return whether the mark was written. A failure is logged and keeps the backup.
      */
     boolean markUnverified(String archive, Unverified mark);
 
@@ -45,7 +43,7 @@ public interface Snapshots {
      * The mark beside an archive taken after a stop nobody could confirm.
      *
      * @param run the run that stopped the services and took the archive
-     * @param services the services whose ending could not be read back
+     * @param services the services whose end could not be read
      */
     record Unverified(long run, List<String> services) {}
 
@@ -53,7 +51,7 @@ public interface Snapshots {
      * What a sweep removed.
      *
      * @param expired what the policy no longer keeps
-     * @param overBudget what went afterwards because the archives took more of the disk than the budget allows
+     * @param overBudget what went afterwards because the archives took more disk than the budget
      */
     record Pruned(List<String> expired, List<String> overBudget) {
 
@@ -64,11 +62,11 @@ public interface Snapshots {
     }
 
     /**
-     * Whether a backup fits on the disk, asked before anything stops for it.
+     * Whether a backup fits on the disk, asked before anything stops.
      *
-     * @param expectedBytes what it is expected to write: each series' newest archive, or a new volume's size
+     * @param expectedBytes the newest archive of each series, or the size of a new volume
      * @param usableBytes what the filesystem lets this process write now
-     * @param reserveBytes what has to stay free for postgres and the servers
+     * @param reserveBytes what stays free for postgres and the servers
      */
     record Room(long expectedBytes, long usableBytes, long reserveBytes) {
 
@@ -78,8 +76,7 @@ public interface Snapshots {
     }
 
     /**
-     * Deletes whatever the policy no longer keeps, one series at a time, then whatever the disk budget cannot hold.
-     * A volume outside {@code inBackup} is counted by the calendar, so its archives age out.
+     * Deletes what the policy no longer keeps, one series at a time, then what the disk budget cannot hold.
      *
      * @param policy the staggered schedule and the one-per-day collapse; see {@link Retention}
      * @param inBackup the volumes a backup saves now
@@ -87,18 +84,20 @@ public interface Snapshots {
      */
     Pruned prune(Retention policy, Collection<String> inBackup);
 
-    /** What a backup of these volumes and the database would write, against the room the disk has for it. */
+    /**
+     * Returns what a backup of these volumes and the database would write, against the free room on the disk.
+     */
     Room room(Collection<String> volumes);
 
     /**
-     * The series a finished archive in the backups belongs to: its volume, or {@link #DATABASE} for a dump.
+     * Returns the series of a finished archive: its volume, or {@link #DATABASE} for a dump.
      *
-     * @return empty when there is no such finished archive
+     * @return empty when there is no such archive
      */
     java.util.Optional<String> seriesOf(String archive);
 
     /**
-     * Copies the newest finished archive of every series off this host and applies the policy there too.
+     * Copies the newest finished archive of every series off this host and applies the policy there.
      *
      * @return empty when no offsite target is configured
      */
@@ -113,9 +112,11 @@ public interface Snapshots {
      */
     record Restored(SnapshotResult result, boolean touched) {}
 
-    /** Puts a volume archive back into its volume, which every server on it has stopped for. */
+    /** Puts a volume archive back into its volume. */
     Restored restore(String archive);
 
-    /** Replaces the database with a dump in one transaction, then brings its schema up to this release's. */
+    /**
+     * Replaces the database with a dump in one transaction, then applies the schema of this release.
+     */
     SnapshotResult restoreDatabase(String dump);
 }

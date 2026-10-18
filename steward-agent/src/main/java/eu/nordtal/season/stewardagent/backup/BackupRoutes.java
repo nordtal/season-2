@@ -16,7 +16,6 @@ public final class BackupRoutes {
     private final Path backups;
     private final Supplier<Collection<String>> volumes;
 
-    /** @param volumes the volumes a backup saves now, which the list marks the archives of every other against */
     public BackupRoutes(final Path backups, final Supplier<Collection<String>> volumes) {
         this.backups = backups;
         this.volumes = volumes;
@@ -24,11 +23,13 @@ public final class BackupRoutes {
 
     public void register(final JavalinConfig config) {
         config.routes.get(AgentWire.BACKUPS, ctx -> ctx.json(ArchiveFiles.list(backups, inBackup())));
-        // Streamed, never buffered: these are hundreds of megabytes.
+        // The archives have hundreds of megabytes.
         config.routes.get(AgentWire.BACKUP, ctx -> ArchiveFiles.download(ctx, backups, ctx.pathParam("name")));
     }
 
-    /** Whether a volume is in the backup set; every volume is while compose.yml cannot be read, so none is marked. */
+    /**
+     * While compose.yml cannot be read, every volume counts as in the backup set, so none is marked.
+     */
     private java.util.function.Predicate<String> inBackup() {
         try {
             final Collection<String> set = volumes.get();

@@ -2,10 +2,10 @@ package eu.nordtal.season.stewardagent.run;
 
 import java.util.List;
 
-/** How a plugin removal run takes an added plugin off a server it holds stopped. */
+/** Removes an added plugin from a server that the run holds stopped. */
 public interface PluginRemoval {
 
-    /** Refuses every removal, for a runner that was given no plugin directory. */
+    /** Refuses every removal. */
     PluginRemoval NONE = new PluginRemoval() {
         @Override
         public boolean has(final String service, final String artifact) {
@@ -18,7 +18,7 @@ public interface PluginRemoval {
         }
     };
 
-    /** Whether an admin added that plugin to that server, so the run has something to remove. */
+    /** Returns whether an admin added the plugin to the server. */
     boolean has(String service, String artifact);
 
     /**

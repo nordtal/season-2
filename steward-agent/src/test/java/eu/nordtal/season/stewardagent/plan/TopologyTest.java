@@ -22,7 +22,7 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * What compose.yml has to hold together: its labels, the entrypoint's view of them, and the mounts they imply.
  *
- * It reads the real compose file, through the agent's own parser where a label is concerned.
+ * It reads the real compose file, and the labels through the parser of the agent.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
@@ -35,7 +35,7 @@ class TopologyTest {
 
     @Test
     void theEntrypointReadsTheKindAndThePluginsTheAgentReads() {
-        // An alias, not a copy: a literal written into the environment again would be a second owner.
+        // An alias and not a copy: a literal in the environment would be a second owner.
         for (final Topology.Service server : SERVERS) {
             assertEntrypointReadsLabels(server.name(), server.name());
         }
@@ -65,7 +65,7 @@ class TopologyTest {
 
     @Test
     void anArtefactThatMayHaveNoBuildForThisVersionIsNotOneTheGuardDemands() {
-        // `?` exists so an artefact with no build for this version cannot keep the SMP down.
+        // `?` keeps an artefact with no build for this version from holding the SMP down.
         final Topology.Service smp = server(Topology.SMP);
 
         assertTrue(
@@ -102,7 +102,7 @@ class TopologyTest {
         final List<String> parts = ComposeFile.fields(voice.substring(0, voice.length() - "/udp".length()));
         assertEquals(3, parts.size(), voice + " is not bind:host:container");
 
-        // The voice endpoint is the Minecraft endpoint under a different protocol; separated, the client hears no port.
+        // The voice endpoint is the Minecraft endpoint under another protocol. Separated, the client hears no port.
         final String game = compose.service(GUARD).ports().stream()
                 .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
                 .findFirst()
@@ -184,7 +184,7 @@ class TopologyTest {
 
     @Test
     void theWaitingRoomHasNoVoiceChatAndThatIsHowItStaysSilent() {
-        // Simple Voice Chat needs its Bukkit plugin on the server a player stands on; the limbo has never had it.
+        // Simple Voice Chat needs its Bukkit plugin on the server a player stands on. The limbo never had it.
         assertFalse(
                 server(Topology.LIMBO).plugins().contains(Topology.VOICE_CHAT),
                 "the limbo carries voice chat, so two people waiting can hear each other");
@@ -213,7 +213,7 @@ class TopologyTest {
 
     @Test
     void theServerVersionInComposeYmlIsTheOneCommonDeclaresAsALiteral() {
-        // The literal is asserted, not merely required to exist, because a `${...:-26.2}` would pass a shape check.
+        // The literal is asserted, because `${...:-26.2}` would pass a shape check.
         for (final Topology.Service service : SERVERS) {
             final String version = compose.service(service.name()).environment().get("SERVER_VERSION");
             assertNotNull(
@@ -232,7 +232,7 @@ class TopologyTest {
                             + " against; a deployment where they differ loads no plugins.");
         }
 
-        // steward-agent reads Platform directly, so nothing here should feed it a version.
+        // steward-agent reads Platform directly, so nothing here feeds it a version.
         final Map<String, String> environment =
                 compose.service(AgentWire.SERVICE).environment();
         for (final String retired : List.of(
@@ -295,7 +295,7 @@ class TopologyTest {
     void everyServerHasItsVolumeMountedIntoTheAgent() {
         final String mounts = String.valueOf(compose.service(AgentWire.SERVICE).mounts());
         for (final Topology.Service service : SERVERS) {
-            // A server whose volume is not mounted reports as "unknown" for ever. Caught here.
+            // A server whose volume is not mounted reports "unknown" for ever.
             assertTrue(
                     mounts.contains("/volumes/" + service.name()),
                     AgentWire.SERVICE + " does not mount /volumes/" + service.name()
@@ -330,7 +330,7 @@ class TopologyTest {
                         + " `apply` reports success, the jars are on disk, and no server runs"
                         + " a single one of them."));
 
-        // Compared expression for expression: a variable spelt differently anywhere is a silent split.
+        // Compared expression for expression, because a variable spelt differently anywhere splits silently.
         assertEquals(
                 ComposeFile.sourceOf(onTheServer),
                 ComposeFile.sourceOf(onSteward),
@@ -356,14 +356,14 @@ class TopologyTest {
                         + " default is not.");
     }
 
-    // Whether a plugins/ volume is saved is backup.volumes' own decision, asked of the spec, not named here.
+    // backup.volumes decides whether a plugins/ volume is saved, so the test asks the spec.
     private void assertPluginsBackupMatchesSpec(
             final Topology.Service service, final List<String> agentMounts, final String onTheServer) {
         final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
         final Optional<String> forTheBackup = agentMounts.stream()
                 .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume))
                 .findFirst();
-        // The mount is the backup set, so a plugins volume mounted for it is saved and must be the server's own.
+        // The mount is the backup set, so a plugins volume mounted for it is saved and is the server's own.
         forTheBackup.ifPresent(mount -> assertEquals(
                 ComposeFile.sourceOf(onTheServer),
                 ComposeFile.sourceOf(mount),
@@ -375,7 +375,7 @@ class TopologyTest {
         // A folder spelt differently shows the packaged texts of jars the server does not run.
         final List<String> stewardMounts = compose.service(AgentWire.SERVICE).mounts();
 
-        // The interface shows a bundle under the compose service name, the same name the server owns it under.
+        // The interface shows a bundle under the compose service name, the name the server owns it under.
         for (final Topology.Service service : SERVERS) {
             assertServerConfigMatchesInterface(service, stewardMounts);
         }

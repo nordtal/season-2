@@ -27,13 +27,11 @@ public final class Modrinth {
 
     private static final String SEARCH = "https://api.modrinth.com/v2/search";
 
-    /** The project's own page, linked next to a hit. */
     private static final String PAGE = "https://modrinth.com/plugin/";
 
     private static final String VERSION_FILE = "https://api.modrinth.com/v2/version_file/";
     private static final String PROJECTS = "https://api.modrinth.com/v2/projects";
 
-    /** How many hits one search asks for. */
     public static final int SEARCH_LIMIT = 20;
 
     /**
@@ -44,9 +42,9 @@ public final class Modrinth {
     public static final List<String> PRE_RELEASE_EXCEPTIONS = List.of("voicechat-velocity");
 
     /**
-     * Modrinth answered, and it has no stable build of this plugin for this Minecraft version.
+     * Modrinth answered and has no stable build of this plugin for this Minecraft version.
      *
-     * Not an outage, so its service is not skipped; there is deliberately no fallback to another version.
+     * This is no outage, so the service is not skipped. No fallback to another version exists.
      */
     public static final class Unsupported extends IOException {
 
@@ -82,7 +80,7 @@ public final class Modrinth {
         final String what = "Modrinth " + artifact + " (" + projectId + ") for " + gameVersion + "/" + loader;
         final JsonArray versions = ApiFields.array(http.get(uri), what);
 
-        // Decided from the artefact id alone, so no caller or config file can point it elsewhere.
+        // Only the artefact id decides, so no caller or config file can change it.
         final boolean preReleasesCount = PRE_RELEASE_EXCEPTIONS.contains(artifact);
 
         final List<JsonObject> releases = new ArrayList<>();
@@ -101,7 +99,7 @@ public final class Modrinth {
                     + " may work around by installing a build for a different Minecraft version.");
         }
 
-        // Newest first; a version with an unparseable date sorts last rather than crashing the run.
+        // The newest comes first. A version with an unparseable date sorts last.
         releases.sort(
                 Comparator.comparing((JsonObject version) -> published(version)).reversed());
         final JsonObject newest = releases.getFirst();
@@ -126,7 +124,7 @@ public final class Modrinth {
     }
 
     /**
-     * One hit of a plugin search, in the shape the interface draws it.
+     * One hit of a plugin search.
      *
      * @param projectId Modrinth's immutable id, which is the identity
      * @param slug the readable id, which becomes the artefact id of an added plugin
@@ -147,7 +145,7 @@ public final class Modrinth {
             long downloads) {}
 
     /**
-     * Plugins matching {@code query} that are tagged for {@code gameVersion} on {@code loader}.
+     * Returns the plugins matching {@code query} for {@code gameVersion} on {@code loader}.
      *
      * @param query what was typed; blank means the most popular ones
      * @param gameVersion the Minecraft version this service runs
@@ -174,7 +172,7 @@ public final class Modrinth {
             final String projectId = ApiFields.optionalString(hit, "project_id");
             final String slug = ApiFields.optionalString(hit, "slug");
             if (projectId == null || slug == null) {
-                // Skipped rather than refused, so one odd row costs no other result.
+                // An odd row is skipped and costs no other result.
                 continue;
             }
             found.add(new Hit(
@@ -216,7 +214,7 @@ public final class Modrinth {
         return ApiFields.string(ApiFields.object(body, "Modrinth version_file"), "project_id", "Modrinth version_file");
     }
 
-    /** Name, slug and icon of each of {@code projectIds}, in one request; unknown ids are left out. */
+    /** Returns name, slug and icon of each project in one request. Unknown ids are left out. */
     public List<Project> projects(final Collection<String> projectIds) throws IOException {
         if (projectIds.isEmpty()) {
             return List.of();

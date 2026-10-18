@@ -7,8 +7,7 @@ plugins {
 
 application.mainClass.set("eu.nordtal.season.stewardagent.StewardAgent")
 
-// ComposeRefusesItselfTest reads the real compose file, so it has to be a declared input.
-// Files outside this module that the topology tests read as text, so an edit to one reruns :steward-agent:test.
+// The topology tests read these files outside the module as text, so an edit reruns :steward-agent:test.
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/dev.env.example")
@@ -22,28 +21,23 @@ repositoryRootTestInputs {
 }
 
 dependencies {
-    // Only this service creates containers; steward asks it over the guarded internal API.
     implementation(project(":internal-api"))
     implementation(libs.gson)
 
-    // The kernel, for the process clock; it depends on the JDK alone.
+    // The process clock.
     implementation(project(":common"))
 
-    // The runs: the inbox, the settings and the schema.
-    // :database takes the driver, JDBI, HikariCP and slf4j compileOnly; the bundle puts them on the runtime path.
+    // :database takes the driver, JDBI, HikariCP and slf4j as compileOnly, so the bundle adds them.
     implementation(project(":database"))
     implementation(libs.bundles.access.persistence)
     implementation(libs.postgresql.driver)
-    // JdbiPluginDirectory installs JDBI's PostgresPlugin.
     implementation(libs.jdbi.postgres)
-    // Only steward-agent migrates.
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
     implementation(project(":settings"))
 
     runtimeOnly(libs.logback.classic)
 
-    // The stand-in agent: the real routes over FakeDaemon, behind the real guard.
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
     testImplementation(testFixtures(project(":common")))

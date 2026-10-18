@@ -25,7 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The bundles a module ships in its jar, read for the editor.
  *
- * Fixture jars are written as real zips, since opening an arbitrary path as a zip is what is under test.
+ * The fixture jars are real zips, because opening an arbitrary path as a zip is under test.
  */
 class MessageBundlesTest {
 
@@ -34,8 +34,6 @@ class MessageBundlesTest {
 
     @TempDir
     Path images;
-
-    // Discovery
 
     @Test
     void aPaperPluginsBundleIsNamedByItsJarBesideTheServersData() throws IOException {
@@ -59,7 +57,9 @@ class MessageBundlesTest {
         assertEquals(List.of(new MessageBundleLocation("discord-bot", "", jar)), found);
     }
 
-    /** Steward packages bundles it never re-reads, so a form for them would save and change nothing. */
+    /**
+     * Steward never re-reads bundles it packages, so a form for them would save and change nothing.
+     */
     @Test
     void aJarWhoseProcessDoesNotFollowTheOverridesOffersNoBundle() throws IOException {
         final Path jar = images.resolve("steward.jar");
@@ -75,8 +75,6 @@ class MessageBundlesTest {
 
         assertEquals(List.of(), MessageBundles.discover(List.of(new ServiceJar("limbo", jar, false, true))));
     }
-
-    // Reading and merging
 
     @Test
     void severalRootsInOneJarAreMergedIntoOneBundleTheWayMessagesLoadMergesThem() throws IOException {
@@ -298,8 +296,6 @@ class MessageBundlesTest {
         assertEquals(List.of("Welcome"), entry(bundle, "welcome").packaged("en"));
     }
 
-    // Fixtures
-
     private static MessageEntry entry(final MessageBundle bundle, final String key) {
         return bundle.entries().stream()
                 .filter(e -> e.key().equals(key))
@@ -308,7 +304,7 @@ class MessageBundlesTest {
                         + bundle.entries().stream().map(MessageEntry::key).toList()));
     }
 
-    /** Writes a jar with the given entry name -> UTF-8 text content, directory entries included. */
+    /** Writes a jar with entries of name to UTF-8 text, directory entries included. */
     private static void writeJar(final Path jar, final Map<String, String> entries) throws IOException {
         Files.createDirectories(jar.getParent());
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {

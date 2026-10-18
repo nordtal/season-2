@@ -16,7 +16,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/** A round against the real daemon: the host's numbers and one reading per running service, and nothing written. */
+/**
+ * Tests a round against the real daemon: the host's numbers, one reading per running service, and nothing written.
+ */
 class SamplerIntegrationTest {
 
     @Test

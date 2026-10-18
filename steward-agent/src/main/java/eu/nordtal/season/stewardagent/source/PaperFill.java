@@ -21,7 +21,7 @@ public final class PaperFill {
     /** The only channel followed. Fill also publishes {@code ALPHA}. */
     private static final String STABLE = "STABLE";
 
-    /** A version this module is willing to install: digits and dots, so no snapshot, rc or pre-release. */
+    /** The versions this module installs: digits and dots, so no snapshot, rc or pre-release. */
     private static final Pattern RELEASE_VERSION = Pattern.compile("[0-9]+(\\.[0-9]+)*");
 
     /** The download the servers run. Fill also publishes {@code mojang-mapped} builds. */
@@ -55,7 +55,7 @@ public final class PaperFill {
             final JsonObject downloads = ApiFields.child(build, "downloads");
             final JsonObject download = downloads == null ? null : ApiFields.child(downloads, SERVER_DEFAULT);
             if (download == null) {
-                // A STABLE build with no server jar has not been seen; the next stable build behind it is the answer.
+                // A STABLE build without a server jar is skipped for the next stable build behind it.
                 continue;
             }
 

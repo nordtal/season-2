@@ -13,7 +13,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** The console against a stand-in daemon: who has one comes from compose.yml, and the line goes to {@code mc}. */
+/**
+ * Tests the console against a stand-in daemon: compose.yml says who has one, and the line goes to {@code mc}.
+ */
 class ConsoleTest {
 
     @TempDir

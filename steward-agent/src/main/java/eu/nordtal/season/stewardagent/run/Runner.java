@@ -36,7 +36,7 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 public final class Runner implements RequestRunner {
 
-    /** How often the row is re-read while the countdown runs, so a cancel ends the wait at once. */
+    /** The interval at which the countdown re-reads the row, so a cancel ends the wait. */
     private static final Duration COUNTDOWN_TICK = Duration.ofSeconds(1);
 
     final RunSpec config;
@@ -46,16 +46,17 @@ public final class Runner implements RequestRunner {
     final UpdateDirectory directory;
     final Waiting waiting;
 
-    /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
+    /** The plugins an admin added, passed to every resolve. */
     final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins;
 
-    /** How a plugin removal deletes what it removes; {@link PluginRemoval#NONE} by default. */
     final PluginRemoval removal;
 
-    /** Whether this is the one-shot a run was handed to, which renews the long-running agent last. */
+    /**
+     * Whether this is the one-shot a run was handed to, which recreates the long-running agent last.
+     */
     final boolean oneShot;
 
-    /** Where the proxy's pack is set, built on first use like the occupancy below. */
+    /** Built on first use. */
     private volatile @Nullable SettingStore settings;
 
     SettingStore settings() {
@@ -65,7 +66,7 @@ public final class Runner implements RequestRunner {
         return settings;
     }
 
-    /** How many players are on a service, built on first use since a run that stops nothing never asks. */
+    /** Built on first use, because a run that stops nothing never asks. */
     private volatile @Nullable Occupancy occupancy;
 
     Occupancy occupancy() {
@@ -99,7 +100,6 @@ public final class Runner implements RequestRunner {
                 PluginRemoval.NONE);
     }
 
-    /** The same, with a removal a test can watch. */
     Runner(
             final RunSpec config,
             final Database database,
@@ -152,7 +152,6 @@ public final class Runner implements RequestRunner {
         this.waiting = waiting;
     }
 
-    /** The same runner as the one-shot a run is handed to. */
     public Runner asOneShot() {
         return new Runner(config, database, containers, backups, directory, waiting, plugins, removal, true);
     }
@@ -169,7 +168,7 @@ public final class Runner implements RequestRunner {
                 return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                         .withNote(Note.failed(Step.RUN, TEXTS.report().words(unreachableMessage(runtime))))));
             }
-            // The row is the lock: the inbox holds one open run at a time, whoever wrote it.
+            // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
             return planned.outcome() != null
                     ? planned.outcome()
@@ -182,7 +181,6 @@ public final class Runner implements RequestRunner {
         }
     }
 
-    /** What the request's kind plans; the sequence after it is the same for every kind. */
     private Kinds.Planned plan(final UpdateRequest request, final Consumer<UpdateReport> progress, final Steps record) {
         return switch (request.kind()) {
             case UPDATE -> Kinds.update(this, request, progress, record);
@@ -212,7 +210,7 @@ public final class Runner implements RequestRunner {
         final Steps.Step countdown = record.begin(RunStep.Kind.COUNTDOWN);
         final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving);
         if (counting.isEmpty()) {
-            // No longer RUNNING between the claim and here, which in practice means cancelled.
+            // A run that is no longer RUNNING after the claim was cancelled.
             log.info("Request {} is no longer running, so no countdown was started", id);
             countdown.skipped(RunStep.Reason.CANCELLED);
             return null;
@@ -227,7 +225,7 @@ public final class Runner implements RequestRunner {
                 countdown.skipped(RunStep.Reason.INTERRUPTED);
                 return null;
             }
-            // Ends the wait here, so a cancel is not ignored for the rest of the countdown.
+            // A cancel ends the wait.
             final boolean stillRunning = directory
                     .find(id)
                     .map(row -> row.status() == UpdateStatus.RUNNING)
@@ -241,7 +239,7 @@ public final class Runner implements RequestRunner {
         countdown.done();
         // Before the commit, which is the proxy's signal: the proxy counts what it moves against this step.
         final Steps.Step players = record.begin(RunStep.Kind.PLAYERS_MOVED);
-        // The race at zero: a cancel arriving now either takes the row or is refused by SKIP LOCKED.
+        // A cancel at zero either takes the row or is refused by SKIP LOCKED.
         if (!directory.commitCountdown(id)) {
             log.info("Request {} was cancelled as its countdown ran out; nothing was stopped", id);
             players.skipped(RunStep.Reason.CANCELLED);
@@ -250,13 +248,15 @@ public final class Runner implements RequestRunner {
         return players;
     }
 
-    /** What an unverified stop costs on the path being settled. */
+    /** What an unverified stop costs when the run settles. */
     enum Doubt {
 
-        /** The run wrote an archive or jars while those servers were down, so it settles {@code FAILED}. */
+        /**
+         * The run wrote an archive or jars while those servers were down, so it settles as FAILED.
+         */
         FAILS_THE_RUN,
 
-        /** The run wrote nothing in between, so the doubt is only noted at run level. */
+        /** The run wrote nothing meanwhile, so the run only notes the doubt. */
         IS_ONLY_SAID
     }
 
@@ -267,7 +267,6 @@ public final class Runner implements RequestRunner {
      * @param unverified {@link UpdateRun#unverifiedStops()}
      * @param alreadyFailed whether something else has already failed this run
      * @param doubt what an unverified stop costs here
-     * @return the report with its stage set, and the note on it when there was one to make
      */
     static UpdateReport settle(
             final UpdateReport verified,
@@ -291,9 +290,9 @@ public final class Runner implements RequestRunner {
     }
 
     /**
-     * Which of the services this run asked to stop are not among the ones that did.
+     * Returns the services this run asked to stop that did not stop.
      *
-     * Only {@code PLANNED} lines count, so the database dump is never blamed.
+     * Only {@code PLANNED} lines count, so the dump is never blamed.
      */
     static List<String> servicesThatRefused(final UpdateReport planned, final Collection<String> stopped) {
         return planned.services().stream()
@@ -314,8 +313,7 @@ public final class Runner implements RequestRunner {
      *
      * @param servers the Minecraft servers, in compose.yml's order
      * @param scope what the request names, empty for the whole network
-     * @param holds what somebody is deliberately keeping down, never restarted
-     * @return the services to stop and start again, in {@code servers}' order
+     * @param holds the services held down, which a restart skips
      */
     static List<String> restarted(final List<String> servers, final List<String> scope, final List<String> holds) {
         return servers.stream()
@@ -324,12 +322,10 @@ public final class Runner implements RequestRunner {
                 .toList();
     }
 
-    /** The services somebody is deliberately holding down, in no particular order. */
     List<String> held() {
         return directory.holds().stream().map(ServiceHold::service).toList();
     }
 
-    /** What compose.yml's labels say about the stack, read once per question. */
     AgentWire.Topology topology() {
         return containers.topology();
     }
@@ -339,12 +335,10 @@ public final class Runner implements RequestRunner {
         return topology().servers().stream().map(Topology.Service::name).toList();
     }
 
-    /** Whether that service is one of the servers somebody can be standing on. */
     boolean isMinecraft(final String service) {
         return topology().hasPlugins(service);
     }
 
-    /** The services a report says this run is going to stop, without the database dump line. */
     static List<String> movingServices(final UpdateReport report) {
         return report.services().stream()
                 .filter(UpdateReport.ServiceLine::isMoving)

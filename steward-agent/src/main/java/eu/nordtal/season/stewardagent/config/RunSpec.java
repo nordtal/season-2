@@ -10,7 +10,7 @@ import eu.nordtal.season.spec.annotation.Order;
 /**
  * The {@code runs} group: where every version comes from, where the files it compares against live, and backups.
  *
- * Every default is the real value; there is no key that pins a release, since the newest published one wins.
+ * Every default is the real value. No key pins a release, because the newest published release wins.
  */
 @ConfigSpec
 public interface RunSpec {
@@ -24,7 +24,6 @@ public interface RunSpec {
         return "nordtal/season-2";
     }
 
-    /** An author can rename a slug. */
     @Order(3)
     @Name("PacketEvents project")
     @Key("packetevents-project")
@@ -68,7 +67,6 @@ public interface RunSpec {
         return "";
     }
 
-    /** An operator is waiting on the report. */
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
@@ -122,7 +120,7 @@ public interface RunSpec {
         @NoExplanationNeeded
         RetentionSpec retention();
 
-        /** pg_dump runs inside this service, so its version always matches. */
+        /** pg_dump runs inside this service, so its version matches. */
         @Order(6)
         @Name("Database service")
         @Key("database-service")
@@ -158,11 +156,13 @@ public interface RunSpec {
             return 30;
         }
 
-        /** How long a backup is kept; {@code Retention} in the backup package does the arithmetic. */
+        /**
+         * How long a backup is kept. {@code Retention} in the backup package does the arithmetic.
+         */
         @ConfigSpec
         interface RetentionSpec {
 
-            /** Several runs on one day count as that one day. */
+            /** Several runs on one day count as that day. */
             @Order(1)
             @Name("Daily")
             @Key("daily")
@@ -180,7 +180,7 @@ public interface RunSpec {
                 return 8;
             }
 
-            /** Six months of history for the price of six archives per volume. */
+            /** Six months of history take six archives per volume. */
             @Order(3)
             @Name("Monthly")
             @Key("monthly")

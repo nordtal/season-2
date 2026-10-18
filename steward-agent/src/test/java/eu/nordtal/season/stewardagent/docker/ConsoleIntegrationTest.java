@@ -45,7 +45,7 @@ class ConsoleIntegrationTest {
 
         final boolean multiplexed = !docker.inspect(smp.id()).tty();
 
-        // A round trip must be proved by a line absent before it was sent, or a stale answer passes wrongly.
+        // The round trip is proved by a line that was absent before the send.
         final Instant sentAt = Instant.now().minusSeconds(1);
         console.send(SMP, "list", Actor.STEWARD);
 
@@ -66,7 +66,9 @@ class ConsoleIntegrationTest {
         assertTrue(found != null, "typed `list` into the SMP and its answer never appeared in the log");
     }
 
-    /** Whether a log line was written after {@code instant}; an unreadable timestamp counts as old. */
+    /**
+     * Whether a log line was written after {@code instant}. An unreadable timestamp counts as old.
+     */
     private static boolean isAfter(final String line, final Instant instant) {
         final int space = line.indexOf(' ');
         if (space <= 0) {

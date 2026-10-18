@@ -48,7 +48,6 @@ public final class GameAssets implements AutoCloseable {
         this.thread = Thread.ofPlatform().name("game-assets").daemon().unstarted(this::serve);
     }
 
-    /** Over Mojang's servers, with temporary jars under {@code scratch} and the timeouts of a run. */
     public static GameAssets fromMojang(
             final GameDataStore store,
             final Path scratch,
@@ -64,7 +63,6 @@ public final class GameAssets implements AutoCloseable {
         return new GameAssets(store, jars, consented, clock);
     }
 
-    /** Looks again on every signal and reconciliation of {@code signals}, as a server's export rings it. */
     public void listen(final SignalHub signals) {
         signals.on(Channel.GAME_DATA, "the game data", doorbell::ring);
     }
@@ -93,7 +91,6 @@ public final class GameAssets implements AutoCloseable {
         }
     }
 
-    /** Draws each version whose icons are missing or another painter's, once consent is given; a failed one rests. */
     void drawMissing() {
         if (!consented.getAsBoolean()) {
             return;

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The database dump against the PostgreSQL of the project {@link TestProject#acting} names, into its {@code /tmp}.
  *
- * The directory is root-owned on purpose: {@code pg_dump} runs as {@code postgres}, so that is the real case.
+ * The directory is owned by root on purpose, because {@code pg_dump} runs as {@code postgres}.
  */
 class DatabaseDumpIntegrationTest {
 
@@ -46,7 +46,7 @@ class DatabaseDumpIntegrationTest {
                 .findFirst()
                 .orElse(null);
         assumeTrue(postgres != null, "no postgres container here - skipping");
-        // The dump logs in as the backup role, which a stack installed before the roles existed does not have.
+        // The dump logs in as the backup role, which a stack installed before the roles existed lacks.
         final Docker.ExecResult role = docker.exec(
                 postgres,
                 List.of(
@@ -56,7 +56,7 @@ class DatabaseDumpIntegrationTest {
                                 + ROLE + "'\""),
                 null);
         assumeTrue(role.output().strip().equals("1"), "the postgres here has no backup role yet - skipping");
-        // Root-owned and 0755, what a fresh docker volume looks like; handing it to `postgres` would hide the bug here.
+        // Root-owned and 0755 like a fresh docker volume. Handing it to `postgres` would hide the bug.
         docker.exec(
                 postgres,
                 List.of(
@@ -77,7 +77,7 @@ class DatabaseDumpIntegrationTest {
         assertTrue(result.bytes() > 1024, "a dump of this database should not be " + result.bytes() + " bytes");
         assertFalse(result.file().endsWith(".partial"), "a dump still called .partial has not been verified");
 
-        // The file is where it says it is, and nothing partial was left behind.
+        // The file is where it says, and nothing partial is left.
         final Docker.ExecResult listing = docker.exec(postgres, List.of("sh", "-c", "ls " + DIRECTORY), null);
         assertTrue(listing.output().contains(result.file().substring(DIRECTORY.length() + 1)), listing.output());
         assertFalse(
@@ -95,7 +95,7 @@ class DatabaseDumpIntegrationTest {
         final SnapshotResult result =
                 new DatabaseDump(docker, project, "/proc/nowhere", Clock.systemUTC()).save("postgres", ROLE);
 
-        // This has to be a red line in the report, never a quiet success.
+        // This is a red line in the report and no quiet success.
         assertFalse(result.ok());
         assertTrue(result.bytes() == 0, "a failed dump reported " + result.bytes() + " bytes");
         assertTrue(result.message().contains("/proc/nowhere"), result.message());

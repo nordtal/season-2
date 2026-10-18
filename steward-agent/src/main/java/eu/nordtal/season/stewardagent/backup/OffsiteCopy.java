@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Copies the newest finished archive of every series into a restic repository off this host, encrypted there.
+ * Copies the newest finished archive of every series into an encrypted restic repository off this host.
  *
  * A copied archive is marked by an empty file of its name under {@link #MARKS}, which the archive list reads.
  */
@@ -34,7 +34,9 @@ public final class OffsiteCopy {
     /** The directory inside the backups that holds one mark per archive the repository has. */
     public static final String MARKS = "offsite";
 
-    /** A first copy of every world at a slow uplink; a run holds the inbox for as long as this. */
+    /**
+     * The time for a first copy of every world over a slow uplink. A run holds the inbox that long.
+     */
     private static final Duration PATIENCE = Duration.ofHours(2);
 
     /** restic's exit status for a repository that does not exist yet. */
@@ -46,8 +48,8 @@ public final class OffsiteCopy {
      * @param repository restic's repository, for a Storage Box {@code sftp://user@host:23/directory}
      * @param password the repository's key, which encrypts every copy; only restic's environment carries it
      * @param sshKey the private key the box accepts
-     * @param knownHosts the box's host keys, so a changed key is refused rather than trusted
-     * @param tag the host and tag the snapshots carry, so one repository can hold more than one deployment
+     * @param knownHosts the host keys of the box, so a changed key is refused
+     * @param tag the host and tag of the snapshots, so one repository can hold several deployments
      */
     public record Target(String repository, String password, Path sshKey, Path knownHosts, String tag) {
 
@@ -60,7 +62,6 @@ public final class OffsiteCopy {
     private final Path backups;
     private final Supplier<Optional<Target>> target;
 
-    /** @param target read at every copy, empty while no repository is configured */
     public OffsiteCopy(final Path backups, final Supplier<Optional<Target>> target) {
         this.backups = backups;
         this.target = target;
@@ -129,7 +130,7 @@ public final class OffsiteCopy {
         }
     }
 
-    /** The snapshot a backup made and the bytes it added to the repository, packed where restic says so. */
+    /** The snapshot of a backup and the bytes it added to the repository. */
     record Summary(String snapshot, long added) {}
 
     /** The summary among the lines of {@code restic backup --json}, empty when it made no snapshot. */
@@ -153,12 +154,11 @@ public final class OffsiteCopy {
         return value == null || !value.isJsonPrimitive() ? null : value.getAsString();
     }
 
-    /** Whether the repository holds this archive, by its mark. */
     static boolean isCopied(final Path backups, final String archive) {
         return Files.isRegularFile(backups.resolve(MARKS).resolve(archive));
     }
 
-    /** The newest finished archive of every series in the backups, oldest series first. */
+    /** Returns the newest finished archive of every series, oldest series first. */
     List<Path> newestOfEverySeries() {
         final Map<String, Path> newest = new LinkedHashMap<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(backups)) {
@@ -215,7 +215,9 @@ public final class OffsiteCopy {
         return Duration.ofNanos(System.nanoTime() - startedAtNanos);
     }
 
-    /** One restic command against the target, with the password in its environment and never on its command line. */
+    /**
+     * One restic command against the target. The password is in the environment, never on the command line.
+     */
     private record Restic(Target target) {
 
         /** Creates the repository on the first copy; the reason when it neither answers nor could be created. */
@@ -257,7 +259,6 @@ public final class OffsiteCopy {
             return run(null, arguments);
         }
 
-        /** The same, with what restic prints written to {@code stdout}. */
         Pipeline.Result run(final @Nullable Path stdout, final String... arguments)
                 throws IOException, InterruptedException {
             final List<String> command = new ArrayList<>(List.of(

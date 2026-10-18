@@ -14,7 +14,9 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** An image the registry has a newer one of is work, and the report tells it in a message, like every other line. */
+/**
+ * Tests that an image with a newer one in the registry is work and the report says so in a message.
+ */
 class ForeignImagesTest {
 
     @Test

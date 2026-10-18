@@ -9,7 +9,7 @@ import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-/** What a run told, in English, the way a test reads a report's notes and what a line says. */
+/** Renders what a run told in English, for the tests that read report notes and lines. */
 public final class Told {
 
     private Told() {}
@@ -22,7 +22,7 @@ public final class Told {
         return messages.stream().map(DatabaseText::english).toList();
     }
 
-    /** One note as its step, outcome, service ({@code -} for the run's own) and English text. */
+    /** Returns one note as step, outcome, service ({@code -} for the run) and English text. */
     public static String record(final UpdateReport.Note note) {
         return note.step() + " " + note.outcome() + " " + (note.service() == null ? "-" : note.service()) + ": "
                 + DatabaseText.english(note.what());
@@ -32,7 +32,6 @@ public final class Told {
         return notes.stream().map(Told::record).toList();
     }
 
-    /** Several notes as one text, the way a person reads them one after the other. */
     public static String joined(final List<UpdateReport.Note> notes) {
         return String.join(". ", records(notes));
     }
@@ -42,7 +41,7 @@ public final class Told {
         return UpdateReports.english(stored);
     }
 
-    /** A plan as the records a run would write, in English, the way a failed assertion shows it. */
+    /** Returns a plan as the records a run would write, in English, for a failed assertion. */
     public static String plan(final UpdatePlan plan) {
         return UpdateReports.english(UpdateReports.toJson(PlanReport.of(plan)));
     }
@@ -63,14 +62,12 @@ public final class Told {
                 .toList();
     }
 
-    /** The keys of every change one line of a stored report tells, in order. */
     public static List<String> toldKeys(final String stored, final String line) {
         return UpdateReports.parse(stored).orElseThrow().line(line).changes().stream()
                 .map(change -> change.told() == null ? "-" : change.told().key())
                 .toList();
     }
 
-    /** What a line says, in English, or the empty text when it says nothing. */
     public static String said(final UpdateReport.ServiceLine line) {
         final MessageRef said = line.said();
         return said == null ? "" : DatabaseText.english(said);

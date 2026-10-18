@@ -91,7 +91,7 @@ class PluginDirectoryIntegrationTest {
         assertEquals("worldedit-bukkit", written.filePrefix());
         assertEquals("WorldEdit", written.title());
         assertEquals(Actor.person(OWNER), written.addedBy(), "who added it is the person, not a name to parse");
-        // `added` is the column default, so two processes with two clocks cannot disagree about it.
+        // `added` is the column default, so two processes with two clocks cannot disagree.
         assertTrue(written.added().isAfter(Instant.EPOCH), "added came from the caller, not from now()");
     }
 

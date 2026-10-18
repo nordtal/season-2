@@ -4,14 +4,13 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The two versions behind two filenames, found as the part where the names differ rather than parsed.
+ * The versions of two filenames, found as the part where the names differ.
  *
  * @param from what is installed now
  * @param to what the run installs
  */
 public record VersionPair(String from, String to) {
 
-    /** Characters a version runs through, and therefore ones a boundary must not sit inside. */
     private static boolean insideANumber(final char character) {
         return character == '.' || character == '+' || (character >= '0' && character <= '9');
     }
@@ -19,8 +18,8 @@ public record VersionPair(String from, String to) {
     /**
      * Compares two filenames.
      *
-     * @param installed the filename on the volume, or {@code null} when nothing is installed
-     * @param wanted the filename the source published, or {@code null} when nothing resolved
+     * @param installed the filename on the volume, {@code null} when nothing is installed
+     * @param wanted the filename the source published, {@code null} when nothing resolved
      * @return the pair, or empty when the names are not two builds of one artefact
      */
     public static Optional<VersionPair> of(final @Nullable String installed, final @Nullable String wanted) {
@@ -69,7 +68,6 @@ public record VersionPair(String from, String to) {
         return Optional.of(new VersionPair(from, to));
     }
 
-    /** What a version never starts or ends with, once the two names have been taken apart. */
     private static String trim(final String value) {
         int start = 0;
         int end = value.length();

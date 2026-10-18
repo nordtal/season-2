@@ -12,16 +12,15 @@ import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which directory under {@code plugins/} a jar makes for itself, from the {@code name:} in its descriptor.
+ * Reads the data folder name of a jar from the {@code name:} of its descriptor.
  *
- * Read with a regular expression: one top-level key is wanted, and a parser would fail on a stray tab.
+ * A regular expression reads the one top-level key, because a parser fails on a stray tab.
  */
 public final class PluginFolder {
 
-    /** The two descriptors, in the order Paper prefers them. */
+    /** The descriptors in the order Paper prefers them. */
     private static final List<String> DESCRIPTORS = List.of("paper-plugin.yml", "plugin.yml");
 
-    /** A top-level {@code name:} with an optional quote around its value, anchored to column one. */
     private static final Pattern NAME =
             Pattern.compile("^name:\\s*[\"']?([A-Za-z0-9_.-]+)[\"']?\\s*(?:#.*)?$", Pattern.MULTILINE);
 
@@ -30,8 +29,7 @@ public final class PluginFolder {
     /**
      * Reads the name the server gives the jar's data folder.
      *
-     * @param jar a plugin jar in a service's {@code plugins/} folder
-     * @return the folder name, or {@code null} without a readable descriptor, so nothing else is ever deleted
+     * @return the name, or {@code null} without a readable descriptor, so nothing else is deleted
      */
     public static @Nullable String nameIn(final Path jar) {
         try (ZipFile zip = new ZipFile(jar.toFile())) {

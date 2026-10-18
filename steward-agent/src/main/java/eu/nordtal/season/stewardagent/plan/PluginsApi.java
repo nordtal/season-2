@@ -41,9 +41,7 @@ public final class PluginsApi {
     private static final Logger log = LoggerFactory.getLogger(PluginsApi.class);
 
     /**
-     * The only host an icon may be loaded from.
-     *
-     * A stored icon URL is fetched by every admin's browser, so anything not served by Modrinth is dropped.
+     * The only host an icon loads from. Every admin's browser fetches a stored icon URL, so other hosts are dropped.
      */
     private static final String ICON_HOST = "https://cdn.modrinth.com/";
 
@@ -60,10 +58,9 @@ public final class PluginsApi {
     /**
      * Builds the API.
      *
-     * @param servers the servers as compose.yml's labels describe them, read again on every request
-     * @param volumesRoot where the services' volumes are mounted here, or {@code null} when none are, which the list
-     *     reports
-     * @param gameVersion the Minecraft version every search and resolve is filtered to
+     * @param servers the servers as the labels of compose.yml describe them, read on every request
+     * @param volumesRoot the mounted volumes, {@code null} when none are, which the list reports
+     * @param gameVersion the Minecraft version of every search and resolve
      * @param fixedProjects the Modrinth project id of each plugin the network gives, keyed by artefact id
      */
     public PluginsApi(
@@ -84,7 +81,6 @@ public final class PluginsApi {
         this.identity = new JarIdentity(modrinth, clock::instant);
     }
 
-    /** {@code GET /api/services/{name}/plugins} */
     public void list(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         final List<ManagedPlugin> added = plugins.on(service.name());
@@ -110,7 +106,6 @@ public final class PluginsApi {
                 noteReleases(rows.stream().map(PluginRow::wire).toList(), plugins.releases(service.name()))));
     }
 
-    /** One row per jar in the volume, named and pictured from a row or from Modrinth where either answers. */
     private List<PluginRow> installedRows(
             final Installation installed,
             final List<ManagedPlugin> added,
@@ -140,7 +135,9 @@ public final class PluginsApi {
         return rows;
     }
 
-    /** The plugins the network gives that are absent from disk, marked not running and with no install action. */
+    /**
+     * Lists the plugins the network gives that are absent from disk, as not running and without install action.
+     */
     private List<PluginRow> absentRows(
             final Topology.Service service,
             final Installation installed,
@@ -167,7 +164,7 @@ public final class PluginsApi {
         return rows;
     }
 
-    /** A row nothing on disk answered for is not installed yet, even if its jar was deleted underneath it. */
+    /** A row without a jar on disk is not installed, even when its jar was deleted. */
     private List<PluginRow> notYetInstalledRows(final List<ManagedPlugin> added, final List<String> claimed) {
         final List<PluginRow> rows = new ArrayList<>();
         for (final ManagedPlugin plugin : added) {
@@ -185,18 +182,18 @@ public final class PluginsApi {
             final @Nullable String prefix,
             final Installation.@Nullable Jar jar,
             final boolean running) {
-        // The title when there is a row, else the filename prefix, never the artefact id.
+        // The title is the row's, else the filename prefix.
         final PluginRow row = new PluginRow(
                 plugin != null ? plugin.title() : prefix == null ? jarName(jar) : prefix,
                 AgentWire.PluginGroup.PREINSTALLED);
         row.running = running;
-        // What may be deleted is exactly what has a row.
+        // Only a jar with a row can be deleted.
         row.removable = plugin != null;
         row.filePrefix = prefix;
         if (jar != null) {
             row.fileName = jar.fileName();
             row.version = jar.version();
-            // Read before anything is deleted, since the confirmation must name it; no descriptor, no field.
+            // It is read before the deletion, because the confirmation names it.
             row.dataFolder = PluginFolder.nameIn(jar.path());
         }
         if (plugin != null) {
@@ -213,7 +210,7 @@ public final class PluginsApi {
     /**
      * The rows with the release whose run moved each jar into place, by file name.
      *
-     * A jar nobody noted, such as one copied in by hand or installed before the note existed, gets none.
+     * A jar nobody noted gets none.
      */
     static List<AgentWire.Plugin> noteReleases(final List<AgentWire.Plugin> rows, final Map<String, String> releases) {
         return rows.stream()
@@ -221,7 +218,6 @@ public final class PluginsApi {
                 .toList();
     }
 
-    /** One plugin row while the three sources fill it in; {@link #wire} is what leaves the agent. */
     private static final class PluginRow {
         private String name;
         private AgentWire.PluginGroup group;
@@ -244,7 +240,6 @@ public final class PluginsApi {
             this.group = group;
         }
 
-        /** Named and pictured as Modrinth publishes it. */
         void publishedAs(final Modrinth.Project project) {
             name = project.title();
             projectId = project.projectId();
@@ -283,7 +278,6 @@ public final class PluginsApi {
                         .orElse(null);
     }
 
-    /** A jar Nordtal publishes: a season jar ({@code smp-0.9.5.jar}) or the name-tag fork. */
     private static boolean isNordtal(final Installation.Jar jar) {
         return Topology.isNordtal(jar.prefix());
     }
@@ -330,16 +324,15 @@ public final class PluginsApi {
         return jar == null ? "?" : jar.fileName();
     }
 
-    /** {@code GET /api/services/{name}/plugins/search?q=} */
     public void search(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
-        // Blank is allowed: an empty search box shows the popular plugins.
+        // An empty query lists the popular plugins.
         final String query = Optional.ofNullable(ctx.queryParam("q")).orElse("");
         final List<Modrinth.Hit> hits;
         try {
             hits = modrinth.search(query, gameVersion, service.kind().modrinthLoader());
         } catch (final IOException failed) {
-            // 502, not 500: what failed is somebody else's API.
+            // Modrinth's API failed, so the status is 502.
             throw new BadGatewayResponse("Modrinth could not be searched: " + failed.getMessage());
         }
 
@@ -354,7 +347,6 @@ public final class PluginsApi {
                     icon(hit.iconUrl()),
                     hit.pageUrl(),
                     hit.downloads(),
-                    // Both kinds of "already there": added by an admin, or given by the network.
                     added.stream().anyMatch(plugin -> plugin.artifact().equals(hit.slug())),
                     service.plugins().contains(Topology.addedArtifact(hit.slug(), service.kind()))));
         }
@@ -362,7 +354,7 @@ public final class PluginsApi {
     }
 
     /**
-     * {@code POST /api/services/{name}/plugins}: the Install button, which writes a row the next run fulfils.
+     * {@code POST /api/services/{name}/plugins}: writes a row that the next run fulfils.
      *
      * It resolves the newest build first, so the dialog says when none fits; who asked comes from steward's session.
      */
@@ -394,7 +386,7 @@ public final class PluginsApi {
                 addition.prefix(),
                 title == null ? addition.slug() : title,
                 icon(ask.iconUrl()),
-                // Built here, never from the body: a request may only choose the Modrinth project.
+                // The request chooses only the Modrinth project.
                 "https://modrinth.com/plugin/" + addition.slug(),
                 clock.instant(),
                 by));
@@ -417,10 +409,11 @@ public final class PluginsApi {
                         addition.newest().version()));
     }
 
-    /** What {@link #resolveAddition} found: enough to write the row and answer the request. */
     private record Addition(String slug, String artifact, RemoteFile newest, String prefix) {}
 
-    /** Validates the slug, refuses a plugin the network already gives, and asks Modrinth for the newest build. */
+    /**
+     * Validates the slug, refuses a plugin the network gives and asks Modrinth for the newest build.
+     */
     private Addition resolveAddition(final Topology.Service service, final String slug, final String projectId) {
         if (!slug.matches("[A-Za-z0-9!@$()`.+,_\"-]+")) {
             // Modrinth's own slug alphabet, since this becomes an artefact id and a filename.
@@ -446,7 +439,7 @@ public final class PluginsApi {
 
         final String prefix = JarName.prefixOf(newest.fileName());
         if (prefix == null) {
-            // Refused rather than guessed: without a prefix nothing could find this jar again to remove it.
+            // Without a prefix nothing could find this jar again to remove it.
             throw new ConflictResponse(newest.fileName() + " does not split into a name and a"
                     + " version, so this installation could never be undone. See JarName.");
         }
@@ -456,8 +449,8 @@ public final class PluginsApi {
     /**
      * Removes an added plugin, jar and folder, while a run holds its server stopped; the row goes last.
      *
-     * @return what was deleted, empty when nothing had been installed yet
-     * @throws io.javalin.http.HttpResponseException naming what is wrong; nothing past it was deleted
+     * @return the deleted files, empty when nothing was installed
+     * @throws io.javalin.http.HttpResponseException naming the failure, after which nothing further was deleted
      */
     public List<String> remove(final String name, final String artifact) {
         final Topology.Service service = serviceOf(name);
@@ -524,7 +517,6 @@ public final class PluginsApi {
                         + " Only a service compose.yml labels eu.nordtal.server has a plugins folder."));
     }
 
-    /** The filename prefix of a fixed artefact Nordtal publishes on this service, or none for another's. */
     private static @Nullable String nordtalPrefixOf(final Topology.Service service, final String artifact) {
         final String prefix = service.prefixOf(artifact);
         return Topology.isNordtal(prefix) ? prefix : null;
@@ -551,7 +543,7 @@ public final class PluginsApi {
         }
     }
 
-    /** Depth-first, because {@link Files#delete} refuses a directory with anything in it. */
+    /** Deletes depth first, because {@link Files#delete} refuses a non-empty directory. */
     private static void deleteTree(final Path directory) throws IOException {
         if (!Files.exists(directory)) {
             return;

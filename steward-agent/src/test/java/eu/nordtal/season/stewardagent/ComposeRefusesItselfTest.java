@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** The agent refuses to recreate itself while the command line is assembled, before anything runs. */
+/** Tests that the agent refuses to recreate itself while it assembles the command line. */
 class ComposeRefusesItselfTest {
 
     private final Compose compose =
@@ -41,7 +41,7 @@ class ComposeRefusesItselfTest {
         }
     }
 
-    /** A daemon nobody answers on: a refused request must never get as far as asking it. */
+    /** A refused request must never reach the daemon, which answers nobody. */
     private static eu.nordtal.season.stewardagent.docker.Docker nowhere() {
         return new eu.nordtal.season.stewardagent.docker.Docker(new eu.nordtal.season.stewardagent.docker.DockerSocket(
                 Path.of("/does/not/exist.sock"),

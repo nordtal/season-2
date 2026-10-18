@@ -22,10 +22,11 @@ import org.slf4j.Logger;
  */
 public final class AgentSettings {
 
-    /** The service whose settings these are. */
     public static final String SERVICE = "steward-agent";
 
-    /** {@code NORDTAL_STEWARD_AGENT} for the runs group, {@code NORDTAL_STEWARD_AGENT_<GROUP>} for the others. */
+    /**
+     * {@code NORDTAL_STEWARD_AGENT} for the runs group, {@code NORDTAL_STEWARD_AGENT_<GROUP>} for the others.
+     */
     public static final Environment ENVIRONMENT =
             Environment.of("NORDTAL_STEWARD_AGENT").withMain("runs");
 
@@ -37,14 +38,15 @@ public final class AgentSettings {
 
     private AgentSettings() {}
 
-    /** Returns the runs group, read again by every run, so a change in Steward counts from the next one. */
+    /**
+     * Returns the runs group. Every run reads it again, so a change in Steward counts from the next run.
+     */
     public static Group<RunSpec> runsGroup() {
         return Group.of("runs", RunSpec.class)
                 .checkedBy(AgentSettings::checkRuns)
                 .whileRunning();
     }
 
-    /** Loads the runs group. */
     public static Setting<RunSpec> runs(final Settings settings) throws SettingsException {
         return settings.load(runsGroup());
     }
@@ -55,7 +57,6 @@ public final class AgentSettings {
                 .load(Group.of("database", DatabaseSpec.class).checkedBy(AgentSettings::checkDatabase));
     }
 
-    /** Returns the agent's settings in the database behind {@code dataSource}. */
     public static DatabaseSettings stored(final DataSource dataSource, final Logger logger) {
         return DatabaseSettings.over(SettingStore.using(dataSource), SERVICE, ENVIRONMENT, logger);
     }
@@ -101,7 +102,7 @@ public final class AgentSettings {
     private static void requireModrinthId(final String key, final String value) {
         Checks.requireText(key, value);
         if (!MODRINTH_ID.matcher(value).matches()) {
-            // A slug only fails as an id when the author renames it, so it is caught here.
+            // The author can rename a slug, so a slug fails here as an id.
             throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"
                     + " alphanumeric characters, not the slug. Read it from the 'project_id' field"
                     + " of any version, or from a cdn.modrinth.com/data/<id>/ URL. Was '"

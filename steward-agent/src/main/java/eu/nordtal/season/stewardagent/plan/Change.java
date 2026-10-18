@@ -7,9 +7,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * One artefact on one server, and what a run would do about it.
  *
- * @param service the compose service, or {@code null} for the bot's jar and the resource pack
- * @param installed what is there now: a jar's filename or the pack's short SHA-1; {@code null} when nothing is
- * @param wanted what the sources say is newest; {@code null} when a source could not be reached
+ * @param service the compose service, {@code null} for the jar of the bot and the resource pack
+ * @param installed a jar's filename or the short SHA-1 of the pack, {@code null} when nothing is installed
+ * @param wanted what the sources call newest, {@code null} when a source could not be reached
  * @param reason why, present exactly when the status needs explaining
  */
 public record Change(
@@ -21,33 +21,29 @@ public record Change(
         @Nullable MessageRef reason) {
 
     public enum Status {
-        /** What is installed is what the source says is newest. */
+        /** The installed file is the newest. */
         UP_TO_DATE,
-        /** A newer file exists; the only status that makes a run worth pressing. */
+        /** A newer file exists. Only this status makes a run worth starting. */
         OUTDATED,
         /**
          * Nothing with this artefact's filename prefix is installed, which on a running server may mean a renamed jar.
          */
         MISSING,
-        /** The source could not be asked, so the run reports and stops rather than calling it unchanged. */
+        /** The source could not be asked. */
         UNRESOLVED,
-        /** The service's volume is not mounted in this container, so nothing can be said about it. */
+        /** The volume of the service is not mounted in this container. */
         MOUNT_MISSING,
         /**
-         * The source has no build of this artefact for the network's Minecraft version, which is not a failure.
-         *
-         * The row stays in the report so the next run installs a build once one ships.
+         * The source has no build of the artefact for the Minecraft version of the network. The row stays.
          */
         UNSUPPORTED,
-        /** Our own release carries no file for this jar or the pack but one is installed, which stays: no failure. */
+        /** Our release has no file for this jar or the pack, and an installed one stays. */
         NOT_IN_RELEASE;
 
-        /** Whether a run would move a file for this row. */
         public boolean isWork() {
             return this == OUTDATED || this == MISSING;
         }
 
-        /** Whether this row is a reason not to trust the rest of the report. */
         public boolean isFailure() {
             return this == UNRESOLVED || this == MOUNT_MISSING;
         }
@@ -57,9 +53,6 @@ public record Change(
         return new Change(service, artifact, Status.UNRESOLVED, null, null, why);
     }
 
-    /**
-     * No build of this artefact exists for the network's Minecraft version; a hand-installed jar shows as unclaimed.
-     */
     public static Change unsupported(final @Nullable String service, final String artifact, final MessageRef why) {
         return new Change(service, artifact, Status.UNSUPPORTED, null, null, why);
     }

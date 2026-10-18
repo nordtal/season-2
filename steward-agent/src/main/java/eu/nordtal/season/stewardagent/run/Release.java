@@ -12,16 +12,15 @@ final class Release {
 
     private Release() {}
 
-    /** How the newest published release stands to this agent's own. */
     enum Standing {
 
-        /** This agent's release, or one nothing can compare: the run goes ahead here. */
+        /** This agent's release, or one that cannot be compared. */
         OWN,
 
-        /** A later release, which only a steward-agent at that release carries out. */
+        /** A later release. */
         NEWER,
 
-        /** An earlier one: no schema goes back, so nothing installs it. */
+        /** An earlier release, which no schema goes back to. */
         OLDER
     }
 
@@ -43,12 +42,11 @@ final class Release {
             final int order = Versions.compare(release, own);
             return order == 0 ? Standing.OWN : order > 0 ? Standing.NEWER : Standing.OLDER;
         } catch (final NumberFormatException unordered) {
-            // The newest published release is the one to run, whatever its name says about order.
+            // The newest published release runs, whatever its name says about order.
             return Standing.NEWER;
         }
     }
 
-    /** The version a release tag names, without the {@code v} our tags carry. */
     static String version(final String tag) {
         return tag.startsWith("v") ? tag.substring(1) : tag;
     }

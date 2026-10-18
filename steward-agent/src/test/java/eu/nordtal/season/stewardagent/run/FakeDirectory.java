@@ -16,13 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** An {@link UpdateDirectory} that lives in a map, for the tests about the loop of {@link UpdateServer}. */
+/** An {@link UpdateDirectory} in a map, for the tests of the loop of {@link UpdateServer}. */
 final class FakeDirectory implements UpdateDirectory {
 
     private final Map<Long, UpdateRequest> rows = new LinkedHashMap<>();
     private final List<UpdateRequest> finished = new ArrayList<>();
 
-    /** Every progress write a run made, in order. See {@link #progress(long, String)}. */
+    /** Every progress write, in order. */
     final List<String> progressWrites = new ArrayList<>();
 
     private long nextId = 1L;
@@ -36,7 +36,6 @@ final class FakeDirectory implements UpdateDirectory {
         return List.copyOf(finished);
     }
 
-    /** A copy of {@code row} with what a statement changes, and everything it leaves alone kept. */
     private static UpdateRequest copy(
             final UpdateRequest row,
             final UpdateStatus status,
@@ -94,7 +93,7 @@ final class FakeDirectory implements UpdateDirectory {
                     return byTime != 0 ? byTime : Long.compare(left.id(), right.id());
                 })
                 .map(row -> {
-                    // The report is kept, as the real claim keeps it.
+                    // The claim keeps the report.
                     final UpdateRequest claimed =
                             copy(row, UpdateStatus.RUNNING, row.countdownEnd(), row.moving(), now, null, row.result());
                     rows.put(row.id(), claimed);
@@ -116,7 +115,6 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public boolean progress(final long id, final String result) {
-        // The stage-by-stage writes the real directory makes, recorded so a test can assert progress was reported.
         progressWrites.add(result);
         final UpdateRequest row = rows.get(id);
         return row != null && row.status() == UpdateStatus.RUNNING;
@@ -202,7 +200,7 @@ final class FakeDirectory implements UpdateDirectory {
                 .min(Instant::compareTo);
     }
 
-    /** request id -> the one-shot it was handed to. */
+    /** The one-shot each request was handed to. */
     private final Map<Long, String> runners = new LinkedHashMap<>();
 
     @Override
@@ -244,7 +242,7 @@ final class FakeDirectory implements UpdateDirectory {
             if (runner != null && stillRunning.test(runner)) {
                 continue;
             }
-            // Every kind, a RESTART included, since a redeploy takes steward down mid-call.
+            // A RESTART counts too, because a redeploy takes steward down mid-call.
             rows.put(
                     row.id(),
                     copy(row, UpdateStatus.FAILED, row.countdownEnd(), row.moving(), row.started(), now, failed));
@@ -260,7 +258,6 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public java.util.List<UpdateRequest> recent(final int limit) {
-        // Nothing in this fake ever lists: the list is a page in the interface, not a decision anything here makes.
         return java.util.List.of();
     }
 }

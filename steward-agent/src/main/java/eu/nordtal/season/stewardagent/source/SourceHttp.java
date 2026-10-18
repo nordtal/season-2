@@ -6,13 +6,12 @@ import eu.nordtal.season.common.time.Backoff;
 import eu.nordtal.season.common.time.Waiting;
 import java.time.Duration;
 
-/** The kernel's client as GitHub, Modrinth and the Fill API see it, with what their failures usually mean. */
+/** The client for GitHub, Modrinth and the Fill API, with explanations of their usual failures. */
 public final class SourceHttp {
 
-    /** How this process identifies itself to GitHub, Modrinth and the Fill API. */
     public static final String USER_AGENT = "nordtal-season-2/steward (+https://github.com/nordtal/season-2)";
 
-    /** A connection that failed is tried again twice, since one lost packet should not fail a whole resolve. */
+    /** A failed connection is tried twice more, so one lost packet does not fail a resolve. */
     private static final int ATTEMPTS = 3;
 
     private SourceHttp() {}
@@ -20,7 +19,7 @@ public final class SourceHttp {
     /**
      * Returns the client for the three sources, following their redirects.
      *
-     * @param token an optional GitHub token, blank for none, sent on every request
+     * @param token a GitHub token sent on every request, blank for none
      */
     public static WebClient client(final Duration timeout, final String token, final Waiting waiting) {
         return WebClient.create(timeout)

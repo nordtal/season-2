@@ -63,12 +63,13 @@ public final class Schema {
         return passwords;
     }
 
-    /** Returns the variable a role's password is read from. */
     public static String passwordVariable(final DatabaseRole role) {
         return "NORDTAL_STEWARD_AGENT_DATABASE_" + role.name() + "_PASSWORD";
     }
 
-    /** The version the database's schema is at, or none when it could not be read or has no history yet. */
+    /**
+     * Returns the schema version of the database, or none when it could not be read or has no history.
+     */
     public static @Nullable String version(final Database database) {
         try (Connection connection = database.dataSource().getConnection();
                 Statement statement = connection.createStatement();

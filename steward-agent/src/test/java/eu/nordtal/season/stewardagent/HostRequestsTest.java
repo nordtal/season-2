@@ -11,7 +11,9 @@ import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateStatus;
 import org.junit.jupiter.api.Test;
 
-/** The host's {@code status} tells a run that kept a local build from any other failure, so the script can ask. */
+/**
+ * Tests that {@code status} on the host tells a run that kept a local build from any other failure.
+ */
 class HostRequestsTest {
 
     @Test

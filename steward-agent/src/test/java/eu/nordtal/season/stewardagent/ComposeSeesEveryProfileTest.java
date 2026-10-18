@@ -26,7 +26,7 @@ class ComposeSeesEveryProfileTest {
         final int profile = command.indexOf("--profile");
         assertTrue(profile >= 0, "no --profile in " + command);
         assertEquals("*", command.get(profile + 1), "--profile has to name every one of them");
-        // A top-level flag after the subcommand is rejected by compose.
+        // Compose rejects a top-level flag after the subcommand.
         assertTrue(
                 profile < command.indexOf("config"),
                 "--profile is a top-level flag and belongs before `config`: " + command);
@@ -34,7 +34,7 @@ class ComposeSeesEveryProfileTest {
 
     @Test
     void theOrdinaryReadIsUnchanged() {
-        // Every profile here would start a second proxy and limbo in a plain deployment.
+        // Every profile would start a second proxy and limbo in a plain deployment.
         assertFalse(
                 compose.configCommand(false).contains("--profile"),
                 "the ordinary read must not enable the standby profile");

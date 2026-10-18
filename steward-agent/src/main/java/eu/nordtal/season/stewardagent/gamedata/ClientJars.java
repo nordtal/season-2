@@ -6,7 +6,6 @@ import java.io.IOException;
 @FunctionalInterface
 interface ClientJars {
 
-    /** Fetches {@code minecraftVersion}'s client jar for as long as the returned one stays open. */
     Jar open(String minecraftVersion) throws IOException;
 
     /** An open client jar; closing it deletes whatever it fetched. */

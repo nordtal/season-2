@@ -28,7 +28,7 @@ class PackWriterTest {
 
     @Test
     void aProxyThatNeverStartedStillGetsItsPack() {
-        // The proxy publishes its groups on its first start, which needs the plugins this same run installs.
+        // The proxy publishes its groups on its first start, which needs the plugins this run installs.
         assertTrue(store.group("proxy", "pack").isEmpty());
 
         assertTrue(PackWriter.write(store, URL, SHA1));

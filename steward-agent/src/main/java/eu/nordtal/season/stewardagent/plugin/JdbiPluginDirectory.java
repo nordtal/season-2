@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link PluginDirectory}; it borrows the pool and owns nothing. */
 final class JdbiPluginDirectory implements PluginDirectory {
 
     private final PluginDao dao;

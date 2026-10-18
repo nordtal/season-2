@@ -32,7 +32,7 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Installs what has nothing installed, once, before steward-agent reports itself ready, and writes it as a run.
+ * Installs what has nothing installed before steward-agent reports ready, and writes the install as a run.
  *
  * A newer version of an installed jar stops a server, so it is an update run; nothing here stops anything.
  */
@@ -41,7 +41,6 @@ public final class Bootstrap {
 
     private Bootstrap() {}
 
-    /** Resolves what is missing, installs it and writes a run of its own kind; called before any run is claimed. */
     public static void installMissing(
             final RunSpec config,
             final Database database,
@@ -83,9 +82,7 @@ public final class Bootstrap {
     }
 
     /**
-     * Installs a plan, then hands its services' volumes to their users, as every container a compose command makes.
-     *
-     * Also after a failure part way, since what did go in was written as root.
+     * Installs a plan, then gives the services' users ownership of their volumes, also after a failure.
      */
     static Function<UpdatePlan, ApplyResult> handingOver(
             final Function<UpdatePlan, ApplyResult> apply, final Consumer<List<String>> handOver) {
@@ -127,7 +124,7 @@ public final class Bootstrap {
             log.error("Start-up install: the install failed part way through", failure);
             return Optional.of(unexpected(planned.withStage(UpdateReport.Stage.FAILED), failure));
         }
-        // A line the plan already failed keeps its reason; only a line waiting for its files is written over.
+        // A line the plan failed keeps its reason. Only a line that waits for its files is overwritten.
         final List<String> waiting = planned.services().stream()
                 .filter(line -> line.state() == UpdateReport.State.PLANNED)
                 .map(UpdateReport.ServiceLine::service)

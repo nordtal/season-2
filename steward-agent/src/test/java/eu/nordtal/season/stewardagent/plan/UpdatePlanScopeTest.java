@@ -11,9 +11,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdatePlan#onlyServices}: what a run for one service is allowed to move.
+ * Tests {@link UpdatePlan#onlyServices}: what a run for one service may move.
  *
- * The filter is on the plan, not only the report, since {@code Runs#apply} installs what the plan holds.
+ * The plan is filtered and not only the report, because {@code Runs#apply} installs what the plan holds.
  */
 class UpdatePlanScopeTest {
 
@@ -55,7 +55,7 @@ class UpdatePlanScopeTest {
 
     @Test
     void theResourcePackIsNotInAScopedRun() {
-        // service == null is the pack: it is a setting of the proxy, not a plugins folder; "update smp" leaves it.
+        // service == null is the pack, a setting of the proxy and no plugins folder, so "update smp" leaves it.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), pack), List.of());
 
@@ -71,7 +71,7 @@ class UpdatePlanScopeTest {
 
     @Test
     void anEmptyScopeIsTheWholeNetworkUntouched() {
-        // Nothing named means "do not narrow", not "no services", as the column and the API mean it.
+        // Nothing named means "do not narrow" and not "no services".
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), on("limbo", "limbo")), List.of());
 
         assertSame(

@@ -7,43 +7,37 @@ import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.util.Map;
 
 /**
- * What an update sequence needs a container runtime to do, as the seam its tests fake.
+ * The container actions an update sequence needs. Tests fake it.
  *
  * Creating a container is not on it: that needs the compose file, which {@code steward-agent} has.
  */
 public interface ContainerOps {
 
-    /** What compose.yml says about every service, and what a backup saves and stops. */
     AgentWire.Topology topology();
 
-    /** Every service of the project with its container id, status and health. */
     RuntimeResult runtime();
 
-    /** Stops one container within the implementation's grace period, after which Docker kills it. */
     RedeployResult stop(String containerId);
 
-    /** Starts one container again, its mounts handed over first; {@link #runtime()} answers whether it is back. */
     RedeployResult start(String containerId);
 
     /**
-     * Hands everything one service mounts to the user it runs as, as every start does first.
-     *
-     * A failure is logged and not answered: the service still reads what it was handed last.
+     * Gives the user of one service ownership of everything the service mounts. A failure is logged.
      */
     void handOverMounts(String service);
 
-    /** Which services run an image the registry has moved past, read before anything stops so the plan can show it. */
+    /** Returns the services whose image the registry has moved past. */
     ImageResult images();
 
     /**
      * Pulls one service's image and recreates its container from it; never asked for steward-agent itself.
      *
-     * @param service the compose service name, not a container id
+     * @param service the compose service name
      */
     RedeployResult deploy(String service);
 
     /**
-     * Makes one service's container again from the image on this host, without pulling.
+     * Creates the container of one service from the local image without pulling.
      *
      * @param service the compose service name
      */
@@ -52,38 +46,36 @@ public interface ContainerOps {
     /**
      * Makes a standby's container from the image on this host, fetching that image only when it is missing.
      *
-     * @param service the standby's compose service name, whose image a one-shot's compose file may name first
+     * @param service the compose service name of the standby
      */
     RedeployResult standby(String service);
 
-    /** Runs the migrate service of this compose file and waits for it; triggered only on a current schema. */
+    /** Runs the migrate service of this compose file and waits for it. */
     RedeployResult migrate();
 
-    /** The name of the one-shot container a run of a newer release is handed to, which the run's row records. */
+    /**
+     * Returns the name of the one-shot container that runs a newer release, which the row of the run records.
+     */
     String oneShot();
 
     /**
-     * Starts the one-shot steward-agent at {@code release} on the claimed run {@code id}, and returns once it runs.
+     * Starts the one-shot steward-agent at {@code release} on the claimed run {@code id}.
      *
-     * @param release the version, without its {@code v}, whose image and compose file the one-shot is made from
+     * @param release the version without its {@code v}
      */
     RedeployResult handOver(long id, String release);
 
-    /** Makes the long-running steward-agent again from this compose file, as a one-shot does last. */
+    /** Creates the long-running steward-agent from this compose file. The one-shot does it last. */
     RedeployResult renewAgent();
 
-    /**
-     * Removes the images no container uses and the unused build cache, once an update has made its containers.
-     *
-     * @return what went, or why nothing did
-     */
+    /** Deletes the images that no container uses and the unused build cache. */
     Pruned pruneImages();
 
     /**
-     * What a prune of the images removed.
+     * The result of the prune.
      *
-     * @param removed the images among them by id, with their size, as far as Docker listed them before
-     * @param failure what Docker answered when it refused, {@code null} when it pruned
+     * @param removed the removed images by id with their size, as far as Docker listed them
+     * @param failure Docker's answer when it refused, {@code null} when it pruned
      */
     record Pruned(
             int images,

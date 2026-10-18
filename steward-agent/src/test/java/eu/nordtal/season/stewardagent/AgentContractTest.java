@@ -76,7 +76,7 @@ class AgentContractTest {
                                 "postgres", "postgres:18", false, false, null, null, AgentWire.Renewal.LAST)),
                 topology.services());
         assertTrue(topology.hasPlugins("smp"), "the server and its plugins reach steward intact");
-        // The backup set is the agent's own mounts, and the stop set the label: nothing else names either.
+        // The agent's mounts name the backup set and the label names the stop set.
         assertEquals(List.of("nordtal-s2_mc-smp"), topology.backupVolumes());
         assertEquals(List.of("smp"), topology.stoppedForBackup());
     }
@@ -182,7 +182,7 @@ class AgentContractTest {
                         }
                     });
                 } catch (final IOException closed) {
-                    // Closed underneath, which is how the test ends it.
+                    // The test closes it.
                 }
             });
             final Instant giveUp = Instant.now().plusSeconds(10);

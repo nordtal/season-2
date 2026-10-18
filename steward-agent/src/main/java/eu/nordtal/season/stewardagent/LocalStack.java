@@ -19,9 +19,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * What a run stops, starts and makes again through: this process's own daemon and compose file.
+ * Stops, starts and recreates containers through this process's daemon and compose file.
  *
- * Deploy and recreate block until compose is finished, since the run waits on them anyway.
+ * Deploy and recreate wait for compose to finish.
  */
 final class LocalStack implements ContainerOps {
 
@@ -55,7 +55,6 @@ final class LocalStack implements ContainerOps {
         return containers.stop(containerId);
     }
 
-    /** Hands the service's volumes to its user first, as every compose command that makes a container does. */
     @Override
     public RedeployResult start(final String containerId) {
         containers.runtime().services().stream()
@@ -110,8 +109,6 @@ final class LocalStack implements ContainerOps {
 
     /**
      * Pulls steward-agent at {@code release}, copies its compose file out of the image and runs the one-shot from it.
-     *
-     * So the one-shot is made exactly as that release defines steward-agent.
      */
     @Override
     public RedeployResult handOver(final long id, final String release) {
@@ -130,7 +127,6 @@ final class LocalStack implements ContainerOps {
         });
     }
 
-    /** The one-shot's last step: compose makes the long-running steward-agent again, which is not this container. */
     @Override
     public RedeployResult renewAgent() {
         return ran("renewal", Compose.SELF, output -> compose.bootstrap(List.of(Compose.SELF), output));
@@ -151,7 +147,6 @@ final class LocalStack implements ContainerOps {
         }
     }
 
-    /** One compose command for one service, its output logged and its last line the answer when it fails. */
     private static RedeployResult composed(final String what, final String service, final Command command) {
         if (Compose.SELF.equals(service)) {
             return RedeployResult.refused(
@@ -160,7 +155,6 @@ final class LocalStack implements ContainerOps {
         return ran(what, service, command);
     }
 
-    /** {@link #composed}, for the commands that may name steward-agent. */
     private static RedeployResult ran(final String what, final String service, final Command command) {
         final List<String> lines = new ArrayList<>();
         final Consumer<String> output = line -> {

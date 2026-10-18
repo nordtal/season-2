@@ -24,12 +24,13 @@ public final class LocalJars {
         return raw != null && raw.local();
     });
 
-    /** @param volumesRoot the services' volumes, one directory per service, or {@code null} when none are mounted */
     public LocalJars(final @Nullable Path volumesRoot) {
         this.volumesRoot = volumesRoot;
     }
 
-    /** The file names of the service's local jars in {@code plugins/} and {@code .server/}, sorted; none on doubt. */
+    /**
+     * Returns the sorted file names of the local jars in {@code plugins/} and {@code .server/}, none on doubt.
+     */
     public List<String> of(final String service) {
         if (volumesRoot == null) {
             return List.of();

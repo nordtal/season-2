@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** The preinstalled jars get their name, picture and link from the project Modrinth published them under. */
+/** Tests that a preinstalled jar takes its name, picture and link from its Modrinth project. */
 class JarIdentityTest {
 
     @TempDir

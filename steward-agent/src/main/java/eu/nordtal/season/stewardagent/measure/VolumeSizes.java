@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** How much of the disk one service's volume takes, by {@code du -sk}, asked fresh on every call. */
+/** Measures the disk space of the volume of one service with {@code du -sk} on every call. */
 public final class VolumeSizes {
 
     private static final Logger log = LoggerFactory.getLogger(VolumeSizes.class);
@@ -24,7 +24,6 @@ public final class VolumeSizes {
 
     private final @Nullable Path volumes;
 
-    /** @param volumes where each service's volume is mounted under its name, or {@code null} for none */
     public VolumeSizes(final @Nullable Path volumes) {
         this.volumes = volumes;
     }

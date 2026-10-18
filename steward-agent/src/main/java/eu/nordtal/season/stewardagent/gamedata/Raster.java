@@ -10,10 +10,9 @@ import java.util.Arrays;
  */
 final class Raster {
 
-    /** The side of one icon in the sheet. */
     static final int ICON = 32;
 
-    /** How many samples a side of one output pixel takes, which smooths the edges of a turned block. */
+    /** The samples per side of an output pixel, which smooth the edges of a turned block. */
     private static final int SAMPLES = 4;
 
     private static final int SIZE = ICON * SAMPLES;
@@ -42,7 +41,6 @@ final class Raster {
         triangle(corners, uv, 0, 2, 3, texture, tint, shade);
     }
 
-    /** Draws a texture flat over the whole icon, as a generated item's layer is. */
     void flat(final BufferedImage texture, final int tint) {
         final int width = texture.getWidth();
         for (int y = 0; y < SIZE; y++) {
@@ -53,7 +51,6 @@ final class Raster {
         }
     }
 
-    /** The icon, each pixel the average of its samples weighted by how opaque they are. */
     BufferedImage image() {
         final BufferedImage image = new BufferedImage(ICON, ICON, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < ICON; y++) {
@@ -155,7 +152,6 @@ final class Raster {
         return ((int) Math.round(a * 255) << 24) | (r << 16) | (g << 8) | b;
     }
 
-    /** The texel at {@code (u, v)} in sixteenths of the first square frame. */
     private static int texel(final BufferedImage texture, final double u, final double v, final int width) {
         final int frame = Math.min(width, texture.getHeight());
         final int x = Math.clamp((long) Math.floor(u / 16 * width), 0, width - 1);

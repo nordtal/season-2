@@ -17,7 +17,9 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
-/** Icons drawn from a client jar's files: a flat item, a block in its inventory pose, and stand-ins drawn in code. */
+/**
+ * Tests icons drawn from a client jar: a flat item, a block in its inventory pose, and stand-ins drawn in code.
+ */
 class IconSheetTest {
 
     private static final int RED = 0xFFC00000;

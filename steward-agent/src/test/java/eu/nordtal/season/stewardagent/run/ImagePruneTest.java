@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 /** An update removes the images nothing uses once everything it stopped is back, and says what that freed. */
 class ImagePruneTest {
 
-    /** The run these steps belong to, which a mark beside an archive names. */
+    /** The run that a mark beside an archive names. */
     private static final long RUN = 312L;
 
     private final FakeContainers containers = new FakeContainers().running("smp");

@@ -55,7 +55,7 @@ class UpdatePlanHoldTest {
 
     @Test
     void theResourcePackSurvivesAHoldNoHoldIsEverAboutIt() {
-        // Unlike onlyServices, the pack has no service and no hold row names it, so a hold must not stop it.
+        // No hold row names the pack, because it has no service, so a hold does not stop it.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("limbo", "limbo"), pack), List.of());
 

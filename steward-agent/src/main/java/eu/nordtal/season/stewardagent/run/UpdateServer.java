@@ -17,20 +17,20 @@ import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * steward-agent's loop that turns the rows of the run inbox into runs; nothing runs without one.
+ * The loop of steward-agent that turns the rows of the run inbox into runs.
  *
- * It drains on its own thread whenever the process's {@link SignalHub} rings its doorbell, and when a row falls due.
+ * It drains the inbox on its own thread when the {@link SignalHub} signals and when a row falls due.
  */
 @Slf4j
 public final class UpdateServer implements AutoCloseable {
 
-    /** The floor on any wait, so a due row another claimer holds cannot spin the loop. */
+    /** The shortest wait, so a due row held by another claimer cannot spin the loop. */
     private static final Duration MINIMUM_WAIT = Duration.ofSeconds(1);
 
     private final UpdateDirectory directory;
     private final RequestRunner runner;
 
-    /** Asks the daemon whether the one-shot a run was handed to still runs. */
+    /** Asks the daemon whether the one-shot of a run still runs. */
     private final Predicate<String> stillRunning;
 
     private final Doorbell doorbell = new Doorbell();
@@ -61,17 +61,16 @@ public final class UpdateServer implements AutoCloseable {
         this.clock = clock;
     }
 
-    /** Rings this server's doorbell on every signal, connect and reconciliation of {@code signals}. */
+    /** Wakes the loop on every signal, connect and reconciliation of {@code signals}. */
     public void listen(final SignalHub signals) {
         signals.on(Channel.UPDATE, "the update inbox", this::wake);
     }
 
-    /** Wakes the loop, as a signal on {@link Channel#UPDATE} does. */
     void wake() {
         doorbell.ring();
     }
 
-    /** Runs until {@link #close()}, blocking the calling thread, which is {@code main}'s. */
+    /** Runs until {@link #close()} and blocks the calling thread. */
     public void serve() {
         log.info("Serving update requests");
         while (running) {
@@ -85,7 +84,7 @@ public final class UpdateServer implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 return;
             } catch (final RuntimeException failure) {
-                // A bug in the loop itself must not turn into a container that is up and deaf.
+                // A bug in the loop must not leave a container that is up and deaf.
                 log.error("The update loop threw; it carries on at the next wake-up", failure);
                 try {
                     doorbell.await(longestWait);
@@ -100,7 +99,7 @@ public final class UpdateServer implements AutoCloseable {
     /**
      * Settles what nothing carries out any more, then runs everything due, oldest first, until nothing is.
      *
-     * Until nothing is, since a notification can arrive mid-run.
+     * A notification can arrive during a run.
      */
     void drain() {
         // Between runs nothing of this process's own is open, so an open row is a one-shot's or nobody's.
@@ -115,7 +114,7 @@ public final class UpdateServer implements AutoCloseable {
     /**
      * Claims the next due request, or nothing while a run is handed to a one-shot.
      *
-     * Until that row is settled the agent is up but paused: it serves state, logs and the console, and runs nothing.
+     * Until that row is settled the agent serves state, logs and the console and runs nothing.
      */
     private Optional<UpdateRequest> claimNext() {
         final Optional<String> oneShot = directory.handedTo();
@@ -127,9 +126,9 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     /**
-     * Carries out the run handed to this process, as the one-shot steward-agent, and settles its row.
+     * Carries out the run handed to this one-shot and settles its row.
      *
-     * @return whether there was such a run: still open, and handed to this one-shot
+     * @return whether the run is still open and handed to this one-shot
      */
     public boolean carryOutHanded(final long id, final String oneShot) {
         final Optional<UpdateRequest> handed = directory
@@ -145,10 +144,9 @@ public final class UpdateServer implements AutoCloseable {
         return true;
     }
 
-    /** Runs one claimed request, writing every stage it reaches into its row and settling the row at the end. */
     private void carryOut(final UpdateRequest request) {
         log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
-        // The row is the progress bar: every stage the run reaches redraws the Discord embed and chat line.
+        // Every stage the run reaches redraws the Discord embed and the chat line.
         final Outcome outcome = runner.run(request, report -> {
             // A progress write must never decide the run, or a stopped service would stay stopped.
             try {
@@ -165,7 +163,7 @@ public final class UpdateServer implements AutoCloseable {
         });
 
         if (outcome.isHandedOver()) {
-            // The one-shot settles the row; until then it is the lock that keeps every other run out.
+            // The one-shot settles the row. Until then the row keeps every other run out.
             log.info("Request {} is carried out by the one-shot it was handed to", request.id());
             return;
         }
@@ -180,7 +178,7 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    /** How long to block before looking again: until the next row is due, at most the reconciliation. */
+    /** Returns the time until the next row is due, at most the reconciliation interval. */
     Duration waitFor() {
         final Instant now = clock.instant();
         final Duration untilDue =
@@ -191,7 +189,7 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     /**
-     * Fails every open run but one handed to a one-shot that still runs: the steward-agent carrying it out is gone.
+     * Fails every open run except one that is handed to a one-shot that still runs.
      *
      * Safe only while one agent claims runs, and only between its runs; a one-shot never calls it.
      */
@@ -202,12 +200,12 @@ public final class UpdateServer implements AutoCloseable {
                 log.info("Settled {} request(s) no steward-agent carries out any more", settled);
             }
         } catch (final RuntimeException failure) {
-            // Not fatal: the stale rows are cosmetic, and refusing to start over them is worse.
+            // The stale rows are cosmetic, and refusing to start over them is worse.
             log.error("Could not settle the requests left open by the previous instance", failure);
         }
     }
 
-    /** Asks the loop to stop. It finishes the request it is on first. */
+    /** Asks the loop to stop after the request it is on. */
     @Override
     public void close() {
         running = false;

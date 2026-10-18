@@ -12,9 +12,7 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The archive list is read while the thing it lists is being written, which is what these hold.
- */
+/** Tests the archive list, which is read while the thing it lists is written. */
 class ArchiveRowTest {
 
     @TempDir
@@ -66,7 +64,7 @@ class ArchiveRowTest {
 
     @Test
     void anEntryThatVanishedLosesItsRowNotTheWholeListing() {
-        // The rename that finishes a backup does exactly this to a path the directory stream already handed out.
+        // The rename that finishes a backup does this to a path the directory stream already handed out.
         final Optional<AgentWire.Archive> row = ArchiveFiles.row(backups.resolve("gone.tar.zst"), volume -> true);
 
         assertTrue(row.isEmpty());

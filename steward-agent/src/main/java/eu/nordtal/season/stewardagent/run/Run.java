@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The one sequence every kind of run goes through; a kind only plans, see {@link Kinds}.
+ * The sequence every kind of run goes through. A kind only plans, see {@link Kinds}.
  *
  * Open the standbys, count down, evacuate, stop, carry out the kind's payload, start, verify, close and settle.
  */
@@ -43,28 +43,24 @@ final class Run {
     }
 
     /**
-     * What happens between the stop and the start, with every server the run stopped still down.
+     * The work between the stop and the start.
      *
      * Throwing {@link Abort} starts everything again and fails the run with the report it carries.
      */
     @FunctionalInterface
     interface Payload {
 
-        /** Nothing between the stop and the start. */
         Payload NONE = (steps, stopped) -> new Done(stopped.report(), false);
 
-        /**
-         * @param steps this run's own steps, which know which stop could not be verified
-         */
         Done carryOut(UpdateRun steps, UpdateRun.Stopped stopped);
     }
 
     /**
      * What a payload left behind.
      *
-     * @param failed whether something in it failed that the report's lines do not show
-     * @param afterwards what the run does once everything it stopped is back, before it settles
-     * @param leftDown services the run stopped and does not start again, since what they run on is not whole
+     * @param failed whether something failed that the lines of the report do not show
+     * @param afterwards what the run does once everything it stopped is back
+     * @param leftDown services the run stopped and does not start again, because their data is incomplete
      */
     record Done(
             UpdateReport report,
@@ -100,20 +96,20 @@ final class Run {
     }
 
     /**
-     * What one kind decided before anything moved.
+     * The plan of a kind.
      *
      * @param planned the report so far, with a {@code PLANNED} line for every service the run stops
-     * @param announced whether the run counts down on its row, so the proxy and the feeds warn first
-     * @param stops whether the run stops what it plans; only a start, whose servers are already down, does not
-     * @param payload what happens while the servers are down
-     * @param startsAgain whether what was stopped is started again, which only a take-down leaves out
-     * @param alsoStarts services the run starts although it did not stop them, as a release of a hold does
-     * @param images the services to recreate as they start, since their container is out of date
-     * @param foreign the images nobody here builds to make again once the rest is back, announced like a stop
+     * @param announced whether the run counts down, so the proxy and the feeds warn first
+     * @param stops whether the run stops what it plans, which a start does not
+     * @param payload the work while the servers are down
+     * @param startsAgain whether the run starts what it stopped, which only a take-down does not
+     * @param alsoStarts services the run starts although it did not stop them, as the release of a hold does
+     * @param images the services to recreate as they start, because their container is out of date
+     * @param foreign the images nobody here builds, recreated once the rest is back and announced like a stop
      * @param undertaking what the run does while the servers are down, which its notes name
      * @param refusesUnstopped whether a service that did not stop ends the run before its payload
-     * @param remade services whose container is made again as they start, whatever their image's state
-     * @param pulls whether making a container again pulls its image first; only a recreate does not
+     * @param remade services whose container is created again as they start
+     * @param pulls whether recreating a container pulls its image first
      */
     record Plan(
             UpdateReport planned,
@@ -137,7 +133,6 @@ final class Run {
             remade = List.copyOf(remade);
         }
 
-        /** A plan with the defaults most kinds share: announced, started again, nothing renewed. */
         static Plan of(
                 final UpdateReport planned,
                 final Payload payload,
@@ -179,7 +174,6 @@ final class Run {
                     pulls);
         }
 
-        /** A run that stops nothing and warns nobody, since everything it starts is already down. */
         Plan stoppingNothing() {
             return new Plan(
                     planned,
@@ -255,7 +249,7 @@ final class Run {
         /**
          * Makes the containers of these services again: ours as they start, the foreign ones once the rest is back.
          *
-         * @param pulling whether each image is pulled first, as a deploy does, or taken from this host
+         * @param pulling whether each image is pulled first
          */
         Plan remaking(final List<String> ours, final List<String> theirs, final boolean pulling) {
             return new Plan(
@@ -275,7 +269,9 @@ final class Run {
                     pulling);
         }
 
-        /** What the countdown names as moving: every service stopped, and every foreign image renewed. */
+        /**
+         * Returns what the countdown names: every stopped service and every recreated foreign image.
+         */
         List<String> moving() {
             final Set<String> moving = new LinkedHashSet<>(Runner.movingServices(planned));
             moving.addAll(foreign);
@@ -283,7 +279,7 @@ final class Run {
         }
     }
 
-    /** Carries the plan out, never throwing, so every path from a stop ends in a start. */
+    /** Carries the plan out. It never throws, so every stop ends in a start. */
     Outcome carryOut(final UpdateRequest request, final Plan plan) {
         final Choreography choreography =
                 new Choreography(runner.containers, runner.occupancy(), runner.waiting, steps.record);
@@ -308,7 +304,7 @@ final class Run {
                 return Runner.cancelled();
             }
 
-            // After the countdown the run waits for the players to move, then stops regardless after ten seconds.
+            // The players get ten seconds after the countdown, then the run stops the services.
             final Choreography.Left left = choreography.waitUntilEmpty(moving);
             if (players != null) {
                 players.end(left.outcome(), left.reason());
@@ -339,12 +335,10 @@ final class Run {
 
             return finish(plan, stopped, done, choreography, players != null);
         } finally {
-            // Every exit closes the standbys, so none is left running all night.
             choreography.close();
         }
     }
 
-    /** Starts what the run stopped and what the plan adds, verifies, renews the foreign images and settles. */
     private Outcome finish(
             final Plan plan,
             final UpdateRun.Stopped stopped,
@@ -366,18 +360,18 @@ final class Run {
             report = steps.verify(started, starting, runner.waiting);
         }
 
-        // The proxy counts each player back against the move; the standbys hand theirs back as they close.
+        // The proxy counts the players back. The standbys give theirs back as they close.
         final Steps.Step back = moved ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
-        // The standbys hand their players back first: caddy carries their ports, so it must not go before them.
+        // The standbys close first, because caddy publishes their ports.
         final List<Note> closed = choreography.close();
         if (back != null) {
             back.done();
         }
-        // Last, once the Minecraft services are healthy again, and postgres last of all.
+        // This runs once the Minecraft services are healthy, with postgres last.
         final UpdateReport renewedForeign = ForeignImages.renewForeign(
                 runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
         final UpdateReport foreign = done.afterwards().apply(renewedForeign);
-        // Last of all: the one-shot's run is over but for its row, which the agent it makes leaves alone.
+        // Last of all, since the agent it creates leaves the row alone.
         final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
 
         final UpdateReport finished = Runner.settle(
@@ -390,7 +384,9 @@ final class Run {
                 : Outcome.done(UpdateReports.toJson(finished));
     }
 
-    /** Makes the long-running steward-agent again at this one-shot's release, then waits for it to be healthy. */
+    /**
+     * Creates the long-running steward-agent at the release of this one-shot and waits for its health.
+     */
     private UpdateReport renewAgent(final UpdateReport before) {
         UpdateReport report = before.with(new UpdateReport.ServiceLine(
                 AgentWire.SERVICE,
@@ -412,7 +408,6 @@ final class Run {
         return steps.verify(report, List.of(AgentWire.SERVICE), runner.waiting);
     }
 
-    /** Starts back and fails the run when a service the plan stops did not stop and the kind refuses to go on. */
     private @Nullable Outcome refuseIfNotStopped(
             final Plan plan, final UpdateReport planned, final UpdateRun.Stopped stopped) {
         if (!plan.refusesUnstopped()) {

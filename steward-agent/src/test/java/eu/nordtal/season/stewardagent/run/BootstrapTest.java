@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-/** What steward-agent installed on its start is a run's report, written only when there was something to say. */
+/** Tests that the install on start is reported as a run, and only when it changed something. */
 class BootstrapTest {
 
     private static final Change PACKETEVENTS = new Change(

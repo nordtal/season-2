@@ -34,13 +34,11 @@ final class FakeSnapshots implements Snapshots {
         return this;
     }
 
-    /** An offsite repository that answers a copy with {@code result}; without one none is configured. */
     FakeSnapshots copiesOffsite(final SnapshotResult result) {
         offsite = result;
         return this;
     }
 
-    /** A volume that saves but produces nothing. */
     FakeSnapshots savesNothing(final String volume) {
         empty.add(volume);
         return this;
@@ -68,7 +66,7 @@ final class FakeSnapshots implements Snapshots {
                 volume, 1_234_567, Duration.ofSeconds(12), "/backups/" + volume + "-20260913T000000Z.tar.zst");
     }
 
-    /** The mark, recorded in the same call list, because when it is written is half the point. */
+    /** The mark goes into the same call list, because its time matters. */
     @Override
     public boolean markUnverified(final String archive, final Unverified mark) {
         calls.add("mark:" + archive.substring(archive.lastIndexOf('/') + 1));
@@ -76,12 +74,10 @@ final class FakeSnapshots implements Snapshots {
         return true;
     }
 
-    /** What was marked, with which record, in the order the marks were made. */
     Map<String, Unverified> marks() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(marks));
     }
 
-    /** The names {@code TarSnapshots} and {@code DatabaseDump} write, and nothing else. */
     @Override
     public java.util.Optional<String> seriesOf(final String archive) {
         if (archive.matches("nordtal-\\d{8}T\\d{6}Z\\.dump")) {
@@ -121,7 +117,6 @@ final class FakeSnapshots implements Snapshots {
         return java.util.Optional.of(offsite);
     }
 
-    /** A disk with no room for the next backup. */
     FakeSnapshots full() {
         full = true;
         return this;

@@ -36,7 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the message bundles a module ships in its jar, for the editor; an admin's overrides are rows in the database.
+ * Reads the message bundles that a module ships in its jar, for the editor.
  *
  * One jar packages several bundles, its own and those of the shared modules shaded into it.
  */
@@ -44,20 +44,18 @@ public final class MessageBundles {
 
     private static final Logger LOG = LoggerFactory.getLogger(MessageBundles.class);
 
-    /** A bundle's texts in one language, the file named by its lowercase language tag. */
     private static final Pattern BUNDLE_ENTRY =
             Pattern.compile("messages/([^/]+)/([a-z]{2,3}(?:-[a-z0-9]+)*)\\.properties");
 
     /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
 
-    /** The layouts a root's module declares, written beside its schema at build time. */
     private static final Pattern LAYOUTS_ENTRY = Pattern.compile("messages/([^/]+)/layouts\\.json");
 
     private MessageBundles() {}
 
     /**
-     * The bundles of every jar whose process follows the message overrides, for which an edit changes what it shows.
+     * Returns the bundles of every jar whose process follows the message overrides.
      *
      * @param jars every jar of ours on every service, as the descriptors find them
      * @return every bundle found, by service then module; a plugin's module is its jar's name, a service's own is empty
@@ -117,7 +115,7 @@ public final class MessageBundles {
         keys.addAll(undescribed);
         final List<MessageEntry> entries = new ArrayList<>(keys.size());
         for (final String key : keys) {
-            // A described key the jar has no text for still belongs to the bundle whose schema names it.
+            // A described key without a text in the jar belongs to the bundle whose schema names it.
             final String bundle = java.util.Objects.requireNonNull(bundleOf.get(key), key);
             final Map<String, List<String>> texts = new HashMap<>();
             packaged.texts().getOrDefault(bundle, Map.of()).forEach((language, byKey) -> {
@@ -185,16 +183,15 @@ public final class MessageBundles {
     /**
      * Every packaged text and schema of one jar.
      *
-     * @param texts bundle to language to key to its variants
-     * @param schemas bundle to its described keys, sorted by bundle so the order does not follow the jar's
-     * @param layouts bundle to its layouts, sorted the same way
+     * @param texts bundle to language to key to variants
+     * @param schemas bundle to described keys, sorted by bundle so the order does not follow the jar
+     * @param layouts bundle to layouts, sorted the same way
      */
     private record Packaged(
             Map<String, Map<String, Map<String, List<String>>>> texts,
             Map<String, List<SchemaEntry>> schemas,
             Map<String, List<JsonObject>> layouts) {}
 
-    /** Opens the jar once and reads every packaged bundle, schema and layout it carries. */
     private static Packaged readPackaged(final MessageBundleLocation location) throws IOException {
         final Map<String, Map<String, Map<String, List<String>>>> texts = new TreeMap<>();
         final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
@@ -274,8 +271,7 @@ public final class MessageBundles {
     }
 
     /**
-     * One message's placeholders as the editor offers them, from the one validator's {@link Declaration}.
-     * They are its own arguments, each role's attributes, the globals it does not name itself and its actions.
+     * Returns the placeholders of one message as the editor offers them, from the {@link Declaration} of the validator.
      */
     private static SchemaEntry schemaEntryOf(final MessageSchema.Bundle schema, final MessageSchema.Entry entry) {
         final Declaration declaration = schema.declaration(entry);
@@ -316,7 +312,6 @@ public final class MessageBundles {
                 declaration.limit());
     }
 
-    /** One placeholder per attribute of {@code role}, {@code role.attribute}, in the declaration's order. */
     private static void attributes(
             final String role,
             final Declaration declaration,

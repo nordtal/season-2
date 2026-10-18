@@ -2,7 +2,9 @@ package eu.nordtal.season.stewardagent.source;
 
 import java.util.Locale;
 
-/** A digest as its source writes it: sha256 from Fill and GitHub, sha512 from Modrinth, sha1 for the pack. */
+/**
+ * A digest as its source writes it: sha256 from Fill and GitHub, sha512 from Modrinth, sha1 for the pack.
+ */
 public record Checksum(String algorithm, String hex) {
 
     public Checksum {
@@ -22,7 +24,6 @@ public record Checksum(String algorithm, String hex) {
         return new Checksum("sha512", hex);
     }
 
-    /** The short form a report shows, since a full sha512 is 128 characters. */
     public String shortHex() {
         return hex.length() <= 12 ? hex : hex.substring(0, 12);
     }

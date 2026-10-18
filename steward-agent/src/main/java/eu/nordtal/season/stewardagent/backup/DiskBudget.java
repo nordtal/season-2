@@ -10,8 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Which archives go once the backups take more of the filesystem than their share.
- * The oldest archive of the largest series goes first; the newest verified archive of a series never goes.
+ * Chooses the archives that go when backups outgrow their share: the oldest of the largest series first.
  *
  * @param allowedBytes how much the finished archives and dumps may take together
  */
@@ -31,7 +30,7 @@ record DiskBudget(long allowedBytes) {
     }
 
     /**
-     * Returns what goes, in the order it goes, until the rest fits or only kept archives are left.
+     * Returns the archives that go, in order, until the rest fits or only kept archives are left.
      *
      * A series with no verified archive keeps its newest.
      */

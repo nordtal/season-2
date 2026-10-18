@@ -4,7 +4,7 @@ import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateRequest;
 import java.util.function.Consumer;
 
-/** Carries out one claimed request, an interface so {@link UpdateServer}'s loop can be tested without a network. */
+/** Carries out one claimed request. */
 @FunctionalInterface
 public interface RequestRunner {
 
@@ -12,8 +12,8 @@ public interface RequestRunner {
      * Runs the request.
      *
      * @param request the claimed row
-     * @param progress called at each new stage, so the surfaces watching the row can redraw
-     * @return what happened; never throws, since the caller holds a {@code RUNNING} row somebody watches
+     * @param progress called at each new stage
+     * @return what happened
      */
     Outcome run(UpdateRequest request, Consumer<UpdateReport> progress);
 }

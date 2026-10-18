@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Which builds made on this host an update run would replace, so that it asks before it does. */
+/** Tests which local builds an update run would replace, so that it asks first. */
 class LocalBuildsTest {
 
     private static final ImageResult IMAGES = ImageResult.of(Map.of())

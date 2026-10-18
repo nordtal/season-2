@@ -14,7 +14,9 @@ public final class TestProject {
 
     private TestProject() {}
 
-    /** The project a test only reads: the scratch one when named, otherwise the stack on this host. */
+    /**
+     * The project a test only reads: the scratch one when named, otherwise the stack on this host.
+     */
     public static String reading() {
         return acting().orElse("nordtal-s2");
     }

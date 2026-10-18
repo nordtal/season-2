@@ -16,12 +16,11 @@ import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** How an apply went, written into a report; an update run and the start-up install both write theirs this way. */
+/** Writes the result of an apply into a report, for an update run and for the start-up install. */
 final class Installed {
 
     private Installed() {}
 
-    /** The report with each service's line installed or failed, and a failed record for a pack that did not go in. */
     static UpdateReport into(final UpdateReport before, final ApplyResult result, final Collection<String> services) {
         UpdateReport report = before;
         for (final ApplyResult.Outcome outcome : result.outcomes()) {
@@ -31,7 +30,7 @@ final class Installed {
             }
         }
         for (final String service : services) {
-            // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.
+            // Only a successful apply marks the service INSTALLED.
             final UpdateReport.Facts failure = failureFor(result, service);
             report = report.with(
                     failure == null
@@ -42,9 +41,9 @@ final class Installed {
     }
 
     /**
-     * Writes one install step per service the apply touched, and one of no service for the pack.
+     * Writes one install step per service the apply touched and one for the pack.
      *
-     * Each names the artefacts it put in, with the versions the plan moved them from and to.
+     * Each step names the artefacts with the versions the plan moved them from and to.
      */
     static void record(
             final Steps record,
@@ -101,7 +100,6 @@ final class Installed {
         return outcome.status() == ApplyResult.Status.FAILED || outcome.status() == ApplyResult.Status.SKIPPED;
     }
 
-    /** An artefact that did not go in, with the applier's reason or its status word when it gave none. */
     private static MessageRef notInstalled(final ApplyResult.Outcome outcome) {
         return TEXTS.report().notInstalled(outcome.artifact(), whyNotInstalled(outcome));
     }

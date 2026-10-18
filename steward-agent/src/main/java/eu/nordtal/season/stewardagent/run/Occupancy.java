@@ -12,13 +12,13 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How many players are on a service right now, where empty means no fresh row said, never zero.
+ * Returns how many players are on a service. Empty means no fresh row says, never zero.
  *
- * Freshness is decided here once; the two cutoffs differ because the proxy and standby write at different rates.
+ * The two cutoffs differ because the proxy and the standby write at different rates.
  */
 interface Occupancy {
 
-    /** How stale an {@code online_count} row may be and still be acted on: three missed one-second ticks. */
+    /** The age up to which an {@code online_count} row counts: three missed ticks of one second. */
     Duration COUNT_FRESH_WITHIN = Duration.ofSeconds(4);
 
     /** Four missed heartbeats of {@code StandbyReturn.INTERVAL}. */
@@ -28,19 +28,18 @@ interface Occupancy {
      * Reads one service's player count.
      *
      * @param service a compose service name
-     * @param now the run's clock
-     * @return how many players are on it, or empty when no fresh row says
+     * @return the count, or empty when no fresh row says
      */
     OptionalInt on(String service, Instant now);
 
     /**
      * Reads the standby proxy's player count.
      *
-     * @return how many players it holds, or empty when it has not written recently, which is not zero
+     * @return the count, or empty when it has not written recently
      */
     OptionalInt onStandbyProxy(Instant now);
 
-    /** Nothing to read: every answer is empty, which reads as "nobody said". */
+    /** Answers empty for every service. */
     Occupancy NONE = new Occupancy() {
 
         @Override
@@ -54,7 +53,6 @@ interface Occupancy {
         }
     };
 
-    /** The production reader, over the pool this process already owns, opening its directories on first use. */
     static Occupancy over(final DataSource dataSource, final InstantSource clock) {
         return new Occupancy() {
 
@@ -70,7 +68,7 @@ interface Occupancy {
                 try {
                     current = counts.current();
                 } catch (final RuntimeException failure) {
-                    // A database this run cannot read is a "nobody said", not a zero.
+                    // A database this run cannot read gives empty, not zero.
                     return OptionalInt.empty();
                 }
                 final OnlineCount count = current.get(service);

@@ -32,16 +32,13 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 final class Choreography {
 
-    /** How long the players get, after the countdown, to be somewhere else. */
+    /** The time the players get after the countdown to leave. */
     static final Duration EMPTY_CAP = Duration.ofSeconds(10);
 
-    /** How often the counts are re-read while waiting, one indexed read per second. */
     static final Duration EMPTY_POLL = Duration.ofSeconds(1);
 
-    /** How long a standby gets to become healthy before the run is abandoned, while nothing is down yet. */
     static final Duration STANDBY_HEALTHY_WITHIN = Duration.ofMinutes(3);
 
-    /** How often the runtime is re-read while waiting for a standby. */
     static final Duration STANDBY_HEALTH_POLL = Duration.ofSeconds(5);
 
     /** How long a standby gets to empty out before it is stopped, longer than {@code StandbyReturn}'s own minute. */
@@ -52,10 +49,8 @@ final class Choreography {
     private final Waiting clock;
     private final Steps record;
 
-    /** What this run has started and not yet stopped, so {@link #close} can be called twice. */
     private final Set<String> standing = new LinkedHashSet<>();
 
-    /** The step each standby is coming up in, until it is healthy or the window is refused. */
     private final Map<String, Steps.Step> comingUp = new LinkedHashMap<>();
 
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
@@ -73,8 +68,7 @@ final class Choreography {
      * Which standbys a run over these services needs: one per moving service that has a standby.
      *
      * @param topology which service has which standby
-     * @param moving the services this run is going to stop
-     * @return the compose service names to start first, in compose.yml's order
+     * @param moving the services this run stops
      */
     static List<String> standbysFor(final AgentWire.Topology topology, final Collection<String> moving) {
         return topology.services().stream()
@@ -86,7 +80,7 @@ final class Choreography {
     /**
      * Starts every standby this run needs and waits until each one is healthy, stopping them all on failure.
      *
-     * @return a window that {@link Window#opened() opened}, or one carrying the report note of a refused run
+     * @return a window that {@link Window#opened() opened}, or one with the note of the refusal
      */
     Window open(final Collection<String> moving) {
         final List<String> wanted = standbysFor(containers.topology(), moving);
@@ -117,15 +111,14 @@ final class Choreography {
     }
 
     /**
-     * Waits until these standbys are healthy or the patience runs out.
+     * Waits until the standbys are healthy or the patience ends.
      *
-     * @return nothing when every one of them came up, or one note per standby that did not
+     * @return one note per standby that did not come up
      */
     private List<Note> waitHealthy(final List<String> standbys) {
         final List<String> pending = new ArrayList<>(standbys);
         final Instant deadline = clock.now().plus(STANDBY_HEALTHY_WITHIN);
         while (true) {
-            // One snapshot per iteration, asked about every pending service.
             final RuntimeResult seen = containers.runtime();
             if (seen.reached()) {
                 for (final String standby : List.copyOf(pending)) {
@@ -159,7 +152,6 @@ final class Choreography {
         }
     }
 
-    /** Ends the step a standby came up in, once. */
     private void cameUp(final String standby, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {
         final Steps.Step up = comingUp.remove(standby);
         if (up != null) {
@@ -168,10 +160,10 @@ final class Choreography {
     }
 
     /**
-     * Waits until nobody is on the services about to stop, and gives up after {@link #EMPTY_CAP}.
+     * Waits until nobody is on the services about to stop, for at most {@link #EMPTY_CAP}.
      *
-     * @param moving the services this run is going to stop
-     * @return how the wait ended, with the notes for the report when the run may not stop them silently
+     * @param moving the services this run stops
+     * @return how the wait ended, with the notes for the report when the run stops them with players on
      */
     Left waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
@@ -210,7 +202,9 @@ final class Choreography {
         }
     }
 
-    /** The notes a run leaves when the cap ran out, telling players still on apart from no answer at all. */
+    /**
+     * Returns the notes for a wait that hit the cap, which tell players still on a service from no answer.
+     */
     static List<Note> stoppedAnyway(final Map<String, Integer> occupied, final List<String> unknown) {
         final List<Note> said = new ArrayList<>();
         for (final Map.Entry<String, Integer> on : occupied.entrySet()) {
@@ -222,7 +216,6 @@ final class Choreography {
         return List.copyOf(said);
     }
 
-    /** Whether a player could be standing on this service at all; the others need no wait. */
     private boolean canCarryPlayers(final String service) {
         return containers.topology().hasPlugins(service);
     }
@@ -230,7 +223,7 @@ final class Choreography {
     /**
      * Stops every standby this run started once it is empty, idempotently, at every exit.
      *
-     * @return one note per standby, for the report; empty when this run opened no window
+     * @return one note per standby, empty when this run opened no window
      */
     List<Note> close() {
         if (standing.isEmpty()) {
@@ -293,7 +286,7 @@ final class Choreography {
                     ? occupancy.onStandbyProxy(now)
                     : occupancy.on(standby, now);
             if (players.isEmpty() || players.getAsInt() == 0) {
-                // Empty is empty; "nothing said" counts as empty here only, since the standby has stopped writing.
+                // No answer counts as empty here, because the standby has stopped writing.
                 return null;
             }
             if (!now.isBefore(deadline)) {
@@ -308,7 +301,7 @@ final class Choreography {
     /**
      * What {@link #open} decided.
      *
-     * @param standbys the services started for this run, empty when it needed none
+     * @param standbys the services started for this run
      * @param refusal why the run must not go on, empty when it may
      */
     record Window(List<String> standbys, List<Note> refusal) {
@@ -325,8 +318,8 @@ final class Choreography {
     /**
      * How the wait for the players ended.
      *
-     * @param notes what the report says, empty when everybody left in time
-     * @param reason why the run stopped them anyway, or none when they were empty
+     * @param notes the report text, empty when everybody left in time
+     * @param reason why the run stopped them anyway, {@code null} when they were gone
      */
     record Left(List<Note> notes, RunStep.@Nullable Reason reason) {
 
@@ -341,6 +334,5 @@ final class Choreography {
         }
     }
 
-    /** Who was still on a standby when it was stopped anyway, and whether the agent itself stopped the wait. */
     private record Drained(long players, boolean interrupted) {}
 }

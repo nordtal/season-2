@@ -34,13 +34,12 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 final class UpdateRun {
 
-    /** How long a service may take to come back before the run calls it a failure: a cold start plus a heartbeat. */
+    /** The time a service gets to come back: a cold start plus a heartbeat. */
     static final Duration HEALTH_PATIENCE = Duration.ofMinutes(5);
 
     /** The artefact a container made again changes, as its run_change row names it. */
     static final String IMAGE = "image";
 
-    /** How often the runtime is re-read while waiting: one call over the local socket. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
     /** The run these steps belong to, which a mark beside an archive names. */
@@ -50,16 +49,15 @@ final class UpdateRun {
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
 
-    /** Where each step is written as a row. */
     final Steps record;
 
     /** Stops this run made whose ending nobody could read, in order; see {@link Snapshots#markUnverified}. */
     private final List<String> unverifiedStops = new ArrayList<>();
 
     /**
-     * Services left on their old image because the recreate failed, each with the facts of that, which they keep.
+     * The services left on their old image because the recreate failed, with the facts of the failure.
      *
-     * {@link #verify} waits for them like everything else, then adds how the wait ended.
+     * {@link #verify} waits for them and adds how the wait ended.
      */
     private final Map<String, Facts> fellBack = new LinkedHashMap<>();
 
@@ -84,13 +82,13 @@ final class UpdateRun {
         this.record = record;
     }
 
-    /** Reads the project's runtime, or hands back the reason the run must not start, before anything moves. */
+    /** Reads the runtime of the project, or returns the reason the run must not start. */
     RuntimeResult check() {
         return containers.runtime();
     }
 
     /**
-     * Stops every service the report has work for, in the order the report lists them.
+     * Stops every service the report has work for, in the order of the report.
      *
      * @return the services actually stopped, which {@link #start} and {@link #verify} act on
      */
@@ -105,7 +103,7 @@ final class UpdateRun {
                 continue;
             }
             if (Snapshots.DATABASE.equals(line.service())) {
-                // Not a service: `database` is not the compose service (`postgres`), so looking it up finds nothing.
+                // {@code database} is not a compose service, which is {@code postgres}.
                 continue;
             }
             final Steps.Step step = record.begin(RunStep.Kind.STOP, line.service());
@@ -181,7 +179,7 @@ final class UpdateRun {
     /**
      * One save as its line: saved into its archive, or failed with what the save answered.
      *
-     * @param mark whether the mark of an unverified stop lies beside the archive, or none after a clean stop
+     * @param mark whether the mark of an unverified stop lies beside the archive
      */
     static UpdateReport.ServiceLine saved(
             final String name, final SnapshotResult result, final UpdateReport.@Nullable Mark mark) {
@@ -200,9 +198,9 @@ final class UpdateRun {
     }
 
     /**
-     * Which of this run's stops had an ending nobody could read, or empty when every one was clean.
+     * Returns the services whose stop had an end nobody could read, empty when every stop was clean.
      *
-     * {@code Runner} settles such a run {@code FAILED}, so nothing downstream trusts its archives.
+     * {@code Runner} settles such a run as {@code FAILED}.
      */
     List<String> unverifiedStops() {
         return List.copyOf(unverifiedStops);
@@ -211,7 +209,7 @@ final class UpdateRun {
     /**
      * Starts everything this run stopped, recreating each service whose image {@link ImageResult} calls outdated.
      *
-     * Each recreate is reported before it is asked for, so a run that never returns from one names it.
+     * Each recreate is reported before it starts, so a run that never returns from one names it.
      */
     UpdateReport start(final Stopped state) {
         return start(state, ImageResult.of(java.util.Map.of()));
@@ -225,7 +223,7 @@ final class UpdateRun {
     /**
      * Starts everything this run stopped.
      *
-     * @param images the services to recreate on a newer image; empty on every path that promises no version change
+     * @param images the services to recreate on a newer image, empty when the run changes no version
      */
     UpdateReport start(final Stopped state, final ImageResult images, final List<String> remade, final boolean pulls) {
         UpdateReport report = state.report().withStage(UpdateReport.Stage.STARTING);
@@ -259,14 +257,14 @@ final class UpdateRun {
         return report;
     }
 
-    // A recreate this process cannot do is no reason to leave a server off: the old image is put back.
+    // When this process cannot recreate a service, it starts the old image.
     private UpdateReport startRemade(
             final UpdateReport before,
             final Stopped state,
             final String service,
             final boolean outdated,
             final boolean pulls) {
-        // An out-of-date image is always pulled; a recreate asked for by name pulls when the kind does.
+        // An outdated image is always pulled. A recreate by name pulls when the kind does.
         final UpdateReport.Image image =
                 outdated ? UpdateReport.Image.OUTDATED : pulls ? UpdateReport.Image.PULLED : UpdateReport.Image.KEPT;
         // Written before the call, so a recreate that never returns leaves this as the report's last word.
@@ -308,7 +306,7 @@ final class UpdateRun {
                 .failed(Facts.notRecreated(image, why, UpdateReport.Fallback.REFUSED, back.message())));
     }
 
-    /** Ends a step by whether Docker took what it asked; a start's coming back is the verify step's. */
+    /** Ends a step by whether Docker accepted the command. The verify step checks the start. */
     static void endBy(final Steps.Step step, final RedeployResult result) {
         if (result.triggered()) {
             step.done();
@@ -317,10 +315,9 @@ final class UpdateRun {
         }
     }
 
-    /** A service back on the container made again from a newer image: that image is renewed, no longer out of date. */
     private static UpdateReport.ServiceLine renewed(final UpdateReport.ServiceLine back) {
         final Act act = back.facts() == null ? null : back.facts().act();
-        // An abort starts the old container again, which renews nothing.
+        // An abort starts the old container, which renews nothing.
         if (act != Act.RECREATE && act != Act.RENEW) {
             return back;
         }
@@ -340,7 +337,7 @@ final class UpdateRun {
     /**
      * Waits until every started service passes its healthcheck, or says which one did not.
      *
-     * @param clock how "now" is told, so the wait can be driven in a test without sleeping
+     * @param clock the time source, so a test needs no sleep
      */
     UpdateReport verify(final UpdateReport started, final List<String> services, final Waiting clock) {
         UpdateReport report = started.withStage(UpdateReport.Stage.VERIFYING);
@@ -398,7 +395,6 @@ final class UpdateRun {
         return report;
     }
 
-    /** One save as a backup change: its size and how long it took, or that it was not saved. */
     static UpdateReport.Change backedUp(final SnapshotResult result) {
         return UpdateReport.Change.told(
                 "backup",
@@ -407,7 +403,9 @@ final class UpdateRun {
                         : TEXTS.report().notSaved());
     }
 
-    /** What the runtime showed of a service that did not come back: Docker's status and health, or why it is unread. */
+    /**
+     * Returns what the runtime showed of a service that did not come back: Docker's status and health, or why unread.
+     */
     static Facts.Seen seen(final RuntimeResult runtime, final String service) {
         if (!runtime.reached()) {
             return new Facts.Seen(null, null, String.valueOf(runtime.message()));
@@ -430,7 +428,6 @@ final class UpdateRun {
         return report;
     }
 
-    // Interrupted: say so rather than reporting a timeout that did not happen.
     private UpdateReport interrupted(final UpdateReport before, final List<String> pending) {
         UpdateReport report = before;
         for (final String service : pending) {

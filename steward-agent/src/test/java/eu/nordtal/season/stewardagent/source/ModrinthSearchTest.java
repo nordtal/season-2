@@ -30,7 +30,7 @@ class ModrinthSearchTest {
         assertEquals("1u6JkXh5", first.projectId(), "the id is the identity, not the slug");
         assertEquals("worldedit", first.slug());
         assertEquals("WorldEdit", first.title());
-        // The link is built from the slug, since the payload has no such field.
+        // The payload has no link, so it is built from the slug.
         assertEquals("https://modrinth.com/plugin/worldedit", first.pageUrl());
         assertTrue(
                 first.iconUrl().startsWith("https://cdn.modrinth.com/"),
@@ -68,7 +68,7 @@ class ModrinthSearchTest {
     void anAnswerWithNoHitsArrayIsRefusedRatherThanReadAsNothingFound() {
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/v2/search", "{}"));
 
-        // "Nothing found" and "the API changed shape" must not look the same on screen.
+        // "Nothing found" and "the API changed shape" must look different on screen.
         assertThrows(IOException.class, () -> modrinth.search("x", MC, "paper"));
     }
 }

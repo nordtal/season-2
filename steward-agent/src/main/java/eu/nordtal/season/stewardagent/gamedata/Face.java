@@ -5,7 +5,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.util.Locale;
 
-/** The six faces of a box, each with its corners in the game's order and the texture area it shows by default. */
+/**
+ * The six faces of a box with their corners in the order of the game and the default texture area.
+ */
 enum Face {
     DOWN,
     UP,
@@ -14,7 +16,6 @@ enum Face {
     WEST,
     EAST;
 
-    /** How the face is named in a model's {@code faces}. */
     String key() {
         return name().toLowerCase(Locale.ROOT);
     }
@@ -43,7 +44,6 @@ enum Face {
         };
     }
 
-    /** The texture corner each of the four corners shows, in sixteenths, turned by the face's {@code rotation}. */
     double[][] uv(final JsonObject face, final Vec3 from, final Vec3 to) {
         final double[] area = face.get("uv") instanceof JsonArray declared && declared.size() == 4
                 ? new double[] {

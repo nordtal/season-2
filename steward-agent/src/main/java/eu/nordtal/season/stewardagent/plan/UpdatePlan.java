@@ -8,9 +8,9 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a run would do, as a value that resolving produces without writing anything.
+ * What a run would do. Resolving produces it and writes nothing.
  *
- * @param seasonTag the release tag actually resolved, printed even when nothing changed
+ * @param seasonTag the resolved release tag, printed even when nothing changed
  * @param seasonPrerelease true only when an operator pinned a pre-release by tag
  * @param unclaimed jars in a {@code plugins/} folder no row accounts for, never touched and always reported
  * @param notes findings that belong to no single service, drawn only by {@link PlanReport}
@@ -26,7 +26,7 @@ public record UpdatePlan(
     public record Unclaimed(String service, String fileName) {}
 
     /**
-     * The row that makes a run leave {@code service} alone entirely, or {@code null} when a run would apply its work.
+     * Returns the row that makes a run leave {@code service} alone, or {@code null} when the run applies its work.
      *
      * Any failure but the server jar or the pack blocks it; the applier, report and plugin list all read this.
      */
@@ -36,7 +36,6 @@ public record UpdatePlan(
                 .toList());
     }
 
-    /** {@link #blocker(String)} for one service's rows. */
     public static @Nullable Change blocker(final Collection<Change> serviceChanges) {
         return serviceChanges.stream()
                 .filter(change -> change.status().isFailure())
@@ -47,12 +46,10 @@ public record UpdatePlan(
                 .orElse(null);
     }
 
-    /** Whether a run would move anything at all. */
     public boolean hasWork() {
         return changes.stream().anyMatch(change -> change.status().isWork());
     }
 
-    /** Whether some part of the picture is missing, which makes "nothing to do" unsafe to believe. */
     public boolean hasFailures() {
         return changes.stream().anyMatch(change -> change.status().isFailure());
     }
@@ -62,9 +59,9 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan reduced to what a bootstrap may install: {@link Change.Status#MISSING} and every unresolved row.
+     * Returns the plan reduced to what a bootstrap installs: {@link Change.Status#MISSING} and every unresolved row.
      *
-     * A bootstrap never upgrades, and unresolved rows stay so an outage empties the folder rather than hiding.
+     * A bootstrap never upgrades. Unresolved rows stay, so an outage empties the folder visibly.
      */
     public UpdatePlan onlyMissing() {
         final List<Change> keep = changes.stream()
@@ -75,9 +72,9 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan narrowed to some of the services, without the resource pack.
+     * Returns the plan for some of the services, without the resource pack.
      *
-     * @param services compose service names; empty hands the plan back untouched, since empty is the whole network
+     * @param services compose service names, empty returns the plan unchanged, because empty means the whole network
      */
     public UpdatePlan onlyServices(final java.util.Collection<String> services) {
         if (services.isEmpty()) {
@@ -97,9 +94,9 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan with some services taken out of it, so a run never installs into a held service.
+     * Returns the plan without some services, so a run never installs into a held service.
      *
-     * @param services compose service names to leave out; empty hands the plan back untouched
+     * @param services compose service names to leave out, empty returns the plan unchanged
      */
     public UpdatePlan withoutServices(final java.util.Collection<String> services) {
         if (services.isEmpty()) {
@@ -118,7 +115,7 @@ public record UpdatePlan(
                 notes);
     }
 
-    /** Whether anything here is actually absent, as opposed to merely unknown. */
+    /** Returns whether anything is absent, not merely unknown. */
     public boolean hasMissing() {
         return changes.stream().anyMatch(change -> change.status() == Change.Status.MISSING);
     }

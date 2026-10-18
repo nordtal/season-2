@@ -21,11 +21,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * The topology: what compose.yml's labels say about each service, the one place any process learns it from.
  *
- * Read through {@code compose config}, so anchors and interpolation are resolved as a deployment resolves them.
+ * It reads through {@code compose config}, so anchors and interpolation resolve as in a deployment.
  */
 public final class ComposeTopology {
 
-    /** The label that marks a service whose console can be typed into. */
+    /** The label that marks a service whose console accepts typed lines. */
     public static final String CONSOLE = "eu.nordtal.console";
 
     /** The label that marks a service a backup stops while it saves, with the value {@code stop}. */
@@ -44,7 +44,9 @@ public final class ComposeTopology {
     /** The label that makes a service the standby of the one it names. */
     public static final String STANDBY_OF = "eu.nordtal.standby-of";
 
-    /** The label that says when a run makes a service again: {@code run}, {@code after} or {@code last}. */
+    /**
+     * The label that says when a run creates a service again: {@code run}, {@code after} or {@code last}.
+     */
     public static final String RENEW = "eu.nordtal.renew";
 
     /** The heading the network page groups a service under; a service without it is not drawn. */
@@ -103,7 +105,6 @@ public final class ComposeTopology {
         }
     }
 
-    /** The services a line can be typed into. */
     public Set<String> consoles() {
         final Set<String> consoles = new LinkedHashSet<>();
         for (final AgentWire.Service service : read().services()) {
@@ -114,11 +115,10 @@ public final class ComposeTopology {
         return consoles;
     }
 
-    /** The topology out of {@code compose config}'s {@code services} object. */
     static AgentWire.Topology parse(final JsonObject services, final String backupSources) {
         final String root = backupSources.endsWith("/") ? backupSources : backupSources + "/";
         final List<AgentWire.Service> all = new ArrayList<>();
-        // Saved volume -> the source the agent mounts it from, so the services on the same source can be found.
+        // Maps each saved volume to the source the agent mounts it from, to find services on the same source.
         final Map<String, String> saved = new LinkedHashMap<>();
         for (final String name : services.keySet()) {
             final JsonObject service = services.getAsJsonObject(name);
@@ -135,7 +135,7 @@ public final class ComposeTopology {
                     text(labels, STANDBY_OF),
                     renewal(name, text(labels, RENEW)),
                     wiring(labels),
-                    // Compose's word for a process that exits by design; a missing policy is left long-running.
+                    // Compose's word for a process that exits by design. A missing policy stays long-running.
                     "no".equals(text(service, "restart"))));
             for (final JsonObject mount : mounts(service)) {
                 final String target = text(mount, "target");
@@ -149,7 +149,6 @@ public final class ComposeTopology {
         return new AgentWire.Topology(all, List.copyOf(saved.keySet()), mountedBy);
     }
 
-    /** The server {@code name}'s labels describe, or none for a service without {@link #SERVER}. */
     private static Topology.@Nullable Service server(final String name, final JsonObject labels) {
         final String kind = text(labels, SERVER);
         if (kind == null) {

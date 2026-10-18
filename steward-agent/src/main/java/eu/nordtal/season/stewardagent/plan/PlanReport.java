@@ -14,9 +14,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Turns an {@link UpdatePlan} into the {@link UpdateReport} every surface draws, the only place that happens.
+ * Turns an {@link UpdatePlan} into the {@link UpdateReport} that every surface draws.
  *
- * The resource pack has no service, so it is a note rather than a line a run would stop a server for.
+ * The resource pack has no service, so it is a note and no line.
  */
 public final class PlanReport {
 
@@ -25,8 +25,7 @@ public final class PlanReport {
     /**
      * Builds the report.
      *
-     * @param plan what was resolved
-     * @return one line per service that has anything to say, in {@link Topology}'s order
+     * @return one line per service that has anything to report, in the order of {@link Topology}
      */
     public static UpdateReport of(final UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
@@ -55,12 +54,11 @@ public final class PlanReport {
         return report.withNotes(notes);
     }
 
-    /** Sorts the changes into per-service work, per-service trouble, and notes that belong to no service. */
     private static List<Note> classify(
             final UpdatePlan plan,
             final Map<String, List<UpdateReport.Change>> work,
             final Map<String, MessageRef> trouble) {
-        // The resolver's own notes first, as it worded them: this class draws, it does not decide.
+        // The notes of the resolver come first as worded there.
         final List<Note> notes = new ArrayList<>(plan.notes().stream()
                 .map(note -> Note.warning(Step.SOURCES, note))
                 .toList());
@@ -78,10 +76,10 @@ public final class PlanReport {
             if (change.status().isWork()) {
                 work.get(change.service()).add(moving(change));
             } else if (change.status() == Change.Status.UNSUPPORTED) {
-                // Listed so a stalled artefact stays named; nothing is fetched or stopped for it.
+                // The artefact stays named. Nothing is fetched or stopped for it.
                 work.get(change.service()).add(UpdateReport.Change.unsupported(change.artifact()));
             } else if (change.status() == Change.Status.NOT_IN_RELEASE) {
-                // Not work, not a failure: our release carries nothing for this jar, and the installed one stays.
+                // Our release has no file for this jar, and the installed one stays.
                 notes.add(Note.warning(
                                 Step.SOURCES,
                                 TEXTS.report().notInRelease(reason(change), String.valueOf(change.installed())))
@@ -95,9 +93,7 @@ public final class PlanReport {
     }
 
     /**
-     * One service's line: FAILED with rows held back, FAILED with its rows still moving, or PLANNED/UNCHANGED.
-     *
-     * Why a line failed is a record of the sources, as every other answer of a source is.
+     * Returns the line of one service: FAILED with held rows, FAILED with moving rows, or PLANNED or UNCHANGED.
      */
     private static UpdateReport.ServiceLine serviceLine(
             final String service,
@@ -105,7 +101,7 @@ public final class PlanReport {
             final @Nullable MessageRef why,
             final UpdatePlan plan) {
         if (why != null && plan.blocker(service) != null) {
-            // The run skips a service it could not trust, so nothing on its line may read as moving.
+            // The run skips a service it cannot trust, so no row of its line reads as moving.
             return new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.FAILED,
@@ -124,7 +120,6 @@ public final class PlanReport {
                 service, moving ? UpdateReport.State.PLANNED : UpdateReport.State.UNCHANGED, changes, null);
     }
 
-    /** The rows a run that skips the service holds back, each as its jump. */
     private static List<String> held(final List<UpdateReport.Change> changes) {
         return changes.stream()
                 .filter(row -> row.state() == UpdateReport.Change.State.MOVING)
@@ -133,9 +128,7 @@ public final class PlanReport {
     }
 
     /**
-     * One artefact's row as a version jump, never a filename against a version.
-     *
-     * Where the pair does not split, as for the pack's SHA-1, the filename stays rather than an invented version.
+     * Returns the row of an artefact as a version jump. Where the pair does not split, the row keeps the filename.
      */
     private static UpdateReport.Change moving(final Change change) {
         final String wantedFile =

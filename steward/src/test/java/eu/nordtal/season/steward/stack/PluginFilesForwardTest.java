@@ -20,6 +20,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.settings.ServerTrial;
 import eu.nordtal.season.steward.texts.WebTexts;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
@@ -97,6 +98,7 @@ class PluginFilesForwardTest {
                 null,
                 null,
                 null,
+                ServerTrial.NONE,
                 Clock.systemUTC(),
                 TestScheduler.SHARED);
         final Journaling journaling = new Journaling(recording(), ctx -> Optional.of(Actor.STEWARD));

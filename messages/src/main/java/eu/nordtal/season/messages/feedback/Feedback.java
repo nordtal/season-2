@@ -27,7 +27,7 @@ public enum Feedback {
     /** A click in a surface that picks something. */
     SELECT,
 
-    /** The balloon or the way to the duel arena. */
+    /** The way to the duel arena. */
     TRAVEL,
 
     /** One tick of a countdown before a duel start or a restart. */

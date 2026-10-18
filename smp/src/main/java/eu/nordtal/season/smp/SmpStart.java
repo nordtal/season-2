@@ -31,8 +31,6 @@ import eu.nordtal.season.smp.protect.ProtectionListener;
 import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
-import eu.nordtal.season.smp.travel.BalloonDisplay;
-import eu.nordtal.season.smp.travel.BalloonListener;
 import eu.nordtal.season.smp.travel.PortalGate;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
@@ -243,28 +241,12 @@ final class SmpStart {
         return npc;
     }
 
-    static BalloonDisplay restoreGravesAndRegisterWorld(
-            final SmpPlugin plugin, final Boxes balloons, final Boxes regions, final WorldEffects effects) {
+    static void restoreGravesAndRegisterWorld(final SmpPlugin plugin, final Boxes regions) {
         plugin.graves.restore();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
                         new ProtectionListener(regions, plugin.identities(), plugin.renderer(), plugin.sounds), plugin);
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new BalloonListener(
-                                balloons,
-                                plugin.worlds,
-                                plugin.season,
-                                () -> plugin.track,
-                                plugin.renderer(),
-                                plugin.identities(),
-                                plugin.sounds,
-                                effects),
-                        plugin);
-        final BalloonDisplay balloonDisplay = new BalloonDisplay(plugin, balloons);
-        balloonDisplay.spawn();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -276,6 +258,5 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.sounds),
                         plugin);
-        return balloonDisplay;
     }
 }

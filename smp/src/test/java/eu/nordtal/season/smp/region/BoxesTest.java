@@ -59,32 +59,4 @@ class BoxesTest {
                 "configuration order is what makes a carve-out possible");
         assertEquals(outer, boxes.at(WORLD, 8, 61, 8).orElseThrow());
     }
-
-    @Test
-    void boxesAreFilteredByWorld() {
-        final Boxes boxes = new Boxes(List.of(
-                new Box(WORLD, 0, 0, 0, 1, 1, 1), new Box("farm", 0, 0, 0, 1, 1, 1), new Box(WORLD, 5, 0, 5, 6, 1, 6)));
-
-        assertEquals(2, boxes.in(WORLD).size());
-        assertEquals(1, boxes.in("farm").size());
-        assertEquals(0, boxes.in("nordtal_the_end").size());
-    }
-
-    /** The distance of the balloon from the border centre, the one number in this file that is not arbitrary. */
-    @Test
-    void horizontalDistanceIgnoresHeightAndMeasuresFromTheCentre() {
-        final Box balloon = new Box(WORLD, 119, 64, 86, 123, 68, 90);
-
-        assertEquals(15.0, balloon.horizontalDistanceFrom(106, 88), 0.0001);
-
-        final Box tooClose = new Box(WORLD, 104, 64, 86, 108, 68, 90);
-        assertTrue(
-                tooClose.horizontalDistanceFrom(106, 88) <= 10.0,
-                "a balloon this close is inside the opening border and hands travel over for free");
-
-        final Box tooFar = new Box(WORLD, 130, 64, 86, 134, 68, 90);
-        assertTrue(
-                tooFar.horizontalDistanceFrom(106, 88) >= 21.5,
-                "a balloon this far is still outside the border after the first expansion");
-    }
 }

@@ -72,9 +72,9 @@ class GlyphShadowTest {
 
     @Test
     void aMenuCanvasWithOverlaysCarriesNoShadowEither() {
-        final Component surface = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
-                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 99, 68)
-                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 9, 68)
+        final Component surface = MenuTitle.on(Glyphs.GUI_PANEL_6)
+                .overlay(Glyphs.GUI_CARD_BOTTOM, 99, 68)
+                .overlay(Glyphs.GUI_CARD_TOP, 9, 68)
                 .build(Component.text("title"));
         assertNoShadowOnFont(surface, Glyphs.FONT_GUI, "MenuTitle.Canvas.build");
     }

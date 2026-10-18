@@ -862,54 +862,6 @@
           ]
         },
         {
-          "range": "FE066-FE06A",
-          "title": "The travel panel and its overlays",
-          "about": "An overlay is declared once per card row, with the ascent that lands it there.",
-          "status": "final candidate",
-          "glyphs": [
-            {
-              "code": "FE066",
-              "constant": "GUI_TRAVEL_PANEL",
-              "texture": "nordtal:ui/gui/travel.png",
-              "height": 222,
-              "ascent": 13,
-              "about": "The balloon's panel: a 6-row window with the three world cards baked in, each 68 by 50 at x 9 or 99 and y 19 or 73."
-            },
-            {
-              "code": "FE067",
-              "constant": "GUI_TRAVEL_LOCKED_TOP",
-              "texture": "nordtal:ui/gui/travel_locked.png",
-              "height": 50,
-              "ascent": -6,
-              "about": "Locked: a translucent shade with a padlock, the size of one card, on the upper card row."
-            },
-            {
-              "code": "FE068",
-              "constant": "GUI_TRAVEL_LOCKED_BOTTOM",
-              "texture": "nordtal:ui/gui/travel_locked.png",
-              "height": 50,
-              "ascent": -60,
-              "about": "Locked, on the lower card row."
-            },
-            {
-              "code": "FE069",
-              "constant": "GUI_TRAVEL_HERE_TOP",
-              "texture": "nordtal:ui/gui/travel_here.png",
-              "height": 50,
-              "ascent": -6,
-              "about": "You are here: a white frame 2 pixels wide, transparent inside, on the upper card row."
-            },
-            {
-              "code": "FE06A",
-              "constant": "GUI_TRAVEL_HERE_BOTTOM",
-              "texture": "nordtal:ui/gui/travel_here.png",
-              "height": 50,
-              "ascent": -60,
-              "about": "You are here, on the lower card row."
-            }
-          ]
-        },
-        {
           "range": "FE06B-FE07F",
           "title": "Chest panels without recesses",
           "about": "For list menus, whose plates span a whole row; the player's inventory keeps its recesses.",

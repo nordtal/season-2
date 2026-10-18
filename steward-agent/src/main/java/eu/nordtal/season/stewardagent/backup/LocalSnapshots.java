@@ -13,13 +13,13 @@ import java.util.Collection;
 import java.util.function.Supplier;
 
 /**
- * What a run saves with: the volumes tarred from their mounts, the database dumped inside its own container.
+ * Saves the volumes as tar archives from their mounts and dumps the database inside its own container.
  *
- * The database service and the patience are read from the runs group at every call, so a change counts at once.
+ * It reads the database service and the patience from the runs group at every call.
  */
 public final class LocalSnapshots implements Snapshots {
 
-    /** Below this a tar of a world could not finish, so a shorter patience is a mistake, not a choice. */
+    /** A tar of a world cannot finish in less, so a shorter patience is refused. */
     private static final Duration LEAST_PATIENCE = Duration.ofMinutes(1);
 
     private final TarSnapshots tars;
@@ -31,8 +31,8 @@ public final class LocalSnapshots implements Snapshots {
     /**
      * Saves into {@code backups}, which the database's container mounts at the same path.
      *
-     * @param sourcesRoot where the volumes being saved are mounted, one directory per volume name
-     * @param afterDatabaseRestore what a replaced database needs before anything uses it: fresh connections, the schema
+     * @param sourcesRoot the mounted volumes, one directory per volume name
+     * @param afterDatabaseRestore what a replaced database needs before use: fresh connections and the schema
      * @param offsite where the newest archives are copied off this host, read at every copy
      */
     public LocalSnapshots(

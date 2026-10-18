@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Saves one volume as {@code tar} into {@code zstd}, a file on this host, and never reports an empty archive as ok.
+ * Saves one volume as {@code tar} piped into {@code zstd}, to a file on this host.
  *
  * The pipeline is built with {@link ProcessBuilder#startPipeline}, never through a shell or tar's compress option.
  */
@@ -56,7 +56,7 @@ public final class TarSnapshots {
     static final String PARTIAL = ".partial";
 
     /**
-     * Appended to an archive's name to mark the stop behind it as unverified.
+     * The suffix of the mark that an archive's stop was unverified.
      *
      * The mark sits beside the archive, never inside it, since a restore would unpack it into the world.
      */
@@ -65,7 +65,7 @@ public final class TarSnapshots {
     /**
      * {@code <volume>-<stamp>.tar.zst}.
      *
-     * The last dash before the fixed stamp is the split, so a volume called {@code nordtal-s2_mc-smp} comes back whole.
+     * The last dash before the fixed stamp splits the name, so {@code nordtal-s2_mc-smp} stays whole.
      */
     private static final Pattern ARCHIVE =
             Pattern.compile("^(?<volume>.+)-(?<stamp>\\d{8}T\\d{6}Z)\\Q" + SUFFIX + "\\E$");
@@ -80,10 +80,12 @@ public final class TarSnapshots {
     private static final Pattern PARTIAL_DUMP = Pattern.compile(
             "^\\Q" + DatabaseDump.PREFIX + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + PARTIAL + "\\E$");
 
-    /** The group key the dumps are counted under; its space keeps any volume name from matching it. */
+    /** The key of the dump series. Its space keeps a volume name from matching it. */
     private static final String DUMP_SERIES = "the database dump";
 
-    /** Docker's rule for a volume name, which also refuses {@code ..} and slashes in a path segment. */
+    /**
+     * Docker's rule for a volume name. It also refuses {@code ..} and slashes in a path segment.
+     */
     private static final Pattern VOLUME_NAME = Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9_.-]*");
 
     /**
@@ -111,12 +113,12 @@ public final class TarSnapshots {
     /** Level 1, since region files are already compressed and downtime, not disk, is what is minimised. */
     private static final String LEVEL = "-1";
 
-    /** The filesystem the archives are written to, as the budget and the room check read it. */
+    /** The filesystem the archives are written to. */
     interface Space {
 
         long totalBytes() throws IOException;
 
-        /** What this process may still write, which leaves out the root reserve. */
+        /** What this process may still write, without the reserve for root. */
         long usableBytes() throws IOException;
 
         static Space of(final Path directory) {
@@ -139,13 +141,6 @@ public final class TarSnapshots {
     private final Clock clock;
     private final Space space;
 
-    /**
-     * Creates the snapshots.
-     *
-     * @param sourcesRoot where the volumes are mounted read-only, one directory per volume name
-     * @param outputRoot where the archives are written, {@code /backups}
-     * @param clock the clock that stamps a file name
-     */
     public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock) {
         this(sourcesRoot, outputRoot, clock, Space.of(outputRoot));
     }
@@ -160,7 +155,7 @@ public final class TarSnapshots {
     /**
      * Saves one volume, giving up after {@code wall}, since the caller starts the servers again once it returns.
      *
-     * @param volume the volume's real name, mounted under the sources root
+     * @param volume the real volume name under the sources root
      */
     public SnapshotResult save(final String volume, final Duration wall) {
         final long startedAt = System.nanoTime();
@@ -199,9 +194,9 @@ public final class TarSnapshots {
     }
 
     /**
-     * The series a finished archive in the backups belongs to: its volume, or {@link Snapshots#DATABASE} for a dump.
+     * Returns the series of a finished archive: its volume, or {@link Snapshots#DATABASE} for a dump.
      *
-     * @return empty for a name that is no finished archive, or one that is not there
+     * @return empty for a name that is no finished archive or not there
      */
     public Optional<String> seriesOf(final String name) {
         final Path file;
@@ -223,7 +218,7 @@ public final class TarSnapshots {
     /**
      * Puts a volume archive back: reads it through, empties the volume and unpacks it, owners and modes kept.
      *
-     * Every server on the volume has to be stopped; a failure after the emptying leaves the volume incomplete.
+     * Every server on the volume must be stopped. A failure after the emptying leaves the volume incomplete.
      */
     public Snapshots.Restored restore(final String archive, final Duration wall) {
         final long startedAt = System.nanoTime();
@@ -308,7 +303,6 @@ public final class TarSnapshots {
         }
     }
 
-    /** What the kernel's EBUSY reads as in a {@link FileSystemException}. */
     private static final String BUSY = "Device or resource busy";
 
     private static boolean isEmptyDirectory(final Path path) throws IOException {
@@ -320,13 +314,11 @@ public final class TarSnapshots {
         }
     }
 
-    /** Deletes one path, as {@link Files#delete} does. */
     @FunctionalInterface
     interface Deleter {
         void delete(Path path) throws IOException;
     }
 
-    /** Where one archive is written: its name, the partial file, and the name it gets once read back. */
     private record Target(String name, Path partial, Path finished) {}
 
     private SnapshotResult writeArchive(
@@ -341,7 +333,7 @@ public final class TarSnapshots {
                 List.of(
                         // `.` and -C so the archive holds relative names.
                         List.of("tar", "-cf", "-", "-C", source.toString(), "."),
-                        // --rsyncable keeps an unchanged region's bytes alike, so the offsite copy deduplicates it.
+                        // --rsyncable keeps unchanged regions alike, so the offsite copy deduplicates them.
                         List.of("zstd", LEVEL, "-T0", "--rsyncable", "-q", "-", "-o", partial.toString())));
         if (created.failed()) {
             Files.deleteIfExists(partial);
@@ -359,14 +351,14 @@ public final class TarSnapshots {
         }
 
         Files.move(partial, finished);
-        // The real size on disk, not the input size.
+        // The size on disk, not the input size.
         final long bytes = Files.size(finished);
         final Duration took = since(startedAt);
         log.info("saved {} ({}) in {}s", name, ByteSize.of(bytes), took.toSeconds());
         return SnapshotResult.saved(volume, bytes, took, finished.toString());
     }
 
-    // A missing or empty source directory is a failure that names the path, never a small archive as a backup.
+    // A missing or empty source directory fails with its path and never becomes a small archive.
     private @Nullable SnapshotResult validateSource(final String volume, final Path source, final long startedAt) {
         if (!Files.isDirectory(source)) {
             return SnapshotResult.failed(
@@ -388,7 +380,9 @@ public final class TarSnapshots {
         return null;
     }
 
-    /** Marks an archive as saved behind a stop nobody could verify, one line of JSON, and answers whether it did. */
+    /**
+     * Writes the mark of an unverified stop beside the archive as one line of JSON and returns whether it succeeded.
+     */
     public boolean markUnverified(final String archive, final Snapshots.Unverified record) {
         final Path mark;
         try {
@@ -400,7 +394,7 @@ public final class TarSnapshots {
         try {
             Files.writeString(mark, Json.encode(record) + System.lineSeparator(), StandardCharsets.UTF_8);
         } catch (final IOException unwritable) {
-            // Not a reason to discard a backup that succeeded, but logged loudly.
+            // A failed mark does not discard a successful backup.
             log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
             return false;
         }
@@ -413,8 +407,7 @@ public final class TarSnapshots {
     }
 
     /**
-     * Applies the retention policy to each volume and to the database dump as separate series, then the disk budget.
-     * A volume outside {@code inBackup} is counted by the calendar; a day-old {@code .partial} is swept too.
+     * Applies the retention policy to each volume and the dumps as separate series, then the disk budget.
      *
      * @param inBackup the volumes a backup saves now, by the name an archive carries
      * @param budgetPercent the share of the filesystem the finished archives may take together
@@ -457,7 +450,7 @@ public final class TarSnapshots {
     /**
      * What a backup of {@code volumes} and the database would write against the room on the disk.
      *
-     * A filesystem that cannot be read counts as room, since the save itself still fails on a full disk.
+     * A filesystem that cannot be read counts as room, because the save itself fails on a full disk.
      */
     public Snapshots.Room room(final Collection<String> volumes, final int keepFreePercent) {
         final Map<String, Long> newest = new LinkedHashMap<>();
@@ -492,7 +485,6 @@ public final class TarSnapshots {
         }
     }
 
-    /** Deletes what the budget cannot hold; nothing when the filesystem cannot be read. */
     private List<String> overBudget(final List<DiskBudget.Held> left, final int budgetPercent) {
         final long total;
         try {
@@ -511,7 +503,6 @@ public final class TarSnapshots {
         return List.copyOf(removed);
     }
 
-    /** One archive as the budget weighs it; empty when it vanished meanwhile. */
     private Optional<DiskBudget.Held> held(final String series, final Retention.Dated archive) {
         final Path file = outputRoot.resolve(archive.name());
         try {
@@ -526,7 +517,6 @@ public final class TarSnapshots {
         }
     }
 
-    /** Deletes an archive and, with it, its mark. */
     private boolean deleteArchive(final String name) {
         final Path file = outputRoot.resolve(name);
         if (!delete(file)) {
@@ -536,7 +526,6 @@ public final class TarSnapshots {
         return true;
     }
 
-    // Groups by the volume in the name and sweeps day-old partials into `removed`.
     private Map<String, List<Retention.Dated>> classify(
             final List<Path> files, final Instant now, final List<String> removed) {
         final Map<String, List<Retention.Dated>> byVolume = new LinkedHashMap<>();
@@ -577,7 +566,6 @@ public final class TarSnapshots {
         return byVolume;
     }
 
-    /** Returns one archive dated, or empty when the stamp is not a real date, which leaves the file alone. */
     private static java.util.Optional<Retention.Dated> dated(final String name, final String stamp) {
         try {
             return java.util.Optional.of(new Retention.Dated(name, stampOf(stamp)));
@@ -590,7 +578,7 @@ public final class TarSnapshots {
     /**
      * Reads a finished archive back and returns what is wrong with it, or {@code null}.
      *
-     * {@code tar -tf} walks every header, so it catches a truncation that {@code zstd -t} would pass.
+     * {@code tar -tf} walks every header, so it catches a truncation that {@code zstd -t} passes.
      */
     @Nullable
     String unreadable(final Path archive, final Duration wall) throws IOException, InterruptedException {
@@ -601,7 +589,7 @@ public final class TarSnapshots {
             if (read.failed()) {
                 return read.describe();
             }
-            // An archive of nothing reads back perfectly, just like a truncated one.
+            // An archive of nothing reads back like a truncated one.
             final long members = countLines(listing);
             if (members == 0) {
                 return "it holds no files at all";
@@ -617,9 +605,6 @@ public final class TarSnapshots {
         return LocalDateTime.parse(stamp, STAMP).toInstant(ZoneOffset.UTC);
     }
 
-    /**
-     * Returns whether a partial's stamp is older than {@code cut}, and {@code false} for a stamp that is not a date.
-     */
     private static boolean isOlderThan(final String stamp, final Instant cut, final String name) {
         try {
             return stampOf(stamp).isBefore(cut);
@@ -633,7 +618,7 @@ public final class TarSnapshots {
         try {
             return Files.deleteIfExists(file);
         } catch (final IOException undeletable) {
-            // Reported, not thrown, so one undeletable file does not stop the sweep.
+            // One undeletable file must not stop the sweep.
             log.warn("cannot delete {}: {}", file, undeletable.toString());
             return false;
         }

@@ -41,7 +41,7 @@ final class Pipeline {
     }
 
     /**
-     * Runs the stages with {@code environment} added to every stage's, which keeps a secret off the command line.
+     * Runs the stages with {@code environment} added to each, which keeps a secret off the command line.
      *
      * @return exit {@code -1} when the wall was reached, after the whole pipeline was killed
      */
@@ -84,7 +84,7 @@ final class Pipeline {
             }
             return new Result(codes.get(), said.toString());
         } catch (final InterruptedException interrupted) {
-            // A shutdown must not leave a stage writing with nobody waiting on it.
+            // A shutdown must not leave a stage that writes with nobody waiting.
             running.forEach(Process::destroyForcibly);
             throw interrupted;
         } finally {

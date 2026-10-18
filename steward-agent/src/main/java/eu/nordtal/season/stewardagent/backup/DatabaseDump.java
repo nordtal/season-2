@@ -33,7 +33,6 @@ public final class DatabaseDump {
     /** {@code nordtal-<stamp>.dump}, in two halves, so {@link TarSnapshots#prune} can match what this writes. */
     static final String PREFIX = DATABASE_NAME + "-";
 
-    /** The second half of {@link #PREFIX}. */
     static final String SUFFIX = ".dump";
 
     private final Docker docker;
@@ -41,11 +40,6 @@ public final class DatabaseDump {
     private final String directory;
     private final Clock clock;
 
-    /**
-     * Dumps into one directory.
-     *
-     * @param directory where the dump is written, as the postgres container sees it
-     */
     public DatabaseDump(final Docker docker, final String project, final String directory, final Clock clock) {
         this.docker = docker;
         this.project = project;
@@ -92,7 +86,7 @@ public final class DatabaseDump {
     /**
      * Replaces the database with a dump in the same directory, in one transaction, so a failure changes nothing.
      *
-     * The schema is dropped first, since a table a later migration added is in no dump and would stay behind.
+     * The schema is dropped first, because a table of a later migration is in no dump and would stay.
      */
     public SnapshotResult restore(final String service, final String dump) {
         final Instant started = clock.instant();
@@ -114,7 +108,7 @@ public final class DatabaseDump {
                     took(started),
                     dump + " is not a readable dump, so the database was not touched: " + firstLine(listed.output()));
         }
-        // The owner restores, over the socket the image trusts; a lock held elsewhere fails it instead of hanging.
+        // The owner restores over the socket that the image trusts. A lock held elsewhere fails the restore.
         final Docker.ExecResult restored = run(
                 containerId,
                 "set -o pipefail; { printf '%s\\n' 'DROP SCHEMA public CASCADE;'"
@@ -154,11 +148,11 @@ public final class DatabaseDump {
             final String finalPath,
             final String partialPath,
             final Instant started) {
-        // One `sh -c` per step, so a failure names the step; the values come from the container's own environment.
+        // One {@code sh -c} per step, so a failure names the step.
         final Docker.ExecResult dumped = run(
                 containerId,
                 "pg_dump --format=custom --compress=9 --file=" + quote(partialPath)
-                        // The backup role reads everything and changes nothing; the socket needs no password.
+                        // The socket needs no password.
                         + " -U " + quote(role) + " -d \"$POSTGRES_DB\"");
         if (!dumped.ok()) {
             remove(containerId, partialPath);
@@ -168,7 +162,7 @@ public final class DatabaseDump {
                     "pg_dump exited " + dumped.exitCode() + ": " + firstLine(dumped.output()));
         }
 
-        // Reading the archive's table of contents back catches a truncated file early.
+        // Reading the table of contents back catches a truncated file.
         final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath) + " > /dev/null");
         if (!listed.ok()) {
             remove(containerId, partialPath);
@@ -200,7 +194,7 @@ public final class DatabaseDump {
         return SnapshotResult.saved(Snapshots.DATABASE, bytes, took(started), finalPath);
     }
 
-    // As `postgres`: the official image trusts the local socket only for that user.
+    // The official image trusts the local socket only for {@code postgres}.
     private Docker.ExecResult run(final String containerId, final String script) {
         return docker.exec(containerId, List.of("sh", "-c", script), "postgres");
     }
@@ -228,12 +222,12 @@ public final class DatabaseDump {
         return Duration.between(started, clock.instant());
     }
 
-    /** Single quotes, with the one escape that matters; these are our paths, not user input. */
+    /** Quotes a path in single quotes. The paths are ours, not user input. */
     private static String quote(final String path) {
         return "'" + path.replace("'", "'\\''") + "'";
     }
 
-    /** The line psql stopped on, which a warning printed before it would otherwise hide. */
+    /** Returns the line psql stopped on, which an earlier warning would hide. */
     private static String errorLine(final String output) {
         return output.lines()
                 .filter(line -> line.startsWith("ERROR:") || line.startsWith("FATAL:"))

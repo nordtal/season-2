@@ -1,5 +1,5 @@
 /**
- * The five phases of `eu.nordtal.season.common.SeasonPhase`. `season-phases.test.ts` holds this list against it.
+ * The five phases of `eu.nordtal.season.common.SeasonPhase`, held against it by `season-phases.test.ts`.
  */
 export type SeasonPhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
 

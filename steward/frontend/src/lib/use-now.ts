@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
 
-/** How often a relative time on screen moves on to the next minute worth noticing. */
+/** How often a relative time on screen moves on. */
 const TICK_MS = 30_000
 
 /**
- * Returns the current time. It is read once into state and ticks every {@link TICK_MS}, so one render sees one instant.
+ * Returns the current time, read once into state and ticking every {@link TICK_MS}, so one render sees one instant.
  */
 export function useNow(): number {
   const [now, setNow] = useState(() => Date.now())

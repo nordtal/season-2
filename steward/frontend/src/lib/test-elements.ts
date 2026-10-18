@@ -1,8 +1,4 @@
-/**
- * Narrows a Testing Library element to a subclass, for properties only the subclass has, such as `disabled`, `value` or `style`.
- *
- * It uses `instanceof` and no cast, and never throws in a passing test.
- */
+/** Narrows a Testing Library element to a subclass with `instanceof` and no cast. */
 
 function narrow<T extends Element>(element: Element | null, ctor: new (...args: never[]) => T, label: string): T {
   if (!(element instanceof ctor)) {
@@ -31,7 +27,6 @@ export function asAnchor(element: Element | null): HTMLAnchorElement {
   return narrow(element, HTMLAnchorElement, "a")
 }
 
-/** Narrows a query's result to a plain `Element`. */
 export function asElement(element: Element | null): HTMLElement {
   return narrow(element, HTMLElement, "HTMLElement")
 }

@@ -3,9 +3,6 @@ import { describe, expect, it } from "vitest"
 import type { CommandNode } from "@/lib/api"
 import { complete, suggest } from "@/lib/command-tree"
 
-/**
- * A small server: give with two arguments, execute that runs any command again, and a namespaced copy of stop.
- */
 const TREE: CommandNode[] = [
   { name: "", children: [1, 2, 3, 4, 5] },
   { name: "execute", children: [6, 7] },

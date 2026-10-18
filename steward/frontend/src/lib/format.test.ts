@@ -14,15 +14,11 @@ import {
 } from "@/lib/format"
 
 /**
- * The formatters against the shapes that the file promises.
- *
- * `NOTHING` is an escaped en dash, because a typed hyphen would fail for a reason that the diff hides.
+ * `NOTHING` is an escaped en dash, because a typed hyphen would fail for a reason the diff hides.
  */
 const NOTHING = "\u2013"
 
-/**
- * Every formatter takes null, undefined, NaN and both infinities, because the API sends all four.
- */
+/** The API sends all four. */
 const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
 
 describe("bytes", () => {
@@ -33,7 +29,6 @@ describe("bytes", () => {
   })
 
   it("treats a kilobyte as a thousand bytes, because that is what df on this host says", () => {
-    /** Decimal units match the machine's own tools, so 1000 B is 1.0 kB and not a KiB. */
     expect(bytes(1000)).toBe("1.0 kB")
     expect(bytes(1024)).toBe("1.0 kB")
     expect(bytes(1500)).toBe("1.5 kB")
@@ -63,7 +58,6 @@ describe("bytes", () => {
 
 describe("percent", () => {
   it("prints a whole number when no decimals were asked for", () => {
-    /** Intl defaults to three fraction digits, which a call with zero decimals must not print. */
     expect(percent(87.4567, 0)).toBe("87 %")
     expect(percent(0, 0)).toBe("0 %")
     expect(percent(100, 0)).toBe("100 %")
@@ -81,7 +75,6 @@ describe("percent", () => {
   })
 
   it("honours a decimal count other than zero or one", () => {
-    /** A decimal count other than 0 or 1 must be honoured and not read as 1. */
     expect(percent(12.3456, 2)).toBe("12.35 %")
   })
 
@@ -148,7 +141,6 @@ describe("parseInstant", () => {
   })
 
   it("returns null for a string that is not a date, never an Invalid Date", () => {
-    // An Invalid Date would pass a null check and throw inside Intl.
     expect(parseInstant("not a time")).toBeNull()
     expect(parseInstant("2026-13-45T99:99:99Z")).toBeNull()
   })
@@ -163,7 +155,7 @@ describe("parseInstant", () => {
 })
 
 describe("dateTime and clock", () => {
-  /** The test pins the en-GB shape and not the digits, which depend on the machine's time zone. */
+  /** The digits depend on the machine's time zone. */
   const LOCALE_DATE_TIME = /^\d{1,2} \w+ \d{4}, \d{2}:\d{2}$/
   const LOCALE_CLOCK = /^\d{2}:\d{2}:\d{2}$/
 
@@ -223,7 +215,6 @@ describe("relative", () => {
   })
 })
 
-/** The dialog's three fields. The duration kind shows the value, in `texts`. */
 describe("splitPlaytime", () => {
   it("drops seconds rather than rounding, so a value read back is the value written", () => {
     expect(splitPlaytime(3_659)).toEqual({ days: 0, hours: 1, minutes: 0 })

@@ -1,20 +1,14 @@
 /**
- * Measures the window height and the home screen's blur band and publishes them as `--app-height` and `--blur-clearance`.
+ * Publishes the window height and the home screen's blur band as `--app-height` and `--blur-clearance`.
  *
- * Viewport units are too tall on an iOS home screen. A keyboard or pinch is ignored only when it shrinks the viewport. The document is put back at the top once no field has the focus.
- *
- * An iOS home screen app takes the screen's height instead. WebKit can leave its layout viewport short after the keyboard or a long pause, and then every viewport number, `position: fixed` included, agrees on the short height.
- *
- * `--visible-height` and `--keyboard-inset` follow the keyboard instead: what it leaves visible and what it covers.
+ * Viewport units are too tall on an iOS home screen, and WebKit can leave its layout viewport short after the keyboard or a long pause. A keyboard or pinch is ignored only when it shrinks the viewport. `--visible-height` and `--keyboard-inset` follow the keyboard instead.
  */
 
-/** What this code needs from `window`. It is a type, so a test can pass a plain object. */
 export type ViewLike = {
   innerHeight: number
   visualViewport?: { height: number; scale: number } | null
 }
 
-/** Editable elements. While one of these has the focus, a shrunk viewport is the keyboard. */
 const EDITABLE = new Set(["INPUT", "TEXTAREA", "SELECT"])
 
 function isEditable(element: Element | null): boolean {
@@ -24,9 +18,7 @@ function isEditable(element: Element | null): boolean {
 }
 
 /**
- * Returns the window's height in pixels, or `null` to keep the last good number.
- *
- * `last` makes the refusals one-directional: a height above it is taken whoever has the focus.
+ * Returns the window's height in pixels, or `null` to keep the last good number. A height above `last` is taken whoever has the focus.
  */
 export function measuredHeight(view: ViewLike, focused: Element | null, last: number | null = null): number | null {
   const visual = view.visualViewport
@@ -38,18 +30,13 @@ export function measuredHeight(view: ViewLike, focused: Element | null, last: nu
   return visual.height
 }
 
-/**
- * What {@link visibleBand} needs from `window`. `offsetTop` is how far iOS has panned to show a focused field.
- */
 export type BandView = {
   innerHeight: number
   visualViewport?: { height: number; scale: number; offsetTop?: number } | null
 }
 
 /**
- * Returns what the keyboard leaves visible, in the pixels that `position: fixed` uses, or `null` while pinched.
- *
- * `below` is the keyboard plus any pan that iOS made to show a field, so a sheet standing on it meets the keyboard's edge.
+ * Returns what the keyboard leaves visible, in the pixels that `position: fixed` uses, or `null` while pinched. `below` includes iOS's pan, so a sheet meets the keyboard's edge.
  */
 export function visibleBand(view: BandView): { height: number; below: number } | null {
   const visual = view.visualViewport
@@ -58,20 +45,15 @@ export function visibleBand(view: BandView): { height: number; below: number } |
   return { height: visual.height, below: Math.max(0, view.innerHeight - (visual.offsetTop ?? 0) - visual.height) }
 }
 
-/** What {@link screenHeight} needs from `window`. */
 export type ScreenLike = {
   innerWidth: number
   screen: { width: number; height: number }
-  /**
-   * `object`, because `Navigator` declares no `standalone` and a type of optional keys alone would refuse it.
-   */
+  /** `object`, because `Navigator` declares no `standalone`. */
   navigator: object
 }
 
 /**
- * Returns the screen's height in the window's orientation for an iOS home screen app that fills the screen, else `null`.
- *
- * Only iOS answers `navigator.standalone`, and only there does the app cover the whole screen, status bar and home indicator included. The code reads the orientation from the width, because iOS never swaps `screen.width` and `screen.height`. A width that is neither side is a window beside another app, whose height is not the screen's.
+ * Returns the screen's height in the window's orientation for an iOS home screen app, else `null`. The orientation comes from the width, because iOS never swaps `screen.width` and `screen.height`. A width that is neither side is a window beside another app.
  */
 export function screenHeight(view: ScreenLike): number | null {
   if ((view.navigator as { standalone?: boolean }).standalone !== true) return null
@@ -83,9 +65,6 @@ export function screenHeight(view: ScreenLike): number | null {
   return null
 }
 
-/**
- * Returns whether this is the app on a home screen. `navigator.standalone` is iOS's older answer.
- */
 export function isStandalone(view: Window): boolean {
   const legacy = (view.navigator as Navigator & { standalone?: boolean }).standalone
   if (legacy === true) return true
@@ -93,30 +72,22 @@ export function isStandalone(view: Window): boolean {
 }
 
 /**
- * The cushion below iOS's blurred band, beyond `env(safe-area-inset-top)`, in pixels.
- *
- * It is one step of the spacing scale and not a measurement. The shell adds it only on a home screen.
+ * The cushion below iOS's blurred band, beyond `env(safe-area-inset-top)`, in pixels. One step of the spacing scale, added only on a home screen.
  */
 export const BLUR_CLEARANCE_PX = 8
 
 /**
- * How often the height is measured again while the window is visible, in milliseconds. This catches resumes that fire no event.
+ * Milliseconds between measurements while the window is visible. It catches resumes that fire no event.
  */
 const POLL_INTERVAL_MS = 1000
 
-/**
- * Starts publishing both properties and returns the function that stops. `main.tsx` calls it once.
- */
 export function trackAppFrame(view: Window = window): () => void {
   const root = view.document.documentElement
 
-  /** The last value written, so the poll writes only on a change. */
   let published: string | null = null
 
-  /** The unrounded height behind `published`, which tells a growing window from a keyboard. */
   let measured: number | null = null
 
-  /** The band last written, so a pan writes only when it moves the band. */
   let band: string | null = null
 
   const publishBand = () => {
@@ -129,9 +100,6 @@ export function trackAppFrame(view: Window = window): () => void {
     root.style.setProperty("--keyboard-inset", `${Math.round(visible.below)}px`)
   }
 
-  /**
-   * iOS scrolls the document to show a focused field and may leave it there. Nothing else scrolls it.
-   */
   const settle = () => {
     if (isEditable(view.document.activeElement)) return
     if (view.scrollY !== 0 || view.scrollX !== 0) view.scrollTo(0, 0)
@@ -149,9 +117,6 @@ export function trackAppFrame(view: Window = window): () => void {
     root.style.setProperty("--app-height", next)
   }
 
-  /**
-   * Polls only while the window is visible, because iOS can resume a home screen app without any event.
-   */
   let timer: ReturnType<typeof setInterval> | null = null
 
   const startPolling = () => {
@@ -177,12 +142,9 @@ export function trackAppFrame(view: Window = window): () => void {
   view.addEventListener("orientationchange", apply)
   visual?.addEventListener("resize", apply)
   visual?.addEventListener("scroll", publishBand)
-  /** Measures again on `focusout`, because the field's focus blocked the last measurement. */
   view.addEventListener("focusout", apply)
-  /** The events that fire on a resume. Which one iOS sends depends on how the app was left. */
   view.addEventListener("pageshow", apply)
   view.addEventListener("focus", apply)
-  /** Becoming visible measures again at once and restarts the poll. */
   const onVisibilityChange = () => {
     apply()
     syncPolling()

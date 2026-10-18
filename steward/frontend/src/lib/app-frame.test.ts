@@ -2,10 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { isStandalone, measuredHeight, screenHeight, trackAppFrame, visibleBand } from "@/lib/app-frame"
 
-/**
- * The two moments when reading the visual viewport is wrong: a keyboard and a pinch. Both are answered with `null`.
- */
-
 function view(over: Partial<{ innerHeight: number; visual: { height: number; scale: number } | null }> = {}) {
   return {
     innerHeight: over.innerHeight ?? 844,
@@ -67,7 +63,6 @@ describe("measuredHeight - the window, and the moments that are not the window",
   })
 })
 
-/** An iPhone 16 Pro's screen in points, on a home screen unless a test says otherwise. */
 function phone(over: Partial<{ innerWidth: number; standalone: boolean | undefined }> = {}) {
   return {
     innerWidth: over.innerWidth ?? 402,
@@ -229,9 +224,6 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("re-measures on a timer while visible, because a resume can arrive with no event at all", () => {
-    /**
-     * The resume events are not always enough, so the height is also polled, here again without any event.
-     */
     vi.useFakeTimers()
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
@@ -283,7 +275,6 @@ describe("trackAppFrame - what lands on the document", () => {
     vi.advanceTimersByTime(10_000)
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
 
-    // Coming back is the resume: it measures at once, and the poll runs again afterwards.
     Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true })
     document.dispatchEvent(new Event("visibilitychange"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("600px")
@@ -312,7 +303,6 @@ describe("trackAppFrame - what lands on the document", () => {
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("874px")
 
-    // Turned on its side, the window is as wide as the long side and the short side is the height.
     Object.defineProperty(window, "innerWidth", { value: 874, configurable: true })
     window.dispatchEvent(new Event("orientationchange"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("402px")
@@ -340,9 +330,6 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 })
 
-/**
- * iPhone figures: an 844px window, a 336px keyboard, and iOS panning 120px further to show a field.
- */
 describe("visibleBand - where a bottom sheet stands while the keyboard is open", () => {
   it("is the whole window, nothing under it, without a keyboard", () => {
     expect(visibleBand({ innerHeight: 844, visualViewport: { height: 844, scale: 1, offsetTop: 0 } })).toEqual({

@@ -7,9 +7,7 @@ import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
 
 /**
- * One leaf of a file's settings tree, built as data so a test can check its shape without drawing it.
- *
- * Keys are never shown and stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
+ * One leaf of a file's settings tree, built as data so a test can check its shape. Keys stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
  */
 export type TreeLeaf<L> = {
   kind: "leaf"
@@ -19,14 +17,13 @@ export type TreeLeaf<L> = {
    */
   ids: string[]
   value: L
-  /** Takes the whole width of the grid and not one cell. */
   wide: boolean
 }
 
 export type TreeBranch<L> = {
   kind: "branch"
   id: string
-  /** One name, or several when a chain of single-child branches was folded into one row. */
+  /** One name, or several when single-child branches were folded into one row. */
   labels: string[]
   children: TreeNode<L>[]
 }
@@ -44,7 +41,6 @@ class Builder<L> {
   readonly root: TreeNode<L>[] = []
   private readonly branches = new Map<string, TreeBranch<L>>()
 
-  /** Returns the branch `id`, which it creates under `parent` on first use. */
   branch(id: string, label: string, parent: string | null): TreeBranch<L> {
     const known = this.branches.get(id)
     if (known) return known
@@ -96,12 +92,9 @@ function parentPath(path: string): string | null {
 
 export type ConfigLeafValue =
   | { kind: "entry"; entry: ConfigEntry }
-  /** Several colours of one section, side by side (`colourRuns`). */
   | { kind: "run"; entries: ConfigEntry[] }
-  /** Two sibling sections with the same keys, one row per key (`pairedBlocks`). */
   | { kind: "pair"; pair: PairedBlocks }
 
-/** Returns whether an entry needs the whole width: a list, a list of sections or several lines. */
 function wideEntry(entry: ConfigEntry): boolean {
   return entry.kind === "LIST" || entry.kind === "SECTIONS" || !entry.editable || (entry.value ?? "").includes("\n")
 }
@@ -168,9 +161,6 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   return builder.build()
 }
 
-/**
- * Returns whether the name, key, value or explanation of any entry that the leaf draws matches `query`.
- */
 export function configLeafMatches(value: ConfigLeafValue, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -191,9 +181,7 @@ export function textId(entry: MessageEntry): string {
 }
 
 /**
- * Returns the Translations page as a tree: a branch per group, then each text's topic, by its section names and its key's segments.
- *
- * Two bundles that share a topic share its branch, and each of their texts is a leaf of its own.
+ * Returns the Translations page as a tree: a branch per group, then each text's topic. Bundles that share a topic share its branch.
  */
 export function textsTree(texts: MessageText[], places: Places): TreeNode<MessageText>[] {
   const builder = new Builder<MessageText>()
@@ -222,9 +210,6 @@ export function messageName(entry: MessageEntry): string {
   return entry.name ?? humanise(entry.key.slice(entry.key.lastIndexOf(".") + 1))
 }
 
-/**
- * Returns whether `query` matches a message's name, its key or either language, packaged or overridden.
- */
 export function messageLeafMatches(entry: MessageEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -239,7 +224,6 @@ export function leafCount<L>(nodes: TreeNode<L>[]): number {
   return nodes.reduce((sum, node) => sum + (node.kind === "leaf" ? node.ids.length : leafCount(node.children)), 0)
 }
 
-/** Returns the keys below a node, for a branch's count of changed ones. */
 export function idsBelow<L>(node: TreeNode<L>): string[] {
   return node.kind === "leaf" ? node.ids : node.children.flatMap(idsBelow)
 }
@@ -259,9 +243,6 @@ export function ancestorsOf<L>(nodes: TreeNode<L>[], id: string): string[] | nul
   return null
 }
 
-/**
- * Returns the tree reduced to the leaves that `keep` accepts and the branches that still hold one.
- */
 export function filterTree<L>(nodes: TreeNode<L>[], keep: (leaf: TreeLeaf<L>) => boolean): TreeNode<L>[] {
   const kept: TreeNode<L>[] = []
   for (const node of nodes) {

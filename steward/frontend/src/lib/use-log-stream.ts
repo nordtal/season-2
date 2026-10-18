@@ -3,7 +3,6 @@ import { useEffect, useState } from "react"
 import { followStream } from "@/lib/event-stream"
 import { t } from "@/lib/texts"
 
-/** The steps the window offers. Steward says which it can fill (`logCapacity`). */
 export const STEPS = [1000, 5000, 10000] as const
 export const DEFAULT_LIMIT = STEPS[0]
 
@@ -11,7 +10,7 @@ export const DEFAULT_LIMIT = STEPS[0]
 const REFILL_GRACE = 500
 
 export type LogEntry = {
-  /** Counts up within one hook. React needs it as a key, and the line's own text never serves. */
+  /** React needs it as a key, and the line's own text never serves. */
   seq: number
   kind: "line" | "run" | "end"
   text: string
@@ -19,9 +18,6 @@ export type LogEntry = {
 
 export type LogStream = {
   entries: LogEntry[]
-  /**
-   * Set only after {@link QUIET_FAILURES} attempts in a row have failed, to what the server said last.
-   */
   failure: string | null
 }
 
@@ -37,17 +33,13 @@ const nextFrame: (callback: () => void) => () => void =
       }
 
 /**
- * Follows the live log of one service, which Steward reads over the Docker socket that the browser never reaches.
- *
- * Entries arrive oldest first and apply once per frame. After a broken connection the window is refilled and not stitched.
+ * Follows the live log of one service, which Steward reads over the Docker socket. Entries apply once per frame, and a broken connection refills the window and does not stitch it.
  */
 export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): LogStream {
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [failure, setFailure] = useState<string | null>(null)
 
-  /**
-   * Cleared during render when the service changes, so the old lines never show under the new name.
-   */
+  /** Cleared during render, so the old lines never show under a new name. */
   const [lastService, setLastService] = useState(service)
   if (lastService !== service) {
     setLastService(service)
@@ -61,9 +53,7 @@ export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): Lo
     let cancelFrame: (() => void) | null = null
     let sequence = 0
     let pending: LogEntry[] = []
-    /**
-     * The next flush replaces the window and does not add to it. It is set for a new connection's first flush.
-     */
+    /** Set for a new connection's first flush, which replaces the window. */
     let refill = false
 
     const flush = () => {

@@ -6,17 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { FakeEventSource } from "@/lib/fake-event-source"
 import { announce, live, nextChange, useLiveStream } from "@/lib/live"
 
-/** What one change on the stream refetches, and what a wait for it sees. */
-
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
 }
 
-/**
- * Mounts two live queries on different topics and one query that is not live, each counting its reads.
- */
 function mountQueries(client: QueryClient) {
   const reads = { runs: 0, people: 0, plain: 0 }
   renderHook(

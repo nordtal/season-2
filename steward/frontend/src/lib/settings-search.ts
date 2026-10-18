@@ -2,9 +2,7 @@ import type { ConfigDocument, ConfigEntry, ConfigLocation, MessageEntry, Message
 import { languagesOf, overrideOf, packagedOf, shownOf, type Language } from "@/lib/message-text"
 
 /**
- * Settings search, for one service's files and for the command palette across every file and every text.
- *
- * Both paths go through these functions, so the rule that a secret is never searched lives in one place.
+ * Settings search for one service's files and for the command palette. Both paths go through these functions, so the rule that a secret is never searched lives in one place.
  */
 
 /** A `MAP` entry is a heading with no value of its own, so a hit on it would jump nowhere. */
@@ -13,9 +11,7 @@ export function isSearchable(entry: ConfigEntry): boolean {
 }
 
 /**
- * Returns what one entry is found by, lower-cased: label, path, explanation and, never for a secret, its value.
- *
- * The secret check is repeated here, so a search can never guess a secret, whatever the wire sent.
+ * Returns what one entry is found by, lower-cased: label, path, explanation and, never for a secret, its value. The secret check is repeated, whatever the wire sent.
  */
 export function entryHaystack(entry: ConfigEntry): string {
   const parts = [entry.label, entry.path]
@@ -27,7 +23,6 @@ export function entryHaystack(entry: ConfigEntry): string {
   return parts.join("\n").toLowerCase()
 }
 
-/** Returns whether `entry` is found by `query`, as a case-insensitive substring match. */
 export function matchesQuery(entry: ConfigEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return false
@@ -35,7 +30,6 @@ export function matchesQuery(entry: ConfigEntry, query: string): boolean {
   return entryHaystack(entry).includes(needle)
 }
 
-/** One hit in a config file: the file and the entry that matched. */
 export type ConfigSettingsHit = {
   kind: "config"
   location: ConfigLocation
@@ -43,9 +37,7 @@ export type ConfigSettingsHit = {
 }
 
 /**
- * One hit among the texts: the text, and the language in which the match was found.
- *
- * A match on the key or in both bodies yields one hit per language, because each language is its own place.
+ * One hit among the texts. A match on the key or in both bodies yields one hit per language, because each is its own place.
  */
 export type MessageSettingsHit = {
   kind: "message"
@@ -53,12 +45,8 @@ export type MessageSettingsHit = {
   language: Language
 }
 
-/** One hit from either supplier, as `config-search.tsx` and `command-palette.tsx` read it. */
 export type SettingsHit = ConfigSettingsHit | MessageSettingsHit
 
-/**
- * Returns every hit across a set of groups, given each group's fetched document or `undefined`.
- */
 export function searchAcross(
   files: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
   query: string,
@@ -75,24 +63,18 @@ export function searchAcross(
 }
 
 /**
- * Returns what one language of one bundle entry is found by, lower-cased: the key, the packaged text and the override.
- *
- * It reads only this language's text, so an English query never finds a bundle by its German line.
+ * Returns what one language of one entry is found by, lower-cased: the key, the packaged text and the override. An English query never finds a bundle by its German line.
  */
 export function messageEntryHaystack(entry: MessageEntry, language: Language): string {
   return [entry.key, ...packagedOf(entry, language), ...(overrideOf(entry, language) ?? [])].join("\n").toLowerCase()
 }
 
-/**
- * Returns whether `query` finds the `language` row of `entry`, by the same substring match as {@link matchesQuery}.
- */
 export function matchesMessageQuery(entry: MessageEntry, language: Language, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return false
   return messageEntryHaystack(entry, language).includes(needle)
 }
 
-/** Returns every hit among the texts, like {@link searchAcross}. */
 export function searchMessagesAcross(texts: MessageText[], query: string): MessageSettingsHit[] {
   if (!query.trim()) return []
   const hits: MessageSettingsHit[] = []
@@ -106,9 +88,6 @@ export function searchMessagesAcross(texts: MessageText[], query: string): Messa
   return hits
 }
 
-/**
- * Returns config hits and then message hits as one list, for the command palette's global search.
- */
 export function searchSettingsAndMessages(
   configs: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
   texts: MessageText[],
@@ -118,17 +97,13 @@ export function searchSettingsAndMessages(
 }
 
 /**
- * Returns how a searchable row is written down: its name on the first line, its context after it.
- *
- * {@link rankValue} ranks a match in the name above every match in the context.
+ * Returns a row written down as its name on the first line and its context after it. {@link rankValue} ranks a match in the name above every match in the context.
  */
 export function searchValue(name: string, ...context: Array<string | undefined | null>): string {
   return [name, ...context.filter((part): part is string => Boolean(part))].join("\n")
 }
 
-/**
- * Returns the text lower-cased, with runs of whitespace, hyphens and underscores flattened to one space. Dots are kept.
- */
+/** Flattens runs of whitespace, hyphens and underscores to one space. Dots are kept. */
 function normalise(text: string): string {
   return text
     .toLowerCase()
@@ -136,15 +111,12 @@ function normalise(text: string): string {
     .trim()
 }
 
-/** Returns whether the match at `at` starts a word and does not land in the middle of one. */
 function atWordStart(haystack: string, at: number): boolean {
   return at === 0 || /[ ./:#]/.test(haystack[at - 1] ?? "")
 }
 
 /**
- * Returns what one row scores against what was typed. 0 means no match and hides the row.
- *
- * It is a substring match and not cmdk's subsequence match, because cmdk cannot reorder its groups by score.
+ * Returns what one row scores against what was typed. 0 hides the row. It is a substring match, because cmdk cannot reorder its groups by score.
  */
 export function rankValue(value: string, query: string): number {
   const needle = normalise(query)
@@ -163,19 +135,14 @@ export function rankValue(value: string, query: string): number {
   return atWordStart(context, inContext) ? 0.4 : 0.3
 }
 
-/**
- * Returns the haystack that a hit is ranked by, the same text that each caller passes to the palette.
- */
 export function hitValue(hit: SettingsHit): string {
   return hit.kind === "config" ? entryHaystack(hit.entry) : messageEntryHaystack(hit.text.entry, hit.language)
 }
 
-/** Returns the hits best first, with ties in their original order, because `sort` is stable. */
 export function rankHits<T extends SettingsHit>(hits: T[], query: string): T[] {
   return [...hits].toSorted((a, b) => rankValue(hitValue(b), query) - rankValue(hitValue(a), query))
 }
 
-/** A hit found outside a service's own page passes its target to that page. */
 export type PendingJump = { file: string; path: string }
 
 /**
@@ -183,9 +150,7 @@ export type PendingJump = { file: string; path: string }
  */
 const pendingJumps = new Map<string, PendingJump>()
 
-/**
- * Subscribers, because a jump to the page that is already open remounts nothing and would otherwise wait for the next visit.
- */
+/** Subscribers, because a jump to an open page remounts nothing. */
 const jumpSubscribers = new Set<() => void>()
 
 export function setPendingJump(service: string, jump: PendingJump): void {
@@ -193,34 +158,24 @@ export function setPendingJump(service: string, jump: PendingJump): void {
   jumpSubscribers.forEach((subscriber) => subscriber())
 }
 
-/**
- * Notifies `listener` every time any service's config jump is set. The caller filters by service.
- *
- * @returns the unsubscribe function, for a `useEffect` cleanup
- */
+/** Notifies `listener` on every config jump. The caller filters by service. */
 export function onPendingJump(listener: () => void): () => void {
   jumpSubscribers.add(listener)
   return () => jumpSubscribers.delete(listener)
 }
 
-/** Reads and clears in one step, so a jump is consumed exactly once. */
 export function takePendingJump(service: string): PendingJump | undefined {
   const jump = pendingJumps.get(service)
   pendingJumps.delete(service)
   return jump
 }
 
-/** A text hit passes its destination to the Translations page: the text and the language tab. */
 export type PendingTextJump = { id: string; language: Language }
 
-/**
- * One slot, because there is one Translations page. It is kept apart from {@link PendingJump}, so neither is taken for the other.
- */
+/** One slot, because there is one Translations page. It is kept apart from {@link PendingJump}. */
 let pendingTextJump: PendingTextJump | undefined
 
-/**
- * Subscribers, because the Translations page may already be open when the palette picks a hit on it.
- */
+/** Subscribers, because the Translations page may already be open. */
 const textJumpSubscribers = new Set<() => void>()
 
 export function setPendingTextJump(jump: PendingTextJump): void {
@@ -228,18 +183,13 @@ export function setPendingTextJump(jump: PendingTextJump): void {
   textJumpSubscribers.forEach((subscriber) => subscriber())
 }
 
-/** Reads and clears in one step and is consumed exactly once, like {@link takePendingJump}. */
 export function takePendingTextJump(): PendingTextJump | undefined {
   const jump = pendingTextJump
   pendingTextJump = undefined
   return jump
 }
 
-/**
- * Notifies `listener` every time a text jump is set.
- *
- * @returns the unsubscribe function, for a `useEffect` cleanup
- */
+/** Notifies `listener` on every text jump. */
 export function onPendingTextJump(listener: () => void): () => void {
   textJumpSubscribers.add(listener)
   return () => textJumpSubscribers.delete(listener)

@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, api, onSecondFactorRequired, rememberCsrf } from "@/lib/api"
 
-/**
- * The browser half of the step-up: the 403 for a stale key opens the dialog, and then the same request goes again, once.
- */
-
 function headerRecord(headers: RequestInit["headers"]): Record<string, string> {
   if (headers === undefined || headers instanceof Headers || Array.isArray(headers)) {
     throw new Error("expected a plain header record")
@@ -28,7 +24,6 @@ const REFUSED = {
   body: { error: "Hold your security key again.", code: "SECOND_FACTOR_REQUIRED" },
 }
 
-/** The two refusals that are not a stale key and never open the dialog. */
 const NO_KEY_AT_ALL = {
   status: 403,
   body: { error: "This account has no security key.", code: "SECOND_FACTOR_MISSING" },
@@ -37,9 +32,6 @@ const SIGNED_OUT = { status: 401, body: { error: "Sign in." } }
 
 type Answer = { status: number; body: unknown }
 
-/**
- * A fetch that answers from a prepared list in order and records each request, because every assertion is about the second request.
- */
 function fetchAnswering(...answers: Answer[]) {
   const calls: Array<{ path: string; init: RequestInit }> = []
   const spy = vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(

@@ -1,17 +1,12 @@
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 
-/** The group from which the bot reads its languages and each language's announcement channel. */
 export const ACCESS_FILE = "discord-bot/access"
 
-/** The languages that an announcement is written in when the file cannot say. */
 export const FALLBACK_LANGUAGES = ["en", "de"]
 
 export type AnnouncementTargets = {
-  /** Each language of the file in file order, with its channel id, or empty for none. */
   languages: { tag: string; channel: string }[]
-  /**
-   * True when the host environment sets `languages`, so the file's channels are not where a line lands.
-   */
+  /** The host environment sets `languages`, so the file's channels are not where a line lands. */
   overridden: boolean
 }
 
@@ -20,8 +15,6 @@ function field(section: ConfigEntry[], key: string) {
 }
 
 /**
- * Returns where an announcement lands per language, read from the bot's `access` group.
- *
  * It returns null when the file has no `languages` cards. The page then writes in {@link FALLBACK_LANGUAGES} with no channel.
  */
 export function announcementTargets(document: ConfigDocument | undefined): AnnouncementTargets | null {

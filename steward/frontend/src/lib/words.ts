@@ -1,5 +1,5 @@
 /**
- * Abbreviations that stay upper case. It is the same list as Steward's `Labels.of` and the spec module's `SettingLabels.of`.
+ * Abbreviations that stay upper case, the same list as Steward's `Labels.of` and the spec module's `SettingLabels.of`.
  */
 const ACRONYMS = new Set([
   "api",
@@ -25,13 +25,11 @@ const ACRONYMS = new Set([
   "xp",
 ])
 
-/**
- * A brand spelled with one lower-case letter in front, such as `bStats`, is one word and keeps its case.
- */
+/** A brand with one lower-case letter in front, such as `bStats`, keeps its case. */
 const BRAND = /^[a-z][A-Z][a-z]+$/
 
 /**
- * Returns parts that were already split on separators as one name in sentence case. A change of case also splits words.
+ * Returns already split parts as one name in sentence case. A change of case also splits words.
  */
 export function sentenceOf(parts: string[], keepBrands = false): string {
   const words: string[] = []
@@ -57,9 +55,7 @@ export function sentenceOf(parts: string[], keepBrands = false): string {
   return brandFirst ? joined : joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
-/**
- * Returns "smp config" as "SMP Config": every word is capitalised, and an acronym or a brand stays as it is.
- */
+/** Returns "smp config" as "SMP Config". */
 function capitalCase(sentence: string): string {
   return sentence
     .split(" ")
@@ -77,7 +73,7 @@ function withoutRepeats(sentence: string): string {
     .join(" ")
 }
 
-/** The names that the services go by where a person reads them, as on the plugins tab. */
+/** The names that the services go by where a person reads them. */
 const SERVICE_TITLES: Record<string, string> = {
   smp: "SMP",
   "hunger-games": "Hunger Games",
@@ -95,9 +91,6 @@ export function serviceTitle(service: string): string {
   return SERVICE_TITLES[service] ?? capitalCase(sentenceOf(service.split(/[-_.\s]+/)) || service)
 }
 
-/**
- * Returns a path under a service's volume in Capital Case, without its extension or repeated words.
- */
 export function fileTitle(path: string): string {
   const withoutExtension = path.replace(/\.[a-z0-9]+$/i, "")
   const sentence = sentenceOf(withoutExtension.split(/[-_./]+/), true)

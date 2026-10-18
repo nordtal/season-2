@@ -3,11 +3,7 @@ import { toast } from "sonner"
 import type { ReloadOutcome } from "@/lib/api"
 import { message } from "@/lib/texts"
 
-/**
- * Shows the one toast that a save produces, typed by when `reload` says the change takes effect.
- *
- * `undefined` is an older document and is shown as `APPLIED`.
- */
+/** `undefined` is an older document and is shown as `APPLIED`. */
 export function announceSave(label: string, reload: ReloadOutcome | undefined, fallbackDescription: string) {
   if (!reload || reload.status === "APPLIED") {
     toast.success(label, { description: reload ? message(reload.message) : fallbackDescription })

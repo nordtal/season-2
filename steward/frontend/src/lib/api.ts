@@ -1,23 +1,15 @@
 import { t } from "@/lib/texts"
 
 /**
- * The one entry point to the backend. Every request goes through here, and nothing else calls `fetch`.
- *
  * A write carries the CSRF token, a 401 means that the session is gone, and an error names the service that is down.
  */
 
-/**
- * What answered badly: steward itself, the Docker daemon behind the stack's state, or the agent.
- */
 export type Where = "steward" | "docker" | "steward-agent"
 
 export class ApiError extends Error {
   readonly status: number
   readonly where: Where
   readonly detail: string
-  /**
-   * The backend's machine-readable name for this refusal. Code matches it and not the English sentence.
-   */
   readonly code: string
 
   constructor(status: number, message: string, where: Where, detail = "", code = "") {
@@ -29,21 +21,16 @@ export class ApiError extends Error {
     this.code = code
   }
 
-  /** The session expired or never existed. The shell turns this into the sign-in page. */
   get isSignedOut(): boolean {
     return this.status === 401
   }
 
-  /**
-   * Signed in, but one key registration short of being allowed in. So it is not {@link isSignedOut}.
-   */
+  /** Signed in, but one key registration short of being allowed in. */
   get needsASecurityKey(): boolean {
     return this.status === 403 && this.code === "SECOND_FACTOR_MISSING"
   }
 
   /**
-   * Signed in with a key that was not held recently enough for this request.
-   *
    * It is separate from {@link needsASecurityKey}, because one needs a setup page and the other a tap.
    */
   get needsTheKeyAgain(): boolean {
@@ -52,8 +39,6 @@ export class ApiError extends Error {
 }
 
 /**
- * The one place where a refused request becomes a working one again. The shell installs it.
- *
  * A handler resolves once the key is held and rejects otherwise. With no handler installed, a 403 stays a 403.
  */
 type StepUp = () => Promise<unknown>
@@ -65,25 +50,18 @@ export function onSecondFactorRequired(handler: StepUp | null): void {
 }
 
 /**
- * Opens the step-up sheet and resolves once a factor is held. It is for an `/auth/` route, which `api()` never retries.
- *
- * With no sheet installed it rejects, as the refused request would have.
+ * It is for an `/auth/` route, which `api()` never retries. With no sheet installed it rejects, as the refused request would have.
  */
 export async function stepUpFirst(): Promise<void> {
   if (!stepUp) throw new Error(t("steward.keys.not-held"))
   await stepUp()
 }
 
-/**
- * Returns whether holding the key may recover a refusal of this request. It never may for the ceremony's own two `POST`s.
- */
 function mayStepUp(path: string): boolean {
   return stepUp !== null && !path.startsWith("/auth/")
 }
 
 /**
- * The CSRF token of this session. `/api/me` hands it out, and every write sends it back.
- *
  * It is a module variable and not part of the query cache, so a mutation can read it synchronously.
  */
 let csrfToken: string | null = null
@@ -135,7 +113,6 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
       signal: options.signal,
     })
   } catch (cause) {
-    /** The request never arrived. This interface, a proxy or the browser is offline. */
     throw new ApiError(0, t("steward.failure.unreachable"), "steward", String(cause))
   }
 
@@ -148,9 +125,6 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
 
   if (!response.ok) {
     const body: Record<string, unknown> | null = isRecord(parsed) ? parsed : null
-    /**
-     * The backend names whatever did not answer, which tells a silent daemon from a throwing service.
-     */
     const where: Where = body?.where === "docker" || body?.where === "steward-agent" ? body.where : "steward"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? (typeof body.detail === "string" ? body.detail : "") : text
@@ -161,11 +135,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
   return shapedAs(parsed, (value): value is T => value !== undefined, path)
 }
 
-/**
- * Narrows an untyped value to `T` wherever it enters typed code, with a guard and not a cast.
- *
- * The caller decides what `guard` proves. `send` only knows that a 204 is empty.
- */
+/** The caller decides what `guard` proves. `send` only knows that a 204 is empty. */
 export function shapedAs<T>(value: unknown, guard: (value: unknown) => value is T, context: string): T {
   if (!guard(value)) {
     throw new Error(`${context}: not the shape this interface expects`)
@@ -195,19 +165,14 @@ function messageOf(body: Record<string, unknown>): string | null {
 }
 
 /**
- * What the endpoints answer and read, generated from steward's records.
- *
  * Below are the two save bodies, where a null and an absent key mean different things, and the pack's glyph manifest.
  */
 export type * from "./api.gen"
 
-/**
- * What a settings PUT sends: a scalar's text, a list's entries, or one record per section, nested again.
- */
 export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChangeValue }[]
 export type ConfigChanges = Record<string, ConfigChangeValue>
 
-/** One named glyph of the resource pack. `height` and `ascent` are in the pack's own pixels. */
+/** `height` and `ascent` are in the pack's own pixels. */
 export type GlyphInfo = {
   name: string
   codePoint: number
@@ -216,7 +181,6 @@ export type GlyphInfo = {
   image: string
 }
 
-/** Returns whether `value` is the manifest's array of {@link GlyphInfo}, checked by its shape. */
 export function isGlyphInfoList(value: unknown): value is GlyphInfo[] {
   return (
     Array.isArray(value) &&
@@ -232,12 +196,6 @@ export function isGlyphInfoList(value: unknown): value is GlyphInfo[] {
   )
 }
 
-/**
- * What a PUT to `/api/messages` sends: every language of a key of any bundle. `null` resets one.
- */
 export type MessageChanges = {
-  /**
-   * Per bundle, key and language, every variant in order, or `null` to restore the jar's texts.
-   */
   changes: Record<string, Record<string, Record<string, string[] | null>>>
 }

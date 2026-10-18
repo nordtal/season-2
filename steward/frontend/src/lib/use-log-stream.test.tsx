@@ -25,7 +25,6 @@ function mount(limit = 3) {
 
 const texts = (result: { current: LogStream }) => result.current.entries.map((entry) => entry.text)
 
-/** Lets the frame that applies a batch run. */
 function frame(): void {
   act(() => {
     vi.advanceTimersByTime(20)
@@ -50,9 +49,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/**
- * The console stream is bounded and in log order. Each connection refills it, and the first retries are quiet.
- */
 describe("useLogStream", () => {
   it("asks for the chosen number of lines", () => {
     mount(5000)

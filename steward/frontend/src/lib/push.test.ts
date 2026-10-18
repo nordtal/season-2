@@ -9,26 +9,21 @@ import {
   urlBase64ToUint8Array,
 } from "@/lib/push"
 
-/**
- * Base64url into the bytes that `applicationServerKey` wants, and the calls around a fake `navigator.serviceWorker`.
- *
- * jsdom has no Push API, so the test checks that a fake call sequence gives the right result.
- */
+/** jsdom has no Push API, so a fake `navigator.serviceWorker` stands in. */
 
 describe("the VAPID public key as the browser's API wants it", () => {
   it("decodes a known base64url value", () => {
-    // "AQIDBA" is the base64url encoding, without padding, of the four bytes 1, 2, 3, 4.
     expect(urlBase64ToUint8Array("AQIDBA")).toEqual(new Uint8Array([1, 2, 3, 4]))
   })
 
   it("reads the two characters that differ from plain base64", () => {
-    // 0xfb 0xff 0xbe is base64 "+/++" and base64url "-_--", as in ALPHABET_TRAP in webauthn.test.ts.
+    // 0xfb 0xff 0xbe is base64 "+/++" and base64url "-_--".
     expect(urlBase64ToUint8Array("-_--")).toEqual(new Uint8Array([0xfb, 0xff, 0xbe]))
   })
 
   it("round-trips at every padding remainder a key length can land on", () => {
     /**
-     * A P-256 point is 65 bytes uncompressed, which is not a multiple of 3. The shorter lengths cover the other remainders.
+     * A P-256 point is 65 bytes, not a multiple of 3. The shorter lengths cover the other remainders.
      */
     const cases: Array<[string, number[]]> = [
       ["AQ", [1]],

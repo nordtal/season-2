@@ -152,11 +152,11 @@ class ServiceLineFactsUpgradeIntegrationTest {
     void everyLineOfAnUpdateReadsAsItDidNowDrawnFromItsFacts() {
         assertEquals(
                 List.of(
-                        "smp FAILED: not back within 5 minutes (running, starting)",
-                        "limbo FAILED: image out of date, not recreated: no such image; on the old image and not back"
+                        "smp FAILED: not healthy within 5 minutes (running, starting)",
+                        "limbo FAILED: image out of date, not recreated: no such image, on the old image and not running"
                                 + " within 5 minutes (no container for it in the project)",
-                        "proxy FAILED: not recreated: refused; starting the old image failed too: gone",
-                        "hunger-games FAILED: not back within 1 minute (the container runtime could not be read:"
+                        "proxy FAILED: not recreated: refused, the old image failed to start too: gone",
+                        "hunger-games FAILED: not healthy within 1 minute (the container runtime could not be read:"
                                 + " timed out)",
                         "velocity FAILED: steward-agent stopped while waiting for this service",
                         "caddy HEALTHY: -",

@@ -73,7 +73,7 @@ class RunCardBudgetTest {
                         UpdateReport.Facts.refused(UpdateReport.Act.STOP, "exit *1*")));
         final String why = why(card(report, request()));
 
-        assertTrue(why.contains("**mc\\_smp** cannot be put down from here"), why);
+        assertTrue(why.contains("**mc\\_smp** cannot be taken down from here"), why);
         assertTrue(why.contains("**smp** could not be stopped: exit \\*1\\*"), why);
     }
 

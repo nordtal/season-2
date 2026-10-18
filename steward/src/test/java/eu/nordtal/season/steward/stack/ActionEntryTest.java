@@ -158,7 +158,7 @@ class ActionEntryTest {
                         new JournalDetail.AccessGranted(30, Instant.parse("2026-11-02T10:00:00Z")))));
         assertEquals(Actor.person(DiscordId.of("300000000000000077")), entry.actor());
         assertEquals("Access granted", shown(entry.label()));
-        assertEquals("30 days of access, until Nov 2, 2026.", shown(entry.extent()));
+        assertEquals("Granted 30 days of access until Nov 2, 2026.", shown(entry.extent()));
     }
 
     @Test

@@ -31,13 +31,13 @@ class ServiceLineFactsTest {
     @Test
     void aServiceThatDidNotComeBackSaysHowLongWasWaitedAndWhatWasSeen() {
         assertEquals(
-                "not back within 5 minutes (running, starting)",
+                "not healthy within 5 minutes (running, starting)",
                 said(line(State.FAILED, Facts.notBack(UpdateReport.Back.NO, 5L, STARTING))));
         assertEquals(
-                "not back within 5 minutes (no container for it in the project)",
+                "not healthy within 5 minutes (no container for it in the project)",
                 said(line(State.FAILED, Facts.notBack(UpdateReport.Back.NO, 5L, new Facts.Seen(null, null, null)))));
         assertEquals(
-                "not back within 1 minute (the container runtime could not be read: timed out)",
+                "not healthy within 1 minute (the container runtime could not be read: timed out)",
                 said(line(
                         State.FAILED,
                         Facts.notBack(UpdateReport.Back.NO, 1L, new Facts.Seen(null, null, "timed out")))));
@@ -51,27 +51,27 @@ class ServiceLineFactsTest {
         final Facts refused =
                 Facts.notRecreated(UpdateReport.Image.OUTDATED, "no such image", UpdateReport.Fallback.STARTED, null);
         assertEquals(
-                "image out of date, not recreated: no such image; started on the old image, not seen back yet",
+                "image out of date, not recreated: no such image, started on the old image, not seen running yet",
                 said(line(State.FAILED, refused)));
         assertEquals(
-                "image out of date, not recreated: no such image; back on the old image",
+                "image out of date, not recreated: no such image, back on the old image",
                 said(line(State.FAILED, refused.came(UpdateReport.Back.YES, null, null))));
         assertEquals(
-                "image out of date, not recreated: no such image; on the old image and not back within 5 minutes"
+                "image out of date, not recreated: no such image, on the old image and not running within 5 minutes"
                         + " (running, starting)",
                 said(line(State.FAILED, refused.came(UpdateReport.Back.NO, 5L, STARTING))));
         assertEquals(
-                "image out of date, not recreated: no such image; started on the old image, and steward-agent"
-                        + " stopped before it came back",
+                "image out of date, not recreated: no such image, started on the old image, and steward-agent"
+                        + " stopped before it was running",
                 said(line(State.FAILED, refused.came(UpdateReport.Back.INTERRUPTED, null, null))));
         assertEquals(
-                "not recreated: no such image; starting the old image failed too: gone",
+                "not recreated: no such image, the old image failed to start too: gone",
                 said(line(
                         State.FAILED,
                         Facts.notRecreated(
                                 UpdateReport.Image.KEPT, "no such image", UpdateReport.Fallback.REFUSED, "gone"))));
         assertEquals(
-                "not recreated and nothing to go back to: no such image",
+                "not recreated, and nothing to go back to: no such image",
                 said(line(
                         State.FAILED,
                         Facts.notRecreated(
@@ -127,7 +127,7 @@ class ServiceLineFactsTest {
                 "stop not verified, marked beside " + archive,
                 said(line(State.SAVED, Facts.saved(archive, UpdateReport.Mark.WRITTEN))));
         assertEquals(
-                "stop not verified, and the mark beside " + archive + " was not written",
+                "stop not verified, mark beside " + archive + " not written",
                 said(line(State.SAVED, Facts.saved(archive, UpdateReport.Mark.NOT_WRITTEN))));
         assertEquals("disk full", said(line(State.FAILED, Facts.refused(UpdateReport.Act.BACKUP, "disk full"))));
     }

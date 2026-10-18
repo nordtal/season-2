@@ -213,7 +213,7 @@ class RunnerTest {
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
         final String english = Told.report(outcome.report());
-        assertTrue(english.contains("needs about 3.7 GiB with 4.7 GiB free"), english);
+        assertTrue(english.contains("needs about 3.7 GiB, 4.7 GiB free"), english);
         assertTrue(english.contains("\"step\":\"BACKUP\",\"outcome\":\"FAILED\""), english);
         assertEquals(List.of("PRUNE DONE", "ROOM_CHECK FAILED NO_ROOM"), steps(request.id()));
     }
@@ -377,7 +377,7 @@ class RunnerTest {
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertTrue(
-                Told.report(outcome.report()).contains("\"service\":\"steward-agent\",\"what\":\"carries the run out"),
+                Told.report(outcome.report()).contains("\"service\":\"steward-agent\",\"what\":\"runs this run"),
                 outcome.report());
         assertEquals(List.of(), containers.calls);
     }
@@ -475,7 +475,7 @@ class RunnerTest {
                 "nothing starts on what the failed restore left");
         assertTrue(directory.isHeld("smp"), "so no later run starts it either");
         final String told = Told.report(outcome.report());
-        assertTrue(told.contains("incomplete, so these stay held down: smp;"), told);
+        assertTrue(told.contains("incomplete, so smp stay held down"), told);
         assertTrue(told.contains("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), "it names the way back: " + told);
         allTold(outcome);
     }

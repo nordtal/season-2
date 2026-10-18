@@ -51,10 +51,10 @@ class RunNotesRecordUpgradeIntegrationTest {
                 "a standby's health names it, and words in a failed run are a failure");
         assertEquals(
                 List.of(
-                        "STOP FAILED smp: stopped, but how it ended could not be read back",
-                        "PLAYERS WARNING smp: stopped with 3 players still on after 10s",
-                        "PLAYERS WARNING hunger-games: stopped with 1 player still on after 10s",
-                        "SCOPE FAILED steward-agent: carries the run out, so it cannot make its own container again"),
+                        "STOP FAILED smp: stopped, but its end state could not be read",
+                        "PLAYERS WARNING smp: stopped after 10s, 3 players still on",
+                        "PLAYERS WARNING hunger-games: stopped after 10s, 1 player still on",
+                        "SCOPE FAILED steward-agent: runs this run, so it cannot recreate its own container"),
                 records(runs, backup),
                 "a stop that fails the run is a failure, and each server keeps its own player count");
     }

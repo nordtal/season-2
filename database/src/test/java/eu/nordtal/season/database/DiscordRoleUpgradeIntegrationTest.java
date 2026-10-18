@@ -6,11 +6,7 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what finding the bot's roles by name does to the role ids an installation configured before.
- *
- * Each one becomes the stored role of what it stood for, so the bot takes over the roles it already used.
- */
+/** Holds that role ids configured before roles were found by name become the stored role of what they stood for. */
 class DiscordRoleUpgradeIntegrationTest {
 
     @Test

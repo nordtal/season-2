@@ -10,12 +10,11 @@ import org.jdbi.v3.core.spi.JdbiPlugin;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/** The one way a Jdbi is set up in season 2: SQL objects, PostgreSQL's types, and the two id types bound as columns. */
+/** Sets up a Jdbi with SQL objects, the PostgreSQL types and the two id types as columns. */
 public final class Jdbis {
 
     private Jdbis() {}
 
-    /** Returns a Jdbi over a pool the caller owns and closes. */
     public static Jdbi over(final DataSource dataSource) {
         return Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
@@ -23,7 +22,7 @@ public final class Jdbis {
                 .installPlugin(ids());
     }
 
-    /** Returns what binds a {@link DiscordId} as text and a {@link PlayerId} as a UUID, for a Jdbi made elsewhere. */
+    /** Returns the plugin that binds a {@link DiscordId} as text and a {@link PlayerId} as a UUID. */
     public static JdbiPlugin ids() {
         return new JdbiPlugin() {
             @Override

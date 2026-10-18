@@ -10,11 +10,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 
-/**
- * What a run's report says: the message of each note and what a line's facts come to, short, each value typed.
- *
- * A note's service, step and outcome are its record's, never words here; a subsystem's answer stays a text value.
- */
+/** What a run report says: the message of each note and of each line's facts, with typed values. */
 @Name("Run reports")
 public interface ReportTexts {
 

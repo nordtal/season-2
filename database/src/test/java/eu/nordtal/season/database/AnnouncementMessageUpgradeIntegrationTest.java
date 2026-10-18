@@ -13,10 +13,7 @@ import java.util.Map;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what telling an announcement in messages does to the announcements an installation already wrote.
- * Each language keeps its text and renders through the database bundle, one the bot has not posted yet included.
- */
+/** Holds that announcements written before they became messages keep their text in each language. */
 class AnnouncementMessageUpgradeIntegrationTest {
 
     private static final Messages DATABASE = Messages.load(

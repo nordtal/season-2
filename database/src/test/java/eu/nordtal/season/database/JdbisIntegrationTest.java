@@ -9,7 +9,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Binds and reads both id types against a real PostgreSQL, which alone says whether a UUID lands as one. */
+/** Binds and reads both id types against PostgreSQL. */
 class JdbisIntegrationTest {
 
     private static Jdbi jdbi;

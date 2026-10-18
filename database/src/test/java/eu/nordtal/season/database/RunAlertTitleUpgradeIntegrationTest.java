@@ -11,10 +11,7 @@ import java.util.Locale;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what titling a failed run's alert as its card does to the alerts and posts an installation already wrote.
- * Each keeps its kind and reads as the card of a failed run of that kind, a post the bot has not read yet included.
- */
+/** Holds that alerts and posts written before a failed run was titled as its card keep their kind. */
 class RunAlertTitleUpgradeIntegrationTest {
 
     private static final Messages ADMIN =

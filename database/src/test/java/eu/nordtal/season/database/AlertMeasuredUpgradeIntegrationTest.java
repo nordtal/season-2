@@ -10,14 +10,10 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what keeping measurements as typed values does to the alerts an installation already wrote.
- *
- * Each reads its measurements back out of the messages that told them, and an alert that measured nothing keeps none.
- */
+/** Holds that alerts written before measurements became typed values still read their measurements back. */
 class AlertMeasuredUpgradeIntegrationTest {
 
-    /** One alert of every kind that measured something, raised a minute apart, and one that measured nothing. */
+    /** One alert of every kind that measured something, and one that measured nothing. */
     private static final String OLD_ALERTS = """
             INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path, raised) VALUES
                 ('steward', 'SERVICE', 'DOWN', 'migrate',

@@ -21,14 +21,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Every message of the database bundle: refusals of a write, a player's card, and the announcements the bot posts.
- * A server and Steward write an announcement into the bot's inbox, and the bot renders it in each language.
- */
+/** Every message of the database bundle: refusals of a write, the card of a player and the bot's announcements. */
 @MessageSpec("database")
 public interface DatabaseMessages {
 
-    /** The messages; stateless, so one instance serves every caller. */
     DatabaseMessages MESSAGES = MessageSpecs.create(DatabaseMessages.class);
 
     UpdateRefusals update();
@@ -41,13 +37,13 @@ public interface DatabaseMessages {
 
     Announcements announcement();
 
-    /** What the bot posts into each language's announcement channel; a glyph would be a box there, so none is used. */
+    /** What the bot posts into the announcement channel of each language. A glyph would be a box there. */
     @Name("Announcements")
     @Shown(Display.DISCORD_MESSAGE)
     @Format(TextFormat.DISCORD_MARKDOWN)
     interface Announcements {
 
-        /** An admin's own words, posted as written: the markdown in them is theirs. */
+        /** An admin's words, posted as written. */
         @Name("Words an admin wrote")
         @Format(TextFormat.PLAIN)
         MessageRef words(@Arg("text") @Example("The End opens tonight at eight.") String text);
@@ -75,7 +71,7 @@ public interface DatabaseMessages {
     @Name("Players")
     interface PlayerTexts {
 
-        /** What a player's name shows on hover in game, wherever a message names them. */
+        /** What the name of a player shows on hover in game. */
         @Name("Card")
         @Shown(Display.GUI)
         MessageRef card(

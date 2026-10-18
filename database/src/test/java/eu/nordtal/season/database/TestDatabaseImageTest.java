@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Holds the tests' PostgreSQL against the one the stack runs, so a test never proves a different version. */
+/** Holds the PostgreSQL of the tests to the one the stack runs. */
 class TestDatabaseImageTest {
 
     @Test

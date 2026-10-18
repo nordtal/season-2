@@ -21,35 +21,28 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.Update;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One journal entry's own values, one record per line it renders, which is rendered when shown and never stored.
- *
- * A record writes its family's {@code journal_} row; what its run or payment already hold is read back from them.
- */
+/** The values of one journal entry, one record per line. It is rendered when shown and never stored. */
 public sealed interface JournalDetail {
 
-    /** Returns the line this detail reads as, rendered from its values now. */
+    /** Returns the line this detail reads as. */
     MessageRef line();
 
-    /** Writes this detail's rows for {@code entry} in the caller's transaction; a detail held elsewhere writes none. */
+    /** Writes the rows of this detail for {@code entry} in the transaction of the caller. */
     void insert(Handle handle, UUID entry);
 
-    /** Returns the service the entry concerns, kept on {@code journal_entry.service}. */
     default @Nullable String service() {
         return null;
     }
 
-    /** Returns the run the entry concerns, kept on {@code journal_entry.run}. */
     default @Nullable Long run() {
         return null;
     }
 
-    /** Returns the payment the entry concerns, kept on {@code journal_entry.payment}. */
     default @Nullable UUID payment() {
         return null;
     }
 
-    /** Returns the line of an entry: its detail's, or for an action with no values (or none named) its own. */
+    /** Returns the line of an entry, which is its action's when it has no detail. */
     static MessageRef line(final JournalAction action, final @Nullable JournalDetail detail) {
         if (detail != null) {
             return detail.line();
@@ -67,7 +60,6 @@ public sealed interface JournalDetail {
             case LINK_CODES_EXHAUSTED -> TEXTS.journal().linkCodesExhausted();
             case SET_LAUNCH -> TEXTS.journal().clearLaunch();
             case SET_SMP_START -> TEXTS.journal().clearSmpStart();
-            // A route that named no line, which Journaling logs: the action is all it says.
             default -> TEXTS.journal().action(action);
         };
     }
@@ -120,11 +112,7 @@ public sealed interface JournalDetail {
         }
     }
 
-    /**
-     * A booking; only the days and the donation are its own, the rest is its payment's.
-     *
-     * @param received what the bank payment was worth, {@code null} for a booking by hand
-     */
+    /** A booking. Only the days and the donation are its own. */
     record Settled(
             UUID payment,
             String reference,
@@ -166,7 +154,6 @@ public sealed interface JournalDetail {
         }
     }
 
-    /** @param opens the opening set, {@code null} when it was cleared */
     record LaunchSet(@Nullable Instant opens) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -183,7 +170,6 @@ public sealed interface JournalDetail {
         }
     }
 
-    /** @param starts the start of paid time set, {@code null} when it was cleared */
     record SmpStartSet(@Nullable Instant starts, long movedGrants) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -356,7 +342,7 @@ public sealed interface JournalDetail {
         }
     }
 
-    /** A plugin removal; the artifact is its run's, read back from it. */
+    /** A plugin removal. */
     record PluginRemoved(Long run, String service, String artifact) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -367,7 +353,7 @@ public sealed interface JournalDetail {
         public void insert(final Handle handle, final UUID entry) {}
     }
 
-    /** A run asked for; its kind and scope are the run's, read back from it. */
+    /** A run asked for. */
     record RunAsked(Long run, UpdateKind kind, List<String> services) implements JournalDetail {
         public RunAsked {
             services = List.copyOf(services);
@@ -382,7 +368,7 @@ public sealed interface JournalDetail {
         public void insert(final Handle handle, final UUID entry) {}
     }
 
-    /** A restore asked for; the archive is its run's, read back from it. */
+    /** A restore asked for. */
     record RestoreAsked(Long run, String archive) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -393,7 +379,7 @@ public sealed interface JournalDetail {
         public void insert(final Handle handle, final UUID entry) {}
     }
 
-    /** A countdown cancelled; the kind is its run's, read back from it. */
+    /** A countdown cancelled. */
     record RunCancelled(Long run, UpdateKind kind) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -404,7 +390,6 @@ public sealed interface JournalDetail {
         public void insert(final Handle handle, final UUID entry) {}
     }
 
-    /** @param bytes the archive's size, {@code null} when the agent did not list it */
     record BackupDownloaded(String archive, @Nullable Long bytes) implements JournalDetail {
         @Override
         public MessageRef line() {
@@ -461,7 +446,6 @@ public sealed interface JournalDetail {
         }
     }
 
-    /** @param below the Discord ids of the admins taken away with the one revoked */
     record AdminRevoked(List<String> below) implements JournalDetail {
         public AdminRevoked {
             below = List.copyOf(below);
@@ -492,7 +476,7 @@ public sealed interface JournalDetail {
         }
     }
 
-    /** Inserts one row of a family's table: {@code entry} and the given column names and values, in pairs. */
+    /** Inserts one row into the table of a family from the column names and values in {@code pairs}. */
     private static void row(
             final Handle handle, final String table, final UUID entry, final @Nullable Object... pairs) {
         final StringJoiner columns = new StringJoiner(", ", "(entry, ", ")");

@@ -31,13 +31,13 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * What an admin reads of the network, English only: the journal, the runs and their reports and the alerts.
- * Written for Discord, whose target escapes each value; a text here carries no markdown, so the page shows it as is.
+ * What an admin reads of the network, in English: the journal, the runs and their reports and the alerts.
+ * The Discord target escapes each value, so a text here has no markdown.
  */
 @MessageSpec(value = "admin", format = TextFormat.DISCORD_MARKDOWN)
 public interface AdminTexts {
 
-    /** The texts; stateless, so one instance serves every caller. */
+    /** The texts. */
     AdminTexts TEXTS = MessageSpecs.create(AdminTexts.class);
 
     Journal journal();
@@ -49,11 +49,7 @@ public interface AdminTexts {
     @Shown({Display.STEWARD, Display.DISCORD_EMBED})
     ReportTexts report();
 
-    /**
-     * One line per action, rendered from the values of its journal entry when it is shown, by each reader's target.
-     *
-     * A value is named after the fact it states.
-     */
+    /** One line per action, rendered from the values of its journal entry. */
     @Name("Journal")
     @Shown(Display.STEWARD)
     interface Journal {
@@ -70,7 +66,7 @@ public interface AdminTexts {
         @Shown(Display.DISCORD_EMBED)
         MessageRef person(@Arg("person") Mention person);
 
-        /** Who did it: a person as their mention, anyone else as the word for their kind. */
+        /** Who did it: a person as a mention, anyone else as the word for their kind. */
         default MessageRef who(final Actor actor) {
             final DiscordId person = actor.person();
             return person == null ? actor(actor.kind()) : person(Mention.of(person));
@@ -252,7 +248,7 @@ public interface AdminTexts {
         MessageRef linkCodesExhausted();
     }
 
-    /** A run, as the journal, Steward's feed and the bot's update feed name it. */
+    /** A run as the journal, the feed and the bot name it. */
     @Name("Runs")
     interface Run {
 
@@ -264,7 +260,7 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef status(@Arg("status") UpdateStatus status);
 
-        /** The one way a run is named in words: its card's title, its failed alert's title and its row in the feed. */
+        /** A run named in words: the title of its card and of its failed alert, and its row in the feed. */
         @Name("A run's kind and stage, as a title")
         @Shown({Display.STEWARD, Display.DISCORD_EMBED_HEADING, Display.PUSH})
         MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") UpdateReport.Stage stage);
@@ -315,7 +311,7 @@ public interface AdminTexts {
         MessageRef more(@Arg("count") int count);
     }
 
-    /** An alert: its title and the lines below it, which a lock screen, the admin channel and the page render. */
+    /** An alert: its title and the lines below it. */
     @Name("Alerts")
     @Shown({Display.STEWARD, Display.PUSH, Display.DISCORD_EMBED_HEADING})
     interface Alerts {

@@ -38,7 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks the method that reloads a {@link ConfigSpec}'s top-level values. */
+/** Marks the method that reloads the top-level values of a {@link ConfigSpec}. */
 @HandledByProxy
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

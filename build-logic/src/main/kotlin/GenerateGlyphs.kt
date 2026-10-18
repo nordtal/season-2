@@ -19,10 +19,10 @@ import java.io.File
 import kotlin.math.abs
 
 /**
- * Writes everything derived from the [GlyphAllocation]: the font files, the Java class of code points, the advance
- * tables the plugins carry and the glyph menu of Steward's translation editor.
+ * Writes everything that derives from the [GlyphAllocation]: the font files, the Java class of code points, the advance
+ * tables of the plugins and the glyph menu of the translation editor of Steward.
  *
- * One task reads the allocation once, so the four can never disagree, and none of them is committed.
+ * One task reads the allocation once, so the four outputs agree. None of them is committed.
  */
 @CacheableTask
 abstract class GenerateGlyphs : DefaultTask() {
@@ -31,20 +31,18 @@ abstract class GenerateGlyphs : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val allocation: RegularFileProperty
 
-    /** The pack's `src/assets`, holding the textures the allocation names. */
+    /** The `src/assets` of the pack, which holds the textures that the allocation names. */
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val assets: DirectoryProperty
 
-    /** The fully qualified name of the Java class to write. */
     @get:Input
     abstract val className: Property<String>
 
-    /** Font id to the resource path its advance table is written at. */
+    /** Maps a font id to the resource path of its advance table. */
     @get:Input
     abstract val advanceTables: MapProperty<String, String>
 
-    /** A pack root: the fonts land in `assets/<namespace>/font/`. */
     @get:OutputDirectory
     abstract val fontDirectory: DirectoryProperty
 
@@ -54,7 +52,6 @@ abstract class GenerateGlyphs : DefaultTask() {
     @get:OutputDirectory
     abstract val resourceDirectory: DirectoryProperty
 
-    /** `manifest.json` and one `<name>.png` per named glyph. */
     @get:OutputDirectory
     abstract val manifestDirectory: DirectoryProperty
 
@@ -77,7 +74,6 @@ abstract class GenerateGlyphs : DefaultTask() {
         writeManifest(glyphs)
     }
 
-    /** Returns each written font file by its id. */
     private fun writeFonts(glyphs: GlyphAllocation): Map<String, File> {
         val root = fresh(fontDirectory.get().asFile)
         val written = LinkedHashMap<String, File>()
@@ -234,7 +230,7 @@ abstract class GenerateGlyphs : DefaultTask() {
         file.writeText(java.text())
     }
 
-    /** Lines of Java source; a doc comment's prose is escaped for HTML and wrapped. */
+    /** Lines of Java source. The class escapes the prose of a doc comment for HTML and wraps it. */
     private class JavaWriter {
         private val out = StringBuilder()
 
@@ -242,7 +238,7 @@ abstract class GenerateGlyphs : DefaultTask() {
             out.append(text.trimEnd()).append('\n')
         }
 
-        /** A doc comment of [paragraphs], each wrapped to the line width; code spans pass through unescaped. */
+        /** Writes a doc comment of [paragraphs], each wrapped to the line width. Code spans stay unescaped. */
         fun doc(
             indent: String,
             vararg paragraphs: String,

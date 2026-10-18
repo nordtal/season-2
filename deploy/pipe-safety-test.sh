@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Finds, in every script under `pipefail`, a pipe into a reader that can stop early, such as
-# `| head` or `| grep -q`: the producer then gets SIGPIPE and the pipeline exits 141 on a match.
-# The fix is a reader that reads to EOF, such as `sed -n '1p'`. Here-strings are not pipes.
+# Finds, in every script under `pipefail`, a pipe into a reader that can stop early, such as `| head`
+# or `| grep -q`. The producer then gets SIGPIPE, and the pipeline exits with 141 on a match.
+# A reader that reads to EOF, such as `sed -n '1p'`, avoids it. Here-strings are not pipes.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,7 +26,7 @@ is_exception() {
     return 1
 }
 
-# Every script that sets pipefail, anywhere in the repository; `-I` skips binary files.
+# Every script that sets pipefail, anywhere in the repository. `-I` skips binary files.
 mapfile -t targets < <(grep -rlIE 'set -o pipefail|set -Eeuo pipefail|set -euo pipefail' \
     --exclude-dir=.git --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules \
     --exclude-dir=.idea --exclude-dir=.vscode --exclude-dir=.fleet \
@@ -36,7 +36,7 @@ mapfile -t targets < <(grep -rlIE 'set -o pipefail|set -Eeuo pipefail|set -euo p
     || { echo "no file under pipefail was found anywhere in the repository - the discovery above broke" >&2; exit 1; }
 
 for file in "${targets[@]}"; do
-    # Excluded, since its own regex literals look like pipes.
+    # Excluded, because its own regex literals look like pipes.
     [[ "$file" == "$HERE/pipe-safety-test.sh" ]] && continue
 
     rel="${file#"$ROOT"/}"
@@ -48,7 +48,7 @@ for file in "${targets[@]}"; do
         trimmed="${line#"${line%%[![:space:]]*}"}"
         [[ "$trimmed" == \#* ]] && continue
 
-        # Drop `||` first, so a remaining `|` is a real pipe.
+        # Drop `||` first, so that every remaining `|` is a pipe.
         stripped="${line//||/}"
         [[ "$stripped" == *"|"* ]] || continue
 

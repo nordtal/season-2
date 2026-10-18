@@ -1,12 +1,12 @@
 package eu.nordtal.season.spec.schema;
 
-/** What a scalar's value looks like, as the schema records it. */
+/** The type of a scalar value in the schema. */
 public enum SettingType {
-    /** Free text, including a Java {@code enum}, stored as a plain string. */
+    /** Free text, including an {@code enum}, stored as a string. */
     STRING,
     /** A whole number. */
     INTEGER,
-    /** A number with a fractional part. */
+    /** A number with a fraction. */
     DECIMAL,
     /** {@code true} or {@code false}. */
     BOOLEAN

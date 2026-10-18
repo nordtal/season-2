@@ -38,9 +38,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks an annotation as handled by the proxy rather than scanned as a property.
+ * Marks an annotation that the proxy handles. The property scanner skips a method with it.
  *
- * Used on {@link Reload}, {@link Save}, {@link Reset} and {@link AsMap}.
+ * {@link Reload}, {@link Save}, {@link Reset} and {@link AsMap} carry it.
  */
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)

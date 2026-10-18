@@ -1,6 +1,6 @@
 package eu.nordtal.season.spec.schema;
 
-/** What sits under a key, as the schema records it. */
+/** The kind of value under a key in the schema. */
 public enum SettingKind {
     /** A single value. */
     SCALAR,

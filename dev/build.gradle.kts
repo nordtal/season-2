@@ -1,4 +1,4 @@
-// The local network as a Java program, so no OS needs bash. .run/ starts Dev.
+// The local network as a Java program, so that no operating system needs bash. The run configurations in .run/ start Dev.
 
 plugins {
     id("nordtal.java-base")
@@ -15,17 +15,17 @@ tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
 
-// NordtalQuestionsTest holds the borrowed questions against the installer's own table.
+// NordtalQuestionsTest compares the borrowed questions with the table of the installer.
 repositoryRootTestInputs {
     reads("deploy/nordtal.sh")
     reads("deploy/dev.env.example")
     readsTree(".run")
 
-    // LocalProjectTest reads this module's sources for a compose command line of their own.
+    // LocalProjectTest reads the sources of this module for a compose command line of their own.
     readsTree("dev/src/main/java")
 }
 
 dependencies {
-    // steward-agent's Compose writes every docker compose command line; dev runs the same ones on this terminal.
+    // The Compose class of steward-agent writes every docker compose command line. dev runs the same lines on this terminal.
     implementation(project(":steward-agent"))
 }

@@ -9,18 +9,16 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
-/** Fails when a file Git tracks under [pathspecs] names an issue-tracker ID. */
+/** Fails when a file that Git tracks under [pathspecs] names an issue-tracker ID. */
 @DisableCachingByDefault(because = "Which files Git tracks is not a declarable input")
 abstract class CheckNoTrackerIds : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** Git pathspecs relative to the root, `:(exclude)` entries included. */
     @get:Internal
     abstract val pathspecs: ListProperty<String>
 
-    /** False only reports the count, while the module does not pass yet. */
+    /** When false, the task reports only the number of findings. */
     @get:Internal
     abstract val enforced: Property<Boolean>
 
@@ -54,7 +52,7 @@ abstract class CheckNoTrackerIds : DefaultTask() {
     }
 
     companion object {
-        /** Every prefix the trackers of this project have used. */
+        /** The prefixes of the trackers of this project. */
         val PATTERN = Regex("""\b(steward|season-2-ops|season-2-ingame|season-2-community|workspace)/\d+\b|\bNT\d+-\d+\b""")
     }
 }

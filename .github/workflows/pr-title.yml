@@ -1,6 +1,6 @@
 name: pr-title
 
-# The title becomes the squash commit on main, which build.yml then checks too late to refuse.
+# The title becomes the squash commit on main. build.yml checks that commit too late to refuse it.
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The body is checked with the title for model and vendor names, which no commit hook ever sees.
-      # Dependabot's body quotes the release notes of the packages it bumps, so only its title is checked.
+      # The check reads the body together with the title for model and vendor names, which no commit hook sees.
+      # The body of a Dependabot pull request quotes the release notes of the bumped packages, so only its title is checked.
       - name: Title and body follow CONVENTIONS.md
         env:
           TITLE: ${{ github.event.pull_request.title }}

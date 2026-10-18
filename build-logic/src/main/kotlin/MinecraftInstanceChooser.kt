@@ -12,10 +12,10 @@ import javax.swing.UIManager
 import kotlin.system.exitProcess
 
 /**
- * Asks for the folder of a Minecraft instance and remembers it for [InstallPack].
+ * Asks for the folder of a Minecraft instance and saves it for [InstallPack].
  *
- * A separate program, so the Gradle daemon opens no window. The first argument is the file to write; a
- * second is taken as the answer instead of asking.
+ * It is a separate program, so the Gradle daemon opens no window. The first argument is the file to write.
+ * A second argument is the answer, and the program does not ask then.
  */
 object MinecraftInstanceChooser {
     private const val TITLE = "Choose your Minecraft instance folder"
@@ -41,7 +41,7 @@ object MinecraftInstanceChooser {
             finish(1, "There is no screen to ask on. Pass the folder instead: -PminecraftInstance=<folder>")
         }
         if (System.getProperty("os.name").startsWith("Mac")) {
-            // Makes macOS's native chooser pick folders.
+            // Makes the native chooser of macOS pick folders.
             System.setProperty("apple.awt.fileDialogForDirectories", "true")
             val dialog = FileDialog(null as Frame?, TITLE, FileDialog.LOAD).apply { directory = start.path }
             dialog.isVisible = true
@@ -77,7 +77,7 @@ object MinecraftInstanceChooser {
         return answer == JOptionPane.YES_OPTION
     }
 
-    /** The folder the game runs in, for the folders people commonly pick instead. */
+    /** Returns the folder that the game runs in, for the folders that people often pick instead. */
     private fun normalise(picked: File): File {
         val folder = picked.absoluteFile
         if (folder.name == "resourcepacks") return folder.parentFile
@@ -107,7 +107,7 @@ object MinecraftInstanceChooser {
         message: String,
     ): Nothing {
         (if (status == 0) System.out else System.err).println(message)
-        // The dialogs leave AWT threads behind that would keep the JVM alive.
+        // The dialogs leave AWT threads that keep the JVM alive.
         exitProcess(status)
     }
 }

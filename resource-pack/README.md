@@ -1,12 +1,12 @@
 # resource-pack
 
-The nordtal.eu resource pack: glyphs in the Unicode private use area, HUD sprites, menu panels and a
-few vanilla overrides.
+The nordtal.eu resource pack. It holds glyphs in the Unicode private use area, HUD sprites, menu
+panels and a few vanilla overrides.
 
-**[`glyphs.json`](glyphs.json) owns every code point.** The build writes the font files,
-`:pack-rendering`'s `Glyphs`, the advance tables the plugins carry and the glyph list of Steward's
-translation editor from it. A glyph of `minecraft:default` also has a name, written as
-`<glyph:name>` in a message.
+**[`glyphs.json`](glyphs.json) owns every code point.** The build writes the font files, the
+`Glyphs` class of `:pack-rendering`, the advance tables of the plugins and the glyph list of
+Steward's translation editor from it. A glyph of `minecraft:default` also has a name, which a message
+writes as `<glyph:name>`.
 
 ```
 glyphs.json           every font, block and glyph
@@ -17,18 +17,21 @@ build/pack            the assembled pack: src/ plus the fonts the build writes
 
 ## Editing the art
 
-Everything runs from IntelliJ's Run menu, folder **resource pack**, on any operating system, with Minecraft 26.2.
+The steps run from the Run menu of IntelliJ, folder **resource pack**, on any operating system, with
+Minecraft 26.2.
 
-1. Run **pack: 1. choose Minecraft instance** once and pick the folder holding `options.txt` and `resourcepacks`.
+1. Run **pack: 1. choose Minecraft instance** once and pick the folder that holds `options.txt` and `resourcepacks`.
 2. Edit an image under `src/assets/nordtal/textures` and save it in place.
-3. Run **pack: 2. install into Minecraft**: it names every image it cannot use, copies the pack in
-   as `nordtal-dev` and enables it if the game is closed (otherwise enable it once under Options > Resource Packs).
+3. Run **pack: 2. install into Minecraft**. It names every image it cannot use and copies the pack
+   in as `nordtal-dev`. It enables the pack when the game is closed. Otherwise enable it once under
+   Options > Resource Packs.
 4. Press **F3+T** in the game.
 
-A new glyph is its image plus one entry in `glyphs.json`: a free code point in its block, its
-constant, its texture and, in `minecraft:default`, its name. The next build names every rule an entry
-breaks. To see your own pack on the network, an admin chooses **Skip resource pack** on your row under
-Users in Steward, and **Enforce resource pack** to undo it.
+A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a constant,
+a texture and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
+
+An admin chooses **Skip resource pack** on a user's row under Users in Steward to show that user the
+network with their own pack. **Enforce resource pack** undoes it.
 
 ## Building and hosting
 
@@ -36,108 +39,108 @@ Users in Steward, and **Enforce resource pack** to undo it.
 ./gradlew :resource-pack:packZip
 ```
 
-writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`; `pack.mcmeta` declares
-formats **88** to **97** (Minecraft 26.2 and 26.3). The build is reproducible, so a version always has the same hash. Both files
-are attached to each GitHub release, and the proxy offers the pack while the player waits in `limbo`.
-`dev pack` points a local stack at a fresh build.
+The task writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`. The build
+is reproducible, so a version always has the same hash. `pack.mcmeta` declares the formats **88** to
+**97** (Minecraft 26.2 and 26.3). Both files are attached to each GitHub release. The proxy offers the
+pack while the player waits in `limbo`. `dev pack` points a local stack at a fresh build.
 
-URL and hash are the proxy's `pack` settings, which an update run sets to the installed release's
-own assets: the pack is up to date only when both match, so the proxy never depends on an older
-release, which may be deleted. Both are empty by default and the proxy fails closed until they are
-set. Steward raises the pack alert when the URL stops answering.
+The URL and the hash are the proxy's `pack` settings, and both are empty by default. The proxy
+fails closed while one is empty. An update run sets both to the assets of the installed release.
+Steward raises the pack alert when the URL stops answering.
 
-- Use the `github.com/<owner>/<repo>/releases/download/<tag>/<file>` URL, not the signed
-  `release-assets.githubusercontent.com` address it redirects to, which expires within the hour.
-- `sha1` is checked only to be 40 hex characters; a wrong hash shows as `FAILED_DOWNLOAD` in the client.
+- The URL has the form `github.com/<owner>/<repo>/releases/download/<tag>/<file>`. The signed
+  `release-assets.githubusercontent.com` address expires within the hour.
+- Steward checks only that `sha1` has 40 hex characters. A wrong hash shows in the client as
+  `FAILED_DOWNLOAD`.
 
 ## What the build writes
 
-`generateGlyphs` reads `glyphs.json` once and writes everything below; none of it is committed.
+`generateGlyphs` reads `glyphs.json` once and writes the files below. None of them is committed.
 
-- The font files, one per font and six for `nordtal:gui_r{row}`, which `assemblePack` puts in `build/pack`.
-- `Glyphs`, compiled into `:pack-rendering`: a constant per glyph and per space, the lists and
-  `named()` for `<glyph:name>`.
-- `nordtal/hud/bossbar-advances.properties` and `nordtal/menu/gui-row-advances.properties`, the widths
-  the plugins compose pills and rows with, derived from the written fonts by the client's rule. They
-  ship in `:pack-rendering`'s jar, so a changed width reaches a server with the next plugin rollout;
-  `BossBarAdvancesTest` and `MenuFontTest` derive them again independently.
-- `manifest.json` and one PNG per named glyph, the glyph list of Steward's translation editor.
+- The font files: one per font and six for `nordtal:gui_r{row}`. `assemblePack` copies them into `build/pack`.
+- `Glyphs`, compiled into `:pack-rendering`. It holds a constant per glyph and per space, the lists
+  and `named()` for `<glyph:name>`.
+- `nordtal/hud/bossbar-advances.properties` and `nordtal/menu/gui-row-advances.properties`. They hold
+  the widths that the plugins compose pills and rows with, derived from the written fonts by the
+  client's rule, and ship in the jar of `:pack-rendering`. `BossBarAdvancesTest` and `MenuFontTest`
+  derive the widths again independently.
+- `manifest.json` and one PNG per named glyph, which Steward's translation editor lists.
 
 ## glyphs.json
 
-`fonts` lists one entry per font, in the order `Glyphs` follows. The `about` of a font, block, glyph or
-list becomes the Java doc of its constant.
+`fonts` lists one entry per font, in the order that `Glyphs` follows. The `about` of a font, block,
+glyph or list becomes the doc comment of its constant.
 
-| level | key                          | meaning                                                                                                           |
-| ----- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| font  | `font`                       | the font id, such as `nordtal:board`; with `{row}` in it, one font per row                                        |
-| font  | `rows`, `pitch`              | how many row fonts `{row}` writes, from 0, and how many pixels each row sits below the one before it              |
-| font  | `constant`                   | the Java constant of the font id, or of the list of row ids                                                       |
-| font  | `numbering`                  | `"own"` lets the font's code points repeat another font's                                                         |
-| font  | `spaces`                     | the `space` provider: each entry a `code`, its `advance` in pixels and an optional `constant`                     |
-| font  | `blocks`, `lists`            | the code points in ascending order; Java lists (`constant`, `about`) a glyph joins with `list`                    |
-| block | `range`, `title`             | `FE000-FE00F`, and the block's name in `Glyphs` and in every message about it                                     |
-| block | `texture`                    | makes the block one sheet: its glyphs are the cells of one row, left to right                                     |
-| block | `chars`                      | instead of `range` and `glyphs`: rows of ordinary characters, one per sheet row; `\u0000` is no cell              |
-| block | `height`, `ascent`, `status` | the default of every glyph in the block; a sheet needs both height and ascent                                     |
-| glyph | `code`, `constant`           | the code point in capital hex, and its constant in `Glyphs` (a glyph without one is reached by its list)          |
-| glyph | `name`                       | its `<glyph:name>`, lowercase and hyphenated; every glyph of `minecraft:default` has one, no other does           |
-| glyph | `texture`                    | `nordtal:<path>.png`, under `src/assets/nordtal/textures`; a sheet's cells take the block's                       |
-| glyph | `height`, `ascent`           | the bitmap provider's, unless the block sets them                                                                 |
-| glyph | `status`                     | `keep` is shipping art, `final candidate` is good enough to ship, `placeholder` is for testing; unset is unjudged |
+| level | key                          | meaning                                                                                                       |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| font  | `font`                       | the font id, such as `nordtal:board`; with `{row}` in it, one font per row                                    |
+| font  | `rows`, `pitch`              | the number of row fonts that `{row}` writes, counted from 0, and the pixels between one row and the next      |
+| font  | `constant`                   | the Java constant of the font id, or of the list of row ids                                                   |
+| font  | `numbering`                  | `"own"` lets the code points of the font repeat those of another font                                         |
+| font  | `spaces`                     | the `space` provider: each entry has a `code`, an `advance` in pixels and an optional `constant`              |
+| font  | `blocks`, `lists`            | the code points in ascending order; Java lists (`constant`, `about`) that a glyph joins with `list`           |
+| block | `range`, `title`             | a range such as `FE000-FE00F`, and the name of the block in `Glyphs` and in every message about it            |
+| block | `texture`                    | makes the block one sheet whose glyphs are the cells of one row, left to right                                |
+| block | `chars`                      | replaces `range` and `glyphs`: rows of ordinary characters, one per sheet row; `\u0000` is no cell            |
+| block | `height`, `ascent`, `status` | the default of every glyph in the block; a sheet needs both `height` and `ascent`                             |
+| glyph | `code`, `constant`           | the code point in capital hex and its constant in `Glyphs`; a glyph without a constant is reached by its list |
+| glyph | `name`                       | its `<glyph:name>`, lowercase and hyphenated; every glyph of `minecraft:default` has one and no other does    |
+| glyph | `texture`                    | `nordtal:<path>.png` under `src/assets/nordtal/textures`; the cells of a sheet take the texture of the block  |
+| glyph | `height`, `ascent`           | the values of the bitmap provider, unless the block sets them                                                 |
+| glyph | `status`                     | `keep` is shipping art, `final candidate` can ship, `placeholder` is for testing; unset is unjudged           |
 
-The build checks every rule before it writes anything and names each broken one by its place, such as
-`glyphs.json > nordtal:bossbar > Status icons`:
+The build checks every rule before it writes anything. It names each broken rule by its place, such as
+`glyphs.json > nordtal:bossbar > Status icons`.
 
-- Every code point lies in Supplementary Private Use Area A, `U+F0000` to `U+FFFFD` (a `space` may
-  also be the ordinary space); the basic plane's private use area is where other glyph plugins assign.
-- Blocks and their glyphs ascend, do not overlap and stay inside their block, and a font draws a code point once.
-- Fonts allocate independently, and only `nordtal:bossbar` numbers on its own (its bar segments are
-  named by their width in decimal); every other font's blocks never overlap another's, so a code point
-  in a log names one thing.
-- A code point declared as a space advances the same in every font that declares it.
-- Constants are unique across the file, names unique among the glyphs, and no text holds `*/`.
+- Every code point lies in Supplementary Private Use Area A, `U+F0000` to `U+FFFFD`. A `space` may
+  also be the ordinary space. Other glyph plugins assign the private use area of the basic plane.
+- Blocks and their glyphs ascend, do not overlap and stay inside their block. A font draws a code point once.
+- Only `nordtal:bossbar` numbers on its own, and its bar segments are named by their width in
+  decimal. The blocks of every other font never overlap the blocks of another font, so a code point in
+  a log names one glyph.
+- A code point declared as a space has the same advance in every font that declares it.
+- Constants are unique across the file, names are unique among the glyphs, and no text holds `*/`.
 
 ## The fonts
 
-`U+FE001` means something different in `minecraft:default` and in `nordtal:bossbar`, and a component
-naming no font draws `minecraft:default`, so every component carrying a `nordtal:` glyph names its
-font; `:architecture` lets only `BossBarLine` name a boss bar. Every code point is a surrogate pair
-in UTF-16: `Glyphs` writes `cp(0xFE004)`, and no message bundle carries one (`TabListTest`); a glyph
-reaches a bundle as a `{parameter}` or as `<glyph:name>`.
+`U+FE001` is a different glyph in `minecraft:default` than in `nordtal:bossbar`. A component without
+a font draws `minecraft:default`, so every component with a `nordtal:` glyph names its font.
+`:architecture` lets only `BossBarLine` name a boss bar. Every code point is a surrogate pair in
+UTF-16: `Glyphs` writes `cp(0xFE004)`, and no message bundle holds one (`TabListTest`). A glyph reaches
+a bundle as a `{parameter}` or as `<glyph:name>`.
 
-- **`nordtal:board`**: a row draws its left edge, walks right by the configured width
-  (`boards[].width` in `smp`'s `config` group, 32 to 240 px), draws the right edge and walks back,
-  since only the client knows how wide a text line is.
-- **`nordtal:bossbar`**: its spaces are a `space` provider whose code point's low digits are the
-  advance in decimal, negative ones included, so a line draws over itself. A HUD line is one rounded
-  pill per piece of information. Never allocate an advance onto an assigned character.
-- **`nordtal:gui`**: menu panels, drawn from the inventory title. A title carries a bitmap as large as
-  the window on a high `ascent`, over `generic_54.png`. A title needs **-8** to reach the window's
-  left edge and **-169** to walk back from the panel's 177 px advance; the positive spaces are the
+- **`nordtal:board`:** a row draws its left edge, advances by the configured width
+  (`boards[].width` in the `config` group of `smp`, 32 to 240 px), draws the right edge and goes back.
+  Only the client knows the width of a text line.
+- **`nordtal:bossbar`:** its spaces are a `space` provider. The low digits of a code point are its
+  advance in decimal, negative advances included, so a line can draw over itself. A HUD line is one
+  rounded pill per piece of information. No advance may be allocated onto an assigned character.
+- **`nordtal:gui`:** menu panels, drawn from the inventory title. A title holds a bitmap as large as
+  the window on a high `ascent`, over `generic_54.png`. A title needs **-8** to reach the left edge of
+  the window and **-169** to go back from the 177 px advance of the panel. The positive spaces are the
   negative ones one bit higher, and every row font declares them too. A chest window is
   `114 + 18 × rows` pixels tall, hence six panels, and the drawable cell starts at **(7, 17)**.
-  Each card state is a card-sized overlay glyph declared once per card row with the ascent that lands
-  it there (`13 - y`); `MenuTitle.Canvas` composes it and `MenuTitleTest` checks every overlay.
-- **`nordtal:gui_r0` to `gui_r5`**: six copies of one font, one per chest row, because a font's
-  `ascent` is a glyph's only vertical control. Each row draws its bitmaps 18 pixels lower than the one
+  Each card state is a card-sized overlay glyph. It is declared once per card row with the ascent
+  that places it there (`13 - y`). `MenuTitle.Canvas` composes it and `MenuTitleTest` checks every overlay.
+- **`nordtal:gui_r0` to `gui_r5`:** six copies of one font, one per chest row. The `ascent` of a font
+  is the only vertical control of a glyph. Each row draws its bitmaps 18 pixels lower than the row
   above, with the same characters at three ascents centred in the 18 px cell:
 
-| layer     | height | top        | ascent      | what                                       |
+| layer     | height | top        | ascent      | content                                    |
 | --------- | ------ | ---------- | ----------- | ------------------------------------------ |
 | furniture | 14     | `19 + 18r` | `-6 - 18r`  | a plate: pill, active frame, button        |
 | icons     | 8      | `22 + 18r` | `-9 - 18r`  | an 8 × 8 pictogram, centred in the plate   |
 | text      | 5      | `23 + 18r` | `-10 - 18r` | the five-pixel sheet, centred in the plate |
 
-Text lands at **+4**; `MenuFontTest` checks each ascent against `SlotGeometry`.
+Text lands at **+4**, and `MenuFontTest` checks each ascent against `SlotGeometry`.
 
-`ui/gui/row_text.png` is the five-pixel sheet: an 8 × 7 grid of 5 × 5 cells holding `A` to `Z`,
-`0` to `9`, `. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙` and `█` `░` for a text bar. A space is a
-`space` provider at **+3**. It is all capitals: `:paper-common`'s `MenuFont` folds lower case onto
-them (except `ß`) and maps unknown characters to `?`, since a missing-glyph box is six pixels wide.
-`O`, `0` and `8` stay three pixels wide and are drawn apart, and `MenuFontTest` checks their distances:
+`ui/gui/row_text.png` is the five-pixel sheet. It is an 8 × 7 grid of 5 × 5 cells that hold `A` to `Z`,
+`0` to `9`, `. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙` and `█` `░` for a text bar. A space is a `space`
+provider at **+3**. The sheet has capitals only. `MenuFont` in `:paper-common` folds lower case onto
+them, except `ß`, and maps unknown characters to `?`, because a missing-glyph box is six pixels wide.
+`O`, `0` and `8` are three pixels wide and drawn apart. `MenuFontTest` checks their distances:
 
-| glyph | rows                  | what tells it apart                                |
+| glyph | rows                  | distinguishing feature                             |
 | ----- | --------------------- | -------------------------------------------------- |
 | `O`   | `.#. #.# #.# #.# .#.` | round, tapered top and bottom, like `C G Q`        |
 | `0`   | `### #.# #.# #.# ###` | square, flat top and bottom, like `1 2 3 5 7`      |
@@ -145,14 +148,14 @@ them (except `ß`) and maps unknown characters to `?`, since a missing-glyph box
 
 ## Vanilla overrides
 
-| file                                                           | what it does                                                                      |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so the composed HUD is all that shows |
-| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | likewise, the progress fill                                                       |
-| `minecraft/lang/en_us.json`                                    | `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect`           |
-| `minecraft/lang/de_de.json`                                    | the same three keys in German                                                     |
+| file                                                           | effect                                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so only the composed HUD shows   |
+| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                            |
+| `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
+| `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
 
-`de_de.json` is the one place the client's language decides what a player sees, limited to these
-three pause-menu strings. A language file may name a glyph (`menu.game`), the one place besides
-`glyphs.json` that writes a code point by hand; `ResourcePackTest` parses them against the written
-`minecraft:default`.
+`de_de.json` is the only place where the client language decides what a player sees, and it holds
+these three pause-menu strings only. `menu.game` names a glyph, so a language file is the one place
+besides `glyphs.json` that writes a code point by hand. `ResourcePackTest` parses the language files
+against the written `minecraft:default`.

@@ -1,4 +1,4 @@
-# Loads nordtal.nft before the network and Docker come up, so no published port is ever open unfiltered.
+# Loads nordtal.nft before the network and Docker start, so that no published port is open without a filter.
 [Unit]
 Description=nordtal inbound firewall
 DefaultDependencies=no

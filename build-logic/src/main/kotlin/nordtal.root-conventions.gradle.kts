@@ -1,4 +1,4 @@
-// Checks CONVENTIONS.md outside the modules; `conventions.root.comments=true` enforces the comment rules.
+// Checks CONVENTIONS.md outside the modules. `conventions.root.comments=true` enforces the comment rules.
 
 import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation

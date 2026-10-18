@@ -1,12 +1,13 @@
-# Sourced by entrypoint.sh: the secrets only this service reads, from the file compose mounts for it alone.
-# deploy/nordtal.sh writes the file as NAME=value lines, mode 600 and owned by the service's uid, so
-# compose never interpolates these values and steward-agent never mounts them.
+# Sourced by entrypoint.sh. It exports the secrets that only this service reads, from the file that
+# compose mounts for this service alone. deploy/nordtal.sh writes the file as NAME=value lines with
+# mode 600 and the uid of the service, so compose never interpolates the values and steward-agent never mounts them.
 
-# Where compose.yml mounts the service's own directory of NORDTAL_SECRETS_DIR.
+# The directory of the service in NORDTAL_SECRETS_DIR, where compose.yml mounts it.
 SECRETS_DIRECTORY=/app/secrets
 
-# Exports every NAME=value line of $1, read as data and never run as shell; one layer of quotes is
-# taken off, as compose reads an env file. A missing file under a mounted directory is said on stderr.
+# Exports every NAME=value line of $1. The function reads the lines as data and never runs them as
+# shell, and it removes one layer of quotes, as compose does for an env file. A missing file under a
+# mounted directory is reported on stderr.
 read_secrets() {
     file="$1"
     if [ ! -f "$file" ]; then
@@ -24,7 +25,7 @@ read_secrets() {
         value="${line#*=}"
         case "$name" in
             "$line" | '' | [0-9]* | *[!A-Za-z0-9_]*)
-                # The line is not repeated, since it may hold a secret.
+                # The message does not repeat the line, because the line may hold a secret.
                 echo "[entrypoint] a line of $file is no NAME=value assignment and is skipped" >&2
                 continue
                 ;;

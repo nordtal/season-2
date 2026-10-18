@@ -38,35 +38,29 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Returns the {@link java.util.Map} representation of a given {@link ConfigSpec} interface. */
+/** Marks the method that returns the {@link java.util.Map} of a {@link ConfigSpec}. */
 @HandledByProxy
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AsMap {
 
     /**
-     * Decides what to do with the internal map
+     * Sets what the method returns.
      *
-     * @return The behavior of this {@link AsMap} method
+     * @return the behavior of the method
      */
     Behavior value() default Behavior.IMMUTABLE_VIEW;
 
-    /** What an {@code @AsMap} method hands back. */
+    /** What an {@code @AsMap} method returns. */
     enum Behavior {
 
-        /**
-         * Creates a (shallow) copy of the underlying map
-         */
+        /** Returns a shallow copy of the underlying map. */
         CLONE,
 
-        /**
-         * Creates an immutable view of the underlying map. This is the default behavior
-         */
+        /** Returns an immutable view of the underlying map. This is the default. */
         IMMUTABLE_VIEW,
 
-        /**
-         * Returns the underlying map as-is. Modifying this map will modify the actual config spec.
-         */
+        /** Returns the underlying map itself. A change to the map changes the spec. */
         UNDERLYING_MAP
     }
 }

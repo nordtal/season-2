@@ -1,22 +1,22 @@
 name: release
 
-# Runs on a pushed release tag; the tag must match gradle.properties, and its commit must have a green
-# build on main. The GitHub release is created last, with every asset, so a failed run publishes nothing.
+# Runs on a pushed release tag. The tag must match gradle.properties, and its commit must have a green
+# build on main. The run creates the GitHub release last, with every asset, so a failed run publishes nothing.
 on:
   push:
     tags: ["v*"]
-  # Runs a release again after a failed run, or once a tag pushed before its build turned green.
+  # Runs a release again after a failed run, or after a tag that was pushed before its build turned green.
   workflow_dispatch:
     inputs:
       tag:
         description: "Tag to build, e.g. v0.1.0"
         required: true
 
-# Write access is granted on the job, the only place that needs it.
+# Only the job that needs write access has it.
 permissions:
   contents: read
 
-# One build per tag, so a hand-started re-run cannot upload the same assets twice.
+# One build per tag, so that a hand-started re-run cannot upload the same assets twice.
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
@@ -29,7 +29,7 @@ jobs:
       actions: read
       contents: write
       packages: write
-    # The tag is a dispatch input or a tag name, so it reaches scripts as a variable, never as text in one.
+    # The tag is a dispatch input or a tag name, so it reaches scripts as a variable and never as text in a script.
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
@@ -55,7 +55,7 @@ jobs:
           fi
           echo "VERSION=$declared" >> "$GITHUB_ENV"
 
-      # A release ships only a commit whose build on main went green, and only once.
+      # A release ships only a commit whose build on main is green, and only once.
       - name: Check the tag's commit has a green build on main and no release yet
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,7 +67,7 @@ jobs:
             echo "  gh workflow run release.yml -f tag=$RELEASE_TAG" >&2
             exit 1
           fi
-          # A draft is what a run that failed while uploading leaves behind; it was never published.
+          # A draft is what a run leaves behind when it fails while uploading. It was never published.
           draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || echo none)"
           if [ "$draft" = false ]; then
             echo "$RELEASE_TAG is already a release" >&2
@@ -77,7 +77,7 @@ jobs:
             gh release delete "$RELEASE_TAG" --yes
           fi
 
-      # `check` runs before `releaseArtifacts` so a release never ships jars whose tests nobody ran.
+      # `check` runs before `releaseArtifacts`, so that a release never ships jars whose tests did not run.
       - name: Build and test every release artifact
         run: ./gradlew check releaseArtifacts imageContexts
 
@@ -92,7 +92,7 @@ jobs:
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
 
-      # A client refuses a pack whose hash or root pack.mcmeta is wrong, which only shows on join.
+      # A client refuses a pack with a wrong hash or a wrong root pack.mcmeta, and the error shows only on join.
       - name: Verify the resource pack
         run: |
           zip="dist/nordtal-resource-pack-${VERSION}.zip"
@@ -124,9 +124,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Every image is pushed under the version alone: a stack runs exactly one release, named by
-      # steward-agent's own tag, and nothing ever pulls a moving tag. The source label is how GHCR links a
-      # package to a repository, here always the one that pushes it.
+      # Every image is pushed under the version alone. A stack runs exactly one release, named by the tag
+      # of steward-agent, and nothing pulls a moving tag. The source label links a package to a repository
+      # on GHCR, and here it is always the repository that pushes it.
       - name: Build and push the bot image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -138,7 +138,7 @@ jobs:
           tags: |
             ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
 
-      # The bootstrap image a fresh host pulls. The frontend is inside the jar under `web/`, so it has no Node.
+      # The bootstrap image that a fresh host pulls. The jar holds the frontend under `web/`, so the image needs no Node.
       - name: Build and push the steward image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -150,7 +150,7 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward:${{ env.VERSION }}
 
-      # One image for all four Minecraft services, holding a JRE and entrypoint.sh but no Gradle output.
+      # One image for all four Minecraft services. It holds a JRE and entrypoint.sh and no Gradle output.
       - name: Build and push the minecraft image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -160,7 +160,7 @@ jobs:
           tags: |
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
 
-      # Caddy with `caddy-l4` for port 25565, built with xcaddy since modules are fixed at build time.
+      # Caddy with `caddy-l4` for port 25565, built with xcaddy, because modules are fixed at build time.
       - name: Build and push the caddy image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -170,7 +170,7 @@ jobs:
           tags: |
             ghcr.io/nordtal/caddy:${{ env.VERSION }}
 
-      # Carries compose.yml; deploy/nordtal.sh renews it from outside the stack.
+      # The image carries compose.yml. deploy/nordtal.sh renews it from outside the stack.
       - name: Build and push the steward-agent image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -182,7 +182,7 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward-agent:${{ env.VERSION }}
 
-      # The one image that holds the bank key; steward reaches it over an internal network only.
+      # The one image that holds the bank key. steward reaches it only over an internal network.
       - name: Build and push the steward-bunq image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -194,9 +194,9 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
 
-      # Last: steward-agent and nordtal.sh take the newest published release for the one to install, so
-      # every image it names has to be in the registry first. With assets, gh uploads them to a draft and
-      # publishes it once they are all there.
+      # This step runs last. steward-agent and nordtal.sh take the newest published release as the one to
+      # install, so every image that it names must be in the registry first. With assets, gh uploads them
+      # to a draft and publishes the draft when all are there.
       - name: Publish the release with its artifacts
         env:
           GH_TOKEN: ${{ github.token }}

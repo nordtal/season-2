@@ -6,23 +6,23 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks the entry of a list of nested specs a consumer must never remove, by the value of one of its fields.
+ * Marks the entry of a list of nested specs that a consumer never removes. Spec does not define it.
  *
- * {@code @Protected(field = "tag", value = "en")} keeps the entry whose {@code tag} is {@code "en"}. Not part of Spec.
+ * {@code @Protected(field = "tag", value = "en")} protects the entry whose {@code tag} is {@code "en"}.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Protected {
 
     /**
-     * The element's own field to match against.
+     * Returns the field of the entry to compare.
      *
-     * @return the property key on the list's element type
+     * @return the property key on the element type of the list
      */
     String field();
 
     /**
-     * The value {@link #field()} must equal for that entry to be protected.
+     * Returns the value that {@link #field()} must equal for the entry to be protected.
      *
      * @return the protected value
      */

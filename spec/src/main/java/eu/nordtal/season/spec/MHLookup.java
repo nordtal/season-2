@@ -41,9 +41,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Generates private {@link Lookup}s through reflection, for JVMs where the direct API is unavailable.
- */
+/** Creates private {@link Lookup}s through reflection, for JVMs without the direct API. */
 final class MHLookup {
 
     private static @Nullable Constructor<Lookup> constructor;
@@ -65,12 +63,6 @@ final class MHLookup {
 
     private MHLookup() {}
 
-    /**
-     * Generates a {@link Lookup} that can access private members in the given class.
-     *
-     * @param cl The class to access
-     * @return The created {@link Lookup}
-     */
     public static Lookup privateLookupIn(final Class<?> cl) {
         try {
             if (privateLookupIn != null) {

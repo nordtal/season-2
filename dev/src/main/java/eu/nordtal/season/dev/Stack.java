@@ -12,16 +12,15 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
-/** Every command that builds, installs or drives the running stack. */
+/** The commands that build, install or drive the running stack. */
 final class Stack {
 
-    /** Where {@link #installArguments} mounts the jar inside the throwaway container. */
     private static final String MOUNTED_JAR = "/tmp/nordtal-install.jar";
 
     /**
-     * Removes every other jar of the plugin, copies the new one in and gives it the folder's owner.
+     * Removes every other jar of the plugin, copies the new jar in and gives it the owner of the folder.
      *
-     * Paper splits a jar's name on its last hyphen, so two versions of one plugin side by side both load.
+     * Paper splits the name of a jar at its last hyphen, so two versions of one plugin in the folder both load.
      */
     private static final String INSTALL_SCRIPT = "set -e; dir=/data/plugins; name=\"$1\"; module=\"$2\";"
             + " for old in \"$dir/$module\"-*.jar; do"
@@ -41,12 +40,11 @@ final class Stack {
         this.terminal = terminal;
     }
 
-    /** Builds everything, installs the four plugins, builds every image of ours and brings the stack up. */
     void up() {
         compose.requireEnv();
         build(ResetGuard.SERVICES);
         processes.gradle(":imageContexts");
-        // Built, never pulled, and before the plugins, which are installed through the Minecraft image.
+        // The images are built and never pulled, and before the plugins, which the Minecraft image installs.
         terminal.log("building every image of ours the selected profiles use");
         compose.run("build");
         ResetGuard.SERVICES.forEach(this::install);
@@ -55,7 +53,6 @@ final class Stack {
         terminal.log("minutes and watch with: dev logs");
     }
 
-    /** Rebuilds {@code modules}, all four when none is named, and restarts their servers. */
     void deploy(final List<String> modules) {
         final List<String> chosen = modules.isEmpty() ? ResetGuard.SERVICES : modules;
         for (final String module : chosen) {
@@ -67,14 +64,14 @@ final class Stack {
         compose.requireEnv();
         build(chosen);
         chosen.forEach(this::install);
-        // restart keeps the container's old environment; `up` picks up an env edit.
+        // restart keeps the old environment of the container. `up` applies an edit of the env file.
         terminal.log("restarting: " + String.join(" ", chosen));
         final List<String> restart = new ArrayList<>(List.of("restart"));
         restart.addAll(chosen);
         compose.run(restart.toArray(String[]::new));
     }
 
-    /** Builds the resource pack, puts it where pack-host serves it and sets the proxy's pack to it. */
+    /** Builds the resource pack, copies it to the directory that pack-host serves and points the proxy at it. */
     void pack() {
         compose.requireEnv();
         processes.gradle(":resource-pack:packZip");
@@ -91,7 +88,6 @@ final class Stack {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot install the pack", e);
         }
-        // The SQL travels as $0, so no shell ever reads it.
         if (compose.exec(
                         "postgres",
                         "sh",
@@ -106,7 +102,6 @@ final class Stack {
         compose.run("restart", "proxy");
     }
 
-    /** @return the statement that sets the proxy's {@code pack} group to {@code url} and {@code sha1}, as the host */
     static String storePack(final String url, final String sha1) {
         return "INSERT INTO setting_override (service, name, path, value, actor_kind, changed) VALUES"
                 + " ('proxy', 'pack', 'url', to_jsonb(" + literal(url) + "::text), 'HOST', now()),"
@@ -120,9 +115,9 @@ final class Stack {
     }
 
     /**
-     * The interface with hot reload: the stack in the background, Vite in front on :5173.
-     *
-     * Naming the steward services keeps Caddy out; stopping this leaves the containers running.
+     * Starts the interface with hot reload: the stack in the background and Vite in front on :5173.
+     * The command names the steward services, so Caddy does not start.
+     * Stopping it leaves the containers running.
      */
     void ui() {
         compose.requireEnv();
@@ -144,9 +139,9 @@ final class Stack {
     }
 
     /**
-     * A console that works in any window: the server's log scrolls by, and every line typed is sent as a command.
-     *
-     * A real terminal can attach with {@code docker compose exec <service> console}; IntelliJ's run console cannot.
+     * Opens a console that prints the log of the server and sends every typed line as a command.
+     * A real terminal can attach with {@code docker compose exec <service> console}.
+     * The run console of IntelliJ cannot.
      */
     void console(final String service) {
         final Process logs = processes.start(compose.command("logs", "-f", "--tail", "30", service), false);
@@ -163,12 +158,10 @@ final class Stack {
         }
     }
 
-    /** A psql shell on the local database; line by line when there is no real terminal. */
     void psql() {
         compose.exec("postgres", "sh", "-c", "psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"");
     }
 
-    /** Throws away one server's container and world volume, after the name is typed back. */
     void reset(final String service) {
         if (!ResetGuard.known(service)) {
             throw new Processes.Failure("usage: dev reset <service>, one of: " + String.join(" ", ResetGuard.SERVICES)
@@ -180,7 +173,7 @@ final class Stack {
         if (!ResetGuard.confirmed(service, terminal.readLine().orElse(""))) {
             throw new Processes.Failure("not confirmed; nothing was deleted");
         }
-        // `compose rm -v` removes only anonymous volumes, so the world is found and removed by name.
+        // `compose rm -v` removes only anonymous volumes, so the command removes the world volume by name.
         final List<String> volumes =
                 new ArrayList<>(worldVolume(service).stream().toList());
         compose.run("rm", "-sf", service);
@@ -210,7 +203,6 @@ final class Stack {
         terminal.log(service + " is reset. The next 'dev up' recreates it from an empty volume.");
     }
 
-    /** The volume mounted at /data in the service's container, read off the container while it still exists. */
     private Optional<String> worldVolume(final String service) {
         final List<String> containers = lines(processes.output(compose.command("ps", "-aq", service)));
         if (containers.isEmpty()) {
@@ -232,9 +224,9 @@ final class Stack {
     }
 
     /**
-     * Copies a module's jar into its server's plugins/, as root in a throwaway of the server's image.
+     * Copies the jar of a module into the plugins/ folder of its server, as root in a temporary container.
      *
-     * Once started, the folder is the server's uid's, on Linux not the developer's. See {@link #INSTALL_SCRIPT}.
+     * After the first start, the folder belongs to the uid of the server. See {@link #INSTALL_SCRIPT}.
      */
     private void install(final String module) {
         final Path jar = Repository.jar(root, module);
@@ -243,7 +235,7 @@ final class Stack {
         }
         final Path target = compose.pluginsDir(module);
         try {
-            // Docker would make a missing one as root.
+            // Docker would create a missing folder as root.
             Files.createDirectories(target);
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot create " + target, e);
@@ -253,9 +245,9 @@ final class Stack {
     }
 
     /**
-     * Returns the compose arguments that install {@code jar} into {@code module}'s plugins/ through its image.
+     * Returns the compose arguments that install {@code jar} into the plugins/ folder of {@code module}.
      *
-     * Root keeps only what the copy needs: writing into a folder it does not own, and handing the jar over.
+     * Root keeps only the capabilities that the copy needs: writing into a foreign folder and changing the owner.
      */
     static List<String> installArguments(final String module, final Path jar) {
         return List.of(

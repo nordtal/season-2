@@ -3,7 +3,6 @@ package eu.nordtal.season.build
 import org.gradle.api.GradleException
 import java.io.File
 
-/** Returns the paths Git tracks under [pathspecs], relative to [root]. */
 internal fun trackedFiles(
     root: File,
     pathspecs: List<String>,
@@ -20,7 +19,7 @@ internal fun trackedFiles(
     return files
 }
 
-/** Returns the text of [file], or null for a directory, a binary or anything over a megabyte. */
+/** Returns the text of [file], or null for a directory, a binary file or a file over one megabyte. */
 internal fun readText(file: File): String? {
     if (!file.isFile || file.length() > 1_000_000) return null
     val text = file.readText()

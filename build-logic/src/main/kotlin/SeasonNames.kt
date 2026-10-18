@@ -2,15 +2,14 @@ package eu.nordtal.season.build
 
 import java.io.File
 
-/** The spellings of the season number outside gradle.properties, which the check compares and the fork rewrites. */
+/** The spellings of the season number outside gradle.properties. The check compares them and the fork rewrites them. */
 internal object SeasonNames {
-    /** One spelling: the text before the number, the number, and what must not follow it. */
+    /** One spelling: the text before the number, the number and the text that must not follow it. */
     val PATTERN =
         Regex(
             """(?<![A-Za-z0-9])((?:nordtal-s|nordtal-season-|nordtal/season-|season-))(\d+)(?!\d)(?!-(?:ops|ingame|community))""",
         )
 
-    /** Returns every `file:line: text` that spells a season other than [season]. */
     fun strays(
         root: File,
         files: List<String>,
@@ -29,7 +28,7 @@ internal object SeasonNames {
                 }.toList()
         }
 
-    /** Rewrites every spelling in [files] to [season] and returns the files it changed. */
+    /** Rewrites every spelling in [files] to [season] and returns the files that changed. */
     fun rewrite(
         root: File,
         files: List<String>,

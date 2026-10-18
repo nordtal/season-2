@@ -56,29 +56,17 @@ public final class Specs {
 
     private static final Map<Class<?>, SpecClass> IMPLEMENTATIONS = new ConcurrentHashMap<>();
 
-    /**
-     * Tests whether the given class is a spec interface or not
-     *
-     * @param cl The class to check for
-     * @return true if it's a spec
-     */
     public static boolean isConfigSpec(final Class<?> cl) {
         return cl.isInterface() && cl.isAnnotationPresent(ConfigSpec.class);
     }
 
-    /** Returns a Gson builder that reads and writes spec interfaces, with whole numbers kept as {@code long}. */
+    /** Returns a Gson builder that reads and writes spec interfaces and keeps whole numbers as {@code long}. */
     public static GsonBuilder gsonBuilder() {
         return new GsonBuilder()
                 .registerTypeAdapterFactory(SpecAdapterFactory.INSTANCE)
                 .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE);
     }
 
-    /**
-     * Loads or generates (if necessary) all the information needed for the given spec
-     *
-     * @param interfaceType The spec type
-     * @return The generated {@link SpecClass}
-     */
     public static SpecClass from(final Class<?> interfaceType) {
         if (!interfaceType.isInterface()) throw new IllegalArgumentException("Class is not an interface.");
         if (!interfaceType.isAnnotationPresent(ConfigSpec.class))
@@ -88,11 +76,12 @@ public final class Specs {
     }
 
     /**
-     * Creates a spec with the default values for the given spec type, nested specs included.
+     * Creates a spec with the default values of its type, nested specs included.
      *
-     * @param interfaceType The spec interface
-     * @param <T>           The spec type
-     * @return The newly created instance; without a default, collections start empty, primitives zero, the rest null
+     * @param interfaceType the spec interface
+     * @param <T>           the spec type
+     * @return the new instance. A property without a default starts empty for a collection, zero for a primitive and
+     * {@code null} otherwise
      */
     public static <T> T createDefault(final Class<T> interfaceType) {
         if (!isConfigSpec(interfaceType)) throw new IllegalArgumentException(interfaceType + " must be a spec class!");
@@ -103,22 +92,22 @@ public final class Specs {
     }
 
     /**
-     * Creates a spec with the given values. Default values are not applied; the caller must guarantee those.
+     * Creates a spec with the given values. It applies no defaults, so the caller supplies them.
      *
-     * @param interfaceType The spec interface
-     * @param <T>           The spec type
-     * @param properties    The values to seed the instance with
-     * @return The newly created instance.
+     * @param interfaceType the spec interface
+     * @param <T>           the spec type
+     * @param properties    the values of the instance
+     * @return the new instance
      */
     public static <T> T createUnsafe(final Class<T> interfaceType, final Map<String, Object> properties) {
         return MapProxy.generate(interfaceType, properties);
     }
 
     /**
-     * The internal map of the given spec. Modifying this map immediately modifies the spec.
+     * Returns the internal map of a spec. A change to the map changes the spec.
      *
      * @param configSpec the spec instance to unwrap
-     * @return The internal map
+     * @return the internal map
      */
     public static Map<String, Object> getInternalMap(final Object configSpec) {
         return MapProxy.getInternalMap(configSpec);
@@ -137,7 +126,7 @@ public final class Specs {
         }
     }
 
-    /** Invokes the interface's own default method to read the default value of {@code property}. */
+    /** Calls the default method of the interface to read the default value of {@code property}. */
     private static <T> Object invokeDefaultMethod(
             final Class<T> interfaceType, final T proxy, final SpecProperty property) {
         final Method getter = property.getter();
@@ -161,7 +150,7 @@ public final class Specs {
         }
     }
 
-    /** The empty/zero value a property without its own default is initialised to. */
+    /** Returns the empty or zero value of a property without a default. */
     private static @Nullable Object defaultValueFor(final Class<?> type) {
         if (isConfigSpec(type)) {
             return createDefault(type);

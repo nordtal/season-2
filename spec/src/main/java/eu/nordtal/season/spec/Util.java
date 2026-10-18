@@ -47,12 +47,6 @@ final class Util {
 
     private Util() {}
 
-    /**
-     * Returns the {@link Class} object representing the class or interface that declared this type.
-     *
-     * @return the {@link Class} object representing the class or interface
-     * that declared this type
-     */
     public static Class<?> getRawType(final Type type) {
         if (type instanceof Class<?> clazz) {
             return clazz;
@@ -69,7 +63,7 @@ final class Util {
             return Array.newInstance(getRawType(componentType), 0).getClass();
 
         } else if (type instanceof TypeVariable) {
-            // A raw type more general than necessary is harmless; a type variable can have several bounds.
+            // A raw type that is more general than needed is harmless. A type variable can have several bounds.
             return Object.class;
 
         } else if (type instanceof WildcardType wildcardType) {
@@ -83,7 +77,7 @@ final class Util {
     }
 
     /**
-     * The first type argument of {@code genericType}, or {@code fallback} if it is not a parameterized type.
+     * Returns the first type argument of {@code genericType}, or {@code fallback} when it is not a parameterized type.
      */
     public static Type getFirstGeneric(final Type genericType, final Type fallback) {
         try {
@@ -94,7 +88,7 @@ final class Util {
     }
 
     /**
-     * An iterator wrapper that allows peeking at the next element without advancing it.
+     * An iterator that can return its next element without advancing.
      *
      * @param <E> the element type
      */
@@ -113,9 +107,7 @@ final class Util {
             return this.hasPeeked || this.iterator.hasNext();
         }
 
-        /**
-         * The next element, or the one {@link #peek()} returned since the last advance.
-         */
+        /** Returns the next element, or the element that {@link #peek()} returned since the last advance. */
         @Override
         public E next() {
             if (!this.hasPeeked) {
@@ -131,9 +123,9 @@ final class Util {
         }
 
         /**
-         * Removes the last element returned by {@link #next()}.
+         * Removes the last element that {@link #next()} returned.
          *
-         * @throws IllegalStateException if {@link #peek()} was called after the last {@link #next()}
+         * @throws IllegalStateException if {@link #peek()} ran after the last {@link #next()}
          */
         @Override
         public void remove() {
@@ -144,10 +136,10 @@ final class Util {
         }
 
         /**
-         * Peeks at the next element without advancing the iterator.
+         * Returns the next element without advancing.
          *
          * @return the next element
-         * @throws NoSuchElementException if there are no more elements
+         * @throws NoSuchElementException if no element is left
          */
         public E peek() {
             if (!this.hasPeeked) {
@@ -161,11 +153,11 @@ final class Util {
         }
 
         /**
-         * Wraps {@code iterator} so its next element can be peeked at without advancing it.
+         * Wraps {@code iterator} so that the caller can peek at its next element.
          *
          * @param <E> the element type
          * @param iterator the iterator to wrap
-         * @return a peeking view of {@code iterator}
+         * @return the wrapping iterator
          */
         public static <E> PeekingIterator<E> from(final Iterator<E> iterator) {
             return new PeekingIterator<>(iterator);

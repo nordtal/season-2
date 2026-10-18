@@ -58,9 +58,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Generates proxies that are backed by {@link Map maps}.
- */
+/** Creates proxies that read and write a {@link Map}. */
 final class MapProxy<T> implements InvocationHandler {
 
     @SuppressWarnings("unchecked")
@@ -98,7 +96,7 @@ final class MapProxy<T> implements InvocationHandler {
     private @Nullable Map<Method, MethodHandle> defaultMethodHandles;
     private @Nullable Map<Method, Object> memoized;
 
-    /** Wraps an {@code invoke()} result that may itself legitimately be {@code null}, distinct from "did not apply". */
+    /** Wraps an {@code invoke()} result. The wrapped value may be {@code null}, which differs from "did not apply". */
     private record Handled(@Nullable Object value) {}
 
     public MapProxy(final Class<T> type, final Map<String, Object> map) {
@@ -134,7 +132,9 @@ final class MapProxy<T> implements InvocationHandler {
         }
     }
 
-    /** The {@code equals(Object)} case of {@link #invoke}; {@code null} means fall through to the caller. */
+    /**
+     * Handles the {@code equals(Object)} case of {@link #invoke}. It returns {@code null} when the case does not apply.
+     */
     private @Nullable Handled equalsResult(final Object[] args) {
         final Object other = args[0];
         if (!Proxy.isProxyClass(other.getClass())) {
@@ -147,7 +147,7 @@ final class MapProxy<T> implements InvocationHandler {
         return null;
     }
 
-    /** The annotation-driven special cases of {@link #invoke}; a {@code null} return means none applied. */
+    /** Handles the annotation cases of {@link #invoke}. It returns {@code null} when none applies. */
     private @Nullable Handled handleAnnotation(final Object proxy, final Method method, final Object[] args)
             throws Throwable {
         if (method.isAnnotationPresent(IgnoreMethod.class)) {

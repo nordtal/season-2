@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests the seeding half of entrypoint.sh against fixture directories, with nothing but bash.
-# entrypoint.sh is sourced; `$0` differs from its path so its source guard returns early.
+# Tests the seeding half of entrypoint.sh against fixture directories, with bash alone.
+# The test sources entrypoint.sh. `$0` differs from its path, so the source guard returns early.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,7 +20,6 @@ case_begin() { current_case="$1"; case_failed=0; }
 ok()   { (( case_failed )) || printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); case_failed=1; }
 
-# A fresh volume directory for one case. Returns its path on stdout.
 volume() {
     local dir
     dir="$WORK/$1"
@@ -28,7 +27,6 @@ volume() {
     printf '%s' "$dir"
 }
 
-# Runs newest_server_jar against a cache directory and leaves its answer in $output.
 pick() {
     local cache="$1" kind="$2"
     set +e
@@ -37,7 +35,6 @@ pick() {
     set -e
 }
 
-# Runs remove_superseded_jars against a cache directory, and leaves what it printed in $output.
 sweep() {
     local cache="$1" kind="$2" keep="$3"
     set +e
@@ -47,8 +44,7 @@ sweep() {
     set -e
 }
 
-# Runs seed_level_settings against a volume, and leaves its exit status in $status and output in $output.
-# `bash -c ... seeding-test` sets $0 to a name the source guard does not take for the entrypoint.
+# `bash -c ... seeding-test` sets $0 to a name that the source guard does not take for the entrypoint.
 seed() {
     local data="$1" level="$2" seed_value="${3:-}"
     set +e
@@ -58,7 +54,6 @@ seed() {
     set -e
 }
 
-# Runs seed_velocity_config against a volume, and leaves its exit status in $status and output in $output.
 seed_velocity() {
     local data="$1" servers="$2" try="${3:-}"
     set +e
@@ -68,7 +63,6 @@ seed_velocity() {
     set -e
 }
 
-# Runs the proxy config repair against an existing velocity.toml.
 ensure_transfers() {
     local data="$1"
     set +e
@@ -78,7 +72,7 @@ ensure_transfers() {
     set -e
 }
 
-# A velocity.toml as Velocity writes it, with no [advanced] table.
+# A velocity.toml as Velocity writes it, without an [advanced] table.
 old_proxy_volume() {
     local dir
     dir=$(volume "$1")
@@ -94,7 +88,6 @@ old_proxy_volume() {
     printf '%s' "$dir"
 }
 
-# assertions
 
 expect_status() {
     local want="$1"
@@ -106,7 +99,7 @@ ${output}"
 
 expect_property() {
     local file="$1" key="$2" want="$3" have
-    # Not `head -n1`, which stops reading and makes the pipeline exit 141 under `pipefail`.
+    # `sed -n 1p` instead of `head -n1`, which stops reading and makes the pipeline exit with 141 under `pipefail`.
     have=$(sed -n "s/^${key}=//p" "$file" 2>/dev/null | sed -n '1p')
     [[ "$have" == "$want" ]] || bad "expected ${key}=${want} in ${file##*/}, found '${have:-nothing}'"
 }
@@ -126,7 +119,6 @@ expect_output() {
 ${output}"
 }
 
-# The line carrying a TOML key under the given table, or nothing.
 expect_toml_under_table() {
     local file="$1" table="$2" key="$3" want="$4" have
     have=$(awk -v table="$table" -v key="$key" '
@@ -137,7 +129,6 @@ expect_toml_under_table() {
         || bad "expected '${key} = ${want}' under ${table} in ${file##*/}, found '${have:-nothing}'"
 }
 
-# fixtures
 
 # Paper generated its default world and wrote level-name=world, while LEVEL_NAME says otherwise.
 legacy_volume() {
@@ -150,7 +141,6 @@ legacy_volume() {
     printf '%s' "$dir"
 }
 
-# the cases
 
 echo "entrypoint.sh: seeding"
 
@@ -162,7 +152,7 @@ expect_property "$data/server.properties" level-name nordtal
 expect_property "$data/server.properties" level-seed 1837371427
 ok "fresh volume"
 
-# smp and hunger-games start on a volume where Paper already generated a default world.
+# smp and hunger-games start on a volume where Paper has already generated a default world.
 case_begin "a volume with a default world and nobody in it is adopted, and the default world removed"
 data=$(legacy_volume legacy-clean nordtal)
 seed "$data" nordtal 1837371427
@@ -172,7 +162,7 @@ expect_gone "$data/world"
 expect_gone "$data/world_nether"
 expect_gone "$data/world_the_end"
 expect_present "$data/nordtal/datapacks"
-# The seed still reaches the file when the world folder holds only datapacks.
+# The seed reaches the file when the world folder holds only datapacks.
 expect_property "$data/server.properties" level-seed 1837371427
 ok "adopted, world removed, seed written"
 
@@ -198,7 +188,7 @@ expect_gone "$data/world"
 expect_property "$data/server.properties" level-name nordtal
 ok "empty playerdata adopted"
 
-# A level name somebody chose is never overruled.
+# A level name that somebody chose is never overruled.
 case_begin "a disagreement between two chosen names stays fatal"
 data=$(volume renamed)
 mkdir -p "$data/nordtal"
@@ -211,7 +201,7 @@ expect_property "$data/server.properties" level-name nordtal
 expect_output "Refusing to start"
 ok "chosen name refused"
 
-# limbo's shape: no LEVEL_NAME at all, so it resolves to `world` and matches what Paper wrote.
+# limbo has no LEVEL_NAME, so the name resolves to `world` and matches what Paper wrote.
 case_begin "a service with no LEVEL_NAME never triggers any of this"
 data=$(volume limbo)
 mkdir -p "$data/world"
@@ -223,7 +213,7 @@ expect_present "$data/world"
 expect_property "$data/server.properties" level-name world
 ok "limbo untouched"
 
-# A world directory that holds no world, isolated from the adoption case above.
+# A world directory without a world, separate from the adoption case above.
 case_begin "a level-name folder holding only datapacks is not a world, so the seed is written"
 data=$(volume datapacks-only)
 mkdir -p "$data/nordtal/datapacks"
@@ -266,7 +256,6 @@ ok "idempotent"
 
 echo "entrypoint.sh: datapacks"
 
-# Runs fetch_datapacks on $1 with DATAPACK_URLS set to $2.
 datapacks() {
     local dir="$1" urls="$2"
     set +e
@@ -282,7 +271,7 @@ mkdir -p "$dir/folder-pack"
 : > "$dir/Terralith_26.3_v2.6.5.zip"
 : > "$dir/Dungeons and Taverns v6.0.2.zip"
 : > "$dir/notes.txt"
-# Cached packs are not fetched, so these URLs are never asked.
+# Cached packs are not fetched, so the test never asks these URLs.
 datapacks "$dir" "abc@https://cdn.invalid/Terralith_26.3_v2.6.5.zip https://cdn.invalid/Dungeons%20and%20Taverns%20v6.0.2.zip"
 expect_status 0
 expect_gone "$dir/Terralith_26.2_v2.6.4.zip"
@@ -310,7 +299,6 @@ ok "fetched and swept"
 
 echo "entrypoint.sh: a backend behind the proxy"
 
-# Runs prepare_backend against a volume.
 backend() {
     local data="$1"
     set +e
@@ -339,7 +327,6 @@ ok "white-list=true corrected"
 
 echo "entrypoint.sh: the cached server jar"
 
-# A cache directory holding the named files. Returns its path on stdout.
 cache() {
     local dir name
     dir="$WORK/cache-$1"
@@ -355,7 +342,6 @@ expect_pick() {
     [[ "$output" == "$1" ]] || bad "expected '${1:-nothing}', got '${output:-nothing}'"
 }
 
-# Every name still in the cache directory, sorted, against the names given here.
 expect_cache() {
     local dir="$1"; shift
     local want have
@@ -371,11 +357,11 @@ case_begin "the highest build of one version wins"
 dir=$(cache builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-9.jar)
 pick "$dir" paper
 expect_status 0
-# Build 121 is newer than build 9, which a text sort gets wrong.
+# Build 121 is newer than build 9. A text sort gets this wrong.
 expect_pick paper-26.2-121.jar
 ok "highest build"
 
-# The jar glob carries no version, so a cache holding only a newer version is not read as empty.
+# The jar glob has no version, so a cache that holds only a newer version does not count as empty.
 case_begin "the highest version wins, not the version somebody asked for"
 dir=$(cache versions velocity-4.1.1-24.jar velocity-4.2.0-15.jar)
 pick "$dir" velocity
@@ -397,7 +383,7 @@ expect_status 0
 expect_pick ""
 ok "empty cache"
 
-# A jar whose version and build cannot be read is skipped, never guessed.
+# A jar whose version and build cannot be read is skipped and never guessed.
 case_begin "a file that does not fit the shape is skipped, not guessed at"
 dir=$(cache junk \
     paper.jar \
@@ -424,7 +410,7 @@ expect_status 0
 expect_pick ""
 ok "nothing readable"
 
-# The sweep never deletes the jar the server is about to run.
+# The sweep never deletes the jar that the server is about to run.
 case_begin "the jar this start chose survives, and every other build goes"
 dir=$(cache sweep-builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-124.jar)
 sweep "$dir" paper "$dir/paper-26.2-124.jar"
@@ -432,7 +418,7 @@ expect_status 0
 expect_cache "$dir" paper-26.2-124.jar
 ok "older builds removed, the chosen one kept"
 
-# A version bump leaves both jars, since steward supersedes by filename prefix.
+# A version bump leaves both jars, because steward supersedes by filename prefix.
 case_begin "a superseded version goes too, not only a superseded build"
 dir=$(cache sweep-versions velocity-4.1.1-24.jar velocity-4.2.0-31.jar)
 sweep "$dir" velocity "$dir/velocity-4.2.0-31.jar"
@@ -440,7 +426,7 @@ expect_status 0
 expect_cache "$dir" velocity-4.2.0-31.jar
 ok "superseded version removed"
 
-# The sweep takes the whole `<kind>-*.jar` glob, including jars the picker cannot read.
+# The sweep takes the whole `<kind>-*.jar` glob, including jars that the picker cannot read.
 case_begin "a jar of this kind that the picker could not read is removed as well"
 dir=$(cache sweep-junk paper-26.2-latest.jar paper-26.2-124.jar)
 sweep "$dir" paper "$dir/paper-26.2-124.jar"
@@ -448,7 +434,7 @@ expect_status 0
 expect_cache "$dir" paper-26.2-124.jar
 ok "unreadable jar of this kind removed"
 
-# The sweep leaves another kind's jars alone.
+# The sweep leaves the jars of another kind alone.
 case_begin "a jar of another kind is not touched"
 dir=$(cache sweep-kinds paper-26.2-124.jar velocity-4.2.0-31.jar notes.txt)
 sweep "$dir" paper "$dir/paper-26.2-124.jar"
@@ -472,7 +458,7 @@ expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "accepts-transfers = true under [advanced]"
 
-# A hyphenated server name survives as a bare TOML key under [servers].
+# A hyphenated server name stays a bare TOML key under [servers].
 case_begin "every server it is given is in the file, standby included"
 dir=$(volume velocity-servers)
 seed_velocity "$dir" "limbo=limbo:25565 limbo-standby=limbo-standby:25565 smp=smp:25565" limbo
@@ -481,7 +467,7 @@ expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo-standby '"limbo-s
 expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo '"limbo:25565"'
 ok "limbo-standby registered"
 
-# An existing volume gains accepts-transfers, without which transfers are refused.
+# An existing volume gains accepts-transfers. Without it, transfers are refused.
 
 case_begin "an old velocity.toml with no [advanced] table gets one, at the end"
 dir=$(old_proxy_volume velocity-old)
@@ -492,7 +478,7 @@ expect_output "appended"
 # [advanced] is appended as the last table, so it swallows no keys below it.
 [[ "$(awk '/^\[/ { last = $1 } END { print last }' "$dir/velocity.toml")" == "[advanced]" ]] \
     || bad "[advanced] is not the last table in the file: $(grep '^\[' "$dir/velocity.toml" | tr '\n' ' ')"
-# [servers] is unchanged by the append.
+# The append leaves [servers] unchanged.
 expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo '"limbo:25565"'
 ok "appended to an old file"
 
@@ -523,7 +509,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers=true\n' > "$dir/
 before=$(cat "$dir/velocity.toml")
 ensure_transfers "$dir"
 expect_status 0
-# `key=true` without spaces is valid TOML too and must be recognised.
+# `key=true` without spaces is valid TOML and must be recognised.
 [[ "$(cat "$dir/velocity.toml")" == "$before" ]] \
     || bad "the file was rewritten although it already accepted transfers:
 $(cat "$dir/velocity.toml")"
@@ -538,7 +524,7 @@ expect_output "ROOT"
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "root-level key called out and the real one written"
 
-# `haproxy-protocol` follows its variable; an unset variable changes nothing.
+# `haproxy-protocol` follows its variable. An unset variable changes nothing.
 ensure_haproxy() {
     local data="$1" wanted="${2-unset}"
     set +e
@@ -604,7 +590,7 @@ expect_gone "$dir/velocity.toml"
 ok "nothing to enforce"
 
 case_begin "a jar's identity is read as JarName reads it, a trailing word included in the version"
-# The same names, with the same answers, as JarNameTest.
+# The same names with the same answers as JarNameTest.
 for pair in \
     "smp-0.2.0.jar:smp" \
     "hunger-games-0.2.0.jar:hunger-games" \

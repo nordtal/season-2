@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** The checkout this program runs in, found from wherever it was started. */
+/** The checkout that this program runs in. The program finds it from the directory where it started. */
 final class Repository {
 
     private static final Pattern VERSION = Pattern.compile("(?m)^version=(.+)$");
@@ -18,7 +18,6 @@ final class Repository {
 
     private Repository() {}
 
-    /** @return the nearest directory at or above {@code start} that holds {@code settings.gradle.kts} */
     static Path root(final Path start) {
         Path at = start.toAbsolutePath();
         while (at != null && !Files.isRegularFile(at.resolve("settings.gradle.kts"))) {
@@ -31,7 +30,6 @@ final class Repository {
         return at;
     }
 
-    /** @return the one repository-wide version out of {@code gradle.properties} */
     static String version(final Path root) {
         final Matcher version = VERSION.matcher(read(root.resolve("gradle.properties")));
         if (!version.find()) {
@@ -40,13 +38,12 @@ final class Repository {
         return version.group(1).strip();
     }
 
-    /** @return compose.yml's top-level {@code name:}, if it has one */
     static Optional<String> composeName(final Path root) {
         final Matcher name = NAME.matcher(read(root.resolve("compose.yml")));
         return name.find() ? Optional.of(name.group(1)) : Optional.empty();
     }
 
-    /** @return the jar a module's shadowJar produces, named rather than globbed so a stale one cannot be picked */
+    /** Returns the jar that the shadowJar task of a module produces. */
     static Path jar(final Path root, final String module) {
         return root.resolve(module).resolve("build/libs").resolve(module + "-" + version(root) + ".jar");
     }

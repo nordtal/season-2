@@ -9,18 +9,15 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.options.Option
 import org.gradle.work.DisableCachingByDefault
 
-/** Sets the season number in gradle.properties and rewrites every tracked file that spells the old one. */
+/** Sets the season number in gradle.properties and rewrites every tracked file that spells the old number. */
 @DisableCachingByDefault(because = "It rewrites the working tree")
 abstract class ForkSeason : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** The season the files name now. */
     @get:Internal
     abstract val season: Property<String>
 
-    /** The season to fork to, given as `--to`. */
     @get:Internal
     @get:Option(option = "to", description = "The number of the new season")
     abstract val to: Property<String>

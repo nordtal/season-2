@@ -40,18 +40,17 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Represents a config specification interface
- */
+/** Marks an interface as a config spec. */
 @Inherited
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ConfigSpec {
 
     /**
-     * The prose describing the whole spec, one line per value, which the schema carries as the root's explanation.
+     * Returns the text that describes the whole spec, one line per array element.
+     * The schema carries it as the explanation of the root.
      *
-     * @return The header lines, or an empty array for a spec that needs none
+     * @return the header lines, or an empty array
      */
     String[] header() default {};
 }

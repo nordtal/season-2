@@ -7,7 +7,7 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.security.MessageDigest
 
-/** Writes the SHA-1 of [source] to [target]; a task type, since a script `doLast {}` breaks the configuration cache. */
+/** Writes the SHA-1 of [source] to [target]. It is a task type, because a `doLast {}` in a script breaks the configuration cache. */
 abstract class Sha1File : DefaultTask() {
     @get:InputFile
     abstract val source: RegularFileProperty

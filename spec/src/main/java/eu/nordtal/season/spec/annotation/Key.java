@@ -38,15 +38,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Sets the key of the property in the stored settings. */
+/** Sets the key of a property in the stored settings. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Key {
 
-    /**
-     * The key value
-     *
-     * @return The key
-     */
     String value();
 }

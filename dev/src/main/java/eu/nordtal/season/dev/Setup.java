@@ -10,15 +10,14 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * {@code init}: writes {@code deploy/dev.env} from the example, generates its four secrets and asks the rest.
+ * The {@code init} command. It writes {@code deploy/dev.env}, generates four secrets and asks for the rest.
  *
- * The example supplies every other value; only {@link LocalQuestions} is asked.
+ * The example supplies every other value, and the command asks only the {@link LocalQuestions}.
  */
 final class Setup {
 
     private static final String EXAMPLE = "deploy/dev.env.example";
 
-    /** The secrets generated rather than asked, with how many random bytes each gets. */
     private static final List<Secret> SECRETS = List.of(
             new Secret("POSTGRES_PASSWORD", 24),
             new Secret("POSTGRES_DISCORD_BOT_PASSWORD", 24),
@@ -33,7 +32,6 @@ final class Setup {
 
     private record Secret(String name, int bytes) {}
 
-    /** The services compose.yml mounts a directory of {@code NORDTAL_SECRETS_DIR} into. */
     static final List<String> SECRET_SERVICES = List.of("steward-bunq", "discord-bot", "steward", "steward-agent");
 
     private final Path root;
@@ -66,7 +64,7 @@ final class Setup {
             createDirectories(compose.pluginsDir(service));
         }
         createDirectories(compose.packRoot());
-        // Made here, so Docker does not make them as root where a developer could not write a secret.
+        // Created here, because Docker would create them as root, and a developer could not write a secret there.
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));
         }
@@ -95,7 +93,6 @@ final class Setup {
         terminal.log(secret.name() + " generated (" + secret.bytes() + " random bytes, hex)");
     }
 
-    /** Asks one question until the answer is usable, skipped, or the input ends. */
     void ask(final EnvFile env, final LocalQuestions.Question question) {
         while (true) {
             terminal.print("\n\u001b[36m[dev]\u001b[0m " + question.prompt() + "\n        " + question.hint()
@@ -143,9 +140,9 @@ final class Setup {
     }
 
     /**
-     * Derives {@code STEWARD_WEBAUTHN_RP_ID} from the address, which steward refuses to start without agreeing.
+     * Derives {@code STEWARD_WEBAUTHN_RP_ID} from the address. steward refuses to start when the two disagree.
      *
-     * steward refuses a single label other than {@code localhost}, so that is warned about now.
+     * steward refuses a single label other than {@code localhost}, so the command warns about it here.
      */
     private void deriveRelyingParty(final EnvFile env) {
         final Optional<String> url = env.value("STEWARD_PUBLIC_URL").filter(LocalQuestions::looksLikeBrowserUrl);

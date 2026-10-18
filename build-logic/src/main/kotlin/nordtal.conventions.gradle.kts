@@ -1,5 +1,5 @@
-// Checks CONVENTIONS.md for one Java module; formatting always, the rest per gradle.properties.
-// `conventions.comments=true` enforces the comment rules, `conventions.enforced=true` every rule.
+// Checks CONVENTIONS.md for one Java module. The formatting check always runs, and gradle.properties selects the others.
+// `conventions.comments=true` enforces the comment rules, and `conventions.enforced=true` enforces every rule.
 
 import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation
@@ -52,7 +52,7 @@ checkstyle {
 }
 
 tasks.withType<Checkstyle>().configureEach {
-    // A plain File, so the spec does not capture the script and the configuration cache can store it.
+    // A plain File, so that the spec does not capture the script and the configuration cache can store it.
     val generated = layout.buildDirectory.get().asFile
     exclude { it.file.startsWith(generated) }
 }
@@ -62,7 +62,7 @@ tasks.withType<JavaCompile>().configureEach {
         enabled = conventionsEnforced
         disableWarningsInGeneratedCode = true
         excludedPaths = ".*/generated/.*"
-        // CONVENTIONS.md allows a doc comment of tags only when the name and tags say everything.
+        // CONVENTIONS.md allows a doc comment with tags only when the name and the tags say everything.
         disable("MissingSummary")
         check("NullAway", if (name == "compileJava") CheckSeverity.ERROR else CheckSeverity.OFF)
         option("NullAway:AnnotatedPackages", "eu.nordtal")

@@ -6,31 +6,27 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What {@code init} asks: the few things only a person knows, in the installer's own words.
- *
- * The prompts are {@code deploy/nordtal.sh}'s; locally Discord may be skipped and the address is asked.
+ * The questions of {@code init}: the values that only a person knows, in the words of the installer.
+ * The prompts are those of {@code deploy/nordtal.sh}.
+ * Locally, the user can skip Discord, and {@code init} asks for the address.
  */
 final class LocalQuestions {
 
-    /** How an answer is read and what an empty one means. */
     enum Kind {
-        /** Required, echoed. */
         PLAIN,
-        /** May be skipped with Enter, echoed. */
         OPTIONAL_PLAIN,
-        /** May be skipped with Enter, not echoed where that is possible. */
         OPTIONAL_SECRET,
-        /** y/N, and only a yes writes anything. */
         LICENCE
     }
 
     /**
      * One question.
      *
-     * @param name   the installer's name for it, which is the variable in {@code deploy/dev.env} unless
-     *               {@code home} is set
-     * @param check  what an answer has to look like; anything non-empty passes when there is no rule
-     * @param home   where a secret only one service reads is written instead, as {@code deploy/nordtal.sh} does
+     * @param name   the name that the installer uses, which is the variable in {@code deploy/dev.env}
+     *               unless {@code home} is set
+     * @param check  the shape of a valid answer. Without a rule, any non-empty answer passes
+     * @param home   the file of the one service that reads the secret, as in {@code deploy/nordtal.sh}.
+     *               The answer goes there instead
      */
     record Question(
             String name,
@@ -50,9 +46,6 @@ final class LocalQuestions {
         }
     }
 
-    /**
-     * A service's own {@code secrets.env} under {@code NORDTAL_SECRETS_DIR}, and the name that service reads.
-     */
     record Home(String service, String name) {}
 
     private static final Pattern SNOWFLAKE = Pattern.compile("[0-9]{15,21}");
@@ -116,24 +109,20 @@ final class LocalQuestions {
 
     private LocalQuestions() {}
 
-    /** @return whether {@code value} is a Discord id: digits only, 15 to 21 of them */
     static boolean looksLikeSnowflake(final String value) {
         return SNOWFLAKE.matcher(value).matches();
     }
 
-    /** @return whether {@code value} is a scheme, a host and an optional port, and nothing after them */
     static boolean looksLikeBrowserUrl(final String value) {
         return BROWSER_URL.matcher(value).matches();
     }
 
-    /** @return the host of such a URL: no scheme, no port, as the WebAuthn relying party id needs */
     static String hostOf(final String url) {
         final String rest = url.substring(url.indexOf("://") + 3);
         final int colon = rest.indexOf(':');
         return colon < 0 ? rest : rest.substring(0, colon);
     }
 
-    /** @return whether {@code answer} is a yes to a licence question */
     static boolean isYes(final String answer) {
         return switch (answer.strip().toLowerCase(java.util.Locale.ROOT)) {
             case "y", "yes", "true" -> true;

@@ -39,9 +39,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Caches what a default method computes from the settings, until a reload, a reset or a setter.
+ * Caches the result of a default method until a reload, a reset or a setter runs.
  *
- * Arguments are not part of the cache key, so it suits methods without parameters.
+ * The cache key ignores arguments, so use it on methods without parameters.
  */
 @HandledByProxy
 @Target(ElementType.METHOD)

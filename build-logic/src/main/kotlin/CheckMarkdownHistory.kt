@@ -9,16 +9,14 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Fails when a Markdown file Git tracks under [pathspecs] tells history: a date, "used to", "formerly",
- * "previously", "originally" or "before V21". A README states the present. Fenced code and code spans are skipped.
+ * Fails when a Markdown file that Git tracks under [pathspecs] tells history: a date, "used to", "formerly",
+ * "previously", "originally" or "before V21". The check skips fenced code and code spans.
  */
 @DisableCachingByDefault(because = "Which files Git tracks is not a declarable input")
 abstract class CheckMarkdownHistory : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** Git pathspecs relative to the root, `:(exclude)` entries included. */
     @get:Internal
     abstract val pathspecs: ListProperty<String>
 

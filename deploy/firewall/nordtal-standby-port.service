@@ -1,4 +1,4 @@
-# Runs standby-port.sh. Restarting the firewall empties the set, so PartOf restarts this with it.
+# Runs standby-port.sh. A restart of the firewall empties the set, so PartOf restarts this service with it.
 [Unit]
 Description=nordtal standby port, open while proxy-standby runs
 After=docker.service nordtal-firewall.service

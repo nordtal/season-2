@@ -10,20 +10,18 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Fails on an em or en dash in a file Git tracks under [pathspecs], and on a spaced hyphen used as
- * punctuation in a comment or in Markdown prose. Code spans and list markers are not punctuation.
+ * Fails on an em or en dash in a file that Git tracks under [pathspecs], and on a hyphen with a space on each side
+ * in a comment or in Markdown prose. Code spans and list markers do not count.
  */
 @DisableCachingByDefault(because = "Which files Git tracks is not a declarable input")
 abstract class CheckNoDashPunctuation : DefaultTask() {
-    /** The checkout root; `git` runs there. */
     @get:Internal
     abstract val repositoryRoot: DirectoryProperty
 
-    /** Git pathspecs relative to the root, `:(exclude)` entries included. */
     @get:Internal
     abstract val pathspecs: ListProperty<String>
 
-    /** False only reports the count, while the module does not pass yet. */
+    /** When false, the task reports only the number of findings. */
     @get:Internal
     abstract val enforced: Property<Boolean>
 
@@ -51,7 +49,7 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
         file: java.io.File,
     ): List<String> {
         val lines = readText(file)?.lines() ?: return emptyList()
-        // An applied migration is never edited: Flyway refuses one whose checksum changed.
+        // An applied migration stays unchanged, because Flyway refuses a migration with a changed checksum.
         val syntax = if ("/db/migration/" in path) Syntax.NONE else Syntax.of(path, lines.firstOrNull().orEmpty())
         val prose = syntax.prose(lines)
         return lines.indices.mapNotNull { index ->
@@ -63,10 +61,10 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
         }
     }
 
-    /** Strips code spans and a leading list marker, which may hold a hyphen that is not punctuation. */
+    /** Removes code spans and a leading list marker, which can hold a hyphen that is no punctuation. */
     private fun plain(text: String): String = LIST_MARKER.replaceFirst(CODE_SPAN.replace(text, "code"), "")
 
-    /** How a file type marks its comments, or Markdown prose. */
+    /** Describes how a file type marks its comments, or marks Markdown prose. */
     private enum class Syntax {
         NONE,
         SLASH,
@@ -77,7 +75,7 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
         MARKDOWN,
         ;
 
-        /** Returns, per line, the comment or prose text on it. */
+        /** Returns the comment or prose text of each line. */
         fun prose(lines: List<String>): List<List<String>> =
             when (this) {
                 NONE -> lines.map { emptyList() }
@@ -161,7 +159,7 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
     }
 
     private companion object {
-        /** Files a tool writes, which are replaced wholesale rather than edited. */
+        /** The files that a tool writes. The tool replaces them as a whole and nobody edits them. */
         val GENERATED = setOf("gradlew", "gradlew.bat")
         val DASH = Regex("[\u2013\u2014]")
         val SPACED_HYPHEN = Regex("""\S\s+-(\s|$)""")

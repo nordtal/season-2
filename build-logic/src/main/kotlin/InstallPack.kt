@@ -19,22 +19,20 @@ import java.util.Properties
 import javax.inject.Inject
 
 /**
- * Mirrors the pack into the chosen Minecraft instance as the folder pack [packName], and enables it there once.
+ * Copies the pack into the chosen Minecraft instance as the folder [packName] and enables it there once.
  *
- * The folder is replaced wholesale. `options.txt` is left alone while the game runs, which would overwrite it.
+ * The task replaces the folder as a whole. While the game runs, the task leaves `options.txt` alone, because the game would overwrite it.
  */
 @DisableCachingByDefault(because = "Writes into a Minecraft instance, outside the build")
 abstract class InstallPack : DefaultTask() {
-    /** The assembled pack, holding `pack.mcmeta` and `assets`. */
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val pack: DirectoryProperty
 
-    /** The file [MinecraftInstanceChooser] writes, read when the task runs. */
+    /** The file that [MinecraftInstanceChooser] writes. The task reads it when it runs. */
     @get:Internal
     abstract val instanceFile: RegularFileProperty
 
-    /** The folder name under `resourcepacks`, which is also the name the game lists. */
     @get:Internal
     abstract val packName: Property<String>
 
@@ -85,7 +83,7 @@ abstract class InstallPack : DefaultTask() {
             }
         if (entry in enabled) return "The pack is enabled in this instance."
         if (MinecraftProcesses.running()) return "Minecraft is running, so options.txt was left alone. $manually"
-        // The last entry is on top.
+        // The last entry has the highest priority.
         enabled += entry
         val line = RESOURCE_PACKS + JsonOutput.toJson(enabled)
         options.writeText(

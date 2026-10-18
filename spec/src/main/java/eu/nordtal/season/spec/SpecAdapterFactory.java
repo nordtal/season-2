@@ -59,18 +59,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Serializes and deserializes {@code @ConfigSpec} interfaces through Gson. */
+/** Serializes and deserializes {@code @ConfigSpec} interfaces with Gson. */
 @SuppressWarnings({"unchecked"})
 public final class SpecAdapterFactory implements TypeAdapterFactory {
 
-    /** The single shared instance; this factory holds no per-Gson state. */
+    /** The shared instance. The factory holds no state per Gson. */
     public static final SpecAdapterFactory INSTANCE = new SpecAdapterFactory();
 
     @Override
     public <T> @Nullable TypeAdapter<T> create(final Gson gson, final TypeToken<T> type) {
         final Class<?> rawType = type.getRawType();
         if (!isConfigSpec(rawType)) {
-            // Gson writes a list element by its runtime type: the generated Proxy class, not the interface.
+            // Gson writes a list element by its runtime type, which is the generated Proxy class and not the interface.
             final Class<?> specInterface = specInterfaceOf(rawType);
             if (specInterface == null) {
                 return null;
@@ -100,7 +100,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
                     final String name = in.nextName();
                     final BoundField field = fieldsMap.get(name);
                     if (field == null) {
-                        // Unknown keys are rejected earlier, against the raw YAML tree; skip them here.
+                        // The raw YAML tree is checked for unknown keys earlier, so this adapter skips them.
                         in.skipValue();
                     } else {
                         final Object readValue = field.adapter.read(in);
@@ -113,7 +113,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
         };
     }
 
-    /** Binds each of {@code rawType}'s own (non-proxy-handled) properties to a Gson adapter for its declared type. */
+    /** Binds each property of {@code rawType} that the proxy does not handle to a Gson adapter of its declared type. */
     private static Map<String, BoundField> fieldsOf(final Gson gson, final Class<?> rawType) {
         final SpecClass impl = Specs.from(rawType);
         final Map<String, BoundField> fieldsMap = new LinkedHashMap<>();
@@ -121,7 +121,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
             if (value.isHandledByProxy()) continue;
             final Method getter = value.getter();
 
-            // Reject @JsonAdapter loudly here rather than silently ignoring it.
+            // Refuse @JsonAdapter instead of ignoring it.
             if (getter.isAnnotationPresent(JsonAdapter.class)) {
                 throw new IllegalArgumentException("@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
                         + " is not supported by the vendored Spec. Register the "
@@ -136,7 +136,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
     }
 
     /**
-     * The single {@code @ConfigSpec} interface {@code rawType} implements, or {@code null} if it is not a proxy.
+     * Returns the {@code @ConfigSpec} interface that {@code rawType} implements, else {@code null}.
      */
     private static @Nullable Class<?> specInterfaceOf(final Class<?> rawType) {
         if (!Proxy.isProxyClass(rawType)) {
@@ -146,7 +146,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
         for (final Class<?> candidate : rawType.getInterfaces()) {
             if (isConfigSpec(candidate)) {
                 if (found != null) {
-                    // Two spec interfaces on one proxy would make the choice arbitrary.
+                    // With two spec interfaces on one proxy, the choice would be arbitrary.
                     throw new IllegalArgumentException("Proxy implements more than one @ConfigSpec interface: "
                             + found.getName() + " and " + candidate.getName());
                 }

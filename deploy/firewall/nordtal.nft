@@ -1,30 +1,30 @@
 #!/usr/sbin/nft -f
-# The host's inbound filter: from outside only SSH, the web and the game port, plus the standby port
-# while proxy-standby runs. Docker's published ports pass the forward hook, so this table filters them
-# too; Docker never touches a table of its own.
+# The inbound filter of the host. From outside it admits only SSH, the web ports and the game port,
+# and the standby port while proxy-standby runs. Published ports of Docker pass the forward hook, so
+# this table filters them too. Docker never touches a table of its own.
 
-# This host's public interface and its sshd Port.
+# The public interface of this host and the Port of its sshd.
 define wan = "eth0"
 define ssh = 420
 
-# Declared, then deleted, so loading the file replaces the table in one transaction.
+# Declared, then deleted, so that loading the file replaces the table in one transaction.
 table inet nordtal
 delete table inet nordtal
 
 table inet nordtal {
-	# Caddy's HTTP and HTTPS, and PROXY_PORT.
+# HTTP and HTTPS of Caddy, and PROXY_PORT.
 	set public_tcp {
 		type inet_service
 		elements = { 80, 443, 25565 }
 	}
 
-	# HTTP/3, and voice chat on PROXY_PORT.
+# HTTP/3, and voice chat on PROXY_PORT.
 	set public_udp {
 		type inet_service
 		elements = { 443, 25565 }
 	}
 
-	# PROXY_STANDBY_PORT, TCP and UDP, while proxy-standby runs; standby-port.sh fills it.
+# PROXY_STANDBY_PORT, TCP and UDP, while proxy-standby runs. standby-port.sh fills the set.
 	set standby {
 		type inet_service
 	}
@@ -41,7 +41,7 @@ table inet nordtal {
 		meta l4proto { tcp, udp } th dport @standby accept
 	}
 
-	# After Docker's DNAT, so a published port is matched by the port the client asked for.
+# After the DNAT of Docker, so that a rule matches a published port by the port the client asked for.
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 		iifname != $wan accept

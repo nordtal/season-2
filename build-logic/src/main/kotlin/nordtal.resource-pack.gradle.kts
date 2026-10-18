@@ -1,4 +1,4 @@
-// Assembles src/ and the fonts generated from glyphs.json into one pack, zips it with its SHA-1, which the
+// Assembles src/ and the fonts from glyphs.json into one pack, zips it with its SHA-1, which the
 // client checks, and installs it into a local Minecraft instance.
 
 import eu.nordtal.season.build.CheckMarkdownHistory
@@ -17,14 +17,14 @@ plugins {
 
 val packSource = layout.projectDirectory.dir("src")
 
-// The one allocation file: the fonts, Glyphs, the advance tables and Steward's glyph menu are all written from it.
+// The one allocation file. The build writes the fonts, Glyphs, the advance tables and the glyph menu of Steward from it.
 val generatedGlyphs = layout.buildDirectory.dir("generated/glyphs")
 val generateGlyphs =
     tasks.register<GenerateGlyphs>("generateGlyphs") {
         allocation.set(layout.projectDirectory.file("glyphs.json"))
         assets.set(packSource.dir("assets"))
         className.set("eu.nordtal.season.packrendering.Glyphs")
-        // The paths BossBarAdvances and MenuFont read the tables from.
+        // The paths where BossBarAdvances and MenuFont read the tables.
         advanceTables.put("nordtal:bossbar", "nordtal/hud/bossbar-advances.properties")
         advanceTables.put("nordtal:gui_r0", "nordtal/menu/gui-row-advances.properties")
         fontDirectory.set(generatedGlyphs.map { it.dir("pack") })
@@ -33,7 +33,7 @@ val generateGlyphs =
         manifestDirectory.set(generatedGlyphs.map { it.dir("manifest") })
     }
 
-// For :pack-rendering, which compiles Glyphs and ships the advance tables, and for Steward's translation editor.
+// For :pack-rendering, which compiles Glyphs and ships the advance tables, and for the translation editor of Steward.
 configurations.consumable("glyphJava") {
     outgoing.artifact(generateGlyphs.flatMap { it.javaDirectory })
 }
@@ -44,7 +44,7 @@ configurations.consumable("glyphManifest") {
     outgoing.artifact(generateGlyphs.flatMap { it.manifestDirectory })
 }
 
-// The pack as the client receives it; everything that reads the pack reads this, never src/.
+// The pack as the client receives it. Everything that reads the pack reads this and never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
 val assemblePack =
     tasks.register<Sync>("assemblePack") {
@@ -55,7 +55,7 @@ val assemblePack =
         into(assembledPack)
     }
 
-// For the Java modules whose tests and resources are derived from the pack.
+// For the Java modules whose tests and resources derive from the pack.
 configurations.consumable("pack") {
     outgoing.artifact(assembledPack) { builtBy(assemblePack) }
 }
@@ -65,12 +65,12 @@ val packZip =
         group = "distribution"
         description = "Packs the assembled pack into the distributable resource pack zip."
 
-        // The zip's root must be pack.mcmeta / assets, not a src/ folder.
+        // The root of the zip must be pack.mcmeta and assets, not a src/ folder.
         from(assemblePack)
         archiveBaseName.set("nordtal-resource-pack")
         archiveVersion.set(project.version.toString())
 
-        // Reproducible, so the same version always hashes the same.
+        // Reproducible, so the same version always has the same hash.
         isReproducibleFileOrder = true
         isPreserveFileTimestamps = false
     }
@@ -81,7 +81,7 @@ val packSha1 =
         description = "Writes the SHA-1 of the pack zip next to it."
 
         source.set(packZip.flatMap { it.archiveFile })
-        // `layout` stays outside the lambda: a provider closing over the script's scope cannot be cached.
+        // `layout` stays outside the lambda, because a provider that closes over the scope of the script cannot be cached.
         target.set(
             layout.buildDirectory.file(
                 packZip.flatMap { it.archiveFileName }.map { "distributions/$it.sha1" },
@@ -95,7 +95,7 @@ tasks.named("assemble") {
     dependsOn(packZip)
 }
 
-// The Java modules' guard, since an ignored file under src/ never reaches the zip.
+// The guard of the Java modules, because an ignored file under src/ never reaches the zip.
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
 val checkSourcesTracked =
@@ -163,7 +163,7 @@ tasks.named("check") {
     dependsOn(checkPack)
 }
 
-// Two tasks for whoever draws the pack: pick the game once, then copy the pack into it after every change.
+// Two tasks for the person who draws the pack: pick the game once, then copy the pack into it after every change.
 val minecraftInstance = layout.projectDirectory.file("minecraft-instance.properties")
 
 tasks.register<JavaExec>("chooseMinecraftInstance") {

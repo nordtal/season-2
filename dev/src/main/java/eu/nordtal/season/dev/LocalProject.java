@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The local compose project: the same compose.yml production runs, against {@code deploy/dev.env} and local jars.
- *
- * Its command lines are steward-agent's {@link Compose}'s, run on this terminal. Plugins are local directories.
+ * The local compose project. It runs the compose.yml of production with {@code deploy/dev.env} and local jars.
+ * Its command lines are those of the {@link Compose} class of steward-agent, run on this terminal.
+ * Plugins are local directories.
  */
 final class LocalProject {
 
@@ -31,23 +31,16 @@ final class LocalProject {
         return env;
     }
 
-    /** Stops here with the one sentence that helps when {@code deploy/dev.env} is missing. */
     void requireEnv() {
         if (!env.exists()) {
             throw new Processes.Failure(ENV_FILE + " is not there. Run: dev init");
         }
     }
 
-    /** Runs {@code docker compose --env-file deploy/dev.env} with {@code arguments}; a failure ends this program. */
     void run(final String... arguments) {
         Processes.require(processes.run(command(arguments)), "docker compose " + String.join(" ", arguments));
     }
 
-    /**
-     * Returns the full command line for {@code arguments}.
-     *
-     * The project name is the one {@link #project} reads volumes by, so the two cannot disagree.
-     */
     List<String> command(final String... arguments) {
         requireEnv();
         return new Compose(root.resolve("compose.yml"), root.resolve(ENV_FILE), root, project())
@@ -57,7 +50,7 @@ final class LocalProject {
     /**
      * Runs {@code arguments} inside {@code service}.
      *
-     * Allocates a pseudo-terminal only when this program has one; IntelliJ's run console is a pipe.
+     * It allocates a pseudo-terminal only when this program has one. The run console of IntelliJ is a pipe.
      */
     int exec(final String service, final String... arguments) {
         final List<String> command = new ArrayList<>(List.of("exec"));
@@ -70,9 +63,9 @@ final class LocalProject {
     }
 
     /**
-     * Where one service's {@code plugins/} is on this machine.
+     * Returns the {@code plugins/} directory of one service on this machine.
      *
-     * A value without a {@code /} is a volume name, which this program cannot copy a jar into.
+     * A value without a {@code /} is a volume name, and this program cannot copy a jar into a volume.
      */
     Path pluginsDir(final String service) {
         final String variable = service.toUpperCase(Locale.ROOT).replace('-', '_') + "_PLUGINS";
@@ -88,7 +81,6 @@ final class LocalProject {
         return root.resolve(value).normalize();
     }
 
-    /** Where one service's own {@code secrets.env} is on this machine, under {@code NORDTAL_SECRETS_DIR}. */
     Path secretsDir(final String service) {
         final String value = env.value("NORDTAL_SECRETS_DIR")
                 .filter(found -> !found.isBlank())
@@ -97,19 +89,16 @@ final class LocalProject {
         return root.resolve(value).resolve(service).normalize();
     }
 
-    /** The directory pack-host serves; compose.yml defaults it to {@code deploy/pack} too. */
     Path packRoot() {
         return root.resolve(
                         env.value("PACK_ROOT").filter(value -> !value.isBlank()).orElse("./deploy/pack"))
                 .normalize();
     }
 
-    /** @return {@code name}'s value in {@code deploy/dev.env}, or {@code fallback} when it is unset or blank */
     String valueOr(final String name, final String fallback) {
         return env.value(name).filter(value -> !value.isBlank()).orElse(fallback);
     }
 
-    /** What Docker labels this project's volumes with: the env file's name, compose.yml's, or the directory's. */
     String project() {
         return env.value("COMPOSE_PROJECT_NAME")
                 .filter(value -> !value.isBlank())

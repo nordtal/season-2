@@ -6,12 +6,12 @@ import java.io.File
 import javax.imageio.ImageIO
 
 /**
- * The rules a resource pack's own files can be held to without a server, a client or the Java modules.
+ * The rules that the files of a resource pack satisfy without a server, a client or the Java modules.
  *
  * Every finding is a sentence for the person who drew the file.
  */
 object PackRules {
-    /** Sprites that hide a vanilla element and therefore must not carry a single pixel. */
+    /** The sprites that hide a vanilla element and therefore have no visible pixel. */
     private val TRANSPARENT =
         listOf(
             "minecraft/textures/gui/sprites/boss_bar/white_background.png",
@@ -20,7 +20,6 @@ object PackRules {
             "minecraft/textures/gui/sprites/container/slot_highlight_front.png",
         )
 
-    /** @return one sentence per problem in the pack whose `assets` directory is [assets], empty when there is none */
     fun findings(assets: File): List<String> {
         val images = mutableMapOf<File, BufferedImage?>()
         val findings = mutableListOf<String>()

@@ -3,7 +3,8 @@ package eu.nordtal.season.spec;
 import org.jspecify.annotations.Nullable;
 
 /**
- * nordtal.eu's own holder of a spec's value, behind the proxy that keeps {@code @Reload} and {@code @Save} working.
+ * Holds the value of a spec behind the proxy and keeps {@code @Reload} and {@code @Save} working.
+ * Written for nordtal.eu, not part of Spec.
  *
  * @param <T> the spec interface type
  */
@@ -24,29 +25,14 @@ public final class ManagedSpecReference<T> {
         this.proxy = SpecProxy.proxy(type, this::value, onReload, onSave);
     }
 
-    /**
-     * The stable instance handed to callers. It always reads through to the current value.
-     *
-     * @return the stable proxy instance
-     */
     public T get() {
         return proxy;
     }
 
-    /**
-     * Swaps in a freshly loaded value.
-     *
-     * @param value the new current value
-     */
     public void set(final T value) {
         this.value = value;
     }
 
-    /**
-     * The current underlying value, or {@code null} before the first load.
-     *
-     * @return the current underlying value, or {@code null}
-     */
     public @Nullable T current() {
         return value;
     }

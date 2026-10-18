@@ -38,7 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks a default method that the property scanner of {@link ConfigSpec config specs} skips. */
+/** Marks a default method that the property scanner of a {@link ConfigSpec} skips. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface IgnoreMethod {}

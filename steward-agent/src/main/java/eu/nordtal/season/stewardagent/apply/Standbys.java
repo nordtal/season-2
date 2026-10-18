@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Makes each standby's {@code plugins/} a copy of its service's, configs included and each plugin's scratch left out.
  *
- * Copied rather than resolved, so it matches what was just installed; a standby that is not mounted is skipped.
+ * A standby that is not mounted is skipped.
  */
 @Slf4j
 public final class Standbys {
@@ -33,7 +33,7 @@ public final class Standbys {
      * @param volumesRoot where the services' volumes are mounted in this container
      * @param services the services this run touched; anything without a standby is ignored
      * @param topology which service has which standby
-     * @return one row per standby that is mounted, under the standby's own compose service name
+     * @return one row per mounted standby, under its compose service name
      */
     public static List<ApplyResult.Outcome> fill(
             final Path volumesRoot, final Collection<String> services, final AgentWire.Topology topology) {
@@ -138,17 +138,14 @@ public final class Standbys {
         }
     }
 
-    /** Whether {@code entry}, in a directory {@code depth} levels below {@code plugins/}, is a plugin's scratch. */
     private static boolean isScratch(final Path entry, final int depth) {
         return depth == 1 && SCRATCH.equals(entry.getFileName().toString()) && Files.isDirectory(entry);
     }
 
-    /** Whether the two files differ in content. */
     private static boolean isDifferent(final Path source, final Path destination) throws IOException {
         return !Files.isRegularFile(destination) || Files.mismatch(source, destination) != -1L;
     }
 
-    /** Deletes a file or tree and returns how many files were removed. */
     private static int deleteRecursively(final Path entry) throws IOException {
         int removed = 0;
         if (Files.isDirectory(entry)) {
@@ -164,7 +161,6 @@ public final class Standbys {
         return removed + 1;
     }
 
-    /** What one mirror did, counted rather than listed. */
     private static final class Tally {
         private int copied;
         private int removed;

@@ -35,16 +35,13 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 public final class Applier {
 
-    /** Dot directory inside the destination: same filesystem by construction, and nothing lists it. */
     public static final String STAGING = ".nordtal-staging";
 
     private final RunSpec config;
     private final Fetcher fetcher;
 
-    /** Where the proxy's pack is set. */
     private final SettingStore settings;
 
-    /** Which service has which standby, which compose.yml's labels say. */
     private final AgentWire.Topology topology;
 
     public Applier(
@@ -62,7 +59,7 @@ public final class Applier {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
 
-        // Grouped by service, since a service moves together or not at all.
+        // A service moves together or not at all.
         final Map<String, List<Change>> byService = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
             if (change.service() != null) {
@@ -81,11 +78,7 @@ public final class Applier {
         return new ApplyResult(List.copyOf(outcomes));
     }
 
-    /**
-     * Fills the standby volumes, always last and always attempted.
-     *
-     * Last, so the copy is of finished files; always, since a standby can be empty while its service is unchanged.
-     */
+    /** Fills the standby volumes, last and always. */
     private List<ApplyResult.Outcome> fillStandbys(final Path root, final Set<String> services) {
         return Standbys.fill(root, services, topology);
     }
@@ -102,7 +95,6 @@ public final class Applier {
 
         markUnresolvedServerJarsSkipped(service, changes, outcomes);
 
-        // The client fetches the pack zip, so applyPack handles it.
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
@@ -144,7 +136,7 @@ public final class Applier {
             final List<ApplyResult.Outcome> outcomes) {
         final String why =
                 blocked.artifact() + " could not be checked" + why(blocked) + ", so nothing on this server was touched";
-        // The pack still gets its own row: a skipped service must still say what the client is sent.
+        // A skipped service still gets a pack row, to say what is sent to the client.
         changes.stream()
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .forEach(change -> outcomes.add(
@@ -221,7 +213,7 @@ public final class Applier {
                         describe(change, wanted, removed),
                         wanted.fileName()));
             } catch (final IOException failed) {
-                // The one case where a server can be left mixed, so it is said plainly.
+                // This is the one case in which a server can be left mixed.
                 outcomes.add(new ApplyResult.Outcome(
                         service,
                         change.artifact(),
@@ -233,7 +225,6 @@ public final class Applier {
         return outcomes;
     }
 
-    /** The proxy's pack, set after its jars, with the URL and sha1 the release publishes. */
     private List<ApplyResult.Outcome> applyPack(final String service, final List<Change> changes) {
         final Change pack = changes.stream()
                 .filter(change -> change.artifact().equals(Topology.RESOURCE_PACK))
@@ -285,11 +276,7 @@ public final class Applier {
         }
     }
 
-    /**
-     * The staging directory for one destination, created on first use and emptied first.
-     *
-     * Emptied, since leftovers from a dead run were never verified.
-     */
+    /** Returns the staging directory of one destination, created on first use and emptied first. */
     private static Path stagingFor(final Map<Path, Path> known, final Path destination) throws IOException {
         final Path existing = known.get(destination);
         if (existing != null) {
@@ -310,9 +297,6 @@ public final class Applier {
         return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact);
     }
 
-    /**
-     * Deletes any jar this artefact's new file supersedes.
-     */
     private static List<String> removeSuperseded(final Path directory, final String installed) throws IOException {
         final List<String> removed = new ArrayList<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
@@ -355,12 +339,11 @@ public final class Applier {
         try {
             deleteRecursively(directory);
         } catch (final IOException leftBehind) {
-            // Not a failure: the jars are in place and the next run empties this before using it.
+            // The jars are in place, and the next run empties the directory before use.
             log.warn("Could not clean up {}: {}", directory, leftBehind.getMessage());
         }
     }
 
-    /** A row's reason in English and in parentheses, as an outcome reads it; empty when it has none. */
     private static String why(final Change change) {
         final MessageRef reason = change.reason();
         return reason == null ? "" : " (" + DatabaseText.english(reason) + ")";

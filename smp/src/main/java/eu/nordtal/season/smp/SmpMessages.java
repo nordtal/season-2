@@ -227,6 +227,14 @@ public interface SmpMessages {
             @Shown(Display.CHAT)
             MessageRef started(@Arg("target") String target);
 
+            @Name("Arrived")
+            @Shown(Display.CHAT)
+            MessageRef arrived(@Arg("target") String target);
+
+            @Name("Nothing to cancel")
+            @Shown(Display.CHAT)
+            MessageRef nothingToCancel();
+
             @Name("World spawn")
             @Shown({Display.GUI, Display.CHAT, Display.BOSS_BAR})
             MessageRef worldSpawn();

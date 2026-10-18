@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.config;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonElement;
@@ -58,6 +59,15 @@ class SmpSettingsTest {
                                 + "\"max-x\":3996,\"max-y\":86,\"max-z\":2189}]"));
 
         assertEquals("nordtal", config.worldNordtal());
+    }
+
+    /** The NPC's name is a translation, so the row of the removed {@code npc.name} setting is ignored. */
+    @Test
+    void theNpcHasNoNameSettingAndAStoredOneStillLoads() throws Exception {
+        final SmpSpec config = store.checked("smp", CONFIG, Map.of("npc.name", "<red>Nordtal"));
+
+        assertEquals("nordtal", config.npc().world());
+        assertThrows(NoSuchMethodException.class, () -> NpcSpec.class.getMethod("name"));
     }
 
     @Test

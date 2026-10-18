@@ -56,12 +56,4 @@ public interface NpcSpec {
     default String skinName() {
         return "";
     }
-
-    @Order(7)
-    @Name("Name")
-    @Key("name")
-    @NoExplanationNeeded
-    default String name() {
-        return "Nordtal";
-    }
 }

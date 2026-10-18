@@ -22,7 +22,7 @@ final class DefaultSmp {
     static final List<SpawnRegionSpec> WHEEL_REGIONS =
             List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
-    static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
+    static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "");
 
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
@@ -151,8 +151,7 @@ final class DefaultSmp {
             final double y,
             final double z,
             final float yaw,
-            final String skinName,
-            final String name) {
+            final String skinName) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
         values.put("x", x);
@@ -160,7 +159,6 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         values.put("skin-name", skinName);
-        values.put("name", name);
         return Specs.createUnsafe(NpcSpec.class, values);
     }
 

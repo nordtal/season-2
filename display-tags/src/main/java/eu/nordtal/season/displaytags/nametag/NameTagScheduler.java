@@ -23,6 +23,9 @@ public class NameTagScheduler {
             for (final PlayerNameTag nametag : this.plugin.getNameTagManager().getAll()) {
                 nametag.tick();
             }
+            for (final EntityNameTag nametag : this.plugin.getNameTagManager().getAllEntityNameTags()) {
+                nametag.tick();
+            }
         });
 
         this.plugin.getLogger().info("Started the Name Tag Scheduler.");

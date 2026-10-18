@@ -308,15 +308,15 @@ class SmpRulesTest {
                 .check(classes);
     }
 
-    /** The configured name is the figure's visible label, and the description under it is not drawn at all. */
+    /** The name tag draws the figure's only label, and neither its own name nor the description under it is drawn. */
     @Test
     void theFigureCarriesOneLabel() {
         classes()
                 .that(isListed(NPC))
-                .should(callFrom(
-                        "spawn", "Mannequin#customName", "Mannequin#setCustomNameVisible", "Mannequin#setDescription"))
-                .andShould(neverCallFrom("spawn", "Component#empty"))
-                .because("left alone the description draws \"NPC\" under the name, and an empty one a blank strip")
+                .should(callFrom("spawn", "NameTagManager#createEntityNameTag", "Mannequin#setDescription"))
+                .andShould(neverCallFrom("spawn", "Component#empty", "Mannequin#customName"))
+                .because("a mannequin's own name is one text for all viewers, and left alone the description draws"
+                        + " \"NPC\" under the name, and an empty one a blank strip")
                 .check(classes);
     }
 

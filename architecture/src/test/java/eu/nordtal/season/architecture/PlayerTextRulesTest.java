@@ -59,7 +59,6 @@ class PlayerTextRulesTest {
             Map.entry(
                     "eu.nordtal.season.papercommon.menu.MenuTitle",
                     "pack glyphs and spacing around a title already rendered"),
-            Map.entry("eu.nordtal.season.smp.npc.SpawnNpc", "the NPC's name from config.yml, a name and not a message"),
             Map.entry("eu.nordtal.season.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.season.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
             Map.entry("eu.nordtal.season.hungergames.player.ArenaComposition", "a flag glyph and a player name"),

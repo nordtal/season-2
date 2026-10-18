@@ -17,6 +17,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.layout.Element;
 import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.LayoutMerge;
 import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.spec.layout.Line;
 import eu.nordtal.season.messages.spec.layout.Part;
@@ -165,7 +166,8 @@ class LayoutsApiIntegrationTest {
                 .get(0)
                 .getAsJsonObject();
         assertEquals(LayoutSchema.hash(WELCOME), view.get("hash").getAsString());
-        assertEquals(false, view.get("stale").getAsBoolean());
+        assertEquals(0, view.getAsJsonArray("adapted").size());
+        assertEquals(0, view.getAsJsonArray("fallbacks").size());
         final Layout rebuild = Json.decode(view.get("rebuild").toString(), Layout.class);
         assertEquals(List.of("join", "site"), rebuild.parts().getFirst().elements());
         assertEquals(List.of(Map.of("en", "Hi {player}"), Map.of("de", "Seite", "en", "Site")), rebuild.addedTexts());
@@ -179,6 +181,39 @@ class LayoutsApiIntegrationTest {
                         .getAsJsonObject()
                         .has("rebuild"),
                 "a removed rebuild is answered as none");
+    }
+
+    /** A rebuild written over an older release: an element it removed, and an added text naming a value it dropped. */
+    @Test
+    void aRebuildOverAnotherReleaseIsListedWithWhatWasAdapted() throws Exception {
+        store.change(
+                new LayoutStore.StoredLayout(
+                        "smp",
+                        "welcome",
+                        List.of(
+                                Part.text(Line.added(null, Map.of("en", "Hi {gone}")), Line.text("smp/welcome")),
+                                Part.row("join", "leave")),
+                        List.of(),
+                        "a".repeat(64)),
+                Actor.STEWARD);
+
+        final JsonObject view = GSON.fromJson(get(), JsonObject.class)
+                .getAsJsonArray("layouts")
+                .get(0)
+                .getAsJsonObject();
+        assertEquals(
+                List.of(new LayoutMerge.Adaptation(LayoutMerge.Change.ELEMENT_REMOVED, "leave")),
+                List.of(Json.decode(view.get("adapted").toString(), LayoutMerge.Adaptation[].class)));
+        assertEquals(
+                List.of("join"),
+                Json.decode(view.get("rebuild").toString(), Layout.class)
+                        .parts()
+                        .get(1)
+                        .elements());
+        final JsonObject fallback = view.getAsJsonArray("fallbacks").get(0).getAsJsonObject();
+        assertEquals("en", fallback.get("language").getAsString());
+        assertEquals("Hi {gone}", fallback.get("text").getAsString());
+        assertEquals(1, fallback.getAsJsonArray("problems").size());
     }
 
     @Test

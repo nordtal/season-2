@@ -117,6 +117,12 @@ holds it to the packaged layout, whose `LayoutSchema.hash` it keeps. An image is
 bot sends as an attachment. Steward stores rebuilds in the database (`LayoutStore`), and the bot
 re-reads them on `nordtal_messages`.
 
+A release that changes a rebuilt layout keeps the rebuild (`LayoutMerge`): an element or key the
+release removed goes, a section or block per language whose element went leaves what it held, and a
+new element is placed at the end, buttons in rows. An added text that names a value the layout no
+longer has shows that value's replacement word. A rebuild that still does not fit is set aside for the
+packaged layout. Every change is an `Adaptation`, which Steward lists.
+
 The vectors in `src/test/resources/discord-layouts.json` give a declaration, its texts, what the code
 fills in and the components Discord is sent; `DiscordLayoutVectorsTest` holds the declaration and the
 filling to the specs.

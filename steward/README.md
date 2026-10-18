@@ -160,8 +160,8 @@ server, filled with the editor's examples, in the filtered service's palette if 
 ### Discord layouts
 
 `GET /api/layouts` answers each packaged Discord layout (`messages.LayoutsApi`) with its values, the
-keys it shows, its hash and the rebuild stored over it, `stale` once the jar's layout changed under
-it, beside the building blocks, the network's languages and the contribution tiers; the live channels
+keys it shows, its hash and the rebuild stored over it, carried over to the jar's layout with what
+that adapted (`adapted`) and the added texts the validator now refuses (`fallbacks`), beside the building blocks, the network's languages and the contribution tiers; the live channels
 are `GET /api/discord/channels`. `PUT /api/layouts/{bundle}/{layout}` stores a rebuild: the parts
 and the link buttons the editor added. It saves only what `LayoutCheck.rebuildProblems` passes and
 an added text `MessageCheck` does not err on, answers its warnings and writes nothing otherwise;

@@ -60,7 +60,7 @@ class StoredLayoutsTest {
     }
 
     @Test
-    void aRebuildIsDrawnOnlyOverTheDeclarationItWasWrittenOver() {
+    void aRebuildIsDrawnOverTheDeclarationItWasWrittenOverAndCarriedOverAnother() {
         final LayoutStore.StoredLayout current = rebuild(LayoutSchema.hash(DECLARED));
 
         assertEquals(
@@ -68,11 +68,22 @@ class StoredLayoutsTest {
                 StoredLayoutsStandIn.holding(List.of(current), List.of())
                         .applied(DECLARED)
                         .parts());
+        final Layout released = Layout.discord(
+                "access",
+                "welcome",
+                "Join",
+                List.of(Element.button("join", "access/join"), Element.button("rules", "access/rules")),
+                Part.text(Line.title("access/welcome")),
+                Part.row("join", "rules"));
         assertEquals(
-                DECLARED,
-                StoredLayoutsStandIn.holding(List.of(rebuild("b".repeat(64))), List.of())
-                        .applied(DECLARED),
-                "a rebuild over another release's declaration is set aside");
+                List.of(
+                        Part.row("join"),
+                        Part.container(Tone.BRAND, Part.text(Line.text("access/welcome"))),
+                        Part.row("rules")),
+                StoredLayoutsStandIn.holding(List.of(current), List.of())
+                        .applied(released)
+                        .parts(),
+                "a rebuild over another release's declaration is kept, its new button at the end");
         assertEquals(DECLARED, StoredLayoutsStandIn.none().applied(DECLARED));
     }
 }

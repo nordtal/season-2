@@ -26,7 +26,9 @@ function draw() {
   return screen.getByText("Which one is this")
 }
 
-/** Which primitive mounts, read from `data-slot` since jsdom has no layout; its window is 1024 wide, a desktop. */
+/**
+ * The test reads which primitive mounts from `data-slot`, because jsdom has no layout. Its window is 1024px wide, a desktop.
+ */
 describe("one dialog, two shapes", () => {
   it("is a centred dialog on a desktop", async () => {
     window.innerWidth = 1024
@@ -54,7 +56,9 @@ describe("one dialog, two shapes", () => {
   })
 })
 
-/** vaul's own lift ignores the pan iOS adds, so the sheet stands on what `lib/app-frame.ts` measures instead. */
+/**
+ * vaul's own lift ignores the pan that iOS adds, so the sheet stands on the value that `lib/app-frame.ts` measures.
+ */
 describe("a sheet and the keyboard", () => {
   it("stands on the keyboard inset and fits the height the keyboard leaves visible", () => {
     window.innerWidth = 390
@@ -66,7 +70,9 @@ describe("a sheet and the keyboard", () => {
   })
 })
 
-/** A sheet that shrank with its results would move its field under the keyboard, where iOS pans to reveal it. */
+/**
+ * A sheet that shrank with its results would move its field under the keyboard, where iOS pans to reveal it.
+ */
 describe("a sheet with a search", () => {
   it("keeps the height it may take, so its field stays where it was tapped while the results change", () => {
     window.innerWidth = 390

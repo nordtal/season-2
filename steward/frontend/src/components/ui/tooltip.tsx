@@ -6,16 +6,18 @@ function TooltipProvider({ delayDuration = 0, ...props }: React.ComponentProps<t
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
 }
 
-/** What a trigger needs to turn a tap into a toggle: whether the tip is open, and a way to set it. */
+/**
+ * What a trigger needs to turn a tap into a toggle: whether the tip is open, and a way to set it.
+ */
 const TapContext = React.createContext<{
   isOpen: () => boolean
   toggle: (open: boolean) => void
 } | null>(null)
 
 /**
- * A tooltip that also opens on a tap, since a touch screen has no hover and a tap only focuses.
+ * A tooltip that also opens on a tap, because a touch screen has no hover and a tap only focuses.
  *
- * A mouse and the keyboard keep Radix's own behaviour; a tap on the trigger toggles, a tap elsewhere closes.
+ * A mouse and the keyboard keep Radix's own behaviour. A tap on the trigger toggles the tip, and a tap elsewhere closes it.
  */
 function Tooltip({ onOpenChange, defaultOpen = false, ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   const [open, setOpen] = React.useState(defaultOpen)
@@ -45,7 +47,9 @@ function Tooltip({ onOpenChange, defaultOpen = false, ...props }: React.Componen
 
 function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   const tap = React.useContext(TapContext)
-  /** Whether the open tip is seen before this press closes it, and whether the press came from a finger. */
+  /**
+   * Whether the open tip was visible before this press closed it, and whether the press came from a finger.
+   */
   const press = React.useRef<{ touch: boolean; wasOpen: boolean }>({ touch: false, wasOpen: false })
 
   return (
@@ -85,7 +89,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        {/* The arrow takes the body's surface as `fill` for Radix's svg and `background` for shadcn's square. */}
+        {/* The arrow takes the body's surface as `fill` for Radix's svg and as `background` for shadcn's square. */}
         <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-popover fill-popover" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>

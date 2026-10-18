@@ -11,9 +11,7 @@ const POSITIONED = /(^|\s)(relative|absolute|fixed|sticky)(\s|$)/
 /**
  * Only the viewport scrolls, so everything inside it is placed against it.
  *
- * An absolutely placed element (a `sr-only` label above all) whose containing block lies outside the viewport is
- * not clipped by it: it hangs below the page at its own spot and the document grows a second scrollbar. jsdom lays
- * nothing out, so this holds the cause rather than the scrollbar.
+ * An absolutely placed element (above all a `sr-only` label) whose containing block lies outside the viewport is not clipped by the viewport. It hangs below the page at its own spot, and the document gets a second scrollbar. jsdom lays nothing out, so the test checks the cause and not the scrollbar.
  */
 describe("ScrollArea", () => {
   it("is the containing block of what it scrolls", () => {

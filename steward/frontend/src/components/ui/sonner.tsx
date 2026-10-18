@@ -3,7 +3,9 @@ import { CheckCircleIcon, InfoIcon, SpinnerIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { CSSVars } from "@/lib/utils"
 
-/** The interface has one theme, so this hard codes dark and takes the status colours from the badge tokens. */
+/**
+ * The interface has one theme, so this hard-codes dark and takes the status colours from the badge tokens.
+ */
 const TOAST_VARS: CSSVars = {
   "--normal-bg": "var(--popover)",
   "--normal-text": "var(--popover-foreground)",

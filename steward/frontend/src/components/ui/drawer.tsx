@@ -3,10 +3,9 @@ import { cn } from "cn"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 /**
- * A bottom sheet, every dialog's shape on a narrow screen, used only through {@link ResponsiveDialog}.
+ * A bottom sheet. It is the shape of every dialog on a narrow screen and is used only through {@link ResponsiveDialog}.
  *
- * `vaul` does the drag. Not the lift above the keyboard: vaul's ignores the pan iOS adds, so the sheet stands on
- * `--keyboard-inset` instead.
+ * `vaul` does the drag. It does not lift the sheet above the keyboard, because vaul ignores the pan that iOS adds. The sheet stands on `--keyboard-inset` instead.
  */
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
   return <DrawerPrimitive.Root data-slot="drawer" repositionInputs={false} {...props} />
@@ -24,7 +23,9 @@ function DrawerClose({ ...props }: React.ComponentProps<typeof DrawerPrimitive.C
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
 }
 
-/** The dialog's black wash, faded by vaul's own state attribute since vaul drives the sheet's transform. */
+/**
+ * The dialog's black wash. It fades with vaul's own state attribute, because vaul drives the sheet's transform.
+ */
 function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
   return (
     <DrawerPrimitive.Overlay
@@ -36,9 +37,9 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
 }
 
 /**
- * Moves the focus into a sheet that opens, which vaul leaves where it was unless the sheet's own field took it.
+ * Moves the focus into a sheet that opens. vaul leaves the focus where it was, unless the sheet's own field took it.
  *
- * A field outside that kept it would keep the keyboard open over the sheet, so it is blurred first.
+ * A field outside the sheet that kept the focus would keep the keyboard open over the sheet, so that field is blurred first.
  */
 function takeTheFocus(event: Event) {
   const sheet = event.target
@@ -64,18 +65,16 @@ function DrawerContent({
         }}
         className={cn(
           /**
-           * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome. With the
-           * keyboard open it stands on the keyboard and fits what is left visible, both measured by `lib/app-frame.ts`.
+           * `svh` and not `vh`, because on iOS a sheet sized in `vh` puts its footer under the browser chrome. With the keyboard open the sheet stands on the keyboard and fits what is left visible. `lib/app-frame.ts` measures both.
            *
-           * A sheet with a search takes that whole height, so its field sits high and never moves under the keyboard,
-           * where iOS would pan the page to show it. `--sheet-gutter` is the side padding a sheet's own rows read.
+           * A sheet with a search takes that whole height, so its field sits high and never moves under the keyboard, where iOS would pan the page to show it. `--sheet-gutter` is the side padding that a sheet's own rows read.
            */
           "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex [--sheet-height:min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] max-h-(--sheet-height) has-[input[type=search]]:h-(--sheet-height) flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}
         {...props}
       >
-        {/* A picture of the grab handle, not a control, since vaul takes the drag from the whole sheet. */}
+        {/* A picture of the grab handle and not a control, because vaul takes the drag from the whole sheet. */}
         <div aria-hidden className="mx-auto h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
         {children}
       </DrawerPrimitive.Content>
@@ -87,7 +86,9 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div data-slot="drawer-header" className={cn("flex flex-col gap-2", className)} {...props} />
 }
 
-/** The footer of `DialogFooter`, always a column below the breakpoint, the affirmative button under the thumb. */
+/**
+ * The footer of `DialogFooter`. Below the breakpoint it is always a column, with the affirmative button under the thumb.
+ */
 function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

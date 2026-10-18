@@ -234,7 +234,7 @@ public final class StewardAgent {
                 log.error("Refusing to carry out a run on settings that cannot be read: {}", broken.getMessage());
                 return 1;
             }
-            final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+            final UpdateDirectory updates = Schema.updates(database);
             final Runner runner = runner(server, compose, docker, clock, database, runs, updates, PluginRemoval.NONE)
                     .asOneShot();
             final UpdateServer handed = new UpdateServer(updates, runner, docker::isRunning, clock);
@@ -397,7 +397,7 @@ public final class StewardAgent {
             if (!Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler)) {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");
             }
-            final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+            final UpdateDirectory updates = Schema.updates(database);
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),
                             databaseConfig.username(),

@@ -72,7 +72,9 @@ agent's own container out of date, goes to a one-shot:
 2. It pulls `steward-agent` at that release, copies that image's `compose.yml` out and starts the
    one-shot from it with `compose run --rm`.
 3. The one-shot (`steward-agent run ID`) plans again, counts down, stops what changes, runs `migrate`,
-   installs, starts and verifies.
+   installs, starts and verifies. Until `migrate` has brought the schema to its own newest migration, it
+   writes none of the run's rows (its stage, services, steps and their facts), since their tables may not
+   exist yet; the report carries those steps.
 4. Last it makes the long-running agent again at its release, waits for it to be healthy and settles the row.
 
 From the hand-over until the row is settled the agent is up but paused: it serves state, logs, the

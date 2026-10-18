@@ -158,7 +158,7 @@ interface UpdateDao {
             ),
             cancelled AS (
                 UPDATE steward_inbox
-                SET status = 'CANCELLED', finished = now(), stage = 'CANCELLED',
+                SET status = 'CANCELLED', finished = now(),
                     outcome = CASE WHEN jsonb_typeof(outcome) = 'object'
                                    THEN jsonb_set(outcome, '{stage}', '"CANCELLED"')
                                    ELSE jsonb_build_object('stage', 'CANCELLED', 'services', '[]'::jsonb,

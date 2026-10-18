@@ -211,4 +211,32 @@ class LayoutCheckTest {
                         "places its element tiers 2 times"),
                 LayoutCheck.rebuildProblems(PRICES, rebuild));
     }
+
+    static final Layout CODE = Layout.modal(
+            "layouts", "code", "Link", "layouts/dialog", Element.input("code", "layouts/field", "layouts/field"));
+
+    @Test
+    void aModalOfItsTitleAndOneFieldPerRowHasNoProblem() {
+        assertEquals(List.of(), problems(CODE));
+    }
+
+    @Test
+    void aModalPlacesItsTextsWhereAModalShowsThem() {
+        assertEquals(
+                List.of("layouts/code: places layouts/title as a modal's text, but its @Shown names only DISCORD_TEXT"),
+                problems(Layout.modal(
+                        "layouts", "code", "Link", "layouts/title", Element.input("code", "layouts/field"))));
+    }
+
+    @Test
+    void aModalHoldsNothingButItsTitleAndItsFieldsEachInARowOfItsOwn() {
+        assertEquals(
+                List.of(
+                        "layouts/broken: a modal holds something other than its title and one field per row",
+                        "layouts/broken: a row holds a field beside something else"),
+                problems(withParts(
+                        List.of(Element.input("code", "layouts/field"), Element.button("buy", "layouts/buy")),
+                        Part.text(title("layouts/dialog")),
+                        row("code", "buy"))));
+    }
 }

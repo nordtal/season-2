@@ -39,6 +39,21 @@ public record Layout(
         return new Layout(name, bundle, area, Display.Surface.DISCORD, elements, List.of(parts));
     }
 
+    /** A modal: its title, then each field in a row of its own. Only its texts change, never its tree. */
+    public static Layout modal(
+            final String bundle, final String name, final String area, final String title, final Element... fields) {
+        final List<Part> parts = new ArrayList<>(List.of(Part.text(Line.title(title))));
+        for (final Element field : fields) {
+            parts.add(Part.row(field.id()));
+        }
+        return new Layout(name, bundle, area, Display.Surface.DISCORD, List.of(fields), parts);
+    }
+
+    /** Whether it is a modal, which a field of its own makes it. */
+    public boolean modal() {
+        return elements.stream().anyMatch(element -> element.kind() == Element.Kind.INPUT);
+    }
+
     /** Every part of the tree, each before the parts it holds. */
     public List<Part> allParts() {
         final List<Part> all = new ArrayList<>();

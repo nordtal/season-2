@@ -33,6 +33,7 @@ public final class LayoutCheck {
 
     private static final int GALLERY_IMAGES = 10;
     private static final int ROW_BUTTONS = 5;
+    private static final int MODAL_FIELDS = 5;
 
     private LayoutCheck() {}
 
@@ -76,6 +77,7 @@ public final class LayoutCheck {
                 .distinct()
                 .forEach(key -> problems.add("it places " + key + ", which the layout does not"));
         structure(rebuild.parts(), false, false, problems);
+        modal(rebuild, problems);
         elements(rebuild, problems);
         return problems;
     }
@@ -92,6 +94,7 @@ public final class LayoutCheck {
             problems.add("its name is not in kebab case");
         }
         structure(layout.parts(), false, false, problems);
+        modal(layout, problems);
         elements(layout, problems);
         for (final Placed placed : placements(layout)) {
             key(placed, schemas, problems);
@@ -181,6 +184,35 @@ public final class LayoutCheck {
         }
     }
 
+    /** A modal's tree: its title alone in a text block, then one field per row, as many as Discord takes. */
+    private static void modal(final Layout layout, final List<String> problems) {
+        if (!layout.modal()) {
+            return;
+        }
+        final List<Part> parts = layout.parts();
+        final List<Line> title = parts.isEmpty()
+                ? List.of()
+                : Objects.requireNonNullElse(parts.getFirst().lines(), List.of());
+        final boolean titled = !parts.isEmpty()
+                && parts.getFirst().type() == Part.Type.TEXT
+                && title.size() == 1
+                && title.getFirst().style() == Line.Style.TITLE;
+        final Set<String> inputs = layout.elements().stream()
+                .filter(element -> element.kind() == Element.Kind.INPUT)
+                .map(Element::id)
+                .collect(Collectors.toSet());
+        final boolean fields = parts.stream().skip(1).allMatch(part -> {
+            final List<String> row = Objects.requireNonNullElse(part.elements(), List.of());
+            return part.type() == Part.Type.ROW && row.size() == 1 && inputs.contains(row.getFirst());
+        });
+        if (!titled || !fields) {
+            problems.add("a modal holds something other than its title and one field per row");
+        }
+        if (parts.size() - 1 > MODAL_FIELDS) {
+            problems.add("a modal holds " + (parts.size() - 1) + " fields, Discord takes 1 to " + MODAL_FIELDS);
+        }
+    }
+
     /** Each declared element placed once, where its kind belongs; each placed one declared. */
     private static void elements(final Layout layout, final List<String> problems) {
         final Map<String, Element> declared = new LinkedHashMap<>();
@@ -191,7 +223,7 @@ public final class LayoutCheck {
             final int keys = element.keys().size();
             final boolean fits = switch (element.kind()) {
                 case BUTTON, LIST -> keys == 1;
-                case SELECT -> keys == 1 || keys == 2;
+                case SELECT, INPUT -> keys == 1 || keys == 2;
                 case LANGUAGES, LINK -> keys == 0;
             };
             if (!fits) {
@@ -211,12 +243,13 @@ public final class LayoutCheck {
             final List<String> row = Objects.requireNonNullElse(part.elements(), List.of());
             for (final String id : row) {
                 final Element element = declared.get(id);
-                if (element == null || element.kind() != Element.Kind.SELECT) {
+                if (element == null
+                        || (element.kind() != Element.Kind.SELECT && element.kind() != Element.Kind.INPUT)) {
                     place(id, Element.Kind.BUTTON, declared, placed, problems);
                     continue;
                 }
                 if (row.size() > 1) {
-                    problems.add("a row holds a select beside something else");
+                    problems.add("a row holds a " + noun(element.kind()) + " beside something else");
                 }
                 placed.merge(id, 1, Integer::sum);
             }
@@ -267,6 +300,7 @@ public final class LayoutCheck {
             case LIST -> "data list";
             case LANGUAGES -> "block per language";
             case LINK -> "link button";
+            case INPUT -> "field";
         };
     }
 
@@ -284,7 +318,10 @@ public final class LayoutCheck {
         for (final Part part : layout.allParts()) {
             for (final Line line : Objects.requireNonNullElse(part.lines(), List.<Line>of())) {
                 if (line.key() != null) {
-                    placed.add(new Placed(line.key(), "text", List.of(Display.DISCORD_TEXT)));
+                    placed.add(
+                            layout.modal()
+                                    ? modalText(line.key())
+                                    : new Placed(line.key(), "text", List.of(Display.DISCORD_TEXT)));
                 }
             }
         }
@@ -296,10 +333,15 @@ public final class LayoutCheck {
                             case SELECT -> new Placed(key, "a select's text", List.of(Display.DISCORD_SELECT));
                             case LIST, LANGUAGES ->
                                 new Placed(key, "a data list's line", List.of(Display.DISCORD_TEXT));
+                            case INPUT -> modalText(key);
                         });
             }
         }
         return placed;
+    }
+
+    private static Placed modalText(final String key) {
+        return new Placed(key, "a modal's text", List.of(Display.DISCORD_MODAL));
     }
 
     private static void key(

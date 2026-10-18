@@ -1,16 +1,10 @@
 package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.discordbot.config.Configured;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.utils.FileUpload;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
-import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jdbi.v3.core.Jdbi;
 
 /**
@@ -53,11 +47,8 @@ public final class ManagedMessage {
             if (existing.isPresent() && edit(channel, existing.get(), content)) {
                 return;
             }
-            final String posted = channel.sendMessageComponents(content.components())
-                    .useComponentsV2()
-                    .addFiles(uploads(content))
-                    .complete()
-                    .getId();
+            final String posted =
+                    channel.sendMessage(content.create()).complete().getId();
             dao.remember(kind, channelId, posted);
             log.info("Posted the {} message as {} in {}", kind, posted, channelId);
         } catch (final RuntimeException exception) {
@@ -68,7 +59,7 @@ public final class ManagedMessage {
     /** Returns {@code false} when the remembered message is gone, so the caller posts a fresh one. */
     private boolean edit(final MessageChannel channel, final String messageId, final LayoutRenderer.Drawn content) {
         try {
-            channel.editMessageById(messageId, edit(content)).complete();
+            channel.editMessageById(messageId, content.edit()).complete();
             return true;
         } catch (final RuntimeException exception) {
             log.info(
@@ -78,33 +69,5 @@ public final class ManagedMessage {
                     exception.toString());
             return false;
         }
-    }
-
-    /**
-     * The edit that turns a message into {@code content}: Components V2 with its embeds emptied, as Discord requires.
-     * The images are uploaded anew and replace the old ones, so a swapped banner shows.
-     */
-    static MessageEditData edit(final LayoutRenderer.Drawn content) {
-        return new MessageEditBuilder()
-                .setEmbeds(List.of())
-                .useComponentsV2()
-                .setComponents(content.components())
-                .setFiles(uploads(content))
-                .build();
-    }
-
-    private static List<FileUpload> uploads(final LayoutRenderer.Drawn content) {
-        final List<FileUpload> all = new ArrayList<>(
-                content.attachments().stream().map(ManagedMessage::upload).toList());
-        all.addAll(content.uploads());
-        return all;
-    }
-
-    private static FileUpload upload(final String banner) {
-        final InputStream stream = ManagedMessage.class.getClassLoader().getResourceAsStream("banners/" + banner);
-        if (stream == null) {
-            throw new IllegalStateException("banners/" + banner + " is missing from the jar");
-        }
-        return FileUpload.fromData(stream, banner);
     }
 }

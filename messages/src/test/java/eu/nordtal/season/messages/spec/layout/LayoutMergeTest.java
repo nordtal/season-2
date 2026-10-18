@@ -112,6 +112,23 @@ class LayoutMergeTest {
     }
 
     @Test
+    void aModalsNewFieldIsAddedInARowOfItsOwn() {
+        final Layout twoFields = Layout.modal(
+                "layouts",
+                "code",
+                "Link",
+                "layouts/dialog",
+                Element.input("code", "layouts/field"),
+                Element.input("note", "layouts/field"));
+
+        final LayoutMerge.Merged merged = LayoutMerge.merge(
+                twoFields, LayoutCheckTest.CODE.parts(), List.of(), LayoutSchema.hash(LayoutCheckTest.CODE));
+
+        assertEquals(twoFields.parts(), merged.layout().parts());
+        assertEquals(List.of(new Adaptation(Change.ELEMENT_ADDED, "note")), merged.adaptations());
+    }
+
+    @Test
     void aRebuildThatCannotBeCarriedOverIsSetAsideForThePackagedLayout() {
         // An editor's link button whose id the release now declares for its own element.
         final Element clash = Element.link("renew", "https://nordtal.eu", Map.of("en", "Renew"));

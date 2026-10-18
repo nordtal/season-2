@@ -210,6 +210,16 @@ class ResourcePackTest {
     }
 
     @Test
+    void theBearingArrowsShareNoEmptyLeftColumn() throws IOException {
+        final Path arrows = RepositoryRoot.resolve(ASSETS + "/nordtal/textures/ui/bossbar/arrows");
+        try (Stream<Path> files = Files.list(arrows)) {
+            assertTrue(
+                    files.map(ResourcePackTest::read).anyMatch(image -> hasPixels(image, 0, 0, 1, image.getHeight())),
+                    "a column every arrow leaves empty widens the left padding of the pill around it");
+        }
+    }
+
+    @Test
     void theVanillaBossBarSpritesAreFullyTransparent() {
         for (final String sprite : List.of("white_background", "white_progress")) {
             final Path path =

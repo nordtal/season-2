@@ -157,7 +157,7 @@ public final class GameHud {
                 playerLocation.getYaw(),
                 nearestLocation.getX(),
                 nearestLocation.getZ());
-        return Glyphs.BOSSBAR_ARROWS.get(index);
+        return Bearing.arrow(index);
     }
 
     private String nearestLootArrow(final Player player) {
@@ -182,6 +182,6 @@ public final class GameHud {
         }
         final int index = Bearing.arrowIndex(
                 playerLocation.getX(), playerLocation.getZ(), playerLocation.getYaw(), nearest.x(), nearest.z());
-        return Glyphs.BOSSBAR_ARROWS.get(index);
+        return Bearing.arrow(index);
     }
 }

@@ -147,18 +147,6 @@ public interface OperationsPage {
     @Name("Every note")
     MessageRef allNotes();
 
-    @Name("Copied")
-    MessageRef copied();
-
-    @Name("Copy")
-    MessageRef copy();
-
-    @Name("Command copied")
-    MessageRef commandCopied();
-
-    @Name("Cannot copy")
-    MessageRef cannotCopy();
-
     @Name("Under way")
     MessageRef underWay(@Arg("kind") String kind, @Arg("run") int run);
 }

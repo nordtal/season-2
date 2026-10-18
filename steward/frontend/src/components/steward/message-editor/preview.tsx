@@ -321,12 +321,21 @@ type PreviewProps = {
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
+  /** Whether the text is the server's answer, which Steward shows as a toast. */
+  answer?: boolean
   className?: string
 }
 
-export function Preview({ runs, shown, surface, fill, glyphs, tones, className }: PreviewProps) {
+export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = false, className }: PreviewProps) {
   if (shown === undefined || (surface !== "GAME" && surface !== "DISCORD")) {
-    return <PagePreview runs={runs} fill={fill} push={shown === "PUSH"} className={className} />
+    return (
+      <PagePreview
+        runs={runs}
+        fill={fill}
+        frame={shown === "PUSH" ? "push" : answer ? "toast" : "page"}
+        className={className}
+      />
+    )
   }
   if (surface === "DISCORD") {
     return <DiscordPreview runs={runs} shown={shown} fill={fill} className={className} />
@@ -627,11 +636,31 @@ function DiscordPreview({
   }
 }
 
-function PagePreview({ runs, fill, push, className }: { runs: Run[]; fill: Fill; push: boolean; className?: string }) {
+function PagePreview({
+  runs,
+  fill,
+  frame,
+  className,
+}: {
+  runs: Run[]
+  fill: Fill
+  frame: "page" | "toast" | "push"
+  className?: string
+}) {
   const text = <span className="break-words whitespace-pre-wrap">{plainText(runs, fill)}</span>
-  if (!push) {
+  if (frame === "page") {
     return (
       <div className={cn("w-full rounded-md border bg-card p-3 text-sm text-card-foreground", className)}>{text}</div>
+    )
+  }
+  if (frame === "toast") {
+    // As the Toaster draws one, on the page's muted ground.
+    return (
+      <div className={cn("flex w-full justify-end rounded-md bg-muted p-3", className)}>
+        <div className="w-full max-w-sm rounded-(--radius) border bg-popover p-4 text-sm text-popover-foreground shadow-lg">
+          {text}
+        </div>
+      </div>
     )
   }
   return (

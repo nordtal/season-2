@@ -1,7 +1,7 @@
 import type { ConfigEntry, DocumentView, MessageEntry, MessageText } from "@/lib/api"
 import { documentId, pageCards, type PageCard } from "@/lib/documents"
 import { entryHaystack } from "@/lib/settings-search"
-import { groupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
+import { groupOf, PAGE_GROUPS, pageGroupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
 import { choice, t } from "@/lib/texts"
 import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
@@ -196,8 +196,13 @@ export function textsTree(
       card,
       group: card.kind === "document" ? ("DISCORD" as const) : groupOf(card.text.entry, places),
     }))
-    .toSorted((a, b) => TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group))
-  for (const { card, group } of grouped) {
+    .map((each) => ({ ...each, page: each.card.kind === "text" ? pageGroupOf(each.card.text.entry) : undefined }))
+    .toSorted(
+      (a, b) =>
+        TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group) ||
+        PAGE_GROUPS.indexOf(a.page ?? "") - PAGE_GROUPS.indexOf(b.page ?? ""),
+    )
+  for (const { card, group, page } of grouped) {
     const root = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
     // A top topic is named by its label, so a document's area and the texts of the same topic share one branch.
     const top = (label: string) => builder.branch(`${group}:@${label}`, label, root).id
@@ -208,9 +213,11 @@ export function textsTree(
     }
     const entry = card.text.entry
     const segments = entry.key.split(".")
-    let parent = segments.length > 1 ? top(entry.section[0] ?? humanise(segments[0])) : root
+    // Steward's own texts are listed by the page they are on, in place of the bundle's top section.
+    const topic = page === undefined ? (entry.section[0] ?? humanise(segments[0])) : t("steward.shell.page", { page })
+    let parent = segments.length > 1 ? top(topic) : root
     for (let at = 1; at < segments.length - 1; at++) {
-      const id = `${group}:${segments.slice(0, at + 1).join(".")}`
+      const id = `${group}:${page === undefined ? "" : `${page}:`}${segments.slice(0, at + 1).join(".")}`
       builder.branch(id, entry.section[at] ?? humanise(segments[at]), parent)
       parent = id
     }

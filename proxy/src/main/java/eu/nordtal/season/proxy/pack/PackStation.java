@@ -154,8 +154,7 @@ public final class PackStation {
                 book.packApplied(uuid);
                 evaluate(player);
             }
-            case ACCEPTED, DOWNLOADED -> {
-            }
+            case ACCEPTED, DOWNLOADED -> {}
             case DECLINED -> {
                 logger.info("{} declined the resource pack", player.getUsername());
                 disconnect(player, messages.declined(locale));
@@ -267,8 +266,7 @@ public final class PackStation {
                 uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
 
         switch (decision.action()) {
-            case IDLE -> {
-            }
+            case IDLE -> {}
             case SHOW ->
                 sendToLimbo(
                         player,

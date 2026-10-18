@@ -55,8 +55,7 @@ public final class BackendKick {
                 event.setResult(KickedFromServerEvent.DisconnectPlayer.create(
                         Objects.requireNonNull(reason, "SHOW_REASON only happens when a reason was given")));
             case TO_LIMBO -> toLimbo(event);
-            case LEAVE -> {
-            }
+            case LEAVE -> {}
         }
     }
 

@@ -8,7 +8,6 @@ import eu.nordtal.season.common.time.CountdownPlan;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.proxy.PhaseServers;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +33,7 @@ class HomecomingTest {
     void theRegisterIsTheEvacuationAndNotEveryRelease() {
         final UUID moved = UUID.randomUUID();
         final UUID justLoggedIn = UUID.randomUUID();
-        homecoming.owedNow(Set.of(moved));
+        homecoming.owe(1L, moved);
 
         // Every login waits in limbo, so a release alone is not a homecoming.
         assertFalse(homecoming.claim(justLoggedIn));
@@ -46,16 +45,30 @@ class HomecomingTest {
     }
 
     @Test
-    void theRegisterIsReplacedRatherThanAddedTo() {
+    void aNewRunReplacesTheRegister() {
         final UUID lastRun = UUID.randomUUID();
         final UUID thisRun = UUID.randomUUID();
-        homecoming.owedNow(Set.of(lastRun));
-        homecoming.owedNow(Set.of(thisRun));
+        homecoming.owe(1L, lastRun);
+        homecoming.owe(2L, thisRun);
 
         assertFalse(
                 homecoming.claim(lastRun),
                 "somebody who never came back from the last run is not owed a line about this one");
         assertTrue(homecoming.claim(thisRun));
+    }
+
+    @Test
+    void theSameRunAddsToTheRegister() {
+        final UUID first = UUID.randomUUID();
+        final UUID later = UUID.randomUUID();
+
+        assertTrue(homecoming.owe(1L, first));
+        assertTrue(homecoming.owe(1L, later));
+        assertFalse(homecoming.owe(1L, first), "a later pass of the same run owes nobody twice");
+
+        // A player who reached the waiting room on an earlier pass is still told on return.
+        assertTrue(homecoming.claim(first));
+        assertTrue(homecoming.claim(later));
     }
 
     // who gets a counter

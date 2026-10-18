@@ -44,6 +44,9 @@ public final class Homecoming {
     /** The players who were moved and have not been informed. */
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
+    /** The run that moved the players in {@link #owed}. */
+    private long owedFor = -1;
+
     /** @param runs the store of the move counts */
     public Homecoming(
             final Logger logger,
@@ -60,19 +63,36 @@ public final class Homecoming {
 
     // out of the waiting room
 
-    /** Replaces the set of players to inform with these players. */
-    public void movedOut(final Collection<Player> players) {
-        final Set<UUID> uuids = new java.util.HashSet<>();
-        for (final Player player : players) {
-            uuids.add(player.getUniqueId());
+    /**
+     * Tells the player why the run moves them, once per run, and adds them to the players to inform on return.
+     *
+     * @param from the server the run stops under the player
+     * @return whether the player was not moved by this run before
+     */
+    public boolean movedOut(final long run, final Player player, final String from) {
+        if (!owe(run, player.getUniqueId())) {
+            return false;
         }
-        owedNow(uuids);
+        try {
+            final Locale locale = roster.localeOf(player.getUniqueId());
+            player.sendMessage(renderer.format(locale, MESSAGES.returnSection().movedOut(serviceName(from))));
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not tell {} why they are moved off '{}'", player.getUsername(), from, failure);
+        }
+        return true;
     }
 
-    /** Sets the players to inform. */
-    void owedNow(final Set<UUID> uuids) {
-        owed.clear();
-        owed.addAll(uuids);
+    /**
+     * Adds the player to the players to inform. A new run replaces the players of the run before.
+     *
+     * @return whether the player was not owed for this run yet
+     */
+    synchronized boolean owe(final long run, final UUID uuid) {
+        if (run != owedFor) {
+            owed.clear();
+            owedFor = run;
+        }
+        return owed.add(uuid);
     }
 
     /** Returns whether the player is to be informed and removes the player from the set. */

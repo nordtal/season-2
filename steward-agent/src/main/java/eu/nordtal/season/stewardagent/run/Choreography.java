@@ -32,8 +32,8 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 final class Choreography {
 
-    /** The time the players get after the countdown to leave. */
-    static final Duration EMPTY_CAP = Duration.ofSeconds(10);
+    /** The time the players get after the countdown to leave, which covers a move that waits for the resource pack. */
+    static final Duration EMPTY_CAP = Duration.ofSeconds(60);
 
     static final Duration EMPTY_POLL = Duration.ofSeconds(1);
 
@@ -172,13 +172,15 @@ final class Choreography {
             return Left.EMPTY;
         }
 
-        final Instant deadline = clock.now().plus(EMPTY_CAP);
+        final Instant started = clock.now();
+        final Instant deadline = started.plus(EMPTY_CAP);
         while (true) {
             final Instant now = clock.now();
             final Map<String, Integer> occupied = new LinkedHashMap<>();
             final List<String> unknown = new ArrayList<>();
             for (final String service : watched) {
-                final OptionalInt players = occupancy.on(service, now);
+                // A row from before the countdown ended predates the moves; only a later count can end the wait.
+                final OptionalInt players = occupancy.on(service, now, started);
                 if (players.isEmpty()) {
                     unknown.add(service);
                 } else if (players.getAsInt() > 0) {
@@ -284,7 +286,7 @@ final class Choreography {
                             .filter(standby::equals)
                             .isPresent()
                     ? occupancy.onStandbyProxy(now)
-                    : occupancy.on(standby, now);
+                    : occupancy.on(standby, now, Instant.MIN);
             if (players.isEmpty() || players.getAsInt() == 0) {
                 // No answer counts as empty here, because the standby has stopped writing.
                 return null;

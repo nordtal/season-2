@@ -15,6 +15,7 @@ import eu.nordtal.season.common.health.Readiness;
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.database.command.CommandTreeStore;
@@ -49,6 +50,7 @@ import eu.nordtal.season.proxy.gate.LoginGate;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.proxy.gate.MisconfiguredGate;
 import eu.nordtal.season.proxy.gate.RestartGate;
+import eu.nordtal.season.proxy.gate.WaitingRooms;
 import eu.nordtal.season.proxy.launch.LaunchCountdown;
 import eu.nordtal.season.proxy.online.OnlineWriter;
 import eu.nordtal.season.proxy.pack.PackMessages;
@@ -248,6 +250,25 @@ public final class ProxyPlugin {
         hub.start();
         numbers.start();
         startHeartbeat();
+        holdUntilWaitingRoom(shared.phaseServers());
+    }
+
+    /**
+     * Holds the init event until a waiting room answers.
+     * Velocity binds the port only after it, so the standby's probe, the healthcheck and a run's check see the proxy
+     * as up only once it can place a player.
+     */
+    private void holdUntilWaitingRoom(final PhaseServers servers) {
+        logger.info("Opening the port once '{}' or '{}' answers", servers.limbo(), servers.limboStandby());
+        if (WaitingRooms.answering(proxy, servers, Waiting.on(clock), WaitingRooms.AT_START)
+                .isEmpty()) {
+            logger.warn(
+                    "Neither '{}' nor '{}' answered within {}s; opening the port anyway, and a player who arrives now"
+                            + " waits for it on arrival",
+                    servers.limbo(),
+                    servers.limboStandby(),
+                    WaitingRooms.AT_START.toSeconds());
+        }
     }
 
     /** Creates the objects that several features use. */
@@ -419,7 +440,8 @@ public final class ProxyPlugin {
                                 shared.backendHealth(),
                                 shared.gateMessages(),
                                 shared.roster(),
-                                logger));
+                                logger,
+                                Waiting.on(clock)));
         return expiryWatch;
     }
 

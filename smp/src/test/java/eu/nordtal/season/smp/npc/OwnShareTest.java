@@ -8,12 +8,11 @@ import eu.nordtal.season.smp.port.OwnContributionRow;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says. */
 class OwnShareTest {
 
     @Test
     void spinsAreCountedPerObjective() {
-        // 30% of one objective and nothing of three others; the aggregate would understate what one completion pays.
+        // 30% of one objective and nothing of three others. The aggregate would understate what one completion pays.
         final OwnShare.Summary summary = OwnShare.of(List.of(
                 new OwnContributionRow("a", 30, 100, 3, 20),
                 new OwnContributionRow("b", 0, 100, 0, 20),
@@ -59,7 +58,6 @@ class OwnShareTest {
                 OwnShare.of(List.of(new OwnContributionRow("a", 0, 100, 0, 20))).empty());
         assertTrue(OwnShare.of(List.of()).empty());
 
-        // A spin forecast of one at 2 %; the menu must not say this player contributed nothing.
         final OwnShare.Summary just = OwnShare.of(List.of(new OwnContributionRow("a", 2, 100, 1, 20)));
         assertFalse(just.empty());
         assertEquals(1, just.spins());
@@ -75,14 +73,14 @@ class OwnShareTest {
 
     @Test
     void aDoubleDeliveryIsNotClamped() {
-        // A reload-lowered target is one of the escape hatches; a player who delivered twice what was asked sees it.
+        // A target lowered by a reload is an escape hatch. A player who delivered twice the target sees it.
         final OwnShare.Summary summary = OwnShare.of(List.of(new OwnContributionRow("a", 200, 100, 20, 20)));
         assertEquals(200.0, summary.percent(), 1e-9);
     }
 
     @Test
     void aZeroTargetDoesNotDivide() {
-        // The schema's CHECK makes a positive target the only legal one, ruling out a division by zero on this screen.
+        // The CHECK of the schema allows only a positive target, so this screen never divides by zero.
         assertEquals(0.0, OwnShare.percentOf(5, 0), 1e-9);
         assertEquals(0.0, OwnShare.percentOf(0, 0), 1e-9);
         assertTrue(

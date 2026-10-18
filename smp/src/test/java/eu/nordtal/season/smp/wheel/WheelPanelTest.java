@@ -18,7 +18,6 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/** Walks the wheel's composed window and holds it against the ring the pack drew. */
 class WheelPanelTest {
 
     @Test
@@ -52,7 +51,7 @@ class WheelPanelTest {
 
     @Test
     void theRingHasMovedTwoColumnsLeft() {
-        // W3 draws the ring on columns 2..6; moved two columns left so 5..8 carry the button and the key facts.
+        // The ring covers columns 0 to 4 of the grid.
         final Set<Integer> columns = new LinkedHashSet<>();
         WheelPanel.CELL_SLOTS.forEach(slot -> columns.add(SlotGeometry.column(slot)));
         assertEquals(
@@ -71,7 +70,7 @@ class WheelPanelTest {
 
     @Test
     void theRingIsWhereTheItemsAre() {
-        // The ring is baked art, the slot map is Java; a mismatch draws a prize icon on bare panel every frame.
+        // The ring is a pack image and the slot map is Java code, so a mismatch draws a prize icon outside the ring.
         final BufferedImage ring = PanelWalk.image("wheel_ring.png");
         assertEquals(176, ring.getWidth());
         assertEquals(114 + 18 * WheelPanel.ROWS, ring.getHeight());
@@ -79,7 +78,6 @@ class WheelPanelTest {
         final Set<Integer> painted = new LinkedHashSet<>();
         for (int row = 0; row < WheelPanel.ROWS; row++) {
             for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-                // The backing is the 16x16 the item is drawn in, so its middle is the honest place to sample the ring.
                 final int rgb = ring.getRGB(SlotGeometry.x(column) + 9, SlotGeometry.y(row) + 9);
                 if (rgb == CELL || rgb == WINNER) {
                     painted.add(SlotGeometry.slot(column, row));
@@ -110,7 +108,6 @@ class WheelPanelTest {
         }
         assertEquals(1, lighter, "more than one cell says the winner stops in it");
 
-        // The frame replaced W3's pointer; its triangle works at x 85, not x 49, where the window's title sits.
         assertEquals(
                 FRAME,
                 ring.getRGB(x, y) & 0xFFFFFF,
@@ -182,7 +179,6 @@ class WheelPanelTest {
                 WheelPanel.INFO_SLOTS.size() + WheelPanel.AGAIN_SLOTS.size(),
                 claimed.size(),
                 "a slot is claimed twice");
-        // Rows 0 and 2 of 5..8 are deliberately blank; every click here is cancelled, which is what makes it safe.
         assertTrue(claimed.size() >= 12);
     }
 
@@ -258,7 +254,6 @@ class WheelPanelTest {
         }
     }
 
-    // The two backing colours the generator paints a cell in, as ARGB.
     private static final int CELL = 0xFF3A3A40;
     private static final int WINNER = 0xFF48484F;
     private static final int FRAME = 0xFFFFFF;

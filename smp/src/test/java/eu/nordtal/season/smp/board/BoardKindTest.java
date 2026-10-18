@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** That a mistyped board kind in {@code config.yml} is caught rather than silently drawn as one. */
 class BoardKindTest {
 
     @Test

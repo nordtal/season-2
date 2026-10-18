@@ -7,7 +7,6 @@ import eu.nordtal.season.spec.schema.SchemaWriter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Name tags are always drawn and their text is smp's, so the group holds only how a tag looks, at one level. */
 class NameTagsSchemaTest {
 
     @Test

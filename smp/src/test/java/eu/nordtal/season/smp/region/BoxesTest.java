@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The box arithmetic behind both the spawn protection and the balloons, inclusive corners above all. */
 class BoxesTest {
 
     private static final String WORLD = "nordtal";
@@ -71,12 +70,11 @@ class BoxesTest {
         assertEquals(0, boxes.in("nordtal_the_end").size());
     }
 
-    /** The one number in this file that is not arbitrary: the balloon's distance from the border centre. */
+    /** The distance of the balloon from the border centre, the one number in this file that is not arbitrary. */
     @Test
     void horizontalDistanceIgnoresHeightAndMeasuresFromTheCentre() {
         final Box balloon = new Box(WORLD, 119, 64, 86, 123, 68, 90);
 
-        // Centre of the box is 121/88; the border centre is 106/88, so fifteen blocks east.
         assertEquals(15.0, balloon.horizontalDistanceFrom(106, 88), 0.0001);
 
         final Box tooClose = new Box(WORLD, 104, 64, 86, 108, 68, 90);

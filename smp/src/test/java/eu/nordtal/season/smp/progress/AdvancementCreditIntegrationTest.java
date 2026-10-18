@@ -35,9 +35,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * A gate counts every player who holds its advancement, each once, however long ago they earned it.
+ * A gate counts every player who holds its advancement exactly once, however long ago the player earned it.
  *
- * Below its target a credit touches only the database and the track, so the ceremony's collaborators are absent.
+ * A credit below the target touches only the database and the track, so the test passes no ceremony collaborators.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AdvancementCreditIntegrationTest {
@@ -196,7 +196,7 @@ class AdvancementCreditIntegrationTest {
         assertEquals(3, reads.size());
     }
 
-    /** A server whose online players and their advancements the test sets; only {@link #MINECRAFT_ID} holds any. */
+    /** A server with online players and advancements set by the test. Only {@link #MINECRAFT_ID} holds advancements. */
     private final class FakeServer implements GateHolders.Server {
 
         @Override

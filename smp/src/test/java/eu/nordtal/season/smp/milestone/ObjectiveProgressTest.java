@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Advancing an objective, and the one moment that fires everything else, exactly once. */
 class ObjectiveProgressTest {
 
     @Test
@@ -24,7 +23,7 @@ class ObjectiveProgressTest {
         assertTrue(crossing.completes());
         assertEquals(2100, crossing.amount(), "an overshoot is kept, not clipped to the target");
 
-        // A delivery against a finished objective must not complete it again; `completes` reads the PREVIOUS amount.
+        // A delivery to a finished objective does not complete it again.
         assertFalse(ObjectiveProgress.advance(2100, 2048, 100).completes());
     }
 
@@ -45,7 +44,6 @@ class ObjectiveProgressTest {
 
     @Test
     void anAbsurdDeltaSaturatesRatherThanWrapping() {
-        // Nothing here reaches a bigint's limit; an overflowing counter reading as going backwards is the worse case.
         assertEquals(
                 Long.MAX_VALUE,
                 ObjectiveProgress.advance(Long.MAX_VALUE - 1, 100, 1000).amount());
@@ -53,7 +51,7 @@ class ObjectiveProgressTest {
 
     @Test
     void aLoweredTargetCompletesAnObjectiveOnReload() {
-        // The first escape hatch: reaching the new target on the spot completes and pays the FULL pot, nothing rescued.
+        // Reaching the new target at once completes the objective and pays the full pot.
         assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
         assertTrue(ObjectiveProgress.completesOnReload(1000, 1000));
         assertFalse(ObjectiveProgress.completesOnReload(999, 1000));

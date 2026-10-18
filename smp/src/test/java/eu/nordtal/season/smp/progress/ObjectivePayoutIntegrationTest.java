@@ -47,9 +47,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * An objective finished by play pays its whole budgets, however many credits it took to finish, or nothing at all.
+ * An objective finished by play pays its whole budgets however many credits finished it, or pays nothing.
  *
- * Finishing one hands its announcement to the main thread, so the plugin and the server are fakes that drop it.
+ * Finishing an objective passes its announcement to the main thread, so the plugin and the server are fakes that drop
+ * it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ObjectivePayoutIntegrationTest {
@@ -65,7 +66,6 @@ class ObjectivePayoutIntegrationTest {
     private DataSource dataSource;
     private Jdbi jdbi;
     private ObjectiveEngine engine;
-    /** Whether the wheel refuses to grant, as a database that fails half way through a payout would. */
     private boolean grantsFail;
 
     private @Nullable Server replaced;
@@ -75,7 +75,6 @@ class ObjectivePayoutIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
         jdbi = Jdbis.over(dataSource);
 
-        // Bukkit.setServer also logs the running build, which only a real server can name.
         final Field server = bukkitServer();
         replaced = (Server) server.get(null);
         final BukkitScheduler scheduler =
@@ -94,7 +93,7 @@ class ObjectivePayoutIntegrationTest {
         execute("TRUNCATE TABLE smp_milestone, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER.value() + "'), ('" + OTHER.value() + "')");
         execute("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'ACTIVE')");
-        // Two objectives, so finishing one leaves the milestone and its unlock ceremony alone.
+        // Finishing one of two objectives leaves the milestone and its unlock ceremony unchanged.
         execute("INSERT INTO smp_objective (milestone_key, key, type, target) VALUES"
                 + " ('foothold', 'logs', 'HAND_IN', 64),"
                 + " ('foothold', 'iron-tools', 'ADVANCEMENT', 1)");
@@ -169,11 +168,11 @@ class ObjectivePayoutIntegrationTest {
 
         engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
 
-        // 30 aura: 4 each equally, then 22 by 48 to 16, whose one left over goes to the larger share.
+        // 30 aura: 4 each equally, then 22 split by 48 to 16, and the remaining 1 goes to the larger share.
         assertEquals(21, auraOf(PLAYER, "logs"));
         assertEquals(9, auraOf(OTHER, "logs"));
         assertEquals(POT, auraPaidFor("logs"), "the whole aura budget and never more");
-        // 20 spins: 3 each equally, then 14 by 48 to 16, the one left over to the larger share again.
+        // 20 spins: 3 each equally, then 14 split by 48 to 16, and the remaining 1 goes to the larger share.
         assertEquals(14, spinsOf(PLAYER));
         assertEquals(6, spinsOf(OTHER), "what the menu forecast a delivery earlier");
     }
@@ -208,7 +207,6 @@ class ObjectivePayoutIntegrationTest {
                 "the objective is still open, so the same delivery can be made again");
     }
 
-    /** The real wheel, which the payout's spins land in, unless a test makes it fail. */
     private PrizeSource wheel() {
         final PrizeSource real = new ExtraSpins(jdbi.onDemand(SpinDao.class));
         return new PrizeSource() {
@@ -240,7 +238,6 @@ class ObjectivePayoutIntegrationTest {
                 handle -> handle.createQuery(sql).mapTo(Long.class).one());
     }
 
-    /** Returns a fake that answers the named methods and refuses every other call. */
     private static <T> T fake(final Class<T> type, final Map<String, Object> answers) {
         return type.cast(Proxy.newProxyInstance(
                 type.getClassLoader(), new Class<?>[] {type}, (proxy, method, arguments) -> {

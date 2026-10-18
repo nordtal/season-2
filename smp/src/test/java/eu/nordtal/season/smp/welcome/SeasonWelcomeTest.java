@@ -7,7 +7,6 @@ import eu.nordtal.season.smp.stage.Cinematic;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-/** What the season's opening moment shows while its art has not arrived. */
 class SeasonWelcomeTest {
 
     @Test

@@ -11,10 +11,10 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 /**
- * The skull on a grave, held against the vanilla geometry of a player head in an item display with {@code NONE}.
+ * The skull of a grave, compared with the vanilla geometry of a player head in an item display with {@code NONE}.
  *
- * In the display's own frame the head's hat layer hangs below the origin: 8.5 pixels wide, from a quarter pixel above
- * the origin to 8.25 pixels below it. The chest's lid is 14 pixels wide and 14 pixels high.
+ * In the frame of the display, the hat layer of the head is 8.5 pixels wide and reaches from a quarter pixel above the
+ * origin to 8.25 pixels below it. The lid of the chest is 14 pixels wide and 14 pixels high.
  */
 class GraveHeadTest {
 
@@ -62,7 +62,7 @@ class GraveHeadTest {
         assertTrue(lean > 5f && lean <= 30f, "the skull leans " + lean + " degrees, not slightly");
     }
 
-    /** The eight corners of the hat layer where the display draws them, relative to the chest's bottom centre. */
+    /** The eight corners of the hat layer as the display draws them, relative to the bottom centre of the chest. */
     private static List<Vector3f> drawnCorners() {
         final List<Vector3f> corners = new ArrayList<>(8);
         for (final float x : new float[] {-HAT_HALF_WIDTH, HAT_HALF_WIDTH}) {
@@ -75,7 +75,6 @@ class GraveHeadTest {
         return corners;
     }
 
-    /** A point of the model as the display draws it: translation, left rotation, scale, right rotation. */
     private static Vector3f drawn(final Vector3f point) {
         final Transformation transformation = GraveHead.transformation();
         return transformation

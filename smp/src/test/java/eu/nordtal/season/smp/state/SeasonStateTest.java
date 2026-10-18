@@ -10,7 +10,6 @@ import eu.nordtal.season.smp.milestone.Unlock;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Where the database's progress and the file's definition meet. */
 class SeasonStateTest {
 
     private static final MilestoneTrack TRACK = new MilestoneTrack(List.of(
@@ -27,7 +26,7 @@ class SeasonStateTest {
 
     @Test
     void aFreshStateIsUnreadAndNotFinished() {
-        // Both have no key and no objectives. Only the first may be announced as "finished".
+        // Both milestones have no key and no objectives, and only the first one counts as finished.
         final SeasonState state = new SeasonState();
         assertTrue(state.active().unread());
 
@@ -54,7 +53,7 @@ class SeasonStateTest {
         assertEquals(99, state.borderDiameter());
     }
 
-    /** An admin completing a milestone out of order must not shrink the world on the next restart. */
+    /** An admin completing a milestone out of order does not shrink the world on the next restart. */
     @Test
     void anOutOfOrderCompletionCannotShrinkTheWorld() {
         final SeasonState state = new SeasonState();
@@ -72,7 +71,7 @@ class SeasonStateTest {
         assertFalse(state.isUnlocked(Unlock.END), "the End is its own milestone");
     }
 
-    /** A key in the database that the file no longer declares contributes nothing rather than throwing. */
+    /** A key in the database that the file no longer declares adds nothing and throws nothing. */
     @Test
     void aCompletedKeyTheTrackNoLongerDeclaresIsIgnored() {
         final SeasonState state = new SeasonState();

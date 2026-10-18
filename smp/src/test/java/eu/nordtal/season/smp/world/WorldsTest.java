@@ -14,15 +14,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 /**
- * That {@link Worlds#balloonSpawnPoint} hands back the point that was configured for that role.
+ * {@link Worlds#balloonSpawnPoint} returns the point configured for its role.
  *
- * Every number is distinct so two crossed {@code switch} arms cannot pass.
+ * Every field of every point has a distinct value, so crossed {@code switch} arms fail.
  */
 class WorldsTest {
 
     @Test
     void eachRoleGetsItsOwnPoint() {
-        // One point per role, every field distinct, so a crossed arm cannot land on a value that happens to match.
         final Map<WorldRole, SpawnPointSpec> expected = new LinkedHashMap<>();
         int index = 1;
         for (final WorldRole role : WorldRole.values()) {
@@ -45,7 +44,6 @@ class WorldsTest {
         assertAll(checks);
     }
 
-    /** A point whose five numbers are all different from every other point's. */
     private static SpawnPointSpec point(final int seed) {
         return new SpawnPointSpec() {
             @Override

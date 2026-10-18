@@ -16,9 +16,9 @@ import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the SMP's two language files stay the same file in two languages, placeholders included.
+ * The two language files of the SMP hold the same keys and the same placeholders.
  *
- * {@code Messages} degrades to the key rather than throwing, so a missing key has to fail here instead.
+ * {@code Messages} returns the key for a missing key and throws nothing, so only this test fails on a missing key.
  */
 class MessageBundlesTest {
 
@@ -27,9 +27,6 @@ class MessageBundlesTest {
     private final Messages messages =
             Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
-    /**
-     * The wheel's prize arrives as a translated item name, not literal text.
-     */
     @Test
     void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
         for (final Locale locale : java.util.List.of(Locale.ENGLISH, Locale.GERMAN)) {

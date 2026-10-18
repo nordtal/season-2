@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** What a death costs: everything costs, the arena costs nothing, and the listed causes cost more. */
 class DeathPenaltyTest {
 
     private final DeathPenalty penalty = new DeathPenalty(5, 20, Set.of("lava", "cactus", "in_wall"));
@@ -27,14 +26,14 @@ class DeathPenaltyTest {
 
     @Test
     void theArenaCostsNothingAtAll() {
-        // The +-10 stake already settles the fight; a death penalty on top makes every duel a net loss for both.
+        // The stake of plus or minus 10 already decides a duel.
         assertEquals(0, penalty.deltaFor("player_attack", true));
         assertEquals(0, penalty.deltaFor("lava", true), "even a listed cause, inside the arena");
     }
 
     @Test
     void aNamespaceAndCaseAreBothIgnored() {
-        // A rule that stopped matching because somebody typed the namespace would be invisible.
+        // A rule with a typed namespace would stop matching without any visible sign.
         assertEquals(-20, penalty.deltaFor("minecraft:lava", false));
         assertEquals(-20, penalty.deltaFor("LAVA", false));
         assertEquals(-20, penalty.deltaFor("  Minecraft:Lava  ", false));
@@ -48,7 +47,6 @@ class DeathPenaltyTest {
 
     @Test
     void theBorderAndTheVoidAndTheDragonFightAllCost() {
-        // Each exemption was considered and dropped, including the dragon fight, where dying is the only way home.
         assertEquals(-5, penalty.deltaFor("outside_border", false));
         assertEquals(-5, penalty.deltaFor("out_of_world", false));
         assertEquals(-5, penalty.deltaFor("dragon_breath", false));
@@ -56,7 +54,7 @@ class DeathPenaltyTest {
 
     @Test
     void aNegativelyConfiguredPenaltyIsRefused() {
-        // The config carries positive numbers and this class subtracts them; a negative would pay a player for dying.
+        // The class subtracts the penalty, so a negative one would pay a player for dying.
         assertThrows(IllegalArgumentException.class, () -> new DeathPenalty(-5, 20, Set.of()));
     }
 

@@ -11,7 +11,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-/** The grave head's lore prints the day of death and the place, checked through the real bundle in both languages. */
 class GraveDiedAtLoreTest {
 
     private static final Messages MESSAGES =
@@ -34,7 +33,7 @@ class GraveDiedAtLoreTest {
                 plain(RENDERER.format(Locale.GERMAN, DIED.diedAt(AT, 100, 64, -200))));
     }
 
-    /** The old hint key is replaced, not kept alongside the new line: it must be gone, not merely unused. */
+    /** The old hint key is gone from the bundle and not merely unused. */
     @Test
     void theOldHintKeyIsGone() {
         assertEquals(

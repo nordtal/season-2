@@ -18,9 +18,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * Putting a wheel spin back, against a real PostgreSQL running the real migrations.
+ * Puts a wheel spin back, against a real PostgreSQL with the real migrations.
  *
- * A refund restores the same kind of spin, casts its null date and stays idempotent; skips itself without Docker.
+ * A refund restores the same kind of spin, writes a null date as a typed null and changes nothing on a second call.
+ *
+ * The test skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SpinRefundIntegrationTest {
@@ -50,7 +52,7 @@ class SpinRefundIntegrationTest {
         assertTrue(dao.takeFreeSpin(DiscordId.of(DISCORD_ID), TODAY).isPresent(), "the spin has to be taken first");
         assertFalse(spins().hasFree(TODAY), "and be gone");
 
-        // null is the value the row held a moment earlier; JDBI binds it as a typed null, proving the null path.
+        // JDBI binds the null date as a typed null.
         dao.restoreFreeSpin(DiscordId.of(DISCORD_ID), null, TODAY);
 
         assertEquals(null, spins().lastFree(), "a refunded first spin is a spin never taken");
@@ -75,7 +77,7 @@ class SpinRefundIntegrationTest {
         assertTrue(dao.takeFreeSpin(DiscordId.of(DISCORD_ID), TODAY).isPresent());
 
         dao.restoreFreeSpin(DiscordId.of(DISCORD_ID), null, TODAY);
-        // The second call matters: last_free is no longer TODAY, so the guard makes it a no-op, not a free refund.
+        // The second call changes nothing, because {@code last_free} no longer holds today.
         dao.restoreFreeSpin(DiscordId.of(DISCORD_ID), null, TODAY);
 
         assertEquals(1, spins().available(TODAY), "one spin was taken, so one spin comes back");
@@ -109,7 +111,7 @@ class SpinRefundIntegrationTest {
     void theEarnedRefundRespectsTheCheckConstraint() {
         dao.grantSpins(DiscordId.of(DISCORD_ID), 1);
 
-        // smp_spin_used_not_negative would abort the transaction; the guard makes an unpaired call a no-op instead.
+        // A refund without a spin used changes nothing.
         dao.restoreEarnedSpin(DiscordId.of(DISCORD_ID));
 
         assertEquals(1, spins().extras());

@@ -12,9 +12,9 @@ import net.kyori.adventure.text.format.TextColor;
 import org.junit.jupiter.api.Test;
 
 /**
- * Thirteen prestige colours plus the one that overrides them all.
+ * {@code PrestigeColours} holds thirteen tier colours and one admin colour.
  *
- * A bad hex falls back to the default, and the admin colour never equals a tier's default.
+ * A malformed hex value falls back to the default, and the admin colour differs from every default tier colour.
  */
 class PrestigeColoursTest {
 

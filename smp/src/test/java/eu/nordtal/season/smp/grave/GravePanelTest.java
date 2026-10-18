@@ -19,7 +19,6 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/** Walks the grave's composed window and holds it against the five slabs the pack drew. */
 class GravePanelTest {
 
     @Test
@@ -58,7 +57,7 @@ class GravePanelTest {
 
     @Test
     void theSlabIsRecessesAndNotATray() {
-        // The deliberate opposite of the hand-in tray: a grave's cells say these are distinct stacks, any takeable.
+        // Unlike the hand-in tray, the cells of a grave are distinct stacks and any of them can be taken.
         final BufferedImage slab = PanelWalk.image("grave_slab_2.png");
         final Set<Integer> columnColours = new LinkedHashSet<>();
         for (int x = 0; x < slab.getWidth(); x++) {
@@ -69,7 +68,6 @@ class GravePanelTest {
                 "row 4 of the slab is one flat colour all the way across, so there is no cell edge"
                         + " in it and the grave is drawn as a tray");
 
-        // The lit edge of each cell, at x = 17 within every 18-pixel step, is what makes it a grid.
         final int edge = slab.getRGB(17, 4);
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             assertEquals(
@@ -118,12 +116,12 @@ class GravePanelTest {
 
     @Test
     void theRowCountFollowsWhatWasCarried() {
-        // An experience-only grave is real: a death dropping nothing but levels. One row, not an empty window.
+        // A grave that holds only experience shows one row and not an empty window.
         assertEquals(1, GravePanel.contentRows(0));
         assertEquals(1, GravePanel.contentRows(1));
         assertEquals(1, GravePanel.contentRows(9));
         assertEquals(2, GravePanel.contentRows(10));
-        // Thirty-six inventory slots, four of armour and one off-hand is the most anybody carries.
+        // A player carries at most 36 inventory slots, 4 armour slots and the off-hand.
         assertEquals(5, GravePanel.contentRows(41));
         assertEquals(
                 GravePanel.MAX_CONTENT_ROWS,

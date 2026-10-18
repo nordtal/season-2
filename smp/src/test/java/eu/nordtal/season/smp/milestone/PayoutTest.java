@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** The contribution payout: a budget is paid out exactly, and the same inputs always produce the same payout. */
 class PayoutTest {
 
     @Test
@@ -18,7 +17,6 @@ class PayoutTest {
         final List<Payout.Share> shares = Payout.split(100, 1000, contributions("a", 500, "b", 500));
 
         assertEquals(2, shares.size());
-        // 30 % equally: 15 each. 70 % by share: 35 each.
         assertEquals(15, shares.get(0).equal());
         assertEquals(35, shares.get(0).proportional());
         assertEquals(50, total(shares) / 2);
@@ -27,7 +25,7 @@ class PayoutTest {
 
     @Test
     void aContributorBelowTwoPercentGetsTheProportionalShareOnly() {
-        // Below the threshold a contributor gets only their proportional share, not hundreds for a token contribution.
+        // Below the threshold a contributor gets only the proportional share and not hundreds for a token contribution.
         final List<Payout.Share> shares = Payout.split(100, 1000, contributions("a", 990, "b", 10));
 
         final Payout.Share small = byId(shares, "b");
@@ -38,7 +36,6 @@ class PayoutTest {
 
     @Test
     void exactlyOnTheThresholdQualifies() {
-        // 2 % of 1000 is 20. ">=" and ">" differ by one player's entire equal share.
         assertTrue(byId(Payout.split(100, 1000, contributions("a", 980, "b", 20)), "b")
                 .qualified());
         assertFalse(byId(Payout.split(100, 1000, contributions("a", 981, "b", 19)), "b")
@@ -47,7 +44,7 @@ class PayoutTest {
 
     @Test
     void theWorkedExampleFromTheConcept() {
-        // Nine of thirty on twelve qualifiers floors to zero each; the guarantee exists to prevent that.
+        // Nine of thirty on twelve qualifiers floors to zero each, and the guarantee prevents that.
         final Map<String, Long> twelve = new LinkedHashMap<>();
         for (int index = 0; index < 12; index++) {
             twelve.put("p" + index, 100L);
@@ -59,7 +56,7 @@ class PayoutTest {
         for (final Payout.Share share : shares) {
             assertEquals(1, share.equal(), "every qualifier is guaranteed one aura");
         }
-        // The equal part grew from 9 to 12, so 18 is left to divide proportionally: 1 each, and 6 to the remainders.
+        // The equal part grew from 9 to 12, so 18 remain for the proportional part: 1 each and 6 to the remainders.
         assertEquals(30, total(shares), "paid " + total(shares) + " out of a budget of 30");
         assertEquals(
                 6, shares.stream().filter(share -> share.proportional() == 2).count());
@@ -90,7 +87,7 @@ class PayoutTest {
 
     @Test
     void whatTheFloorsLeaveGoesToTheLargestRemainders() {
-        // Ten among 50, 30 and 20: one each equally, then 7 by share is 3.5, 2.1 and 1.4, so the last unit is a's.
+        // Ten among 50, 30 and 20: the last unit goes to a, whose remainder is the largest.
         final List<Payout.Share> shares = Payout.split(10, 100, contributions("a", 50, "b", 30, "c", 20));
 
         assertEquals(5, byId(shares, "a").total());
@@ -100,7 +97,6 @@ class PayoutTest {
 
     @Test
     void tenEqualPlayersOnTwentySpinsGetTwoEach() {
-        // The spin budget of a milestone whose gate is ten players, as the default track derives it.
         final Map<String, Long> ten = new LinkedHashMap<>();
         for (int index = 0; index < 10; index++) {
             ten.put("p" + index, 100L);
@@ -113,7 +109,7 @@ class PayoutTest {
 
     @Test
     void moreQualifiersThanThereIsAuraPaysTheBiggestContributorsFirst() {
-        // Forty qualifiers on a budget of thirty cannot all be guaranteed; the budget reaches the largest first.
+        // Forty qualifiers cannot all be guaranteed on a budget of thirty, so the budget reaches the largest first.
         final Map<String, Long> forty = new LinkedHashMap<>();
         for (int index = 0; index < 40; index++) {
             forty.put(String.format("p%02d", index), (long) (index + 1) * 100);
@@ -132,7 +128,6 @@ class PayoutTest {
 
     @Test
     void anAdvancementObjectiveSplitsEvenly() {
-        // A share of 1 or 0 divides the proportional part equally; everybody who earned it qualifies, no exceptions.
         final Map<String, Long> ten = new LinkedHashMap<>();
         for (int index = 0; index < 10; index++) {
             ten.put("p" + index, 1L);
@@ -153,7 +148,7 @@ class PayoutTest {
 
     @Test
     void anAdminCompletionPaysProportionallyToWhatWasActuallyReached() {
-        // An admin completion pays budget × (reached ÷ target), so a rescue neither robs the contributors nor mints.
+        // An admin completion pays the budget times reached divided by target.
         assertEquals(50, Payout.scaled(100, 500, 1000));
         assertEquals(0, Payout.scaled(100, 0, 1000));
         assertEquals(100, Payout.scaled(100, 1000, 1000));
@@ -173,14 +168,13 @@ class PayoutTest {
 
     @Test
     void aTargetOfZeroIsRefusedRatherThanDividedBy() {
-        // smp_objective's own CHECK forbids it; stated again where the division happens rather than throwing raw.
+        // {@code smp_objective} has a CHECK that forbids it, and the test states it again where the division happens.
         assertThrows(IllegalArgumentException.class, () -> Payout.split(100, 0, contributions("a", 1, "b", 1)));
         assertThrows(IllegalArgumentException.class, () -> Payout.scaled(100, 10, 0));
     }
 
     @Test
     void theSameInputsAlwaysProduceTheSamePayout() {
-        // Including the tie-break: two equal contributors on a budget that pays one must resolve the same way always.
         final Map<String, Long> tied = new LinkedHashMap<>();
         for (int index = 0; index < 20; index++) {
             tied.put(String.format("p%02d", index), 50L);
@@ -203,7 +197,7 @@ class PayoutTest {
 
     @Test
     void anOvershotObjectiveStillOnlyPaysItsBudget() {
-        // A HAND_IN usually overshoots, which is why the denominator is what was actually contributed, not the target.
+        // A HAND_IN usually overshoots, so the denominator is the amount contributed and not the target.
         final List<Payout.Share> shares = Payout.split(100, 1000, contributions("a", 3000, "b", 1000));
 
         assertEquals(100, total(shares));

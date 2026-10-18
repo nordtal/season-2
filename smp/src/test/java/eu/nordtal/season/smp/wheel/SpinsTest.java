@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
-/** When the free spin comes back: at midnight in the server's own time zone, asserted against fixed dates. */
 class SpinsTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
@@ -45,7 +44,7 @@ class SpinsTest {
         assertEquals(1, new Spins(3, 2, TODAY).available(TODAY));
     }
 
-    /** The free one goes first: an earned spin kept is still there tomorrow, a free one is not. */
+    /** A spin consumes the free spin first, because an earned spin stays after midnight and the free spin does not. */
     @Test
     void theFreeSpinIsSpentBeforeAnEarnedOne() {
         assertTrue(new Spins(5, 0, null).nextIsFree(TODAY));

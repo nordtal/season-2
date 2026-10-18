@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** That the {@code smp} groups load from their defaults and come back whole from stored rows. */
 class SmpSettingsTest {
 
     private static final Group<SmpSpec> CONFIG =
@@ -32,7 +31,9 @@ class SmpSettingsTest {
 
     private final MemorySettingStore store = new MemorySettingStore();
 
-    /** Loads every group from nothing stored, so a missing {@code @ConfigSpec} fails here, not in {@code onEnable}. */
+    /**
+     * Loads every group with nothing stored, so a missing {@code @ConfigSpec} fails here and not in {@code onEnable}.
+     */
     @Test
     void everyGroupLoadsFromItsDefaults() throws Exception {
         final SmpSpec config = store.checked("smp", CONFIG, Map.of());
@@ -45,7 +46,6 @@ class SmpSettingsTest {
         assertEquals("minecraft:ui.button.click", sounds.select().key());
     }
 
-    /** Every value below the nested interfaces survives being stored as rows, not just the flat ones. */
     @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
         final SmpSpec written = Specs.createDefault(SmpSpec.class);
@@ -62,7 +62,7 @@ class SmpSettingsTest {
                 written.balloons().getFirst().world(),
                 reread.balloons().getFirst().world());
 
-        // Two levels of nesting: balloon-spawn-points is a spec of specs, so all five numbers of each point check.
+        // {@code balloon-spawn-points} is a spec of specs, so the test checks all five numbers of each point.
         final BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
         assertAll(
                 () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
@@ -77,7 +77,7 @@ class SmpSettingsTest {
                 () -> assertEquals(written.firstJoinSpawn().z(), spawn.z()),
                 () -> assertEquals(written.firstJoinSpawn().yaw(), spawn.yaw()),
                 () -> assertEquals(written.firstJoinSpawn().pitch(), spawn.pitch()),
-                // The world must resolve on a real server; a disagreeing default silently moves no first join anywhere.
+                // The world must resolve on a real server, and a different default would move no first join anywhere.
                 () -> assertEquals(
                         reread.worldNordtal(),
                         spawn.world(),
@@ -85,7 +85,6 @@ class SmpSettingsTest {
                                 + " or a fresh deployment ships a first join that goes nowhere"));
     }
 
-    /** Puts every leaf below {@code tree} into {@code values} as Steward stores it: a list is one value. */
     private static void storeLeaves(final JsonElement tree, final String path, final Map<String, Object> values) {
         if (tree instanceof final JsonObject object) {
             object.entrySet()
@@ -105,7 +104,6 @@ class SmpSettingsTest {
         values.put(path, tree.toString());
     }
 
-    /** Every number of one landing point, because a null only shows up when it is read. */
     private static void assertPoint(final SpawnPointSpec written, final SpawnPointSpec reread, final String which) {
         assertAll(
                 () -> assertEquals(written.x(), reread.x(), which + ": x"),
@@ -115,9 +113,6 @@ class SmpSettingsTest {
                 () -> assertEquals(written.pitch(), reread.pitch(), which + ": pitch"));
     }
 
-    /**
-     * The same rule stated directly, so it holds even on a JVM that opens {@code java.lang.reflect} to the test worker.
-     */
     @Test
     void everyNestedSpecInterfaceCarriesTheAnnotation() {
         final List<String> missing = new ArrayList<>();
@@ -146,7 +141,6 @@ class SmpSettingsTest {
         }
     }
 
-    /** An interface return type, or the interface element type of a {@code List<…>}. */
     private static List<Class<?>> specTypesOf(final Type type) {
         if (type instanceof Class<?> raw) {
             return raw.isInterface() && raw.getName().startsWith("eu.nordtal.season.smp.") ? List.of(raw) : List.of();

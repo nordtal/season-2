@@ -17,7 +17,6 @@ import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** One request in the bot's inbox per announcement, with every language's message, which the bot renders. */
 class AnnouncerTest {
 
     private static final List<Locale> LOADED = List.of(Locale.ENGLISH, Locale.GERMAN);

@@ -8,9 +8,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rule that decides whether a reloaded milestone file may replace the running one.
+ * The rule that decides whether a reloaded milestone file replaces the running one.
  *
- * It must refuse a change that orphans stored progress and permit lowering a live objective's target.
+ * It refuses a change that orphans stored progress and permits lowering the target of a live objective.
  */
 class TrackValidationTest {
 
@@ -34,7 +34,7 @@ class TrackValidationTest {
 
     @Test
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
-        // The point of this class: without it, the escape hatch is only an admin command, not a config-level one.
+        // Without this check only an admin command can lower the target, and a config change cannot.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 1500, 2048, false));
 
@@ -45,7 +45,7 @@ class TrackValidationTest {
 
     @Test
     void raisingTheTargetOfALiveObjectiveIsAlsoAllowed() {
-        // The same edit in the other direction. Refusing it would mean a typo could only ever be corrected downwards.
+        // Refusing the same edit in the other direction would let a typo be corrected only downwards.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
 
@@ -54,14 +54,14 @@ class TrackValidationTest {
 
     @Test
     void loweringATargetBelowTheCollectedProgressCompletesTheObjective() {
-        // The other half lives in ObjectiveProgress: validation lets it through, the engine notices it's already done.
+        // Validation lets it through, and {@code ObjectiveProgress} notices that the objective is already done.
         assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
         assertFalse(ObjectiveProgress.completesOnReload(900, 1000));
     }
 
     @Test
     void aRenamedMilestoneIsRefused() {
-        // From here a rename looks like deletion: progress and any aura already paid would have nothing to point at.
+        // A rename looks like a deletion, and stored progress and paid aura have nothing to point at.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
@@ -90,7 +90,7 @@ class TrackValidationTest {
 
     @Test
     void changingAnObjectivesTypeIsRefusedOnceItHasProgress() {
-        // `amount` differs per type (items, a statistic, distinct players), so carrying it across is the wrong unit.
+        // {@code amount} has a different unit per type.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.STATISTIC, 100, 2048, false));
 
@@ -102,7 +102,7 @@ class TrackValidationTest {
 
     @Test
     void changingTheTargetOfACompletedObjectiveIsRefused() {
-        // It already paid out, and budget x (reached / target) refers to what was asked at the time it was completed.
+        // The objective already paid out at its old target.
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
@@ -122,7 +122,6 @@ class TrackValidationTest {
 
     @Test
     void appendingAMilestoneIsAlwaysAllowed() {
-        // The planned response to a track that finishes early.
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
@@ -135,7 +134,7 @@ class TrackValidationTest {
 
     @Test
     void movingAnUnlockedMilestoneBehindALockedOneIsRefused() {
-        // The track is linear in file order; what finished must stay at the front or nothing answers what comes next.
+        // The track is linear in file order, so finished milestones stay at the front.
         final StoredProgress stored = new StoredProgress(
                 List.of(
                         new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
@@ -155,7 +154,6 @@ class TrackValidationTest {
 
     @Test
     void everyProblemIsReportedRatherThanOnlyTheFirst() {
-        // One reload has to name every mistake.
         final StoredProgress stored = new StoredProgress(
                 List.of(
                         new StoredProgress.StoredMilestone("gone", MilestoneState.UNLOCKED),

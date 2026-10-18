@@ -11,13 +11,11 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** The balloon's grid as a table: fixed cards, a marked current world, and a hole that hits nothing. */
 class BalloonMenuTest {
 
     private static final Set<Unlock> NOTHING = EnumSet.noneOf(Unlock.class);
     private static final Set<Unlock> BOTH = EnumSet.of(Unlock.NETHER, Unlock.END);
 
-    /** The two worlds a balloon actually stands in. The End has none and Nordtal's is the first. */
     private static final List<WorldRole> BALLOONS = List.of(WorldRole.NORDTAL, WorldRole.NETHER);
 
     @Test
@@ -65,7 +63,6 @@ class BalloonMenuTest {
         }
     }
 
-    /** Locked destinations keep their place rather than disappearing. */
     @Test
     void aLockedDestinationStaysInTheGrid() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, NOTHING);

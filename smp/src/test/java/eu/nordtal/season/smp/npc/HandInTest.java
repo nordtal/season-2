@@ -8,9 +8,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one place in this design where a bug takes items off a player and gives nothing back.
+ * {@code HandIn} is the one place where a bug takes items from a player and gives nothing back.
  *
- * Everything here is a refusal, above all refusing to swallow the surplus of a stack that straddles the target.
+ * Every test here pins a refusal, above all the refusal to take the surplus of a stack that straddles the target.
  */
 class HandInTest {
 
@@ -51,7 +51,6 @@ class HandInTest {
         assertEquals(1, result.takes().get(0).slot());
     }
 
-    /** The case this class exists for. */
     @Test
     void aStackThatStraddlesTheTargetIsSplitAndTheSurplusLeftAlone() {
         final HandIn.Result result = HandIn.sort(List.of(offered(3, "IRON_INGOT", 64)), WANTED, 10);
@@ -105,7 +104,6 @@ class HandInTest {
         assertTrue(result.takes().isEmpty());
     }
 
-    /** The guarantee the whole feature rests on, stated as one equality. */
     @Test
     void everyItemTakenIsAnItemCounted() {
         final HandIn.Result result = HandIn.sort(

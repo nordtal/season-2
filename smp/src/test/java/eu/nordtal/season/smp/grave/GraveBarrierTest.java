@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.smp.grave.GraveBarrier.There;
 import org.junit.jupiter.api.Test;
 
-/** The barrier that makes a grave solid, and that it never costs anybody a block. */
 class GraveBarrierTest {
 
     @Test

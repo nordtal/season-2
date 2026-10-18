@@ -22,9 +22,9 @@ import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 /**
- * Walks the spawn NPC's composed window and holds it against the PNGs the pack drew.
+ * Walks the composed window of the spawn NPC and compares it with the PNGs that the pack draws.
  *
- * The bar matters most: its width is computed, so it is the one thing that can be wrong by a little.
+ * The bar matters most, because its width is computed and can be wrong by a little.
  */
 class ObjectivePanelTest {
 
@@ -70,7 +70,6 @@ class ObjectivePanelTest {
                             .x(),
                     "card " + index + "'s type icon sits three pixels inside its own plate");
 
-            // The name sits on the card's upper row, the numbers below it; that is the whole reason for two rows.
             final List<Run> name = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper));
             assertTrue(
                     name.stream()
@@ -109,7 +108,6 @@ class ObjectivePanelTest {
 
     @Test
     void theBarIsTheRatioAndTheTrackIsTheCard() {
-        // Read off the card PNG rather than restated, since Java's idea of the bar and the pack's groove can disagree.
         final var card = PanelWalk.image("objective_card.png");
         assertEquals(ObjectivePanel.CARD_WIDTH, card.getWidth());
         assertEquals(ObjectivePanel.CARD_HEIGHT, card.getHeight());
@@ -124,7 +122,7 @@ class ObjectivePanelTest {
                     .filter(run -> Glyphs.GUI_BAR_FILL_TOP.contains(run.content()))
                     .toList();
 
-            // A bitmap glyph advances width-plus-one, so measuring the advance doubles a single-pixel slice's length.
+            // A bitmap glyph advances its width plus one.
             final int expected = expectedFill(ratio);
             final int drawn = fills.stream().mapToInt(run -> run.advance() - 1).sum();
             assertEquals(expected, drawn, "a ratio of " + ratio + " should paint " + expected + " pixels of fill");
@@ -139,7 +137,7 @@ class ObjectivePanelTest {
             assertTrue(
                     last.x() + last.advance() - 1 <= ObjectivePanel.CARD_X.get(0) + 4 + ObjectivePanel.BAR_MAX,
                     "a fill of " + drawn + " ran past the track's right edge");
-            // Largest slice first, so the run is the number's binary form and there is exactly one way to draw a width.
+            // The largest slice comes first.
             for (int index = 1; index < fills.size(); index++) {
                 assertTrue(
                         fills.get(index).advance() < fills.get(index - 1).advance(),
@@ -155,7 +153,7 @@ class ObjectivePanelTest {
 
     @Test
     void aStartedBarIsNeverEmpty() {
-        // The same rule ProgressBar floors to one character for: "1 of 3000" must not read as not begun.
+        // {@code ProgressBar} floors to one character by the same rule, so "1 of 3000" does not read as not begun.
         assertEquals(0, expectedFill(0.0));
         assertEquals(1, expectedFill(0.0001));
     }
@@ -197,7 +195,6 @@ class ObjectivePanelTest {
 
         final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW));
         assertEquals(3, text.size(), "the heading draws a name, a bar and a counter: " + text);
-        // Draw order is right to left: the counter comes first so the bar fits against it; this checks x, not order.
         final List<Run> sorted =
                 text.stream().sorted(java.util.Comparator.comparingInt(Run::x)).toList();
         assertEquals("FOOTHOLD", sorted.get(0).content());
@@ -257,7 +254,7 @@ class ObjectivePanelTest {
 
         final Run short_ = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, true)), font, Glyphs.GUI_ROW_PILL_SHORT);
         assertEquals(ObjectivePanel.PILL_X, short_.x(), "the plate still starts where every plate does");
-        // end is x + advance and advance is drawn width plus one, so the last grey pixel must land before the buttons.
+        // The last grey pixel lies before the buttons.
         assertTrue(
                 short_.end() - 2 < SlotGeometry.x(7) + ObjectivePanel.INSET,
                 "the grey island runs under the page buttons: it ends at " + (short_.end() - 2)
@@ -420,7 +417,6 @@ class ObjectivePanelTest {
         assertTrue(title.children().get(1).style().font() == null);
     }
 
-    /** What {@code ObjectivePanel#fill} should paint, computed here rather than read from it. */
     private static int expectedFill(final double ratio) {
         final double clamped = Math.max(0.0, Math.min(1.0, ratio));
         final int width = (int) Math.floor(clamped * ObjectivePanel.BAR_MAX);

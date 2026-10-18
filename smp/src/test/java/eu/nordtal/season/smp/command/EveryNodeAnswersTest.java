@@ -12,9 +12,10 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * That every node of this plugin's two hand-built command trees can be typed on its own.
+ * Every node of the two hand-built command trees of this plugin can be typed on its own.
  *
- * A node with children and no {@code executes} answers like a typo; nothing is executed, so arguments can be null.
+ * A node with children and no {@code executes} answers like a typo. The test executes nothing, so arguments can be
+ * null.
  */
 class EveryNodeAnswersTest {
 
@@ -32,7 +33,7 @@ class EveryNodeAnswersTest {
 
     @Test
     void theHelpAndTheTreeAgree() {
-        // The enum drives both, so this only catches a subcommand hung on the tree by hand, a branch help never names.
+        // The enum drives both trees, so this catches a subcommand added by hand that help never names.
         final List<String> literals = new ArrayList<>();
         commands.poi().getChildren().forEach(child -> literals.add(child.getName()));
         assertTrue(
@@ -43,7 +44,6 @@ class EveryNodeAnswersTest {
 
     @Test
     void theHelpSaysWordsAndNotKeys() {
-        // The same three roots SmpPlugin loads in the same order; Messages degrades to the key rather than throwing.
         final Messages messages = Messages.load(
                 EveryNodeAnswersTest.class.getClassLoader(),
                 List.of("messages/database", "messages/paper-common", "messages/smp"),

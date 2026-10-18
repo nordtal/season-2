@@ -28,7 +28,7 @@ class MilestoneNamesTest {
 
     @Test
     void everyShippedNameIsMapped() {
-        // A name added without a switch case is never shown: the milestone shows its config key with no explanation.
+        // A name without a switch case is never shown, and the milestone then shows its config key without explanation.
         final String prefix = "smp.milestone.";
         MessageSchema.entries(SmpMessages.class).stream()
                 .map(MessageSchema.Entry::key)

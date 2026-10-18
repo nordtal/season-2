@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** A real {@code pg_notify} wakes a {@link SignalHub} without a poll; a killed connection is replaced and re-read. */
+/** A real {@code pg_notify} wakes a {@link SignalHub} without a poll, and a killed connection is replaced. */
 class SignalHubIntegrationTest {
 
     private static final String APPLICATION = "signal-hub-test";
@@ -48,7 +48,7 @@ class SignalHubIntegrationTest {
 
             assertEquals(
                     1,
-                    // Found by its statement: the fixture's URL carries an application name that overrides the hub's.
+                    // Found by its statement, as the fixture URL has an application name that overrides the hub's.
                     count("SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity"
                             + " WHERE datname = current_database() AND query = 'LISTEN "
                             + Channel.PHASE.sqlName() + "'"),

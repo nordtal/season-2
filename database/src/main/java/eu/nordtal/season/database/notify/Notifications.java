@@ -4,30 +4,30 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Set;
 
-/** One live {@code LISTEN} connection, reduced to whether anything arrived; the channel is not reported. */
+/** A live {@code LISTEN} connection that reports only whether anything arrived, not on which channel. */
 public interface Notifications extends AutoCloseable {
 
     /**
-     * Blocks until a notification arrives on one of the channels or the timeout runs out.
+     * Blocks until a notification arrives or the timeout ends.
      *
-     * @return {@code true} if at least one notification arrived, {@code false} on a plain timeout
-     * @throws SQLException when the connection is gone, which is the only signal to reconnect
+     * @return whether a notification arrived
+     * @throws SQLException if the connection is gone, which tells the caller to reconnect
      */
     boolean awaitNotification(Duration timeout) throws SQLException;
 
-    /** Closes the underlying connection; idempotent, and never throws. */
+    /** Closes the connection. It is idempotent and never throws. */
     @Override
     void close();
 
-    /** Opens a fresh {@code LISTEN} connection. */
+    /** Opens a {@code LISTEN} connection. */
     @FunctionalInterface
     interface Connector {
 
         /**
-         * Returns a connection with a {@code LISTEN} already issued for every channel.
+         * Returns a connection that listens on every channel.
          *
          * @param channels at least one
-         * @throws SQLException if the connection could not be opened or a {@code LISTEN} failed
+         * @throws SQLException if the connection or a {@code LISTEN} fails
          */
         Notifications listen(Set<Channel> channels) throws SQLException;
     }

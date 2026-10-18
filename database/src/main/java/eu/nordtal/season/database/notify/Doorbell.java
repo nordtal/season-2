@@ -3,25 +3,22 @@ package eu.nordtal.season.database.notify;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Wakes one consumer that works on its own thread, for a {@link SignalHub} refresh that must not block the hub.
- * Rings that arrive while the consumer works collapse into one wake-up; the consumer re-reads in full anyway.
- */
+/** Wakes one consumer that works on its own thread. Rings during its work collapse into one wake-up. */
 public final class Doorbell {
 
     private boolean rung;
 
-    /** Wakes the waiting consumer, or the next one to wait. */
+    /** Wakes the consumer that waits, or the next one to wait. */
     public synchronized void ring() {
         rung = true;
         notifyAll();
     }
 
     /**
-     * Waits until the bell rings or the timeout runs out, and clears it.
+     * Waits until the bell rings or the timeout ends, and clears it.
      *
-     * @return {@code true} if it rang, {@code false} on a plain timeout
-     * @throws InterruptedException when the waiting thread is interrupted, which means stop
+     * @return whether it rang
+     * @throws InterruptedException if the thread is interrupted, which means stop
      */
     public synchronized boolean await(final Duration timeout) throws InterruptedException {
         final long deadline = System.nanoTime() + timeout.toNanos();

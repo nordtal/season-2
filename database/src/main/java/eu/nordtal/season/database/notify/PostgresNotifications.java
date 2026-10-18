@@ -13,12 +13,12 @@ import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
 /**
- * One plain, unpooled JDBC connection with a {@code LISTEN} per channel, polled with {@code getNotifications}.
- * A {@code socketTimeout} turns a dead peer into a {@link SQLException} for the reconnect.
+ * An unpooled JDBC connection with a {@code LISTEN} per channel, polled with {@code getNotifications}.
+ * A {@code socketTimeout} turns a dead peer into a {@link SQLException}.
  */
 public final class PostgresNotifications implements Notifications {
 
-    /** How long the liveness check after a quiet interval may take before it counts as failed. */
+    /** The time the liveness check after a quiet interval may take. */
     private static final int LIVENESS_CHECK_SECONDS = 5;
 
     private final Connection connection;
@@ -34,9 +34,9 @@ public final class PostgresNotifications implements Notifications {
     /**
      * Returns a connector that opens one dedicated connection per call.
      *
-     * @param password             database password, {@code null} treated as empty
-     * @param socketTimeoutSeconds bounds a peer that has gone away without closing
-     * @param applicationName      this connection's name in {@code pg_stat_activity}
+     * @param password the database password, null counts as empty
+     * @param socketTimeoutSeconds the time after which a peer that vanished without closing fails
+     * @param applicationName the name in {@code pg_stat_activity}
      */
     public static Connector connector(
             final String jdbcUrl,
@@ -72,7 +72,7 @@ public final class PostgresNotifications implements Notifications {
                 try {
                     connection.close();
                 } catch (final SQLException ignored) {
-                    // Already failing, and the caller retries.
+                    // The connection already fails, and the caller retries.
                 }
                 throw failure;
             }
@@ -82,7 +82,7 @@ public final class PostgresNotifications implements Notifications {
     /**
      * {@inheritDoc}
      *
-     * Every timeout is followed by a liveness check, since a dead peer also answers {@code null}.
+     * A liveness check follows every timeout, as a dead peer also returns null.
      */
     @Override
     public boolean awaitNotification(final Duration timeout) throws SQLException {
@@ -103,7 +103,7 @@ public final class PostgresNotifications implements Notifications {
         try {
             connection.close();
         } catch (final SQLException ignored) {
-            // Giving up on this connection anyway; the reconnect opens a new one.
+            // The reconnect opens a new connection.
         }
     }
 }

@@ -138,6 +138,21 @@ class ChoreographyTest {
     }
 
     @Test
+    void aCountFromBeforeTheWaitDoesNotEndIt() {
+        // The proxy wrote 0 a moment before the countdown ended; its next count still has the player on, mid-move.
+        final Driven clock = driven();
+        final Counts counts = new Counts().written("smp", 0, clock.now().minusMillis(500));
+        clock.onSleep(() ->
+                counts.written("smp", clock.slept().compareTo(Duration.ofSeconds(25)) < 0 ? 1 : 0, clock.now()));
+        final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
+
+        final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
+
+        assertEquals(List.of(), left.notes(), "a move that waits for the resource pack is waited for");
+        assertEquals(Duration.ofSeconds(25), clock.slept(), "the stale zero did not end the wait at once");
+    }
+
+    @Test
     void afterTheCapItStopsAnywayAndTheReportSaysWithHowMany() {
         final Counts counts = new Counts().on("smp", 1);
         final Driven clock = driven();
@@ -148,7 +163,7 @@ class ChoreographyTest {
 
         assertEquals(RunStep.Reason.PLAYERS_STAYED, left.reason());
         assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
-        assertEquals("PLAYERS WARNING smp: stopped after 10s, 1 player still on", said);
+        assertEquals("PLAYERS WARNING smp: stopped after 60s, 1 player still on", said);
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
 
@@ -162,7 +177,7 @@ class ChoreographyTest {
 
         assertEquals(RunStep.Reason.PLAYERS_UNKNOWN, left.reason(), "unknown is not the same as somebody stayed");
         assertFalse(said.isEmpty());
-        assertEquals("PLAYERS WARNING smp: no recent player count, stopped after 10s", said);
+        assertEquals("PLAYERS WARNING smp: no recent player count, stopped after 60s", said);
     }
 
     @Test
@@ -174,9 +189,9 @@ class ChoreographyTest {
 
         assertEquals(
                 List.of(
-                        "PLAYERS WARNING smp: stopped after 10s, 2 players still on",
-                        "PLAYERS WARNING hunger-games: stopped after 10s, 1 player still on",
-                        "PLAYERS WARNING limbo: no recent player count, stopped after 10s"),
+                        "PLAYERS WARNING smp: stopped after 60s, 2 players still on",
+                        "PLAYERS WARNING hunger-games: stopped after 60s, 1 player still on",
+                        "PLAYERS WARNING limbo: no recent player count, stopped after 60s"),
                 said,
                 "each server keeps its own count, and no answer is told apart from players still on");
     }
@@ -273,14 +288,22 @@ class ChoreographyTest {
         }
     }
 
-    /** An {@link Occupancy} that answers from a map and has no staleness. */
+    /** An {@link Occupancy} that answers from a map; a row is fresh unless it was {@link #written} at a set time. */
     private static final class Counts implements Occupancy {
 
         private final Map<String, Integer> players = new LinkedHashMap<>();
+        private final Map<String, Instant> written = new LinkedHashMap<>();
         private Integer standbyProxy;
 
         Counts on(final String service, final int howMany) {
             players.put(service, howMany);
+            written.remove(service);
+            return this;
+        }
+
+        Counts written(final String service, final int howMany, final Instant at) {
+            players.put(service, howMany);
+            written.put(service, at);
             return this;
         }
 
@@ -290,9 +313,12 @@ class ChoreographyTest {
         }
 
         @Override
-        public OptionalInt on(final String service, final Instant now) {
+        public OptionalInt on(final String service, final Instant now, final Instant since) {
             final Integer howMany = players.get(service);
-            return howMany == null ? OptionalInt.empty() : OptionalInt.of(howMany);
+            if (howMany == null || !Occupancy.counts(written.getOrDefault(service, now), now, since)) {
+                return OptionalInt.empty();
+            }
+            return OptionalInt.of(howMany);
         }
 
         @Override

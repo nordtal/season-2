@@ -28,9 +28,15 @@ interface Occupancy {
      * Reads one service's player count.
      *
      * @param service a compose service name
+     * @param since a row written before this does not count, however fresh
      * @return the count, or empty when no fresh row says
      */
-    OptionalInt on(String service, Instant now);
+    OptionalInt on(String service, Instant now, Instant since);
+
+    /** Returns whether a row written at {@code updated} still says something at {@code now}. */
+    static boolean counts(final Instant updated, final Instant now, final Instant since) {
+        return !updated.isBefore(since) && !updated.isBefore(now.minus(COUNT_FRESH_WITHIN));
+    }
 
     /**
      * Reads the standby proxy's player count.
@@ -43,7 +49,7 @@ interface Occupancy {
     Occupancy NONE = new Occupancy() {
 
         @Override
-        public OptionalInt on(final String service, final Instant now) {
+        public OptionalInt on(final String service, final Instant now, final Instant since) {
             return OptionalInt.empty();
         }
 
@@ -60,7 +66,7 @@ interface Occupancy {
             private volatile @Nullable StandbyDirectory standby;
 
             @Override
-            public OptionalInt on(final String service, final Instant now) {
+            public OptionalInt on(final String service, final Instant now, final Instant since) {
                 if (counts == null) {
                     counts = OnlineDirectory.using(dataSource, clock);
                 }
@@ -72,7 +78,7 @@ interface Occupancy {
                     return OptionalInt.empty();
                 }
                 final OnlineCount count = current.get(service);
-                if (count == null || count.updated().isBefore(now.minus(COUNT_FRESH_WITHIN))) {
+                if (count == null || !Occupancy.counts(count.updated(), now, since)) {
                     return OptionalInt.empty();
                 }
                 return OptionalInt.of(count.players());

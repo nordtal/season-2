@@ -45,7 +45,7 @@ final class LogArchive {
     private static final Pattern CLOCK = Pattern.compile("^\\[(\\d{2}):(\\d{2}):\\d{2}]");
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH);
 
-    /** One earlier run, oldest line first, and the grey line that stands above it. */
+    /** One earlier run, oldest line first, and the grey line above it. */
     record Run(String label, List<String> lines) {}
 
     /** What the archive gave, oldest run first; {@code exhausted} when nothing older is left. */

@@ -25,7 +25,9 @@ final class StampCache<T> {
         this.reader = reader;
     }
 
-    /** What the jar holds, from the last reading while it is unchanged; {@code null} for a file that cannot be read. */
+    /**
+     * Returns what the jar held at the last reading while it is unchanged, or {@code null} for an unreadable file.
+     */
     @Nullable
     T of(final Path jar) {
         final String stamp;

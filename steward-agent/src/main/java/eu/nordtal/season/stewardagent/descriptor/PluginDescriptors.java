@@ -36,7 +36,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class PluginDescriptors {
 
-    /** Where the build puts the descriptor in a jar; {@code nordtal.plugin-descriptor} writes it. */
+    /**
+     * Where the build puts the descriptor in a jar. {@code nordtal.plugin-descriptor} writes it.
+     */
     public static final String ENTRY = "nordtal-plugin.json";
 
     private static final Logger LOG = LoggerFactory.getLogger(PluginDescriptors.class);
@@ -72,7 +74,9 @@ public final class PluginDescriptors {
         return List.copyOf(byId.values());
     }
 
-    /** Every jar that carries a descriptor, on every service, which is where the message bundles are read too. */
+    /**
+     * Returns every jar with a descriptor on every service. The message bundles are read from these too.
+     */
     public List<ServiceJar> jars() {
         final List<ServiceJar> jars = new ArrayList<>();
         for (final Service service : services.get()) {

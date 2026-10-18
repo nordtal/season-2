@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * One service's log as events: what Docker holds, the server's rotated logs before it, then every new line.
  *
- * The backlog reaches past the container into earlier runs only when Docker alone cannot fill the window.
+ * The backlog reaches into earlier runs only when Docker alone cannot fill the window.
  */
 public final class LogStreams implements AutoCloseable {
 
@@ -31,7 +31,6 @@ public final class LogStreams implements AutoCloseable {
     private final Clock clock;
     private final Follows follows;
 
-    /** @param volumesRoot where the Minecraft data volumes are mounted, one directory per service */
     public LogStreams(
             final Docker docker,
             final String project,

@@ -5,7 +5,7 @@ import java.util.List;
 import javax.sql.DataSource;
 
 /**
- * The plugins an admin added on top of the ones the code gives.
+ * The plugins an admin added on top of those the code gives.
  *
  * A row is a wish: the jars on disk say what is installed, and {@code Resolver} merges these rows into the topology.
  */
@@ -14,17 +14,14 @@ public interface PluginDirectory {
     /** The directory without a database, answering the fixed topology unchanged. */
     PluginDirectory NONE = new PluginDirectory() {};
 
-    /** Returns a directory over {@code dataSource}; it holds no resource of its own. */
     static PluginDirectory using(final DataSource dataSource) {
         return new JdbiPluginDirectory(dataSource);
     }
 
-    /** Returns every added plugin, ordered by service and then artefact. */
     default List<ManagedPlugin> all() {
         return List.of();
     }
 
-    /** Returns the added plugins on one service. */
     default List<ManagedPlugin> on(final String service) {
         return all().stream().filter(plugin -> plugin.service().equals(service)).toList();
     }
@@ -39,7 +36,7 @@ public interface PluginDirectory {
     }
 
     /**
-     * Removes the row; removing it twice is not an error.
+     * Deletes the row. Deleting it twice is no error.
      *
      * Deleting the jar and data folder is steward's, which has the volumes mounted.
      */
@@ -54,18 +51,19 @@ public interface PluginDirectory {
      */
     default void installed(final String service, final String artifact, final String fileName, final String release) {}
 
-    /** Returns the release that installed each file on one service, by file name; empty where none was noted. */
+    /**
+     * Returns the release that installed each file of one service, by file name, empty where none was recorded.
+     */
     default java.util.Map<String, String> releases(final String service) {
         return java.util.Map.of();
     }
 
     /**
-     * The servers with every plugin an admin added folded in.
+     * Returns the servers with every plugin an admin added.
      *
-     * @param servers the servers as compose.yml's labels describe them
-     * @param added every row of {@code service_plugin}; unknown services and fixed artefacts are ignored, and all are
-     *     optional
-     * @return the same servers, in the same order, each carrying its own extra plugins
+     * @param servers the servers as the labels of compose.yml describe them
+     * @param added every row of {@code service_plugin}. Unknown services and fixed artefacts are ignored.
+     * @return the same servers in the same order, each with its extra plugins
      */
     public static List<Topology.Service> servicesWith(
             final List<Topology.Service> servers, final java.util.Collection<ManagedPlugin> added) {

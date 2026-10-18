@@ -1,12 +1,12 @@
 package eu.nordtal.season.discordbot.access.discord;
 
 import eu.nordtal.season.database.payment.Tiers;
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;

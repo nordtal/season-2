@@ -144,8 +144,10 @@ Admins can override it like any other text.
 `GET /api/documents` answers each packaged Discord document (`messages.DocumentsApi`) with its
 declaration, the services that ship it, its hash and the admin's document. The admin's document is
 carried over to the jar's declaration, and `adapted` lists what that changed. The answer also holds the
-network's languages and the contribution tiers. The Translations page shows each document as a
-preview, read only, and no route writes one. `GET /api/discord/channels` answers the live channels.
+network's languages. The Translations page shows each document as a preview, read only, and no
+route writes one. `POST /api/documents/render` draws a draft with the bot's own renderer from
+`discord-rendering`, every value at its declared example, and answers Discord's JSON, which the
+preview only draws. `GET /api/discord/channels` answers the live channels.
 
 `GET /api/document-images/{id}` serves an image an admin uploaded, which a document shows as
 `upload://<id>`.

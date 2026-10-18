@@ -1,13 +1,13 @@
 package eu.nordtal.season.discordbot.onboarding;
 
 import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import java.util.List;

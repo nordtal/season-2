@@ -46,6 +46,8 @@ include("messages")
 // Messages as Adventure components, for Paper and Velocity code only.
 include("message-rendering")
 
+include("discord-rendering")
+
 // Glyphs, boss bar and tab list rendering from the resource pack, for the Minecraft plugins only.
 include("pack-rendering")
 

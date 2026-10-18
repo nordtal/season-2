@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/badge"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
 import { exampleOf } from "@/components/steward/message-editor/examples"
-import { DiscordDocumentPreview, type DrawExample } from "@/components/steward/message-editor/document-preview"
+import { DiscordDocumentPreview } from "@/components/steward/message-editor/document-preview"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
 import {
@@ -250,9 +250,7 @@ export function TextsForm({
     places: texts.places,
     draw,
     tones,
-    example: ((id, language) => draw(id, language)?.text ?? null) satisfies DrawExample,
     languages: documents?.languages ?? [],
-    tiers: documents?.tiers ?? [],
     draftIds,
     byId,
     fallenBack,
@@ -334,10 +332,8 @@ export function TextsForm({
 type Shared = {
   places: Places
   draw: DrawText
-  example: DrawExample
   tones: Record<string, string>
   languages: string[]
-  tiers: DocumentList["tiers"]
   draftIds: Set<string>
   byId: Map<string, MessageText>
   fallenBack: Map<string, MessageFallback[]>
@@ -383,17 +379,8 @@ function Card({ card, onOpen, ...shared }: Shared & { card: PageCard; onOpen: ()
   )
 }
 
-function DocumentPreview({ view, language, ...shared }: Shared & { view: DocumentView; language?: Language }) {
-  return (
-    <DiscordDocumentPreview
-      declaration={view.declaration}
-      document={documentOf(view)}
-      language={language}
-      languages={shared.languages}
-      tiers={shared.tiers}
-      example={shared.example}
-    />
-  )
+function DocumentPreview({ view, language }: { view: DocumentView; language?: Language }) {
+  return <DiscordDocumentPreview declaration={view.declaration} document={documentOf(view)} language={language} />
 }
 
 /** A text of a bundle: its text in the first place it appears, as the editor's preview draws it. */

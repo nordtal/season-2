@@ -21,12 +21,6 @@ export function documentName(declaration: DocumentDeclaration): string {
   return sentenceOf(declaration.name.split("-")) || declaration.name
 }
 
-/** Returns the first version of `text` in `language`, else in English. */
-export function sourceOf(text: DocumentText | undefined, language: Language): string {
-  const versions = text?.[language] ?? text?.[ENGLISH] ?? ""
-  return Array.isArray(versions) ? (versions[0] ?? "") : versions
-}
-
 /** Returns every text the document shows, each as its versions in every language. */
 export function textsOf(document: Document): DocumentText[] {
   return document.parts.flatMap(textsOfPart)

@@ -15,6 +15,9 @@ public interface MessageEditorTexts {
     @Name("Source")
     MessageRef source();
 
+    @Name("A member in a Discord preview")
+    MessageRef member();
+
     @Name("Variant")
     MessageRef variant();
 

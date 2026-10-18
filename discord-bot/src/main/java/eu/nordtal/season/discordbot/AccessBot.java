@@ -52,6 +52,8 @@ import eu.nordtal.season.discordbot.registration.RegisterMessages;
 import eu.nordtal.season.discordbot.registration.Teams;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordbot.status.StatusChannels;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.settings.Database;
@@ -80,12 +82,6 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 public class AccessBot implements AutoCloseable {
 
     private final Clock clock = NetworkTime.clock();
-
-    /**
-     * The bundles the bot renders, one {@code <tag>.properties} per language.
-     * Steward shares the admin bundle, in English only.
-     */
-    public static final List<String> BUNDLES = List.of("messages/admin", "messages/database");
 
     private static final String SERVICE = "discord-bot";
 
@@ -242,8 +238,8 @@ public class AccessBot implements AutoCloseable {
             final Tiers tiers,
             final Setting<OnboardingSpec> onboarding) {
         final GuildLanguages languages = GuildLanguages.of(accessConfig, network);
-        final DiscordRenderer messages =
-                DiscordRenderer.of(Messages.load(AccessBot.class.getClassLoader(), BUNDLES, languages.locales())
+        final DiscordRenderer messages = DiscordRenderer.of(
+                Messages.load(AccessBot.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.locales())
                         .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());

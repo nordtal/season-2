@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { DocumentView } from "@/lib/api"
+import type { DocumentDraft, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
@@ -79,59 +79,82 @@ const modal: DocumentView = view(
   },
 )
 
-const answer = documents([contribution, modal], {
-  tiers: [
-    { days: 30, priceCents: 300 },
-    { days: 60, priceCents: 500 },
-  ],
-})
+/** What the bot's renderer answers for the contribution, cut to what this page draws. */
+function rendered(draft: DocumentDraft): Record<string, unknown> {
+  const de = draft.language === "de"
+  if (draft.declaration.shape === "MODAL") {
+    return {
+      title: "Link",
+      components: [{ type: 18, label: "Code", component: { type: 4, placeholder: "six digits" } }],
+    }
+  }
+  return {
+    components: [
+      {
+        type: 17,
+        accent_color: 0x4a63d8,
+        components: [
+          { type: 10, content: de ? "## access-de" : "## Access" },
+          { type: 10, content: "### Prices\n**€1.00** for 30 days\nEnds <t:1767225600:D> for <@1>" },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          { type: 2, style: 1, custom_id: "buy", label: "Buy access" },
+          { type: 2, style: 5, url: "https://nordtal.eu", label: "Site" },
+        ],
+      },
+    ],
+  }
+}
 
-function serve() {
-  vi.stubGlobal("fetch", backend(texts, undefined, { documents: answer }))
+function serve(render = rendered) {
+  vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([contribution, modal]), render }))
 }
 
 describe("the list of documents", () => {
-  it("draws a Discord document as its finished message, its price list filled from the live tiers", async () => {
+  it("draws a Discord document as the bot's renderer drew it: its box, its markdown and its buttons", async () => {
     serve()
     draw(<Page />)
 
     await open(/^Discord/)
     await open("Contribution")
     const card = await screen.findByRole("article", { name: "Contribution" })
-    const shown = card.textContent ?? ""
-    expect(shown).toMatch(/Access.*Prices.*3[.,]00 for 30 days.*5[.,]00 for 60 days/)
-    expect(shown).toContain("Buy access")
-    expect(shown).toContain("Site")
+    await waitFor(() => expect(card.textContent).toMatch(/Access.*Prices.*€1\.00 for 30 days/))
+    expect(card.textContent).toContain("Buy access")
+    expect(card.textContent).toContain("Site")
+    expect(card.textContent).not.toContain("**")
+    expect(within(card).getByText("Access").closest("div")?.className).toContain("text-xl")
   })
 
-  it("shows a declared sum of money, which is in cents, in euros", async () => {
-    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([contribution]) }))
+  it("sends the draft with its declaration, whose examples fill it", async () => {
+    const asked: DocumentDraft[] = []
+    serve((draft) => {
+      asked.push(draft)
+      return rendered(draft)
+    })
     draw(<Page />)
 
     await open(/^Discord/)
     await open("Contribution")
-    const card = await screen.findByRole("article", { name: "Contribution" })
-    expect(card.textContent).toMatch(/€1[.,]00 for/)
+    await waitFor(() => expect(asked).not.toEqual([]))
+    expect(asked.find((draft) => draft.declaration.name === "contribution")).toMatchObject({
+      declaration: { slots: [{ id: "tiers" }, { id: "buy" }] },
+      document: contribution.packaged,
+      language: "en",
+    })
   })
 
-  it("leaves out a line whose condition the examples do not meet", async () => {
+  it("draws Discord's times in the reader's language and its members as a mention", async () => {
     serve()
     draw(<Page />)
 
     await open(/^Discord/)
     await open("Contribution")
     const card = await screen.findByRole("article", { name: "Contribution" })
-    expect(card.textContent).not.toContain("Thank you")
-  })
-
-  it("draws a value that names a text with that text", async () => {
-    serve()
-    draw(<Page />)
-
-    await open(/^Discord/)
-    await open("Contribution")
-    const card = await screen.findByRole("article", { name: "Contribution" })
-    expect(card.textContent).toContain("Why: The run failed")
+    await waitFor(() => expect(card.textContent).toContain("@member"))
+    expect(card.textContent).toMatch(/Ends (December 31, 2025|January 1, 2026) for/)
   })
 
   it("draws a modal as its title and each field under its label, with the field's hint inside", async () => {
@@ -141,7 +164,7 @@ describe("the list of documents", () => {
     await open(/^Discord/)
     await open("Link")
     const card = await screen.findByRole("article", { name: "Link code" })
-    expect(card.textContent).toMatch(/Link.*Code.*six digits/)
+    await waitFor(() => expect(card.textContent).toMatch(/Link.*Code.*six digits/))
   })
 
   it("lists a text of a bundle as a card of its own", async () => {
@@ -166,8 +189,8 @@ describe("an open document", () => {
       .click()
 
     await screen.findByRole("heading", { level: 1, name: "Contribution" })
+    await waitFor(() => expect(screen.getByRole("region", { name: "Deutsch" }).textContent).toContain("access-de"))
     expect(screen.getByRole("region", { name: "English" }).textContent).toContain("Buy access")
-    expect(screen.getByRole("region", { name: "Deutsch" }).textContent).toMatch(/access-de.*3[.,]00 days-de 30/)
     expect(screen.queryByRole("textbox")).toBeNull()
 
     await open("Translations")

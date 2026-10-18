@@ -1,4 +1,4 @@
-package eu.nordtal.season.discordbot;
+package eu.nordtal.season.discordrendering;
 
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;

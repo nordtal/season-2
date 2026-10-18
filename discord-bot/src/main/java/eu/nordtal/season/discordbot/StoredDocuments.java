@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -13,7 +14,7 @@ import java.util.Optional;
 import net.dv8tion.jda.api.utils.FileUpload;
 
 /** Holds the bot's packaged documents and the ones admins wrote over them. */
-public final class StoredDocuments {
+public final class StoredDocuments implements DocumentRenderer.Source {
 
     /** The namespace of every document the bot shows. */
     public static final String NAMESPACE = "discord";
@@ -51,6 +52,7 @@ public final class StoredDocuments {
      *
      * @throws IllegalStateException if the jar packages no such document
      */
+    @Override
     public Documents.Packaged applied(final DocumentSpec<?> spec) {
         final Documents.Packaged own = packaged.get(spec.name());
         if (own == null) {
@@ -65,6 +67,7 @@ public final class StoredDocuments {
      * It is empty for another address or an image that is not stored.
      * The message names the file as {@code attachment://} followed by its name.
      */
+    @Override
     public Optional<FileUpload> upload(final String address) {
         return DocumentStore.Image.idOf(address)
                 .flatMap(store::image)

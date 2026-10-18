@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.discordbot.config.Configured;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;

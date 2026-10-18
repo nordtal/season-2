@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.DatabaseMessages;
-import eu.nordtal.season.discordbot.AccessBot;
-import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.MilestoneContext;
@@ -25,7 +25,7 @@ import org.slf4j.helpers.MessageFormatter;
 class AnnouncementsTest {
 
     private static final DiscordRenderer BUNDLES = DiscordRenderer.of(
-            Messages.load(AnnouncementsTest.class.getClassLoader(), AccessBot.BUNDLES, Locale.GERMAN));
+            Messages.load(AnnouncementsTest.class.getClassLoader(), DocumentRenderer.BUNDLES, Locale.GERMAN));
     private static final DatabaseMessages.Announcements ANNOUNCEMENT = DatabaseMessages.MESSAGES.announcement();
 
     private static final Map<String, String> GUILD = Map.of("111", "announcements", "222", "ankuendigungen");

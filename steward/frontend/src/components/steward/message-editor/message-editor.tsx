@@ -9,6 +9,7 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react"
 import { cn } from "cn"
+import { useDebounced } from "@/lib/use-debounced"
 
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
 import { previewPlacesOf, type Places } from "@/lib/text-places"
@@ -514,13 +515,4 @@ function usePreview({ path, service, entry, language, text, fill }: PreviewReque
       )
     },
   }
-}
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [settled, setSettled] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return settled
 }

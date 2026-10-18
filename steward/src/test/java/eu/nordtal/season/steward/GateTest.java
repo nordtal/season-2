@@ -107,7 +107,8 @@ class GateTest {
             Map.entry("DELETE /api/web-push/subscribe", Gate.KEY_HELD),
             Map.entry("POST /api/web-push/test", Gate.KEY_HELD),
             Map.entry("PUT /api/alerts/preferences", Gate.KEY_HELD),
-            Map.entry("POST /api/message-preview", Gate.KEY_HELD));
+            Map.entry("POST /api/message-preview", Gate.KEY_HELD),
+            Map.entry("POST /api/documents/render", Gate.KEY_HELD));
 
     @Test
     void everyWriteCarriesTheGateTheAuditGaveIt() {

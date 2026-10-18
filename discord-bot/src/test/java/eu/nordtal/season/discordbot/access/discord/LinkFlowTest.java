@@ -3,8 +3,8 @@ package eu.nordtal.season.discordbot.access.discord;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import java.util.Locale;
 import java.util.Map;

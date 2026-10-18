@@ -117,6 +117,11 @@ export function parse(
   return normalize(format === "PLAIN" ? fromPlain(flat, queue) : fromMarkdown(flat, queue, {}))
 }
 
+/** Returns the runs of a finished Discord text, which holds no values: only markdown, read as Discord reads it. */
+export function markdownRuns(text: string): Run[] {
+  return normalize(fromMarkdown(text, [], {}))
+}
+
 /**
  * Marks where a value or a choice stands in the text that a plain or markdown reading scans. Never typed.
  */

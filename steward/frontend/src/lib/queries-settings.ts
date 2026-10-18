@@ -8,6 +8,9 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
+  type Document,
+  type DocumentDeclaration,
+  type DocumentDrawing,
   type DocumentList,
   type MessageChanges,
   type MessageSaveResult,
@@ -88,6 +91,18 @@ export function useDocuments(enabled = true) {
     queryKey: keys.documents,
     queryFn: () => api<DocumentList>("/api/documents"),
     enabled,
+  })
+}
+
+/** Draws a draft with the bot's renderer. While the next draft is drawn, the last drawing stays. */
+export function useDocumentDrawing(declaration: DocumentDeclaration, document: Document, language: string) {
+  const draft = JSON.stringify(document)
+  return useQuery({
+    queryKey: keys.documentDrawing(`${declaration.namespace}/${declaration.name}`, language, draft),
+    queryFn: () =>
+      api<DocumentDrawing>("/api/documents/render", { method: "POST", body: { declaration, document, language } }),
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
   })
 }
 

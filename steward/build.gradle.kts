@@ -290,6 +290,8 @@ dependencies {
     // The one loader, the database group and checks every process shares.
     implementation(project(":settings"))
     implementation(project(":messages"))
+    // The bot's own renderer draws the previews of documents, so a preview is what the bot sends.
+    implementation(project(":discord-rendering"))
 
     // Without a logging backend every log line disappears.
     runtimeOnly(libs.logback.classic)

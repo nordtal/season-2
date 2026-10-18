@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.network.NetworkSnapshot;
-import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

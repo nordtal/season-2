@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.discordbot.DocumentRenderer.Reply;
 import eu.nordtal.season.discordbot.Replies;
+import eu.nordtal.season.discordrendering.DocumentRenderer.Reply;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import java.util.HashSet;

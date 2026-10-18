@@ -2,8 +2,8 @@ package eu.nordtal.season.discordbot.status;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.network.NetworkSnapshot;
-import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.StoredDocuments;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;

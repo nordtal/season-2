@@ -20,11 +20,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The routes that read the daemon: the topology, the containers, the host and the console; every stop is a run.
- *
- * Every failure leaves as a {@link AgentWire.Refusal}, so steward can show the sentence and where it came from.
- */
+/** The routes that read the daemon. Every failure leaves as an {@link AgentWire.Refusal}. */
 final class AgentRoutes {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRoutes.class);
@@ -76,7 +72,6 @@ final class AgentRoutes {
         ctx.status(202).json(line);
     }
 
-    /** The newest round's host numbers, and what Docker's images and volumes take, asked now. */
     private AgentWire.Host host() {
         final AgentWire.Round round = sampler.latest();
         final AgentWire.HostNumbers numbers = round == null ? null : round.host();
@@ -103,7 +98,7 @@ final class AgentRoutes {
         }
     }
 
-    /** Every failure as a sentence: the daemon's as 502, compose's as 502, a refused request as 400. */
+    /** Maps a daemon failure and a compose failure to 502 and a refused request to 400. */
     static void refusals(final JavalinConfig config) {
         config.routes.exception(DockerException.class, (failure, ctx) -> {
             log.warn("the Docker daemon did not answer: {}", failure.getMessage());

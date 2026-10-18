@@ -23,9 +23,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * The routes a run's sources answer: what is newest against what is installed, and the plugins on each server.
- *
- * Removing a plugin is not among them: it stops the server first, so it is a run.
+ * The routes of a run's sources: the newest against the installed release, and the plugins of each server.
  */
 final class RunRoutes {
 
@@ -70,7 +68,6 @@ final class RunRoutes {
         config.routes.post(AgentWire.PLUGINS, pluginsApi::add);
     }
 
-    /** The removal a REMOVE_PLUGIN run carries out while it holds the server stopped. */
     PluginRemoval removal() {
         return new PluginRemoval() {
             @Override

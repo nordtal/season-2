@@ -21,9 +21,7 @@ import java.time.Clock;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Every route steward-agent serves but the deployments: topology, containers, logs, samples, backups, descriptors.
- *
- * Built from the daemon and the paths alone, so a test can put the real routes over a stand-in daemon.
+ * The routes of steward-agent except the deployments. A test builds it from a daemon and paths alone.
  */
 public final class AgentApi implements AutoCloseable {
 
@@ -39,8 +37,8 @@ public final class AgentApi implements AutoCloseable {
     /**
      * Wires the routes of one compose project.
      *
-     * @param definitions compose.yml's services, which every label is read from
-     * @param hashes compose's hash of each service's definition, which a container's own label is compared with
+     * @param definitions the services of compose.yml, which every label is read from
+     * @param hashes compose's hash of each service, compared with the container's label
      */
     public AgentApi(
             final Docker docker,
@@ -73,26 +71,24 @@ public final class AgentApi implements AutoCloseable {
     }
 
     /**
-     * Where the volumes this process reads are mounted.
+     * The mounted volume directories this process reads.
      *
-     * @param volumesRoot the services' volumes, one directory per service, or {@code null} for none
-     * @param configs each server's plugins folder, one directory per service, whose jars carry descriptors and bundles
-     * @param backupSources every volume a backup saves, one directory per Docker volume name, writable for a restore
-     * @param backups where archives are written, mounted at the same path in the database's container
+     * @param volumesRoot one directory per service, or {@code null} for none
+     * @param configs the plugins folder of each server, one directory per service
+     * @param backupSources one directory per Docker volume a backup saves, writable for a restore
+     * @param backups the archive directory, mounted at the same path in the database's container
      */
     public record Paths(@Nullable Path volumesRoot, Path configs, Path backupSources, Path backups) {
 
-        /** Where compose.yml mounts them, which a setting of the same name moves. */
         public static final Paths DEFAULTS =
                 new Paths(Path.of("/volumes"), Path.of("/configs"), Path.of("/backup-sources"), Path.of("/backups"));
     }
 
-    /** Starts the sampler, whose first round is taken at once. */
+    /** Starts the sampler. */
     public void start() {
         sampler.start();
     }
 
-    /** What compose.yml's labels say, the one reading the routes and the runs share. */
     public ComposeTopology topology() {
         return topology;
     }

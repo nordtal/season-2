@@ -28,16 +28,14 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How the host asks for a run and follows it, through the inbox and the refusals everyone else meets.
+ * The host's side of a run: it writes a request to the inbox and reads its status.
  *
  * {@code request KIND [a,b] [MINUTES] [--replace-local]} prints the row's id, {@code status ID} its status and report.
  */
 final class HostRequests {
 
-    /** Confirms, for an update, that the builds made on this host which it would replace go. */
     static final String REPLACE_LOCAL = "--replace-local";
 
-    /** What {@code status} exits with for a run that stopped before replacing a build made on this host. */
     static final int KEPT_LOCAL = 3;
 
     private HostRequests() {}
@@ -118,7 +116,6 @@ final class HostRequests {
         return keptLocal(row.get().status(), stored) ? KEPT_LOCAL : 0;
     }
 
-    /** Whether the run failed only because it would have replaced a build made on this host. */
     static boolean keptLocal(final UpdateStatus status, final @Nullable String stored) {
         final String key = TEXTS.report().localBuildsKept().key();
         return status == UpdateStatus.FAILED

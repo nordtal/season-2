@@ -47,7 +47,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
- * The one process that holds the Docker socket and the volumes and carries out every run, and the one that migrates.
+ * The process that holds the Docker socket and the volumes, carries out every run and runs the migration.
  *
  * {@code serve} and {@code migrate} are services, {@code up} deploys for the setup script, the rest ask.
  */
@@ -55,10 +55,8 @@ public final class StewardAgent {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StewardAgent.class);
 
-    /** How long a settled request is kept in its inbox. */
     private static final Duration REQUEST_RETENTION = Duration.ofDays(30);
 
-    /** How long one statement of a migration may run, which a request-sized query timeout would cut short. */
     private static final Duration MIGRATION_QUERY_BOUND = Duration.ofMinutes(30);
 
     private StewardAgent() {}
@@ -73,7 +71,6 @@ public final class StewardAgent {
                 Path.of(server.setting("PROJECT_DIRECTORY", "/app")),
                 project == null || project.isBlank() ? Deployment.PROJECT : project);
 
-        // Lives as long as the process, which every mode ends with System.exit.
         final ProcessScheduler scheduler =
                 new ProcessScheduler(Compose.SELF, failure -> log.error("A task of steward-agent failed", failure));
         final Docker docker = new Docker(new DockerSocket(
@@ -96,10 +93,10 @@ public final class StewardAgent {
     }
 
     /**
-     * Pulls, then brings the services up, so a failed pull stops the deployment before anything is taken down.
+     * Pulls every image, then starts the services, so a failed pull stops the deployment first.
      *
-     * @param bootstrap {@code true} only for {@code agent up}, the throwaway container the setup script runs
-     * @param isHere asks the daemon whether an image is already on this host
+     * @param bootstrap {@code true} only for {@code agent up}
+     * @param isHere asks the daemon whether an image is on this host
      */
     static int deploy(
             final Compose compose,
@@ -121,7 +118,6 @@ public final class StewardAgent {
         return bootstrap ? compose.bootstrap(services, output) : compose.up(services, output);
     }
 
-    /** Recreates one container from the image already here, never pulling. */
     static int recreate(
             final Compose compose,
             final String service,
@@ -137,7 +133,7 @@ public final class StewardAgent {
         return compose.recreate(service, output);
     }
 
-    /** Makes a standby from the image already here, and pulls that image first only when this host has none. */
+    /** Creates a standby from the local image and pulls the image only when this host has none. */
     static int standby(
             final Compose compose,
             final String service,
@@ -156,7 +152,7 @@ public final class StewardAgent {
     /**
      * Names each service one deployment touches, never an empty list.
      *
-     * An empty list would redeploy steward-agent, and a named request for it is refused rather than filtered.
+     * An empty list would deploy steward-agent, and a request that names it is refused.
      */
     static List<String> servicesToDeploy(
             final java.util.Collection<String> all, final List<String> requested, final boolean bootstrap) {
@@ -169,9 +165,9 @@ public final class StewardAgent {
     }
 
     /**
-     * Creates every service's role, applies every pending migration and exits, as the migrate service.
+     * Creates the roles, applies the pending migrations and exits.
      *
-     * @return the exit status, which every service with a database login waits on: 0 only on a current schema
+     * @return 0 only on a current schema
      */
     private static int migrate() {
         final DatabaseSpec databaseConfig;
@@ -190,7 +186,6 @@ public final class StewardAgent {
             Schema.migrate(database, Schema.passwords(System.getenv()));
             return 0;
         } catch (final RuntimeException failure) {
-            // A server must not start against an unknown schema, and every service waits for this one.
             log.error("The database schema could not be applied, so nothing that logs in will start.", failure);
             return 1;
         }
@@ -199,19 +194,18 @@ public final class StewardAgent {
     /**
      * Carries out the run the long-running steward-agent handed to this one-shot, then exits.
      *
-     * @return 0 once the run is settled, whatever it came to; 1 when there was no such run or no database
+     * @return 0 once the run is settled, 1 without such a run or without a database
      */
     private static int runHanded(
             final InternalServer server, final Compose compose, final Docker docker, final long id) {
         final Path backups = Path.of(
                 server.setting("BACKUPS", AgentApi.Paths.DEFAULTS.backups().toString()));
-        // Its container is removed once it exits, so the file is the only record a failed run leaves.
+        // The container is removed on exit, so the file is the only record of a failed run.
         try (RunLog ignored = RunLog.keep(backups, id)) {
             return carryOutHanded(server, compose, docker, id);
         }
     }
 
-    /** The handed run itself, with its log already kept. */
     private static int carryOutHanded(
             final InternalServer server, final Compose compose, final Docker docker, final long id) {
         final Clock clock = NetworkTime.clock();
@@ -242,7 +236,6 @@ public final class StewardAgent {
         }
     }
 
-    /** The one way a run is carried out, for the long-running agent and the one-shot alike. */
     private static Runner runner(
             final InternalServer server,
             final Compose compose,
@@ -272,14 +265,13 @@ public final class StewardAgent {
     }
 
     /**
-     * Serves the API, installs what is missing, reports ready and carries out runs; the migrate service migrates.
+     * Serves the API, installs what is missing and carries out runs.
      *
-     * @return the exit status: 1 when the database or its settings are not there
+     * @return 1 without the database or its settings
      */
     private static int serve(
             final InternalServer server, final Compose compose, final Docker docker, final Scheduler scheduler)
             throws java.io.IOException {
-        // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
         final Clock clock = NetworkTime.clock();
         final DatabaseSpec databaseConfig;
@@ -309,9 +301,9 @@ public final class StewardAgent {
     }
 
     /**
-     * Deletes the settled requests of every inbox but the run inbox older than {@link #REQUEST_RETENTION}.
-     * The runs are kept: they are the history Steward shows. Once at startup, as the owner, which deletes from
-     * inboxes no other role may.
+     * Deletes the settled requests older than {@link #REQUEST_RETENTION} from every inbox except the run inbox.
+     *
+     * It runs once at startup as the owner, because no other role may delete from the inboxes.
      */
     private static void clearOldRequests(final Database database) {
         for (final InboxTable<?> table : Inboxes.ALL) {
@@ -324,7 +316,6 @@ public final class StewardAgent {
                     log.info("Removed {} settled requests from {} older than {}.", gone, table, REQUEST_RETENTION);
                 }
             } catch (final RuntimeException failure) {
-                // Not fatal: an inbox that keeps its old rows is still an inbox.
                 log.warn("Could not clear out old requests from {}; they stay where they are.", table, failure);
             }
         }
@@ -350,7 +341,6 @@ public final class StewardAgent {
         }
     }
 
-    // The one volumes root is the runs group's, so what a run installs and what the API reads cannot differ.
     private static AgentApi.Paths pathsOf(final InternalServer server, final RunSpec runs) {
         return new AgentApi.Paths(
                 Path.of(runs.volumesRoot()),
@@ -383,13 +373,12 @@ public final class StewardAgent {
             log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
         }
         api.start();
-        // Without its secret it does not start: an open process that can recreate every container is a root shell.
+        // The agent refuses to start without its secret.
         final Javalin app = server.start(AgentWire.PORT, config -> {
             api.register(config);
             runRoutes.register(config);
         });
         try (api) {
-            // Before the marker and before any run is claimed, so nothing races it.
             if (runs.get().bootstrap()) {
                 Bootstrap.installMissing(
                         runs.get(), database, api.topology()::read, clock, services -> handOver(compose, services));
@@ -416,7 +405,6 @@ public final class StewardAgent {
                 settings.listen(signals, () -> reload(runs));
                 signals.start();
                 icons.start();
-                // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
                 Runtime.getRuntime().addShutdownHook(new Thread(loop::close, "steward-agent-shutdown"));
                 loop.serve();
             }
@@ -426,7 +414,6 @@ public final class StewardAgent {
         return 0;
     }
 
-    /** The icon drawing, which fetches Mojang's client jar only while the runs group's mojang-assets is on. */
     private static GameAssets gameAssets(final Database database, final Setting<RunSpec> runs, final Clock clock) {
         return GameAssets.fromMojang(
                 GameDataStore.using(database.dataSource()),
@@ -437,7 +424,6 @@ public final class StewardAgent {
                 clock);
     }
 
-    /** The backups and restores, which run the migrate service again after a dump has replaced the database. */
     private static LocalSnapshots snapshotsOf(
             final InternalServer server,
             final Docker docker,
@@ -457,7 +443,6 @@ public final class StewardAgent {
                 () -> offsiteTarget(server, compose));
     }
 
-    /** The offsite repository from the environment, the SSH files beside the environment file; empty without one. */
     private static Optional<OffsiteCopy.Target> offsiteTarget(final InternalServer server, final Compose compose) {
         final String repository = server.setting("OFFSITE_REPOSITORY", "");
         if (repository.isEmpty()) {
@@ -474,7 +459,6 @@ public final class StewardAgent {
                 compose.projectName()));
     }
 
-    /** Takes the runs group again after a change in Steward; a refused change keeps the values in use. */
     private static void reload(final Setting<RunSpec> runs) {
         try {
             runs.reload();
@@ -483,7 +467,6 @@ public final class StewardAgent {
         }
     }
 
-    /** Hands the services' volumes to their users, saying a failure without stopping anything. */
     private static void handOver(final Compose compose, final List<String> services) {
         try {
             compose.handOver(services, line -> log.info("[hand-over] {}", line));

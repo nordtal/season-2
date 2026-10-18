@@ -16,18 +16,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The one-shot's own log, kept in a file under the backups, since its container is removed once it exits.
+ * Writes stdout and stderr of the one-shot to a file under the backups.
  *
- * Every write to stdout or stderr reaches the file before the call returns, so a kill keeps what came before it.
+ * Every write reaches the file before the call returns.
  */
 final class RunLog implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(RunLog.class);
 
-    /** The folder under the backups; the archive list and the retention see only that folder's own files. */
     static final String FOLDER = "runs";
 
-    /** How many run logs stay, the new one included. */
     static final int KEPT = 10;
 
     private static final Pattern NAME = Pattern.compile("(?<id>\\d{1,18})\\.log");
@@ -43,9 +41,9 @@ final class RunLog implements AutoCloseable {
     }
 
     /**
-     * Copies stdout and stderr into {@code <backups>/runs/<id>.log} from now on, and drops the oldest run logs.
+     * Copies stdout and stderr to {@code <backups>/runs/<id>.log} and deletes the oldest run logs.
      *
-     * A file that cannot be written costs the copy and never the run.
+     * A file that cannot be written loses the copy, not the run.
      */
     static RunLog keep(final Path backups, final long id) {
         final PrintStream out = System.out;
@@ -66,7 +64,6 @@ final class RunLog implements AutoCloseable {
         }
     }
 
-    /** Deletes the oldest run logs in {@code folder} until at most {@code left} remain; other files stay. */
     static void prune(final Path folder, final int left) throws IOException {
         final List<Path> logs = new ArrayList<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(folder)) {
@@ -88,7 +85,6 @@ final class RunLog implements AutoCloseable {
         return name.matches() ? Long.parseLong(name.group("id")) : 0L;
     }
 
-    /** Puts the streams back and closes the file; a file that will not close costs nothing but a warning. */
     @Override
     public void close() {
         System.out.flush();
@@ -102,7 +98,6 @@ final class RunLog implements AutoCloseable {
         }
     }
 
-    /** Writes every byte to the stream it came for and to the file, which is never buffered. */
     private static final class Tee extends OutputStream {
 
         private final OutputStream console;
@@ -121,7 +116,7 @@ final class RunLog implements AutoCloseable {
         @Override
         public void write(final byte[] bytes, final int offset, final int length) throws IOException {
             console.write(bytes, offset, length);
-            // stdout and stderr share the file, so one write is never split by the other's.
+            // stdout and stderr share the file.
             synchronized (file) {
                 file.write(bytes, offset, length);
             }

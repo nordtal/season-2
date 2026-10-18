@@ -28,28 +28,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Every {@code docker compose} command line there is, this service's and the ones {@code dev} runs on its terminal.
+ * Every {@code docker compose} command line of this service and of {@code dev}.
  *
- * Every {@code up} carries {@code --no-deps}, so recreating one service never drags in another, and hands over first.
+ * Every {@code up} carries {@code --no-deps}.
  */
 public final class Compose {
 
     private static final Logger log = LoggerFactory.getLogger(Compose.class);
 
-    /** A name an env file sets, as compose reads one: optionally exported, then the name and an equals sign. */
     private static final Pattern ENV_FILE_NAME = Pattern.compile("^\\s*(?:export\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*=");
 
-    /**
-     * This service's compose name, refused everywhere a service name is accepted.
-     *
-     * Recreating it would kill the process handling the request; the one-shot a run is handed to renews it.
-     */
+    /** The compose name of steward-agent. Every method that takes a service name refuses it. */
     public static final String SELF = AgentWire.SERVICE;
 
-    /** Where steward-agent's image carries this file; a newer release's is copied out of its image from here. */
+    /** The path of compose.yml in steward-agent's image. */
     public static final String IN_IMAGE = "/app/compose.yml";
 
-    /** The service that applies the schema from this image and exits, which every database login waits for. */
     public static final String MIGRATE = Topology.MIGRATE;
 
     private final Path composeFile;
@@ -58,14 +52,13 @@ public final class Compose {
     private final String projectName;
     private final LinkCounter linkCounter;
 
-    /** Set on every command over this process's own, so the release a command is for outranks the env file. */
+    /** Overrides the process environment on every command, so the release outranks the env file. */
     private final Map<String, String> environment;
 
     public Compose(final Path composeFile, final Path envFile, final Path projectDirectory, final String projectName) {
         this(composeFile, envFile, projectDirectory, projectName, Compose::posixLinkCount);
     }
 
-    /** Creates a Compose with a fake link counter, for tests without a real bind mount. */
     Compose(
             final Path composeFile,
             final Path envFile,
@@ -90,54 +83,46 @@ public final class Compose {
         this.linkCounter = linkCounter;
     }
 
-    /** The compose project every command names, which is also how the daemon labels its containers. */
     public String projectName() {
         return projectName;
     }
 
     /**
-     * The same project, environment file and directory at another release, read from {@code composeFile}.
-     *
-     * Every image of ours is tagged {@code NORDTAL_RELEASE}, so this is how a newer release's images are named.
+     * Returns a Compose for the same project, env file and directory at another release, from {@code composeFile}.
      */
     public Compose atRelease(final String release) {
         return atRelease(release, composeFile);
     }
 
-    /** {@link #atRelease(String)}, read from that release's own compose file. */
     public Compose atRelease(final String release, final Path composeFile) {
         return new Compose(
                 composeFile, envFile, projectDirectory, projectName, linkCounter, Map.of("NORDTAL_RELEASE", release));
     }
 
-    /** The name of the one-shot steward-agent a run is handed to; only one runs at a time. */
     public String oneShotName() {
         return projectName + "-" + SELF + "-run";
     }
 
     /**
-     * Starts a one-shot steward-agent on the claimed run {@code id}, detached, removed once it exits.
+     * Starts a one-shot steward-agent detached on the run {@code id}.
      *
-     * @return compose's exit status, 0 once the container runs
+     * @return compose's exit status
      */
     public int runOneShot(final long id, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
         return run(oneShotCommand(id), output);
     }
 
-    /** Returns the command line {@link #runOneShot} runs. */
     List<String> oneShotCommand(final long id) {
         return command(List.of(
                 "run", "--detach", "--rm", "--no-deps", "--name", oneShotName(), SELF, "run", Long.toString(id)));
     }
 
-    /** Counts the hard links of the file at a path, empty when that cannot be determined. */
     @FunctionalInterface
     interface LinkCounter {
         OptionalLong nlink(Path path);
     }
 
-    /** Reads {@code st_nlink} through the "unix" attribute view, empty rather than a refusal when unavailable. */
     private static OptionalLong posixLinkCount(final Path path) {
         try {
             final Object nlink = Files.getAttribute(path, "unix:nlink");
@@ -148,9 +133,9 @@ public final class Compose {
     }
 
     /**
-     * Refuses to go on if {@link #envFile} is a deleted inode behind a stale file bind mount.
+     * Throws if {@link #envFile} is a deleted inode behind a stale bind mount.
      *
-     * A host rotation replaces the file, and only the orphaned inode's link count of zero shows it from in here.
+     * A host rotation replaces the file. A link count of zero shows the old inode.
      */
     void assertEnvFileFresh() throws IOException {
         if (!Files.exists(envFile)) {
@@ -167,18 +152,12 @@ public final class Compose {
         }
     }
 
-    /** Thrown by {@link #assertEnvFileFresh}, as an {@link IOException} so every caller already propagates it. */
     public static final class StaleEnvFileException extends IOException {
         StaleEnvFileException(final String message) {
             super(message);
         }
     }
 
-    /**
-     * Returns the command line for {@code arguments}, for a caller that runs it with its own input and output.
-     *
-     * Every line starts the same way: which project, which file, which environment.
-     */
     public List<String> command(final List<String> arguments) {
         final List<String> command = new ArrayList<>(List.of(
                 "docker",
@@ -200,7 +179,7 @@ public final class Compose {
     /**
      * Runs {@code up -d --no-deps} for named services, refusing steward-agent.
      *
-     * The list is never empty, since an empty one means every service and belongs to {@link #bootstrap}.
+     * The list is never empty: an empty list means every service and belongs to {@link #bootstrap}.
      */
     public int up(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
@@ -211,9 +190,9 @@ public final class Compose {
     }
 
     /**
-     * Runs {@code up -d --no-deps} with steward-agent included, for {@code agent up} only.
+     * Runs {@code up -d --no-deps} including steward-agent, for {@code agent up} only.
      *
-     * That throwaway container is not the managed service, so creating steward-agent from it is not a self-recreate.
+     * The throwaway container that runs it is not the managed service.
      */
     public int bootstrap(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
@@ -224,8 +203,7 @@ public final class Compose {
     }
 
     /**
-     * Runs the migrate service and waits for it, in an update or after a restore replaced the database.
-     * Through {@code up}, so its container is this release's, which every service's {@code depends_on} reads.
+     * Runs the migrate service through {@code up} and waits for it.
      *
      * @return its exit status, 0 only on a current schema
      */
@@ -234,15 +212,14 @@ public final class Compose {
         return run(migrateCommand(), output);
     }
 
-    /** Returns the command line {@link #migrate} runs. */
     List<String> migrateCommand() {
         return command(List.of("up", "--no-deps", "--abort-on-container-exit", "--exit-code-from", MIGRATE, MIGRATE));
     }
 
     /**
-     * Runs {@code up -d --no-deps --force-recreate} from the image already on this host, never pulling.
+     * Runs {@code up -d --no-deps --force-recreate} without pulling.
      *
-     * A service without a local image cannot be recreated; callers check {@link #hasLocalImage} first.
+     * The service needs a local image, see {@link #hasLocalImage}.
      */
     public int recreate(final String service, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
@@ -251,11 +228,11 @@ public final class Compose {
     }
 
     /**
-     * Who a service runs as and what it may write, from its {@code user:} and its mounts.
+     * The user and writable mounts of a service.
      *
      * @param uid the numeric uid, never 0
      * @param gid the numeric gid, the uid's when {@code user:} names none
-     * @param targets where each writable mount appears inside the container
+     * @param targets the writable mounts inside the container
      */
     record Owner(String uid, String gid, List<String> targets) {
 
@@ -267,7 +244,7 @@ public final class Compose {
     /**
      * Reads a service's owner from its definition as {@code config} resolves it.
      *
-     * Empty for a service that runs as root, names its user by name or mounts nothing writable: nothing to hand over.
+     * The result is empty for a service that runs as root, names its user by name or mounts nothing writable.
      */
     static Optional<Owner> ownerOf(final JsonObject service) {
         if (!service.has("user")) {
@@ -295,9 +272,9 @@ public final class Compose {
     }
 
     /**
-     * Makes everything each service mounts its own user's, before its container starts or is made.
+     * Gives each service's user ownership of everything the service mounts, before its container starts.
      *
-     * In a throwaway of the service's image, so this process reads nothing of it; a failure is said, the start goes on.
+     * It runs in a temporary container of the service's image. A failure is logged and the start goes on.
      */
     public void handOver(final List<String> services, final Consumer<String> output) throws IOException {
         final JsonObject definitions = definitions(true);
@@ -316,7 +293,6 @@ public final class Compose {
         }
     }
 
-    /** Returns the command line {@link #handOver} runs: {@code find} as root in the service's image, never pulled. */
     List<String> handOverCommand(final String service, final Owner owner) {
         final String uid = owner.uid();
         final String gid = owner.gid();
@@ -357,13 +333,12 @@ public final class Compose {
         return command(arguments);
     }
 
-    /** Returns the command line {@link #recreate} runs, so a test can check that no token pulls. */
     List<String> recreateCommand(final String service) {
         return command(List.of("up", "--detach", "--no-deps", "--force-recreate", refuseSelf(service)));
     }
 
     /**
-     * Returns whether this service's image is already on this host, without pulling.
+     * Returns whether the image of the service is on this host.
      *
      * @param isHere asks the daemon about one image reference
      */
@@ -373,7 +348,7 @@ public final class Compose {
     }
 
     /**
-     * Pulls one service's image; a failed pull is tolerated when the image is here, as one pushed nowhere is.
+     * Pulls the image of one service. A failed pull passes when the image is here.
      *
      * @param isHere asks the daemon about one image reference
      */
@@ -394,36 +369,33 @@ public final class Compose {
     }
 
     public enum PullOutcome {
-        /** The registry answered and the image is current. */
         PULLED,
-        /** The registry did not answer for this one, but the image is here. See {@link #pull}. */
         LOCAL_IMAGE_KEPT,
-        /** No image, from anywhere. The deployment stops. */
         FAILED
     }
 
     /**
-     * Returns every service the active profile selection carries, in file order, with its image.
+     * Returns every service of the active profiles in file order, with its image.
      *
-     * Standbys sit in a profile no ordinary selection carries, so a whole-stack deploy never starts them.
+     * Standbys sit in a profile that no ordinary selection activates.
      */
     public Map<String, String> services() throws IOException {
         return config(false);
     }
 
     /**
-     * Returns every service the compose file defines, whatever profile it sits in.
+     * Returns every service of the compose file in any profile.
      *
-     * {@code config} answers only for enabled profiles, so this enables all of them for one read.
+     * {@code config} answers only for active profiles, so this activates all of them.
      */
     public Map<String, String> everyService() throws IOException {
         return config(true);
     }
 
     /**
-     * Returns every service the compose file defines, in any profile, as {@code config} resolves it.
+     * Returns the definition of every service in any profile as {@code config} resolves it.
      *
-     * The labels in it are the topology; steward reads them through {@code /api/topology}.
+     * Steward reads the labels in it through {@code /api/topology}.
      */
     public JsonObject definitions() throws IOException {
         return definitions(true);
@@ -450,9 +422,9 @@ public final class Compose {
     }
 
     /**
-     * Returns compose's hash of each service's definition, which it also labels every container it makes with.
+     * Returns compose's hash of each service definition. Compose also labels each container with it.
      *
-     * Compose hashes after interpolation, so a new release's tag and a changed environment file both change it.
+     * The hash is taken after interpolation, so a new release tag or env file changes it.
      */
     public Map<String, String> hashes() throws IOException {
         final Map<String, String> hashes = new LinkedHashMap<>();
@@ -472,18 +444,14 @@ public final class Compose {
         return hashes;
     }
 
-    /**
-     * Returns the command line {@link #config} runs; {@code --profile "*"} is a top-level flag before the subcommand.
-     */
     List<String> configCommand(final boolean allProfiles) {
         final List<String> config = List.of("config", "--format", "json");
         return command(allProfiles ? concat(List.of("--profile", "*"), config) : config);
     }
 
-    /** The image a service of this file names, after interpolation, in whatever profile it sits. */
     public Optional<String> imageOf(final String service) {
         try {
-            // everyService: "not in this profile selection" is not "has no image".
+            // Unlike {@code services()}, it finds a service in any profile.
             final String image = everyService().get(service);
             return image == null || image.isBlank() ? Optional.empty() : Optional.of(image);
         } catch (IOException e) {
@@ -502,7 +470,6 @@ public final class Compose {
         return services;
     }
 
-    /** Throws when {@code service} is steward-agent itself, which only the setup script renews. */
     static String refuseSelf(final String service) {
         if (SELF.equals(service)) {
             throw new IllegalArgumentException("steward-agent will not recreate itself: the new container would replace"
@@ -513,9 +480,9 @@ public final class Compose {
     }
 
     /**
-     * Returns a command's environment: the inherited one less every name the env file sets, then the release.
+     * Returns the inherited environment without the names the env file sets, plus the release.
      *
-     * Compose ranks a process's environment above the file, and this container's was copied from the file when made.
+     * Compose ranks a process environment above the file.
      */
     Map<String, String> commandEnvironment(final Map<String, String> inherited) throws IOException {
         final Map<String, String> result = new HashMap<>(inherited);
@@ -524,7 +491,6 @@ public final class Compose {
         return result;
     }
 
-    /** Returns every name the env file sets, none when there is no file. */
     private Set<String> envFileNames() throws IOException {
         final Set<String> names = new LinkedHashSet<>();
         if (!Files.isRegularFile(envFile)) {
@@ -539,7 +505,6 @@ public final class Compose {
         return names;
     }
 
-    /** Runs one command and hands every line to {@code output} as it arrives, stderr included. */
     private int run(final List<String> command, final Consumer<String> output) throws IOException {
         log.info("$ {}", String.join(" ", command));
         final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);

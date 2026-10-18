@@ -6,18 +6,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The name a person reads for a setting or a section in place of its key, which it is otherwise derived from.
+ * Sets the name that the interface shows for a setting or a section. Spec does not define it.
  *
- * On a getter returning a nested spec, or on a {@code @ConfigSpec} interface, it names the section. Not part of Spec.
+ * On a getter that returns a nested spec, or on a {@code @ConfigSpec} interface, it names the section.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Name {
 
-    /**
-     * The name shown in the interface.
-     *
-     * @return the display name
-     */
     String value();
 }

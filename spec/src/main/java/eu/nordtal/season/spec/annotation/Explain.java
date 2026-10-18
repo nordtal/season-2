@@ -6,18 +6,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The short sentence a person reads between a setting's name and its input in Steward.
+ * Sets the sentence that Steward shows between the name of a setting and its input.
  *
- * nordtal.eu's own, not part of Spec.
+ * Written for nordtal.eu, not part of Spec.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Explain {
 
-    /**
-     * The short sentence shown in the interface next to this setting.
-     *
-     * @return the explanation text
-     */
     String value();
 }

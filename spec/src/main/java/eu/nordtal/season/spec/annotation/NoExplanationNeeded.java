@@ -6,9 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a setting as self-explanatory: the interface shows no explanation at all, rather than an empty one.
+ * Marks a setting that needs no explanation. The interface then shows none, not an empty one.
  *
- * The schema refuses it beside {@link Explain @Explain}. nordtal.eu's own, not part of Spec.
+ * The schema refuses it beside {@link Explain @Explain}. Written for nordtal.eu, not part of Spec.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

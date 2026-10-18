@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** The declared shape of one {@code @ConfigSpec} interface: its properties and headers. */
+/** The properties and headers that one {@code @ConfigSpec} interface declares. */
 public final class SpecClass {
 
     private final Class<?> type;
@@ -68,11 +68,6 @@ public final class SpecClass {
         return headers;
     }
 
-    /**
-     * The spec interface this describes.
-     *
-     * @return the spec interface
-     */
     public Class<?> type() {
         return type;
     }
@@ -82,23 +77,24 @@ public final class SpecClass {
     }
 
     /**
-     * Creates a default-valued instance of this spec, typed by the given class token rather than an unchecked cast.
+     * Creates an instance with every property at its default value.
+     * The class token types the result and avoids an unchecked cast.
      *
      * @param <T> the spec interface type
-     * @param type the spec interface, which must be the one this {@code SpecClass} describes
-     * @return a new instance with every property at its default value
+     * @param type the spec interface that this {@code SpecClass} describes
+     * @return the new instance
      */
     public <T> T createDefault(final Class<T> type) {
         return type.cast(Specs.createDefault(type));
     }
 
     /**
-     * Creates an instance of this spec backed by {@code map}, typed by the given class token.
+     * Creates an instance that reads and writes {@code map}. The class token types the result.
      *
      * @param <T> the spec interface type
-     * @param type the spec interface, which must be the one this {@code SpecClass} describes
-     * @param map the values to back the instance with
-     * @return a new instance backed by {@code map}
+     * @param type the spec interface that this {@code SpecClass} describes
+     * @param map the values of the instance
+     * @return the new instance
      */
     public <T> T createUnsafe(final Class<T> type, final Map<String, Object> map) {
         return type.cast(Specs.createUnsafe(type, map));

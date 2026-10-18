@@ -6,26 +6,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares the values the interface offers for a setting, and whether they are the only ones or suggestions.
+ * Lists the values that the interface offers for a setting. Spec does not define it.
  *
- * A Java {@code enum} property needs none: its constants are the choices, always strict. Not part of Spec.
+ * An {@code enum} property needs no list, because its constants are the choices and are always strict.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AllowedValues {
 
-    /**
-     * The values to offer.
-     *
-     * @return the allowed (or suggested) values, in display order
-     */
     String[] value();
 
     /**
-     * Whether the list is closed.
+     * Tells whether the list is closed.
      *
-     * @return {@code true} for a select with no free text ("strict"); {@code false} for a select
-     * with a free-text field beside it ("suggestion")
+     * @return {@code true} for a select without free text (strict), {@code false} for a select with a free-text field
+     * (suggestion)
      */
     boolean strict() default true;
 }

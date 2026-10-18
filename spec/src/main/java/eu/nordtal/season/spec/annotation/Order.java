@@ -39,18 +39,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Sets the index of the spec field relative to other fields; lower values come first.
+ * Sets the position of a spec field among the other fields. A lower value comes first.
  *
- * Neither Gson nor Java guarantee field order on their own, so this is what fixes it.
+ * Neither Gson nor Java guarantees the order of fields, so this annotation fixes it.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Order {
 
-    /**
-     * The index value
-     *
-     * @return The index value
-     */
     int value();
 }

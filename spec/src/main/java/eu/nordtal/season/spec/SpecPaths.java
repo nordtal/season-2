@@ -8,22 +8,22 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Addresses the leaves of a spec by their dotted path ({@code display.scale}).
+ * Addresses the leaves of a spec by their dotted path, such as {@code display.scale}.
  *
- * A nested spec is a proxy stored as a value in its parent's map, so a path walks those maps.
+ * A nested spec is a proxy stored as a value in the map of its parent, so a path walks those maps.
  */
 public final class SpecPaths {
 
     private SpecPaths() {}
 
-    /** A single settable value in a spec, identified by its dotted path. */
+    /** A settable value of a spec, identified by its dotted path. */
     public record Leaf(String path, Class<?> type, Type genericType) {}
 
     /**
-     * Every leaf of {@code specType}, in declaration order. Nested specs are descended into, not counted as leaves.
+     * Returns every leaf of {@code specType} in declaration order. A nested spec is walked and is no leaf.
      *
-     * @param specType the spec interface to walk
-     * @return every leaf, in declaration order
+     * @param specType the spec interface
+     * @return every leaf
      */
     public static List<Leaf> leaves(final Class<?> specType) {
         final List<Leaf> leaves = new ArrayList<>();
@@ -49,10 +49,10 @@ public final class SpecPaths {
     /**
      * Reads the value at {@code path} from a spec instance.
      *
-     * @param spec the spec instance to read from
+     * @param spec the spec instance
      * @param path the dotted config path
-     * @return the value at that path, or {@code null} if it is itself {@code null}
-     * @throws IllegalArgumentException if the path does not exist in the spec
+     * @return the value at the path, or {@code null} when the value is {@code null}
+     * @throws IllegalArgumentException if the spec has no such path
      */
     public static @Nullable Object get(final Object spec, final String path) {
         final String[] segments = path.split("\\.", 0);
@@ -70,10 +70,10 @@ public final class SpecPaths {
     /**
      * Writes {@code value} at {@code path} into a spec instance.
      *
-     * @param spec the spec instance to write into
+     * @param spec the spec instance
      * @param path the dotted config path
-     * @param value the value to store
-     * @throws IllegalArgumentException if the path does not exist in the spec
+     * @param value the value to write
+     * @throws IllegalArgumentException if the spec has no such path
      */
     public static void set(final Object spec, final String path, final @Nullable Object value) {
         final String[] segments = path.split("\\.", 0);
@@ -89,10 +89,10 @@ public final class SpecPaths {
     }
 
     /**
-     * A shallow snapshot of the values at the given paths, for restoring them later.
+     * Copies the values at the given paths, so that a caller can restore them. The copy is shallow.
      *
-     * @param spec the spec instance to read from
-     * @param paths the dotted config paths to snapshot
+     * @param spec the spec instance
+     * @param paths the dotted config paths
      * @return a map of path to current value
      */
     public static Map<String, Object> snapshot(final Object spec, final Iterable<String> paths) {

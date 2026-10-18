@@ -19,19 +19,19 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Builds the schema of a {@code @ConfigSpec} interface: each setting's name, explanation, type, choices and flags.
+ * Builds the schema of a {@code @ConfigSpec} interface.
  *
- * A setting's group is the nesting of the tree, and the spec's header is the root's {@code explanation}.
+ * The nesting of the tree gives the group of a setting. The header of the spec is the {@code explanation} of the root.
  */
 public final class SchemaWriter {
 
     private SchemaWriter() {}
 
     /**
-     * Builds the schema tree for a {@code @ConfigSpec} interface, without touching a file.
+     * Builds the schema tree of a {@code @ConfigSpec} interface. It touches no file.
      *
      * @param specType the spec interface
-     * @return the root node, always {@link SettingKind#MAP}
+     * @return the root node, always of kind {@link SettingKind#MAP}
      */
     public static SchemaNode build(final Class<?> specType) {
         return new SchemaNode(
@@ -39,10 +39,10 @@ public final class SchemaWriter {
     }
 
     /**
-     * Returns the spec's {@code @ConfigSpec(header)} as one text, or {@code ""} when it declares none.
+     * Returns the {@code @ConfigSpec(header)} of the spec as one text.
      *
      * @param specType the spec interface
-     * @return the header lines joined with {@code '\n'}, verbatim and with blank ones kept, or {@code ""}
+     * @return the header lines joined with {@code '\n'}, unchanged and with blank lines, or {@code ""} for no header
      */
     private static String headerOf(final Class<?> specType) {
         return String.join("\n", Specs.from(specType).headers());
@@ -51,7 +51,7 @@ public final class SchemaWriter {
     private static Map<String, SchemaNode> childrenOf(final Class<?> specType) {
         final Map<String, SchemaNode> children = new LinkedHashMap<>();
         for (final SpecProperty property : Specs.from(specType).properties().values()) {
-            // @Reload / @Save / @AsMap: proxy-handled accessors, not a YAML key of their own.
+            // @Reload, @Save and @AsMap are accessors of the proxy and no YAML keys.
             if (property.isHandledByProxy()) {
                 continue;
             }
@@ -61,10 +61,10 @@ public final class SchemaWriter {
     }
 
     /**
-     * Reads the explanation off the getter: the {@code @Explain} text, else empty.
+     * Reads the explanation from the getter: the {@code @Explain} text, else an empty text.
      *
-     * @param property the property to read {@code @Explain}/{@code @NoExplanationNeeded} off
-     * @return the explanation text and whether a missing one is deliberate
+     * @param property the property with {@code @Explain} or {@code @NoExplanationNeeded}
+     * @return the explanation text and whether its absence is deliberate
      */
     private static ExplanationInfo explanationOf(final SpecProperty property) {
         final Method getter = property.getter();
@@ -136,9 +136,8 @@ public final class SchemaWriter {
     }
 
     /**
-     * The name a setting is shown under: the getter's {@code @Name}, the nested interface's {@code @Name}, or the key.
-     *
-     * A list of sections does not take the interface's name: that names one entry, not the list.
+     * Returns the name of a setting: the {@code @Name} of the getter, else of the nested interface, else the key.
+     * A list of sections does not take the name of the interface, because that name belongs to one entry.
      */
     static String labelOf(final SpecProperty property) {
         final Name own = property.getter().getAnnotation(Name.class);
@@ -155,9 +154,7 @@ public final class SchemaWriter {
         return SettingLabels.of(property.key());
     }
 
-    /**
-     * {@code @Protected} only makes sense on a property whose element type is itself a {@code @ConfigSpec}.
-     */
+    /** Refuses {@code @Protected} on a property whose element type is no {@code @ConfigSpec}. */
     private static void refuseProtectedOutsideAListOfSettings(
             final @Nullable Protected annotation, final String propertyKey) {
         if (annotation != null) {
@@ -168,10 +165,9 @@ public final class SchemaWriter {
     }
 
     /**
-     * Builds the {@link SchemaNode.ProtectedEntry} a list property's {@code @Protected} describes, or {@code null}.
+     * Builds the {@link SchemaNode.ProtectedEntry} that {@code @Protected} describes, else {@code null}.
      *
-     * @throws IllegalArgumentException if {@link Protected#field()} names a field the element type
-     *                                  does not have, since a typo would otherwise protect nothing
+     * @throws IllegalArgumentException if {@link Protected#field()} names a field that the element type lacks
      */
     private static SchemaNode.@Nullable ProtectedEntry protectedEntryOf(
             final @Nullable Protected annotation, final Class<?> elementType, final String propertyKey) {
@@ -190,9 +186,7 @@ public final class SchemaWriter {
         return Collection.class.isAssignableFrom(type) || type.isArray();
     }
 
-    /**
-     * The element type of a list-shaped property: the type its entries share, or {@code String} when there is none.
-     */
+    /** Returns the element type of a list property, or {@code String} when the entries share no type. */
     private static Class<?> collectionElementType(final Method getter) {
         if (getter.getReturnType().isArray()) {
             return getter.getReturnType().getComponentType();
@@ -224,7 +218,7 @@ public final class SchemaWriter {
         if (type == float.class || type == Float.class || type == double.class || type == Double.class) {
             return SettingType.DECIMAL;
         }
-        // String, char, a Java enum, and anything else not covered above.
+        // String, char, an enum and everything else.
         return SettingType.STRING;
     }
 
@@ -236,7 +230,7 @@ public final class SchemaWriter {
                     : Arrays.stream(type.getEnumConstants())
                             .map(constant -> ((Enum<?>) constant).name())
                             .toList();
-            // A Java enum can never deserialize a free-text value, whatever @AllowedValues says.
+            // An enum never accepts a free-text value, whatever @AllowedValues says.
             return new SchemaNode.Choices(values, true);
         }
         if (allowedValues != null) {

@@ -38,7 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks the method that restores a {@link ConfigSpec} to its default values. */
+/** Marks the method that resets a {@link ConfigSpec} to its default values. */
 @HandledByProxy
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

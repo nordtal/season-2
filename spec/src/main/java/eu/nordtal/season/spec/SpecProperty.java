@@ -72,59 +72,35 @@ public final class SpecProperty {
     /** The property setter method, or {@code null} if the property has none. */
     private @Nullable Method setter;
 
-    /**
-     * Whether this property is handled by the proxy rather than being an actual property. See {@link HandledByProxy}.
-     */
+    /** Whether the proxy handles this property and it is no configuration property. See {@link HandledByProxy}. */
     private boolean isHandledByProxy;
 
-    /**
-     * Tests whether this property is handled by the proxy rather than being an actual configuration property.
-     *
-     * @return if the property is proxy-handled
-     */
     public boolean isHandledByProxy() {
         return isHandledByProxy;
     }
 
     /**
-     * The key of the property: {@link Key @Key} or {@link SerializedName @SerializedName}, else the stripped name.
+     * Returns the key: {@link Key @Key}, else {@link SerializedName @SerializedName}, else the name without its prefix.
      *
-     * @return the property's key
+     * @return the key
      */
     public String key() {
         return key;
     }
 
-    /**
-     * The getter method of this property.
-     *
-     * @return the getter method
-     */
     public Method getter() {
         return Objects.requireNonNull(getter, "getter is set before a property is exposed");
     }
 
-    /**
-     * Whether this property has a default value.
-     *
-     * @return {@code true} if this property has a default value
-     */
     public boolean hasDefault() {
         return getter().isDefault();
     }
 
-    /**
-     * The setter of this property, or {@code null} if it declares none.
-     *
-     * @return the setter method, or {@code null}
-     */
     public @Nullable Method setter() {
         return setter;
     }
 
-    /**
-     * Sets the type of this property, checking that it does not conflict with a type already set.
-     */
+    /** Sets the type of the property and refuses a type that conflicts with the one already set. */
     private void setType(final Class<?> type) {
         if (this.type == null) {
             this.type = type;
@@ -134,21 +110,16 @@ public final class SpecProperty {
         }
     }
 
-    /**
-     * Whether the method name starts with {@code set}.
-     *
-     * @param method the method to check
-     * @return {@code true} if its name starts with {@code set}
-     */
     public static boolean impliesSetter(final Method method) {
         return method.getName().startsWith("set");
     }
 
     /**
-     * The property key for {@code method}: its {@code @Key} or {@code @SerializedName}, or the stripped name.
+     * Returns the key of {@code method}.
+     * It is the {@code @Key}, else the {@code @SerializedName}, else the name without the prefix.
      *
      * @param method the method to derive the key from
-     * @return the property key
+     * @return the key
      */
     public static String keyOf(final Method method) {
         final Key key = method.getAnnotation(Key.class);
@@ -162,7 +133,7 @@ public final class SpecProperty {
         return fromName(method.getName());
     }
 
-    /** Strips a get-, is- or set- prefix from {@code name} if it has one. */
+    /** Removes a {@code get}, {@code is} or {@code set} prefix from {@code name}. */
     private static String fromName(final String name) {
         if (name.startsWith("get") || name.startsWith("set")) {
             return lowerFirst(name.substring(3));
@@ -172,7 +143,6 @@ public final class SpecProperty {
         return name;
     }
 
-    /** Lower-cases the first character of {@code name}. */
     private static String lowerFirst(final String name) {
         if (name.isEmpty()) {
             return name;
@@ -222,13 +192,13 @@ public final class SpecProperty {
             final Order order1 = o1.getAnnotation(Order.class);
             final Order order2 = o2.getAnnotation(Order.class);
             if (order1 == null && order2 == null) {
-                return 0; // Both methods are unannotated.
+                return 0; // Neither method has the annotation.
             }
             if (order1 == null) {
-                return -1; // o1 is unannotated, so it comes first.
+                return -1; // o1 has no annotation and comes first.
             }
             if (order2 == null) {
-                return 1; // o2 is unannotated, so it comes first.
+                return 1; // o2 has no annotation and comes first.
             }
             return Integer.compare(order1.value(), order2.value());
         });
@@ -275,10 +245,10 @@ public final class SpecProperty {
     }
 
     /**
-     * The header comment declared on {@code type} by {@link ConfigSpec#header()}.
+     * Returns the header that {@link ConfigSpec#header()} declares on {@code type}.
      *
-     * @param type the spec interface to read the header off
-     * @return the header lines, or an empty list if none is declared
+     * @param type the spec interface
+     * @return the header lines, or an empty list
      */
     public static List<String> headerOf(final Class<?> type) {
         final ConfigSpec spec = type.getAnnotation(ConfigSpec.class);
@@ -296,11 +266,6 @@ public final class SpecProperty {
         return "SpecProperty(key='" + key + "')";
     }
 
-    /**
-     * The type of this property, as declared by its getter or setter.
-     *
-     * @return the property's type
-     */
     public Class<?> type() {
         return Objects.requireNonNull(type, "type is set before a property is exposed");
     }

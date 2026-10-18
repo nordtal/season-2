@@ -10,8 +10,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Holds the phase of the season. The signal hub triggers {@link #refresh()}. Before the first read the phase is {@code
- * MAINTENANCE}.
+ * Holds the phase of the season.
+ * The signal hub triggers {@link #refresh()}. Before the first read the phase is {@code MAINTENANCE}.
  */
 public final class PhaseWatch {
 
@@ -74,8 +74,8 @@ public final class PhaseWatch {
     }
 
     /**
-     * Returns the phase and the opening time. Before the first read it is {@link SeasonPhase#MAINTENANCE} without a
-     * time.
+     * Returns the phase and the opening time.
+     * Before the first read it is {@link SeasonPhase#MAINTENANCE} without a time.
      */
     public Known known() {
         final Known current = known.get();

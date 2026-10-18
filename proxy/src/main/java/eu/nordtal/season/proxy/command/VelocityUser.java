@@ -17,8 +17,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * A connected player that a command answers in the language of the player. {@link LoginRoster} provides the Discord id,
- * language and admin flag.
+ * A connected player that a command answers in the language of the player.
+ * {@link LoginRoster} provides the Discord id, language and admin flag.
  */
 public final class VelocityUser {
 

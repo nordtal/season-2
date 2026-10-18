@@ -12,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Holds the server of each player from before a proxy swap. It is filled once before Velocity binds. Only the seat of
- * an admin is used.
+ * Holds the server of each player from before a proxy swap.
+ * It is filled once before Velocity binds. Only the seat of an admin is used.
  */
 public final class ParkedSeats {
 
@@ -63,8 +63,8 @@ public final class ParkedSeats {
     }
 
     /**
-     * Returns the seat if the player is an admin and the seat is a registered server that is not a waiting room,
-     * otherwise the server of the phase.
+     * Returns the seat of an admin.
+     * The seat must be a registered server that is not a waiting room, otherwise the result is the server of the phase.
      *
      * @param seat the server before the swap, {@code null} without a swap
      */

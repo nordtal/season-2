@@ -29,8 +29,8 @@ public final class HungerGamesSounds {
     }
 
     /**
-     * Replaces the sounds with those of the reloaded group. A category that {@link FeedbackSounds#failed} switched off
-     * is on again.
+     * Replaces the sounds with those of the reloaded group.
+     * A category that {@link FeedbackSounds#failed} switched off is on again.
      */
     public void reload(final SoundsSpec spec) {
         this.sounds = parse(spec, problems);
@@ -64,8 +64,8 @@ public final class HungerGamesSounds {
     }
 
     /**
-     * Plays the category to the player at the location of the player. The player may be {@code null}, which plays
-     * nothing.
+     * Plays the category to the player at the location of the player.
+     * The player may be {@code null}, which plays nothing.
      */
     public void play(final @Nullable Player player, final Feedback category) {
         final FeedbackSounds current = sounds;

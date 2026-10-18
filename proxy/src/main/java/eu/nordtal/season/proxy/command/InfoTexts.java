@@ -17,8 +17,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * The commands {@code /discord} and {@code /rules}. Each prints one line. {@code /discord} prints {@code
- * gate#discord-invite-url}.
+ * The commands {@code /discord} and {@code /rules}.
+ * Each prints one line. {@code /discord} prints {@code gate#discord-invite-url}.
  */
 public final class InfoTexts {
 

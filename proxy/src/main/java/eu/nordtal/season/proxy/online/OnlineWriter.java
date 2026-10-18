@@ -19,8 +19,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Writes the player counts and the players into {@code online_count} and {@code online_player}. A failed write is
- * logged.
+ * Writes the player counts and the players into {@code online_count} and {@code online_player}.
+ * A failed write is logged.
  */
 public final class OnlineWriter {
 
@@ -64,8 +64,8 @@ public final class OnlineWriter {
     }
 
     /**
-     * Writes every {@link OnlineDirectory#WRITE_INTERVAL}, or every second while an update run is about to stop a
-     * server.
+     * Writes every {@link OnlineDirectory#WRITE_INTERVAL}.
+     * While an update run stops a server it writes every second.
      */
     public void tick() {
         if (role.isStandby()) {

@@ -28,8 +28,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Keeps each player in {@code limbo} until the pack is applied and the backend of the phase accepts the player. Each
- * handler records a fact and asks {@link WaitingBook}.
+ * Keeps each player in {@code limbo} until the pack is applied and the backend of the phase accepts the player.
+ * Each handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
 

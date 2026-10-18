@@ -98,8 +98,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Creates the features of the proxy. An invalid {@code database} or {@code gate} group makes the proxy refuse every
- * login, admins included.
+ * Creates the features of the proxy.
+ * An invalid {@code database} or {@code gate} group makes the proxy refuse every login, admins included.
  */
 @Plugin(
         id = "proxy",

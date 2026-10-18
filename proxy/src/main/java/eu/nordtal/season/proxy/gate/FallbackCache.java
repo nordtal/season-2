@@ -11,8 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Stores the access states that the login gate uses when the database does not answer. An entry older than {@code
- * window} is absent.
+ * Stores the access states that the login gate uses when the database does not answer.
+ * An entry older than {@code window} is absent.
  */
 public final class FallbackCache {
 

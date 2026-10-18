@@ -13,8 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Stores the state of each player in the waiting room and decides with it. The state lasts for the session of the
- * player.
+ * Stores the state of each player in the waiting room and decides with it.
+ * The state lasts for the session of the player.
  */
 public final class WaitingBook {
 
@@ -187,8 +187,8 @@ public final class WaitingBook {
     // the decision
 
     /**
-     * Returns the decision for the player. A release or a timeout ends the visit, so the next call returns {@code
-     * IDLE}.
+     * Returns the decision for the player.
+     * A release or a timeout ends the visit, so the next call returns {@code IDLE}.
      *
      * @param destination the backend of the phase
      */

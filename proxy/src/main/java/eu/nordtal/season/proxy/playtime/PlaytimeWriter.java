@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 
 /**
- * Counts the online time of each player, AFK time included, and writes it to {@code player_playtime}. A flush runs on a
- * disconnect and on a timer.
+ * Counts the online time of each player, AFK time included, and writes it to {@code player_playtime}.
+ * A flush runs on a disconnect and on a timer.
  */
 public final class PlaytimeWriter {
 

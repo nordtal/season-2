@@ -12,8 +12,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Handles a player whom a backend kicked. A kick with a reason disconnects the player. A kick without a reason moves
- * the player to limbo.
+ * Handles a player whom a backend kicked.
+ * A kick with a reason disconnects the player. A kick without a reason moves the player to limbo.
  */
 public final class BackendKick {
 

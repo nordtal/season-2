@@ -18,8 +18,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Transfers the players of the standby proxy back to the live proxy after {@link #SETTLE} of an outage or after {@link
- * #RESCUE_AFTER} without an outage.
+ * Transfers the players of the standby proxy back to the live proxy.
+ * It waits {@link #SETTLE} after an outage and {@link #RESCUE_AFTER} without an outage.
  */
 public final class StandbyReturn {
 

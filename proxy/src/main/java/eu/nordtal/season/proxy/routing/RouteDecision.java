@@ -31,14 +31,14 @@ public record RouteDecision(Action action, @Nullable String server) {
         REFUSE_NO_SERVER,
 
         /**
-         * Disconnect the player with the countdown screen. The phase changed to {@code PRE_LAUNCH} and the player has
-         * bought no period.
+         * Disconnect the player with the countdown screen.
+         * The phase changed to {@code PRE_LAUNCH} and the player has bought no period.
          */
         REFUSE_PRE_LAUNCH_BUY,
 
         /**
-         * Disconnect the player with the countdown screen. The phase changed to {@code PRE_LAUNCH} and the player has
-         * bought a period.
+         * Disconnect the player with the countdown screen.
+         * The phase changed to {@code PRE_LAUNCH} and the player has bought a period.
          */
         REFUSE_PRE_LAUNCH_READY
     }

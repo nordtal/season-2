@@ -21,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tracks which participants are alive and decides the game. {@link Tiebreak} decides deaths within {@link
- * #SIMULTANEOUS_WINDOW}.
+ * Tracks which participants are alive and decides the game.
+ * {@link Tiebreak} decides deaths within {@link #SIMULTANEOUS_WINDOW}.
  */
 public final class WinTracker {
 

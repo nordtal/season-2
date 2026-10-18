@@ -23,8 +23,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Informs each player whom an update run moved that the player returns. The waiting room sends a chat message. The
- * standby proxy sends a chat message and a countdown subtitle.
+ * Informs each player whom an update run moved that the player returns.
+ * The waiting room sends a chat message. The standby proxy sends a chat message and a countdown subtitle.
  */
 public final class Homecoming {
 

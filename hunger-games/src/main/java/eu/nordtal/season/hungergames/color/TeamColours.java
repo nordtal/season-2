@@ -55,8 +55,8 @@ public final class TeamColours {
     }
 
     /**
-     * Returns the name of the nearest named Minecraft colour. The name is stored in {@code
-     * hg_team_colour.colour_named}.
+     * Returns the name of the nearest named Minecraft colour.
+     * The name is stored in {@code hg_team_colour.colour_named}.
      */
     public static String nearestNamedColour(final int rgb) {
         final int r = (rgb >> 16) & 0xFF;

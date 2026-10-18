@@ -38,8 +38,8 @@ public final class PhaseServers {
     }
 
     /**
-     * Returns the server for a player who leaves the waiting room. It equals {@link #forPhase}, except that an admin in
-     * {@code MAINTENANCE} or {@code PRE_LAUNCH} gets the SMP.
+     * Returns the server for a player who leaves the waiting room.
+     * It equals {@link #forPhase}, except that an admin in {@code MAINTENANCE} or {@code PRE_LAUNCH} gets the SMP.
      */
     public String forAdmitted(final SeasonPhase phase, final boolean admin) {
         Objects.requireNonNull(phase, "phase");

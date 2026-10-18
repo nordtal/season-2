@@ -229,8 +229,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     }
 
     /**
-     * Starts a game from the open round or returns the refusal. Below the recommended minimum only a confirmed start
-     * succeeds.
+     * Starts a game from the open round or returns the refusal.
+     * Below the recommended minimum only a confirmed start succeeds.
      */
     private Answer startGame(final boolean confirmed) {
         final Optional<HgGame> underWay = dao.gameUnderWay();

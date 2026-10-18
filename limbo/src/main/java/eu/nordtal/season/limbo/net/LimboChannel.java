@@ -11,8 +11,8 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
 /**
- * The limbo end of {@code nordtal:limbo}. It shows the reason of each {@code WAIT} from the proxy and sends {@code
- * READY}.
+ * The limbo end of {@code nordtal:limbo}.
+ * It shows the reason of each {@code WAIT} from the proxy and sends {@code READY}.
  */
 public final class LimboChannel implements PluginMessageListener {
 

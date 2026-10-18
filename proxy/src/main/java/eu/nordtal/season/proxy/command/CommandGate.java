@@ -24,8 +24,8 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 
 /**
- * Allows players who are not admins only the commands of the allowlist. A refused command gets the answer of an unknown
- * command.
+ * Allows players who are not admins only the commands of the allowlist.
+ * A refused command gets the answer of an unknown command.
  */
 public final class CommandGate {
 

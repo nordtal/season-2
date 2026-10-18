@@ -13,8 +13,8 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 
 /**
- * Holds the last {@link NetworkSnapshot} and refreshes it on a signal of the hub. A failed refresh keeps the previous
- * snapshot.
+ * Holds the last {@link NetworkSnapshot} and refreshes it on a signal of the hub.
+ * A failed refresh keeps the previous snapshot.
  */
 public final class SnapshotStore {
 

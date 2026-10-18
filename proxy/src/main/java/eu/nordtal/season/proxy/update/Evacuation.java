@@ -18,8 +18,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Moves the players of a server that an update run stops to the waiting room when the countdown reaches zero. The sweep
- * of the waiting room sends them back.
+ * Moves the players of a server that an update run stops to the waiting room when the countdown reaches zero.
+ * The sweep of the waiting room sends them back.
  */
 public final class Evacuation {
 

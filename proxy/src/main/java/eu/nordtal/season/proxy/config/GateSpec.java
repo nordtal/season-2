@@ -29,8 +29,8 @@ public interface GateSpec {
     }
 
     /**
-     * The minutes that the cache keeps the last state of a player. The cache only allows a player whose period is
-     * running.
+     * The minutes that the cache keeps the last state of a player.
+     * The cache only allows a player whose period is running.
      */
     @Order(3)
     @Name("Fallback cache window (minutes)")

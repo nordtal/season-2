@@ -46,8 +46,8 @@ public final class PhaseRouting {
     }
 
     /**
-     * Returns the decision for an admitted login: connect to {@code limbo}. Without a waiting room only an admin
-     * connects to the backend of the phase.
+     * Returns the decision for an admitted login: connect to {@code limbo}.
+     * Without a waiting room only an admin connects to the backend of the phase.
      */
     public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");

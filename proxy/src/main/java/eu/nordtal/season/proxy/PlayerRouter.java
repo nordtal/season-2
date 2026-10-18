@@ -33,8 +33,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Executes a {@link RouteDecision} as a connection or a disconnect. A phase change leaves the players in the waiting
- * room to the pack station.
+ * Executes a {@link RouteDecision} as a connection or a disconnect.
+ * A phase change leaves the players in the waiting room to the pack station.
  */
 public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
@@ -95,8 +95,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Sets {@code limbo} as the initial server of every admitted login. It reads {@link PhaseWatch#lastKnown()} and
-     * {@link LoginRoster}.
+     * Sets {@code limbo} as the initial server of every admitted login.
+     * It reads {@link PhaseWatch#lastKnown()} and {@link LoginRoster}.
      */
     @Subscribe
     public void onChooseInitialServer(final PlayerChooseInitialServerEvent event) {

@@ -30,8 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Schedules the refills of {@code refill-tiers}. A refill clears and fills the chest of every loot point inside the
- * border.
+ * Schedules the refills of {@code refill-tiers}.
+ * A refill clears and fills the chest of every loot point inside the border.
  */
 public final class LootRefill {
 

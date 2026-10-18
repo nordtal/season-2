@@ -108,8 +108,8 @@ public final class RestartWatch {
     }
 
     /**
-     * Reads the update request and plans the announcements. It runs on every {@code nordtal_update} notification and
-     * never throws.
+     * Reads the update request and plans the announcements.
+     * It runs on every {@code nordtal_update} notification and never throws.
      */
     public synchronized void check() {
         final Optional<UpdateRequest> pending;
@@ -263,8 +263,8 @@ public final class RestartWatch {
     }
 
     /**
-     * Returns the chat message with the occasion, the service and the {@link RunShape.Fate} of the player. {@link
-     * RunShape.Fate#NOTHING} adds no text.
+     * Returns the chat message with the occasion, the service and the {@link RunShape.Fate} of the player.
+     * {@link RunShape.Fate#NOTHING} adds no text.
      */
     private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
         final Component head = renderer.format(locale, announcement);

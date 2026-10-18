@@ -19,8 +19,8 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * Warns each player shortly before the period ends and disconnects the player when it ends. {@link #check} checks every
- * player.
+ * Warns each player shortly before the period ends and disconnects the player when it ends.
+ * {@link #check} checks every player.
  */
 public final class ExpiryWatch {
 

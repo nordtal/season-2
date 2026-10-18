@@ -17,8 +17,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Transfers every player to the standby proxy before an update run stops the live proxy. It does nothing on the standby
- * and without a {@code public-address}.
+ * Transfers every player to the standby proxy before an update run stops the live proxy.
+ * It does nothing on the standby and without a {@code public-address}.
  */
 public final class ProxySwap {
 
@@ -92,16 +92,16 @@ public final class ProxySwap {
     }
 
     /**
-     * Returns whether a run that stops this proxy has reached zero. It is false on the standby and without a {@code
-     * public-address}.
+     * Returns whether a run that stops this proxy has reached zero.
+     * It is false on the standby and without a {@code public-address}.
      */
     public boolean isStopping() {
         return parked;
     }
 
     /**
-     * Returns whether a standby proxy answers. It opens a socket. It is false on the standby and without a {@code
-     * public-address}.
+     * Returns whether a standby proxy answers.
+     * It opens a socket. It is false on the standby and without a {@code public-address}.
      */
     public boolean canPark() {
         final InetSocketAddress target = standby;
@@ -147,8 +147,8 @@ public final class ProxySwap {
     }
 
     /**
-     * Returns whether the proxy accepts no new players after the {@code pass}. It is true for {@code PARK}, {@code
-     * STANDBY_MISSING} and {@code ALREADY_DONE}.
+     * Returns whether the proxy accepts no new players after the {@code pass}.
+     * It is true for {@code PARK}, {@code STANDBY_MISSING} and {@code ALREADY_DONE}.
      */
     static boolean doorAfter(final Pass pass, final boolean wasShut) {
         return switch (pass) {
@@ -232,8 +232,8 @@ public final class ProxySwap {
     }
 
     /**
-     * Stores the seat of the player and transfers the player to the standby. {@code RestartGate} calls it for late
-     * logins.
+     * Stores the seat of the player and transfers the player to the standby.
+     * {@code RestartGate} calls it for late logins.
      *
      * @return whether the transfer was sent
      */

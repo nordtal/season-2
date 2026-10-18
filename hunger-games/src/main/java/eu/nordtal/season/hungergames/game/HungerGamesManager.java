@@ -33,8 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Starts a game: it assigns colours, builds the towers, freezes the players, runs the countdown and releases the
- * players.
+ * Starts a game. It assigns the colours, builds the towers, freezes the players, runs the countdown and releases them.
  */
 public final class HungerGamesManager {
 

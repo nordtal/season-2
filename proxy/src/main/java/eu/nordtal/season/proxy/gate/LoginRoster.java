@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Stores the login data of each connected, linked player. The {@code /phase} requirement and the play-time writer read
- * it.
+ * Stores the login data of each connected, linked player.
+ * The {@code /phase} requirement and the play-time writer read it.
  */
 public final class LoginRoster {
 

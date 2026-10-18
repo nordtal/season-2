@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The outcome of inviting a partner, from {@link Teams#invite(String, String)}.
+ * The outcome of {@link Teams#invite(String, String)}.
  *
  * @param memberId null unless {@link #status()} is {@link Status#INVITED}
  * @param teamId null unless {@link #status()} is {@link Status#INVITED}
@@ -28,17 +28,17 @@ public record InviteResult(
         return of(Status.NOT_REGISTERED);
     }
 
-    /** The inviter is on a team, but as an INVITED or DECLINED row, not as OWNER. */
+    /** The inviter is on a team as an INVITED or DECLINED row, not as OWNER. */
     public static InviteResult notOwner() {
         return of(Status.NOT_OWNER);
     }
 
-    /** One partner maximum. */
+    /** A team has at most one partner. */
     public static InviteResult teamFull() {
         return of(Status.TEAM_FULL);
     }
 
-    /** A previous invite on this team is still pending an answer. */
+    /** An earlier invite of this team has no answer. */
     public static InviteResult invitePending() {
         return of(Status.INVITE_PENDING);
     }
@@ -47,7 +47,7 @@ public record InviteResult(
         return of(Status.CANNOT_INVITE_SELF);
     }
 
-    /** The invited account is a bot, or is already OWNER/INVITED/ACCEPTED somewhere in this round. */
+    /** The invited account is a bot, or is already OWNER, INVITED or ACCEPTED in this round. */
     public static InviteResult targetUnavailable() {
         return of(Status.TARGET_UNAVAILABLE);
     }

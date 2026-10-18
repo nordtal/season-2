@@ -38,15 +38,10 @@ import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The access and donor roles, and the messages that go with them.
- *
- * The access role mirrors the database, so {@link #reconcile()} undoes manual changes; the lock withholds both roles.
- */
 @Slf4j
 public final class AccessRoles {
 
-    /** How far back the expiry sweep looks, longer than any restart; {@code expiry_notice} prevents a second DM. */
+    /** How far back the expiry sweep looks. It exceeds any restart, and {@code expiry_notice} prevents a second DM. */
     private static final int EXPIRED_LOOKBACK_HOURS = 48;
 
     private final JDA jda;
@@ -56,7 +51,6 @@ public final class AccessRoles {
     private final Withholding withholding;
     private final AccessDirectory access;
     private final LayoutRenderer layouts;
-    /** The page in Steward an alert about a member's access opens. */
     private static final String PAGE = "/access";
 
     private final AdminLog admin;
@@ -87,13 +81,11 @@ public final class AccessRoles {
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
 
-    /** Returns whether a non-revoked grant covers this instant. */
     public boolean hasActiveAccess(final DiscordId discordId) {
         final Instant now = clock.instant();
         return access.grantsOf(discordId).stream().anyMatch(grant -> grant.coversAt(now));
     }
 
-    /** Returns when the current run of access ends, if there is one. */
     public Optional<Instant> validUntil(final DiscordId discordId) {
         final Instant now = clock.instant();
         return access.grantsOf(discordId).stream()
@@ -102,12 +94,10 @@ public final class AccessRoles {
                 .max(Instant::compareTo);
     }
 
-    /** Brings one member's access role in line with the database and the lock, right now. */
     public void applyAccessRole(final DiscordId discordId, final boolean active) {
         final Guild guild = guild();
         final Role role = guild == null ? null : role(guild, GuildRoles.ACCESS);
         if (role == null) {
-            // GuildRoles has said why; the grant stays in the database, which the proxy reads.
             return;
         }
 
@@ -124,9 +114,7 @@ public final class AccessRoles {
                         failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
     }
 
-    /** Gives the donor role unless the lock withholds it; nothing else ever takes it. */
     public void grantDonorRole(final DiscordId discordId) {
-        // The donor flag in the database is already set by the caller; the role is the decoration.
         final Guild guild = guild();
         final Role role = guild == null ? null : role(guild, GuildRoles.DONOR);
         if (role == null) {
@@ -146,9 +134,8 @@ public final class AccessRoles {
     }
 
     /**
-     * Brings a member's access and donor roles in line with the database and the lock.
-     *
-     * The lock coming or going calls it, so the roles come back from what the member is owed now, not from a copy.
+     * Sets a member's access and donor roles from the database and the lock.
+     * A lock that comes or goes calls it, so the roles follow what the member is owed now, not a stored copy.
      */
     public void applyEntitlement(final Member member) {
         final DiscordId discordId = DiscordId.of(member.getId());
@@ -177,7 +164,6 @@ public final class AccessRoles {
         }
     }
 
-    /** Gives the access role to everyone a grant covers and the lock leaves alone, takes it from everyone else. */
     public void reconcile() {
         final Guild guild = guild();
         if (guild == null) {
@@ -189,7 +175,6 @@ public final class AccessRoles {
             final Reconciled reconciled = reconciled(
                     Set.copyOf(dao.withActiveAccess()),
                     holding.stream().map(Member::getId).toList(),
-                    // Paid and not in the guild: not an error, the role waits for a return.
                     id -> guild.getMemberById(id) != null,
                     id -> withheld(guild, id));
             reconciled.take().forEach(id -> changeAccess(guild, id, role, Change.TAKE));
@@ -197,7 +182,6 @@ public final class AccessRoles {
         }
         final Role donor = role(guild, GuildRoles.DONOR);
         if (donor != null) {
-            // Every holder is owed it as far as the role goes, so only the lock decides.
             guild.getMembersWithRoles(donor)
                     .forEach(member -> change(
                             member, donor, DiscordRole.DONOR, donorChange(true, withholding.withholds(member), true)));
@@ -216,7 +200,6 @@ public final class AccessRoles {
         }
     }
 
-    /** Gives or takes one role of one member as decided, and raises an alert when Discord refuses. */
     private void change(final Member member, final Role role, final DiscordRole kind, final Change change) {
         if (change == Change.KEEP) {
             return;
@@ -237,9 +220,8 @@ public final class AccessRoles {
     }
 
     /**
-     * Sends the "runs out soon" and "has run out" DMs, each exactly once per period.
-     *
-     * The {@code expiry_notice} row is written first, so a crash loses one message rather than repeating all.
+     * Sends the "runs out soon" and "has run out" DMs, each once per period.
+     * The {@code expiry_notice} row is written first, so a crash loses one message instead of repeating all.
      */
     public void sweepExpiryNotices() {
         final int leadHours = config.expiryReminderLeadDays() * 24;
@@ -260,7 +242,6 @@ public final class AccessRoles {
         }
     }
 
-    /** Deletes link codes that have run out. */
     public void sweepLinkCodes() {
         final int deleted = dao.deleteExpiredLinkCodes();
         if (deleted > 0) {
@@ -272,12 +253,10 @@ public final class AccessRoles {
         return dao.noticeOnce(deadline.discordId(), deadline.validUntil().atOffset(ZoneOffset.UTC), kind) == 1;
     }
 
-    /** Returns the language this Discord account chose, or English. */
     public Locale localeOf(final DiscordId discordId) {
         return access.language(discordId);
     }
 
-    /** Sends a direct message of one text in the member's language, and raises an alert when it bounces. */
     public void dm(final DiscordId discordId, final MessageRef message) {
         final LayoutRenderer.Drawn drawn = layouts.reply(localeOf(discordId), message);
         jda.openPrivateChannelById(discordId.value())
@@ -285,7 +264,6 @@ public final class AccessRoles {
                         channel -> channel.sendMessage(drawn.create())
                                 .queue(
                                         ok -> log.debug("DMed {}", discordId),
-                                        // Usually closed direct messages.
                                         failure -> admin.alert(dmNotDelivered(List.of(
                                                 TEXTS.alert().to(Mention.of(discordId)),
                                                 TEXTS.alert().words(drawn.text()))))),
@@ -295,7 +273,7 @@ public final class AccessRoles {
 
     /**
      * Sends a direct message and waits for Discord's answer.
-     * An admin waits on it in Steward, so a bounce is theirs to read there, not an alert.
+     * An admin waits on it in Steward, so a bounce is theirs to read there and raises no alert.
      *
      * @return whether Discord delivered it
      */
@@ -311,22 +289,14 @@ public final class AccessRoles {
         }
     }
 
-    /** What one role does for one member: given, taken, or left as it is. */
     enum Change {
         GIVE,
         TAKE,
         KEEP
     }
 
-    /**
-     * Who the reconcile gives the access role and who it takes it from.
-     *
-     * @param give the ids of members who are given it
-     * @param take the ids of members who lose it
-     */
     record Reconciled(Set<String> give, Set<String> take) {}
 
-    /** Decides the access role: held while a grant covers the member and the lock does not withhold it. */
     static Change accessChange(final boolean entitled, final boolean withheld, final boolean held) {
         final boolean wanted = entitled && !withheld;
         if (wanted == held) {
@@ -335,7 +305,7 @@ public final class AccessRoles {
         return wanted ? Change.GIVE : Change.TAKE;
     }
 
-    /** Decides the donor role, which only the lock ever takes: otherwise a donor keeps it for good. */
+    /** Only the lock takes the donor role. Otherwise a donor keeps it for good. */
     static Change donorChange(final boolean donor, final boolean withheld, final boolean held) {
         if (withheld) {
             return held ? Change.TAKE : Change.KEEP;
@@ -344,10 +314,6 @@ public final class AccessRoles {
     }
 
     /**
-     * Decides the reconcile of the access role over the whole guild.
-     *
-     * @param entitled the ids a grant covers now
-     * @param holding the ids of the members who hold the role
      * @param present whether a member of that id is in the guild
      * @param withheld whether the lock withholds the role from the member of that id
      */
@@ -368,7 +334,7 @@ public final class AccessRoles {
         return new Reconciled(Set.copyOf(give), Set.copyOf(take));
     }
 
-    /** Returns the role kept for {@code key}, or {@code null} while there is none, which {@link GuildRoles} says. */
+    /** Returns the role kept for {@code key}, or {@code null} while there is none. {@link GuildRoles} says why. */
     private @Nullable Role role(final Guild guild, final String key) {
         final Role role = roles.role(guild, key).orElse(null);
         if (role == null) {
@@ -382,7 +348,6 @@ public final class AccessRoles {
                 AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), detail, PAGE);
     }
 
-    /** Returns the contribution channel of a language as a mention, or its name when none is configured. */
     private String contributionChannel(final Locale locale) {
         final String id = languages.forLocale(locale).contributionChannelId();
         return Configured.isSet(id)
@@ -391,14 +356,13 @@ public final class AccessRoles {
     }
 
     /**
-     * Returns the guild member behind a Discord id, or empty when there is none.
-     *
-     * An unknown member, unknown account or non-snowflake id is empty; a guild JDA cannot see throws.
+     * Returns the guild member behind a Discord id.
+     * It is empty for an unknown member, an unknown account or a non-snowflake id.
+     * It throws when JDA cannot see the guild.
      */
     public Optional<Member> member(final DiscordId discordId) {
         final Guild guild = guild();
         if (guild == null) {
-            // Thrown and not empty. Empty means "no such member", and a guild JDA cannot see is no evidence of that.
             throw new IllegalStateException("guild " + config.guildId() + " is not available to the"
                     + " bot, so guild membership cannot be answered either way");
         }

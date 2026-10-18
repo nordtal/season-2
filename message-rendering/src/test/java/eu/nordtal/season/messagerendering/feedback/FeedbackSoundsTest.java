@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Pins the rules that make a mistyped sound key harmless rather than an error on a player path. */
+/** Checks that a bad sound key is reported and silenced instead of thrown. */
 class FeedbackSoundsTest {
 
     @Test
@@ -61,7 +61,7 @@ class FeedbackSoundsTest {
                 "the complaint has to name the value, or nobody can find it in the file");
     }
 
-    /** Checks that a key in our own namespace is accepted, since it names a sound only the pack defines. */
+    /** Checks that a key the server does not know is accepted as a pack sound. */
     @Test
     void aKeyTheServerHasNeverHeardOfIsKeptBecauseThatIsAPackSound() {
         final List<String> problems = new ArrayList<>();
@@ -100,7 +100,7 @@ class FeedbackSoundsTest {
         assertEquals(1, problems.size(), problems.toString());
     }
 
-    /** Checks that a sound that throws is reported once and its category goes quiet. */
+    /** Checks that a sound that throws is reported once and its category stays silent. */
     @Test
     void aCategoryThatFailedToPlayIsReportedOnceAndThenStaysSilent() {
         final List<String> problems = new ArrayList<>();

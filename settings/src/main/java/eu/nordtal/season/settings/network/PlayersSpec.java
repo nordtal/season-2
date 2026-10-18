@@ -7,7 +7,6 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** How many players the network takes and what they may type, which the proxy enforces and every server reads. */
 @ConfigSpec
 public interface PlayersSpec {
 
@@ -20,13 +19,12 @@ public interface PlayersSpec {
         return 500;
     }
 
-    /** Every command a non-admin may type anywhere on the network. */
     @Order(2)
     @Name("Command allowlist")
     @Key("command-allowlist")
     @NoExplanationNeeded
     default List<String> commandAllowlist() {
-        // Ours, and only ours: every vanilla command, including /help, is deliberately absent.
+        // Only commands of this network. Every vanilla command, including /help, is absent.
         return List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules");
     }
 }

@@ -32,12 +32,7 @@ import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.junit.jupiter.api.Test;
 
-/**
- * The bot raises alerts as rows, draws the ones steward routes back, and posts its journal lines as cards.
- *
- * An alert is a row for steward to route and comes back with its mentions; a journal line is rendered by the admin
- * bundle.
- */
+/** The bot raises alerts as rows, draws the alerts that steward routes back and posts journal lines as cards. */
 class AdminLogTest {
 
     private static final LayoutRenderer ADMIN = new LayoutRenderer(
@@ -48,7 +43,6 @@ class AdminLogTest {
     private static final Alert DM = new Alert(
             AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), "/access");
 
-    /** A book that keeps what is raised, or refuses every raise as a database that is gone would. */
     private static final class Book implements AlertBook {
 
         final List<Alert> raised = new ArrayList<>();

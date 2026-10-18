@@ -6,13 +6,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The regions the {@code onboarding} group defaults to, for a community mostly in Europe and America.
- *
- * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link OnboardingSpec.RegionSpec} is listed.
+ * The default regions of the {@code onboarding} group.
+ * {@code createUnsafe} applies no defaults, so {@code region} lists every {@code @Key} of
+ * {@link OnboardingSpec.RegionSpec}.
  */
 final class DefaultRegions {
 
-    /** The network's own zone first, since most members live in it. */
     static final List<OnboardingSpec.RegionSpec> LIST = List.of(
             region("Central Europe", "Europe/Berlin"),
             region("United Kingdom", "Europe/London"),

@@ -12,17 +12,16 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
- * The SQL over {@code registration}, {@code team} and {@code team_member}, every query named by its game's key.
- *
- * Unique indexes hold the invariants, {@link Teams} only pre-checks; every write signals {@link Channel#HUNGER_GAMES}.
+ * The queries on {@code registration}, {@code team} and {@code team_member}.
+ * Unique indexes enforce the rules and {@link Teams} only checks them first.
+ * Every write notifies {@link Channel#HUNGER_GAMES}.
  */
 @Notifies(Channel.HUNGER_GAMES)
 interface RegistrationDao {
 
-    /** A round of registration that has not ended. */
+    /** A registration round that has not ended. */
     record Current(UUID id, RegistrationState state) {}
 
-    /** The one round of {@code game} that has not ended, if any. */
     @SqlQuery("SELECT id, state FROM registration WHERE game = :game AND state <> 'ENDED'")
     @RegisterConstructorMapper(Current.class)
     Optional<Current> current(@Bind("game") String game);
@@ -35,9 +34,9 @@ interface RegistrationDao {
     Current open(@Bind("game") String game);
 
     /**
-     * Returns the round while it is open, and holds it so until the transaction ends.
+     * Returns the round if it is open and keeps it open until the transaction ends.
      *
-     * The game's close waits for the hold, so a team written under it is in the roster the game starts with.
+     * The close of the round waits for the transaction, so a team written in it is in the roster of the game.
      */
     @SqlQuery("SELECT id FROM registration WHERE id = :id AND state = 'OPEN' FOR SHARE")
     Optional<UUID> holdOpen(@Bind("id") UUID registrationId);
@@ -47,7 +46,7 @@ interface RegistrationDao {
             """)
     boolean teamNameTaken(@Bind("registrationId") UUID registrationId, @Bind("name") String name);
 
-    /** OWNER, INVITED or ACCEPTED; a DECLINED row does not count. */
+    /** Returns the member row in the state OWNER, INVITED or ACCEPTED. A DECLINED row does not count. */
     @SqlQuery("""
             SELECT id FROM team_member
             WHERE registration_id = :registrationId AND discord_id = :discordId
@@ -87,7 +86,7 @@ interface RegistrationDao {
     @SqlQuery("SELECT discord_id FROM team_member WHERE team_id = :teamId AND state = 'OWNER'")
     Optional<String> ownerDiscordId(@Bind("teamId") UUID teamId);
 
-    /** OWNER and ACCEPTED; a pending invite does not occupy the second seat yet. */
+    /** Counts the members in the state OWNER or ACCEPTED. A pending invite does not count. */
     @SqlQuery("SELECT COUNT(*) FROM team_member WHERE team_id = :teamId AND state IN ('OWNER', 'ACCEPTED')")
     int settledMemberCount(@Bind("teamId") UUID teamId);
 
@@ -107,7 +106,6 @@ interface RegistrationDao {
             @Bind("registrationId") UUID registrationId,
             @Bind("discordId") DiscordId discordId);
 
-    /** The state of the round an invite belongs to, or nothing for an invite that does not exist. */
     @SqlQuery("""
             SELECT registration.state FROM team_member member
             JOIN registration ON registration.id = member.registration_id
@@ -115,7 +113,7 @@ interface RegistrationDao {
             """)
     Optional<RegistrationState> registrationStateOf(@Bind("memberId") UUID memberId);
 
-    // Only the invited account answers its own invite, and only while the round is open, held so as holdOpen holds it.
+    // Only the invited account answers its invite, and only while the round is open. The share lock acts like holdOpen.
     @SqlQuery("""
             WITH accepted AS (
                 UPDATE team_member member SET state = 'ACCEPTED'

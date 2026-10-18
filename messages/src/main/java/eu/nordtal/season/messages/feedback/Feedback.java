@@ -1,44 +1,44 @@
 package eu.nordtal.season.messages.feedback;
 
 /**
- * The whole sound vocabulary of the network; a call site picks one of these and nothing else.
- * What each category sounds like is a per-module {@code config} group decision.
+ * The sound categories of the network.
+ * The {@code config} group of each module sets how a category sounds.
  */
 public enum Feedback {
 
-    /** Something small went right: an objective handed in, a POI created, a few aura earned. */
+    /** An objective handed in, a POI created or a little aura earned. */
     SMALL_SUCCESS,
 
-    /** Something that took work: a milestone finished by you, a duel won, a wheel prize. */
+    /** A milestone you finished, a duel won or a wheel prize. */
     BIG_SUCCESS,
 
-    /** The server said no: spawn-protected, not your POI, no spin left, a locked destination. */
+    /** Spawn protection, a foreign POI, no spin left or a locked destination. */
     REFUSED,
 
-    /** Something was taken: a duel lost, aura lost to a death. */
+    /** A lost duel or aura lost to a death. */
     LOSS,
 
-    /** A menu, a grave or any other surface opened. */
+    /** A menu, a grave or another surface opens. */
     SURFACE_OPEN,
 
-    /** The same surface closed. */
+    /** A surface closes. */
     SURFACE_CLOSE,
 
-    /** A click inside a surface that picked something. */
+    /** A click in a surface that picks something. */
     SELECT,
 
-    /** Going somewhere: the balloon, or the duel arena. */
+    /** The balloon or the way to the duel arena. */
     TRAVEL,
 
-    /** One tick of a clock running out: a duel start, or a restart. */
+    /** One tick of a countdown before a duel start or a restart. */
     COUNTDOWN_TICK,
 
-    /** Everybody hears it: a milestone for everyone who did not finish it, a phase switch. */
+    /** An event everybody hears, such as a milestone finished by others or a phase switch. */
     NETWORK_EVENT,
 
-    /** A staged moment, such as the season's opening; its sound key ships empty, which means silence. */
+    /** A staged moment, such as the opening of the season. Its empty sound key is silent. */
     STAGING,
 
-    /** Something is given back, heard by everyone nearby, such as an emptied grave settling. */
+    /** Something given back that everyone nearby hears, such as an emptied grave. */
     RECLAIMED
 }

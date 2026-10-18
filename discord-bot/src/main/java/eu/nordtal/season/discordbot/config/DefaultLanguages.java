@@ -7,13 +7,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The languages the {@code access} group defaults to, the network's own defaults, with empty ids and their own names.
- *
- * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link AccessSpec.LanguageSpec} is listed.
+ * The default languages of the {@code access} group: the network's default languages with empty ids.
+ * {@code createUnsafe} applies no defaults, so {@code language} lists every {@code @Key} of
+ * {@link AccessSpec.LanguageSpec}.
  */
 final class DefaultLanguages {
 
-    /** The network's default languages in its order, the fallback first, which the link screen prints. */
     static final List<AccessSpec.LanguageSpec> LIST = NetworkSettings.defaultLanguages().tags().stream()
             .map(DefaultLanguages::language)
             .toList();

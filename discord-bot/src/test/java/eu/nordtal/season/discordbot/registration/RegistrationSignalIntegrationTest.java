@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** Every write of a round, a team or a member signals {@link Channel#HUNGER_GAMES}, so the proxy's numbers follow. */
+/** Every write of a round, a team or a member signals {@link Channel#HUNGER_GAMES}. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RegistrationSignalIntegrationTest {
 

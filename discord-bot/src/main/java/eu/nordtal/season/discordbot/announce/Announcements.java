@@ -12,10 +12,6 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
 
-/**
- * Posts a message into one language's announcement channel, rendered in that language.
- * The bot's inbox calls it for an announcement request, and the bot's status tick through {@link #postAll}.
- */
 public final class Announcements {
 
     private final Channels channels;
@@ -40,12 +36,11 @@ public final class Announcements {
      * Renders a message in one language, posts it into that language's announcement channel and waits for Discord.
      *
      * @param languageTag the language, as in {@code access#languages[].tag}
-     * @return whether it was posted; {@code false} when that language has no channel or Discord refused
+     * @return whether it was posted, {@code false} when that language has no channel or Discord refused
      */
     public boolean post(final String languageTag, final MessageRef message) {
         final Optional<GuildLanguages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {
-            // Not a fault: a language without a channel gets no announcements.
             return false;
         }
         final String text = messages.format(language.get().locale(), message);
@@ -60,7 +55,6 @@ public final class Announcements {
                     text);
             return false;
         }
-        // Waited for, so "posted" means Discord took it; every caller is a worker thread.
         try {
             channels.send(channelId, text);
             log.info("Announced in '{}' in #{} ({}): {}", languageTag, channel.get(), channelId, text);
@@ -82,16 +76,12 @@ public final class Announcements {
 
     private static final java.time.Duration POST_TIMEOUT = java.time.Duration.ofSeconds(15);
 
-    /** Discord as far as posting a line goes, so a test can stand in for the guild. */
     interface Channels {
 
-        /** Returns the channel's name, or empty when it does not exist or the bot cannot see it. */
         Optional<String> name(String channelId);
 
-        /** Posts the text and waits until Discord took it. */
         void send(String channelId, String text) throws InterruptedException, ExecutionException, TimeoutException;
 
-        /** The guild the bot is logged in to. */
         static Channels of(final JDA jda) {
             return new Channels() {
                 @Override
@@ -113,7 +103,6 @@ public final class Announcements {
         }
     }
 
-    /** Posts one message into every language's channel, each rendered in its language. */
     public void postAll(final MessageRef message) {
         for (final GuildLanguages.Language language : languages.all()) {
             if (language.hasAnnouncementChannel()) {

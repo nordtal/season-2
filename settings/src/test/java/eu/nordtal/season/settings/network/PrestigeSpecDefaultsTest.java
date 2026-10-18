@@ -13,9 +13,10 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The crest ladder the network ships, fourteen colours and thirteen hours, is held here.
+ * Checks the crest ladder the network ships: fourteen colours and thirteen hours.
  *
- * Colours are compared by distance, not inequality; the floor of 20 is about half the closest shipped pair.
+ * Colours are compared by distance, not inequality. The floor of 20 is about half the closest
+ * shipped pair.
  */
 class PrestigeSpecDefaultsTest {
 
@@ -43,7 +44,7 @@ class PrestigeSpecDefaultsTest {
 
     @Test
     void noTwoDefaultsAreIndistinguishable() {
-        // Only values this test can measure; a non-hex value is the other test's finding, not a raw exception here.
+        // Only hex values can be measured. Another test reports a non-hex value.
         final List<String> colours =
                 all().stream().filter(c -> HEX.matcher(c).matches()).toList();
         final List<String> tooClose = new ArrayList<>();
@@ -61,7 +62,7 @@ class PrestigeSpecDefaultsTest {
                         + " in chat, in the tab list and above a player's head: " + tooClose);
     }
 
-    /** The two tier blocks carry the same keys, as the file's own header states. */
+    /** Checks that the two tier blocks have the same keys. */
     @Test
     void bothBlocksDeclareTheSameLadder() {
         assertEquals(
@@ -74,7 +75,7 @@ class PrestigeSpecDefaultsTest {
 
     @Test
     void theShippedHoursAreAValidLadder() {
-        // The same constructor the group's check runs, so a bad default fails here, not after a restart.
+        // The group's check runs the same constructor.
         assertDoesNotThrow(() -> new Prestige(NetworkSettings.prestigeHours(spec)));
     }
 
@@ -89,7 +90,7 @@ class PrestigeSpecDefaultsTest {
                 .toList();
     }
 
-    /** The thirteen tiers plus the admin override, which has to stand apart from all of them. */
+    /** Returns the thirteen tiers and the admin override. The admin colour must differ from every tier. */
     private List<String> all() {
         final List<String> colours = new ArrayList<>(NetworkSettings.prestigeColours(spec));
         colours.add(spec.admin());
@@ -97,7 +98,7 @@ class PrestigeSpecDefaultsTest {
     }
 
     /**
-     * The "redmean" approximation, a cheap weighted RGB distance that tracks what an eye does.
+     * Returns the "redmean" distance, a weighted RGB distance that approximates what an eye sees.
      *
      * Source: <a href="https://www.compuphase.com/cmetric.htm">compuphase</a>.
      */

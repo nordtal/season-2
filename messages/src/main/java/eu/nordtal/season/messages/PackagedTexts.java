@@ -16,17 +16,15 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The packaged bundle format, read in one place: {@code messages/<bundle>/<language>.properties}, UTF-8.
- * A key's first text is {@code key=...}; further variants, one chosen at random, are {@code key[1]=...} and on.
+ * Reads a packaged bundle, {@code messages/<bundle>/<language>.properties}, in UTF-8.
+ * The first text of a key is {@code key=...}. Further variants are {@code key[1]=...} and on.
  */
 public final class PackagedTexts {
 
-    /** A property name that holds a variant past the first. */
     private static final Pattern VARIANT = Pattern.compile("(.+)\\[([1-9][0-9]*)]");
 
     private PackagedTexts() {}
 
-    /** Returns where a bundle's language lives on the class path. */
     public static String resource(final String bundle, final String language) {
         return "messages/" + bundle + "/" + language + ".properties";
     }
@@ -34,7 +32,7 @@ public final class PackagedTexts {
     /**
      * Reads one language of a bundle from a class loader.
      *
-     * @return key to its variants, or {@code null} when the bundle has no file for the language
+     * @return the variants of each key, or {@code null} if the bundle has no file for the language
      * @throws UncheckedIOException  if the file cannot be read
      * @throws IllegalStateException if a variant has a gap before it or no first text
      */
@@ -49,10 +47,10 @@ public final class PackagedTexts {
     }
 
     /**
-     * Reads one language's file from a stream, such as an entry of a jar.
+     * Reads one language's file from a stream.
      *
-     * @param name the file, for the refusal
-     * @return key to its variants, in the order of their numbers
+     * @param name the file name, for the exception message
+     * @return the variants of each key, in the order of their numbers
      * @throws IllegalStateException if a variant has a gap before it or no first text
      */
     public static Map<String, List<String>> read(final InputStream stream, final String name) throws IOException {
@@ -78,16 +76,14 @@ public final class PackagedTexts {
         return texts;
     }
 
-    /** Returns the key a property name stands for: itself, or the key whose variant it holds. */
     public static String keyOf(final String property) {
         final Matcher variant = VARIANT.matcher(property);
         return variant.matches() ? variant.group(1) : property;
     }
 
     /**
-     * Returns the hash an override records of the packaged texts it replaced, so a release that changes them shows.
-     *
-     * @return the SHA-256 of the texts in order, each closed by a NUL, in lower-case hex
+     * Returns the SHA-256 of the texts in order, each closed by a NUL, in lower-case hex.
+     * {@link MessageOverride#replaced} stores it.
      */
     public static String hash(final List<String> texts) {
         final StringBuilder closed = new StringBuilder();

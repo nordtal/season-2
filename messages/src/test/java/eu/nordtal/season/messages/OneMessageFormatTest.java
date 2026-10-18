@@ -17,13 +17,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that every message a Minecraft client reads is MiniMessage, with no legacy section code in it.
- *
- * That the code renders them through {@code MessageRenderer} is {@code :architecture}'s rule.
+ * {@code :architecture} checks that the code renders every message through {@code MessageRenderer}.
  */
 class OneMessageFormatTest {
 
-    /** Every module that renders messages to a Minecraft client. */
     private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy", "paper-common");
 
     @Test

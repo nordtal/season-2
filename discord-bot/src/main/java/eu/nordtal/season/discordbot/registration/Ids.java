@@ -3,16 +3,16 @@ package eu.nordtal.season.discordbot.registration;
 import eu.nordtal.season.database.registration.Game;
 
 /**
- * Every component id {@link RegisterFlow} listens for, in its game's own namespace so two games never share a button.
+ * The component ids that {@link RegisterFlow} handles, prefixed with the game key.
  *
- * @param register          the button on the managed Register message
- * @param registerModal     the team name modal {@code register} opens
- * @param registerNameInput the text input inside {@code registerModal}
- * @param invite            on the post-registration confirmation: opens the partner picker
- * @param inviteSelect      the user select menu {@code invite} opens
- * @param inviteAccept      prefix of the accept button on the invited partner's DM; the invite's
- *                          {@code team_member.id} follows, so the button outlives a bot restart
- * @param inviteDecline     the same for the decline button
+ * @param register          the button on the Register message
+ * @param registerModal     the team name modal that {@code register} opens
+ * @param registerNameInput the text input of {@code registerModal}
+ * @param invite            the button on the registration confirmation, which opens the partner picker
+ * @param inviteSelect      the user select menu that {@code invite} opens
+ * @param inviteAccept      the prefix of the accept button in the partner's direct message, followed by the invite's
+ *                          {@code team_member.id}
+ * @param inviteDecline     the same prefix for the decline button
  */
 record Ids(
         String register,
@@ -23,7 +23,6 @@ record Ids(
         String inviteAccept,
         String inviteDecline) {
 
-    /** Returns the ids of {@code game}'s flow, each under its key. */
     static Ids of(final Game game) {
         final String prefix = game.key() + ":";
         return new Ids(

@@ -24,12 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Which effect a kind reaches, who it is filed under, and what goes into the answer. */
 class BotInboxTest {
 
     private static final DiscordId ADMIN = DiscordId.of("400000000000000001");
 
-    /** Every call, in order, as text. */
     private final List<String> carriedOut = new ArrayList<>();
 
     private final AccessChanges effects = new AccessChanges() {
@@ -75,10 +73,9 @@ class BotInboxTest {
                 return !previewed.person().equals(CLOSED);
             });
 
-    /** An admin whose direct messages are closed, so Discord delivers nothing to them. */
+    /** Discord delivers nothing to this admin, whose direct messages are closed. */
     private static final DiscordId CLOSED = DiscordId.of("400000000000000009");
 
-    /** A payment steward booked, as the bot is told of it. */
     private static final BotRequest.PaymentBooked BOOKED = new BotRequest.PaymentBooked(
             UUID.fromString("00000000-0000-0000-0000-000000000007"),
             DiscordId.of("400000000000000002"),
@@ -184,7 +181,7 @@ class BotInboxTest {
     void aRowStewardAskedForIsFiledAsTheSystem() {
         subject.handle(row(new BotRequest.Revoke(DiscordId.of("400000000000000002")), Actor.STEWARD));
 
-        // Steward is an actor kind of its own, never a made-up name in the id column.
+        // Steward is its own actor kind and never a name in the id column.
         assertEquals(List.of("revoke 400000000000000002 by STEWARD null"), carriedOut);
     }
 

@@ -21,9 +21,9 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jdbi.v3.core.Jdbi;
 
 /**
- * Mirrors guild membership, name and face into {@code discord_user}, from events and one startup reconcile.
+ * Writes guild membership, name and avatar to {@code discord_user}, from events and one reconcile at startup.
  *
- * Leaving the guild drops the account link and the admin branch; a ban writes state and never touches a grant.
+ * A member who leaves loses the account link and the admin branch. A ban writes the state and never changes a grant.
  */
 @Slf4j
 public final class GuildState extends ListenerAdapter {
@@ -61,13 +61,11 @@ public final class GuildState extends ListenerAdapter {
         if (!ours(event.getGuild()) || event.getUser().isBot()) {
             return;
         }
-        // A ban also produces a remove; GuildBanEvent then overwrites this with BANNED.
+        // A ban also creates a remove event, and onGuildBan then writes BANNED.
         access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.LEFT);
-        // Somebody not in the guild is not an admin, nor is anybody they granted.
+        // An admin who left loses the admin branch.
         dropAdmin(DiscordId.of(event.getUser().getId()));
-        // Nor a guild nickname or avatar, both scoped to the guild they left.
         access.clearGuildProfile(DiscordId.of(event.getUser().getId()));
-        // Safe here, unlike in reconcile(): Discord named this one user directly.
         if (access.unlink(DiscordId.of(event.getUser().getId()))) {
             log.info(
                     "{} left the guild; their Minecraft account link was removed",
@@ -90,14 +88,13 @@ public final class GuildState extends ListenerAdapter {
         if (!ours(event.getGuild())) {
             return;
         }
-        // Unbanning does not put anybody back in the guild, so LEFT, not MEMBER.
         access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.LEFT);
     }
 
     /**
-     * Catches up on everything that happened while the bot was down, in three passes.
+     * Catches up on the changes since the bot stopped.
      *
-     * Links and admins are dropped only when {@link #memberCacheLooksComplete(int, int)} trusts the member cache.
+     * Links and admins are dropped only when {@link #memberCacheLooksComplete(int, int)} is true.
      */
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
@@ -106,11 +103,11 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
 
-        // One snapshot for the pass and the completeness decision, so a mid-read join cannot fool the count.
+        // The same snapshot serves the pass and the completeness check.
         final MemberSweep sweep = sweepMembers(guild);
         final boolean banListRead = sweepBanList(guild, sweep.seen());
 
-        // Read after the snapshot: a mid-pass join raises the count, so the check fails safely.
+        // A join during the pass raises the count, so the check fails.
         final int expected = guild.getMemberCount();
         final boolean mayUnlink = memberCacheLooksComplete(sweep.cached(), expected) && banListRead;
 
@@ -176,7 +173,7 @@ public final class GuildState extends ListenerAdapter {
                 access.setMemberState(discordId, MemberState.LEFT);
                 access.clearGuildProfile(discordId);
                 left++;
-                // Dropping an admin is as final as deleting a link, so it waits for the same complete picture.
+                // Dropping an admin and deleting a link both need a complete member cache.
                 if (mayUnlink) {
                     dropAdmin(discordId);
                     if (access.unlink(discordId)) {
@@ -189,11 +186,10 @@ public final class GuildState extends ListenerAdapter {
     }
 
     /**
-     * Returns whether the member cache can be trusted to say who is in the guild.
+     * Returns whether the member cache holds every member of the guild.
      *
-     * @param cached how many members the snapshot holds
-     * @param expected how many the guild says it has; {@code 0} or less means "cannot tell"
-     * @return whether links may be deleted on the strength of this cache
+     * @param cached the number of members in the snapshot
+     * @param expected the member count of the guild, where {@code 0} or less means unknown
      */
     static boolean memberCacheLooksComplete(final int cached, final int expected) {
         return expected > 0 && cached >= expected;
@@ -203,7 +199,7 @@ public final class GuildState extends ListenerAdapter {
         return config.guildId().equals(guild.getId());
     }
 
-    /** Drops an admin who left or was banned, with everybody they granted. */
+    /** Drops an admin who left or was banned, and every admin that admin granted. */
     private void dropAdmin(final DiscordId discordId) {
         final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
         if (!dropped.isEmpty()) {
@@ -215,7 +211,6 @@ public final class GuildState extends ListenerAdapter {
         }
     }
 
-    /** Writes the username, effective nickname and effective avatar just observed. */
     private void mirrorProfile(final Member member) {
         access.setDiscordProfile(
                 DiscordId.of(member.getId()),

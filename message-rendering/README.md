@@ -1,26 +1,28 @@
 # message-rendering
 
-Messages as Adventure components, for Paper and Velocity code only. `MessageRenderer` is the
-Minecraft target of the one message core in `:messages`: it writes the text's own MiniMessage and
-inserts every value as a component of its kind, never as characters spliced into the markup, so
-nothing a player typed can open a tag. A list's items and a game line's arguments stay components
-of their own kinds too, so a list of items is still the client's to name. A tone tag is painted from the process's palette
-(`ToneColours`, parsed from its `colours` group), and `<action:name>` becomes a click on the command
-the code bound to that name.
+Renders messages as Adventure components, for Paper and Velocity code only. `MessageRenderer` is the
+Minecraft target of the message core in `:messages`.
 
-`Names` is how a process draws a player's name: the bare name by default, a server's own
-composition where it hands one in. `NameCards` is what the name shows on hover, a message the renderer draws
-for the same reader without cards of its own, so a card naming its player cannot recurse; a player the process
-holds nothing of has none. The style `plain` bypasses both, for the bare name, and `bare()` is the same
-bundle with neither, for a console. `GameLines`
-turns a line the game wrote, such as a death message, into a `GameContent` value, which renders as a
-translatable component the client reads in its own language. `Tones` paints a reply's tone and
-`FeedbackSounds` turns a feedback into a sound.
+`MessageRenderer` writes the text's own MiniMessage. It inserts every value as a component of its
+kind, never as characters in the markup, so nothing a player typed can open a tag. The items of a
+list and the arguments of a game line are components of their own kinds too. A tone tag takes its
+colour from `ToneColours`, which parses the `colours` group. `<action:name>` becomes a click on the
+command the code bound to that name.
 
-`Lines` fits a rendered text to a place the game draws line by line. An item's tooltip (`Lines.tooltip`) takes
-one line per line of its texts, the name's later lines opening the lore; a title, a subtitle, the action bar and a
-menu title hold one line, so `Lines.joined` draws each line break there as a space instead of an unknown character.
+- `Names` draws a player's name. It draws the bare name by default, or the composition a server hands
+  in.
+- `NameCards` supplies the card a name shows on hover. The renderer draws a card for the same reader
+  without cards of its own, so a card cannot contain a card. A player the process holds nothing of
+  has no card.
+- The style `plain` uses neither `Names` nor `NameCards`. `bare()` returns a renderer with neither,
+  for a console.
+- `GameLines` turns a line the game wrote, such as a death message, into a `GameContent` value. It
+  renders as a translatable component, which the client translates into its own language.
+- `Tones` paints the tone of a reply. `FeedbackSounds` turns a feedback into a sound.
+- `Lines` fits a rendered text to a place the game draws line by line. `Lines.tooltip` makes one
+  line per line of the texts of an item, and the later lines of the name open the lore. A title, a
+  subtitle, the action bar and a menu title hold one line, so `Lines.joined` draws each line break
+  there as a space.
 
-`<glyph:name>` is resolved through `GlyphNames`, found with `ServiceLoader`, so this module needs no
-resource pack; `:pack-rendering` supplies the one implementation, and without it every name stays
-as written.
+`<glyph:name>` is resolved through `GlyphNames`, found with `ServiceLoader`. `:pack-rendering`
+supplies the one implementation. Without it every name stays as written.

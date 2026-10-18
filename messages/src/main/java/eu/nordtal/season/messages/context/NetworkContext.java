@@ -2,14 +2,9 @@ package eu.nordtal.season.messages.context;
 
 import eu.nordtal.season.messages.value.Example;
 
-/**
- * The network as a whole; available in every message.
- *
- * @param name what a player reads for it
- */
+/** The network. Every message can name it. */
 @ContextType(value = "network", name = "Network")
 public record NetworkContext(@Example("Nordtal") String name) implements MessageContext {
 
-    /** The network this code runs. */
     public static final NetworkContext NORDTAL = new NetworkContext("Nordtal");
 }

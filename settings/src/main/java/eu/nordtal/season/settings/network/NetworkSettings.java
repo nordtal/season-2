@@ -23,37 +23,33 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-/**
- * The groups every process shares, which an admin changes once for the whole network, and what a valid one is.
- *
- * The players and the prestige are taken while a process runs; the season and the languages at its next start.
+/** The groups every process shares.
+ * The players and prestige groups apply while a process runs, the others at the next start.
  */
 public final class NetworkSettings {
 
-    /** How many players the network takes and what they may type. */
     public static final Group<PlayersSpec> PLAYERS = Group.of("players", PlayersSpec.class)
             .checkedBy(NetworkSettings::checkPlayers)
             .whileRunning()
             .networkWide();
 
-    /** The season this installation runs. */
     public static final Group<SeasonSpec> SEASON = Group.of("season", SeasonSpec.class)
             .checkedBy(NetworkSettings::checkSeason)
             .networkWide();
 
-    /** The languages the network speaks and the zone it tells time in. */
     public static final Group<LanguageAndTimeSpec> LANGUAGE_AND_TIME = Group.of(
                     "language-and-time", LanguageAndTimeSpec.class)
             .checkedBy(NetworkSettings::checkLanguageAndTime)
             .networkWide();
 
-    /** When each crest is reached and the colour a name is drawn in; every name's card shows the crest. */
+    /**
+     * When each crest is reached and the colour of a name. The card of every name shows the crest.
+     */
     public static final Group<PrestigeSpec> PRESTIGE = Group.of("prestige", PrestigeSpec.class)
             .checkedBy(NetworkSettings::checkPrestige)
             .whileRunning()
             .networkWide();
 
-    /** What access costs, which the bot offers and steward books by. */
     public static final Group<PricesSpec> PRICES = Group.of("prices", PricesSpec.class)
             .checkedBy(NetworkSettings::checkPrices)
             .networkWide();
@@ -69,13 +65,12 @@ public final class NetworkSettings {
                 spec.donationCents());
     }
 
-    /** Returns the crest table {@code spec} declares, which {@link #checkPrestige} has already let through. */
     public static Prestige prestige(final PrestigeSpec spec) {
         return new Prestige(prestigeHours(spec));
     }
 
     /**
-     * Refuses bad crest hours, since {@link Prestige}'s constructor is the whole rule for them.
+     * Refuses bad crest hours. The constructor of {@link Prestige} holds the whole rule.
      *
      * @throws IllegalArgumentException naming what is wrong with the hours
      */
@@ -83,7 +78,6 @@ public final class NetworkSettings {
         final Prestige _ = prestige(spec);
     }
 
-    /** The thirteen tier colours, in tier order, as a server that paints names in them parses them. */
     public static List<String> prestigeColours(final PrestigeSpec spec) {
         final PrestigeSpec.TierColoursSpec tiers = spec.colours();
         return List.of(
@@ -102,7 +96,6 @@ public final class NetworkSettings {
                 tiers.tier13());
     }
 
-    /** The thirteen tier hours, in the same order, as {@link Prestige} takes them. */
     public static List<Integer> prestigeHours(final PrestigeSpec spec) {
         final PrestigeSpec.TierHoursSpec tiers = spec.hours();
         return List.of(
@@ -121,11 +114,10 @@ public final class NetworkSettings {
                 tiers.tier13());
     }
 
-    /**
-     * Refuses a price list the purchase flow cannot offer.
-     * A tier is identified by its days, so they are unique, and more days cost more.
+    /** Refuses a price list the purchase flow cannot offer.
+     * The days of a tier are unique, and more days cost more.
      *
-     * @throws IllegalArgumentException naming the first value that is wrong
+     * @throws IllegalArgumentException naming the first wrong value
      */
     public static void checkPrices(final PricesSpec spec) {
         Checks.requirePositive("donation-cents", spec.donationCents());
@@ -154,7 +146,6 @@ public final class NetworkSettings {
         }
     }
 
-    /** Returns the languages a process loads its bundles in, the default first. */
     public static Languages languages(final LanguageAndTimeSpec spec) {
         final List<String> tags = new ArrayList<>(List.of(spec.defaultLanguage()));
         spec.languages().stream()
@@ -163,12 +154,11 @@ public final class NetworkSettings {
         return new Languages(tags);
     }
 
-    /** Returns the languages of the spec's defaults, for a process whose settings could not be read. */
     public static Languages defaultLanguages() {
         return languages(Specs.createDefault(LanguageAndTimeSpec.class));
     }
 
-    /** Returns the allowlist {@code players} holds now, parsed again only when a reload changed it. */
+    /** Returns the allowlist of {@code players}, parsed again only after a reload changed it. */
     public static Supplier<CommandAllowlist> allowlist(final PlayersSpec players) {
         final AtomicReference<Map.Entry<List<String>, CommandAllowlist>> parsed = new AtomicReference<>();
         return () -> {
@@ -183,15 +173,11 @@ public final class NetworkSettings {
         };
     }
 
-    /** Returns the season every message names as {@code {season.number}} and {@code {season.name}}. */
     public static SeasonContext season(final SeasonSpec spec) {
         return new SeasonContext(spec.number(), spec.name());
     }
 
-    /**
-     * Returns what every message of the service called {@code service} can name, and how it shows times and tones.
-     * The globals are the service itself, the season and the network.
-     */
+    /** Returns what every message of {@code service} can name and how it shows times and tones. */
     public static MessageEnvironment environment(
             final String service,
             final SeasonSpec season,
@@ -200,24 +186,23 @@ public final class NetworkSettings {
         return MessageEnvironment.of(service, season(season), zone(languageAndTime), palette);
     }
 
-    /** Returns the zone a date is shown and typed in until a reader has one of their own. */
     public static ZoneId zone(final LanguageAndTimeSpec spec) {
         return ZoneId.of(spec.defaultTimeZone());
     }
 
     /**
-     * Refuses a limit or an allowlist the network cannot run on; an empty allowlist is a choice, not a mistake.
+     * Refuses a limit or an allowlist the network cannot run on. An empty allowlist is valid.
      *
-     * @throws IllegalArgumentException naming the first value that is wrong
+     * @throws IllegalArgumentException naming the first wrong value
      */
     public static void checkPlayers(final PlayersSpec spec) {
         Checks.requirePositive("max-players", spec.maxPlayers());
         for (final String entry : spec.commandAllowlist()) {
-            // A blank entry would be dropped silently: the form shows ten entries, the network acts on nine.
+            // A blank entry would be dropped silently.
             if (entry == null || entry.isBlank()) {
                 throw new IllegalArgumentException("command-allowlist has a blank entry, which allows nothing");
             }
-            // CommandAllowlist#parse strips a leading slash and namespace, so "/" also normalises to empty.
+            // CommandAllowlist#parse strips a leading slash and namespace, so "/" becomes empty too.
             if (!CommandAllowlist.names(entry)) {
                 throw new IllegalArgumentException("command-allowlist entry '" + entry
                         + "' is nothing once the slash and namespace are taken off; write a path like 'hg ready'");
@@ -225,21 +210,11 @@ public final class NetworkSettings {
         }
     }
 
-    /**
-     * Refuses a season without a number or a name.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
     public static void checkSeason(final SeasonSpec spec) {
         Checks.requirePositive("number", spec.number());
         Checks.requireText("name", spec.name());
     }
 
-    /**
-     * Refuses a language list or zone the network cannot speak or tell time in.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
     public static void checkLanguageAndTime(final LanguageAndTimeSpec spec) {
         final String fallback = Locales.tag(Locales.DEFAULT);
         final Set<String> seen = new HashSet<>();
@@ -256,7 +231,7 @@ public final class NetworkSettings {
                     "default-language '" + spec.defaultLanguage() + "' is not one of the languages " + seen);
         }
         if (!spec.defaultLanguage().equals(fallback)) {
-            // Every bundle is complete only in English, and a reader without a language still falls back to it.
+            // Only English is complete, and a reader without a language falls back to it.
             throw new IllegalArgumentException("default-language must be " + fallback
                     + " until a reader's own language decides what they read, was '" + spec.defaultLanguage() + "'");
         }

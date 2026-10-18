@@ -13,7 +13,6 @@ import java.time.Instant;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/** The status channel name in every phase and at every distance from the opening, against the real bundles. */
 class StatusNameTest {
 
     private static final DiscordRenderer MESSAGES =

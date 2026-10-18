@@ -14,7 +14,6 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The buyer's wait for a payment link, decided from the request row and the time waited alone. */
 class PaymentWaitTest {
 
     private static final Instant NOW = Instant.parse("2026-10-06T10:00:00Z");

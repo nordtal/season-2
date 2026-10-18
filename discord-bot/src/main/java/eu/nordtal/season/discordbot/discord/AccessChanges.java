@@ -4,22 +4,17 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import java.time.Instant;
 
-/**
- * The access changes as the bot carries them out, each filed under the {@link Actor} who asked.
- *
- * It is what {@link BotInbox} dispatches to, so the inbox is testable without JDA.
- */
+/** The access changes that {@link BotInbox} runs, each recorded under the {@link Actor} who asked. */
 public interface AccessChanges {
 
-    /** Adds days of access, applies the role and tells them, returning when access now runs until. */
+    /** Adds days of access, applies the role, sends a direct message and returns the end of the access. */
     Instant grant(DiscordId discordId, int days, Actor by);
 
-    /** Takes every running grant away, removes the role and tells them, returning how many went. */
+    /** Revokes every running grant, removes the role, sends a direct message and returns the number of grants. */
     int revoke(DiscordId discordId, Actor by);
 
-    /** Breaks the link between a Discord account and a Minecraft one. */
+    /** Removes the link between a Discord account and a Minecraft account. Returns whether a link existed. */
     boolean unlink(DiscordId discordId, Actor by);
 
-    /** Writes somebody's total play time, in seconds. */
     void setPlaytime(DiscordId discordId, long seconds, Actor by);
 }

@@ -22,17 +22,14 @@ import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Every access and onboarding value that must not get past startup, and how the environment reaches them. */
 class BotSettingsTest {
 
     private final MemorySettingStore store = new MemorySettingStore();
 
-    /** A complete, valid access group as Steward stores it, with English and German. */
     private static Map<String, Object> access() {
         return access(List.of(language("en", 30, 39), language("de", 33, 40)));
     }
 
-    /** A complete access group with the given languages, one value per path. */
     private static Map<String, Object> access(final List<Map<String, String>> languages) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("guild-id", "1");
@@ -47,7 +44,7 @@ class BotSettingsTest {
         return values;
     }
 
-    /** One language entry: its two channels numbered after {@code first}, and its Hunger Games channel. */
+    /** Returns a language entry with two channels numbered from {@code first} and a Hunger Games channel. */
     private static Map<String, String> language(final String tag, final int first, final int hungerGamesChannel) {
         final Map<String, String> entry = new LinkedHashMap<>();
         entry.put("tag", tag);
@@ -57,10 +54,8 @@ class BotSettingsTest {
         return entry;
     }
 
-    /** The languages the network speaks in most of these tests. */
     private static final Languages NETWORK = new Languages(List.of("en", "de"));
 
-    /** Takes the access group over {@code values} as the bot does at its start, on the English and German network. */
     private AccessSpec taken(final Map<String, Object> values) throws SettingsException {
         return taken(values, NETWORK);
     }
@@ -69,7 +64,6 @@ class BotSettingsTest {
         return store.checked(BotSettings.SERVICE, BotSettings.accessGroup(network), values);
     }
 
-    /** The message the check refuses {@code values} with. */
     private String refused(final Map<String, Object> values) {
         return refused(values, NETWORK);
     }
@@ -79,7 +73,6 @@ class BotSettingsTest {
                 .getMessage();
     }
 
-    /** English, and German with {@code key} set to {@code value}. */
     private static Map<String, Object> germanWith(final String key, final String value) {
         final Map<String, String> german = language("de", 33, 40);
         german.put(key, value);
@@ -105,7 +98,7 @@ class BotSettingsTest {
 
     @Test
     void anAccessGroupStoredWithRoleIdsStillLoadsWithItsChannels() throws Exception {
-        // The rows an installation kept from before the names: role ids at paths that are gone, and in every language.
+        // An installation keeps old rows with role ids at paths that no longer exist, in every language.
         final Map<String, String> english = language("en", 30, 39);
         english.put("role", "1407097541761171496");
         final Map<String, String> german = language("de", 33, 40);
@@ -128,7 +121,7 @@ class BotSettingsTest {
 
     @Test
     void noAdminChannelIsABotThatStartsAndLogsItsAlertsInstead() throws Exception {
-        // A guild without an admin channel yet still has to come up to say what else is missing.
+        // A guild without an admin channel must still start and report what else is missing.
         final Map<String, Object> values = access();
         values.put("channels.admin", "");
 
@@ -137,7 +130,7 @@ class BotSettingsTest {
 
     @Test
     void anAdminChannelThatIsPresentStillHasToBeASnowflake() {
-        // Empty is a decision; `<#24>` is a paste.
+        // An empty value is a decision. `<#24>` is a pasted mention.
         final Map<String, Object> values = access();
         values.put("channels.admin", "<#24>");
 
@@ -197,7 +190,7 @@ class BotSettingsTest {
 
     @Test
     void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() {
-        // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
+        // The placeholder is REPLACE_ME because zeros are a valid snowflake.
         final Map<String, Object> values = access();
         values.put("channels.admin", "REPLACE_ME");
 
@@ -221,7 +214,6 @@ class BotSettingsTest {
 
     @Test
     void aLanguageListWithoutTheDefaultLanguageStopsTheBotNamingIt() {
-        // The network's default is the floor every missing translation degrades to.
         final String message = refused(access(List.of(language("de", 33, 40))));
 
         assertTrue(message.contains("no entry for 'en'"), message);
@@ -257,7 +249,7 @@ class BotSettingsTest {
 
     @Test
     void twoEntriesWithTheSameTagStopTheBot() {
-        // A tag is the bundle name and the discord_user.locale value, so two entries claiming one are ambiguous.
+        // A tag is the bundle name and the discord_user.locale value, so two entries with one tag are ambiguous.
         final String message = refused(access(List.of(language("en", 30, 39), language("en", 33, 40))));
 
         assertTrue(message.contains("Tags identify a language"), message);
@@ -265,7 +257,7 @@ class BotSettingsTest {
 
     @Test
     void anUpperCaseTagIsNotTheNetworksTag() {
-        // The network refuses an upper case tag itself, so an entry written so matches no language.
+        // The network refuses an upper case tag, so an entry with one matches no language.
         final String message = refused(access(List.of(language("en", 30, 39), language("DE", 33, 40))));
 
         assertTrue(message.contains("entry for 'DE'"), message);
@@ -273,7 +265,7 @@ class BotSettingsTest {
 
     @Test
     void aLanguageEntryWhoseIdsAreAllEmptyIsALanguageThatServesNothing() throws Exception {
-        // Empty switches off what it names, and Configured lists it.
+        // An empty value switches off the setting it names. Configured lists it.
         final Map<String, String> empty = language("de", 33, 40);
         empty.replaceAll((key, value) -> key.equals("tag") ? value : "");
 
@@ -290,7 +282,6 @@ class BotSettingsTest {
 
     @Test
     void aLanguageIdThatIsPresentStillHasToBeASnowflakeNamingTheEntry() {
-        // An unresolvable channel and an unconfigured one are not the same.
         final String message = refused(germanWith("link-channel", "<#35>"));
 
         assertTrue(message.contains("languages[1].link-channel"), message);
@@ -306,7 +297,7 @@ class BotSettingsTest {
 
     @Test
     void aLanguageWithNoAnnouncementChannelGetsNoAnnouncementsAndTheBotStarts() throws Exception {
-        // The second optional id: the servers' announce rows for this language settle as "no channel".
+        // This is the second optional id: the announce rows of this language's servers read as "no channel".
         final AccessSpec config = taken(access());
 
         assertEquals("", config.languages().getFirst().announcementChannel());
@@ -322,7 +313,7 @@ class BotSettingsTest {
 
     @Test
     void aStatusChannelThatIsSetHasToBeARealSnowflake() {
-        // Lenient about absent must not become lenient about wrong.
+        // An absent value is accepted. A wrong value is not.
         final String message = refused(germanWith("status-channel", "not-an-id"));
 
         assertTrue(message.contains("languages[1].status-channel"), message);
@@ -339,7 +330,7 @@ class BotSettingsTest {
 
     @Test
     void aTagTooLongForManagedMessageKindStopsTheBot() {
-        // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>".
+        // managed_message.kind is varchar(32) and holds CONTRIBUTION_<TAG>.
         final String message = refused(
                 access(List.of(language("en", 30, 39), language("a".repeat(20), 33, 40))),
                 new Languages(List.of("en", "a".repeat(20))));
@@ -349,7 +340,7 @@ class BotSettingsTest {
 
     @Test
     void aThirdLanguageIsASettingEditAndNothingElse() throws Exception {
-        // Nothing in the bot's source mentions 'fr'; this entry is the entire change per language.
+        // The source of the bot never names 'fr'. This entry is the whole change for a language.
         final Languages network = new Languages(List.of("en", "de", "fr"));
         final GuildLanguages languages = GuildLanguages.of(
                 taken(access(List.of(language("en", 30, 39), language("de", 33, 40), language("fr", 36, 41))), network),
@@ -382,10 +373,9 @@ class BotSettingsTest {
                         "the message has to name the variable to set: " + error.getMessage()));
     }
 
-    /**
-     * The {@code @Protected} annotation and the bot's startup rule name the same fallback language.
+    /** The {@code @Protected} annotation and the startup rule of the bot name the same fallback language.
      *
-     * Nothing notices at runtime if they drift, because the removal refusal lives in steward.
+     * Steward holds the removal refusal, so nothing at runtime detects a difference.
      */
     @Test
     void theLanguageStewardRefusesToRemoveIsTheOneThisBotFallsBackTo() throws Exception {
@@ -411,7 +401,6 @@ class BotSettingsTest {
                 DefaultLanguages.LIST.stream().map(AccessSpec.LanguageSpec::tag).toList());
     }
 
-    /** A value under {@code NORDTAL_ACCESS_} wins over what is stored, and Steward is told which path it holds. */
     @Test
     void theEnvironmentWinsAndStewardIsToldWhichPathItHolds() throws Exception {
         access().forEach((path, value) -> store.set(BotSettings.SERVICE, "access", path, value));
@@ -429,17 +418,14 @@ class BotSettingsTest {
                 store.group(BotSettings.SERVICE, "access").orElseThrow().environment());
     }
 
-    /** Takes the onboarding group over {@code values} the way the bot does at its start. */
     private OnboardingSpec onboarding(final Map<String, Object> values) throws SettingsException {
         return store.checked(BotSettings.SERVICE, BotSettings.ONBOARDING, values);
     }
 
-    /** The message the onboarding check refuses {@code values} with. */
     private String refusedOnboarding(final Map<String, Object> values) {
         return assertThrows(SettingsException.class, () -> onboarding(values)).getMessage();
     }
 
-    /** An onboarding group whose regions are {@code regions}, as name and zone pairs. */
     private static Map<String, Object> regions(final String... namesAndZones) {
         final List<Map<String, String>> regions = new ArrayList<>();
         for (int index = 0; index < namesAndZones.length; index += 2) {

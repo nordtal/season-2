@@ -18,7 +18,6 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** What layouts.json says of a layout beyond its declaration, and the building blocks that follow from it. */
 class LayoutSchemaTest {
 
     private static final Function<String, Optional<MessageSchema.Bundle>> SCHEMAS =

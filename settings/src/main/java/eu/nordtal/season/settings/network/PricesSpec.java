@@ -11,11 +11,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** What access costs: the bot offers it and steward books a payment by it. */
 @ConfigSpec
 public interface PricesSpec {
 
-    /** What can be bought. */
     @Order(1)
     @Name("Tiers")
     @Key("tiers")
@@ -33,7 +31,6 @@ public interface PricesSpec {
         return 500;
     }
 
-    /** One purchasable period: a number of days for a price. */
     @ConfigSpec
     interface TierSpec {
 

@@ -15,9 +15,9 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The closed set of what a message can show, each rendered once per target.
- * A text names a kind by its token, as in {@code {left, duration, short}}; a value's kind follows from its Java type.
+/** The closed set of what a message can show.
+ * A text names a kind by its token, as in {@code {left, duration, short}}.
+ * A value's kind follows from its Java type.
  */
 public enum Kind {
 
@@ -30,9 +30,9 @@ public enum Kind {
     /** A length of time: {@code long} by default, {@code short} as {@code 2h 5m}, {@code clock} as {@code 2:05:00}. */
     DURATION("duration", "PT2H5M"),
 
-    /**
-     * A moment, in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}.
-     * {@code relative} is Discord's countdown, which every other target shows as {@code datetime}.
+    /** A moment in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}.
+     * {@code relative} is Discord's countdown.
+     * Every other target shows it as {@code datetime}.
      */
     INSTANT("instant", "2026-10-03T18:40:00Z"),
 
@@ -54,18 +54,16 @@ public enum Kind {
     /** A glyph of the resource pack. */
     GLYPH("glyph", "admin"),
 
-    /** Yes or no, or one of a fixed set of states; what {@code select} chooses on. */
+    /** Yes or no, or one of a fixed set of states. {@code select} chooses on it. */
     CHOICE("choice", "true"),
 
-    /**
-     * Another message, rendered for the same reader in the same target, so a phrase is written once and placed in many.
+    /** Another message, rendered for the same reader in the same target.
      * An editor writes it as the key of a message without values.
      */
     MESSAGE("message", "values.missing.text");
 
     private static final PlayerId EXAMPLE_PLAYER = PlayerId.of(new UUID(0L, 1L));
 
-    /** The kinds whose values are of one type each. */
     private static final Map<Class<?>, Kind> BY_TYPE = Map.of(
             Duration.class, DURATION,
             Instant.class, INSTANT,
@@ -89,7 +87,7 @@ public enum Kind {
         return token;
     }
 
-    /** Returns the styles a text may ask for; every kind also renders without one. */
+    /** Returns the styles a text may ask for. Every kind also renders without one. */
     public Set<String> styles() {
         return switch (this) {
             case NUMBER, DISPLAY_NAME -> Set.of("plain");
@@ -100,17 +98,15 @@ public enum Kind {
         };
     }
 
-    /** Returns the example an attribute without its own shows, as an editor writes it. */
+    /** Returns the example an attribute without its own example shows. */
     public String defaultExample() {
         return example;
     }
 
-    /** Returns the kind a text names by {@code token}, or empty for a word that is none. */
     public static Optional<Kind> byToken(final String token) {
         return Arrays.stream(values()).filter(kind -> kind.token.equals(token)).findFirst();
     }
 
-    /** Returns the kind of a value of {@code type}, or empty for a type that is no kind's. */
     public static Optional<Kind> of(final Class<?> type) {
         final Class<?> boxed = type.isPrimitive() ? box(type) : type;
         if (CharSequence.class.isAssignableFrom(boxed)) {
@@ -128,13 +124,12 @@ public enum Kind {
         return Optional.ofNullable(BY_TYPE.get(boxed));
     }
 
-    /** Returns the kind of a value, or empty for one that has none. */
     public static Optional<Kind> ofValue(final @Nullable Object value) {
         return value == null ? Optional.empty() : of(value.getClass());
     }
 
     /**
-     * Returns a value of this kind from an example as an editor writes it, so a text can be rendered with it.
+     * Returns a value of this kind from an example as an editor writes it.
      *
      * @throws IllegalArgumentException when the example does not read as this kind
      */

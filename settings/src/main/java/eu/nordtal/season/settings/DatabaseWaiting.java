@@ -7,35 +7,30 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 
-/** Opens a process's database pool, waiting for PostgreSQL to come up rather than exiting while it is not there. */
 public final class DatabaseWaiting {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DatabaseWaiting.class);
 
-    /** How long {@link #openDatabase(DatabaseSpec, String, Waiting)} asks before it calls the database absent. */
     public static final Duration DATABASE_WAIT = Duration.ofMinutes(3);
 
-    /** The pause between two attempts. */
     public static final Duration DATABASE_RETRY = Duration.ofSeconds(2);
 
     private DatabaseWaiting() {}
 
     /**
-     * Opens the pool, waiting for the database to appear; {@code null} means stop.
+     * Opens the pool and retries until the database answers or {@link #DATABASE_WAIT} has passed.
      *
-     * Other services wait on this one being healthy, and compose abandons {@code up} if it exits, so it retries.
+     * Returns {@code null} if it gives up or the thread is interrupted.
      */
     public static @Nullable Database openDatabase(final DatabaseSpec config, final String name, final Waiting waiting) {
         return openDatabase(config, name, DATABASE_WAIT, DATABASE_RETRY, waiting);
     }
 
-    /** The same, for a process whose queries may run up to {@code queryBound}, longer than the usual timeout. */
     public static @Nullable Database openDatabase(
             final DatabaseSpec config, final String name, final Duration queryBound, final Waiting waiting) {
         return openDatabase(config, name, queryBound, DATABASE_WAIT, DATABASE_RETRY, waiting);
     }
 
-    /** The same, with the windows as arguments so a test need not wait minutes. */
     public static @Nullable Database openDatabase(
             final DatabaseSpec config,
             final String name,
@@ -59,7 +54,7 @@ public final class DatabaseWaiting {
                         return Optional.of(Database.open(config, name, queryBound));
                     } catch (final RuntimeException unreachable) {
                         if (last.getAndSet(unreachable) == null) {
-                            // Once, not per attempt, so the retries do not bury the migration line.
+                            // Log once, so the retries do not bury the migration line.
                             log.info(
                                     "The database at {} is not answering yet ({}). That is expected on a"
                                             + " first deployment - PostgreSQL is still initialising and this"

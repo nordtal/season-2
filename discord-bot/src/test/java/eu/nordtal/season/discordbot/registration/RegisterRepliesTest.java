@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** What the registration flow says for every result of {@link Teams}. */
 class RegisterRepliesTest {
 
     private static final UUID ID = UUID.fromString("22222222-2222-2222-2222-222222222222");

@@ -14,14 +14,13 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that a wrapped line in a message bundle keeps the space that separated the two words.
+ * A wrapped line in a message bundle keeps the space between its two words.
  *
- * {@code Properties.load} strips the continuation line's leading whitespace, so the separator has to
- * be on the first line, before the backslash. The rule is absolute: no value wants a mid-word split.
+ * {@code Properties.load} strips the leading whitespace of a continuation line, so the space
+ * belongs on the first line, before the backslash. No value may split a word.
  */
 class BundleContinuationTest {
 
-    /** Every module that ships a message bundle. */
     private static final List<String> BUNDLE_ROOTS = List.of(
             "smp/src/main/resources/messages",
             "limbo/src/main/resources/messages",
@@ -58,9 +57,7 @@ class BundleContinuationTest {
     }
 
     /**
-     * Checks that a count in a sentence picks a key, never a parenthesis such as "spin(s)".
-     *
-     * The rule is absolute; a count picks a {@code .one} key instead.
+     * A count in a sentence selects a {@code .one} key and never a parenthesis such as "spin(s)".
      */
     @Test
     void aCountPicksAKeyRatherThanAParentheticalPlural() {
@@ -70,7 +67,7 @@ class BundleContinuationTest {
             boolean continued = false;
             for (int i = 0; i < lines.size(); i++) {
                 final String line = lines.get(i);
-                // The value only, so a comment explaining the rule does not fail it.
+                // Only the value is checked, so a comment that explains the rule does not fail.
                 final String value = continued ? line : valueOf(line);
                 continued = continues(line);
                 if (value == null) {
@@ -91,7 +88,6 @@ class BundleContinuationTest {
                         + " count instead, the way the wheel does at one spin");
     }
 
-    /** Returns the value a line declares, or {@code null} for a comment or a blank line. */
     private static String valueOf(final String line) {
         final String trimmed = line.stripLeading();
         if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) {
@@ -110,7 +106,7 @@ class BundleContinuationTest {
         return "";
     }
 
-    /** Returns whether {@code line} ends in an odd number of backslashes, which continues it. */
+    /** An odd number of trailing backslashes continues the line. */
     private static boolean continues(final String line) {
         int backslashes = 0;
         for (int i = line.length() - 1; i >= 0 && line.charAt(i) == '\\'; i--) {

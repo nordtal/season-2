@@ -12,9 +12,8 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 /**
- * Takes the access and donor roles when the lock role comes, and gives back what the member is owed when it goes.
- *
- * One serial lane keeps a lock and its lifting in the order they happened.
+ * Takes the access and donor roles when the lock role comes, and returns what the member is owed when it goes.
+ * A serial lane keeps a lock and its removal in the order they happened.
  */
 public final class LockedRoles extends ListenerAdapter {
 
@@ -24,9 +23,7 @@ public final class LockedRoles extends ListenerAdapter {
     private final Executor lane;
 
     /**
-     * Creates it.
-     *
-     * @param lane the serial executor every change runs on, off the gateway thread since it reads the database
+     * @param lane the serial executor every change runs on, off the gateway thread because it reads the database
      */
     public LockedRoles(final String guildId, final GuildRoles roles, final AccessRoles access, final Executor lane) {
         this.guildId = guildId;
@@ -55,7 +52,6 @@ public final class LockedRoles extends ListenerAdapter {
         }
         final String memberId = member.getId();
         lane.execute(() -> {
-            // Read again, so the lane acts on what the member holds by now.
             final Member current = guild.getMemberById(memberId);
             if (current != null) {
                 access.applyEntitlement(current);

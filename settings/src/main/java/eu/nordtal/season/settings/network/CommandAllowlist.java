@@ -8,15 +8,14 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * Which commands a player who is not an admin may type, anywhere on the network.
+/** The commands a non-admin player may type anywhere on the network.
  * A command is allowed when an entry, such as {@code smp status}, is a prefix of it or it of the entry.
  *
  * @param entries one list of path segments per allowed command, in configured order
  */
 public record CommandAllowlist(List<List<String>> entries) {
 
-    /** Nothing is allowed; never a default, see {@code CommandFilter}. */
+    /** Allows nothing. It is never a default, see {@code CommandFilter}. */
     public static final CommandAllowlist NOTHING = new CommandAllowlist(List.of());
 
     public CommandAllowlist {
@@ -29,7 +28,7 @@ public record CommandAllowlist(List<List<String>> entries) {
         }
     }
 
-    /** Reads configured lines into a list, normalising a leading slash, spacing and case and skipping blank lines. */
+    /** Reads configured lines, normalising a leading slash, spacing and case. */
     public static CommandAllowlist parse(final Collection<String> lines) {
         Objects.requireNonNull(lines, "lines");
         final List<List<String>> parsed = new ArrayList<>();
@@ -43,9 +42,9 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * Returns whether a player may run this, with the leading slash optional.
+     * Returns whether a player may run {@code typed}. The leading slash is optional.
      *
-     * @param typed the whole line as the platform hands it over, arguments included
+     * @param typed the whole line, arguments included
      */
     public boolean allows(final String typed) {
         final List<String> path = segments(typed);
@@ -62,23 +61,18 @@ public record CommandAllowlist(List<List<String>> entries) {
         return false;
     }
 
-    /**
-     * Returns whether anything at all under this first segment is allowed, which is what both completion filters ask.
-     */
     public boolean allowsRoot(final String label) {
         final List<String> path = segments(label);
         return !path.isEmpty()
                 && entries.stream().anyMatch(entry -> entry.getFirst().equals(path.getFirst()));
     }
 
-    /** Returns every distinct first segment, for a log line at startup. */
     public Set<String> roots() {
         final Set<String> roots = new LinkedHashSet<>();
         entries.forEach(entry -> roots.add(entry.getFirst()));
         return roots;
     }
 
-    /** Renders {@code /smp status, /msg, /r} for a log line; it is never parsed back. */
     @Override
     public String toString() {
         return entries.stream()
@@ -88,8 +82,8 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * Returns whether one written line names a command at all.
-     * {@code "/"} and {@code "minecraft:"} normalise to the empty path and so name nothing.
+     * Returns whether {@code line} names a command. The lines {@code "/"} and {@code "minecraft:"}
+     * name none.
      */
     public static boolean names(final String line) {
         return !segments(line).isEmpty();

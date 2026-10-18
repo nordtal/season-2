@@ -37,11 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * The payment request state machine against a real PostgreSQL and the real migrations.
- *
- * Every rule here is a constraint or an index; the test skips itself when no Docker daemon is reachable.
- */
+/** The test skips itself when no Docker daemon is reachable. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PaymentRequestIntegrationTest {
 
@@ -105,7 +101,7 @@ class PaymentRequestIntegrationTest {
     void aSecondOpenRequestForTheSamePersonIsRefusedByTheDatabase() {
         requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
-        // A partial unique index, not a Java check two threads could both pass.
+        // A partial unique index enforces this, not a Java check.
         assertThrows(
                 UnableToExecuteStatementException.class,
                 () -> requests.open(DiscordId.of(USER), 60, 500, 0, TTL_HOURS));
@@ -191,7 +187,7 @@ class PaymentRequestIntegrationTest {
 
         access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id());
 
-        // Two code paths settling once each still cannot double-grant.
+        // Two code paths that each settle once cannot grant twice.
         assertThrows(
                 RuntimeException.class,
                 () -> access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id()));
@@ -199,7 +195,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aDowngradedPaymentGrantsTheDaysItCoveredAppendedToRunningAccess() {
-        // Ordered 90 days, paid for 30; the grant is appended, not restarted.
+        // The request orders 90 days and pays for 30. The grant is appended, not restarted.
         final AccessGrant first = access.grantAccess(DiscordId.of(USER), 30, AccessSource.ADMIN, null);
 
         final PaymentRequest request = requests.open(DiscordId.of(USER), 90, 700, 0, TTL_HOURS);
@@ -213,12 +209,10 @@ class PaymentRequestIntegrationTest {
                         "30 days on top of 30 days"));
     }
 
-    /** The bank's inbox, as steward would read it. */
     private Inbox<BankRequest> bank() {
         return Inbox.over(database.dataSource(), BankRequest.TABLE);
     }
 
-    /** Every request waiting in the bank's inbox, oldest first. */
     private List<BankRequest> asked() {
         return bank().recent(BankRequest.OpenTab.class, 50).stream()
                 .map(Request::payload)
@@ -243,7 +237,6 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
-        // Otherwise steward makes a second tab.
         assertFalse(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER))), "asking changes nothing");
         assertTrue(asked().isEmpty());
     }
@@ -281,7 +274,7 @@ class PaymentRequestIntegrationTest {
         final Instant before = Instant.now();
         final Instant first = Watermark.resolve(database.jdbi(), "", Instant.now());
 
-        // Long enough that a second "now" would be a different instant.
+        // 50 ms makes a second Instant.now() a different instant.
         Thread.sleep(50);
         final Instant second = Watermark.resolve(database.jdbi(), "", Instant.now());
 
@@ -302,7 +295,7 @@ class PaymentRequestIntegrationTest {
         final Instant overridden = Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z", Instant.now());
         assertEquals(Instant.parse("2020-01-01T00:00:00Z"), overridden);
 
-        // Emptying the override falls back to the first-start instant, not the restart.
+        // An empty override falls back to the first-start instant, not to the restart.
         assertEquals(stored, Watermark.resolve(database.jdbi(), "", Instant.now()));
     }
 
@@ -323,7 +316,7 @@ class PaymentRequestIntegrationTest {
         assertEquals(
                 PaymentRequestStatus.EXPIRED,
                 requests.byId(request.id()).orElseThrow().status());
-        // A closed row whose bunq.me URL still works is a link somebody can pay, onto a reference nothing books.
+        // A closed row with a working bunq.me URL stays payable.
         assertEquals(
                 List.of(new BankRequest.CancelTab(request.id())),
                 bank().recent(BankRequest.CancelTab.class, 10).stream()
@@ -335,7 +328,7 @@ class PaymentRequestIntegrationTest {
     void closeAndRequestCancelRefusesToBeUsedAsASettlement() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
-        // PAID means something has to be granted, never a row closed with nothing.
+        // PAID requires a grant. A row is never closed without one.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID, Actor.STEWARD));

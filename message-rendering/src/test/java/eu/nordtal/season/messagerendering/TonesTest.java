@@ -14,7 +14,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.junit.jupiter.api.Test;
 
-/** Checks that tones are distinct, come from a configured palette, and fall back on a bad hex value. */
+/** Checks that tones differ, take their colour from the palette and fall back to the default on a bad hex value. */
 class TonesTest {
 
     @Test
@@ -29,7 +29,7 @@ class TonesTest {
                         + " with detail under them read as one wall of identical text");
     }
 
-    /** The palette is closed: a tenth tone is a decision, and every packaged text and override may name it. */
+    /** Checks that the palette has exactly these nine tones. */
     @Test
     void thePaletteIsTheseNineTones() {
         assertEquals(

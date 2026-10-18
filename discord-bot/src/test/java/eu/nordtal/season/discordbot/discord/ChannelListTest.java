@@ -17,7 +17,6 @@ import net.dv8tion.jda.api.events.channel.ChannelCreateEvent;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** What the bot publishes for Steward's channel pickers, and which channel events make it publish again. */
 class ChannelListTest {
 
     private static final String GUILD = "100000000000000001";
@@ -100,7 +99,6 @@ class ChannelListTest {
         return new ChannelList(jda(guild), GUILD, store, Runnable::run);
     }
 
-    /** What each guild's {@code getChannels} answers; JDA's channel type shares its simple name with ours. */
     private final IdentityHashMap<Guild, List<?>> channelsOf = new IdentityHashMap<>();
 
     private void channels(final Guild guild, final List<?> channels) {
@@ -113,7 +111,7 @@ class ChannelListTest {
                 new Class<?>[] {Guild.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getId" -> id;
-                    // The map compares by identity, so the stand-in needs no equals of its own.
+                    // The map compares by identity, so the stand-in needs no equals.
                     case "getChannels" -> channelsOf.get((Guild) proxy);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
@@ -143,6 +141,6 @@ class ChannelListTest {
                 });
     }
 
-    /** JDA's guild channel under a name of its own. */
+    /** Renames JDA's guild channel, because our channel type has the same simple name. */
     private interface Discord extends net.dv8tion.jda.api.entities.channel.middleman.GuildChannel {}
 }

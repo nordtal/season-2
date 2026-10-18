@@ -3,10 +3,8 @@ package eu.nordtal.season.settings;
 import com.google.gson.JsonObject;
 import java.util.Objects;
 
-/**
- * Settings from the spec's defaults and the environment alone, for what a process needs before its database.
- *
- * The connection to the database is the one group read this way, since the stored settings sit behind it.
+/** Reads settings from the spec's defaults and the environment alone, for what a process needs before its database.
+ * The database connection is the one group read this way.
  */
 public final class EnvironmentSettings implements Settings {
 
@@ -16,7 +14,6 @@ public final class EnvironmentSettings implements Settings {
         this.environment = Objects.requireNonNull(environment, "environment");
     }
 
-    /** Returns the settings {@code environment} holds. */
     public static EnvironmentSettings of(final Environment environment) {
         return new EnvironmentSettings(environment);
     }
@@ -38,7 +35,6 @@ public final class EnvironmentSettings implements Settings {
         return new Fixed<>(values);
     }
 
-    /** A group read once; the environment of a running process does not change. */
     private record Fixed<T>(T get) implements Setting<T> {
 
         @Override

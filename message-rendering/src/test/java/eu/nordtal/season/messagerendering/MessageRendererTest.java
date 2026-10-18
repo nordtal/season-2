@@ -27,16 +27,17 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules the Minecraft target exists to keep.
- * A text is the repository's or an admin's, but a value is a player name; see
- * {@link #aValueContainingATagCannotInjectMinimessage()}.
+ * Checks {@link MessageRenderer}.
+ *
+ * A text comes from the repository or an admin. A value can be a player's name, see {@link
+ * #aValueContainingATagCannotInjectMinimessage()}.
  */
 class MessageRendererTest {
 
     private static final DisplayName ALEX =
             new DisplayName(PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a")), "Alex");
 
-    /** Draws a name with a card naming the player, as a server's composition would. */
+    /** Draws a name with a hover that names the player. */
     private static final Names CARDED =
             (name, reader) -> Component.text(name.name()).hoverEvent(Component.text("card of " + name.name()));
 
@@ -50,7 +51,6 @@ class MessageRendererTest {
         return RENDER.format(Locale.ENGLISH, new MessageRef(key, args));
     }
 
-    /** Flattens a component to its text without the separate plain-text serializer artifact. */
     private static String plain(final Component component) {
         final StringBuilder out = new StringBuilder();
         flatten(component, out);
@@ -64,7 +64,7 @@ class MessageRendererTest {
         component.children().forEach(child -> flatten(child, out));
     }
 
-    /** Flattens a component as a client without the translations would show it, a game name by its fallback. */
+    /** Returns the text of a component as a client without translations shows it, with the fallback for a game name. */
     private static String shown(final Component component) {
         final StringBuilder out = new StringBuilder();
         if (component instanceof final TextComponent text) {
@@ -240,7 +240,7 @@ class MessageRendererTest {
 
     @Test
     void aNameShowsTheCardThisProcessHoldsOfThePlayerAndPlainShowsNone() {
-        // The card names the player itself, which must not draw a card of its own inside it.
+        // A card that names its player must not contain a card.
         final MessageRenderer carding = MessageRenderer.of(
                 RENDER.raw(), Names.BARE, name -> new MessageRef("who", Map.of("who", name, "who2", name)));
         final Component rendered =

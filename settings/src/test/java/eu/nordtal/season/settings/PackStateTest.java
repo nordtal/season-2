@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Reading the proxy's pack out of its stored settings. */
+/** Checks reading the proxy's pack from its stored settings. */
 class PackStateTest {
 
     private static final String URL =

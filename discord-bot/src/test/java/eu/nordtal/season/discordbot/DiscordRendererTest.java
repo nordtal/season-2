@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/** The Discord target: what a member reads is what was written, and times and members are Discord's own. */
 class DiscordRendererTest {
 
     private static final DiscordRenderer DISCORD =

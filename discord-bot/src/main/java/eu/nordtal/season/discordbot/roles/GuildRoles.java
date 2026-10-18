@@ -23,40 +23,37 @@ import net.dv8tion.jda.api.entities.Role;
 import org.jdbi.v3.core.Jdbi;
 
 /**
- * Every Discord role the bot uses: taken by its name from Steward, or created, and then followed by its stored id.
+ * Finds or creates every Discord role the bot uses, and then follows the role by its stored id.
  *
- * Only a role that is gone is looked up by name again; two roles of the name are an admin's question, so neither is.
+ * The bot looks for a role by name again only when the role is gone. When two roles have the name, it takes neither.
  */
 @Slf4j
 public final class GuildRoles {
 
-    /** The role a grant of access gives. */
     public static final String ACCESS = "access";
 
-    /** The role a donation gives. */
     public static final String DONOR = "donor";
 
-    /** The role every admin carries. */
     public static final String ADMIN = "admin";
 
-    /** The role a member holds until they chose a language and a region. */
+    /** The role of a member who has not chosen a language and a region. */
     public static final String LOCK = "lock";
 
-    /** The page in Steward an alert about a role opens. */
+    /** The page in Steward that a role alert opens. */
     private static final String PAGE = "/access";
 
-    /** One role the bot uses: the key it is stored under and the name it is found by. */
+    /** A role the bot uses, with the key it is stored under and the name it is found by. */
     public record Wanted(String key, String name) {}
 
-    /** The guild's roles as this reads and makes them: JDA's guild in the bot, a map in a test. */
+    /** The roles of the guild. The bot uses JDA's guild and a test uses a map. */
     interface RoleList {
 
         boolean has(String roleId);
 
-        /** Returns every role of exactly this name a member can be given, in the guild's order. */
+        /** Returns the ids of the roles with exactly this name that a member can be given, in the guild's order. */
         List<String> named(String name);
 
-        /** Creates a role of this name that grants nothing and returns its id. */
+        /** Creates a role without permissions and returns its id. */
         String create(String name);
     }
 
@@ -70,25 +67,23 @@ public final class GuildRoles {
         stored.putAll(dao.all());
     }
 
-    /** Returns the roles stored in the database behind {@code jdbi}, raising its alerts through {@code alerts}. */
     public static GuildRoles stored(final Jdbi jdbi, final Consumer<Alert> alerts) {
         return new GuildRoles(jdbi.onDemand(DiscordRoleDao.class), alerts);
     }
 
-    /** Returns the key of a language's role. */
     public static String language(final String tag) {
         return "language/" + tag;
     }
 
-    /** Returns the key of a region's role, which is its zone, so renaming the region keeps its role. */
+    /** Returns the key of the role of a region. The key holds the zone, so renaming the region keeps the role. */
     public static String region(final String zone) {
         return "region/" + zone;
     }
 
     /**
-     * Finds, adopts or creates every wanted role that has none in the guild.
+     * Finds, adopts or creates every wanted role that the guild does not have.
      *
-     * It may wait for Discord, so it runs on the scheduler, never on a gateway thread.
+     * It waits for Discord, so it must not run on a gateway thread.
      */
     public void resolve(final Guild guild, final Collection<Wanted> wanted) {
         resolve(new JdaRoles(guild), wanted);
@@ -106,7 +101,7 @@ public final class GuildRoles {
             alerts.clear(wanted.key());
             return;
         }
-        // A role another key already stands for is that key's, whatever it is called.
+        // A role that another key stores belongs to that key.
         final Set<String> taken = new HashSet<>(stored.values());
         final List<String> named = guild.named(wanted.name()).stream()
                 .filter(id -> !taken.contains(id))
@@ -143,23 +138,22 @@ public final class GuildRoles {
         alerts.clear(key);
     }
 
-    /** Returns the role stored for {@code key} if the guild has it; reads the cache only. */
+    /** Returns the role stored for {@code key} if the guild has it. It reads only the cache. */
     public Optional<Role> role(final Guild guild, final String key) {
         final String id = stored.get(key);
         return id == null ? Optional.empty() : Optional.ofNullable(guild.getRoleById(id));
     }
 
-    /** Returns the stored role id of {@code key}, whether or not the guild still has it. */
+    /** Returns the stored role id of {@code key}, also when the guild no longer has the role. */
     public Optional<String> id(final String key) {
         return Optional.ofNullable(stored.get(key));
     }
 
-    /** Returns whether {@code roleId} is a role this stores, so its deletion means looking again. */
     public boolean isStored(final String roleId) {
         return stored.containsValue(roleId);
     }
 
-    /** Returns the alert for a role Discord did not give a member or take from them. */
+    /** Returns the alert for a role that Discord did not give to a member or take from a member. */
     public static Alert notChanged(
             final DiscordRole role, final boolean given, final DiscordId member, final Throwable failure) {
         return new Alert(
@@ -177,7 +171,6 @@ public final class GuildRoles {
         }
     }
 
-    /** The roles of a guild JDA sees. */
     private record JdaRoles(Guild guild) implements RoleList {
 
         @Override

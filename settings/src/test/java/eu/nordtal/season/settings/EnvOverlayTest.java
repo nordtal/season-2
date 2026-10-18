@@ -52,7 +52,7 @@ class EnvOverlayTest {
                 () -> EnvOverlay.forSpec(Colliding.class, "NORDTAL", name -> null, SpecJson.GSON));
     }
 
-    /** Two keys whose variables are the same name. */
+    /** Two keys that map to the same variable name. */
     @ConfigSpec
     public interface Colliding {
 

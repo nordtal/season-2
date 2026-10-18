@@ -19,11 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * What the admin tree writes is what {@link AdminFlagDao} reads back, against a real PostgreSQL.
- *
- * Skipped when no Docker daemon is reachable.
- */
+/** The test is skipped when no Docker daemon is reachable. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AdminFlagIntegrationTest {
 
@@ -70,7 +66,7 @@ class AdminFlagIntegrationTest {
 
     @Test
     void aUserTheBotKnowsButHasNeverMadeAnAdminIsNotOne() {
-        // The column is NOT NULL DEFAULT false, so a row written by any other path answers false.
+        // The column is NOT NULL DEFAULT false, so a row from any other path reads false.
         access.ensureUser(DiscordId.of(USER));
 
         assertEquals(Optional.of(false), dao.isAdmin(DiscordId.of(USER)));
@@ -79,7 +75,6 @@ class AdminFlagIntegrationTest {
 
     @Test
     void theRootsRowIsCreatedByTheClaimWhenNothingElseWroteIt() {
-        // An admin who never bought or linked anything still has to be able to act as an admin.
         tree.claimRootIfNobody(DiscordId.of(USER));
 
         assertEquals(Optional.of(true), dao.isAdmin(DiscordId.of(USER)));

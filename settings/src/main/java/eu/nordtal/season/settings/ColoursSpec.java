@@ -7,11 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** The {@code colours} group: the {@link Tone} colours every text is painted with; a tone's default is its own. */
+/** The {@code colours} group: the colour of each {@link Tone}. */
 @ConfigSpec
 public interface ColoursSpec {
 
-    /** For a reply that arrives: it worked, is current, or came back. */
+    /** Colours a reply that worked, is current or came back. */
     @Order(1)
     @Name("Good")
     @Key("good")
@@ -21,7 +21,7 @@ public interface ColoursSpec {
         return Tone.GOOD.hex();
     }
 
-    /** For a reply that fails. Needs to stand out in a long list. */
+    /** Colours a reply that fails. It must stand out in a long list. */
     @Order(2)
     @Name("Bad")
     @Key("bad")
@@ -31,7 +31,7 @@ public interface ColoursSpec {
         return Tone.BAD.hex();
     }
 
-    /** Not a failure, but not what was asked for either: stopped, too late, still waiting. */
+    /** Colours a reply that is no failure but not what was asked for: stopped, too late or still waiting. */
     @Order(3)
     @Name("Warning")
     @Key("warn")
@@ -41,7 +41,6 @@ public interface ColoursSpec {
         return Tone.WARN.hex();
     }
 
-    /** An ordinary reply with nothing to flag. */
     @Order(4)
     @Name("Neutral")
     @Key("neutral")
@@ -51,7 +50,7 @@ public interface ColoursSpec {
         return Tone.NEUTRAL.hex();
     }
 
-    /** Supporting detail under a line that already carries the news. */
+    /** Colours detail under a line that already states the result. */
     @Order(5)
     @Name("Muted")
     @Key("muted")
@@ -61,7 +60,7 @@ public interface ColoursSpec {
         return Tone.MUTED.hex();
     }
 
-    /** A heading, a title, an icon that opens a line. */
+    /** Colours a heading, a title or an icon that opens a line. */
     @Order(6)
     @Name("Accent")
     @Key("accent")
@@ -71,7 +70,6 @@ public interface ColoursSpec {
         return Tone.ACCENT.hex();
     }
 
-    /** The network's own name and links. */
     @Order(7)
     @Name("Brand")
     @Key("brand")
@@ -81,7 +79,7 @@ public interface ColoursSpec {
         return Tone.BRAND.hex();
     }
 
-    /** The word in a line that matters most: a name, a number, a place. */
+    /** Colours the most important word of a line: a name, a number or a place. */
     @Order(8)
     @Name("Emphasis")
     @Key("emphasis")
@@ -91,7 +89,6 @@ public interface ColoursSpec {
         return Tone.EMPHASIS.hex();
     }
 
-    /** Barely there: a hint, a rule, a separator. */
     @Order(9)
     @Name("Faint")
     @Key("faint")

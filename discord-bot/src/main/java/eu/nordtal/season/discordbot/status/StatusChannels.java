@@ -28,20 +28,19 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Renames one channel per language so the guild's sidebar says what the network is doing.
- *
- * Discord allows two renames per ten minutes, so a channel is renamed only on change and at most every six minutes.
+ * Renames one channel per language to show the state of the network.
+ * Discord allows two renames per ten minutes.
+ * A channel is renamed only when its name changes and at most every six minutes.
  */
 @Slf4j
 public final class StatusChannels {
 
-    /** The floor between two renames of the same channel, half of Discord's budget. */
     static final int MINIMUM_RENAME_MINUTES = 6;
 
-    /** How long the first signal of a burst waits for the ones behind it; the rename floor, not this, paces Discord. */
+    /** The time that the first signal of a burst waits for the following signals. */
     static final Duration SETTLE = Duration.ofSeconds(2);
 
-    /** The channels that move a name: the phase, and the rounds, teams and games; the busy SMP waits for the hub. */
+    /** The notification channels that change a name: the phase and the hunger games. */
     static final Set<Channel> CHANNELS = EnumSet.of(Channel.PHASE, Channel.HUNGER_GAMES);
 
     private final JDA jda;
@@ -51,7 +50,7 @@ public final class StatusChannels {
     private final SnapshotDirectory snapshots;
     private final Clock clock;
 
-    /** Channel id to the name last accepted and when it was tried; written from the timer and from JDA callbacks. */
+    /** The last rename attempt by channel id. The timer and JDA callbacks write it. */
     private final Map<String, Rename> attempts = new ConcurrentHashMap<>();
 
     public StatusChannels(
@@ -87,10 +86,9 @@ public final class StatusChannels {
     }
 
     private final @Nullable Announcements announcements;
-    /** The phase the last tick saw; null before the first, so a restart announces nothing. */
+    /** The phase of the last tick, or null before the first tick. */
     private volatile @Nullable SeasonPhase lastSeen;
 
-    /** Returns whether any language has a status or announcement channel configured. */
     public boolean configured() {
         return languages.all().stream()
                 .anyMatch(language ->
@@ -98,10 +96,10 @@ public final class StatusChannels {
     }
 
     /**
-     * Ticks whenever the hub wakes on a channel that moves a name, with signals close together as one tick.
-     * Call before {@link SignalHub#start}.
+     * Runs a tick for each signal of a channel that changes a name. Signals in quick succession cause one tick.
+     * Call it before {@link SignalHub#start}.
      *
-     * @param lane runs the tick, one at a time
+     * @param lane the executor that runs the ticks one at a time
      */
     public void follow(final SignalHub hub, final Scheduler scheduler, final Executor lane) {
         final Runnable signal = tickOnSignal(scheduler, lane);
@@ -110,12 +108,12 @@ public final class StatusChannels {
         }
     }
 
-    /** Returns what a signal calls: one tick on the lane after {@link #SETTLE}, shared by the signals of a burst. */
+    /** Returns the signal handler. It runs one tick on the lane after {@link #SETTLE} for all signals of a burst. */
     Runnable tickOnSignal(final Scheduler scheduler, final Executor lane) {
         return new Coalescing(scheduler, SETTLE, () -> lane.execute(this::tick))::request;
     }
 
-    /** Reads the state, renders a name per language and renames what changed, on every signal of the bot's hub. */
+    /** Reads the state, renders a name per language and renames the channels whose name changed. */
     public void tick() {
         final SeasonPhase phase = phases.currentPhase();
         announceIfChanged(phase);
@@ -127,7 +125,7 @@ public final class StatusChannels {
             return;
         }
 
-        // Reading neither during MAINTENANCE is one fewer query that can fail while the network is already down.
+        // Neither is read during MAINTENANCE.
         final Instant launch = phase == SeasonPhase.PRE_LAUNCH ? phases.launch().orElse(null) : null;
         final NetworkSnapshot snapshot = needsCounts(phase) ? snapshots.snapshot() : NetworkSnapshot.EMPTY;
         final Instant now = clock.instant();
@@ -138,9 +136,9 @@ public final class StatusChannels {
     }
 
     /**
-     * Posts a phase change into every announcement channel, each in its own language.
+     * Posts a phase change to every announcement channel in the language of the channel.
      *
-     * The first tick after a start only remembers, so a restart during SMP does not announce SMP.
+     * The first tick after a start only stores the phase and posts nothing.
      */
     private void announceIfChanged(final SeasonPhase phase) {
         final SeasonPhase previous = lastSeen;
@@ -162,7 +160,7 @@ public final class StatusChannels {
             return;
         }
         if (previous != null && Duration.between(previous.at(), now).toMinutes() < MINIMUM_RENAME_MINUTES) {
-            // Stale by design: the cooldown counts attempts, not successes.
+            // The cooldown counts attempts, not successes.
             return;
         }
 
@@ -177,13 +175,13 @@ public final class StatusChannels {
             return;
         }
 
-        // Recorded before the request, so a missed callback does not resend it.
+        // The attempt is stored before the request.
         final Rename sent = new Rename(name, now);
         attempts.put(channelId, sent);
         channel.getManager()
                 .setName(name)
                 .queue(success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name), failure -> {
-                    // Forget the name, keep the time, so a failed rename is retried.
+                    // Forget the name and keep the time, so the rename is retried.
                     attempts.replace(channelId, sent, new Rename(null, sent.at()));
                     log.warn(
                             "Could not rename the status channel for '{}' to \"{}\"; it will be"
@@ -195,10 +193,10 @@ public final class StatusChannels {
     }
 
     /**
-     * What this bot believes a channel is called, and when it last tried to change it.
+     * The last rename attempt of a channel.
      *
-     * @param confirmed the name last sent and not reported as failed, or {@code null} after a failure
-     * @param at when that attempt was made; the cooldown runs off this
+     * @param confirmed the name last sent that did not fail, or {@code null} after a failure
+     * @param at the time of the attempt, from which the cooldown runs
      */
     private record Rename(@Nullable String confirmed, Instant at) {}
 }

@@ -19,19 +19,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The two onboarding messages: the welcome in the onboarding channel and the message to change later in another.
+ * The two onboarding messages: the welcome in the onboarding channel and the change message in the change channel.
  *
- * Each is a {@link ManagedMessage}, so a start or a changed channel edits the last one rather than posting another.
+ * Each is a {@link ManagedMessage}.
  */
 final class OnboardingMessage {
 
-    /** The welcome's {@code managed_message.kind}. */
     static final String KIND = "ONBOARDING";
 
-    /** The change message's {@code managed_message.kind}. */
     static final String CHANGE_KIND = "ONBOARDING_CHANGE";
 
-    /** The welcome: one box in the default language over its banner, and a select that asks only for the language. */
+    /** The welcome in the default language with a banner and a select for the language. */
     static final Layout WELCOME = Layout.discord(
             "access",
             "onboarding-welcome",
@@ -47,7 +45,7 @@ final class OnboardingMessage {
                     Part.gallery("attachment://onboarding.png")),
             Part.row("language"));
 
-    /** The message to change later: a box and a button per language, each button opening the dialog in it. */
+    /** The change message with one box and one button per language. The button opens the dialog in that language. */
     static final Layout CHANGE = Layout.discord(
             "access",
             "onboarding-change",
@@ -71,7 +69,7 @@ final class OnboardingMessage {
         this.renderer = new LayoutRenderer(messages, layouts);
     }
 
-    /** Posts or edits both messages; an empty channel id means that message is not kept. */
+    /** Posts or edits both messages. An empty channel id means the message is not posted. */
     void publish(final ManagedMessage managed, final String onboardingChannelId, final String changeChannelId) {
         managed.publish(KIND, onboardingChannelId, welcome());
         managed.publish(CHANGE_KIND, changeChannelId, change());

@@ -26,7 +26,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Every value kind as a reader in English and in German reads it in plain text. */
 class ValueKindsTest {
 
     private static final KindsMessages KINDS = MessageSpecs.create(KindsMessages.class);
@@ -39,7 +38,7 @@ class ValueKindsTest {
 
     private static Messages messages;
 
-    /** The schema is the spec's own, as the build writes it, so the kinds below are the declared ones. */
+    /** The schema is the one the build writes from the spec, so the kinds are the declared ones. */
     @BeforeAll
     static void load() throws IOException {
         final Path schema = schemas.resolve("messages/kinds/schema.json");

@@ -3,8 +3,8 @@ package eu.nordtal.season.messages.spec;
 import java.util.Collection;
 
 /**
- * A place a text is shown, which decides how an editor previews it there and how long it may be.
- * A key names every place it really appears, and the strictest of their limits is its own.
+ * A place where a text is shown. It decides how an editor previews the text and how long it may be.
+ * The limit of a key is the strictest limit of its places.
  */
 public enum Display {
     CHAT(Surface.GAME),
@@ -13,39 +13,35 @@ public enum Display {
     SUBTITLE(Surface.GAME, 0, true),
     BOSS_BAR(Surface.GAME, 0, true),
     TAB_LIST(Surface.GAME),
-    /** An inventory menu: its title, an item's name or a line of its tooltip. */
+    /** An inventory menu: its title, the name of an item or a line of its tooltip. */
     GUI(Surface.GAME),
-    /** Floating text in the world. */
     HOLOGRAM(Surface.GAME),
-    /** A screen the client shows in place of the game: a refusal, a kick, or the resource pack prompt. */
+    /** A screen that replaces the game: a refusal, a kick or the resource pack prompt. */
     KICK_SCREEN(Surface.GAME),
-    /** The multiplayer server list. */
     SERVER_LIST(Surface.GAME),
     DISCORD_MESSAGE(Surface.DISCORD, 2000),
-    /** An embed's description or a field's value, which the bot cuts to a field's shorter limit. */
+    /** The description of an embed or the value of a field. The bot cuts it to the field limit. */
     DISCORD_EMBED(Surface.DISCORD, 4096),
-    /** An embed's title or a field's name. */
     DISCORD_EMBED_HEADING(Surface.DISCORD, 256),
-    /** A text block of a Components V2 message, a title or heading included; a message holds 4000 characters. */
+    /** A Components V2 text block, titles included. A message holds 4000 characters. */
     DISCORD_TEXT(Surface.DISCORD, 4000),
     DISCORD_BUTTON(Surface.DISCORD, 80),
     DISCORD_MODAL(Surface.DISCORD, 45),
     /** A select menu: its placeholder or one of its options. */
     DISCORD_SELECT(Surface.DISCORD, 100),
-    /** A channel's name, which Discord keeps to 100 characters and no formatting. */
+    /** A channel name. Discord allows 100 characters and no formatting. */
     DISCORD_CHANNEL(Surface.DISCORD, 100),
     /** A slash command's name, description or option. */
     DISCORD_COMMAND(Surface.DISCORD, 100),
-    /** Steward's own page, which the browser renders in its own zone. */
+    /** The browser renders a page of Steward in its own zone. */
     STEWARD(Surface.STEWARD),
-    /** A web push notification, rendered on the server as plain text. */
+    /** A web push notification, which the server renders as plain text. */
     PUSH(Surface.STEWARD);
 
-    /** Where a place is, which decides how a preview draws it and whether one reaches an admin there. */
+    /** Decides how a preview draws a place and whether the preview reaches an admin. */
     public enum Surface {
         GAME,
         DISCORD,
-        /** Steward's page and its notifications. */
         STEWARD
     }
 
@@ -67,22 +63,21 @@ public enum Display {
         this.oneLine = oneLine;
     }
 
-    /** Returns where this place is. */
     public Surface surface() {
         return surface;
     }
 
-    /** Returns how many characters the platform shows here, {@code 0} where it sets no limit. */
+    /** Returns the character limit of the platform, or {@code 0} if it sets none. */
     public int limit() {
         return limit;
     }
 
-    /** Returns whether every one of the places draws a single line, which none of them breaks. */
+    /** Returns whether every place draws a single line and breaks none. */
     public static boolean oneLine(final Collection<Display> places) {
         return !places.isEmpty() && places.stream().allMatch(place -> place.oneLine);
     }
 
-    /** Returns the strictest limit of the places, {@code 0} when none of them sets one. */
+    /** Returns the strictest limit of the places, or {@code 0} if none sets one. */
     public static int strictest(final Collection<Display> places) {
         int strictest = 0;
         for (final Display place : places) {

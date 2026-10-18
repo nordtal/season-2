@@ -21,7 +21,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/** Every message of the access bundle, one method per key. */
 @MessageSpec("access")
 @Shown(Display.DISCORD_TEXT)
 @Format(TextFormat.DISCORD_MARKDOWN)
@@ -133,13 +132,11 @@ public interface AccessMessages {
 
     AccessMessages.Onboarding onboarding();
 
-    /** What a member reads to choose a language and a region: the welcome, the region asked next, the change. */
     @Name("Onboarding")
     interface Onboarding {
 
         Onboarding.Welcome welcome();
 
-        /** The one message in the onboarding channel, in the default language, with the language select. */
         @Name("Welcome")
         interface Welcome {
 
@@ -167,7 +164,6 @@ public interface AccessMessages {
 
         Onboarding.Region region();
 
-        /** The answer to a language, in it and to the member alone, with the region select. */
         @Name("Region")
         interface Region {
 
@@ -185,7 +181,6 @@ public interface AccessMessages {
 
         Onboarding.Change change();
 
-        /** The message in the change channel: a box and a button per language, each opening the dialog in it. */
         @Name("Change")
         interface Change {
 
@@ -569,7 +564,6 @@ public interface AccessMessages {
 
     Admin admin();
 
-    /** The admin channel's cards, in English; a slot takes any message of the admin and database bundles. */
     @Name("Admin channel")
     interface Admin {
 
@@ -621,7 +615,6 @@ public interface AccessMessages {
                 @Arg("what") @Takes({"admin/*", "database/*"}) @Example("admin/run.why") MessageRef what);
     }
 
-    /** What the bot announces by itself. */
     @Name("Announce")
     @Shown(Display.DISCORD_MESSAGE)
     interface Announce {

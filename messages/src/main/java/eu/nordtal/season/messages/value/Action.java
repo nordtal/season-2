@@ -3,8 +3,8 @@ package eu.nordtal.season.messages.value;
 import java.util.Objects;
 
 /**
- * What clicking a part of a message does: bound by the code, placed by the text.
- * The text writes {@code <action:name>[Label]</action>}; plain text keeps the label alone.
+ * The code binds the command, and the text places it as {@code <action:name>[Label]</action>}.
+ * Plain text keeps the label alone.
  *
  * @param command the command the click runs, with its slash
  */

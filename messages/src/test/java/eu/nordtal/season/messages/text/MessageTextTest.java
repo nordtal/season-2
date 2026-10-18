@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The one syntax: placeholders, plural and select, tags, escapes. */
 class MessageTextTest {
 
     private static List<Node> parse(final String text) {

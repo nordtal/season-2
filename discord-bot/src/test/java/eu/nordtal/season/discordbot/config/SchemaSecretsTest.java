@@ -9,11 +9,7 @@ import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.spec.schema.SchemaWriter;
 import org.junit.jupiter.api.Test;
 
-/**
- * Every credential in a bot config is declared {@code @Secret}, which is what masks it in the schema.
- *
- * Built from the {@code @ConfigSpec} interfaces directly, since the annotation is a property of the interface alone.
- */
+/** Every credential in a bot config is declared {@code @Secret}, which masks it in the schema. */
 class SchemaSecretsTest {
 
     @Test
@@ -25,7 +21,7 @@ class SchemaSecretsTest {
 
     @Test
     void botYmlDeclaresNoBunqCredentialAtAllAnyMore() {
-        // Asserted in the negative: a bunq block in BotSpec would be an unannotated bank credential.
+        // BotSpec has no bunq block, because it would be an unannotated bank credential.
         assertNull(
                 SchemaWriter.build(BotSpec.class).children().get("bunq"),
                 "BotSpec declares a bunq block again. The key belongs to steward - see"

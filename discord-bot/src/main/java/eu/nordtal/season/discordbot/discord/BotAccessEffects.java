@@ -18,7 +18,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-/** {@link AccessChanges} against this bot: the row, the Discord role, the direct message and the audit entry. */
+/** Runs the {@link AccessChanges} on the database row, the Discord role, a direct message and the audit entry. */
 public final class BotAccessEffects implements AccessChanges {
 
     private final AccessDirectory access;
@@ -37,7 +37,6 @@ public final class BotAccessEffects implements AccessChanges {
         this.seasonStart = seasonStart;
     }
 
-    /** Grants access: the row, the role, the direct message and the journal line, which the admin channel shows. */
     @Override
     public Instant grant(final DiscordId discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
@@ -53,7 +52,6 @@ public final class BotAccessEffects implements AccessChanges {
         return granted.validUntil();
     }
 
-    /** Returns how many grants were revoked, zero included. */
     @Override
     public int revoke(final DiscordId discordId, final Actor by) {
         final int revoked = access.revokeAccess(discordId);
@@ -67,10 +65,9 @@ public final class BotAccessEffects implements AccessChanges {
         return revoked;
     }
 
-    /** Returns whether there was a link to break. */
     @Override
     public boolean unlink(final DiscordId discordId, final Actor by) {
-        // Read before the unlink: afterwards only the audit entry keeps the UUID.
+        // Read before the unlink, which deletes the UUID.
         final Optional<UUID> linked = access.linkedMinecraftAccount(discordId);
         if (!access.unlink(discordId)) {
             return false;
@@ -80,11 +77,7 @@ public final class BotAccessEffects implements AccessChanges {
         return true;
     }
 
-    /**
-     * Writes somebody's total play time, without a direct message.
-     *
-     * @param seconds the new total, which is what the column holds
-     */
+    /** Sets the play time without a direct message. */
     @Override
     public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);

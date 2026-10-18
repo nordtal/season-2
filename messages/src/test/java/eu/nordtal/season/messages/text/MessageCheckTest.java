@@ -12,10 +12,8 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** The one validator: what the build, an admin's save and a process's load refuse. */
 class MessageCheckTest {
 
-    /** A chat line offering a player role, a count, a reason and an action. */
     private static final Declaration CHAT = new Declaration(
             Map.of(
                     "winner.name",

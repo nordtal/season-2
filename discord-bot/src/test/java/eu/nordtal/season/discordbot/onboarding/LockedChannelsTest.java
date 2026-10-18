@@ -8,7 +8,6 @@ import eu.nordtal.season.discordbot.onboarding.LockedChannels.View;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Which overwrites the bot keeps on a channel, so the lock role and nobody else sees the onboarding channel. */
 class LockedChannelsTest {
 
     private static final List<Overwrite> ONBOARDING = List.of(

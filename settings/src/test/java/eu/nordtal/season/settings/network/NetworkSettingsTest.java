@@ -20,7 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** The network's own groups: one row read by every process, and every value the network cannot run on refused. */
+/** Checks the network groups: one row is read by every process, and a value the network cannot run on is refused. */
 class NetworkSettingsTest {
 
     private final MemorySettingStore store = new MemorySettingStore();
@@ -58,8 +58,6 @@ class NetworkSettingsTest {
         assertEquals(List.of("msg"), held.commandAllowlist());
     }
 
-    // players
-
     @Test
     void theParsedAllowlistFollowsAReload() throws Exception {
         final var players = store.settings("proxy").load(NetworkSettings.PLAYERS);
@@ -75,7 +73,7 @@ class NetworkSettingsTest {
 
     @Test
     void theDefaultAllowlistIsOurOwnPlayerCommands() throws Exception {
-        // The default is the assertion: this list is what every player on the network can type.
+        // The default is the assertion: every player on the network can type these commands.
         assertEquals(
                 List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules"),
                 checked(NetworkSettings.PLAYERS).commandAllowlist());
@@ -109,8 +107,6 @@ class NetworkSettingsTest {
         assertRefused(NetworkSettings.PLAYERS, "max-players");
     }
 
-    // prices
-
     @Test
     void theDefaultPriceListIsTheAgreedOne() throws Exception {
         final var tiers = NetworkSettings.tiers(checked(NetworkSettings.PRICES));
@@ -140,7 +136,7 @@ class NetworkSettingsTest {
 
     @Test
     void anEmptyTierListIsANetworkThatHasNotPricedAnythingYet() throws Exception {
-        // Prices are set in the interface after the stack is up, not a precondition of being up.
+        // Prices are set in the interface after the stack is up.
         values.put("tiers", List.of());
 
         assertTrue(NetworkSettings.tiers(checked(NetworkSettings.PRICES)).all().isEmpty());
@@ -156,8 +152,6 @@ class NetworkSettingsTest {
     private static Map<String, Object> tier(final int days, final int priceCents) {
         return Map.of("days", days, "price-cents", priceCents);
     }
-
-    // prestige
 
     @Test
     void theCrestTableIsTheOneTheHoursDeclare() throws Exception {
@@ -175,8 +169,6 @@ class NetworkSettingsTest {
 
         assertRefused(NetworkSettings.PRESTIGE, "rise strictly");
     }
-
-    // season
 
     @Test
     void theSeasonDefaultsToThisOne() throws Exception {
@@ -207,8 +199,6 @@ class NetworkSettingsTest {
 
         assertRefused(NetworkSettings.SEASON, "number");
     }
-
-    // language and time
 
     @Test
     void theLanguagesStartWithTheDefaultWhereverTheListPutsIt() throws Exception {

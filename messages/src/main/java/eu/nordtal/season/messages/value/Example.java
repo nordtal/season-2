@@ -7,9 +7,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * What an editor shows for a value before a live one is known, and what a length limit is checked with.
- * It is written as {@link Kind#example} reads it, a choice's as one of its values; without one an enum's first
- * constant stands in, else the kind's own.
+ * The example value an editor shows before a live value is known and checks the length limit with.
+ * It is written as {@link Kind#example} reads it, and a choice's example is one of its values.
+ * Without an example, an enum uses its first constant and any other value uses the kind's default.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

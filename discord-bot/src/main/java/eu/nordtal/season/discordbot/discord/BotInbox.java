@@ -17,8 +17,9 @@ import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Carries out what the bot's inbox holds, since only this process holds a JDA session.
- * The answer is a flat object of strings, which Steward shows; a request that throws is failed by the inbox.
+ * Runs the requests of the bot's inbox, because only this process has a JDA session.
+ *
+ * The answer is a flat object of strings, which Steward shows. The inbox fails a request that throws.
  */
 public final class BotInbox implements Inbox.Handler<BotRequest> {
 
@@ -29,12 +30,11 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     private final Predicate<BotRequest.PreviewMessage> preview;
 
     /**
-     * @param announce renders a message in one language, posts it into that language's announcement channel and
-     *     answers whether it went out
-     * @param alert posts an alert into the admin channel and answers whether there was one
-     * @param paid tells a payer what steward booked for them
-     * @param preview sends an admin a text they are trying as a direct message and answers whether Discord
-     *     delivered it
+     * @param announce renders a message in one language, posts it to that language's announcement channel and
+     *     returns whether it was posted
+     * @param alert posts an alert to the admin channel and returns whether it was posted
+     * @param paid sends the payer a message about the booked payment
+     * @param preview sends an admin the previewed text as a direct message and returns whether Discord delivered it
      */
     public BotInbox(
             final AccessChanges effects,
@@ -69,13 +69,13 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
             }
             case BotRequest.Announce announcement -> Outcome.done(post(announcement));
             case BotRequest.PostAlert posted -> done("posted", String.valueOf(alert.test(posted)));
-            // Steward words what it shows; a preview Discord did not deliver is the admin's to fix, so it is refused.
+            // Steward words the refusal.
             case BotRequest.PreviewMessage previewed ->
                 preview.test(previewed) ? Outcome.done(null) : Outcome.refused(ServerRefusal.NOT_DELIVERED.with());
         };
     }
 
-    /** Posts every language's message and answers, per language, whether it went out; a missing channel is no fault. */
+    /** Posts the message of every language and answers per language whether it was posted. */
     private Map<String, String> post(final BotRequest.Announce announcement) {
         final Map<String, String> posted = new LinkedHashMap<>();
         announcement
@@ -86,7 +86,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
         return posted;
     }
 
-    /** Returns a done outcome whose answer is the flat object {@code key, value, key, value}. */
+    /** Returns a done outcome. The pairs are alternating keys and values. */
     private static Outcome done(final @Nullable String... pairs) {
         final Map<String, @Nullable String> answer = new LinkedHashMap<>();
         for (int at = 0; at < pairs.length; at += 2) {

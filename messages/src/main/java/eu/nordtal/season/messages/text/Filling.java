@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
-/** Makes a text's choices and finds its values, once for every target. */
+/** Chooses a text's plurals and selects and finds its values. */
 public final class Filling {
 
     private final Map<String, ?> values;
@@ -22,12 +22,11 @@ public final class Filling {
     }
 
     /**
-     * Returns the text's pieces with every plural and select chosen and every value found.
-     *
-     * @param values   placeholder to value, contexts already flattened
-     * @param declared placeholder to the kind its message declares; one it lacks takes its value's kind
-     * @param missing  told the name of each placeholder that has no value or one of no kind, which shows its
-     *                 replacement word
+     * @param values placeholder to value, contexts already flattened
+     * @param declared placeholder to the kind its message declares. A placeholder it lacks takes
+     *     its value's kind.
+     * @param missing receives the name of each placeholder that has no value or a value of no kind,
+     *     which shows its replacement word
      */
     public static List<Piece> fill(
             final MessageText text,
@@ -64,7 +63,7 @@ public final class Filling {
         }
     }
 
-    /** A value of no kind is no value: it shows the replacement word like a missing one, never its toString. */
+    /** A value of no kind shows the replacement word, as a missing value does, and never its {@code toString}. */
     private Piece.Filled filled(final String name, final @Nullable String written, final @Nullable String style) {
         final Object value = values.get(name);
         final Kind kind = Kind.ofValue(value).orElse(null);
@@ -103,7 +102,7 @@ public final class Filling {
         return other(choice);
     }
 
-    /** The case for whatever no other names, which the parser makes sure every choice has. */
+    /** Returns the case for whatever no other case names. */
     private static List<Node> other(final Node.Choice choice) {
         return java.util.Objects.requireNonNull(choice.cases().get("other"), "other");
     }

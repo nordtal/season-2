@@ -76,41 +76,33 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
-/**
- * Entry point and owner of the pool, the scheduler, the JDA session and the listeners.
- *
- * Starts configuration first, then the database and its {@link SchemaCheck}, then Discord, then everything else.
- */
 @Slf4j
 public class AccessBot implements AutoCloseable {
 
-    /** The one clock of this process. */
     private final Clock clock = NetworkTime.clock();
 
     /**
-     * The bundles the bot renders, one {@code <tag>.properties} per language: its own, the admin and the database's.
-     * It shares the admin texts with Steward, in English only; a server and Steward write announcements of the third.
+     * The bundles the bot renders, one {@code <tag>.properties} per language.
+     * Steward shares the admin bundle, in English only.
      */
     public static final List<String> BUNDLES = List.of("messages/access", "messages/admin", "messages/database");
 
-    /** The name {@code {server.name}} reads in this process. */
     private static final String SERVICE = "discord-bot";
 
     private final Database database;
     private final AccessDirectory access;
     private final JDA jda;
 
-    /** The bot's one {@code LISTEN} connection, since {@code LISTEN} is session state a pool would lose. */
+    /** {@code LISTEN} is session state, so the bot holds one connection for it. */
     private final SignalHub signals;
 
-    /** Bounds the liveness check and reconnect only; pgjdbc overrides it while waiting for notifications. */
+    /** Timeout of the liveness check and the reconnect. pgjdbc ignores it while waiting for notifications. */
     private static final int LISTENER_SOCKET_TIMEOUT_SECONDS = 30;
 
-    /** Runs everything that blocks, since a gateway thread must acknowledge an interaction within three seconds. */
+    /** Runs everything that blocks. A gateway thread must acknowledge an interaction within three seconds. */
     private final ProcessScheduler scheduler =
             new ProcessScheduler("access-bot", failure -> log.error("A task of the bot failed", failure));
 
-    /** Two ticks of the status channels at once would both announce the same phase change. */
     private final Executor statusLane = scheduler.serial();
 
     private record CoreServices(
@@ -123,7 +115,6 @@ public class AccessBot implements AutoCloseable {
             Setting<OnboardingSpec> onboarding,
             String networkZone) {
 
-        /** The bot's texts drawn into their layouts, or the rebuilds stored over them. */
         LayoutRenderer renderer() {
             return new LayoutRenderer(messages, layouts);
         }
@@ -148,7 +139,6 @@ public class AccessBot implements AutoCloseable {
 
         boolean started = false;
         try {
-            // The bot does not migrate; this refuses an unmigrated database by name.
             SchemaCheck.validate(database.dataSource());
             final DatabaseSettings settings = BotSettings.stored(database.dataSource());
             final BotSpec botConfig = BotSettings.bot(settings).get();
@@ -162,10 +152,8 @@ public class AccessBot implements AutoCloseable {
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
 
-            // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource(), clock);
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource(), clock);
-            // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
             final CoreServices core =
@@ -196,7 +184,7 @@ public class AccessBot implements AutoCloseable {
             final PhaseDirectory phases,
             final UpdateDirectory updates,
             final String stewardUrl) {
-        // After the guild state reconcile, so the first tick renames against a settled picture.
+        // After the guild state reconcile, so the first tick renames against the reconciled state.
         final StatusChannels status = new StatusChannels(
                 jda,
                 core.languages(),
@@ -206,14 +194,13 @@ public class AccessBot implements AutoCloseable {
                 clock,
                 wiring.announcements());
 
-        // start() reads the table once so the feed begins at the last run.
         final UpdateFeed updateFeed =
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl);
         updateFeed.start();
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());
 
-        // Started last: it refreshes immediately on connect and touches JDA.
+        // Last, because it refreshes on connect and uses JDA.
         final SignalHub hub = listen(
                 databaseConfig,
                 settings,
@@ -240,7 +227,7 @@ public class AccessBot implements AutoCloseable {
                 core.messages(),
                 core.layouts());
 
-        // Last on purpose: a marker on disk means the constructor finished.
+        // Last, so the marker file exists only after the constructor has finished.
         final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
 
         return hub;
@@ -256,9 +243,7 @@ public class AccessBot implements AutoCloseable {
         final GuildLanguages languages = GuildLanguages.of(accessConfig, network);
         final DiscordRenderer messages =
                 DiscordRenderer.of(Messages.load(AccessBot.class.getClassLoader(), BUNDLES, languages.locales())
-                        // Discord paints no tones.
                         .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
-        // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
@@ -275,7 +260,6 @@ public class AccessBot implements AutoCloseable {
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
-        // GUILD_MEMBERS is privileged; without it both reconciles read nothing.
         final JDA connected = JDABuilder.createLight(botConfig.token())
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MODERATION)
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
@@ -297,13 +281,11 @@ public class AccessBot implements AutoCloseable {
                 AuditDirectory.using(database.dataSource()),
                 AlertBook.using(database.dataSource()),
                 core.renderer());
-        // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
+        // A period sold while season_phase.smp_start is NULL starts at the sale, not at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);
-        // One lane for every onboarding change, so a choice and the settling it causes never overlap.
         final Executor onboardingLane = scheduler.serial();
         final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);
-        // The onboarding's lock withholds the access and donor roles from whoever it holds.
         final AccessRoles roles = new AccessRoles(
                 jda,
                 accessConfig,
@@ -317,7 +299,6 @@ public class AccessBot implements AutoCloseable {
                 clock);
         final BookingReaction bookings =
                 new BookingReaction(core.languages(), roles, admin, core.renderer(), jda, seasonStart);
-        // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
@@ -330,7 +311,6 @@ public class AccessBot implements AutoCloseable {
                 admin::alert,
                 onboardingLane);
 
-        // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
                 core.tiers(), core.purchases(), core.requests(), core.renderer(), roles, admin, scheduler, clock);
 
@@ -351,7 +331,6 @@ public class AccessBot implements AutoCloseable {
                 new LockedRoles(accessConfig.guildId(), guildRoles, roles, scheduler.serial()));
     }
 
-    /** The onboarding, which keeps the language, region and lock roles and finds every role the bot uses. */
     private Onboarding onboarding(
             final JDA jda,
             final AccessSpec accessConfig,
@@ -374,7 +353,6 @@ public class AccessBot implements AutoCloseable {
                 lane);
     }
 
-    /** The roles the bot uses apart from the choices, each found by the name the {@code access} group gives it. */
     private static List<GuildRoles.Wanted> fixedRoles(final AccessSpec config) {
         return List.of(
                 new GuildRoles.Wanted(
@@ -423,7 +401,6 @@ public class AccessBot implements AutoCloseable {
                 new eu.nordtal.season.discordbot.announce.Announcements(jda, core.languages(), core.messages(), log);
 
         final List<CommandData> commands = new ArrayList<>();
-        // Only a player's own self-service is registered natively.
         commands.addAll(LinkFlow.commands());
         jda.updateCommands().addCommands(commands).queue();
 
@@ -447,7 +424,7 @@ public class AccessBot implements AutoCloseable {
             final DiscordRenderer messages,
             final StoredLayouts layouts,
             final DiscordWiring wiring) {
-        // First: every reconcile below reads a role it found or created.
+        // First, because every reconcile below reads a role that this call finds or creates.
         wiring.onboarding().resolveRoles();
         new ManagedMessages(jda, languages, tiers, messages, layouts, database.jdbi()).publishAll();
         new RegisterMessages(jda, languages, messages, layouts, database.jdbi()).publishAll();
@@ -458,33 +435,22 @@ public class AccessBot implements AutoCloseable {
         wiring.onboarding().start();
     }
 
-    /** Starts the recurring tasks. */
     private void schedule(final AccessSpec config, final AccessRoles roles, final Onboarding onboarding) {
         final Duration reconcile = Duration.ofMinutes(config.roleReconcileIntervalMinutes());
         final var _ = scheduler.every(reconcile, reconcile, roles::reconcile);
         final var _ = scheduler.every(reconcile, reconcile, onboarding::reconcile);
 
-        // An hour late at most, against a three-day lead.
         final var _ = scheduler.every(Duration.ofHours(1), Duration.ofHours(1), () -> {
             roles.sweepExpiryNotices();
             roles.sweepLinkCodes();
         });
     }
 
-    /**
-     * Opens the bot's inbox, failing whatever a previous run left claimed, and returns one pass over it.
-     * Only one bot runs, so a row still running at its start was abandoned by the one before.
-     */
     private Runnable openInbox(final BotInbox handler) {
         final Inbox<BotRequest> inbox = Inbox.takeOver(database.dataSource(), BotRequest.TABLE, "the bot");
         return () -> inbox.drain(handler);
     }
 
-    /**
-     * Opens the bot's one signal hub; every refresh hands its work to the scheduler.
-     *
-     * Each runs on connect, on every signal and on the hub's reconciliation, which is what replaced the polls.
-     */
     private SignalHub listen(
             final DatabaseSpec databaseConfig,
             final DatabaseSettings settings,
@@ -503,7 +469,6 @@ public class AccessBot implements AutoCloseable {
                 LISTENER_SOCKET_TIMEOUT_SECONDS,
                 "access-bot-signals",
                 log);
-        // Unconditional: without bunq no link ever arrives. A booked payment reaches the bot through its inbox.
         hub.on(Channel.PAYMENT, "waiting payment links", () -> scheduler.execute(purchaseFlow::fillIn));
         hub.on(Channel.BOT, "the bot inbox", () -> scheduler.execute(drainInbox));
         hub.on(Channel.ADMIN, "admin role", () -> scheduler.execute(adminRole::reconcile));
@@ -520,11 +485,7 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    /**
-     * Stops the scheduler, ends the Discord session and closes the pool.
-     *
-     * The readiness marker is left to go stale, which is the signal.
-     */
+    /** Leaves the readiness marker to go stale, which signals the shutdown. */
     @Override
     public void close() {
         log.info("Shutting down");
@@ -537,7 +498,6 @@ public class AccessBot implements AutoCloseable {
         }
     }
 
-    /** How long a bot that cannot start waits before exiting, so Discord does not rate-limit repeated bad logins. */
     private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
 
     public static void main(final String[] args) throws InterruptedException {
@@ -545,24 +505,20 @@ public class AccessBot implements AutoCloseable {
         try {
             bot = new AccessBot();
         } catch (final SettingsException e) {
-            // Not a stack trace: the message names the file, the setting and what is wrong.
             log.error("access-bot is not starting because its configuration could not be read.");
             log.error("{}", e.getMessage());
             System.exit(1);
             return;
         } catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException badToken) {
-            // Treated like a refused config: the token is a setting Discord has rejected.
             log.error("access-bot is not starting: Discord rejected the bot token.");
             log.error("Check NORDTAL_BOT_TOKEN in .env against the token in the Discord developer"
                     + " portal - a regenerated token invalidates the old one immediately.");
             backOffThenExit();
             return;
         }
-        // The container runtime stops it with SIGTERM, so the pool closes in the shutdown hook.
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close, "access-bot-shutdown"));
     }
 
-    /** Waits, then exits 1; interruptible, so SIGTERM is not ignored for a minute. */
     private static void backOffThenExit() {
         log.error(
                 "Waiting {}s before exiting, so this container does not retry a login Discord has"

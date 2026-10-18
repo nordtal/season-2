@@ -9,10 +9,9 @@ import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Carries an editor's rebuild over a release that changed the packaged layout it was written over.
- * The rebuild keeps its order and its added texts; an element or key the release removed goes, an element it added is
- * placed at the end. A rebuild that still does not fit the release is set aside for the packaged layout.
+/** Adapts an editor's rebuild to a release that changed the packaged layout it was written over.
+ * An element or key the release removed is taken out, and an element it added is placed at the end.
+ * A rebuild that still does not fit is replaced by the packaged layout.
  */
 public final class LayoutMerge {
 
@@ -20,25 +19,30 @@ public final class LayoutMerge {
 
     private LayoutMerge() {}
 
-    /** What the merge changed of a rebuild. */
     public enum Change {
-        /** An element the release added, placed at the end; its subject is the element's id. */
+        /** The release added an element, placed at the end. The subject is its id. */
         ELEMENT_ADDED,
-        /** An element the release removed or gave another kind, taken out; its subject is the element's id. */
+        /** The release removed the element or gave it another kind.
+         * It is taken out.
+         * The subject is its id.
+         */
         ELEMENT_REMOVED,
-        /** A key the release no longer places, taken out; its subject is the key as {@code bundle/key}. */
+        /** The release no longer places the key.
+         * It is taken out.
+         * The subject is the key as {@code bundle/key}.
+         */
         KEY_REMOVED,
-        /** The rebuild does not fit the release even so, and the packaged layout shows; its subject is why. */
+        /** The rebuild does not fit the release, so the packaged layout shows.
+         * The subject is the reason.
+         */
         SET_ASIDE
     }
 
-    /** One change, of {@code subject} as the change names it. */
     public record Adaptation(Change change, String subject) {}
 
     /**
-     * A rebuild as it is drawn under this release.
-     *
-     * @param adaptations what was changed to carry it over, in order; empty when it was written over this release
+     * @param adaptations the changes made, in order. Empty when the rebuild was written over this
+     *     release.
      */
     public record Merged(Layout layout, List<Adaptation> adaptations) {
 
@@ -47,9 +51,9 @@ public final class LayoutMerge {
         }
     }
 
-    /**
-     * Returns the rebuild stored as {@code parts} and {@code links} as drawn over {@code packaged}.
-     * It is carried over when {@code replaced}, the hash of the packaged layout it was written over, is another.
+    /** Returns the rebuild adapted to {@code packaged}.
+     * It is adapted when {@code replaced}, the hash of the layout it was written over, differs from the hash of
+     * {@code packaged}.
      */
     public static Merged merge(
             final Layout packaged, final List<Part> parts, final List<Element> links, final String replaced) {
@@ -88,7 +92,6 @@ public final class LayoutMerge {
                 : new Merged(packaged, List.of(new Adaptation(Change.SET_ASIDE, problems.getFirst())));
     }
 
-    /** One pass over a rebuild's tree, which keeps what the release still has. */
     private static final class Walk {
 
         private final Map<String, Element.Kind> declared = new LinkedHashMap<>();
@@ -115,7 +118,7 @@ public final class LayoutMerge {
             return out;
         }
 
-        /** The part as the release keeps it: itself, what it held once its element is gone, or nothing. */
+        /** Returns the part as the release keeps it: itself, what remains after its element is gone, or nothing. */
         private List<Part> part(final Part part) {
             return switch (part.type()) {
                 case TEXT -> {
@@ -154,7 +157,7 @@ public final class LayoutMerge {
                         yield inner;
                     }
                     if (inner.isEmpty()) {
-                        // Nothing left beside it: the element is placed anew at the end.
+                        // Nothing else is left in the part, so the element is placed again at the end.
                         if (element != null) {
                             kept.remove(element);
                         }
@@ -170,7 +173,9 @@ public final class LayoutMerge {
             };
         }
 
-        /** Whether the release still declares the element as one of {@code kinds}; one it does not is removed. */
+        /** Returns whether the release declares the element as one of {@code kinds}.
+         * Otherwise it records the element as removed.
+         */
         private boolean keep(final String id, final Element.Kind... kinds) {
             final Element.Kind kind = declared.get(id);
             if (kind != null && List.of(kinds).contains(kind)) {

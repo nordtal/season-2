@@ -26,9 +26,8 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /**
- * The vectors a renderer of layouts is tested on.
- * Each gives a declaration, its texts, what the code fills in and the Discord components that come out. This side
- * holds the declaration and the filling to the specs; the bot's renderer and Steward's preview hold the components.
+ * Checks each vector's declaration and values against the specs.
+ * The bot's renderer and Steward's preview check the components.
  */
 class DiscordLayoutVectorsTest {
 
@@ -44,7 +43,7 @@ class DiscordLayoutVectorsTest {
         assertEquals(List.of(), problems);
     }
 
-    /** English names every key the layout shows; another language may name fewer. */
+    /** English names every key that the layout shows. Another language may name fewer. */
     @Test
     void eachVectorsTextsAreTheBundlesOwn() throws IOException {
         final List<String> wrong = new ArrayList<>();
@@ -92,7 +91,6 @@ class DiscordLayoutVectorsTest {
             for (final Element element : layout.elements()) {
                 final JsonObject filled = elements.getAsJsonObject(element.id());
                 final Set<String> expected = switch (element.kind()) {
-                    // A button or select filled with nothing is left out this time.
                     case BUTTON -> filled != null && filled.isEmpty() ? Set.of() : Set.of("id");
                     case SELECT -> filled != null && filled.isEmpty() ? Set.of() : Set.of("id", "options");
                     case LIST -> Set.of("items");

@@ -15,7 +15,6 @@ import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Every key of the bundle has a method with a name, and every text names exactly its arguments. */
 class AccessMessagesTest {
 
     @Test
@@ -23,7 +22,6 @@ class AccessMessagesTest {
         assertEquals(List.of(), MessageSpecCheck.problems(AccessMessages.class));
     }
 
-    /** A counted "in 3 days" goes stale once sent; a Discord timestamp counts down in the client. */
     @Test
     void oneDayIsOneDayInBothLanguages() {
         final eu.nordtal.season.messages.Messages bundle = eu.nordtal.season.messages.Messages.load(

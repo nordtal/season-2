@@ -12,9 +12,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The Discord side of the network's languages: each one's role name and channels, keyed by its tag.
+ * The role name and channels of each network language, keyed by its tag.
  *
- * One entry for each network language, in its order with the default first; an empty id is unset.
+ * An empty id means the channel is not set.
  */
 public final class GuildLanguages {
 
@@ -35,10 +35,7 @@ public final class GuildLanguages {
     /**
      * Reads the Discord data of each network language from the configuration.
      *
-     * @param config the loaded and validated access configuration
-     * @param network the languages the network speaks
-     * @return the languages, in the network's order
-     * @throws IllegalArgumentException if the entries and the network's tags are not the same set
+     * @throws IllegalArgumentException if the entry tags are not exactly the network's tags
      */
     public static GuildLanguages of(final AccessSpec config, final Languages network) {
         return of(
@@ -56,12 +53,9 @@ public final class GuildLanguages {
     }
 
     /**
-     * Builds the list without a config file.
+     * Builds the languages from entries, one per network language in any order. The result has the network's order.
      *
-     * @param languages one entry per network language, in any order
-     * @param network the languages the network speaks
-     * @return the languages, in the network's order
-     * @throws IllegalArgumentException if the entries and the network's tags are not the same set
+     * @throws IllegalArgumentException if the entry tags are not exactly the network's tags
      */
     public static GuildLanguages of(final List<Language> languages, final Languages network) {
         final List<String> tags = languages.stream().map(Language::tag).toList();
@@ -72,11 +66,9 @@ public final class GuildLanguages {
     }
 
     /**
-     * Refuses entry tags that are not exactly the network's languages.
+     * Requires the tags to be exactly the network's languages.
      *
-     * @param network the languages the network speaks
-     * @param tags the tags of the {@code access} group's language entries
-     * @throws IllegalArgumentException naming the first tag listed twice, missing or not spoken
+     * @throws IllegalArgumentException naming the first tag that is listed twice, missing or not spoken
      */
     public static void requireTagsOf(final Languages network, final List<String> tags) {
         final Set<String> seen = new HashSet<>();
@@ -100,40 +92,28 @@ public final class GuildLanguages {
         }
     }
 
-    /** Returns every language, in the network's order. */
     public List<Language> all() {
         return ordered;
     }
 
-    /** Returns the default language's entry, which always exists. */
     public Language fallback() {
         return fallback;
     }
 
-    /** Returns the locales to load message bundles for; one without a bundle reads the default's. */
     public Locale[] locales() {
         return ordered.stream().map(Language::locale).toArray(Locale[]::new);
     }
 
-    /**
-     * Returns the entry with that tag, if it is configured.
-     *
-     * @param tag a language tag
-     */
     public Optional<Language> byTag(final String tag) {
         return Optional.ofNullable(tag == null ? null : byTag.get(tag.toLowerCase(Locale.ROOT)));
     }
 
-    /**
-     * Returns the configured language of a locale, or the default's when that language is not configured.
-     *
-     * @param locale a locale, typically read out of {@code discord_user.locale}
-     */
+    /** Returns the language of a locale, or the default language when none is configured for it. */
     public Language forLocale(final Locale locale) {
         return byTag(Locales.tag(locale)).orElse(fallback);
     }
 
-    /** Returns the name of a language's role: the one configured, or else the language's own name in itself. */
+    /** Returns the configured role name, or the language's own name when none is configured. */
     static String roleNameOf(final AccessSpec.LanguageSpec language) {
         final String configured =
                 language.roleName() == null ? "" : language.roleName().strip();
@@ -143,22 +123,22 @@ public final class GuildLanguages {
         return ownName(Locales.parse(language.tag() == null ? "" : language.tag()));
     }
 
-    /** Returns a language's own name in itself, capitalised, such as Deutsch, or its tag when the JDK has none. */
+    /** Returns the capitalised name of the language in itself, such as Deutsch, or its tag when the JDK has none. */
     private static String ownName(final Locale locale) {
         final String own = locale.getDisplayLanguage(locale);
         return own.isEmpty() ? Locales.tag(locale) : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
     }
 
     /**
-     * One configured language; every channel id may be empty.
+     * One configured language. Every channel id may be empty.
      *
-     * @param tag the language tag, lower case; the bundle file name and the {@code discord_user.locale} value
-     * @param roleName the name of the role that chooses it, by which the bot first finds or creates it
-     * @param contributionChannelId where the buy-access message and the donation thank-yous go
-     * @param linkChannelId where the account-link message goes
-     * @param hungerGamesChannelId where the hunger games Register message goes
-     * @param announcementChannelId where milestones and phase changes are posted, or {@code ""} for none
-     * @param statusChannelId the channel whose name carries the status, or {@code ""} for none
+     * @param tag the lower-case language tag, which is the bundle file name and the {@code discord_user.locale} value
+     * @param roleName the name of the role the bot finds or creates for the language
+     * @param contributionChannelId the channel of the buy-access message and the donation thank-yous
+     * @param linkChannelId the channel of the account-link message
+     * @param hungerGamesChannelId the channel of the hunger games Register message
+     * @param announcementChannelId the channel of milestones and phase changes
+     * @param statusChannelId the channel whose name shows the status
      */
     public record Language(
             String tag,
@@ -169,7 +149,6 @@ public final class GuildLanguages {
             String statusChannelId,
             String announcementChannelId) {
 
-        /** The six-id form, with no announcement channel. */
         public Language(
                 final String tag,
                 final String roleName,
@@ -180,22 +159,19 @@ public final class GuildLanguages {
             this(tag, roleName, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
         }
 
-        /** Returns whether this language has a status channel to rename. */
         public boolean hasStatusChannel() {
             return statusChannelId != null && !statusChannelId.isBlank();
         }
 
-        /** Returns whether announcements for this language have a channel. */
         public boolean hasAnnouncementChannel() {
             return announcementChannelId != null && !announcementChannelId.isBlank();
         }
 
-        /** Returns the language's own name in itself, such as Deutsch, whatever its role is called. */
+        /** Returns the name of the language in itself, such as Deutsch, whatever the role is called. */
         public String ownName() {
             return GuildLanguages.ownName(locale());
         }
 
-        /** Returns the tag as a {@link Locale}. */
         public Locale locale() {
             return Locales.parse(tag);
         }

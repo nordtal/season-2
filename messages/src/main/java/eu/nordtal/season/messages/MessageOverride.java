@@ -5,11 +5,12 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One text an admin stored for a key of a packaged bundle, in one language, as one of the key's variants.
+ * One variant of a key's texts that an admin stored, in one language.
  *
- * @param bundle   the packaged bundle, such as {@code smp}, the directory under {@code messages/} in the jar
- * @param variant  which of the key's texts, from 0; the override's variants replace the packaged ones together
- * @param replaced the {@link PackagedTexts#hash} of the packaged texts it replaced, {@code null} where there were none
+ * @param bundle   the directory under {@code messages/} in the jar, such as {@code smp}
+ * @param variant  the index of the text, from 0
+ * @param replaced the {@link PackagedTexts#hash} of the packaged texts it replaced, or {@code null}
+ *     if there were none
  */
 public record MessageOverride(
         String bundle,
@@ -30,9 +31,9 @@ public record MessageOverride(
     }
 
     /**
-     * Whether a release changed the packaged texts underneath this override since it was written.
+     * Returns whether the packaged texts differ from the ones this override replaced.
      *
-     * @param packaged the texts the jar now ships for the key in this language, {@code null} or empty for none
+     * @param packaged the key's packaged texts in this language, {@code null} or empty if none
      */
     public boolean staleOver(final @Nullable List<String> packaged) {
         final String now = packaged == null || packaged.isEmpty() ? null : PackagedTexts.hash(packaged);

@@ -25,7 +25,6 @@ import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The one ephemeral message of a purchase, drawn from its layouts as it moves from the tiers to the link. */
 class PurchaseFlowTest {
 
     private static final LayoutRenderer RENDERER = new LayoutRenderer(

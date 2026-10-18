@@ -47,29 +47,16 @@ import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Draws a Discord layout, or the rebuild stored over it, as a Components V2 message with what the code fills in.
- * It keeps to Discord's limits: a data list loses its last items to a "+N" line, a block per language its last
- * languages, and whatever still does not fit is cut.
- */
 public final class LayoutRenderer {
 
-    /** Discord counts every component of a message, nested ones included. */
     static final int COMPONENTS = Message.MAX_COMPONENT_COUNT_IN_COMPONENT_TREE;
 
-    /** The characters of all text blocks of one message together. */
     static final int TEXT = Message.MAX_CONTENT_LENGTH_COMPONENT_V2;
 
     private static final int SECTION_TEXTS = Section.MAX_COMPONENTS;
     private static final int ROW_BUTTONS = 5;
     private static final String ATTACHMENT = "attachment://";
 
-    /**
-     * What the code fills into a layout.
-     *
-     * @param values   the values its texts name
-     * @param elements each declared element by id
-     */
     public record Filling(Map<String, Object> values, Map<String, Filled> elements) {
 
         public Filling {
@@ -77,7 +64,6 @@ public final class LayoutRenderer {
             elements = Map.copyOf(elements);
         }
 
-        /** A filling whose values are those the spec gives {@code texts}, each of the kind its text declares. */
         public static Filling of(final Map<String, Filled> elements, final MessageRef... texts) {
             final Map<String, Object> values = new HashMap<>();
             for (final MessageRef text : texts) {
@@ -87,10 +73,8 @@ public final class LayoutRenderer {
         }
     }
 
-    /** One element as the code fills it. */
     public sealed interface Filled {}
 
-    /** A button's custom id and colour; in a block per language the language's tag is appended to the id. */
     public record FilledButton(String id, ButtonStyle style) implements Filled {
 
         public FilledButton(final String id) {
@@ -98,13 +82,10 @@ public final class LayoutRenderer {
         }
     }
 
-    /** A select of guild members by its custom id, the one select whose options Discord fills in. */
     public record FilledMembers(String id) implements Filled {}
 
-    /** A modal's field, which the code builds given its placeholder, or {@code null} when it declares none. */
     public record FilledInput(Function<@Nullable String, LabelChildComponent> field) implements Filled {}
 
-    /** A select's custom id and its options. */
     public record FilledSelect(String id, List<Option> options) implements Filled {
 
         public FilledSelect {
@@ -113,11 +94,9 @@ public final class LayoutRenderer {
     }
 
     /**
-     * One option of a select.
-     *
-     * @param label its label where the select declares no line for its options, else {@code null}
+     * @param label shown where the select declares no line for its options, else {@code null}
      * @param args  the values of the select's option line
-     * @param emoji a Unicode emoji shown before it, or {@code null}
+     * @param emoji a Unicode emoji shown before the label, or {@code null}
      */
     public record Option(
             String value,
@@ -130,10 +109,8 @@ public final class LayoutRenderer {
         }
     }
 
-    /** A button or select the code leaves out this time; a row with nothing else in it is left out with it. */
     public record FilledNothing() implements Filled {}
 
-    /** A data list's items, each the values of its line. */
     public record FilledList(List<Map<String, Object>> items) implements Filled {
 
         public FilledList {
@@ -141,7 +118,6 @@ public final class LayoutRenderer {
         }
     }
 
-    /** The languages a block per language is drawn in, in order. */
     public record FilledLanguages(List<Locale> languages) implements Filled {
 
         public FilledLanguages {
@@ -150,15 +126,13 @@ public final class LayoutRenderer {
     }
 
     /**
-     * A drawn message.
-     *
-     * @param components  its top-level components
-     * @param attachments the names of the files its {@code attachment://} images name, which the message uploads
-     * @param uploads     the stored images its {@code upload://} images show, which the message uploads too
+     * @param attachments the names of the files that its {@code attachment://} images name. The message
+     *                    uploads them.
+     * @param uploads     the stored images that its {@code upload://} images show. The message uploads
+     *                    them too.
      */
     public record Drawn(List<MessageTopLevelComponent> components, List<String> attachments, List<FileUpload> uploads) {
 
-        /** It as a new message: a reply, a direct message or a post. */
         public MessageCreateData create() {
             return new MessageCreateBuilder()
                     .useComponentsV2()
@@ -167,10 +141,6 @@ public final class LayoutRenderer {
                     .build();
         }
 
-        /**
-         * The edit that turns a message into it: Components V2 with its embeds emptied, as Discord requires.
-         * The images are uploaded anew and replace the old ones, so a swapped banner shows.
-         */
         public MessageEditData edit() {
             return new MessageEditBuilder()
                     .setEmbeds(List.of())
@@ -180,7 +150,6 @@ public final class LayoutRenderer {
                     .build();
         }
 
-        /** Its text blocks one under the other, as an alert quotes what a member was sent. */
         public String text() {
             return MessageComponentTree.of(components).findAll(TextDisplay.class).stream()
                     .map(TextDisplay::getContent)
@@ -211,18 +180,16 @@ public final class LayoutRenderer {
         this.stored = Objects.requireNonNull(stored, "stored");
     }
 
-    /** The texts it draws with. */
     public DiscordRenderer messages() {
         return messages;
     }
 
-    /** Draws a reply of one text by the layout {@link Replies} declares for its key, filled with its values. */
     public Drawn reply(final Locale locale, final MessageRef text) {
         return render(Replies.of(text.key()), new Filling(text.args(), Map.of()), locale);
     }
 
     /**
-     * Draws a modal, or the rebuild stored over it, in {@code locale}: its title, then each field under its label.
+     * Draws a modal, or the rebuild stored over it: its title, then each field under its label.
      *
      * @throws IllegalArgumentException if the filling misses a field
      */
@@ -252,8 +219,6 @@ public final class LayoutRenderer {
     }
 
     /**
-     * Draws {@code declared}, or the rebuild stored over it, in {@code locale}.
-     *
      * @throws IllegalArgumentException if the filling misses an element or fills one as another kind
      */
     public Drawn render(final Layout declared, final Filling filling, final Locale locale) {
@@ -296,7 +261,7 @@ public final class LayoutRenderer {
         }
     }
 
-    /** Takes one from the largest count above zero; {@code false} when every count is zero. */
+    /** Takes one from the largest count above zero. Returns {@code false} when every count is zero. */
     private static boolean fewer(final Map<String, Integer> shown) {
         return shown.entrySet().stream()
                 .filter(entry -> entry.getValue() > 0)
@@ -326,7 +291,6 @@ public final class LayoutRenderer {
         return kind.cast(filled);
     }
 
-    /** One drawing with a given number of items and languages, counting what it would send. */
     private final class Pass {
 
         private final Layout layout;
@@ -371,7 +335,6 @@ public final class LayoutRenderer {
             return drawn;
         }
 
-        /** Drops the last top-level components until the rest is within Discord's count. */
         List<MessageTopLevelComponent> fit(final List<MessageTopLevelComponent> drawn) {
             int total = 0;
             int kept = 0;
@@ -474,7 +437,7 @@ public final class LayoutRenderer {
             return ActionRow.of(children);
         }
 
-        /** Whether a part has nothing left to draw, which Discord refuses for a box or a section. */
+        /** Discord refuses a box or a section with nothing to draw. */
         private boolean empty(final Part part) {
             return switch (part.type()) {
                 case ROW ->
@@ -587,15 +550,14 @@ public final class LayoutRenderer {
                     .orElseThrow(() -> new IllegalArgumentException("the layout declares no element " + id));
         }
 
-        /** The address Discord is sent for an image: a stored image as the attachment the message uploads. */
         private String url(final String address) {
             final FileUpload upload = uploads.get(address);
             return upload == null ? address : ATTACHMENT + upload.getName();
         }
 
         /**
-         * An editor's added text in the reader's language, else in the default one, else in the first it has.
-         * It is written and filled as the layout's first key, which shares its bundle's way of writing.
+         * Returns an editor's added text in the reader's language, else the default one, else the first.
+         * It is written and filled as the layout's first key, which uses its bundle's way of writing.
          */
         private String added(final Locale locale, final Map<String, String> texts) {
             final String text = texts.getOrDefault(
@@ -606,7 +568,6 @@ public final class LayoutRenderer {
             return messages.format(locale, new MessageRef(key.substring(key.indexOf('/') + 1), filling.values()), text);
         }
 
-        /** A key's text, as {@code bundle/key}, filled with the layout's values and then {@code own}. */
         private String format(final Locale locale, final String key, final Map<String, Object> own) {
             final Map<String, Object> values = new LinkedHashMap<>(filling.values());
             values.putAll(own);

@@ -6,7 +6,7 @@ import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Secret;
 import java.util.List;
 
-/** A group with a number, a text, a secret and a nested list, as the tests load it. */
+/** A group with a number, a text, a secret and a nested list. */
 @ConfigSpec
 public interface ExampleSpec {
 
@@ -31,7 +31,6 @@ public interface ExampleSpec {
         return Specs.createDefault(Nested.class);
     }
 
-    /** A nested group of the example. */
     @ConfigSpec
     interface Nested {
 

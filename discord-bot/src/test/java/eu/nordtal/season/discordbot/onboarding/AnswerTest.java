@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
-/** What a member who has just chosen in the onboarding channel is answered. */
 class AnswerTest {
 
     @Test

@@ -7,9 +7,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The names this message had before, so an admin's override follows a renamed or moved key instead of being orphaned.
- *
- * Each is {@code key} in this bundle or {@code bundle/key} in another, written into the bundle's schema at build time.
+ * Names the former names of a renamed or moved key, so an admin's override follows the key.
+ * Each name is {@code key} in this bundle or {@code bundle/key} in another. The build writes them
+ * into the schema of the bundle.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

@@ -7,8 +7,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * How the texts below it are written, when it differs from the spec's own {@link MessageSpec#format()}.
- * On a message, a section's accessor or a section's interface; the nearest one wins.
+ * Sets the format of the texts below it, which otherwise is {@link MessageSpec#format()}.
+ * It sits on a message, a section's accessor or a section's interface, and the nearest one wins.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

@@ -9,16 +9,13 @@ import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
-/**
- * A database that is not up yet is waited for, and giving up reads as a sentence rather than a stack trace.
+/** Checks that a database that is not up yet is waited for, and that giving up logs a sentence, not a stack trace.
  *
- * Exiting during startup would make compose abandon the whole deployment as a failed dependency.
+ * Exiting during startup would make compose abandon the deployment.
  */
 class DatabaseStartupTest {
 
-    /**
-     * Port 1 on loopback: nothing listens there, so the refusal is immediate and only this class's waiting is measured.
-     */
+    /** Port 1 on loopback has no listener, so the refusal is immediate. */
     private static final DatabaseSpec UNREACHABLE = new DatabaseSpec() {
         @Override
         public String jdbcUrl() {
@@ -71,7 +68,7 @@ class DatabaseStartupTest {
 
     @Test
     void theWindowADeploymentActuallyGetsIsMinutesNotOneAttempt() {
-        // Seconds instead of minutes would bring the exit back; the other two tests pass their window explicitly.
+        // Seconds instead of minutes would bring the exit back. The other two tests pass their window explicitly.
         assertTrue(
                 DatabaseWaiting.DATABASE_WAIT.compareTo(Duration.ofMinutes(1)) >= 0,
                 "a first deployment initialises a PostgreSQL data directory before it listens;" + " DATABASE_WAIT is "

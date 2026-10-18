@@ -31,14 +31,14 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 /**
- * Team registration for one game end to end: the Register button, the name modal, the partner picker and the DM.
- *
- * The game is the one its {@link Teams} register for. Every database call runs on {@code executor}.
+ * Handles the team registration of one game.
+ * It covers the Register button, the name modal, the partner picker and the direct message.
+ * The game is the game of {@link Teams}. Every database call runs on {@code executor}.
  */
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {
 
-    /** The modal the Register button opens, which asks for the team's name. */
+    /** The modal that the Register button opens. It asks for the team name. */
     static final Layout NAME = Layout.modal(
             "access",
             "register-name",
@@ -46,7 +46,7 @@ public final class RegisterFlow extends ListenerAdapter {
             "access/register.modal.title",
             Element.input("name", "access/register.modal.name-label", "access/register.modal.name-placeholder"));
 
-    /** The answer to a registration that went through, with the button that invites a partner. */
+    /** The answer to a successful registration, with the button that invites a partner. */
     static final Layout REGISTERED = Layout.discord(
             "access",
             "register-success",
@@ -55,7 +55,7 @@ public final class RegisterFlow extends ListenerAdapter {
             Part.text(Line.text("access/register.success")),
             Part.row("invite"));
 
-    /** The question whom to invite, over the select of the guild's members. */
+    /** The question whom to invite, with a select of the guild's members. */
     static final Layout PICKER = Layout.discord(
             "access",
             "invite-picker",
@@ -64,7 +64,7 @@ public final class RegisterFlow extends ListenerAdapter {
             Part.text(Line.text("access/register.invite.pick")),
             Part.row("partner"));
 
-    /** The invitation the partner is sent, with the buttons that answer it. */
+    /** The invitation that the partner receives, with an accept and a decline button. */
     static final Layout INVITATION = Layout.discord(
             "access",
             "invite-dm",
@@ -221,7 +221,6 @@ public final class RegisterFlow extends ListenerAdapter {
                 .editOriginal(reply(locale, RegisterReplies.invitation(result, invited)))
                 .queue();
         if (result.status() == InviteResult.Status.INVITED) {
-            // INVITED guarantees these two.
             dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
         }
     }
@@ -282,7 +281,7 @@ public final class RegisterFlow extends ListenerAdapter {
             final ButtonInteractionEvent event, final Locale locale, final boolean accept, final AnswerResult result) {
         final LayoutRenderer.Drawn reply = layouts.reply(locale, RegisterReplies.answer(result, accept));
         if (result.status() == AnswerResult.Status.CLOSED) {
-            // The buttons stay: the invite can still be answered once the round opens again.
+            // The buttons stay, because the invite can be answered when the round opens.
             event.getHook().sendMessage(reply.create()).setEphemeral(true).queue();
             return;
         }
@@ -291,7 +290,6 @@ public final class RegisterFlow extends ListenerAdapter {
             return;
         }
 
-        // ANSWERED guarantees both.
         final String teamName = Objects.requireNonNull(result.teamName());
         final UUID teamId = Objects.requireNonNull(result.teamId());
         teams.ownerOf(teamId).ifPresent(ownerId -> {

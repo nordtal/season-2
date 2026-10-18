@@ -11,29 +11,24 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Renders the status channel name for one language, from the phase, the counts and the opening instant.
+ * Renders the status channel name of one language from the phase, the counts and the launch time.
  *
- * Steps are coarse because each change costs a rename; the countdown rounds down so people arrive early, not late.
+ * The countdown has coarse steps, because each change costs a rename. It rounds down.
  */
 public final class StatusName {
 
-    /** The step the last hour is rendered in, and so the number of renames it costs. */
     private static final int FINAL_HOUR_STEP_MINUTES = 10;
 
-    /** Discord refuses a channel name longer than this. */
+    /** Discord's length limit for a channel name. */
     static final int MAX_LENGTH = 100;
 
     private StatusName() {}
 
     /**
-     * Returns the channel name, never empty and never longer than {@link #MAX_LENGTH}.
+     * Returns the channel name, which is never empty and never longer than {@link #MAX_LENGTH}.
      *
-     * @param messages the bundle to take the wording from
-     * @param locale the language to render in
-     * @param phase the current season phase
-     * @param snapshot the counts; ignored for {@code PRE_LAUNCH} and {@code MAINTENANCE}
-     * @param launch when the network opens, or {@code null} when no date has been announced
-     * @param now the instant to measure against
+     * @param snapshot the counts, which {@code PRE_LAUNCH} and {@code MAINTENANCE} ignore
+     * @param launch the launch time, or {@code null} when there is no date
      */
     public static String render(
             final DiscordRenderer messages,
@@ -63,7 +58,7 @@ public final class StatusName {
 
         final Duration remaining = Duration.between(now, launch);
         if (remaining.toMinutes() < FINAL_HOUR_STEP_MINUTES) {
-            // Covers a passed date too, since nobody has switched the phase yet.
+            // This includes a launch time in the past.
             return messages.format(locale, MESSAGES.status().preLaunch().imminent());
         }
         if (remaining.toDays() >= 1) {
@@ -71,14 +66,13 @@ public final class StatusName {
                     locale, MESSAGES.status().preLaunch().days(remaining.toDays(), remaining.toHoursPart()));
         }
         if (remaining.toHours() >= 1) {
-            // Whole hours: minutes would rename sixty times an hour.
+            // Whole hours only.
             return messages.format(locale, MESSAGES.status().preLaunch().hours(remaining.toHours()));
         }
         final long steps = remaining.toMinutes() / FINAL_HOUR_STEP_MINUTES;
         return messages.format(locale, MESSAGES.status().preLaunch().minutes(steps * FINAL_HOUR_STEP_MINUTES));
     }
 
-    /** Cuts a name to the length Discord accepts, since a longer one is rejected outright. */
     private static String truncate(final String name) {
         return name.length() <= MAX_LENGTH ? name : name.substring(0, MAX_LENGTH);
     }

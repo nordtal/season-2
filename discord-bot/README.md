@@ -13,68 +13,63 @@ flowchart LR
     bot -->|"role, direct message, thank-you, admin note"| member
 ```
 
-The bot holds no bunq key and books nothing; the prices are the network's `prices` group. It never
-migrates: at startup Flyway's `validate()` refuses a database it was not built against, and compose
-starts it only after the `migrate` service succeeded. An admin's preview of a text shown in Discord
-(`PREVIEW_MESSAGE`) is a direct message to that admin; a closed direct message refuses the request
+The bot holds no bunq key and books nothing. The prices are the network's `prices` group. The bot never
+migrates: at startup Flyway's `validate()` refuses a database the bot was not built against, and
+compose starts the bot only after the `migrate` service has succeeded. `PREVIEW_MESSAGE` sends an
+admin a direct message with the previewed text. A closed direct message refuses the request
 (`NOT_DELIVERED`).
 
-## What it needs
+## Requirements
 
 - A Discord application with the `GUILD_MEMBERS` privileged intent.
-- The guild id, which `deploy/nordtal.sh` asks for. Every channel is an id set in Steward, and an empty one switches its feature off.
-  The bot publishes the guild's channels into `guild_channels` at start and on every change, which
-  Steward's channel pickers read.
-- The permission to manage roles and channels: the bot finds or creates every role it uses and keeps the onboarding lock on every channel.
+- The guild id, which `deploy/nordtal.sh` asks for.
+- The permission to manage roles and channels.
 
-The languages are the network's (`language-and-time.languages`). The `access` group's `languages` holds one entry
-for each tag, with its role name and channels, and no other: the bot refuses to take a list that differs.
+Every channel is an id set in Steward. An empty id switches its feature off. The bot publishes the
+guild's channels into `guild_channels` at start and on every change, and Steward's channel pickers read
+that table.
 
-The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only the
-database, `NORDTAL_ACCESS_GUILD_ID` and Steward's address, `NORDTAL_BOT_STEWARD_URL`, which a run's card links its
-page below; each wins over what is stored; the startup log lists every
-setting the environment overrode. The token, `NORDTAL_BOT_TOKEN`, is the bot's own `secrets.env`, which
-compose mounts into it alone (see `deploy/README.md`).
+The languages are the network's (`language-and-time.languages`). The `access` group's `languages` holds
+one entry per tag with its role name and channels, and no other entry. The bot refuses a list that differs.
+
+Steward edits the `access` and `onboarding` groups. `compose.yml` passes the bot only the database,
+`NORDTAL_ACCESS_GUILD_ID` and Steward's address `NORDTAL_BOT_STEWARD_URL`. Each of them wins over the
+stored value, and the startup log lists every setting the environment overrode. The token
+`NORDTAL_BOT_TOKEN` is in the bot's own `secrets.env`, which compose mounts into the bot alone (see
+[../deploy/README.md](../deploy/README.md)).
 
 ```bash
 COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -d
 ./gradlew :discord-bot:imageContext && COMPOSE_PROFILES=db,bot docker compose up -d --build   # a local image
 ```
 
-The container runs the jar baked into its image; the whole deployment is in [../deploy/README.md](../deploy/README.md).
-
 ## Where things live
 
 - `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
-- `registration/`: team registration for a game, named by its key; the Hunger Games is the one game so far.
+- `registration/`: team registration for a game, named by its key. The Hunger Games is the only game.
 - `onboarding/`: the language and region roles, the lock and the onboarding messages.
-- `roles/`: every role the bot uses (`GuildRoles`), found by name and then followed by its stored id.
-- `status/`: the status channel names.
+- `roles/`: every role the bot uses (`GuildRoles`).
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `LayoutRenderer`: draws a declared layout as a Components V2 message within Discord's limits. Every message
-  the bot sends is one: the managed messages, the replies, the direct messages, the modals and the admin
-  channel's cards, each declared
-  beside the code that fills it; a reply of one text is in `Replies`, found by its text's key. A modal is its
-  title and one field per row, so only its texts change. An ephemeral flow edits one message through several
-  layouts, which works because each of them is V2. Where Steward stores a rebuild written over
-  the jar's layout (`StoredLayouts`, re-read on `nordtal_messages`), the next publish draws the rebuild, carried
-  over by `LayoutMerge` when a release changed the layout, and its uploaded images are sent as attachments.
-- `Mark`: the one set of emojis every message of the bot takes its status and action marks from.
+  the bot sends is one. If Steward stores a rebuild of a layout (`StoredLayouts`, re-read on
+  `nordtal_messages`), the next publish draws the rebuild. `LayoutMerge` merges it when a release changed
+  the layout.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.
 
 ## Roles
 
-Steward holds a name for every role the bot uses: access, donor and admin, one per language, one per
-region and the lock role. The bot takes the role of exactly that name or creates it, stores its id in
-`discord_role` and follows the id, so an admin may rename the role; only when it is deleted does the
-bot look by name again. Two roles of the name are taken by neither, and the admin channel is told.
+Steward holds a name for every role the bot uses. The bot takes the role of exactly that name or creates
+it, stores its id in `discord_role` and follows the id, so an admin may rename the role. The bot looks by
+name again only after the role is deleted. If two roles have the name, the bot takes neither and tells the
+admin channel.
 
 ## Onboarding
 
-A member's language and region are Discord roles, and the roles are the source: every change is
-carried into `discord_user.locale` and `time_zone`, where no role means the network's. Holding two of
-a kind keeps the one just added. Both channels are ids in Steward's `onboarding` group.
+A member's language and region are Discord roles, and the roles are the source. The bot copies every change
+into `discord_user.locale` and `time_zone`. A member without a role gets the network's value. If a member
+holds two roles of a kind, the bot keeps the one added last. Both channels are ids in Steward's `onboarding`
+group.
 
 ```mermaid
 flowchart LR
@@ -83,46 +78,36 @@ flowchart LR
     change["change message, a button per language"] -->|"dialog with both selects"| released
 ```
 
-- The onboarding channel holds the welcome: one box in the network's default language and a select of the
-  languages, each under its own name and its country's flag. Choosing one gives its role and answers with a
-  select of the regions, unless a region is held already.
-- The change channel holds a box and a button per language, each opening a dialog in it with both selects;
-  it is how a member changes either later.
-- The onboarding channel is the lock role's alone: the bot keeps it shut to everyone and open to the lock role
-  and to itself, the lock on or off, so a released member no longer sees it.
-
-- The lock role sees only the onboarding channel, the lock on or off: the bot keeps every channel's overwrite
-  for it, repairs drift on every reconcile and closes each new channel, so switching the lock rewrites none.
-- With the lock on in Steward, a member missing either role is given the lock role. Whoever holds it, given
-  by the bot or by hand, loses it the moment both are held; switching the lock off takes it from everyone
-  once, and a role given by hand after that stays, which is how the onboarding is tried. Bots are never locked.
-- While the lock role is held, the access and donor roles are withheld, so a role's allow cannot open a channel past
-  the lock. When the lock goes both return as the database has them: access while a grant covers the
-  member, donor while the flag is set. The game is unaffected, since the proxy reads the database.
+- The onboarding channel holds the welcome. The bot answers a chosen language with a select of the regions,
+  unless the member holds a region already.
+- The change channel holds a button per language. Each button opens a dialog with both selects.
+- The lock role sees only the onboarding channel. The bot keeps its overwrite on every channel and repairs
+  drift on every reconcile.
+- With the lock on in Steward, the bot gives the lock role to a member who misses either role, and never to
+  a bot. A member loses it as soon as both roles are held. Switching the lock off takes the role from
+  everyone once. A role given by hand after that stays.
+- The bot withholds the access and donor roles while the lock role is held. When the lock goes, both return
+  as the database has them. The game is unaffected, since the proxy reads the database.
 
 ## Registration
 
-The bot owns `registration`, `team` and `team_member`, each round named by its game's key from `Game`
-in `:database`. The flow and `Teams` take the game, so a second team mode is a constant there and its
-own Register message. The game server creates a game from the round when it starts and alone moves the
-round's state. A closed round refuses every change until its game is aborted (the round opens again
-with its teams) or decided (it ends, and the next registration opens a new round).
+The bot owns `registration`, `team` and `team_member`. Each round is named by its game's key from `Game` in
+`:database`. A second team mode needs a constant there and its own Register message. The game server
+creates a game from the round when it starts and is the only one that changes the round's state. A closed
+round refuses every change. It opens again with its teams when its game is aborted. It ends when its game
+is decided, and the next registration opens a new round.
 
 ## Texts
 
-Every text the bot sends is a message of its bundle, rendered by `DiscordRenderer`, the Discord
-target of `:messages`; `:architecture` refuses `Messages.format` here.
+The bot renders every text it sends from a message of its bundle with `DiscordRenderer`, the Discord target
+of `:messages`. `:architecture` refuses `Messages.format` in this module.
 
-- In a markdown text each value is escaped with JDA's sanitizer, character by character, so a team
-  called `Red_Fox**` reads as written; a link stays as it is. A moment is Discord's `<t:…:f>` and a
-  member a mention, in a message placed in another message too. A text shown without markdown (a button, select, modal or channel name) is
-  declared `PLAIN`.
-- The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page
-  renders too. A journal line goes through `AdminLog.record`, a member's action and a note of the bot's own
-  alike, the bot as the note's actor: the row stores the message and the card is that same message rendered
-  here, so the journal and the card cannot differ. A booking's line is steward's, written with the booking,
-  and reaches the bot in the request it reacts to. Alerts and the update feed are drawn from the same bundle,
-  in English: a card's title and lines take any message of the admin or database bundle, and its services and
-  failures are data lists. A mention in a card names someone without a ping; only an alert's admins are pinged.
-- Only what a member reads is in the bot's own bundle, in every language, except an announcement: a
-  server or Steward writes it as messages of `:database`'s bundle, which the bot renders in each channel's language.
+- JDA's sanitizer escapes each value in a markdown text. A link stays as it is. A text shown without markdown
+  (a button, select, modal or channel name) is declared `PLAIN`.
+- The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page renders
+  too. `AdminLog.record` writes a journal line, and the card is the same message rendered here, so the
+  journal and the card cannot differ. Steward writes a booking's line with the booking, and it reaches the
+  bot in the request it reacts to. A mention in a card names someone without a ping. Only an alert's admins
+  are pinged.
+- The bot's own bundle holds only what a member reads, in every language. A server or Steward writes an
+  announcement as messages of `:database`'s bundle, and the bot renders it in each channel's language.

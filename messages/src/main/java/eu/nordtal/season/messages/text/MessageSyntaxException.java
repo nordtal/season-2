@@ -2,7 +2,10 @@ package eu.nordtal.season.messages.text;
 
 import eu.nordtal.season.messages.MessageRef;
 
-/** A text that cannot be read: an unclosed brace, a plural without {@code other}, a broken tag argument. */
+/**
+ * Thrown for a text that cannot be read, such as an unclosed brace, a plural without {@code other}
+ * or a broken tag argument.
+ */
 public final class MessageSyntaxException extends IllegalArgumentException {
 
     private static final long serialVersionUID = 1L;
@@ -16,17 +19,14 @@ public final class MessageSyntaxException extends IllegalArgumentException {
         this.position = position;
     }
 
-    /** Returns why, a message of the {@code check} bundle that names the character too. */
     public MessageRef reason() {
         return reason;
     }
 
-    /** Returns where in the text it failed, counted from 0. */
     public int position() {
         return position;
     }
 
-    /** Returns why in English, as the packaged texts say it. */
     @Override
     public String getMessage() {
         return MessageCheck.english(reason);

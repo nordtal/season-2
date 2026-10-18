@@ -17,10 +17,9 @@ import java.util.Map;
 import net.dv8tion.jda.api.JDA;
 import org.jdbi.v3.core.Jdbi;
 
-/** Posts and edits a game's Register message, one per configured language, each a {@link ManagedMessage}. */
+/** Posts and edits the Register message of a game, one {@link ManagedMessage} per configured language. */
 public final class RegisterMessages {
 
-    /** The Register message: the team, the name and the no-show rule, the Register button under them. */
     static final Layout REGISTER = Layout.discord(
             "access",
             "hunger-games-register",
@@ -49,7 +48,7 @@ public final class RegisterMessages {
         this.managed = new ManagedMessage(jda, jdbi);
     }
 
-    /** Posts or edits the Register message in every configured language's channel. */
+    /** Posts or edits the Register message in the channel of every configured language. */
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
             managed.publish(

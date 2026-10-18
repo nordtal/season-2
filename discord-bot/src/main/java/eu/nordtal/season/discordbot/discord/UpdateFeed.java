@@ -34,22 +34,21 @@ import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws every run in the admin channel, in English, but a start-up install that went well.
+ * Posts a card for every update run in the admin channel, in English. A start-up install that succeeded has no card.
  *
- * An edit notifies nobody, so a failed run reaches the admins as steward's alert, not from here.
+ * An edit notifies nobody, so steward's alert reports a failed run.
  */
 @Slf4j
 public final class UpdateFeed {
 
     private static final java.util.regex.Pattern SHA1 = java.util.regex.Pattern.compile("[0-9a-f]{40}");
 
-    /** How far back a start posts runs that ended while this bot was down. */
+    /** The age limit of a finished run that {@link #start} posts. */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
 
-    /** Where a run is drawn; {@link #of(AdminLog)} is the only implementation that ships. */
     public interface Board {
 
-        /** Posts a card and hands over the message id once Discord has it. */
+        /** Posts a card and passes the message id to {@code sentId} when Discord has the message. */
         void post(LayoutRenderer.Drawn card, java.util.function.Consumer<String> sentId);
 
         void edit(String messageId, LayoutRenderer.Drawn card);
@@ -69,7 +68,6 @@ public final class UpdateFeed {
         }
     }
 
-    /** A run: its mark and title, who asked and how long it took, a line per service and per failure, its page. */
     static final Layout RUN = Layout.discord(
             "access",
             "admin-run",
@@ -94,21 +92,20 @@ public final class UpdateFeed {
     private final Board board;
     private final LayoutRenderer layouts;
 
-    /** The highest id already handled; only the tick thread writes it. */
+    /** The highest request id handled. Only the tick thread writes it. */
     private volatile long lastSeen;
 
-    /** The runs still moving, by request id; the message id arrives later on a JDA thread. */
+    /** The runs in progress, by request id. */
     private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
-    /** Whether a pass is running; see {@link #submit} for why this is a flag and not a lock. */
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
-    /** Set by every signal, so one that arrives during a pass is followed by exactly one more. */
+    /** Set by every signal. A signal during a pass causes exactly one more pass. */
     private final java.util.concurrent.atomic.AtomicBoolean again = new java.util.concurrent.atomic.AtomicBoolean();
 
     private final String stewardUrl;
 
-    /** @param stewardUrl Steward's address, which each card links its run's page below; empty links nothing */
+    /** @param stewardUrl Steward's address, which the link on each card starts with. An empty value shows no link. */
     public UpdateFeed(
             final UpdateDirectory updates, final Board board, final LayoutRenderer layouts, final String stewardUrl) {
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
@@ -117,19 +114,18 @@ public final class UpdateFeed {
         this.layouts = Objects.requireNonNull(layouts, "layouts");
     }
 
-    /** Starts from the highest id, posting finished runs inside {@link #CATCH_UP} once so a restart loses none. */
+    /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
     public void start() {
         try {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
-                // A row with id > mark finished between the two reads above; tick() finds it.
+                // A row with an id above mark finished between the two reads, and tick() posts it.
                 if (request.id() > mark || !shown(request)) {
                     continue;
                 }
-                // Posted and forgotten: it is over.
                 board.post(card(request), messageId -> {});
             }
-            // A run still going falls through both loops above; registering it here makes tick() follow it.
+            // A run in progress is registered, so tick() follows it.
             for (final UpdateRequest request : updates.since(0L)) {
                 if (request.status().isFinished() || request.id() > mark) {
                     continue;
@@ -139,12 +135,10 @@ public final class UpdateFeed {
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
-            // Not fatal: the feed starts from whatever it managed to read.
             log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
         }
     }
 
-    /** Runs one pass on the calling thread, unless one is running. */
     public void tick() {
         if (!ticking.compareAndSet(false, true)) {
             return;
@@ -157,9 +151,9 @@ public final class UpdateFeed {
     }
 
     /**
-     * Hands a pass to {@code worker} on every update signal; one arriving during a pass runs one more after it.
+     * Runs a pass on {@code worker}. A signal during a pass causes one more pass after it.
      *
-     * The flag is released if the submission is rejected.
+     * The flag is released if {@code worker} rejects the pass.
      */
     public void submit(final Executor worker) {
         Objects.requireNonNull(worker, "worker");
@@ -178,7 +172,7 @@ public final class UpdateFeed {
                 } finally {
                     ticking.set(false);
                 }
-                // A signal between the last pass and the release above found the flag taken.
+                // A signal between the last pass and the release found the flag set.
                 if (again.get()) {
                     submit(worker);
                 }
@@ -208,19 +202,18 @@ public final class UpdateFeed {
                 if (over) {
                     return;
                 }
-                // Only now is there a message id to edit.
                 drawing.put(request.id(), new Drawn(messageId, request.result()));
             });
         }
         redraw();
     }
 
-    /** Whether a run is drawn here: every run but a start-up install that went well, which is written settled. */
+    /** Returns whether a run gets a card. Only a start-up install that did not fail has none. */
     static boolean shown(final UpdateRequest request) {
         return request.kind() != UpdateKind.INSTALL || request.status() == UpdateStatus.FAILED;
     }
 
-    /** Re-reads the runs still moving and rewrites their messages when they have changed. */
+    /** Reads the runs in progress again and edits the message of each run that changed. */
     private void redraw() {
         for (final Map.Entry<Long, Drawn> entry : drawing.entrySet()) {
             final long id = entry.getKey();
@@ -232,13 +225,12 @@ public final class UpdateFeed {
                 continue;
             }
             if (row.isEmpty()) {
-                // Deleted by hand: nothing to draw.
                 drawing.remove(id);
                 continue;
             }
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
-            // Discord rate-limits edits, and this polls every two seconds.
+            // Discord rate-limits edits.
             if (!java.util.Objects.equals(drawn.showing(), request.result())) {
                 board.edit(drawn.messageId(), card(request));
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
@@ -249,7 +241,7 @@ public final class UpdateFeed {
         }
     }
 
-    /** Draws one run; a row with no parsable report reads as {@code RESOLVING}. */
+    /** Draws one run. A row with no parsable report has the stage {@code RESOLVING}. */
     private LayoutRenderer.Drawn card(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
@@ -257,10 +249,10 @@ public final class UpdateFeed {
     }
 
     /**
-     * Draws one run as data: its kind and stage as title, the outcome as its mark, one line per service.
+     * Draws one run: the kind and stage as title, the outcome as mark and one line per service.
      *
-     * @param context whether to say who asked; only the admin channel's feed does
-     * @param page    the run's page in Steward, which its button opens, or {@code null} for no button
+     * @param context whether to name who asked
+     * @param page the run's page in Steward, which the button opens, or {@code null} for no button
      */
     static LayoutRenderer.Drawn card(
             final UpdateReport report,
@@ -270,7 +262,7 @@ public final class UpdateFeed {
             final @Nullable String page) {
         final List<Map<String, Object>> why = new ArrayList<>();
         for (final UpdateReport.Failure said : report.failures()) {
-            // A multi-line text only reads in monospace and repeats the lines.
+            // A multi-line text is not shown.
             final String shown =
                     layouts.messages().format(Locales.DEFAULT, said.what()).strip();
             if (!shown.isBlank() && shown.indexOf('\n') < 0) {
@@ -323,12 +315,11 @@ public final class UpdateFeed {
                 Locales.DEFAULT);
     }
 
-    /** What changed of a service; a told change named after the run's kind leaves out the name the title says. */
+    /** Returns the changes of a service. A told change named after the run's kind has no artefact name. */
     private static List<MessageRef> changes(final UpdateReport.ServiceLine line, final UpdateKind kind) {
         final List<MessageRef> changes = new ArrayList<>();
         for (final UpdateReport.Change change : line.changes()) {
             final MessageRef shown = switch (change.state()) {
-                // No build for this Minecraft version, which stops no server.
                 case UNSUPPORTED -> TEXTS.run().noBuild();
                 case MOVING -> moving(change);
             };
@@ -341,7 +332,7 @@ public final class UpdateFeed {
         return changes;
     }
 
-    /** A change that moves: in words when no version names it, else its version or the pair of them. */
+    /** Returns the text of a moving change: its told text, else its version or the old and new version. */
     private static MessageRef moving(final UpdateReport.Change change) {
         final MessageRef told = change.told();
         if (told != null) {
@@ -353,24 +344,22 @@ public final class UpdateFeed {
                 : MESSAGES.admin().moved(version(from), change.to());
     }
 
-    /** A version as it reads, but a SHA-1, which only the resource pack is known by, cut to its first seven. */
+    /** Returns the version, with a SHA-1 cut to its first seven characters. */
     private static String version(final String version) {
         return SHA1.matcher(version).matches() ? version.substring(0, 7) : version;
     }
 
-    /** Returns the mark of one service's state, from the same set as {@link #glance}. */
     private static Mark marker(final UpdateReport.State state) {
         return switch (state) {
             case UNCHANGED -> Mark.UNCHANGED;
             case PLANNED -> Mark.WAITING;
             case STOPPED, INSTALLED, STARTING -> Mark.WORKING;
-            // A finished snapshot, an archive put back and a service that came back are the same news.
             case HEALTHY, SAVED, RESTORED -> Mark.DONE;
             case FAILED -> Mark.FAILED;
         };
     }
 
-    /** Returns the mark in front of a stage: the only place an outcome shows, since every card has one colour. */
+    /** Returns the mark in front of a stage. It is the only place that shows the outcome. */
     private static Mark glance(final UpdateReport.Stage stage) {
         return switch (stage) {
             case RESOLVING -> Mark.LOOKING;

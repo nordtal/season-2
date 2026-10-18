@@ -43,15 +43,9 @@ import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 
-/**
- * The buy-access flow: a button, a day selection, a summary, and a payment link.
- *
- * State lives in the open {@code payment_request}; only the wait for a link is in memory.
- */
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
 
-    /** The first step: how long, asked over the select of the tiers. */
     static final Layout CHOOSE = Layout.discord(
             "access",
             "purchase-choose",
@@ -60,7 +54,6 @@ public final class PurchaseFlow extends ListenerAdapter {
             Part.text(Line.text("access/purchase.choose")),
             Part.row("days"));
 
-    /** The summary of a tier without a donation, with the button that adds one. */
     static final Layout SUMMARY = Layout.discord(
             "access",
             "purchase-summary",
@@ -72,7 +65,6 @@ public final class PurchaseFlow extends ListenerAdapter {
             Part.text(Line.text("access/purchase.summary"), Line.text("access/purchase.summary.total")),
             Part.row("confirm", "change", "donation"));
 
-    /** The summary of a tier with a donation, with the button that removes it. */
     static final Layout SUMMARY_DONATION = Layout.discord(
             "access",
             "purchase-summary-donation",
@@ -87,7 +79,6 @@ public final class PurchaseFlow extends ListenerAdapter {
                     Line.text("access/purchase.summary.total")),
             Part.row("confirm", "change", "donation"));
 
-    /** The payment link, its reference and when it runs out. */
     static final Layout LINK = Layout.discord(
             "access",
             "purchase-link",
@@ -106,13 +97,11 @@ public final class PurchaseFlow extends ListenerAdapter {
     private final AdminLog admin;
     private final Executor executor;
 
-    /** Ephemeral messages waiting for a link, one per request, so a second confirm replaces the older one. */
     private final Map<UUID, Waiting> waiting = new ConcurrentHashMap<>();
 
-    /** Held across reading the row and editing the message, so a stale "being created" never overwrites the link. */
+    /** Held while the row is read and the message is edited, so a stale "being created" text cannot hide the link. */
     private final Object drawing = new Object();
 
-    /** One ephemeral message, and when it started waiting. */
     private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
 
     private final Clock clock;
@@ -162,12 +151,10 @@ public final class PurchaseFlow extends ListenerAdapter {
 
         final Optional<Tier> tier = tiers.byDays(days);
         if (tier.isEmpty()) {
-            // The prices changed between the message being rendered and the click.
             reply(event, locale, MESSAGES.purchase().tierGone());
             return;
         }
 
-        // The row, not the button, decides whether the donation stays on across a tier change.
         final boolean donation = requests.openOf(DiscordId.of(event.getUser().getId()))
                 .map(PaymentRequest::donationRequested)
                 .orElse(false);
@@ -250,16 +237,13 @@ public final class PurchaseFlow extends ListenerAdapter {
         event.deferEdit().queue();
         executor.execute(() -> {
             try {
-                // Writes tab_requested and returns; the row read below says which case this is.
                 purchases.confirm(request);
 
                 synchronized (drawing) {
                     final PaymentRequest fresh = requests.byId(request.id()).orElse(request);
                     if (settled(event.getHook(), locale, fresh, Duration.ZERO)) {
-                        // A second confirm on a row with a tab, or the request is gone: nothing to wait for.
                         return;
                     }
-                    // Registered before the message is drawn, so a tab arriving this instant is caught by fillIn().
                     waiting.put(request.id(), new Waiting(event.getHook(), locale, clock.instant()));
                     event.getHook()
                             .editOriginal(layouts.reply(
@@ -275,11 +259,6 @@ public final class PurchaseFlow extends ListenerAdapter {
         });
     }
 
-    /**
-     * Finishes every waiting message whose row now has a link, a refusal, or has waited too long.
-     *
-     * Called on {@code nordtal_payment} and by the payment timer; it re-reads each row in full.
-     */
     public void fillIn() {
         if (waiting.isEmpty()) {
             return;
@@ -291,7 +270,6 @@ public final class PurchaseFlow extends ListenerAdapter {
                 final Map.Entry<UUID, Waiting> entry = entries.next();
                 final Optional<PaymentRequest> row = requests.byId(entry.getKey());
                 if (row.isEmpty()) {
-                    // Nothing deletes a payment_request, so this is unreachable; dropping the entry is still sane.
                     entries.remove();
                     continue;
                 }
@@ -304,11 +282,6 @@ public final class PurchaseFlow extends ListenerAdapter {
         }
     }
 
-    /**
-     * Draws the end of the wait, if it has come.
-     *
-     * @return {@code true} when the message is final; {@code false} while the row is still waiting for an answer
-     */
     private boolean settled(
             final InteractionHook hook, final Locale locale, final PaymentRequest request, final Duration waited) {
         final PaymentWait wait = PaymentWait.of(request, waited);
@@ -329,7 +302,6 @@ public final class PurchaseFlow extends ListenerAdapter {
                         layouts.reply(locale, MESSAGES.purchase().linkSection().refused(refusal.passes())));
             }
             case GIVE_UP -> {
-                // The last thing this message says; it names the reference, which is what an admin needs.
                 edit(
                         hook,
                         layouts.reply(locale, MESSAGES.purchase().linkSection().slow(request.reference())));
@@ -365,7 +337,6 @@ public final class PurchaseFlow extends ListenerAdapter {
                 .queue();
     }
 
-    /** The summary of the open request, with or without its donation. */
     static LayoutRenderer.Drawn summary(
             final LayoutRenderer layouts, final Tiers tiers, final PaymentRequest request, final Locale locale) {
         final AccessMessages.Purchase purchase = MESSAGES.purchase();
@@ -389,7 +360,6 @@ public final class PurchaseFlow extends ListenerAdapter {
         event.reply(layouts.reply(locale, text).create()).setEphemeral(true).queue();
     }
 
-    /** Tells the user a plain sentence and raises the detail as an alert. */
     private void fail(
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);

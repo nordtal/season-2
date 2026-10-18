@@ -11,7 +11,6 @@ import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Covers the message system's contract: locale resolution, EN fallback, and never throwing. */
 class MessagesTest {
 
     private static final String ROOT = "messages/test";
@@ -59,7 +58,7 @@ class MessagesTest {
     void anUnknownKeyReturnsTheKeyRatherThanThrowing() {
         final Messages messages = messages();
 
-        // Twice, because the "log it once" bookkeeping must not change the answer.
+        // The call runs twice, because logging once must not change the answer.
         assertEquals("no.such.key", messages.get(Locale.GERMAN, "no.such.key"));
         assertEquals("no.such.key", messages.get(Locale.GERMAN, "no.such.key"));
     }
@@ -82,7 +81,7 @@ class MessagesTest {
 
     @Test
     void aValueContainingBracesIsNeverReadAsAPlaceholder() {
-        // A player calling themselves {alone} must not be able to expand into another value.
+        // A player named {alone} must not expand into another value.
         assertEquals(
                 "Left something and {alone}.",
                 messages().format(Locale.ENGLISH, new MessageRef("braces", Map.of("name", "{alone}"))));

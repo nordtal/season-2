@@ -21,14 +21,8 @@ import java.util.Map;
 import net.dv8tion.jda.api.JDA;
 import org.jdbi.v3.core.Jdbi;
 
-/**
- * The bot-maintained messages: a contribution message and a link message per configured language.
- *
- * Each is a {@link ManagedMessage}, so a start edits the last one rather than posting another.
- */
 public final class ManagedMessages {
 
-    /** The contribution message: the prices, the donation and the renewal over the banner, the Buy button under it. */
     static final Layout CONTRIBUTION = Layout.discord(
             "access",
             "contribution",
@@ -48,7 +42,6 @@ public final class ManagedMessages {
                     Part.gallery("attachment://contribution.png")),
             Part.row("buy"));
 
-    /** The link message: the steps and the switch over the banner, the button that opens the code dialog under it. */
     static final Layout LINK = Layout.discord(
             "access",
             "link",
@@ -82,8 +75,7 @@ public final class ManagedMessages {
 
     /**
      * Posts or edits two messages per configured language, in the order the {@code access} group lists them.
-     *
-     * Failures are logged per message: one bad channel id must not stop the others.
+     * Failures are logged per message, so one bad channel id does not stop the others.
      */
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
@@ -116,7 +108,6 @@ public final class ManagedMessages {
                 LINK,
                 new LayoutRenderer.Filling(
                         Map.of("button", MESSAGES.link().button()),
-                        // Opens a modal for the code the proxy showed on the login screen.
                         Map.of("link", new LayoutRenderer.FilledButton(Ids.LINK))),
                 locale);
     }

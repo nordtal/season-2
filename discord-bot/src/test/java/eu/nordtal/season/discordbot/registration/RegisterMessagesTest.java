@@ -11,7 +11,6 @@ import java.util.Locale;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import org.junit.jupiter.api.Test;
 
-/** The Register message, drawn from its layout. */
 class RegisterMessagesTest {
 
     @Test

@@ -13,11 +13,7 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/**
- * Layers an admin's overrides, rows of the database, over the packaged bundle.
- *
- * The layer is per key, so a key no row names keeps following the jar.
- */
+/** The layer works per key. A key that no row names keeps the text of the jar. */
 class MessageOverridesTest {
 
     private static final Locale GERMAN = Locale.GERMAN;
@@ -154,12 +150,11 @@ class MessageOverridesTest {
                 () -> Messages.load(MessageOverridesTest.class.getClassLoader(), "test", GERMAN));
     }
 
-    /** A row written over the texts the test bundle ships for the key, as Steward writes one. */
     private static MessageOverride row(final String key, final String language, final int variant, final String text) {
         return new MessageOverride("test", key, language, variant, text, over(key, language));
     }
 
-    /** The hash a row records of the texts the test bundle ships for {@code key}, {@code null} where it ships none. */
+    /** Returns the hash of the texts that the test bundle ships for {@code key}, or {@code null} if it ships none. */
     private static @Nullable String over(final String key, final String language) {
         final List<String> texts = load().packaged("test", key, Locale.forLanguageTag(language));
         return texts.isEmpty() ? null : PackagedTexts.hash(texts);

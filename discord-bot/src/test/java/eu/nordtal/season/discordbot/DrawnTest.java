@@ -13,7 +13,6 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.junit.jupiter.api.Test;
 
-/** A drawn layout as Discord is sent it: a new message, the edit of an older one, and its words. */
 class DrawnTest {
 
     @Test

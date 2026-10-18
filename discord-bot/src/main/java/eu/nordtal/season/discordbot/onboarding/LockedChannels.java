@@ -24,34 +24,32 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps the onboarding channel the lock role's alone and every other channel shut to it, the lock on or off.
+ * Sets the permission overwrites so that the lock role sees only the onboarding channel and no other channel.
  *
- * Categories go first and each channel gets the same overwrite, so a channel synced with its category stays synced.
+ * The overwrites of the categories are set before those of the channels.
  */
 @Slf4j
 final class LockedChannels {
 
-    /** Who an overwrite is for, in the order they are set: the bot never shuts itself out of a channel. */
+    /** The holders of an overwrite, in the order the overwrites are set. */
     enum Holder {
         BOT,
         LOCK,
         EVERYONE
     }
 
-    /** Whether an overwrite lets its holder see the channel. */
     enum View {
         OPEN,
         CLOSED
     }
 
-    /** One overwrite the bot keeps on a channel. */
     record Overwrite(Holder holder, View view) {}
 
-    /** What the lock role may do in the onboarding channel: see it and read the message there. */
+    /** The permissions of the lock role in the onboarding channel. */
     private static final EnumSet<Permission> LOCK_OPEN =
             EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY);
 
-    /** What the bot needs in the onboarding channel once everyone else is shut out: keep its message there. */
+    /** The permissions of the bot in the onboarding channel. */
     private static final EnumSet<Permission> BOT_OPEN = EnumSet.of(
             Permission.VIEW_CHANNEL,
             Permission.MESSAGE_SEND,
@@ -59,7 +57,7 @@ final class LockedChannels {
             Permission.MESSAGE_ATTACH_FILES,
             Permission.MESSAGE_HISTORY);
 
-    /** At most this many channels are named in the alert; its title counts them all. */
+    /** The number of channels that the alert names. Its title counts all failed channels. */
     private static final int NAMED = 10;
 
     private static final String KEY = "lock channels";
@@ -71,9 +69,9 @@ final class LockedChannels {
     }
 
     /**
-     * Returns the overwrites a channel is kept at, in the order they are set.
+     * Returns the overwrites of a channel, in the order they are set.
      *
-     * @param onboarding whether it is the onboarding channel, which only the lock role sees
+     * @param onboarding whether the channel is the onboarding channel
      */
     static List<Overwrite> wanted(final boolean onboarding) {
         if (onboarding) {
@@ -85,7 +83,7 @@ final class LockedChannels {
         return List.of(new Overwrite(Holder.LOCK, View.CLOSED));
     }
 
-    /** Keeps every channel of the guild, and says once in the admin channel which ones it could not. */
+    /** Sets the overwrites of every channel of the guild and raises one alert that names the failed channels. */
     void keep(final Guild guild, final Role lock, final String onboardingChannelId) {
         final List<MessageRef> failed = new ArrayList<>();
         guild.getChannels(true).stream()
@@ -100,7 +98,7 @@ final class LockedChannels {
         alerts.raise(KEY, alert(failed));
     }
 
-    /** Counts every channel that failed and names the first few. */
+    /** Returns an alert that counts the failed channels and names the first of them. */
     private static Alert alert(final List<MessageRef> failed) {
         return new Alert(
                 AlertType.BOT,
@@ -111,12 +109,12 @@ final class LockedChannels {
                 Onboarding.PAGE);
     }
 
-    /** Shuts a channel just created to the lock role, and says so in the admin channel when it cannot. */
+    /** Sets the overwrites of a new channel and raises an alert when that fails. */
     void keepNew(final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
         keep(channel, lock, onboardingChannelId).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
     }
 
-    /** Keeps one channel's overwrites in order and returns what failed, stopping at the first failure. */
+    /** Sets the overwrites of one channel in order. Returns the first failure and sets no further overwrite. */
     private Optional<MessageRef> keep(
             final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
         final Guild guild = channel.getGuild();
@@ -134,7 +132,6 @@ final class LockedChannels {
         return Optional.empty();
     }
 
-    /** Keeps one overwrite and returns what failed, if it did. */
     private static Optional<MessageRef> keep(
             final IPermissionContainer channel, final IPermissionHolder holder, final Overwrite overwrite) {
         final EnumSet<Permission> open = overwrite.holder() == Holder.BOT ? BOT_OPEN : LOCK_OPEN;

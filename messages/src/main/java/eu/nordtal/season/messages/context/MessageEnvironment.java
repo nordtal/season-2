@@ -6,16 +6,15 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * What every message of one process can name, and how it shows times and tones; handed in at startup.
- * The globals are {@code server}, {@code season} and {@code network}; the zone serves a reader without one.
+ * What every message of one process can name, and how the process shows times and tones.
+ * The globals are {@code server}, {@code season} and {@code network}.
  *
- * @param globals role to context; empty where no process is named, which prints those values' replacement words
- * @param zone    the network's time zone
- * @param palette the process's tone colours, read on every render
+ * @param globals the context of each global role, empty if no process is named
+ * @param zone    the zone for a reader without one
  */
 public record MessageEnvironment(Map<String, MessageContext> globals, ZoneId zone, Palette palette) {
 
-    /** No process: every global prints its replacement word, times read in UTC, and tones are their defaults. */
+    /** Names no process: globals show their replacement word, times use UTC, tones use defaults. */
     public static final MessageEnvironment NONE = new MessageEnvironment(Map.of(), ZoneId.of("UTC"), Palette.DEFAULTS);
 
     public MessageEnvironment {
@@ -24,7 +23,6 @@ public record MessageEnvironment(Map<String, MessageContext> globals, ZoneId zon
         Objects.requireNonNull(palette, "palette");
     }
 
-    /** Returns the environment of the service called {@code service}, in the season and zone the settings name. */
     public static MessageEnvironment of(
             final String service, final SeasonContext season, final ZoneId zone, final Palette palette) {
         return new MessageEnvironment(

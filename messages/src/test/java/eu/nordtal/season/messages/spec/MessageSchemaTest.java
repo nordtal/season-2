@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.messages.MessageRef;
 import org.junit.jupiter.api.Test;
 
-/** What a spec may declare as a value. */
 class MessageSchemaTest {
 
     @MessageSpec("untyped")

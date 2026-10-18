@@ -3,13 +3,11 @@ package eu.nordtal.season.messages.value;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * An item, an advancement, an entity or one of the game's own lines, such as a death message.
- * In Minecraft it is a translatable component in the client's own language, elsewhere its English text.
+/** An item, an advancement, an entity or one of the game's own lines, such as a death message.
+ * Minecraft shows a translatable component in the client's own language, other targets the English text.
  *
- * @param key     the game's translation key, such as {@code item.minecraft.diamond}
  * @param english the English text, with {@code %s} or {@code %1$s} where an argument stands
- * @param args    the values the game's line fills in, each of a kind of its own, never markup
+ * @param args the values the game's line fills in, each of a kind of its own, never markup
  */
 public record GameContent(String key, String english, List<?> args) {
 
@@ -19,12 +17,11 @@ public record GameContent(String key, String english, List<?> args) {
         args = List.copyOf(args);
     }
 
-    /** Returns content that fills nothing in, such as an item. */
     public GameContent(final String key, final String english) {
         this(key, english, List.of());
     }
 
-    /** Returns the content behind a translation key, its English name derived from the key's last segment. */
+    /** Returns the content for a translation key, with the English name derived from the key's last segment. */
     public static GameContent of(final String key) {
         final String id = key.substring(key.lastIndexOf('.') + 1);
         final StringBuilder english = new StringBuilder(id.length());

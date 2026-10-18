@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Holds layouts to their elements, to the specs of the keys they place and to what Discord draws.
+ * Checks layouts against their elements, the specs of the keys they place and what Discord draws.
  * Each problem is one English line, prefixed with the layout as {@code bundle/name}.
  */
 public final class LayoutCheck {
@@ -28,7 +28,6 @@ public final class LayoutCheck {
             Pattern.compile("(attachment://[A-Za-z0-9_.-]+|upload://[1-9][0-9]*|https://\\S+)");
     private static final Pattern LINK = Pattern.compile("https://\\S+");
 
-    /** What Components V2 allows: text blocks in a section, images in a gallery, buttons in a row. */
     private static final int SECTION_TEXTS = 3;
 
     private static final int GALLERY_IMAGES = 10;
@@ -37,7 +36,7 @@ public final class LayoutCheck {
 
     private LayoutCheck() {}
 
-    /** Returns one line per problem, empty when every layout is sound. */
+    /** Returns one line per problem. */
     public static List<String> problems(
             final List<Layout> layouts, final Function<String, Optional<MessageSchema.Bundle>> schemas) {
         final List<String> problems = new ArrayList<>();
@@ -52,10 +51,9 @@ public final class LayoutCheck {
         return problems;
     }
 
-    /**
-     * Returns one line per problem of an editor's rebuild of {@code packaged}, empty when it is sound.
-     * A rebuild keeps the packaged identity and every element the code fills in, places only keys the packaged
-     * layout places, and adds texts and link buttons of its own; what an added text says is not checked here.
+    /** Returns one line per problem of an editor's rebuild of {@code packaged}.
+     * The rebuild may add texts and link buttons.
+     * This method does not check what an added text says.
      */
     public static List<String> rebuildProblems(final Layout packaged, final Layout rebuild) {
         final List<String> problems = new ArrayList<>();
@@ -82,7 +80,6 @@ public final class LayoutCheck {
         return problems;
     }
 
-    /** How many of a key, a data list and an added text the line is. */
     private static int sources(final Line line) {
         return (line.key() == null ? 0 : 1) + (line.list() == null ? 0 : 1) + (line.texts() == null ? 0 : 1);
     }
@@ -121,7 +118,6 @@ public final class LayoutCheck {
         }
     }
 
-    /** What Discord draws of one part of its type, apart from what it holds. */
     private static void shape(
             final Part part,
             final List<Part> inner,
@@ -184,7 +180,6 @@ public final class LayoutCheck {
         }
     }
 
-    /** A modal's tree: its title alone in a text block, then one field per row, as many as Discord takes. */
     private static void modal(final Layout layout, final List<String> problems) {
         if (!layout.modal()) {
             return;
@@ -197,7 +192,7 @@ public final class LayoutCheck {
                 && parts.getFirst().type() == Part.Type.TEXT
                 && title.size() == 1
                 && title.getFirst().style() == Line.Style.TITLE
-                // A modal's title is its key's text; an editor changes only that text.
+                // An editor changes only the text of a modal's title.
                 && title.getFirst().key() != null;
         final Set<String> inputs = layout.elements().stream()
                 .filter(element -> element.kind() == Element.Kind.INPUT)
@@ -215,7 +210,6 @@ public final class LayoutCheck {
         }
     }
 
-    /** Each declared element placed once, where its kind belongs; each placed one declared. */
     private static void elements(final Layout layout, final List<String> problems) {
         final Map<String, Element> declared = new LinkedHashMap<>();
         for (final Element element : layout.elements()) {
@@ -288,7 +282,7 @@ public final class LayoutCheck {
             problems.add("places " + id + ", which it does not declare");
             return;
         }
-        // A link button stands wherever a button does.
+        // A link button may stand where a button does.
         if (element.kind() != where && !(where == Element.Kind.BUTTON && element.kind() == Element.Kind.LINK)) {
             problems.add("places the " + noun(element.kind()) + " " + id + " where a " + noun(where) + " belongs");
         }
@@ -307,14 +301,10 @@ public final class LayoutCheck {
     }
 
     /**
-     * A key where a layout places it.
-     *
-     * @param as     how the problem names the place
-     * @param places the places of its {@code @Shown} of which one must be named
+     * @param places the places in the key's {@code @Shown}, one of which the layout must name
      */
     private record Placed(String key, String as, List<Display> places) {}
 
-    /** Every key of the layout's text blocks, then of its elements, where it is placed. */
     private static List<Placed> placements(final Layout layout) {
         final List<Placed> placed = new ArrayList<>();
         for (final Part part : layout.allParts()) {

@@ -17,7 +17,7 @@ import java.util.function.Consumer;
  */
 public final class LogFrames {
 
-    /** Docker's stream numbers, as they appear in the first header byte. */
+    /** The stream numbers in the first header byte. */
     public static final int STDIN = 0;
 
     public static final int STDOUT = 1;
@@ -28,7 +28,7 @@ public final class LogFrames {
     /**
      * Reads until the stream ends or the thread is interrupted, handing over whole lines.
      *
-     * @param multiplexed whether the eight-byte header is there, which is when {@code Config.Tty} is false
+     * @param multiplexed whether the header is there, which is when {@code Config.Tty} is false
      * @param line called for each complete line, without its terminator
      */
     public static void read(final InputStream in, final boolean multiplexed, final Consumer<String> line)
@@ -64,7 +64,7 @@ public final class LogFrames {
         }
         // A character cut in half by the end of the stream becomes one replacement character.
         split(held, text.rest(), line);
-        // The last line may lack a newline and is kept.
+        // The last line may lack a newline and stays.
         if (!held.isEmpty()) {
             line.accept(held.toString());
         }
@@ -97,7 +97,6 @@ public final class LogFrames {
 
         private byte[] carry = new byte[0];
 
-        /** The characters this chunk completes; its trailing half-character waits for the next. */
         String decode(final byte[] bytes, final int length) {
             final ByteBuffer in = ByteBuffer.allocate(carry.length + length);
             in.put(carry).put(bytes, 0, length).flip();

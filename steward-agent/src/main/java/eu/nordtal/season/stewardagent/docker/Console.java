@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Sends one line to a server's console; the reply lands in {@code docker logs}, where the interface reads it.
+ * Sends one line to the console of a server. The reply lands in {@code docker logs}.
  *
  * Only a service compose.yml marks as having a console is typed into; every other one is refused by name.
  */
@@ -21,7 +21,6 @@ public final class Console {
     private final String project;
     private final Supplier<Set<String>> withConsole;
 
-    /** @param withConsole the services compose.yml marks as having a console, asked on every line */
     public Console(final Docker docker, final String project, final Supplier<Set<String>> withConsole) {
         this.docker = docker;
         this.project = project;
@@ -29,11 +28,11 @@ public final class Console {
     }
 
     /**
-     * Sends one line to a server's console, as an argument and never through a shell, and logs who typed it.
+     * Sends one line to the console as an argument, never through a shell, and logs who typed it.
      *
      * @param command the line as typed, without a leading slash
-     * @param actor who typed it, logged as its kind and Discord id
-     * @throws IllegalArgumentException if that service has no console, naming those that have one
+     * @param actor who typed it, logged as kind and Discord id
+     * @throws IllegalArgumentException if the service has no console, naming those that have one
      * @throws DockerException if the container is not there or the exec failed
      */
     public void send(final String service, final String command, final Actor actor) {
@@ -58,7 +57,7 @@ public final class Console {
                     + answer.output().strip());
         }
         if (!answer.output().isBlank()) {
-            // Only `mc` itself writes here; the server's reply never does.
+            // Only `mc` writes here, never the server.
             log.info("console {}: {}", service, answer.output().strip());
         }
     }

@@ -29,7 +29,7 @@ public final class Docker {
 
     private static final Logger log = LoggerFactory.getLogger(Docker.class);
 
-    /** Compose writes these on every container it creates; they are how a container gets a name. */
+    /** Compose writes these labels on every container it creates. */
     private static final String LABEL_PROJECT = "com.docker.compose.project";
 
     private static final String LABEL_SERVICE = "com.docker.compose.service";
@@ -37,22 +37,26 @@ public final class Docker {
     /** {@code True} on a container {@code compose run} made, which is no service's container. */
     private static final String LABEL_ONEOFF = "com.docker.compose.oneoff";
 
-    /** What compose hashed the service's definition to when it made this container. */
+    /** The hash of the service definition when compose made this container. */
     private static final String LABEL_CONFIG_HASH = "com.docker.compose.config-hash";
 
     /** How long past the grace a stop is waited for: the kill and its answer. */
     static final java.time.Duration KILL_MARGIN = java.time.Duration.ofSeconds(15);
 
-    /** Docker's own grace for a container created without {@code stop_grace_period}. */
+    /** Docker's grace for a container created without {@code stop_grace_period}. */
     static final int DEFAULT_STOP_TIMEOUT = 10;
 
-    /** How long an exec may take before the connection is closed, so a hang becomes a {@link DockerException}. */
+    /**
+     * The time an exec may take before the connection closes, so a hang becomes a {@link DockerException}.
+     */
     private static final java.time.Duration EXEC_DEADLINE = java.time.Duration.ofSeconds(15);
 
-    /** Deleting gigabytes of layers takes the daemon a while, and it answers only when done. */
+    /** The daemon answers a prune only when done. */
     private static final java.time.Duration PRUNE_DEADLINE = java.time.Duration.ofMinutes(10);
 
-    /** {@code {"dangling":["false"]}}, URL-encoded: unused tagged images too, as {@code docker image prune -a}. */
+    /**
+     * {@code {"dangling":["false"]}} URL-encoded: unused tagged images too, as {@code docker image prune -a}.
+     */
     private static final String PRUNE_ALL_UNUSED = "%7B%22dangling%22%3A%5B%22false%22%5D%7D";
 
     private final DockerSocket socket;
@@ -65,7 +69,9 @@ public final class Docker {
         return socket.isReachable();
     }
 
-    /** Every container of one compose project, running or not, without the one-off ones {@code compose run} made. */
+    /**
+     * Returns every container of one compose project, running or not, without {@code compose run} one-offs.
+     */
     public List<Container> containers(final String project) {
         final JsonArray array = Json.decode(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
         final List<Container> containers = new ArrayList<>();
@@ -90,7 +96,6 @@ public final class Docker {
         return containers;
     }
 
-    /** The id of one service's running container in one project, or empty when none runs. */
     public Optional<String> running(final String project, final String service) {
         return containers(project).stream()
                 .filter(container -> service.equals(container.service()) && container.isRunning())
@@ -98,7 +103,7 @@ public final class Docker {
                 .findFirst();
     }
 
-    /** Whether a container of this name exists and runs; {@code false} when the daemon knows no such container. */
+    /** Returns whether a container of this name runs. Unknown to the daemon gives {@code false}. */
     public boolean isRunning(final String name) {
         try {
             final JsonObject json =
@@ -113,7 +118,7 @@ public final class Docker {
         }
     }
 
-    /** One container in full: its health, when it started, and whether it has a TTY, which decides the log framing. */
+    /** Returns health, start time and TTY of one container. The TTY decides the log framing. */
     public Inspection inspect(final String id) {
         final JsonObject json = Json.decode(socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
         final JsonObject state = json.getAsJsonObject("State");
@@ -189,7 +194,7 @@ public final class Docker {
     }
 
     /**
-     * The log stream, followed or not; the caller closes it, which ends a follow.
+     * Returns the log stream. The caller closes it, which ends a follow.
      *
      * @param since RFC3339 or a unix timestamp; empty for everything Docker still has
      * @param tail how many lines to start with, or {@code "all"}
@@ -209,7 +214,7 @@ public final class Docker {
         return socket.stream("GET", path.toString(), null);
     }
 
-    /** The last {@code tail} lines, read to the end. Never follows. */
+    /** Returns the last {@code tail} lines and never follows. */
     public List<String> recentLines(final String id, final int tail, final boolean multiplexed) {
         final List<String> lines = new ArrayList<>();
         collect(id, tail, multiplexed, lines::add);
@@ -227,7 +232,7 @@ public final class Docker {
     /**
      * The digest the registry has for this exact reference, resolved remotely by the daemon.
      *
-     * Empty when that cannot be answered, which is never reported as current.
+     * Empty when that cannot be answered, which never counts as current.
      */
     public Optional<String> registryDigest(final String imageRef) {
         try {
@@ -268,9 +273,9 @@ public final class Docker {
     }
 
     /**
-     * The daemon's own record of one local image: the digests it vouches for, and whether it was built here.
+     * Returns the record of the daemon about one local image: its digests and whether it was built here.
      *
-     * @return empty when the image is gone from the daemon's store, as after a rebuild of its tag
+     * @return empty when the image is gone from the store, as after a rebuild of its tag
      */
     public Optional<ImageIdentity> imageIdentity(final @Nullable String imageRef) {
         if (imageRef == null || imageRef.isBlank()) {
@@ -296,7 +301,9 @@ public final class Docker {
         }
     }
 
-    /** Asks for a stop and returns once the container is down; Docker answers only after a kill, so it waits longer. */
+    /**
+     * Stops a container and returns once it is down. Docker answers only after a kill, so the wait is longer.
+     */
     public void stop(final String id, final int secondsBeforeKill) {
         socket.send(
                 "POST",
@@ -343,13 +350,15 @@ public final class Docker {
         }
     }
 
-    /** Runs a command in a container from an argument list, never a shell, and collects what it printed. */
+    /**
+     * Runs a command from an argument list, never a shell, in a container and collects its output.
+     */
     public ExecResult exec(final String id, final List<String> command) {
         return exec(id, command, null);
     }
 
     /**
-     * The same, as a named user; {@code pg_dump} runs as {@code postgres}, whom the image trusts on the local socket.
+     * Runs the command as the named user. {@code pg_dump} runs as {@code postgres}, whom the image trusts.
      */
     public ExecResult exec(final String id, final List<String> command, final @Nullable String user) {
         final JsonObject request = new JsonObject();
@@ -393,7 +402,7 @@ public final class Docker {
         return new ExecResult(exitCode, output.toString());
     }
 
-    /** What a command in a container came to. An empty {@code output} with code 0 is success. */
+    /** The result of a command. An empty {@code output} with code 0 is success. */
     public record ExecResult(int exitCode, String output) {
 
         public boolean ok() {
@@ -402,9 +411,9 @@ public final class Docker {
     }
 
     /**
-     * Removes every image no container uses, then the build cache nothing references.
+     * Deletes every image no container uses, then the unreferenced build cache.
      *
-     * @return how many images went, each one listed before by its id and size, and how many bytes both freed
+     * @return the number of deleted images, each listed before by id and size, and the bytes both freed
      */
     public Pruned prune() {
         final Map<String, Long> sizes = new HashMap<>();
@@ -425,7 +434,7 @@ public final class Docker {
                 if (entry.isJsonObject() && entry.getAsJsonObject().has("Deleted")) {
                     deleted++;
                     final String id = entry.getAsJsonObject().get("Deleted").getAsString();
-                    // A layer of an image is deleted too, but only an image the list showed has a size of its own.
+                    // Layers of an image are deleted too, but only an image from the list has a size of its own.
                     if (sizes.containsKey(id)) {
                         removed.put(id, sizes.get(id));
                     }
@@ -438,7 +447,7 @@ public final class Docker {
     /**
      * What {@link #prune} removed.
      *
-     * @param removed the images among them that were listed, by id, with their size
+     * @param removed the listed images by id with their size
      */
     public record Pruned(int images, Map<String, Long> removed, long freedBytes) {}
 
@@ -447,7 +456,6 @@ public final class Docker {
         return bytes == null || bytes.isJsonNull() ? 0 : bytes.getAsLong();
     }
 
-    /** What images and volumes take up on the disk. */
     public DiskUsage diskUsage() {
         final JsonObject json = Json.decode(socket.send("GET", "/system/df", null), JsonObject.class);
         return new DiskUsage(
@@ -477,9 +485,9 @@ public final class Docker {
     }
 
     /**
-     * One container in full; {@code repoDigests} is what the drift check compares.
+     * One container in full. The drift check compares {@code repoDigests}.
      *
-     * @param finishedAt when its process last ended, or {@code null} when it never did
+     * @param finishedAt when its process last ended, {@code null} when it never did
      * @param stopTimeout the seconds Docker waits before a kill, which compose sets from {@code stop_grace_period}
      * @param exitCode what the process exited with, or {@code -1}; {@code 137} is SIGKILL after a stop timed out
      */
@@ -497,7 +505,7 @@ public final class Docker {
             int exitCode,
             List<String> repoDigests) {
 
-        /** Killed rather than asked: SIGKILL, which is what a stop that ran out of time looks like. */
+        /** Returns whether SIGKILL ended the process, as a stop that ran out of time does. */
         public boolean wasKilled() {
             return exitCode == 137;
         }
@@ -523,7 +531,7 @@ public final class Docker {
 
     public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) {}
 
-    /** Docker's {@code FinishedAt}, which reads as the year 1 for a process that never ended. */
+    /** Docker's {@code FinishedAt} reads as the year 1 for a process that never ended. */
     private static @Nullable String ended(final @Nullable String finishedAt) {
         return finishedAt == null || finishedAt.startsWith("0001-") ? null : finishedAt;
     }
@@ -536,7 +544,6 @@ public final class Docker {
         return names.get(0).getAsString().replaceFirst("^/", "");
     }
 
-    /** Every container the daemon lists carries an {@code Id}; there is no shape without one. */
     private static String id(final JsonObject json) {
         return Objects.requireNonNull(string(json, "Id"), "container has no Id");
     }

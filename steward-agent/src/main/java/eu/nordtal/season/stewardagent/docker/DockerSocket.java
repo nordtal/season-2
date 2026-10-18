@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * HTTP/1.1 over the Docker socket, by hand: the JDK client cannot dial a unix socket, Docker clients bring Jackson.
+ * HTTP/1.1 over the Docker socket, written by hand, because the JDK client cannot dial a unix socket.
  *
  * One connection per request. A watchdog closes the channel on timeout, until the headers of a follow are in.
  */
@@ -29,7 +29,7 @@ public final class DockerSocket {
 
     private static final Logger log = LoggerFactory.getLogger(DockerSocket.class);
 
-    /** Where the socket is in every one of our containers, and on this host. */
+    /** The socket path in every container of ours and on this host. */
     public static final Path DEFAULT_SOCKET = Path.of("/var/run/docker.sock");
 
     /** No API version in the path, so the daemon answers with the newest shape it supports. */
@@ -39,7 +39,6 @@ public final class DockerSocket {
     private final Duration timeout;
     private final Scheduler watchdog;
 
-    /** @param watchdog the process's scheduler, which closes a request's channel when it runs out of time */
     public DockerSocket(final Scheduler watchdog) {
         this(DEFAULT_SOCKET, Duration.ofSeconds(30), watchdog);
     }
@@ -50,7 +49,7 @@ public final class DockerSocket {
         this.watchdog = watchdog;
     }
 
-    /** Whether the socket is there at all, asked once at startup. */
+    /** Returns whether the socket exists. Startup asks once. */
     public boolean isReachable() {
         try (SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX)) {
             channel.connect(UnixDomainSocketAddress.of(socket));
@@ -60,12 +59,12 @@ public final class DockerSocket {
         }
     }
 
-    /** A request whose whole body is read at once; the connection is closed before this returns. */
+    /** Sends a request, reads the whole body and closes the connection before it returns. */
     public String send(final String method, final String path, final @Nullable String jsonBody) {
         return send(method, path, jsonBody, timeout);
     }
 
-    /** {@link #send(String, String, String)} for a call Docker itself holds open, such as a stop, past the timeout. */
+    /** Sends a request for a call that Docker holds open past the timeout, such as a stop. */
     public String send(
             final String method, final String path, final @Nullable String jsonBody, final Duration deadline) {
         try (Stream stream = open(method, path, jsonBody, deadline)) {
@@ -80,12 +79,14 @@ public final class DockerSocket {
         }
     }
 
-    /** A request whose body is read as it arrives with no watchdog; closing the returned stream ends a log follow. */
+    /**
+     * Sends a request and reads the body as it arrives, without a watchdog. Closing the stream ends a log follow.
+     */
     public Stream stream(final String method, final String path, final @Nullable String jsonBody) {
         return stream(method, path, jsonBody, null);
     }
 
-    /** A stream with a deadline, for an exec that must finish rather than sit silent. */
+    /** Sends a request with a deadline, for an exec that must finish. */
     public Stream stream(
             final String method,
             final String path,
@@ -113,7 +114,7 @@ public final class DockerSocket {
         SocketChannel channel = null;
         Scheduler.Task alarm = null;
         try {
-            // The watchdog is set before the connect, which itself blocks on a wedged daemon.
+            // The watchdog starts before the connect, which blocks on a wedged daemon.
             channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             // A call with a deadline is watched to its end; a log follow only until the headers are in.
             final Duration untilItAnswers = deadline == null ? timeout : deadline;
@@ -127,7 +128,7 @@ public final class DockerSocket {
             final Map<String, String> headers = readHeaders(raw);
             final InputStream body = bodyOf(raw, headers);
             if (deadline == null) {
-                // The daemon answered, so the follow may now be silent.
+                // After the answer the follow may be silent.
                 alarm.cancel();
                 alarm = null;
             }
@@ -204,7 +205,9 @@ public final class DockerSocket {
         return headers;
     }
 
-    /** Reads one CRLF-terminated line a byte at a time, so the body after the headers is not read ahead. */
+    /**
+     * Reads one CRLF-terminated line byte by byte, so the body after the headers is not read ahead.
+     */
     private static @Nullable String readLine(final InputStream in) throws IOException {
         final ByteArrayOutputStream line = new ByteArrayOutputStream(128);
         int previous = -1;
@@ -250,7 +253,6 @@ public final class DockerSocket {
 
     private record StatusLine(int status) {}
 
-    /** One open response: the status, the headers, and a body that is read until it is closed. */
     public static final class Stream implements java.io.Closeable {
 
         private final int status;
@@ -280,7 +282,6 @@ public final class DockerSocket {
             return body;
         }
 
-        /** {@code application/vnd.docker.multiplexed-stream} when the frames carry a header. */
         public String contentType() {
             return headers.getOrDefault("content-type", "");
         }
@@ -294,7 +295,6 @@ public final class DockerSocket {
         }
     }
 
-    /** {@code Transfer-Encoding: chunked}, decoded. */
     private static final class ChunkedInputStream extends InputStream {
 
         private final InputStream in;
@@ -326,7 +326,6 @@ public final class DockerSocket {
             }
             remaining -= read;
             if (remaining == 0) {
-                // The CRLF closing the chunk is not data.
                 readLine(in);
             }
             return read;
@@ -350,7 +349,6 @@ public final class DockerSocket {
         }
     }
 
-    /** {@code Content-Length} bytes and not one more, so EOF lands where the body ends. */
     private static final class LimitedInputStream extends InputStream {
 
         private final InputStream in;

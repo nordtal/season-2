@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The project's containers as the daemon has them: their state, stopping and starting one, and image drift.
  *
- * Creating a container needs the compose file, so that is {@code Compose}'s, never this class's.
+ * Creating a container needs the compose file and belongs to {@code Compose}.
  */
 public final class Containers {
 
@@ -34,11 +34,13 @@ public final class Containers {
     private final Definitions definitions;
     private final Jars jars;
 
-    /** Compose's hash of every service's definition as compose.yml and the environment now make it. */
+    /**
+     * Compose's hash of every service definition as compose.yml and the environment make it now.
+     */
     @FunctionalInterface
     public interface Definitions {
 
-        /** Nothing to compare against, which leaves only the registries to tell a stale image. */
+        /** Nothing to compare, so only the registries tell a stale image. */
         Definitions NONE = Map::of;
 
         /**
@@ -53,10 +55,8 @@ public final class Containers {
     @FunctionalInterface
     public interface Jars {
 
-        /** No volume is read, so no jar counts as a local build. */
         Jars NONE = service -> List.of();
 
-        /** Their file names, none when nothing could be read. */
         List<String> localOf(String service);
     }
 
@@ -72,7 +72,7 @@ public final class Containers {
     }
 
     /**
-     * Every container of the project, inspected, each with its last sample; an unreadable daemon is said, not thrown.
+     * Returns every inspected container of the project with its last sample. An unreadable daemon is reported.
      *
      * @param samples the sampler's last reading per service
      */
@@ -101,7 +101,9 @@ public final class Containers {
                 .map(container -> describe(container, sample, docker.repoDigests(container.imageId())));
     }
 
-    /** One row; a container that will not be inspected keeps what the list said rather than failing the table. */
+    /**
+     * A container that cannot be inspected keeps what the list said and does not fail the table.
+     */
     private AgentWire.Container describe(
             final Docker.Container container,
             final AgentWire.@Nullable Reading sample,
@@ -144,7 +146,7 @@ public final class Containers {
                 if (service == null) {
                     continue;
                 }
-                // Inspect rather than parsing the list's Status string ("Up 19 hours (healthy)").
+                // Inspect avoids parsing the status string of the list.
                 final Docker.Inspection inspection = docker.inspect(container.id());
                 services.add(new ServiceRuntime(service, container.id(), inspection.state(), inspection.health()));
             }
@@ -156,9 +158,9 @@ public final class Containers {
     }
 
     /**
-     * Stops a container within its {@code stop_grace_period}, refusing if Docker had to kill it (exit code 137).
+     * Stops a container within its {@code stop_grace_period} and refuses if Docker killed it (exit code 137).
      *
-     * The grace is compose's, its one source. An unreadable ending is {@link RedeployResult#unverified}.
+     * The grace comes from compose only. An unreadable end is {@link RedeployResult#unverified}.
      */
     public RedeployResult stop(final String containerId) {
         final int grace;
@@ -176,7 +178,7 @@ public final class Containers {
                         + " backup");
             }
         } catch (DockerException e) {
-            // Not knowing how the stop ended is not knowing it ended badly; refusing would take the network down.
+            // An unknown end is not a bad end, and a refusal would take the network down.
             log.warn("could not read how {} exited", shortId(containerId), e);
             return RedeployResult.unverified(shortId(containerId) + " was stopped, and how it ended"
                     + " could not be read back: " + e.getMessage());
@@ -194,7 +196,7 @@ public final class Containers {
     }
 
     /**
-     * Which services run a container compose.yml would no longer make, or an image the registry has moved past.
+     * Returns the services that run a container compose.yml would no longer create or a stale image.
      *
      * A new tag or env file is {@code OUTDATED} unasked, a local build {@code LOCAL}, no answer {@code UNKNOWN}.
      */
@@ -259,7 +261,7 @@ public final class Containers {
         }
     }
 
-    /** Whether the daemon has this image as one built here and pushed nowhere. */
+    /** Returns whether the image was built here and pushed nowhere. */
     private boolean builtHere(final @Nullable String imageId) {
         return docker.imageIdentity(imageId)
                 .map(identity ->
@@ -272,7 +274,9 @@ public final class Containers {
         return new ImageResult.LocalBuild(image, jarsOnly == null ? List.of() : jarsOnly.jars());
     }
 
-    /** The hashes compose makes now, or none when it cannot say, which is logged and leaves the registries. */
+    /**
+     * Returns the hashes compose makes now, none when it cannot say. That is logged and leaves the registries.
+     */
     private Map<String, String> wantedDefinitions() {
         try {
             return definitions.hashes();
@@ -282,7 +286,6 @@ public final class Containers {
         }
     }
 
-    /** Whether {@code reference} is the twelve-character short id {@code docker ps} prints for an unnamed image. */
     private static boolean isOrphanedShortId(final String reference, final @Nullable String imageId) {
         return imageId != null
                 && imageId.startsWith("sha256:")
@@ -296,7 +299,7 @@ public final class Containers {
      * One image, checked against its registry.
      *
      * @param reference what the container was created from, for example {@code ghcr.io/nordtal/smp:latest}
-     * @param imageId the image the container actually runs, as a sha256
+     * @param imageId the sha256 of the image the container runs
      */
     public ImageCheck check(final String reference, final @Nullable String imageId) {
         final Optional<Docker.ImageIdentity> identity = docker.imageIdentity(imageId);
@@ -349,7 +352,6 @@ public final class Containers {
         return containerId.length() > 12 ? containerId.substring(0, 12) : containerId;
     }
 
-    /** {@code getMessage()} is null for some exceptions, so the class name stands in. */
     private static String messageOf(final Exception failure) {
         final String message = failure.getMessage();
         return message == null ? failure.getClass().getSimpleName() : message;

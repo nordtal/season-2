@@ -4,7 +4,7 @@ import java.net.URI;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One downloadable file, with the filename the source published, never one built here.
+ * One downloadable file with the filename that the source published.
  *
  * @param artifact the stable id the topology and the report join on, such as {@code smp} or {@code paper}
  * @param version the version as the source states it, for humans and never compared

@@ -10,9 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
- * Fetches a jar straight to disk and verifies it.
- *
- * The source's checksum is checked: sha512 from Modrinth, sha256 from Fill and from GitHub's asset digest.
+ * Fetches a jar to disk and verifies its checksum: sha512 from Modrinth, sha256 from Fill and the GitHub asset digest.
  */
 public final class Downloads implements Fetcher {
 
@@ -22,9 +20,6 @@ public final class Downloads implements Fetcher {
         this.web = web;
     }
 
-    /**
-     * Downloads {@code file} to {@code destination} in the caller's staging directory, verifying any checksum.
-     */
     @Override
     public void fetch(final RemoteFile file, final Path destination) throws IOException {
         web.download(file.url(), destination);
@@ -42,7 +37,6 @@ public final class Downloads implements Fetcher {
         }
     }
 
-    /** Hex digest of a file, streamed. */
     public static String digest(final Path file, final String algorithm) throws IOException {
         final MessageDigest digest;
         try {

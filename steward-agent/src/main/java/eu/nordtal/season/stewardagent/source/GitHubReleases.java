@@ -17,7 +17,6 @@ public final class GitHubReleases {
 
     private static final String API = "https://api.github.com/repos/";
 
-    /** What the endpoint is called, and all a failure message can honestly name. */
     private static final String LATEST = "latest";
 
     private final Http http;
@@ -27,14 +26,13 @@ public final class GitHubReleases {
     }
 
     /**
-     * One published release and everything hanging off it.
+     * One published release.
      *
-     * @param tag the tag as GitHub reports it, since only season-2 has a leading {@code v}
-     * @param prerelease read off the payload, and expected to be {@code false} for {@code /releases/latest}
+     * @param tag the tag as GitHub reports it, with a leading {@code v} only for season-2
+     * @param prerelease the flag of the payload, expected {@code false} for {@code /releases/latest}
      */
     public record Release(String tag, boolean prerelease, List<Asset> assets) {
 
-        /** An asset by exact name, or {@code null}. */
         public @Nullable Asset asset(final String name) {
             return assets.stream()
                     .filter(candidate -> candidate.name().equals(name))
@@ -54,7 +52,7 @@ public final class GitHubReleases {
     /**
      * The newest published release of a repository; there is no fetch by tag, since nothing pins a release.
      *
-     * @param repo {@code owner/name}; a draft or pre-release is invisible here
+     * @param repo {@code owner/name}. A draft or pre-release is invisible.
      */
     public Release latest(final String repo) throws IOException {
         final URI uri = URI.create(API + repo + "/releases/latest");
@@ -81,7 +79,6 @@ public final class GitHubReleases {
                 List.copyOf(assets));
     }
 
-    /** GitHub writes a digest as {@code sha256:<hex>}. */
     private static @Nullable Checksum digest(final @Nullable String written) {
         if (written == null) {
             return null;

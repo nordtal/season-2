@@ -43,10 +43,7 @@ public final class MemorySettingStore implements SettingStore {
         return DatabaseSettings.over(this, service, environment, LoggerFactory.getLogger(MemorySettingStore.class));
     }
 
-    /**
-     * Stores {@code value} at a path as an admin would, written as JSON. A string that is JSON goes
-     * in as it is.
-     */
+    /** Stores {@code value} at a path as an admin would, as JSON. A string that is JSON is stored as it is. */
     public synchronized MemorySettingStore set(
             final String service, final String group, final String path, final Object value) {
         final String json = value instanceof final String text && looksLikeJson(text) ? text : GSON.toJson(value);
@@ -56,8 +53,8 @@ public final class MemorySettingStore implements SettingStore {
     }
 
     /**
-     * Returns {@code group} of {@code service} loaded from {@code values}, stored as an admin would
-     * store them.
+     * Returns {@code group} of {@code service} loaded from {@code values}.
+     * The values are stored as an admin would store them.
      *
      * @throws SettingsException with the reason the check refused them. A process would only record
      *     it.

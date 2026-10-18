@@ -1,0 +1,130 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Wheel of Fortune",
+            "de": "Glücksrad"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "hub",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>Spins left: {spins}</emphasis>",
+            "de": "<emphasis>Spins übrig: {spins}</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>A bigger contribution to an objective gives more spins.</muted>",
+            "de": "<muted>Ein größerer Beitrag zu einem Ziel gibt mehr Spins.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "spins-left",
+      "lines": [
+        {
+          "text": {
+            "en": "{spins, plural, one {# spin left} other {# spins left}}",
+            "de": "Noch {spins, plural, one {# Spin} other {# Spins}}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "rule-top",
+      "lines": [
+        {
+          "text": {
+            "en": "More put in",
+            "de": "Mehr Beitrag"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "rule-bottom",
+      "lines": [
+        {
+          "text": {
+            "en": "more spins",
+            "de": "mehr Spins"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "again",
+      "lines": [
+        {
+          "when": "state=waiting",
+          "text": {
+            "en": "<muted>Spin again</muted>",
+            "de": "<muted>Nochmal drehen</muted>"
+          }
+        },
+        {
+          "when": "state=waiting",
+          "text": {
+            "en": "<faint>Wait for this one to finish.</faint>",
+            "de": "<faint>Warte, bis der Spin endet.</faint>"
+          }
+        },
+        {
+          "when": "state=ready",
+          "text": {
+            "en": "<emphasis>Spin again</emphasis>",
+            "de": "<emphasis>Nochmal drehen</emphasis>"
+          }
+        },
+        {
+          "when": "state=ready",
+          "text": {
+            "en": "<muted>Costs one spin.</muted>",
+            "de": "<muted>Kostet einen Spin.</muted>"
+          }
+        },
+        {
+          "when": "state=none",
+          "text": {
+            "en": "<muted>Spin again</muted>",
+            "de": "<muted>Nochmal drehen</muted>"
+          }
+        },
+        {
+          "when": "state=none",
+          "text": {
+            "en": "<faint>That was your last spin. You get one free spin every day.</faint>",
+            "de": "<faint>Das war dein letzter Spin. Du bekommst jeden Tag einen Spin gratis.</faint>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "again-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Again",
+            "de": "Nochmal"
+          }
+        }
+      ]
+    }
+  ]
+}

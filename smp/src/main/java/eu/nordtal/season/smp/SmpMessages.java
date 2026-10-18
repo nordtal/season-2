@@ -173,12 +173,6 @@ public interface SmpMessages {
         @Shown(Display.GUI)
         interface Navigate {
 
-            @Name("Title")
-            MessageRef title();
-
-            @Name("Stop")
-            MessageRef stop();
-
             @Name("Stopped")
             @Shown(Display.CHAT)
             MessageRef stopped();
@@ -202,36 +196,6 @@ public interface SmpMessages {
             @Name("Last death")
             @Shown({Display.GUI, Display.CHAT, Display.BOSS_BAR})
             MessageRef lastDeath();
-
-            @Name("At")
-            MessageRef at(@Arg("world") String world, @Arg("x") long x, @Arg("y") long y, @Arg("z") long z);
-
-            @Name("Target")
-            MessageRef target(@Arg("target") String target);
-
-            @Name("Click")
-            MessageRef click();
-
-            @Name("Stop hint")
-            MessageRef stopHint();
-
-            @Name("Previous page")
-            MessageRef previousPage();
-
-            @Name("Next page")
-            MessageRef nextPage();
-
-            @Name("Stop button")
-            MessageRef stopButton();
-
-            @Name("Distance")
-            MessageRef distance(@Arg("blocks") long blocks);
-
-            @Name("Other world")
-            MessageRef otherWorld();
-
-            @Name("Page")
-            MessageRef page(@Arg("page") long page, @Arg("pages") long pages);
         }
 
         Smp.Poi poi();
@@ -404,42 +368,12 @@ public interface SmpMessages {
         @Shown(Display.GUI)
         interface Grave {
 
-            @Name("Title")
-            MessageRef title();
-
             @Name("Experience")
             MessageRef experience(@Arg("experience") long experience);
-
-            @Name("Owner")
-            MessageRef owner(@Arg("player") PlayerContext player);
-
-            @Name("Owner unknown")
-            MessageRef ownerUnknown();
-
-            @Name("Died at")
-            MessageRef diedAt(@Arg("at") Instant at, @Arg("x") int x, @Arg("y") int y, @Arg("z") int z);
-
-            @Name("Experience tooltip")
-            MessageRef experienceTooltip();
-
-            @Name("Experience hint")
-            MessageRef experienceHint(@Arg("experience") long experience);
-
-            @Name("Take all")
-            MessageRef takeAll();
-
-            @Name("Take all hint")
-            MessageRef takeAllHint();
 
             @Name("Hologram")
             @Shown(Display.HOLOGRAM)
             MessageRef hologram(@Arg("left") Duration left);
-
-            @Name("Experience line")
-            MessageRef experienceLine(@Arg("experience") long experience);
-
-            @Name("Take all button")
-            MessageRef takeAllButton();
         }
 
         Duel duel();
@@ -505,9 +439,6 @@ public interface SmpMessages {
         @Shown(Display.GUI)
         interface Wheel {
 
-            @Name("Title")
-            MessageRef title();
-
             @Name("Won")
             @Shown(Display.CHAT)
             MessageRef won(@Arg("amount") int amount, @Arg("item") GameContent item);
@@ -522,42 +453,6 @@ public interface SmpMessages {
             @Name("Broken prize")
             @Shown(Display.CHAT)
             MessageRef brokenPrize();
-
-            @Name("Hub")
-            MessageRef hub(@Arg("spins") long spins);
-
-            @Name("Hub hint")
-            MessageRef hubHint();
-
-            @Name("Again")
-            MessageRef again();
-
-            @Name("Again hint")
-            MessageRef againHint();
-
-            @Name("Again waiting")
-            MessageRef againWaiting();
-
-            @Name("Again waiting hint")
-            MessageRef againWaitingHint();
-
-            @Name("Again none")
-            MessageRef againNone();
-
-            @Name("Again none hint")
-            MessageRef againNoneHint();
-
-            @Name("Spins left")
-            MessageRef spinsLeft(@Arg("spins") long spins);
-
-            @Name("Rule top")
-            MessageRef ruleTop();
-
-            @Name("Rule bottom")
-            MessageRef ruleBottom();
-
-            @Name("Again button")
-            MessageRef againButton();
 
             @Key("none")
             None noneSection();
@@ -594,65 +489,8 @@ public interface SmpMessages {
         @Shown(Display.GUI)
         interface Objectives {
 
-            @Name("Title")
-            MessageRef title();
-
             @Name("None")
             MessageRef none();
-
-            @Name("Done")
-            MessageRef done();
-
-            @Name("Click to hand in")
-            MessageRef clickToHandIn();
-
-            @Name("Counts itself")
-            MessageRef countsItself();
-
-            @Name("Item")
-            MessageRef item(@Arg("objective") String objective);
-
-            @Name("Item done")
-            MessageRef itemDone(@Arg("objective") String objective);
-
-            @Name("Progress")
-            MessageRef progress(@Arg("bar") String bar, @Arg("amount") long amount, @Arg("target") long target);
-
-            @Name("Wanted item")
-            MessageRef wantedItem(@Arg("item") GameContent item);
-
-            @Name("Heading")
-            MessageRef heading(@Arg("milestone") MilestoneContext milestone);
-
-            @Name("Heading hint")
-            MessageRef headingHint(@Arg("done") long done, @Arg("total") long total);
-
-            @Name("Your share")
-            MessageRef yourShare(@Arg("percent") double percent, @Arg("spins") long spins, @Arg("budget") long budget);
-
-            @Name("Share tooltip")
-            MessageRef shareTooltip();
-
-            @Name("Share line")
-            MessageRef shareLine(@Arg("objective") String objective, @Arg("percent") double percent);
-
-            @Name("Share spins")
-            MessageRef shareSpins(@Arg("spins") long spins, @Arg("budget") long budget);
-
-            @Name("Share empty hint")
-            MessageRef shareEmptyHint();
-
-            @Name("Share")
-            MessageRef share(@Arg("spins") long spins, @Arg("budget") long budget);
-
-            @Name("Share none")
-            MessageRef shareNone();
-
-            @Name("Previous page")
-            MessageRef previousPage();
-
-            @Name("Next page")
-            MessageRef nextPage();
         }
 
         Handin handin();
@@ -660,24 +498,6 @@ public interface SmpMessages {
         @Name("Handin")
         @Shown(Display.GUI)
         interface Handin {
-
-            @Name("Title")
-            MessageRef title();
-
-            @Name("Wanted")
-            MessageRef wanted();
-
-            @Name("Confirm")
-            MessageRef confirm();
-
-            @Name("Needed")
-            MessageRef needed(@Arg("amount") long amount);
-
-            @Name("Still needed")
-            MessageRef stillNeeded(@Arg("amount") long amount);
-
-            @Name("Confirm button")
-            MessageRef confirmButton();
 
             @Name("Accepted")
             @Shown(Display.CHAT)

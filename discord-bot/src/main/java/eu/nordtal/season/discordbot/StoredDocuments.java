@@ -1,16 +1,14 @@
 package eu.nordtal.season.discordbot;
 
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.document.Document;
-import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.dv8tion.jda.api.utils.FileUpload;
 
 /** Holds the bot's packaged documents and the ones admins wrote over them. */
@@ -20,9 +18,8 @@ public final class StoredDocuments implements DocumentRenderer.Source {
     public static final String NAMESPACE = "discord";
 
     private final DocumentStore store;
-    private final Map<String, Documents.Packaged> packaged =
-            Documents.packaged(StoredDocuments.class.getClassLoader(), NAMESPACE);
-    private volatile Map<String, Document> written = Map.of();
+    private final AppliedDocuments documents =
+            new AppliedDocuments(StoredDocuments.class.getClassLoader(), Set.of(NAMESPACE));
 
     public StoredDocuments(final DocumentStore store) {
         this.store = store;
@@ -30,40 +27,19 @@ public final class StoredDocuments implements DocumentRenderer.Source {
 
     /** Takes the admins' documents on connect and on every change, then runs {@code changed}. */
     void follow(final SignalHub hub, final Runnable changed) {
-        store.follow(List.of(NAMESPACE), hub, read -> {
-            hold(read);
-            changed.run();
-        });
+        documents.follow(store, hub, changed);
     }
 
-    /** Takes the admins' documents, each merged into this jar's declaration. */
     void hold(final List<DocumentStore.StoredDocument> read) {
-        final Map<String, Document> byName = new HashMap<>();
-        for (final DocumentStore.StoredDocument stored : read) {
-            final Documents.Packaged own = packaged.get(stored.name());
-            if (NAMESPACE.equals(stored.namespace()) && own != null) {
-                byName.put(
-                        stored.name(),
-                        DocumentMerge.merge(own, stored.document(), stored.replaced())
-                                .document());
-            }
-        }
-        written = Map.copyOf(byName);
+        documents.hold(read);
     }
 
     /**
-     * Returns the packaged declaration and the document shown for {@code spec}: an admin's, else the packaged one.
-     *
      * @throws IllegalStateException if the jar packages no such document
      */
     @Override
     public Documents.Packaged applied(final DocumentSpec<?> spec) {
-        final Documents.Packaged own = packaged.get(spec.name());
-        if (own == null) {
-            throw new IllegalStateException("the jar packages no document " + spec.id());
-        }
-        final Document document = written.get(spec.name());
-        return document == null ? own : new Documents.Packaged(own.declaration(), document);
+        return documents.applied(spec);
     }
 
     /**

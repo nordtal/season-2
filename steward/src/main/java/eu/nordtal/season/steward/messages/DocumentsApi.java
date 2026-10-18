@@ -10,12 +10,18 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
+import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
 import eu.nordtal.season.messages.document.DocumentMerge;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -29,13 +35,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The routes for the Discord documents.
- * steward-agent reads the declarations and documents from the jars, and an admin's document is a row.
- * The bot's own renderer draws every preview, and {@link DocumentCheck} refuses a save the build would refuse.
+ * The routes for the documents of Discord and of the game's menus, read from the jars by steward-agent.
+ * An admin's document is a row. The bot's renderer draws every Discord preview, the game's every menu.
+ * {@link DocumentCheck} refuses a save the build would refuse.
  */
 public final class DocumentsApi {
 
@@ -64,7 +74,7 @@ public final class DocumentsApi {
     }
 
     /**
-     * Every Discord document once, with the one an admin wrote over it.
+     * Every document once, with the one an admin wrote over it.
      *
      * @param writable  whether Steward has a database for an admin's documents
      * @param languages the network's languages, the default first
@@ -99,12 +109,26 @@ public final class DocumentsApi {
 
     /**
      * A draft as the bot sends it, in Discord's own JSON: a message's payload, a modal, a content or a name.
+     * A menu is drawn by the game's renderer instead.
      *
+     * @param discord    the draft in Discord's JSON, or {@code null} for a menu
+     * @param menu       the menu as the game draws it, or {@code null} for a draft that is not a menu
      * @param components how many components the draft draws at its largest
      * @param most       how many components Discord draws in one message
      * @param problems   what a save of the draft would be refused or warned for
      */
-    public record DocumentDrawing(JsonObject discord, int components, int most, List<DocumentCheck.Problem> problems) {}
+    public record DocumentDrawing(
+            @Nullable JsonObject discord,
+            @Nullable MenuDrawing menu,
+            int components,
+            int most,
+            List<DocumentCheck.Problem> problems) {}
+
+    /** A menu's title and each item and label, in the order the document holds them. */
+    public record MenuDrawing(String title, List<MenuPart> parts) {}
+
+    /** @param lines an item's name and then its lore in MiniMessage, or a label's one plain line */
+    public record MenuPart(String slot, Part.Type type, List<String> lines) {}
 
     public record Uploaded(long id, String address) {}
 
@@ -128,23 +152,74 @@ public final class DocumentsApi {
         }
         final List<Locale> languages =
                 MessagesApi.languages(settings).stream().map(Locales::parse).toList();
-        final String drawn;
+        final @Nullable String drawn;
+        final @Nullable MenuDrawing menu;
         final int components;
         final List<DocumentCheck.Problem> problems;
         try {
             components = DocumentCheck.components(draft.declaration(), draft.document());
             problems = DocumentCheck.check(draft.declaration(), draft.document(), MessageCheck.Mode.OVERRIDE);
-            drawn = renderer(languages)
-                    .preview(
-                            new Documents.Packaged(draft.declaration(), draft.document()),
-                            languages,
-                            Locales.parse(draft.language()));
+            final Documents.Packaged packaged = new Documents.Packaged(draft.declaration(), draft.document());
+            final Locale language = Locales.parse(draft.language());
+            final boolean isMenu = draft.declaration().shape() == DocumentSpec.Shape.MENU;
+            drawn = isMenu ? null : renderer(languages).documents().preview(packaged, languages, language);
+            menu = isMenu ? menu(renderer(languages).game(), packaged, language) : null;
         } catch (final RuntimeException undrawable) {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(draft.declaration().id(), String.valueOf(undrawable.getMessage())));
         }
         ctx.json(new DocumentDrawing(
-                Json.tree(drawn).getAsJsonObject(), components, DocumentCheck.COMPONENTS, problems));
+                drawn == null ? null : Json.tree(drawn).getAsJsonObject(),
+                menu,
+                components,
+                DocumentCheck.COMPONENTS,
+                problems));
+    }
+
+    /** Draws a menu with the game's renderer, every value, entry and data list item at its declared example. */
+    private static MenuDrawing menu(
+            final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
+        final DocumentDeclaration declaration = packaged.declaration();
+        final MenuDocument document =
+                new MenuDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
+        final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
+        for (final Slot slot : declaration.slots()) {
+            if (slot.type() == Slot.Type.LIST) {
+                lists.put(slot.id(), List.of(Value.examples(slot.values())));
+            }
+        }
+        final MiniMessage mini = MiniMessage.miniMessage();
+        final List<MenuPart> parts = new ArrayList<>();
+        for (final Part part : packaged.document().parts()) {
+            final String slot = part.slot();
+            if (slot == null) {
+                continue;
+            }
+            final Map<String, Object> entry = declaration
+                    .slot(slot)
+                    .map(declared -> Value.examples(declared.values()))
+                    .orElse(Map.of());
+            if (part.type() == Part.Type.ITEM) {
+                final MenuDocument.Drawn drawn = document.itemOf(slot, entry, lists);
+                final List<String> lines = new ArrayList<>();
+                lines.add(mini.serialize(named(drawn.name())));
+                drawn.lore().forEach(line -> lines.add(mini.serialize(named(line))));
+                parts.add(new MenuPart(slot, part.type(), lines));
+            } else if (part.type() == Part.Type.LABEL) {
+                parts.add(new MenuPart(slot, part.type(), List.of(document.labelOf(slot, entry))));
+            }
+        }
+        return new MenuDrawing(mini.serialize(named(document.title())), parts);
+    }
+
+    /** Puts each translated name's English fallback in its place: a browser has no client to translate it. */
+    private static Component named(final Component component) {
+        final Component named = component instanceof final TranslatableComponent translated
+                ? Component.text(Objects.requireNonNullElse(translated.fallback(), translated.key()))
+                        .style(translated.style())
+                        .children(translated.children())
+                : component;
+        return named.children(named.children().stream().map(DocumentsApi::named).toList());
     }
 
     /**
@@ -257,19 +332,22 @@ public final class DocumentsApi {
         ctx.result(image.bytes());
     }
 
-    /** Returns a renderer of drafts in {@code languages}, the last one again while the languages stay. */
-    private DocumentRenderer renderer(final List<Locale> languages) {
+    /** Returns the renderers of drafts in {@code languages}, the last ones again while the languages stay. */
+    private Renderer renderer(final List<Locale> languages) {
         final Renderer last = renderer;
         if (last != null && last.languages().equals(languages)) {
-            return last.renderer();
+            return last;
         }
-        final DocumentRenderer made = new DocumentRenderer(DiscordRenderer.of(Messages.load(
-                DocumentsApi.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.toArray(Locale[]::new))));
-        renderer = new Renderer(languages, made);
+        final Messages messages = Messages.load(
+                DocumentsApi.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.toArray(Locale[]::new));
+        final Renderer made = new Renderer(
+                languages, new DocumentRenderer(DiscordRenderer.of(messages)), MessageRenderer.of(messages));
+        renderer = made;
         return made;
     }
 
-    private record Renderer(List<Locale> languages, DocumentRenderer renderer) {}
+    /** @param game the game's renderer, which draws a menu */
+    private record Renderer(List<Locale> languages, DocumentRenderer documents, MessageRenderer game) {}
 
     /** A packaged document with the services whose jars ship it; the first jar's document wins. */
     private record Shipped(Documents.Packaged packaged, List<String> services) {}

@@ -8,6 +8,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.MessageRef;
@@ -49,6 +50,7 @@ public final class NavigateCommand {
     private final Navigation navigation;
     private final Identities identities;
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
     private final SmpSounds sounds;
     private final java.util.function.Supplier<ToneColours> colours;
 
@@ -58,6 +60,7 @@ public final class NavigateCommand {
             final Navigation navigation,
             final Identities identities,
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final SmpSounds sounds,
             final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
@@ -65,6 +68,7 @@ public final class NavigateCommand {
         this.navigation = navigation;
         this.identities = identities;
         this.renderer = renderer;
+        this.documents = documents;
         this.sounds = sounds;
         this.colours = colours;
     }
@@ -164,7 +168,7 @@ public final class NavigateCommand {
                 if (!player.isOnline()) {
                     return;
                 }
-                new NavigateGui(renderer, identities, navigation, player, lastDeath, pois).open(player);
+                new NavigateGui(renderer, documents, identities, navigation, player, lastDeath, pois).open(player);
             });
         });
         return Command.SINGLE_SUCCESS;

@@ -2,10 +2,10 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 import type { ReactNode } from "react"
 
-import type { Document, DocumentDeclaration } from "@/lib/api"
-import { useDocumentDrawing } from "@/lib/queries"
+import type { Document, DocumentDeclaration, MenuDrawing } from "@/lib/api"
+import { useDocumentDrawing, useGlyphs, useMessageSyntax } from "@/lib/queries"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { markdownRuns } from "@/lib/rich-text"
+import { markdownRuns, parse, textRuns } from "@/lib/rich-text"
 import { t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
@@ -15,15 +15,18 @@ import {
   DiscordModal,
   DiscordRuns,
   DiscordSelect,
+  McTooltip,
+  MinecraftText,
 } from "@/components/steward/message-editor/preview"
 
 /** How long typing pauses before the server draws the draft again. */
 export const PAUSE_MS = 300
 
 /**
- * A Discord document as the bot draws it, or as its modal. The server draws it with the bot's own renderer, every value at its declared example; this only draws Discord's JSON.
+ * A Discord document as the bot draws it, or as its modal, or a menu as the game draws it. The server draws it with the
+ * bot's or the game's own renderer, every value at its declared example; this only draws what comes back.
  */
-export function DiscordDocumentPreview({
+export function DocumentPreview({
   declaration,
   document,
   language = ENGLISH,
@@ -37,6 +40,15 @@ export function DiscordDocumentPreview({
   const draft = useDebounced(document, PAUSE_MS)
   const drawing = useDocumentDrawing(declaration, draft, language)
   const Frame = declaration.shape === "MODAL" ? DiscordModal : DiscordMessage
+  if (declaration.shape === "MENU") {
+    return (
+      <QueryState query={drawing}>
+        {(drawn) =>
+          drawn?.menu ? <MenuPreview menu={drawn.menu} className={className} /> : <Skeleton className="h-32 w-full" />
+        }
+      </QueryState>
+    )
+  }
   return (
     <QueryState query={drawing}>
       {(drawn) => (
@@ -45,12 +57,59 @@ export function DiscordDocumentPreview({
             {drawn === undefined ? (
               <Skeleton className="h-16 w-full" />
             ) : (
-              <Drawn shape={declaration.shape} discord={drawn.discord} language={language} />
+              <Drawn shape={declaration.shape} discord={drawn.discord ?? {}} language={language} />
             )}
           </div>
         </Frame>
       )}
     </QueryState>
+  )
+}
+
+const unfilled = (name: string) => `{${name}}`
+
+/**
+ * A menu's title on the window's grey, then each item as its tooltip and each label as the window paints it, under the
+ * slot the code places it in.
+ */
+function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: string }) {
+  const tones = useMessageSyntax().data?.tones ?? {}
+  const glyphs = useGlyphs().data ?? []
+  const runs = (source: string) => parse(source, "MINIMESSAGE", Object.keys(tones)) ?? textRuns(source, false)
+  return (
+    <div
+      className={cn("flex min-w-0 flex-col gap-3 overflow-x-auto rounded-md p-3", className)}
+      style={{ background: "#C6C6C6" }}
+    >
+      <div>
+        <MinecraftText
+          runs={runs(menu.title)}
+          fill={unfilled}
+          glyphs={glyphs}
+          tones={tones}
+          base="#404040"
+          shadow={false}
+        />
+      </div>
+      <ul className="flex flex-wrap items-start gap-3">
+        {menu.parts.map((part, index) => (
+          <li key={index} className="flex shrink-0 flex-col gap-1">
+            <span className="font-mono text-[11px] text-[#404040]">{part.slot}</span>
+            {part.type === "ITEM" ? (
+              <McTooltip>
+                {part.lines.map((line, at) => (
+                  <MinecraftText key={at} runs={runs(line)} fill={unfilled} glyphs={glyphs} tones={tones} />
+                ))}
+              </McTooltip>
+            ) : (
+              <span className="self-start rounded-[2px] bg-[#8B8B8B] px-2 py-1 font-mono text-xs text-white">
+                {part.lines[0] ?? ""}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

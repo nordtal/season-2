@@ -12,7 +12,6 @@ import eu.nordtal.season.smp.menu.PanelWalk.Run;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
@@ -149,26 +148,6 @@ class HandInPanelTest {
             });
         }
         assertEquals(List.of(), missing);
-    }
-
-    @Test
-    void theDrawnKeysAreTagless() {
-        final List<String> tagged = new ArrayList<>();
-        for (final String language : new String[] {"en", "de"}) {
-            final Properties bundle = PanelWalk.bundle(language);
-            for (final String key : new String[] {"smp.handin.still-needed", "smp.handin.confirm-button"}) {
-                final String value = bundle.getProperty(key);
-                assertTrue(value != null, language + " does not declare " + key);
-                if (value.indexOf('<') >= 0 || value.indexOf('>') >= 0) {
-                    tagged.add(language + " " + key + " = " + value);
-                }
-            }
-        }
-        assertEquals(
-                List.of(),
-                tagged,
-                "these two are drawn in the pack's five-pixel sheet by MenuFont, which prints them"
-                        + " character for character - a tag would reach the player as literal text");
     }
 
     @Test

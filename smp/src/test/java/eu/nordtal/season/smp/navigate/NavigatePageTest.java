@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.packrendering.Glyphs;
+import eu.nordtal.season.smp.menu.PanelWalk;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +19,9 @@ class NavigatePageTest {
 
     private static final Messages MESSAGES =
             Messages.load(NavigatePageTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
+
+    private static final MenuDocument DOCUMENT =
+            PanelWalk.document(NavigateGui.DOCUMENT, Locale.ENGLISH, new NavigateGui.Window(1, 3));
 
     private static final String WORLD = "nordtal";
 
@@ -59,8 +64,8 @@ class NavigatePageTest {
     void anotherWorldIsNotADistance() {
         final NavigationTarget elsewhere = NavigationTarget.poi(UUID.randomUUID(), "Hub", "farm", 0, 64, 0);
         assertEquals(
-                MESSAGES.get(Locale.ENGLISH, "smp.navigate.other-world"),
-                NavigatePage.distance(elsewhere, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH),
+                DOCUMENT.label("other-world"),
+                NavigatePage.distance(elsewhere, WORLD, 0, 64, 0, DOCUMENT),
                 "a straight-line number to a point in a dimension the player is not in is worse"
                         + " than no number: it reads as walkable and it is not");
     }
@@ -68,10 +73,10 @@ class NavigatePageTest {
     @Test
     void theDistanceIsWhatItSays() {
         final NavigationTarget target = NavigationTarget.poi(UUID.randomUUID(), "Mine", WORLD, 30, 64, 40);
-        assertEquals("50 m", NavigatePage.distance(target, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
+        assertEquals("50 m", NavigatePage.distance(target, WORLD, 0, 64, 0, DOCUMENT));
         // Height counts, so a point at the bottom of a shaft is not 0 m away from the surface.
         final NavigationTarget below = NavigationTarget.poi(UUID.randomUUID(), "Shaft", WORLD, 0, 4, 0);
-        assertEquals("60 m", NavigatePage.distance(below, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
+        assertEquals("60 m", NavigatePage.distance(below, WORLD, 0, 64, 0, DOCUMENT));
     }
 
     @Test
@@ -119,14 +124,16 @@ class NavigatePageTest {
 
     @Test
     void thePageLabelIsHumanNumbered() {
-        assertEquals("1/3", NavigatePage.pageLabel(0, 12, MESSAGES, Locale.ENGLISH));
-        assertEquals("3/3", NavigatePage.pageLabel(2, 12, MESSAGES, Locale.GERMAN));
-        assertEquals("1/1", NavigatePage.pageLabel(0, 1, MESSAGES, Locale.ENGLISH));
+        assertEquals("1/3", DOCUMENT.label("page"));
+        assertEquals(
+                "1/1",
+                PanelWalk.document(NavigateGui.DOCUMENT, Locale.GERMAN, new NavigateGui.Window(1, 1))
+                        .label("page"));
     }
 
     private static List<NavigatePanel.Entry> entries(
             final List<NavigationTarget> targets, final int page, final Optional<NavigationTarget> active) {
-        return NavigatePage.entries(targets, page, WORLD, 0, 64, 0, active, MESSAGES, Locale.ENGLISH);
+        return NavigatePage.entries(targets, page, WORLD, 0, 64, 0, active, DOCUMENT, MESSAGES, Locale.ENGLISH);
     }
 
     private static List<NavigationTarget> targets(final int count) {

@@ -115,7 +115,7 @@ jars of the services.
 | `common`            | library         | Platform constants, phase enum, languages, readiness. Depends only on the JDK and Gson.   |
 | `database`          | library         | All PostgreSQL access: access, phase, payments, inboxes, signal hub, migration SQL.       |
 | `messages`          | library         | Message system without Adventure, used by the bot and Steward.                            |
-| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity.                                 |
+| `message-rendering` | library         | Messages as Adventure components, for Paper, Velocity and Steward's menu previews.        |
 | `discord-rendering` | library         | Documents and messages as Discord components, for the bot and Steward's previews.         |
 | `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list.                           |
 | `limbo-protocol`    | library         | Protocol between the proxy and limbo.                                                     |

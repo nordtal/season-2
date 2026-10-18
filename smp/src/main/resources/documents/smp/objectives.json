@@ -1,0 +1,176 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Current objective",
+            "de": "Aktuelles Ziel"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "heading",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>{milestone.name}</emphasis>",
+            "de": "<emphasis>{milestone.name}</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>{done} of {total, plural, one {# objective} other {# objectives}} finished.</muted>",
+            "de": "<muted>{done} von {total, plural, one {# Ziel} other {# Zielen}} geschafft.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "objective",
+      "lines": [
+        {
+          "when": "finished",
+          "text": {
+            "en": "<good>{objective}</good>",
+            "de": "<good>{objective}</good>"
+          }
+        },
+        {
+          "when": "!finished",
+          "text": {
+            "en": "<emphasis>{objective}</emphasis>",
+            "de": "<emphasis>{objective}</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>{bar} {amount}/{target}</muted>",
+            "de": "<muted>{bar} {amount}/{target}</muted>"
+          }
+        },
+        {
+          "when": "shared",
+          "text": {
+            "en": "<faint>Your share: {percent} %. Finished now, it gives you {gives} of {pool, plural, one {# extra spin} other {# extra spins}}.</faint>",
+            "de": "<faint>Dein Anteil: {percent} %. Wäre es jetzt fertig, bekämst du {gives} von {pool, plural, one {# Extra-Spin} other {# Extra-Spins}}.</faint>"
+          }
+        },
+        {
+          "when": "finished",
+          "text": {
+            "en": "<good>Finished.</good>",
+            "de": "<good>Geschafft.</good>"
+          }
+        },
+        {
+          "when": "handIn",
+          "text": {
+            "en": "<accent>Click to hand items in.</accent>",
+            "de": "<accent>Klicken, um Items abzugeben.</accent>"
+          }
+        },
+        {
+          "list": "wanted",
+          "text": {
+            "en": "<faint>{item}</faint>",
+            "de": "<faint>{item}</faint>"
+          }
+        },
+        {
+          "when": "counted",
+          "text": {
+            "en": "<faint>This one counts itself.</faint>",
+            "de": "<faint>Das hier zählt sich selbst.</faint>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "share",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>What you have put in</emphasis>",
+            "de": "<emphasis>Was du beigetragen hast</emphasis>"
+          }
+        },
+        {
+          "when": "!contributed",
+          "text": {
+            "en": "<muted>Hand in items or work on a statistic. Your share appears here.</muted>",
+            "de": "<muted>Gib Items ab oder arbeite an einer Statistik. Dein Anteil steht dann hier.</muted>"
+          }
+        },
+        {
+          "list": "shares",
+          "text": {
+            "en": "<muted>{objective} <emphasis>{percent} %</emphasis></muted>",
+            "de": "<muted>{objective} <emphasis>{percent} %</emphasis></muted>"
+          }
+        },
+        {
+          "when": "contributed",
+          "text": {
+            "en": "<muted>If these objectives finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget, plural, one {# extra wheel spin} other {# extra wheel spins}}</emphasis>.</muted>",
+            "de": "<muted>Wären diese Ziele jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget, plural, one {# Extra-Spin} other {# Extra-Spins}}</emphasis>.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "share-line",
+      "lines": [
+        {
+          "text": {
+            "en": "{spins} of {budget, plural, one {# extra spin} other {# extra spins}}",
+            "de": "{spins} von {budget, plural, one {# Extra-Spin} other {# Extra-Spins}}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "share-none",
+      "lines": [
+        {
+          "text": {
+            "en": "Not contributed yet",
+            "de": "Noch nichts beigetragen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "previous-page",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Previous objectives</muted>",
+            "de": "<muted>Vorherige Ziele</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "next-page",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>More objectives</muted>",
+            "de": "<muted>Weitere Ziele</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

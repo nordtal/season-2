@@ -6,10 +6,11 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 /**
- * What the code fills into a document: a button, a select, a data list, a block per language or a field.
- * A required slot is placed exactly once, an optional one at most once.
+ * What the code fills into a document: a button, a select, a data list, a block per language, a field or a menu part.
+ * A required slot is placed exactly once, an optional one at most once; a data list may be drawn in several places.
  *
- * @param values what an item of a data list or an option of a select fills its line with
+ * @param values what an item of a data list, an option of a select or each entry of a menu's item or label fills its
+ *     lines with
  */
 public record Slot(String id, Type type, boolean required, Map<String, Value> values) {
 
@@ -22,7 +23,11 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
         /** Repeats its parts once per configured language, each in that language. */
         LANGUAGES,
         /** A field of a modal: a text input or a select under its label. */
-        INPUT
+        INPUT,
+        /** A menu's item, its name and lore. */
+        ITEM,
+        /** A word painted into a menu's window. */
+        LABEL
     }
 
     public Slot {
@@ -55,6 +60,24 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
 
     public static Slot input(final String id) {
         return new Slot(id, Type.INPUT, true, Map.of());
+    }
+
+    public static Slot item(final String id) {
+        return new Slot(id, Type.ITEM, true, Map.of());
+    }
+
+    /** An item drawn once per entry, each filled with the entry's values. */
+    public static Slot item(final String id, final Class<? extends Record> entry) {
+        return new Slot(id, Type.ITEM, true, Value.of(entry));
+    }
+
+    public static Slot label(final String id) {
+        return new Slot(id, Type.LABEL, true, Map.of());
+    }
+
+    /** A label painted once per entry, each filled with the entry's values. */
+    public static Slot label(final String id, final Class<? extends Record> entry) {
+        return new Slot(id, Type.LABEL, true, Value.of(entry));
     }
 
     public Slot optional() {

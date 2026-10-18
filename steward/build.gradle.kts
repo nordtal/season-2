@@ -292,6 +292,10 @@ dependencies {
     implementation(project(":messages"))
     // The bot's own renderer draws the previews of documents, so a preview is what the bot sends.
     implementation(project(":discord-rendering"))
+    // The game's own renderer draws the previews of menus.
+    implementation(project(":message-rendering"))
+    implementation(libs.adventure.api)
+    implementation(libs.adventure.minimessage)
 
     // Without a logging backend every log line disappears.
     runtimeOnly(libs.logback.classic)

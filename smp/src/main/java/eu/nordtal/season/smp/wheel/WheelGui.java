@@ -1,16 +1,17 @@
 package eu.nordtal.season.smp.wheel;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.util.List;
 import java.util.Locale;
@@ -25,13 +26,36 @@ import org.jspecify.annotations.Nullable;
 /** Every end of the spin calls {@code finish}, which pays out once. The "again" button works after the wheel stops. */
 public final class WheelGui extends Menu {
 
+    /** @param spins the spins left after this one */
+    record Window(long spins) {}
+
+    record Again(State state) {}
+
+    /** The again button waits for the spin, then takes another or has none left. */
+    enum State {
+        WAITING,
+        READY,
+        NONE
+    }
+
+    static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
+            "smp",
+            "wheel",
+            "Menus",
+            Window.class,
+            Slot.item("hub"),
+            Slot.item("again", Again.class),
+            Slot.label("spins-left"),
+            Slot.label("rule-top"),
+            Slot.label("rule-bottom"),
+            Slot.label("again-button"));
+
     private final Inventory inventory;
     private final WheelStrip strip;
     private final List<ItemStack> icons;
     private final SmpSounds sounds;
     private final Consumer<Player> payout;
-    private final MessageRenderer renderer;
-    private final Locale locale;
+    private final MenuDocument document;
 
     /** It is null when the player has no spin left. */
     private final @Nullable Runnable again;
@@ -41,6 +65,7 @@ public final class WheelGui extends Menu {
 
     public WheelGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Locale locale,
             final WheelStrip strip,
             final List<ItemStack> icons,
@@ -52,27 +77,25 @@ public final class WheelGui extends Menu {
         this.icons = List.copyOf(icons);
         this.sounds = sounds;
         this.payout = payout;
-        this.renderer = renderer;
-        this.locale = locale;
         this.again = again;
+        this.document =
+                new MenuDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(spinsLeft));
 
         this.inventory = frame(
                 WheelPanel.ROWS,
                 WheelPanel.title(
-                        renderer.format(locale, MESSAGES.smp().wheel().title()),
+                        document.title(),
                         String.valueOf(spinsLeft),
-                        renderer.raw().format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
-                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleTop()),
-                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleBottom()),
-                        renderer.raw().format(locale, MESSAGES.smp().wheel().againButton())));
+                        document.label("spins-left"),
+                        document.label("rule-top"),
+                        document.label("rule-bottom"),
+                        document.label("again-button")));
 
-        final ItemStack hub = BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().wheel().hub(spinsLeft)),
-                List.of(renderer.format(locale, MESSAGES.smp().wheel().hubHint())));
+        final ItemStack hub = BlankItem.of(document.item("hub"));
         inventory.setItem(WheelPanel.HUB_SLOT, hub);
         WheelPanel.INFO_SLOTS.forEach(slot -> inventory.setItem(slot, hub));
 
-        setAgain(MESSAGES.smp().wheel().againWaiting(), MESSAGES.smp().wheel().againWaitingHint());
+        setAgain(State.WAITING);
         draw(0);
     }
 
@@ -115,16 +138,13 @@ public final class WheelGui extends Menu {
         }
         if (celebrate && player.isOnline()) {
             sounds.play(player, Feedback.BIG_SUCCESS);
-            final SmpMessages.Smp.Wheel wheel = MESSAGES.smp().wheel();
-            setAgain(
-                    again == null ? wheel.againNone() : wheel.again(),
-                    again == null ? wheel.againNoneHint() : wheel.againHint());
+            setAgain(again == null ? State.NONE : State.READY);
         }
         payout.accept(player);
     }
 
-    private void setAgain(final MessageRef name, final MessageRef hint) {
-        final ItemStack item = BlankItem.of(renderer.format(locale, name), List.of(renderer.format(locale, hint)));
+    private void setAgain(final State state) {
+        final ItemStack item = BlankItem.of(document.item("again", new Again(state)));
         WheelPanel.AGAIN_SLOTS.forEach(slot -> inventory.setItem(slot, item));
     }
 

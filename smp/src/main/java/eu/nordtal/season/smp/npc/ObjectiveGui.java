@@ -1,10 +1,12 @@
 package eu.nordtal.season.smp.npc;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.MilestoneContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -18,9 +20,9 @@ import eu.nordtal.season.smp.milestone.ObjectiveType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -28,13 +30,57 @@ import org.bukkit.inventory.ItemStack;
 /** The objective menu of the spawn NPC. It lists the objectives of one milestone and the player's share. */
 public final class ObjectiveGui extends Menu {
 
+    /**
+     * @param spins the extra spins the player's shares would give now
+     * @param budget the extra spins of all objectives
+     */
+    record Window(MilestoneContext milestone, long done, long total, long spins, long budget, boolean contributed) {}
+
+    /**
+     * @param handIn whether a click opens the hand-in window
+     * @param counted whether the server counts it, unfinished
+     * @param gives the extra spins the player's share would give now
+     * @param pool the extra spins of the objective
+     */
+    record Card(
+            String objective,
+            boolean finished,
+            boolean handIn,
+            boolean counted,
+            String bar,
+            long amount,
+            long target,
+            boolean shared,
+            double percent,
+            long gives,
+            long pool) {}
+
+    record Share(String objective, double percent) {}
+
+    static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
+            "smp",
+            "objectives",
+            "Menus",
+            Window.class,
+            Slot.item("heading"),
+            Slot.item("objective", Card.class),
+            Slot.list("wanted", HandInGui.Wanted.class),
+            Slot.item("share"),
+            Slot.list("shares", Share.class),
+            Slot.label("share-line"),
+            Slot.label("share-none"),
+            Slot.item("previous-page"),
+            Slot.item("next-page"));
+
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
     private final Locale locale;
     private final Milestone milestone;
     private final List<ObjectiveRow> rows;
     private final OwnShare.Summary share;
     private final BiConsumer<Player, HandInGui> confirm;
     private final int page;
+    private final MenuDocument document;
     private final Inventory inventory;
 
     private final List<Entry> entries = new ArrayList<>();
@@ -49,16 +95,18 @@ public final class ObjectiveGui extends Menu {
 
     public ObjectiveGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Locale locale,
             final Milestone milestone,
             final List<ObjectiveRow> rows,
             final OwnShare.Summary share,
             final BiConsumer<Player, HandInGui> confirm) {
-        this(renderer, locale, milestone, rows, share, confirm, 0);
+        this(renderer, documents, locale, milestone, rows, share, confirm, 0);
     }
 
     private ObjectiveGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Locale locale,
             final Milestone milestone,
             final List<ObjectiveRow> rows,
@@ -66,12 +114,24 @@ public final class ObjectiveGui extends Menu {
             final BiConsumer<Player, HandInGui> confirm,
             final int page) {
         this.renderer = renderer;
+        this.documents = documents;
         this.locale = locale;
         this.milestone = milestone;
         this.rows = rows;
         this.share = share;
         this.confirm = confirm;
         this.page = Math.max(0, Math.min(page, pages() - 1));
+        this.document = new MenuDocument(
+                renderer,
+                documents.applied(DOCUMENT),
+                Viewer.of(locale),
+                new Window(
+                        new MilestoneContext(milestoneName()),
+                        finished(),
+                        rows.size(),
+                        share.spins(),
+                        share.budget(),
+                        !share.empty()));
 
         final List<ObjectiveRow> shown = slice();
         final List<ObjectivePanel.Card> cards = new ArrayList<>(shown.size());
@@ -93,7 +153,7 @@ public final class ObjectiveGui extends Menu {
         this.inventory = frame(
                 ObjectivePanel.ROWS,
                 ObjectivePanel.title(
-                        renderer.format(locale, MESSAGES.smp().objectives().title()),
+                        document.title(),
                         milestoneName(),
                         ProgressBar.of(finishedRatio(), ObjectivePanel.HEADING_BAR_WIDTH),
                         finished() + "/" + rows.size(),
@@ -110,7 +170,7 @@ public final class ObjectiveGui extends Menu {
         // The page buttons share their slots with the share plate and take precedence.
         if (isPrevious(slot) || isNext(slot)) {
             return MenuClick.opening(new ObjectiveGui(
-                    renderer, locale, milestone, rows, share, confirm, page + (isPrevious(slot) ? -1 : 1)));
+                    renderer, documents, locale, milestone, rows, share, confirm, page + (isPrevious(slot) ? -1 : 1)));
         }
         final Optional<Entry> entry = at(slot);
         if (entry.isEmpty()) {
@@ -120,8 +180,8 @@ public final class ObjectiveGui extends Menu {
             return MenuClick.refused();
         }
         final ObjectiveRow row = entry.get().row();
-        return MenuClick.opening(
-                new HandInGui(renderer, locale, entry.get().objective(), row.amount(), row.target(), confirm));
+        return MenuClick.opening(new HandInGui(
+                renderer, documents, locale, entry.get().objective(), row.amount(), row.target(), confirm));
     }
 
     private Optional<Entry> at(final int slot) {
@@ -166,16 +226,11 @@ public final class ObjectiveGui extends Menu {
 
     /** Returns the share sentence as plain text, which {@code MenuFont} draws. */
     private String shareLine() {
-        if (share.empty()) {
-            return renderer.raw().format(locale, MESSAGES.smp().objectives().shareNone());
-        }
-        return renderer.raw().format(locale, MESSAGES.smp().objectives().share(share.spins(), share.budget()));
+        return document.label(share.empty() ? "share-none" : "share-line");
     }
 
     private void fill() {
-        final ItemStack heading = BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().objectives().heading(new MilestoneContext(milestoneName()))),
-                List.of(renderer.format(locale, MESSAGES.smp().objectives().headingHint(finished(), rows.size()))));
+        final ItemStack heading = BlankItem.of(document.item("heading"));
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.HEADING_ROW), heading);
         }
@@ -185,76 +240,50 @@ public final class ObjectiveGui extends Menu {
             ObjectivePanel.slotsOf(entry.card()).forEach(slot -> inventory.setItem(slot, item));
         }
 
-        final ItemStack shareItem =
-                BlankItem.of(renderer.format(locale, MESSAGES.smp().objectives().shareTooltip()), shareLore());
+        final List<Share> shares = new ArrayList<>();
+        for (final OwnShare.Line line : share.lines()) {
+            milestone
+                    .objective(line.key())
+                    .ifPresent(definition -> shares.add(new Share(name(definition), line.percent())));
+        }
+        final ItemStack shareItem = BlankItem.of(document.item("share", null, Map.of("shares", shares)));
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.SHARE_ROW), shareItem);
         }
 
         // The page buttons are set last to overwrite the share plate slots.
         if (page > 0) {
-            inventory.setItem(
-                    ObjectivePanel.PREV_SLOT,
-                    pageItem(MESSAGES.smp().objectives().previousPage()));
+            inventory.setItem(ObjectivePanel.PREV_SLOT, BlankItem.of(document.item("previous-page")));
         }
         if (page < pages() - 1) {
-            inventory.setItem(
-                    ObjectivePanel.NEXT_SLOT,
-                    pageItem(MESSAGES.smp().objectives().nextPage()));
+            inventory.setItem(ObjectivePanel.NEXT_SLOT, BlankItem.of(document.item("next-page")));
         }
-    }
-
-    private ItemStack pageItem(final MessageRef label) {
-        return BlankItem.of(renderer.format(locale, label), List.of());
     }
 
     private ItemStack cardItem(final Entry entry) {
         final ObjectiveRow row = entry.row();
         final Objective definition = entry.objective();
-
-        final List<Component> lore = new ArrayList<>();
-        lore.add(renderer.format(
-                locale,
-                MESSAGES.smp().objectives().progress(ProgressBar.of(row.ratio(), 20), row.amount(), row.target())));
-        share.lines().stream()
+        final Optional<OwnShare.Line> own = share.lines().stream()
                 .filter(line -> line.key().equals(definition.key()))
-                .findFirst()
-                .ifPresent(line -> lore.add(renderer.format(
-                        locale, MESSAGES.smp().objectives().yourShare(line.percent(), line.spins(), line.budget()))));
-        if (row.completed()) {
-            lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
-        } else if (definition.type() == ObjectiveType.HAND_IN) {
-            lore.add(renderer.format(locale, MESSAGES.smp().objectives().clickToHandIn()));
-            lore.addAll(
-                    WantedItems.lines(renderer, locale, definition.items() == null ? List.of() : definition.items()));
-        } else {
-            lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
-        }
-
-        // The name is a message parameter, which MessageRenderer escapes.
-        return BlankItem.of(
-                renderer.format(
-                        locale,
-                        row.completed()
-                                ? MESSAGES.smp().objectives().itemDone(name(definition))
-                                : MESSAGES.smp().objectives().item(name(definition))),
-                lore);
-    }
-
-    private List<Component> shareLore() {
-        final List<Component> lore = new ArrayList<>();
-        if (share.empty()) {
-            lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareEmptyHint()));
-            return lore;
-        }
-        for (final OwnShare.Line line : share.lines()) {
-            final Objective definition = milestone.objective(line.key()).orElse(null);
-            if (definition == null) {
-                continue;
-            }
-            lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareLine(name(definition), line.percent())));
-        }
-        lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareSpins(share.spins(), share.budget())));
-        return lore;
+                .findFirst();
+        final boolean handIn = !row.completed() && definition.type() == ObjectiveType.HAND_IN;
+        // The name is a value, which MessageRenderer escapes.
+        return BlankItem.of(document.item(
+                "objective",
+                new Card(
+                        name(definition),
+                        row.completed(),
+                        handIn,
+                        !row.completed() && !handIn,
+                        ProgressBar.of(row.ratio(), 20),
+                        row.amount(),
+                        row.target(),
+                        own.isPresent(),
+                        own.map(OwnShare.Line::percent).orElse(0.0),
+                        own.map(OwnShare.Line::spins).orElse(0),
+                        own.map(OwnShare.Line::budget).orElse(0)),
+                Map.of(
+                        "wanted",
+                        handIn && definition.items() != null ? HandInGui.wanted(definition.items()) : List.of())));
     }
 }

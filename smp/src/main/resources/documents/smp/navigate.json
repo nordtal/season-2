@@ -1,0 +1,130 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Navigate",
+            "de": "Navigation"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "target",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>{target}</emphasis>",
+            "de": "<emphasis>{target}</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<faint>{world} {x, number, plain} {y, number, plain} {z, number, plain}</faint>",
+            "de": "<faint>{world} {x, number, plain} {y, number, plain} {z, number, plain}</faint>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Click to walk there.</muted>",
+            "de": "<muted>Klicken, um dorthin zu laufen.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "distance",
+      "lines": [
+        {
+          "text": {
+            "en": "{blocks} m",
+            "de": "{blocks} m"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "other-world",
+      "lines": [
+        {
+          "text": {
+            "en": "another world",
+            "de": "andere Welt"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "stop",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Stop navigating</bad>",
+            "de": "<bad>Navigation beenden</bad>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Turns the arrow off.</muted>",
+            "de": "<muted>Schaltet den Pfeil aus.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "stop-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Stop",
+            "de": "Stopp"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "previous-page",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Previous page</muted>",
+            "de": "<muted>Vorherige Seite</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "page",
+      "lines": [
+        {
+          "text": {
+            "en": "{page}/{pages}",
+            "de": "{page}/{pages}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "next-page",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Next page</muted>",
+            "de": "<muted>Nächste Seite</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

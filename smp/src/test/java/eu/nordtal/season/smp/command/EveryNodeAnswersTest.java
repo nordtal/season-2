@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  */
 class EveryNodeAnswersTest {
 
-    private final NavigateCommand commands = new NavigateCommand(null, null, null, null, null, null, null);
+    private final NavigateCommand commands = new NavigateCommand(null, null, null, null, null, null, null, null);
 
     @Test
     void poi() {

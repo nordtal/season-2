@@ -478,7 +478,7 @@ public final class Messages {
             final String source) {
         final ZoneId zone = viewer.zone() == null ? environment.zone() : viewer.zone();
         final List<Piece> pieces = Filling.fill(
-                MessageText.parse(text, false),
+                MessageText.parse(text, format == TextFormat.MINIMESSAGE),
                 Contexts.flatten(values, environment, viewer.player()),
                 kinds,
                 name -> reportMissingValue(source, name));

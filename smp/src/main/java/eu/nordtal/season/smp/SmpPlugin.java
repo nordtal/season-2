@@ -371,7 +371,14 @@ public final class SmpPlugin extends NordtalPlugin {
     void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands = new NavigateCommand(
-                    this, jdbi().onDemand(PlaceDao.class), navigation, identities(), renderer(), sounds, this::colours);
+                    this,
+                    jdbi().onDemand(PlaceDao.class),
+                    navigation,
+                    identities(),
+                    renderer(),
+                    documents(),
+                    sounds,
+                    this::colours);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
         });

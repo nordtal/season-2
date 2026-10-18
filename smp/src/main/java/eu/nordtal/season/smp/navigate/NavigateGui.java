@@ -2,8 +2,12 @@ package eu.nordtal.season.smp.navigate;
 
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -21,7 +25,30 @@ import org.bukkit.inventory.ItemStack;
 
 public final class NavigateGui extends Menu {
 
+    /** @param page the shown page, counted from 1 */
+    record Window(long page, long pages) {}
+
+    record Target(String target, String world, long x, long y, long z) {}
+
+    record Distance(long blocks) {}
+
+    static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
+            "smp",
+            "navigate",
+            "Menus",
+            Window.class,
+            Slot.item("target", Target.class),
+            Slot.label("distance", Distance.class),
+            Slot.label("other-world"),
+            Slot.item("stop"),
+            Slot.label("stop-button"),
+            Slot.item("previous-page"),
+            Slot.label("page"),
+            Slot.item("next-page"));
+
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
+    private final MenuDocument document;
     private final Navigation navigation;
     private final List<NavigationTarget> targets;
     private final int page;
@@ -34,6 +61,7 @@ public final class NavigateGui extends Menu {
 
     public NavigateGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Identities identities,
             final Navigation navigation,
             final Player viewer,
@@ -41,6 +69,7 @@ public final class NavigateGui extends Menu {
             final List<PoiRow> pois) {
         this(
                 renderer,
+                documents,
                 identities.languageOf(viewer.getUniqueId()),
                 navigation,
                 build(viewer, lastDeath, pois),
@@ -50,16 +79,23 @@ public final class NavigateGui extends Menu {
 
     private NavigateGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Locale locale,
             final Navigation navigation,
             final List<NavigationTarget> targets,
             final int page,
             final Player viewer) {
         this.renderer = renderer;
+        this.documents = documents;
         this.locale = locale;
         this.navigation = navigation;
         this.targets = targets;
         this.page = NavigatePage.clamp(page, targets.size());
+        this.document = new MenuDocument(
+                renderer,
+                documents.applied(DOCUMENT),
+                Viewer.of(locale),
+                new Window(this.page + 1, NavigatePage.pages(targets.size())));
         final Location at = Objects.requireNonNull(viewer.getLocation());
         this.world = viewer.getWorld().getName();
         this.x = at.getX();
@@ -68,15 +104,15 @@ public final class NavigateGui extends Menu {
 
         final Optional<NavigationTarget> active = navigation.of(viewer.getUniqueId());
         final List<NavigatePanel.Entry> entries =
-                NavigatePage.entries(targets, this.page, world, x, y, z, active, renderer.raw(), locale);
+                NavigatePage.entries(targets, this.page, world, x, y, z, active, document, renderer.raw(), locale);
 
         this.inventory = frame(
                 NavigatePanel.ROWS,
                 NavigatePanel.title(
-                        renderer.format(locale, MESSAGES.smp().navigate().title()),
+                        document.title(),
                         entries,
-                        renderer.raw().format(locale, MESSAGES.smp().navigate().stopButton()),
-                        NavigatePage.pageLabel(this.page, targets.size(), renderer.raw(), locale),
+                        document.label("stop-button"),
+                        document.label("page"),
                         this.page > 0,
                         this.page < NavigatePage.pages(targets.size()) - 1));
         fill();
@@ -99,7 +135,7 @@ public final class NavigateGui extends Menu {
 
     /** Returns this list on page {@code wanted}. The menu keeps no {@code Player}, so the caller passes the viewer. */
     public NavigateGui onPage(final int wanted, final Player viewer) {
-        return new NavigateGui(renderer, locale, navigation, targets, wanted, viewer);
+        return new NavigateGui(renderer, documents, locale, navigation, targets, wanted, viewer);
     }
 
     private void fill() {
@@ -112,34 +148,24 @@ public final class NavigateGui extends Menu {
             }
         }
 
-        final ItemStack stop = BlankItem.of(
-                renderer.format(locale, MESSAGES.smp().navigate().stop()),
-                List.of(renderer.format(locale, MESSAGES.smp().navigate().stopHint())));
+        final ItemStack stop = BlankItem.of(document.item("stop"));
         NavigatePanel.STOP_SLOTS.forEach(slot -> inventory.setItem(slot, stop));
 
         final int pages = NavigatePage.pages(targets.size());
-        inventory.setItem(
-                NavigatePanel.PREV_SLOT,
-                page > 0 ? pageItem(MESSAGES.smp().navigate().previousPage()) : null);
-        inventory.setItem(
-                NavigatePanel.NEXT_SLOT,
-                page < pages - 1 ? pageItem(MESSAGES.smp().navigate().nextPage()) : null);
-    }
-
-    private ItemStack pageItem(final MessageRef label) {
-        return BlankItem.of(renderer.format(locale, label), List.of());
+        inventory.setItem(NavigatePanel.PREV_SLOT, page > 0 ? BlankItem.of(document.item("previous-page")) : null);
+        inventory.setItem(NavigatePanel.NEXT_SLOT, page < pages - 1 ? BlankItem.of(document.item("next-page")) : null);
     }
 
     private ItemStack entryItem(final NavigationTarget target) {
-        // A POI name is a message parameter, so MessageRenderer escapes any tag in it.
-        return BlankItem.of(
-                renderer.format(
-                        locale, MESSAGES.smp().navigate().target(NavigatePage.label(target, renderer.raw(), locale))),
-                List.of(
-                        renderer.format(
-                                locale,
-                                MESSAGES.smp().navigate().at(target.world(), target.x(), target.y(), target.z())),
-                        renderer.format(locale, MESSAGES.smp().navigate().click())));
+        // A POI name is a value, so MessageRenderer escapes any tag in it.
+        return BlankItem.of(document.item(
+                "target",
+                new Target(
+                        NavigatePage.label(target, renderer.raw(), locale),
+                        target.world(),
+                        target.x(),
+                        target.y(),
+                        target.z())));
     }
 
     @Override

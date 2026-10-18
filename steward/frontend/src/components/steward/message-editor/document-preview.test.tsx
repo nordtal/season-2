@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { afterEach, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDeclaration, DocumentDraft } from "@/lib/api"
-import { DiscordDocumentPreview } from "@/components/steward/message-editor/document-preview"
+import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
 
 afterEach(() => {
   cleanup()
@@ -44,14 +44,14 @@ it("asks for a drawing once typing pauses, and an older draft's late answer neve
     )
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const { rerender } = render(<DiscordDocumentPreview declaration={declaration} document={saying("first")} />, {
+  const { rerender } = render(<DocumentPreview declaration={declaration} document={saying("first")} />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     ),
   })
   await vi.waitFor(() => expect(asked).toEqual(["first"]))
-  rerender(<DiscordDocumentPreview declaration={declaration} document={saying("second")} />)
-  rerender(<DiscordDocumentPreview declaration={declaration} document={saying("third")} />)
+  rerender(<DocumentPreview declaration={declaration} document={saying("second")} />)
+  rerender(<DocumentPreview declaration={declaration} document={saying("third")} />)
   await vi.waitFor(() => expect(asked).toEqual(["first", "third"]))
 
   answer("third")

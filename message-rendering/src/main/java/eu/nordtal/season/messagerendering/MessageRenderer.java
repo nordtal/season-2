@@ -5,6 +5,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.text.Node;
 import eu.nordtal.season.messages.text.Piece;
 import eu.nordtal.season.messages.text.PlainText;
@@ -116,14 +117,35 @@ public final class MessageRenderer {
      * @throws eu.nordtal.season.messages.text.MessageSyntaxException when the text cannot be read
      */
     public Component format(final Viewer viewer, final MessageRef message, final String text, final Palette palette) {
-        return render(viewer, messages.prepare(viewer, message, text), message, true, palette);
+        return render(viewer, messages.prepare(viewer, message, text), message.args(), true, palette);
+    }
+
+    /**
+     * Renders a text that no key holds, such as a game document's, in MiniMessage with its values.
+     *
+     * @param kinds each value's declared kind, which a missing value shows the replacement word of
+     * @param source names the text in the log when a value is missing
+     * @throws eu.nordtal.season.messages.text.MessageSyntaxException when the text cannot be read
+     */
+    public Component format(
+            final Viewer viewer,
+            final String text,
+            final Map<String, ?> values,
+            final Map<String, Kind> kinds,
+            final String source) {
+        return render(
+                viewer,
+                messages.prepare(viewer, text, values, kinds, TextFormat.MINIMESSAGE, source),
+                values,
+                true,
+                messages.environment().palette());
     }
 
     private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
         return render(
                 viewer,
                 messages.prepare(viewer, message),
-                message,
+                message.args(),
                 carded,
                 messages.environment().palette());
     }
@@ -131,7 +153,7 @@ public final class MessageRenderer {
     private Component render(
             final Viewer viewer,
             final Messages.Prepared prepared,
-            final MessageRef message,
+            final Map<String, ?> args,
             final boolean carded,
             final Palette palette) {
         if (!prepared.markup()) {
@@ -140,10 +162,10 @@ public final class MessageRenderer {
         }
         final Writing writing = new Writing(
                 prepared,
-                message.args(),
+                args,
                 names,
                 carded ? name -> card(name, prepared) : name -> null,
-                inner -> render(viewer, messages.prepare(viewer, inner), inner, carded, palette));
+                inner -> render(viewer, messages.prepare(viewer, inner), inner.args(), carded, palette));
         writing.write(prepared.pieces());
         return MiniMessage.miniMessage()
                 .deserialize(

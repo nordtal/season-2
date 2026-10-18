@@ -1,8 +1,12 @@
 package eu.nordtal.season.smp.npc;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MenuDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
@@ -13,9 +17,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -23,6 +27,23 @@ import org.bukkit.inventory.ItemStack;
 
 /** The deposit screen. Closing it returns all deposited items to the player. */
 public final class HandInGui extends Menu {
+
+    /** @param amount how much the objective still needs */
+    record Window(long amount) {}
+
+    /** One item an objective takes, one tooltip line each, since the client does not wrap a line. */
+    record Wanted(GameContent item) {}
+
+    static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
+            "smp",
+            "hand-in",
+            "Menus",
+            Window.class,
+            Slot.item("sample"),
+            Slot.item("confirm"),
+            Slot.list("wanted", Wanted.class),
+            Slot.label("still-needed"),
+            Slot.label("confirm-button"));
 
     private static final int DEPOSIT_SLOTS = HandInPanel.DEPOSIT_SLOTS;
 
@@ -35,6 +56,7 @@ public final class HandInGui extends Menu {
     /** @param confirm runs when the player presses confirm */
     public HandInGui(
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final Locale locale,
             final Objective objective,
             final long amount,
@@ -45,26 +67,24 @@ public final class HandInGui extends Menu {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
+        final MenuDocument document =
+                new MenuDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
         this.inventory = frame(
                 HandInPanel.ROWS,
-                HandInPanel.title(
-                        renderer.format(locale, MESSAGES.smp().handin().title()),
-                        renderer.raw().format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
-                        renderer.raw().format(locale, MESSAGES.smp().handin().confirmButton())));
+                HandInPanel.title(document.title(), document.label("still-needed"), document.label("confirm-button")));
 
+        final Map<String, List<? extends Record>> lists = Map.of("wanted", wanted(wanted));
         // Shows the first wanted material as a sample item.
-        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
+        sample().ifPresent(material -> inventory.setItem(
+                HandInPanel.SAMPLE_SLOT,
+                BlankItem.described(new ItemStack(material), document.item("sample", null, lists))));
 
-        final ItemStack button =
-                BlankItem.of(renderer.format(locale, MESSAGES.smp().handin().confirm()), neededLines(renderer, locale));
+        final ItemStack button = BlankItem.of(document.item("confirm", null, lists));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
-    private List<Component> neededLines(final MessageRenderer renderer, final Locale locale) {
-        final List<Component> lines = new ArrayList<>();
-        lines.add(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded)));
-        lines.addAll(WantedItems.lines(renderer, locale, List.copyOf(wanted)));
-        return lines;
+    static List<Wanted> wanted(final java.util.Collection<String> items) {
+        return items.stream().map(GameKeys::item).map(Wanted::new).toList();
     }
 
     /** Returns the material of the first wanted item. {@link TrackNames} validates the names. */
@@ -73,13 +93,6 @@ public final class HandInGui extends Menu {
                 .map(GameKeys::material)
                 .flatMap(java.util.Optional::stream)
                 .findFirst();
-    }
-
-    private ItemStack describe(final MessageRenderer renderer, final Locale locale, final Material material) {
-        return BlankItem.described(
-                new ItemStack(material),
-                renderer.format(locale, MESSAGES.smp().handin().wanted()),
-                neededLines(renderer, locale));
     }
 
     public Objective objective() {

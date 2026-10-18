@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.wheel;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.feedback.Feedback;
@@ -37,6 +38,7 @@ public final class Wheel {
     private final SmpSpec config;
     private final Identities identities;
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
     private final SmpSounds sounds;
     private final Random random = new Random();
 
@@ -48,6 +50,7 @@ public final class Wheel {
             final SmpSpec config,
             final Identities identities,
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final SmpSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -56,6 +59,7 @@ public final class Wheel {
         this.config = config;
         this.identities = identities;
         this.renderer = renderer;
+        this.documents = documents;
         this.sounds = sounds;
     }
 
@@ -144,6 +148,7 @@ public final class Wheel {
             }
             new WheelGui(
                             renderer,
+                            documents,
                             locale,
                             strip,
                             icons,

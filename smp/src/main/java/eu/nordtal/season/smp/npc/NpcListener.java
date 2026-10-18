@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.npc;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -38,6 +39,7 @@ public final class NpcListener implements Listener {
     private final Identities identities;
 
     private final MessageRenderer renderer;
+    private final AppliedDocuments documents;
     private final SmpSounds sounds;
 
     public NpcListener(
@@ -48,6 +50,7 @@ public final class NpcListener implements Listener {
             final Contributions contributions,
             final Identities identities,
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.npc = npc;
@@ -56,6 +59,7 @@ public final class NpcListener implements Listener {
         this.contributions = contributions;
         this.identities = identities;
         this.renderer = renderer;
+        this.documents = documents;
         this.sounds = sounds;
     }
 
@@ -94,7 +98,7 @@ public final class NpcListener implements Listener {
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
-                    new ObjectiveGui(renderer, locale, milestone, rows, share, this::confirm).open(player);
+                    new ObjectiveGui(renderer, documents, locale, milestone, rows, share, this::confirm).open(player);
                 }
             });
         });

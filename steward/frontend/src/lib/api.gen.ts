@@ -463,7 +463,8 @@ export type DocumentDraft = {
 }
 
 export type DocumentDrawing = {
-  discord: Record<string, unknown>
+  discord?: Record<string, unknown>
+  menu?: MenuDrawing
   components: number
   most: number
   problems: DocumentProblem[]
@@ -880,6 +881,11 @@ export type Document = {
   parts: DocumentPart[]
 }
 
+export type MenuDrawing = {
+  title: string
+  parts: MenuPart[]
+}
+
 export type DocumentProblem = {
   error: boolean
   text: string
@@ -1032,7 +1038,7 @@ export type DocumentAdaptation = {
   subject: string
 }
 
-export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME"
+export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME" | "MENU"
 
 export type DocumentSlot = {
   id: string
@@ -1052,6 +1058,12 @@ export type DocumentPart = {
   media?: string[]
   items?: DocumentItem[]
   slot?: string
+}
+
+export type MenuPart = {
+  slot: string
+  type: DocumentPartType
+  lines: string[]
 }
 
 export type Gauge =
@@ -1125,9 +1137,19 @@ export type MessageArg = {
 
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
 
-export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT"
+export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "ITEM" | "LABEL"
 
-export type DocumentPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "FILE" | "ROW" | "LANGUAGES"
+export type DocumentPartType =
+  | "CONTAINER"
+  | "TEXT"
+  | "SECTION"
+  | "SEPARATOR"
+  | "GALLERY"
+  | "FILE"
+  | "ROW"
+  | "LANGUAGES"
+  | "ITEM"
+  | "LABEL"
 
 export type DocumentLine = {
   text: Record<string, string | string[]>

@@ -264,6 +264,34 @@ class DocumentsApiIntegrationTest {
     }
 
     @Test
+    void aMenuIsDrawnByTheGamesRendererWithItsExamples() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", Json.tree("""
+                {"namespace":"smp","name":"wheel","area":"Menus","shape":"MENU",
+                  "values":{"spins":{"kind":"text","example":"3"}},
+                  "slots":[{"id":"hub","type":"ITEM","required":true,"values":{"target":{"kind":"item","example":"item.minecraft.diamond"}}},
+                    {"id":"left","type":"LABEL","required":true,"values":{}}]}"""));
+        draft.add("document", Json.tree("""
+                {"parts":[
+                  {"type":"TEXT","lines":[{"style":"TITLE","text":{"en":"Wheel","de":"wheel-de"}}]},
+                  {"type":"ITEM","slot":"hub","lines":[
+                    {"text":{"en":"To {target}","de":"to-de {target}"}},{"text":{"en":"{spins} spins","de":"{spins} spins-de"}}]},
+                  {"type":"LABEL","slot":"left","lines":[{"text":{"en":"{spins} left","de":"{spins} left-de"}}]}]}"""));
+        draft.addProperty("language", "de");
+
+        final JsonObject drawing = GSON.fromJson(
+                send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 200), JsonObject.class);
+        final JsonObject menu = drawing.getAsJsonObject("menu");
+
+        assertEquals(0, drawing.getAsJsonArray("problems").size(), drawing.toString());
+        assertEquals("wheel-de", menu.get("title").getAsString());
+        assertEquals(
+                "[{\"slot\":\"hub\",\"type\":\"ITEM\",\"lines\":[\"to-de Diamond\",\"3 spins-de\"]},"
+                        + "{\"slot\":\"left\",\"type\":\"LABEL\",\"lines\":[\"3 left-de\"]}]",
+                menu.getAsJsonArray("parts").toString());
+    }
+
+    @Test
     void aDraftTheRendererCannotDrawIsRefused() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));

@@ -40,6 +40,77 @@ class DocumentCheckTest {
               {"type": "ROW", "items": [{"slot": "confirm", "label": {"en": "Pay", "de": "Bezahlen"}}]}]}
             """;
 
+    record Wheel(long spins) {}
+
+    record Target(String target, boolean active) {}
+
+    record Wanted(String item) {}
+
+    static final DocumentSpec<Wheel> MENU = DocumentSpec.menu(
+            "test",
+            "wheel",
+            "Menus",
+            Wheel.class,
+            Slot.item("hub"),
+            Slot.item("target", Target.class),
+            Slot.list("wanted", Wanted.class),
+            Slot.label("left"));
+
+    static final String MENU_SOUND = """
+            {"parts": [
+              {"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "<accent>Wheel</accent>", "de": "Glücksrad"}}]},
+              {"type": "ITEM", "slot": "hub", "lines": [
+                {"text": {"en": "<emphasis>Spins left: {spins}</emphasis>", "de": "<emphasis>Übrig: {spins}</emphasis>"}},
+                {"text": {"en": "<muted>Costs one spin.</muted>", "de": "<muted>Kostet einen Dreh.</muted>"}}]},
+              {"type": "ITEM", "slot": "target", "lines": [
+                {"when": "active", "text": {"en": "<good>{target}</good>", "de": "<good>{target}</good>"}},
+                {"when": "!active", "text": {"en": "{target}", "de": "{target}"}},
+                {"list": "wanted", "text": {"en": "<faint>{item} for {target}</faint>", "de": "<faint>{item} für {target}</faint>"}}]},
+              {"type": "LABEL", "slot": "left", "lines": [{"text": {"en": "{spins} left", "de": "{spins} übrig"}}]}]}
+            """;
+
+    @Test
+    void aMenuHoldsItsTitleThenItemsInMiniMessageAndPlainLabels() {
+        assertEquals(List.of(), errors(MENU, MENU_SOUND));
+    }
+
+    @Test
+    void aDataListMayBeDrawnInSeveralItems() {
+        assertEquals(
+                List.of(),
+                errors(
+                        MENU,
+                        MENU_SOUND.replace(
+                                "{\"type\": \"ITEM\", \"slot\": \"hub\", \"lines\": [",
+                                "{\"type\": \"ITEM\", \"slot\": \"hub\", \"lines\": [{\"list\": \"wanted\", \"text\":"
+                                        + " {\"en\": \"{item}\", \"de\": \"{item}\"}},")));
+    }
+
+    @Test
+    void aMenuRefusesOtherPartsAndALabelOfTwoLines() {
+        assertEquals(
+                List.of("a menu holds something other than its title, then items and labels"),
+                errors(
+                        MENU,
+                        MENU_SOUND.replace("{\"type\": \"LABEL\"", "{\"type\": \"SEPARATOR\"}, {\"type\": \"LABEL\"")));
+        assertEquals(
+                List.of("the label left holds 2 lines, a label takes one"),
+                errors(
+                        MENU,
+                        MENU_SOUND.replace(
+                                "[{\"text\": {\"en\": \"{spins} left\"",
+                                "[{\"text\": {\"en\": \"x\", \"de\": \"x\"}}, {\"text\": {\"en\": \"{spins} left\"")));
+        assertEquals(
+                List.of("the label left holds an angle bracket, which the menu's font cannot draw"),
+                errors(MENU, MENU_SOUND.replace("{spins} übrig", "<muted>{spins} übrig")));
+    }
+
+    @Test
+    void anEntryValueIsNamedOnlyInsideItsItem() {
+        assertTrue(errors(MENU, MENU_SOUND.replace("{spins} übrig", "{target} übrig")).stream()
+                .anyMatch(error -> error.startsWith("the label left in de")));
+    }
+
     private static List<String> errors(final DocumentSpec<?> spec, final String json) {
         return DocumentCheck.errors(spec.declaration(), Document.decode(json), MessageCheck.Mode.PACKAGED);
     }

@@ -75,6 +75,12 @@ public final class AgentWire {
 
     public static final String PLUGIN_SEARCH = PLUGINS + "/search";
 
+    /** The config files of the plugins on one server that are not Nordtal's: a {@link PluginFiles}. */
+    public static final String PLUGIN_FILES = PLUGINS + "/files";
+
+    /** One of those files, named by {@code ?plugin=} and {@code ?path=}: GET reads it, POST saves it. */
+    public static final String PLUGIN_FILE = PLUGINS + "/file";
+
     private AgentWire() {}
 
     public static String of(final String route, final String value) {
@@ -404,6 +410,36 @@ public final class AgentWire {
                     pageUrl);
         }
     }
+
+    /** The config files of one server's foreign plugins, by plugin then path. */
+    public record PluginFiles(String service, boolean mounted, List<PluginFile> files) {}
+
+    /**
+     * One text config file in {@code plugins/<plugin>/}.
+     *
+     * @param plugin the data folder, which names the file together with {@code path}
+     * @param name the plugin's name where a jar claims the folder, absent for a folder no jar claims
+     * @param iconUrl the icon the plugins tab shows, absent without one
+     * @param path the path inside the folder, with {@code /} between segments
+     */
+    public record PluginFile(
+            String service,
+            String plugin,
+            @Nullable String name,
+            @Nullable String iconUrl,
+            String path,
+            long size,
+            boolean readable,
+            boolean writable) {}
+
+    /** @param revision the fingerprint of {@code text}, which a save names */
+    public record PluginFileDocument(PluginFile file, String text, String revision) {}
+
+    /** A save of a whole file, refused when {@code revision} is no longer the file's. */
+    public record PluginFileSave(String text, String revision, Actor by) {}
+
+    /** @param restartRequired always true: a save only writes the file, and the server reads it when it starts */
+    public record PluginFileSaved(PluginFile file, String revision, boolean restartRequired) {}
 
     /** Modrinth's hits for one query, filtered to the server's loader and Minecraft version. */
     public record PluginSearch(String service, String loader, String gameVersion, String query, List<PluginHit> hits) {}

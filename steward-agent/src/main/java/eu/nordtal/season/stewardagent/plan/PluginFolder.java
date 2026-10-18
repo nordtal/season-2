@@ -12,7 +12,7 @@ import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reads the data folder name of a jar from the {@code name:} of its descriptor.
+ * Reads the data folder name of a jar from its descriptor: Paper's {@code name:}, else Velocity's {@code "id"}.
  *
  * A regular expression reads the one top-level key, because a parser fails on a stray tab.
  */
@@ -23,6 +23,11 @@ public final class PluginFolder {
 
     private static final Pattern NAME =
             Pattern.compile("^name:\\s*[\"']?([A-Za-z0-9_.-]+)[\"']?\\s*(?:#.*)?$", Pattern.MULTILINE);
+
+    private static final String VELOCITY_DESCRIPTOR = "velocity-plugin.json";
+
+    /** Velocity allows only these characters in an id, and names the data folder after it. */
+    private static final Pattern VELOCITY_ID = Pattern.compile("\"id\"\\s*:\\s*\"([a-z][a-z0-9_-]{0,63})\"");
 
     private PluginFolder() {}
 
@@ -38,17 +43,24 @@ public final class PluginFolder {
                 if (entry == null) {
                     continue;
                 }
-                try (InputStream in = zip.getInputStream(entry)) {
-                    final Matcher matcher = NAME.matcher(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-                    if (matcher.find()) {
-                        return matcher.group(1);
-                    }
+                final String name = first(zip, entry, NAME);
+                if (name != null) {
+                    return name;
                 }
             }
-            return null;
+            final ZipEntry velocity = zip.getEntry(VELOCITY_DESCRIPTOR);
+            return velocity == null ? null : first(zip, velocity, VELOCITY_ID);
         } catch (final IOException | RuntimeException unreadable) {
             // Swallowed: one bad jar must not empty the caller's list.
             return null;
+        }
+    }
+
+    private static @Nullable String first(final ZipFile zip, final ZipEntry entry, final Pattern pattern)
+            throws IOException {
+        try (InputStream in = zip.getInputStream(entry)) {
+            final Matcher matcher = pattern.matcher(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            return matcher.find() ? matcher.group(1) : null;
         }
     }
 }

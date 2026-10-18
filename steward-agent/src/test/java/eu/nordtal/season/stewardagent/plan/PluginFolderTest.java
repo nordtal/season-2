@@ -75,6 +75,22 @@ class PluginFolderTest {
     }
 
     @Test
+    void aVelocityJarsFolderIsItsId() throws IOException {
+        final Path path = jar(
+                "voicechat-velocity-2.6.18.jar",
+                Map.of(
+                        "velocity-plugin.json",
+                        "{\"id\":\"voicechat\",\"name\":\"Simple Voice Chat\",\"version\":\"2.6.18\"}"));
+
+        assertEquals("voicechat", PluginFolder.nameIn(path));
+    }
+
+    @Test
+    void aVelocityIdThatVelocityWouldRefuseIsNoFolder() throws IOException {
+        assertNull(PluginFolder.nameIn(jar("odd-1.0.0.jar", Map.of("velocity-plugin.json", "{\"id\":\"../world\"}"))));
+    }
+
+    @Test
     void aJarWithNoDescriptorAnswersNullAndNullMustNeverBecomeADeletion() throws IOException {
         assertNull(PluginFolder.nameIn(jar("empty-1.0.0.jar", Map.of("META-INF/MANIFEST.MF", "\n"))));
     }

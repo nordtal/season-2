@@ -15,7 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
-/** Forwards the plugin list, the search and the install of one server to steward-agent with the asker. */
+/** Forwards the plugins of one server, their search, install and config files to steward-agent with the asker. */
 public final class PluginsForward {
 
     private final AgentClient agent;
@@ -60,6 +60,50 @@ public final class PluginsForward {
         }
         Journaling.line(ctx, new JournalDetail.PluginRemoved(written.id(), service(ctx), artifact));
         ctx.status(202).json(new RemovalAsked(written.id(), written.kind(), artifact));
+    }
+
+    void files(final Context ctx) {
+        ctx.json(agent.pluginFiles(service(ctx)));
+    }
+
+    void file(final Context ctx) {
+        ctx.json(agent.pluginFile(service(ctx), plugin(ctx), path(ctx)));
+    }
+
+    /** The body of a plugin file's save: the whole text and the revision it was edited from. */
+    public record PluginFileEdit(String text, String revision) {}
+
+    /**
+     * {@code PUT /api/services/{name}/plugin-file} writes the file and nothing else.
+     *
+     * The server reads it when it next starts. A file that changed on disk since {@code revision} is a 409.
+     */
+    AgentWire.PluginFileSaved save(final Context ctx, final Actor by) {
+        final PluginFileEdit edit = ctx.bodyAsClass(PluginFileEdit.class);
+        // Gson leaves a missing field null whatever the record declares.
+        if (edit == null || edit.text() == null || edit.revision() == null) {
+            throw new BadRequestResponse("the body is the file's text and the revision it was edited from");
+        }
+        final AgentWire.PluginFileSaved saved = agent.savePluginFile(
+                service(ctx), plugin(ctx), path(ctx), new AgentWire.PluginFileSave(edit.text(), edit.revision(), by));
+        ctx.json(saved);
+        return saved;
+    }
+
+    private static String plugin(final Context ctx) {
+        return required(ctx, "plugin");
+    }
+
+    private static String path(final Context ctx) {
+        return required(ctx, "path");
+    }
+
+    private static String required(final Context ctx, final String name) {
+        final String value = ctx.queryParam(name);
+        if (value == null || value.isBlank()) {
+            throw new BadRequestResponse("?" + name + "= names the file");
+        }
+        return value;
     }
 
     private static String service(final Context ctx) {

@@ -158,6 +158,21 @@ public final class Routes {
                 },
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.ADD_PLUGIN));
+        config.routes.get(
+                "/api/services/{name}/plugin-files", ctx -> api.plugins().files(ctx), Gate.KEY_HELD);
+        config.routes.get(
+                "/api/services/{name}/plugin-file", ctx -> api.plugins().file(ctx), Gate.KEY_HELD);
+        // A file is saved like a settings group, and the journal names it by its folder and path.
+        config.routes.put(
+                "/api/services/{name}/plugin-file",
+                ctx -> {
+                    final AgentWire.PluginFile file =
+                            api.plugins().save(ctx, caller.actor(ctx)).file();
+                    Journaling.line(
+                            ctx, new JournalDetail.SettingsSaved(file.service(), file.plugin() + "/" + file.path()));
+                },
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_SETTINGS));
         config.routes.delete(
                 "/api/services/{name}/plugins/{artifact}",
                 ctx -> api.plugins().remove(ctx, caller.actor(ctx)),

@@ -119,6 +119,17 @@ Admins can override it like any other text.
 - A plugin's descriptor may name a custom editor per group. The registry draws it only when the editor
   reads the document it received. An editor knows its structure, never a label or a reference.
 
+### Plugin config files
+
+The text config files of the plugins that are not Nordtal's stay files on the server's volume.
+steward-agent lists, reads and writes them (`plan.PluginFiles`); `/api/services/{name}/plugin-file`
+forwards the asker.
+
+- A request reaches only a file the listing found. A path from the request is never joined.
+- A save writes the whole text and refuses with 409 when the file changed since its revision. It
+  restarts nothing; the server reads the file when it next starts. The journal records it as a settings
+  save.
+
 ### The Translations page
 
 `/translations` edits every text of every bundle, Steward's own included, from `GET /api/messages`.

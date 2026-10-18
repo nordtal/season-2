@@ -491,6 +491,10 @@ public interface SmpMessages {
 
             @Name("None")
             MessageRef none();
+
+            @Name("NPC name")
+            @Shown(Display.HOLOGRAM)
+            MessageRef npcName();
         }
 
         Handin handin();

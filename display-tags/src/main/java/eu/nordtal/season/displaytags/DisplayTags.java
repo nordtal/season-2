@@ -2,6 +2,7 @@ package eu.nordtal.season.displaytags;
 
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
+import eu.nordtal.season.displaytags.nametag.EntityNameTag;
 import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.displaytags.nametag.NameTagManagerImpl;
 import eu.nordtal.season.displaytags.nametag.NameTagScheduler;
@@ -69,6 +70,10 @@ public final class DisplayTags {
         this.nameTagScheduler.end();
         // A display exists on the client only, so a viewer who never reconnects would keep seeing it.
         this.removeAllNameTags();
+        // A reload keeps them: they read the settings on every tick.
+        for (final EntityNameTag tag : List.copyOf(this.nameTagManager.getAllEntityNameTags())) {
+            this.nameTagManager.removeEntityNameTag(tag.getEntity());
+        }
         running = null;
     }
 

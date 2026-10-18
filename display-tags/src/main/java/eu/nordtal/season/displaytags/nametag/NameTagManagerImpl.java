@@ -5,11 +5,15 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import net.kyori.adventure.text.Component;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 public class NameTagManagerImpl implements NameTagManager {
     private final Map<UUID, PlayerNameTag> tags = new ConcurrentHashMap<>();
+    private final Map<UUID, EntityNameTag> entityTags = new ConcurrentHashMap<>();
 
     @Override
     public PlayerNameTag createNameTag(final Player player) {
@@ -50,5 +54,26 @@ public class NameTagManagerImpl implements NameTagManager {
         if (tag instanceof PlayerNameTagImpl impl) {
             impl.restoreVanillaNameTags();
         }
+    }
+
+    @Override
+    public EntityNameTag createEntityNameTag(final Entity entity, final Function<UUID, Component> text) {
+        this.removeEntityNameTag(entity);
+        final EntityNameTag tag = new EntityNameTag(entity, text);
+        this.entityTags.put(entity.getUniqueId(), tag);
+        return tag;
+    }
+
+    @Override
+    public void removeEntityNameTag(final Entity entity) {
+        final EntityNameTag tag = this.entityTags.remove(entity.getUniqueId());
+        if (tag != null) {
+            tag.despawnForViewers();
+        }
+    }
+
+    @Override
+    public Collection<EntityNameTag> getAllEntityNameTags() {
+        return Collections.unmodifiableCollection(this.entityTags.values());
     }
 }

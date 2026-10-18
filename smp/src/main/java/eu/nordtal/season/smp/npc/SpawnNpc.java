@@ -1,10 +1,17 @@
 package eu.nordtal.season.smp.npc;
 
+import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
+
+import eu.nordtal.season.displaytags.nametag.NameTagManager;
+import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.config.NpcSpec;
 import eu.nordtal.season.smp.config.SmpSpec;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -18,11 +25,20 @@ public final class SpawnNpc {
 
     private final Plugin plugin;
     private final SmpSpec config;
+    private final NameTagManager nameTags;
+    private final Function<UUID, Component> name;
     private @Nullable UUID spawned;
 
-    public SpawnNpc(final Plugin plugin, final SmpSpec config) {
+    public SpawnNpc(
+            final Plugin plugin,
+            final SmpSpec config,
+            final NameTagManager nameTags,
+            final Identities identities,
+            final MessageRenderer renderer) {
         this.plugin = plugin;
         this.config = config;
+        this.nameTags = nameTags;
+        this.name = name(identities::languageOf, renderer);
     }
 
     /** Removes the old NPC and spawns a new one at the configured spot. Main thread only. */
@@ -46,15 +62,13 @@ public final class SpawnNpc {
             mannequin.setSilent(true);
             // Paper discards a non-persistent entity on chunk unload.
             mannequin.setPersistent(true);
-            if (spec.name() != null && !spec.name().isBlank()) {
-                mannequin.customName(Component.text(spec.name()));
-                mannequin.setCustomNameVisible(true);
-            }
             // Removes the default description, the text "NPC".
             mannequin.setDescription(null);
             applySkin(mannequin, spec.skinName());
         });
         spawned = figure.getUniqueId();
+        // A mannequin's own name is the same for every viewer, so the name tag draws it in each viewer's language.
+        nameTags.createEntityNameTag(figure, name);
     }
 
     /** Sets the skin of the player named {@code skinName}. It logs a warning if that fails. */
@@ -80,12 +94,19 @@ public final class SpawnNpc {
         world.getNearbyEntitiesByType(Mannequin.class, at, 4.0).forEach(org.bukkit.entity.Entity::remove);
     }
 
+    /** Renders the NPC's name in the language of each viewer. */
+    static Function<UUID, Component> name(final Function<UUID, Locale> languageOf, final MessageRenderer renderer) {
+        return viewer -> renderer.format(
+                languageOf.apply(viewer), MESSAGES.smp().objectives().npcName());
+    }
+
     public void remove() {
         if (spawned == null) {
             return;
         }
         final org.bukkit.entity.Entity entity = Bukkit.getEntity(spawned);
         if (entity != null) {
+            nameTags.removeEntityNameTag(entity);
             entity.remove();
         }
         spawned = null;

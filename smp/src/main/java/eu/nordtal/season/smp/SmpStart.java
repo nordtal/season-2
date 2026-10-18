@@ -229,7 +229,8 @@ final class SmpStart {
 
     static SpawnNpc wireNpc(final SmpPlugin plugin, final SmpSpec config) {
         // A {@code HAND_IN} objective is fulfilled only through this NPC.
-        final SpawnNpc npc = new SpawnNpc(plugin, config);
+        final SpawnNpc npc = new SpawnNpc(
+                plugin, config, plugin.nameTags.getNameTagManager(), plugin.identities(), plugin.renderer());
         npc.spawn();
         plugin.getServer()
                 .getPluginManager()

@@ -1,7 +1,8 @@
 # display-tags
 
-`display-tags` draws the name tag of every player as a packet-only text display. smp starts it with
-its `nametags` settings group. `DisplayTags` runs it, and other code uses the tags through
+`display-tags` draws the name tag of every player as a packet-only text display, and of any other
+entity given one through `NameTagManager.createEntityNameTag`, whose text is rendered for each
+viewer. smp starts it with its `nametags` settings group. `DisplayTags` runs it, and other code uses the tags through
 `NameTagManager` and the `NameTag*Event`s. smp writes the text of a tag, and the settings shape
 only its look.
 

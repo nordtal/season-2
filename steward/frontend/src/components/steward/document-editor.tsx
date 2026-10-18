@@ -8,6 +8,7 @@ import type {
   DocumentLineStyle,
   DocumentPart,
   DocumentPartType,
+  DocumentValue,
   DocumentView,
 } from "@/lib/api"
 import {
@@ -44,7 +45,7 @@ import {
   WhenField,
   type Context,
 } from "@/components/steward/document-fields"
-import { DiscordDocumentPreview, PAUSE_MS } from "@/components/steward/message-editor/document-preview"
+import { DocumentPreview, PAUSE_MS } from "@/components/steward/message-editor/document-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -52,7 +53,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /** The parts an admin adds; a block per language comes only with its slot. */
-const ADDED: Exclude<DocumentPartType, "LANGUAGES">[] = [
+const ADDED: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">[] = [
   "CONTAINER",
   "TEXT",
   "SECTION",
@@ -65,8 +66,8 @@ const ADDED: Exclude<DocumentPartType, "LANGUAGES">[] = [
 const STYLES: DocumentLineStyle[] = ["TITLE", "HEADING"]
 
 /**
- * A Discord document's editor: every part of its structure with its texts in English and one more language, the count of
- * components and what a save would be refused for. A save is live at once.
+ * A document's editor: every part of its structure with its texts in English and one more language, a Discord
+ * document's count of components and what a save would be refused for. A save is live at once.
  */
 export function DocumentEditor({
   view,
@@ -122,7 +123,7 @@ export function DocumentEditor({
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
         <DocumentMarks view={view} />
-        {drawing.data ? (
+        {drawing.data && view.declaration.shape !== "MENU" ? (
           <Badge
             variant="outline"
             className={cn("shrink-0 tabular-nums", drawing.data.components > drawing.data.most && "text-destructive")}
@@ -202,7 +203,7 @@ function Outdated({ view, language }: { view: DocumentView; language: Language }
           <h4 className="text-xs font-medium text-muted-foreground">
             {t("steward.document-editor.version", { version })}
           </h4>
-          <DiscordDocumentPreview declaration={view.declaration} document={document} language={language} />
+          <DocumentPreview declaration={view.declaration} document={document} language={language} />
         </div>
       ))}
     </div>
@@ -300,6 +301,8 @@ function PartBody({
     case "LANGUAGES":
       return <Parts parts={part.parts ?? []} path={path} context={context} />
     case "TEXT":
+    case "ITEM":
+    case "LABEL":
       return <TextBlock part={part} context={context} set={set} />
     case "SECTION":
       return (
@@ -364,6 +367,9 @@ function TextBlock({
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
   const { view, writable } = context
+  const menu = part.type === "ITEM" || part.type === "LABEL"
+  // An item or label drawn once per entry also names the entry's values.
+  const entry = menu ? view.declaration.slots.find((slot) => slot.id === part.slot)?.values : undefined
   return (
     <>
       {(part.lines ?? []).map((line, index) => (
@@ -371,15 +377,19 @@ function TextBlock({
           key={index}
           line={line}
           context={context}
+          styled={!menu}
+          entry={entry}
           removable={(part.lines?.length ?? 0) > 1 && !(line.list && holdsRequired(view.declaration, [line.list]))}
           onLine={(next) => set((it) => withLine(it, index, next))}
         />
       ))}
-      <AddButton
-        label={t("steward.document-editor.add-line")}
-        disabled={!writable}
-        onPress={() => set((it) => ({ ...it, lines: [...(it.lines ?? []), { text: { [ENGLISH]: "" } }] }))}
-      />
+      {part.type === "LABEL" ? null : (
+        <AddButton
+          label={t("steward.document-editor.add-line")}
+          disabled={!writable}
+          onPress={() => set((it) => ({ ...it, lines: [...(it.lines ?? []), { text: { [ENGLISH]: "" } }] }))}
+        />
+      )}
     </>
   )
 }
@@ -387,22 +397,28 @@ function TextBlock({
 function LineEditor({
   line,
   context,
+  styled,
+  entry,
   removable,
   onLine,
 }: {
   line: DocumentLine
   context: Context
+  /** Whether the line offers a title or heading, which a menu's item or label does not draw. */
+  styled: boolean
+  entry: Record<string, DocumentValue> | undefined
   removable: boolean
   onLine: (line: DocumentLine | undefined) => void
 }) {
   const { view, writable } = context
-  const item = line.list ? view.declaration.slots.find((slot) => slot.id === line.list)?.values : undefined
+  const listed = line.list ? view.declaration.slots.find((slot) => slot.id === line.list)?.values : undefined
+  const item = entry || listed ? { ...entry, ...listed } : undefined
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex min-w-0 flex-wrap items-center gap-1">
         {line.list ? (
           <CodeMark slot={line.list} />
-        ) : (
+        ) : !styled ? null : (
           <Select
             value={line.style ?? "PLAIN"}
             disabled={!writable}
@@ -637,7 +653,8 @@ function AddPart({
 }) {
   const slots = inside ? [] : unplacedSlots(view.declaration, [])
   const missing = unplacedSlots(view.declaration, parts).filter((slot) => slots.some((each) => each.id === slot.id))
-  const kinds = inside ? ADDED.filter((type) => type !== "CONTAINER") : ADDED
+  // A menu holds its title, then only the items and labels the code places.
+  const kinds = view.declaration.shape === "MENU" ? [] : inside ? ADDED.filter((type) => type !== "CONTAINER") : ADDED
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>

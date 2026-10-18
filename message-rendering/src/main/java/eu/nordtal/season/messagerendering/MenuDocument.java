@@ -79,16 +79,24 @@ public final class MenuDocument {
      */
     public Drawn item(
             final String slot, final @Nullable Record entry, final Map<String, List<? extends Record>> lists) {
-        final Map<String, Object> own = entry == null ? Map.of() : Value.read(entry);
+        final Map<String, List<Map<String, Object>>> read = new LinkedHashMap<>();
+        lists.forEach(
+                (id, items) -> read.put(id, items.stream().map(Value::read).toList()));
+        return itemOf(slot, entry == null ? Map.of() : Value.read(entry), read);
+    }
+
+    /** Draws the item with its entry's values and each data list's items as values by name, as a preview fills them. */
+    public Drawn itemOf(
+            final String slot, final Map<String, Object> own, final Map<String, List<Map<String, Object>>> lists) {
         final List<Component> lines = new ArrayList<>();
         for (final Line line : shown(part(slot, Part.Type.ITEM), own)) {
             if (line.list() == null) {
                 lines.add(markup(line.text(), own));
                 continue;
             }
-            for (final Record item : lists.getOrDefault(line.list(), List.of())) {
+            for (final Map<String, Object> item : lists.getOrDefault(line.list(), List.of())) {
                 final Map<String, Object> both = new LinkedHashMap<>(own);
-                both.putAll(Value.read(item));
+                both.putAll(item);
                 lines.add(markup(line.text(), both));
             }
         }
@@ -103,7 +111,11 @@ public final class MenuDocument {
 
     /** Returns the label as plain text, which the window paints in its own font. */
     public String label(final String slot, final @Nullable Record entry) {
-        final Map<String, Object> own = entry == null ? Map.of() : Value.read(entry);
+        return labelOf(slot, entry == null ? Map.of() : Value.read(entry));
+    }
+
+    /** Paints the label with its entry's values by name, as a preview fills them. */
+    public String labelOf(final String slot, final Map<String, Object> own) {
         final List<Line> lines = shown(part(slot, Part.Type.LABEL), own);
         if (lines.isEmpty()) {
             return "";

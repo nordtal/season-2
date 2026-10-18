@@ -77,7 +77,7 @@ function inEnglish(english: string): DocumentText {
 }
 
 /** A new part of `type`, as the editor adds it before the admin fills it. */
-export function newPart(type: Exclude<DocumentPartType, "LANGUAGES">): DocumentPart {
+export function newPart(type: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">): DocumentPart {
   switch (type) {
     case "CONTAINER":
       return { type, parts: [newPart("TEXT")] }
@@ -126,6 +126,9 @@ export function slotPart(slot: DocumentSlot): DocumentPart {
       return { type: "TEXT", lines: [{ list: slot.id, text: inEnglish("") }] }
     case "LANGUAGES":
       return { type: "LANGUAGES", slot: slot.id, parts: [newPart("TEXT")] }
+    case "ITEM":
+    case "LABEL":
+      return { type: slot.type, slot: slot.id, lines: [{ text: inEnglish(slot.id) }] }
     default: {
       const exhaustive: never = slot.type
       throw new Error(`unreachable slot type: ${String(exhaustive)}`)

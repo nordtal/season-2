@@ -820,7 +820,7 @@
     "steward.document-editor.move-up": [["Move up"]],
     "steward.document-editor.option": [["Option line"]],
     "steward.document-editor.outdated": [["Release changed"]],
-    "steward.document-editor.part": [[{"c":"part","plural":false,"cases":{"container":["Container"],"text":["Text block"],"section":["Section"],"separator":["Separator"],"gallery":["Gallery"],"file":["File"],"row":["Buttons"],"languages":["Block per language"],"other":[{"v":"part"}]}}]],
+    "steward.document-editor.part": [[{"c":"part","plural":false,"cases":{"container":["Container"],"text":["Text block"],"section":["Section"],"separator":["Separator"],"gallery":["Gallery"],"file":["File"],"row":["Buttons"],"languages":["Block per language"],"item":["Item"],"label":["Label"],"other":[{"v":"part"}]}}]],
     "steward.document-editor.placeholder": [["Placeholder"]],
     "steward.document-editor.remove": [["Remove"]],
     "steward.document-editor.required": [["Required by the code"]],

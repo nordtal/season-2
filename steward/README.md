@@ -150,18 +150,20 @@ forwards the asker.
   message from the bot. A game place arrives on the server of the admin's linked player.
 - `PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
 
-### Discord documents
+### Documents
 
-`GET /api/documents` answers each packaged Discord document (`messages.DocumentsApi`) with its
+`GET /api/documents` answers each packaged document, a Discord message or a game menu, (`messages.DocumentsApi`) with its
 declaration, the services that ship it, its hash and the admin's document. The admin's document is
 carried over to the jar's declaration, and `adapted` lists what that changed. The answer also holds the
 network's languages, and each document says whether a release changed the packaged document after the
 admin saved. The Translations page shows each document as a preview and opens its editor in its card.
 `PUT /api/documents/{namespace}/{name}` saves the admin's document against the packaged hash and
 refuses one that `DocumentCheck` refuses; the bot follows the change and edits its managed messages
-at once. `POST /api/documents/render` draws a draft with the bot's own renderer from
-`discord-rendering`, every value at its declared example, and answers Discord's JSON, which the
-preview only draws, with the count of components and what a save would be refused for.
+at once. `POST /api/documents/render` draws a draft, every value at its declared example, and answers
+what a save would be refused for. A Discord document is drawn with the bot's own renderer from
+`discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A
+menu is drawn with the game's `MenuDocument` as its title, then each item's name and lore and each
+label, in MiniMessage.
 `GET /api/discord/channels` answers the live channels.
 
 `POST /api/document-images` stores a PNG, JPEG, GIF or WebP image of at most 8 MiB, and

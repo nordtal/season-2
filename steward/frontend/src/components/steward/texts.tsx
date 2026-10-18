@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/badge"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
 import { exampleOf } from "@/components/steward/message-editor/examples"
-import { DiscordDocumentPreview } from "@/components/steward/message-editor/document-preview"
+import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
 import { DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
@@ -393,12 +393,7 @@ function Card({
       >
         <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4">
           {[ENGLISH, ...(editing.beside ? [editing.beside] : [])].map((language) => (
-            <DiscordDocumentPreview
-              key={language}
-              declaration={card.view.declaration}
-              document={draft}
-              language={language}
-            />
+            <DocumentPreview key={language} declaration={card.view.declaration} document={draft} language={language} />
           ))}
         </div>
         <DocumentEditor
@@ -436,7 +431,7 @@ function Card({
       </div>
       <button type="button" aria-label={name} onClick={onOpen} className="min-w-0 text-left">
         {card.kind === "document" ? (
-          <DocumentPreview view={card.view} {...shared} />
+          <ShippedPreview view={card.view} {...shared} />
         ) : (
           <TextPreview entry={card.text.entry} {...shared} />
         )}
@@ -445,8 +440,8 @@ function Card({
   )
 }
 
-function DocumentPreview({ view, language }: { view: DocumentView; language?: Language }) {
-  return <DiscordDocumentPreview declaration={view.declaration} document={documentOf(view)} language={language} />
+function ShippedPreview({ view, language }: { view: DocumentView; language?: Language }) {
+  return <DocumentPreview declaration={view.declaration} document={documentOf(view)} language={language} />
 }
 
 /** A text of a bundle: its text in the first place it appears, as the editor's preview draws it. */

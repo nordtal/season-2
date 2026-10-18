@@ -55,7 +55,7 @@ class MisconfiguredGateTest {
     void theServerListTextIsRenderedWithItsTones() {
         final Component motd = gate.motd();
 
-        assertTrue(flatten(motd).contains("Misconfigured"), flatten(motd));
+        assertTrue(flatten(motd).contains("Settings are wrong"), flatten(motd));
         assertTrue(painted(motd), "the text's tones are lost when it is rendered as plain text first");
     }
 

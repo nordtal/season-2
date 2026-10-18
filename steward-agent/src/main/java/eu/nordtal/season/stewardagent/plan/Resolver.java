@@ -45,7 +45,6 @@ public final class Resolver {
     /** Where the proxy's pack is read; {@code null} without a database. */
     private final @Nullable SettingStore settings;
 
-    /** The servers as compose.yml's labels describe them, before the added plugins are folded in. */
     private final List<Topology.Service> servers;
 
     /**
@@ -77,7 +76,7 @@ public final class Resolver {
     public UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, MessageRef> failures = new HashMap<>();
-        // Apart from `failures`: both mean no file, only a failure makes the report untrustworthy.
+        // `failures` stays apart: only a failure makes the report untrustworthy.
         final Map<String, MessageRef> unsupported = new HashMap<>();
         final List<MessageRef> notes = new ArrayList<>();
         // Season jars our release answered for without a file; the reason is an answer, not an outage.
@@ -86,7 +85,7 @@ public final class Resolver {
         final GitHubReleases.Release season = resolveSeason(newest, failures, unreleased);
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
-        // The same Modrinth project asked again for the Velocity build; the loader tells the two jars apart.
+        // The loader tells the Velocity jar from the other jar of the same Modrinth project.
         resolveModrinth(
                 newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
         resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
@@ -123,7 +122,9 @@ public final class Resolver {
         }
     }
 
-    /** The fixed topology plus the plugins added in the interface; an unreadable database costs only the added rows. */
+    /**
+     * Merges the plugins added in the interface into the fixed topology. An unreadable database loses only those.
+     */
     private List<Topology.Service> mergeAddedPlugins(
             final Map<String, RemoteFile> newest,
             final Map<String, MessageRef> failures,
@@ -150,7 +151,7 @@ public final class Resolver {
         for (final Topology.Service service : services) {
             final Installation installed = scan(service.name(), root.resolve(service.name()));
 
-            // Every jar the topology accounts for on this service, by filename prefix; the rest is unclaimed.
+            // The jars the topology accounts for, by filename prefix. The rest is unclaimed.
             final Set<String> claimed = new HashSet<>();
 
             final List<String> artifacts = new ArrayList<>(service.plugins());
@@ -171,7 +172,7 @@ public final class Resolver {
         }
     }
 
-    /** Asks Modrinth once per artefact id for every added plugin, so one slug on two loaders is two questions. */
+    /** Asks Modrinth once per artefact id for every added plugin. */
     private void resolveAdded(
             final Map<String, RemoteFile> newest,
             final Map<String, MessageRef> failures,
@@ -184,7 +185,7 @@ public final class Resolver {
                     continue;
                 }
                 final String artifact = Topology.addedArtifact(plugin.artifact(), service.kind());
-                // Already answered: one plugin on two services of one kind is one question; the fixed row wins.
+                // One plugin on two services of one kind is one question, and the fixed row wins.
                 if (newest.containsKey(artifact)
                         || unsupported.containsKey(artifact)
                         || failures.containsKey(artifact)) {
@@ -209,7 +210,7 @@ public final class Resolver {
         try {
             release = github.latest(config.seasonRepo());
         } catch (final IOException failed) {
-            // Our own jars and the pack come from this one call, so one reason covers every row.
+            // One call answers for our jars and the pack, so one reason covers every row.
             final MessageRef why =
                     TEXTS.report().releaseUnread(config.seasonRepo(), String.valueOf(failed.getMessage()));
             log.warn("Season release unresolved - {}", failed.getMessage());
@@ -250,7 +251,6 @@ public final class Resolver {
         return release;
     }
 
-    /** The pack zip and the SHA-1 asset beside it, which is read rather than computed. */
     private void resolvePackAsset(
             final GitHubReleases.Release release,
             final Map<String, RemoteFile> newest,
@@ -294,7 +294,7 @@ public final class Resolver {
     }
 
     /**
-     * One Modrinth-hosted plugin; {@link Modrinth.Unsupported} is not an outage, since a failure row skips the service.
+     * Resolves one Modrinth-hosted plugin. {@link Modrinth.Unsupported} is no outage: a failure row skips the service.
      */
     private void resolveModrinth(
             final Map<String, RemoteFile> newest,
@@ -317,7 +317,7 @@ public final class Resolver {
         }
     }
 
-    /** The newest stable build of {@link Platform#MINECRAFT}, an exact version rather than a family. */
+    /** Resolves the newest stable build of {@link Platform#MINECRAFT}. */
     private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, MessageRef> failures) {
         try {
             newest.put(Topology.PAPER, fill.newestStable(Topology.PAPER, Platform.MINECRAFT));
@@ -425,7 +425,7 @@ public final class Resolver {
         }
 
         if (wanted == null) {
-            // A release without a pack keeps the installed one, like a season jar; only an empty proxy fails.
+            // A release without a pack keeps the installed one. Only an empty proxy fails.
             return state.present()
                     ? new Change(
                             Topology.PROXY,
@@ -476,7 +476,7 @@ public final class Resolver {
         if (version != null) {
             return version;
         }
-        // A zip, not a jar (nordtal-resource-pack-0.2.0.zip), so the same rule is applied by hand.
+        // The pack is a zip, so the jar rule applies by hand.
         final int dot = fileName.lastIndexOf('.');
         final String stem = dot < 0 ? fileName : fileName.substring(0, dot);
         final int dash = stem.lastIndexOf('-');

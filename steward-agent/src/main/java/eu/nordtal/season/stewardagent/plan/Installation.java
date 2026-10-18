@@ -11,19 +11,17 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What is lying in one service's volume: the jars in {@code plugins/} and the server jar in {@code .server/}.
+ * The jars in {@code plugins/} and {@code .server/} of the volume of one service.
  *
- * Disk is the only truth. A missing mount is reported as {@link #absent}, never created or read as empty.
+ * A missing mount is reported as {@link #absent}, never created or read as empty.
  */
 public record Installation(String service, Path directory, boolean mounted, List<Jar> plugins, List<Jar> serverJars) {
 
-    /** Where a service keeps its plugin jars, relative to the volume root. */
     public static final String PLUGINS = "plugins";
 
     /** Where {@code entrypoint.sh} caches the server jar. */
     public static final String SERVER_CACHE = ".server";
 
-    /** One jar on disk. */
     public record Jar(Path path, String fileName) {
 
         public @Nullable String prefix() {
@@ -54,7 +52,6 @@ public record Installation(String service, Path directory, boolean mounted, List
         return prefix == null ? null : withPrefix(prefix);
     }
 
-    /** The installed jar whose filename prefix is {@code prefix}, or {@code null}. */
     public @Nullable Jar withPrefix(final String prefix) {
         for (final Jar jar : plugins) {
             if (prefix.equals(jar.prefix())) {
@@ -77,7 +74,7 @@ public record Installation(String service, Path directory, boolean mounted, List
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
             for (final Path entry : entries) {
                 final String name = entry.getFileName().toString();
-                // .partial files are an interrupted download, not jars.
+                // .partial files are an interrupted download.
                 if (JarName.isJar(name) && Files.isRegularFile(entry)) {
                     jars.add(new Jar(entry, name));
                 }

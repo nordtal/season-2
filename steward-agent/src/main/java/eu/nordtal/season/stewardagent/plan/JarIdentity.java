@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Which Modrinth project a jar on the disk came from, told by its SHA-512.
+ * Finds the Modrinth project of a jar on disk by its SHA-512.
  *
  * Hashes and projects are cached, names and icons for a day; an unreachable Modrinth only leaves a jar unnamed.
  */
@@ -88,7 +88,7 @@ final class JarIdentity {
     /**
      * Name and icon of each of these Modrinth projects, keyed by id, from the same day-long cache.
      *
-     * Never throws: an id Modrinth could not be asked about is missing from the answer.
+     * An id that could not be asked is missing from the answer.
      */
     Map<String, Modrinth.Project> projects(final java.util.Collection<String> ids) {
         final Instant now = clock.get();
@@ -105,7 +105,7 @@ final class JarIdentity {
                     projects.put(project.projectId(), new Kept(project, now));
                 }
             } catch (final IOException unreachable) {
-                // A name that is a day old is still the name; only what was never fetched is lost.
+                // A cached name that is a day old stays valid. Only a project never fetched is lost.
                 log.warn("Could not read {} Modrinth project(s): {}", stale.size(), unreachable.getMessage());
             }
         }

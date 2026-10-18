@@ -6,12 +6,11 @@ import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.List;
 
-/** The whole resolve, flattened for the updates page; every row is carried with its status. */
+/** The whole resolve for the updates page, every row with its status. */
 public final class PlanView {
 
     private PlanView() {}
 
-    /** Every row with its status, so outdated and unresolved never look alike. */
     public static AgentWire.Resolve of(final UpdatePlan plan) {
         final List<AgentWire.ResolvedChange> changes = plan.changes().stream()
                 .map(change -> new AgentWire.ResolvedChange(
@@ -20,7 +19,7 @@ public final class PlanView {
                         change.status().name(),
                         change.status().isWork(),
                         change.status().isFailure(),
-                        // Work a run would not do: another row of the same service failed to check, so it is skipped.
+                        // Another row of the same service failed to check, so a run skips this one.
                         change.status().isWork() && change.service() != null && plan.blocker(change.service()) != null,
                         change.installed(),
                         // Version for a person, filename for the comparison, since some files carry a suffix.
@@ -35,14 +34,13 @@ public final class PlanView {
                 plan.hasWork(),
                 plan.hasFailures(),
                 changes,
-                // The notes a run would write, so the page draws a plan's with the run page's view.
+                // The page draws the notes with the view of the run page.
                 PlanReport.of(plan).notes().stream()
                         .map(note -> new AgentWire.Note(
                                 note.step().name(), note.outcome().name(), note.service(), wire(note.what())))
                         .toList());
     }
 
-    /** A message as the wire carries it: each value typed, as the message system writes it. */
     static AgentWire.Message wire(final MessageRef message) {
         return new AgentWire.Message(
                 message.key(),

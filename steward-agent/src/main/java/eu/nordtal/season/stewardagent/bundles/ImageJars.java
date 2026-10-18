@@ -11,25 +11,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The jar a service of ours runs, which is in its image and nowhere on a volume, for a bundle with no plugins folder.
+ * Finds the jar that a service of ours runs, for a bundle with no plugins folder. The jar is in the image.
  */
 @FunctionalInterface
 public interface ImageJars {
 
-    /** Where every image of ours puts the one jar it runs; deploy/jvm/Dockerfile copies it there. */
+    /** Where every image of ours puts its jar. {@code deploy/jvm/Dockerfile} copies it there. */
     String BAKED_JAR = "/app/app.jar";
 
-    /** Finds nothing, for a caller that only reads the configs mount. */
     ImageJars NONE = service -> null;
 
-    /** A local copy of {@code service}'s jar, or {@code null} when it has none or no container of it runs. */
     @Nullable
     Path jarOf(String service);
 
     /**
      * Copies the jar out of the service's running container, once per image, into {@code cache}.
      *
-     * The image id names the copy, so a new release is a new file and an old copy is never read for it.
+     * The image id names the copy, so a new release is a new file.
      */
     static ImageJars fromContainers(final Docker docker, final String project, final Path cache) {
         final Logger log = LoggerFactory.getLogger(ImageJars.class);
@@ -51,7 +49,7 @@ public interface ImageJars {
                 docker.copyOut(container.id(), BAKED_JAR, copy);
                 return copy;
             } catch (final IOException | DockerException failed) {
-                // A Minecraft service has no baked jar; its bundles are found in its plugins folder instead.
+                // A Minecraft service has no baked jar. Its bundles are in its plugins folder.
                 log.debug("{} has no {} to read bundles from: {}", service, BAKED_JAR, failed.getMessage());
                 return null;
             }

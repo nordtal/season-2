@@ -16,7 +16,6 @@ public final class BundleRoutes {
 
     private final Supplier<List<ServiceJar>> jars;
 
-    /** @param jars every jar of ours on every service, found the way the descriptors are */
     public BundleRoutes(final Supplier<List<ServiceJar>> jars) {
         this.jars = jars;
     }

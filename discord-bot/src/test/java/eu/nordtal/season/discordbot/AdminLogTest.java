@@ -18,14 +18,12 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.LinkFlow;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
@@ -35,10 +33,7 @@ import org.junit.jupiter.api.Test;
 /** The bot raises alerts as rows, draws the alerts that steward routes back and posts journal lines as cards. */
 class AdminLogTest {
 
-    private static final LayoutRenderer ADMIN = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load(
-                    AdminLogTest.class.getClassLoader(), List.of("messages/access", "messages/admin"), Locale.ENGLISH)),
-            StoredLayoutsStandIn.none());
+    private static final DocumentRenderer ADMIN = StoredDocumentsStandIn.renderer();
 
     private static final Alert DM = new Alert(
             AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), "/access");
@@ -127,7 +122,7 @@ class AdminLogTest {
 
     @Test
     void aJournalLineIsItsActionTheLineAndWhoWasInvolved() {
-        final LayoutRenderer.Drawn card = AdminLog.card(
+        final DocumentRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 new AuditLine(
                         JournalAction.GRANT_ACCESS,
@@ -146,7 +141,7 @@ class AdminLogTest {
 
     @Test
     void aValueInAJournalLineIsEscapedNeverMarkdown() {
-        final LayoutRenderer.Drawn card = AdminLog.card(
+        final DocumentRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 AuditLine.of(
                         JournalAction.REGISTER_KEY,
@@ -161,7 +156,7 @@ class AdminLogTest {
 
     @Test
     void aRoutedAlertIsItsMentionsMarkTitleLinesAndLinkWithEveryValueEscaped() {
-        final LayoutRenderer.Drawn card = AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000002"))));
+        final DocumentRenderer.Drawn card = AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000002"))));
 
         assertEquals("""
                 <@400000000000000002>
@@ -185,7 +180,7 @@ class AdminLogTest {
 
     @Test
     void aBookedPaymentIsDrawnFromTheLineTheBookingWroteWithItsReferenceEscaped() {
-        final LayoutRenderer.Drawn card = AdminLog.card(
+        final DocumentRenderer.Drawn card = AdminLog.card(
                 ADMIN,
                 AuditLine.about(
                         JournalAction.SETTLE,

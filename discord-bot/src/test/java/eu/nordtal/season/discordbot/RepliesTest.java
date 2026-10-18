@@ -1,26 +1,20 @@
 package eu.nordtal.season.discordbot;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import eu.nordtal.season.messages.Messages;
 import java.util.List;
 import java.util.Locale;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.junit.jupiter.api.Test;
 
-/** A reply to one text is one text block filled with the values of the text. */
+/** A reply is its document: here one text block. */
 class RepliesTest {
 
-    private static final LayoutRenderer RENDERER = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN)),
-            StoredLayoutsStandIn.none());
+    private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
 
     @Test
     void aReplyIsItsTextAsOneTextBlock() {
-        final LayoutRenderer.Drawn drawn =
-                RENDERER.reply(Locale.ENGLISH, MESSAGES.unlink().success());
+        final DocumentRenderer.Drawn drawn = RENDERER.reply(Locale.ENGLISH, Replies.UNLINK_SUCCESS);
 
         assertEquals(
                 List.of("Your Minecraft account is unlinked."),
@@ -30,18 +24,13 @@ class RepliesTest {
     }
 
     @Test
-    void aReplyIsFilledWithItsTextsValues() {
+    void aReplyIsFilledWithItsValues() {
         assertEquals(
                 "The payment link is still missing. Your reference is **NTABC123**.",
-                RENDERER.reply(Locale.ENGLISH, MESSAGES.purchase().linkSection().slow("NTABC123"))
+                RENDERER.reply(
+                                Locale.ENGLISH,
+                                new DocumentRenderer.Reply<>(Replies.PURCHASE_SLOW, new Replies.Reference("NTABC123")))
                         .text()
                         .substring(0, 66));
-    }
-
-    @Test
-    void aTextNoReplyShowsIsRefused() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> RENDERER.reply(Locale.ENGLISH, MESSAGES.link().title()));
     }
 }

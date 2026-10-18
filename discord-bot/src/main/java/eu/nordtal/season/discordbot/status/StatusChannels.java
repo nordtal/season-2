@@ -1,7 +1,5 @@
 package eu.nordtal.season.discordbot.status;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.time.Coalescing;
 import eu.nordtal.season.common.time.Scheduler;
@@ -10,9 +8,12 @@ import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.phase.PhaseDirectory;
-import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.announce.Announcements;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,9 +44,16 @@ public final class StatusChannels {
     /** The notification channels that change a name: the phase and the hunger games. */
     static final Set<Channel> CHANNELS = EnumSet.of(Channel.PHASE, Channel.HUNGER_GAMES);
 
+    record Phase(
+            @Example("smp") SeasonPhase phase,
+            @Example("pre-event") SeasonPhase previous) {}
+
+    static final DocumentSpec<Phase> ANNOUNCE =
+            DocumentSpec.plain(StoredDocuments.NAMESPACE, "announce-phase", "Announcements", Phase.class);
+
     private final JDA jda;
     private final GuildLanguages languages;
-    private final DiscordRenderer messages;
+    private final DocumentRenderer documents;
     private final PhaseDirectory phases;
     private final SnapshotDirectory snapshots;
     private final Clock clock;
@@ -56,11 +64,11 @@ public final class StatusChannels {
     public StatusChannels(
             final JDA jda,
             final GuildLanguages languages,
-            final DiscordRenderer messages,
+            final DocumentRenderer documents,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
             final Clock clock) {
-        this(jda, languages, messages, phases, snapshots, clock, null);
+        this(jda, languages, documents, phases, snapshots, clock, null);
     }
 
     /**
@@ -71,14 +79,14 @@ public final class StatusChannels {
     public StatusChannels(
             final JDA jda,
             final GuildLanguages languages,
-            final DiscordRenderer messages,
+            final DocumentRenderer documents,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
             final Clock clock,
             final @Nullable Announcements announcements) {
         this.jda = jda;
         this.languages = languages;
-        this.messages = messages;
+        this.documents = documents;
         this.phases = phases;
         this.snapshots = snapshots;
         this.clock = clock;
@@ -131,7 +139,7 @@ public final class StatusChannels {
         final Instant now = clock.instant();
 
         for (final GuildLanguages.Language language : configured) {
-            rename(language, StatusName.render(messages, language.locale(), phase, snapshot, launch, now), now);
+            rename(language, StatusName.render(documents, language.locale(), phase, snapshot, launch, now), now);
         }
     }
 
@@ -146,7 +154,7 @@ public final class StatusChannels {
         if (announcements == null || previous == null || previous == phase) {
             return;
         }
-        announcements.postAll(MESSAGES.announce().phase(phase, previous));
+        announcements.postAll(locale -> documents.plain(ANNOUNCE, new Phase(phase, previous), locale));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {

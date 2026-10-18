@@ -7,9 +7,10 @@ import { Translations } from "@/pages/translations"
 import type { Opened } from "@/components/steward/texts"
 import type {
   CommandRun,
-  Layout,
-  Layouts,
-  LayoutView,
+  Document,
+  DocumentDeclaration,
+  DocumentList,
+  DocumentView,
   MessageEntry,
   MessageFallback,
   MessageProblem,
@@ -76,37 +77,24 @@ export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}):
   return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
-/**
- * A declared Discord layout of the access bundle that shows `shows`. Without parts it draws each of them as a line of one container.
- */
-export function view(over: Partial<Layout> & { name: string }, shows: string[]): LayoutView {
-  const layout: Layout = {
-    bundle: "access",
-    area: "Contribution",
-    surface: "DISCORD",
-    elements: [],
-    parts: [{ type: "CONTAINER", accent: "#4a63d8", parts: [{ type: "TEXT", lines: shows.map((key) => ({ key })) }] }],
-    ...over,
-  }
+/** A Discord document of the bot, a message of the area Contribution unless `over` says otherwise. */
+export function view(over: Partial<DocumentDeclaration> & { name: string }, document: Document): DocumentView {
   return {
-    entry: {
-      layout,
-      values: { values: {}, roles: [], actions: [], markup: false, limit: 0, examples: {}, oneLine: false },
-      shows,
-    },
+    declaration: { namespace: "discord", area: "Contribution", shape: "MESSAGE", values: {}, slots: [], ...over },
+    services: ["discord-bot"],
+    packaged: document,
     hash: "packaged",
     adapted: [],
-    fallbacks: [],
   }
 }
 
-export function layouts(views: LayoutView[], over: Partial<Layouts> = {}): Layouts {
-  return { writable: true, layouts: views, buildingBlocks: {}, languages: ["en"], tiers: [], ...over }
+export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
+  return { documents: views, languages: ["en"], tiers: [], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
 export type Around = {
-  layouts?: Layouts
+  documents?: DocumentList
   fallbacks?: MessageFallback[]
   check?: (text: string) => MessageProblem[]
   /** Answers a preview's body with the request's name. */
@@ -126,7 +114,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
       return json(saved)
     }
     if (url === "/api/messages") return json(texts)
-    if (url === "/api/layouts") return json(around.layouts ?? layouts([]))
+    if (url === "/api/documents") return json(around.documents ?? documents([]))
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})
     if (url === "/api/message-fallbacks") return json(around.fallbacks ?? [])
@@ -161,7 +149,7 @@ export async function open(label: string | RegExp) {
   fireEvent.click(await screen.findByRole("button", { name: label }))
 }
 
-/** Opens the card `name` names; an open layout goes back to the list first. */
+/** Opens the card `name` names; an open document or text goes back to the list first. */
 export async function openKey(name: string) {
   const back = screen.queryByRole("button", { name: "Translations" })
   if (back) fireEvent.click(back)

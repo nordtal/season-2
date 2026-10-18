@@ -1,21 +1,16 @@
 package eu.nordtal.season.discordbot.access.discord;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.StoredLayouts;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.dv8tion.jda.api.JDA;
@@ -23,41 +18,25 @@ import org.jdbi.v3.core.Jdbi;
 
 public final class ManagedMessages {
 
-    static final Layout CONTRIBUTION = Layout.discord(
-            "access",
+    /** @param amount the donation that gives the donor role */
+    record Contribution(Money amount) {}
+
+    record Tier(@Example("30") long days, Money price) {}
+
+    static final DocumentSpec<Contribution> CONTRIBUTION = DocumentSpec.message(
+            StoredDocuments.NAMESPACE,
             "contribution",
             "Contribution",
-            List.of(
-                    Element.list("tiers", "access/contribution.tier-line"),
-                    Element.button("buy", "access/contribution.button")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(Line.title("access/contribution.title")),
-                    Part.text(Line.heading("access/contribution.prices"), Line.list("tiers")),
-                    Part.text(
-                            Line.heading("access/contribution.donation-heading"),
-                            Line.text("access/contribution.donation")),
-                    Part.text(
-                            Line.heading("access/contribution.renew-heading"), Line.text("access/contribution.renew")),
-                    Part.gallery("attachment://contribution.png")),
-            Part.row("buy"));
+            Contribution.class,
+            Slot.list("tiers", Tier.class),
+            Slot.button("buy"));
 
-    static final Layout LINK = Layout.discord(
-            "access",
-            "link",
-            "Link",
-            List.of(Element.button("link", "access/link.button")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(Line.title("access/link.title")),
-                    Part.text(Line.heading("access/link.steps-heading"), Line.text("access/link.steps")),
-                    Part.text(Line.heading("access/link.switch-heading"), Line.text("access/link.switch-account")),
-                    Part.gallery("attachment://link.png")),
-            Part.row("link"));
+    static final DocumentSpec<DocumentSpec.None> LINK =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "link", "Link", Slot.button("link"));
 
     private final GuildLanguages languages;
     private final Tiers tiers;
-    private final LayoutRenderer renderer;
+    private final DocumentRenderer renderer;
     private final ManagedMessage managed;
 
     public ManagedMessages(
@@ -65,11 +44,11 @@ public final class ManagedMessages {
             final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
-            final StoredLayouts layouts,
+            final StoredDocuments documents,
             final Jdbi jdbi) {
         this.languages = languages;
         this.tiers = tiers;
-        this.renderer = new LayoutRenderer(messages, layouts);
+        this.renderer = new DocumentRenderer(messages, documents);
         this.managed = new ManagedMessage(jda, jdbi);
     }
 
@@ -88,27 +67,23 @@ public final class ManagedMessages {
         }
     }
 
-    static LayoutRenderer.Drawn contribution(final LayoutRenderer renderer, final Tiers tiers, final Locale locale) {
-        final List<Map<String, Object>> items = tiers.all().stream()
-                .map(tier ->
-                        Map.<String, Object>of("days", (long) tier.days(), "price", Money.euroCents(tier.priceCents())))
-                .toList();
+    static DocumentRenderer.Drawn contribution(
+            final DocumentRenderer renderer, final Tiers tiers, final Locale locale) {
         return renderer.render(
                 CONTRIBUTION,
-                new LayoutRenderer.Filling(
-                        Map.of("amount", Money.euroCents(tiers.donationCents())),
-                        Map.of(
-                                "tiers", new LayoutRenderer.FilledList(items),
-                                "buy", new LayoutRenderer.FilledButton(Ids.BUY))),
+                new Contribution(Money.euroCents(tiers.donationCents())),
+                Map.of(
+                        "tiers",
+                        DocumentRenderer.FilledList.of(tiers.all().stream()
+                                .map(tier -> new Tier(tier.days(), Money.euroCents(tier.priceCents())))
+                                .toList()),
+                        "buy",
+                        new DocumentRenderer.FilledButton(Ids.BUY)),
                 locale);
     }
 
-    static LayoutRenderer.Drawn link(final LayoutRenderer renderer, final Locale locale) {
+    static DocumentRenderer.Drawn link(final DocumentRenderer renderer, final Locale locale) {
         return renderer.render(
-                LINK,
-                new LayoutRenderer.Filling(
-                        Map.of("button", MESSAGES.link().button()),
-                        Map.of("link", new LayoutRenderer.FilledButton(Ids.LINK))),
-                locale);
+                LINK, new DocumentSpec.None(), Map.of("link", new DocumentRenderer.FilledButton(Ids.LINK)), locale);
     }
 }

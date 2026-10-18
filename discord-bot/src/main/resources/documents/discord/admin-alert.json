@@ -1,0 +1,54 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "list": "mentions",
+          "text": {
+            "en": "{admin}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "{mark} {title}"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "list": "lines",
+              "text": {
+                "en": "{line}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "open",
+          "label": {
+            "en": "Open in Steward"
+          }
+        }
+      ]
+    }
+  ]
+}

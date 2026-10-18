@@ -2,16 +2,12 @@ package eu.nordtal.season.discordbot.registration;
 
 import eu.nordtal.season.database.registration.Game;
 import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.StoredLayouts;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
-import java.util.List;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import java.util.Locale;
 import java.util.Map;
 import net.dv8tion.jda.api.JDA;
@@ -20,31 +16,21 @@ import org.jdbi.v3.core.Jdbi;
 /** Posts and edits the Register message of a game, one {@link ManagedMessage} per configured language. */
 public final class RegisterMessages {
 
-    static final Layout REGISTER = Layout.discord(
-            "access",
-            "hunger-games-register",
-            "Register",
-            List.of(Element.button("register", "access/register.button")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(Line.title("access/register.title")),
-                    Part.text(Line.heading("access/register.team-heading"), Line.text("access/register.team")),
-                    Part.text(Line.heading("access/register.name-heading"), Line.text("access/register.name")),
-                    Part.text(Line.heading("access/register.partner-heading"), Line.text("access/register.partner"))),
-            Part.row("register"));
+    static final DocumentSpec<DocumentSpec.None> REGISTER = DocumentSpec.message(
+            StoredDocuments.NAMESPACE, "hunger-games-register", "Register", Slot.button("register"));
 
     private final GuildLanguages languages;
-    private final LayoutRenderer renderer;
+    private final DocumentRenderer renderer;
     private final ManagedMessage managed;
 
     public RegisterMessages(
             final JDA jda,
             final GuildLanguages languages,
             final DiscordRenderer messages,
-            final StoredLayouts layouts,
+            final StoredDocuments documents,
             final Jdbi jdbi) {
         this.languages = languages;
-        this.renderer = new LayoutRenderer(messages, layouts);
+        this.renderer = new DocumentRenderer(messages, documents);
         this.managed = new ManagedMessage(jda, jdbi);
     }
 
@@ -58,15 +44,14 @@ public final class RegisterMessages {
         }
     }
 
-    static LayoutRenderer.Drawn register(final LayoutRenderer renderer, final Locale locale) {
+    static DocumentRenderer.Drawn register(final DocumentRenderer renderer, final Locale locale) {
         return renderer.render(
                 REGISTER,
-                new LayoutRenderer.Filling(
-                        Map.of(),
-                        Map.of(
-                                "register",
-                                new LayoutRenderer.FilledButton(
-                                        Ids.of(Game.HUNGER_GAMES).register()))),
+                new DocumentSpec.None(),
+                Map.of(
+                        "register",
+                        new DocumentRenderer.FilledButton(
+                                Ids.of(Game.HUNGER_GAMES).register())),
                 locale);
     }
 }

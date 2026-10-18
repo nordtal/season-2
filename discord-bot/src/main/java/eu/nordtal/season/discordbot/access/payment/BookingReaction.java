@@ -1,11 +1,10 @@
 package eu.nordtal.season.discordbot.access.payment;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.discordbot.config.Configured;
@@ -24,7 +23,7 @@ public final class BookingReaction {
     private final GuildLanguages languages;
     private final AccessRoles roles;
     private final AdminLog admin;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private final JDA jda;
     private final SeasonStart seasonStart;
 
@@ -32,13 +31,13 @@ public final class BookingReaction {
             final GuildLanguages languages,
             final AccessRoles roles,
             final AdminLog admin,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final JDA jda,
             final SeasonStart seasonStart) {
         this.languages = languages;
         this.roles = roles;
         this.admin = admin;
-        this.layouts = layouts;
+        this.documents = documents;
         this.jda = jda;
         this.seasonStart = seasonStart;
     }
@@ -55,16 +54,16 @@ public final class BookingReaction {
         roles.dm(
                 payer,
                 booked.downgraded()
-                        ? MESSAGES.dm()
-                                .grantedSection()
-                                .shortMessage(
+                        ? new DocumentRenderer.Reply<>(
+                                Replies.DM_GRANTED_SHORT,
+                                new Replies.Paid(
                                         Money.euroCents(Objects.requireNonNull(
                                                 booked.receivedCents(), "a short payment has an amount")),
                                         booked.days(),
-                                        booked.until())
-                        : MESSAGES.dm().granted(booked.until()));
+                                        booked.until()))
+                        : new DocumentRenderer.Reply<>(Replies.DM_GRANTED, new Replies.Until(booked.until())));
         if (booked.donation()) {
-            roles.dm(payer, MESSAGES.dm().donor());
+            roles.dm(payer, DocumentRenderer.Reply.of(Replies.DM_DONOR));
             announceDonation(payer, booked.donationCents(), locale);
         }
 
@@ -82,12 +81,14 @@ public final class BookingReaction {
             log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);
             return;
         }
-        channel.sendMessage(layouts.reply(
+        channel.sendMessage(documents
+                        .reply(
                                 locale,
-                                MESSAGES.publicSection()
-                                        .donation(
+                                new DocumentRenderer.Reply<>(
+                                        Replies.PUBLIC_DONATION,
+                                        new Replies.Donated(
                                                 new DiscordMemberContext(discordId, discordId.value()),
-                                                Money.euroCents(donationCents)))
+                                                Money.euroCents(donationCents))))
                         .create())
                 .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
     }

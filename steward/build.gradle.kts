@@ -62,8 +62,7 @@ repositoryRootTestInputs {
     reads("internal-api/README.md")
     reads("database/src/main/resources/messages/admin/en.properties")
 
-    reads("discord-bot/src/main/resources/messages/access/de.properties")
-    reads("discord-bot/src/main/resources/messages/access/en.properties")
+    readsTree("discord-bot/src/main/resources/documents")
     reads("steward/language-rules.json")
 
     reads("resource-pack/src/pack.png")

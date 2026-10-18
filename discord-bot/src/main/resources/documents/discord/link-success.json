@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Your Minecraft account is linked. You can join the server now.",
+            "de": "Dein Minecraft-Account ist verknüpft. Du kannst jetzt auf den Server."
+          }
+        }
+      ]
+    }
+  ]
+}

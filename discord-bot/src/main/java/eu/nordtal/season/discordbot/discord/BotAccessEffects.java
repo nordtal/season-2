@@ -1,7 +1,5 @@
 package eu.nordtal.season.discordbot.discord;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
@@ -11,6 +9,8 @@ import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import java.time.Duration;
@@ -42,7 +42,9 @@ public final class BotAccessEffects implements AccessChanges {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted.validFrom());
         roles.applyAccessRole(discordId, true);
-        roles.dm(discordId, MESSAGES.dm().grantedSection().admin(days, granted.validUntil()));
+        roles.dm(
+                discordId,
+                new DocumentRenderer.Reply<>(Replies.DM_GRANTED_ADMIN, new Replies.Given(days, granted.validUntil())));
 
         admin.record(AuditLine.about(
                 JournalAction.GRANT_ACCESS,
@@ -57,7 +59,7 @@ public final class BotAccessEffects implements AccessChanges {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
-            roles.dm(discordId, MESSAGES.dm().revoked());
+            roles.dm(discordId, DocumentRenderer.Reply.of(Replies.DM_REVOKED));
         }
 
         admin.record(

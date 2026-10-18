@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "An invitation is still open. Wait for the answer before you send another.",
+            "de": "Eine Einladung ist noch offen. Warte auf die Antwort, bevor du eine weitere sendest."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
-/** Holds the schema to atomic columns. A jsonb or array column exists only on a list that only shrinks. */
+/**
+ * Holds the schema to atomic columns.
+ * A jsonb or array column exists only on a list that only shrinks, or holds a value that is read and written whole.
+ */
 class ColumnsAreAtomicIntegrationTest {
 
     /** The composite columns the schema still has. */
@@ -38,6 +41,9 @@ class ColumnsAreAtomicIntegrationTest {
             "steward_inbox.outcome",
             "steward_inbox.payload");
 
+    /** The composite columns that hold a value read and written whole, never queried by part. */
+    private static final Set<String> WHOLE = Set.of("document_override.document");
+
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesStillToNormalize() throws SQLException {
         final Set<String> found = new TreeSet<>();
@@ -50,6 +56,8 @@ class ColumnsAreAtomicIntegrationTest {
                 found.add(columns.getString(1));
             }
         }
-        assertEquals(new TreeSet<>(COMPOSITE), found);
+        final Set<String> expected = new TreeSet<>(COMPOSITE);
+        expected.addAll(WHOLE);
+        assertEquals(expected, found);
     }
 }

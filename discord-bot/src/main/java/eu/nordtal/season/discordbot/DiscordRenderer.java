@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import net.dv8tion.jda.api.utils.MarkdownSanitizer;
 import org.jspecify.annotations.Nullable;
@@ -45,6 +46,22 @@ public final class DiscordRenderer {
      */
     public String format(final @Nullable Locale locale, final MessageRef message, final String text) {
         return render(messages.prepare(Viewer.of(locale), message, text));
+    }
+
+    /**
+     * Renders a text that no key holds, such as a document's, with its values.
+     *
+     * @param kinds each value's declared kind
+     * @param source names the text in the log when a value is missing
+     */
+    public String format(
+            final @Nullable Locale locale,
+            final String text,
+            final Map<String, ?> values,
+            final Map<String, Kind> kinds,
+            final TextFormat format,
+            final String source) {
+        return render(messages.prepare(Viewer.of(locale), text, values, kinds, format, source));
     }
 
     private String render(final Messages.Prepared prepared) {

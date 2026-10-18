@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{passes, select, true {The bank did not answer. Use the button in the channel to try again in a few minutes.} other {The payment link could not be created. An admin knows. Use the button in the channel to start again.}}",
+            "de": "{passes, select, true {Die Bank hat nicht geantwortet. Versuch es in ein paar Minuten mit dem Knopf im Kanal noch einmal.} other {Der Zahlungslink konnte nicht erstellt werden. Ein Admin weiß Bescheid. Starte mit dem Knopf im Kanal neu.}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Pay **{total}** here: {url}",
+            "de": "Zahle **{total}** hier: {url}"
+          }
+        },
+        {
+          "text": {
+            "en": "Reference: **{reference}**. Keep the reference in the payment description.",
+            "de": "Verwendungszweck: **{reference}**. Lass ihn in der Zahlung unverändert."
+          }
+        },
+        {
+          "text": {
+            "en": "The link expires {until, instant, relative}.",
+            "de": "Der Link läuft {until, instant, relative} ab."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -9,14 +9,11 @@ import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
@@ -25,12 +22,7 @@ import org.junit.jupiter.api.Test;
 /** The run card stays within the size limit of one Components V2 message, however much a run reports. */
 class RunCardBudgetTest {
 
-    private static final LayoutRenderer LAYOUTS = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load(
-                    RunCardBudgetTest.class.getClassLoader(),
-                    List.of("messages/access", "messages/admin"),
-                    Locale.ENGLISH)),
-            StoredLayoutsStandIn.none());
+    private static final DocumentRenderer DOCUMENTS = StoredDocumentsStandIn.renderer();
 
     @Test
     void longNotesAndMoreServicesThanFitStillStayInsideTheLimits() {
@@ -101,10 +93,10 @@ class RunCardBudgetTest {
     @Test
     void theAdminChannelsContextIsInsideTheLimitsToo() {
         // Only the feed draws with context, so only this case measures who asked.
-        assertInside(UpdateFeed.card(report(40, 600, 30, 400), longAsker(), LAYOUTS, true, null));
+        assertInside(UpdateFeed.card(report(40, 600, 30, 400), longAsker(), DOCUMENTS, true, null));
     }
 
-    private static void assertInside(final LayoutRenderer.Drawn card) {
+    private static void assertInside(final DocumentRenderer.Drawn card) {
         final int components = MessageComponentTree.of(card.components())
                 .findAll(Component.class)
                 .size();
@@ -114,11 +106,11 @@ class RunCardBudgetTest {
         assertTrue(components <= Message.MAX_COMPONENT_COUNT_IN_COMPONENT_TREE, "the card has " + components);
     }
 
-    private static LayoutRenderer.Drawn card(final UpdateReport report, final UpdateRequest request) {
-        return UpdateFeed.card(report, request, LAYOUTS, false, null);
+    private static DocumentRenderer.Drawn card(final UpdateReport report, final UpdateRequest request) {
+        return UpdateFeed.card(report, request, DOCUMENTS, false, null);
     }
 
-    private static String why(final LayoutRenderer.Drawn card) {
+    private static String why(final DocumentRenderer.Drawn card) {
         final String text = card.text();
         return text.substring(text.indexOf("### Why"));
     }

@@ -504,7 +504,7 @@ function author(children: ReactNode) {
 export function DiscordButton({ children, link = false }: { children: ReactNode; link?: boolean }) {
   return (
     <span
-      className="inline-flex h-8 items-center gap-1.5 rounded-[3px] px-4 text-sm font-medium text-white"
+      className="inline-flex min-h-8 items-center gap-1.5 rounded-[3px] px-4 py-1 text-sm font-medium text-white"
       style={{ background: link ? "#4e5058" : "#5865f2" }}
     >
       {children}

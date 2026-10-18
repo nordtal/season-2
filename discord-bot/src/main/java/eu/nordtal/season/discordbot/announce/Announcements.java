@@ -1,13 +1,13 @@
 package eu.nordtal.season.discordbot.announce;
 
-import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.messages.MessageRef;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
@@ -16,34 +16,30 @@ public final class Announcements {
 
     private final Channels channels;
     private final GuildLanguages languages;
-    private final DiscordRenderer messages;
     private final Logger log;
 
-    public Announcements(
-            final JDA jda, final GuildLanguages languages, final DiscordRenderer messages, final Logger log) {
-        this(Channels.of(jda), languages, messages, log);
+    public Announcements(final JDA jda, final GuildLanguages languages, final Logger log) {
+        this(Channels.of(jda), languages, log);
     }
 
-    Announcements(
-            final Channels channels, final GuildLanguages languages, final DiscordRenderer messages, final Logger log) {
+    Announcements(final Channels channels, final GuildLanguages languages, final Logger log) {
         this.channels = Objects.requireNonNull(channels, "channels");
         this.languages = Objects.requireNonNull(languages, "languages");
-        this.messages = Objects.requireNonNull(messages, "messages");
         this.log = Objects.requireNonNull(log, "log");
     }
 
     /**
-     * Renders a message in one language, posts it into that language's announcement channel and waits for Discord.
+     * Renders a text in one language, posts it into that language's announcement channel and waits for Discord.
      *
      * @param languageTag the language, as in {@code access#languages[].tag}
      * @return whether it was posted, {@code false} when that language has no channel or Discord refused
      */
-    public boolean post(final String languageTag, final MessageRef message) {
+    public boolean post(final String languageTag, final Function<Locale, String> message) {
         final Optional<GuildLanguages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {
             return false;
         }
-        final String text = messages.format(language.get().locale(), message);
+        final String text = message.apply(language.get().locale());
         final String channelId = language.get().announcementChannelId();
         final Optional<String> channel = channels.name(channelId);
         if (channel.isEmpty()) {
@@ -103,7 +99,7 @@ public final class Announcements {
         }
     }
 
-    public void postAll(final MessageRef message) {
+    public void postAll(final Function<Locale, String> message) {
         for (final GuildLanguages.Language language : languages.all()) {
             if (language.hasAnnouncementChannel()) {
                 post(language.tag(), message);

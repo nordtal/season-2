@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "This option no longer exists. Start again to see the current prices.",
+            "de": "Diese Option gibt es nicht mehr. Starte neu, um die aktuellen Preise zu sehen."
+          }
+        }
+      ]
+    }
+  ]
+}

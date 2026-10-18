@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "No Minecraft account is linked to you.",
+            "de": "Bei dir ist kein Minecraft-Account verknüpft."
+          }
+        }
+      ]
+    }
+  ]
+}

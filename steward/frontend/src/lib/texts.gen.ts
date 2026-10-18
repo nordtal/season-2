@@ -723,15 +723,21 @@ export type TextArgs = {
   "report.words": {
     text: Arg["text"]
   }
+  "run.change": {
+    artefact: Arg["text"]
+    change: Arg["message"]
+  }
   "run.kind": {
     kind: Arg["choice"]
   }
+  "run.moved": {
+    from: Arg["text"]
+    to: Arg["text"]
+  }
   "run.no-build": Record<string, never>
-  "run.open": Record<string, never>
   "run.outcome": {
     outcome: Arg["choice"]
   }
-  "run.services": Record<string, never>
   "run.state": {
     state: Arg["choice"]
   }
@@ -749,7 +755,9 @@ export type TextArgs = {
     kind: Arg["choice"]
     stage: Arg["choice"]
   }
-  "run.why": Record<string, never>
+  "run.version": {
+    to: Arg["text"]
+  }
   "steward.alerts.all-clear": Record<string, never>
   "steward.alerts.none-raised": Record<string, never>
   "steward.alerts.now": Record<string, never>
@@ -766,10 +774,6 @@ export type TextArgs = {
   "steward.announcements.send": Record<string, never>
   "steward.announcements.where": {
     languages: Arg["number"]
-  }
-  "steward.answer.added-text-refused": {
-    layout: Arg["text"]
-    language: Arg["text"]
   }
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
@@ -811,9 +815,6 @@ export type TextArgs = {
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
-  "steward.answer.image-refused": {
-    mebibytes: Arg["number"]
-  }
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.keep-section": {
     path: Arg["text"]
@@ -847,10 +848,6 @@ export type TextArgs = {
     kept: Arg["choice"]
   }
   "steward.answer.no-key": Record<string, never>
-  "steward.answer.no-layout": {
-    bundle: Arg["text"]
-    layout: Arg["text"]
-  }
   "steward.answer.no-message": {
     bundle: Arg["text"]
     key: Arg["text"]
@@ -903,10 +900,6 @@ export type TextArgs = {
   "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
   "steward.answer.push-unconfigured": Record<string, never>
-  "steward.answer.rebuild-refused": {
-    layout: Arg["text"]
-    problem: Arg["text"]
-  }
   "steward.answer.secret-setting": {
     path: Arg["text"]
   }
@@ -1967,7 +1960,6 @@ export type TextArgs = {
     group: Arg["choice"]
   }
   "steward.texts.none": Record<string, never>
-  "steward.texts.parts": Record<string, never>
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>
   "steward.texts.shown-in": Record<string, never>

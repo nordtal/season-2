@@ -215,6 +215,10 @@ public final class ApiTypes {
             // The wire cannot import a run's note, so it holds a copy. Both are drawn as one type.
             return named(sameShape(type, UpdateReport.Note.class));
         }
+        if (type == eu.nordtal.season.messages.document.Text.class) {
+            // Its adapter writes a language's one text as a string and its random versions as a list.
+            return "Record<string, string | string[]>";
+        }
         if (type == JsonObject.class) {
             return "Record<string, unknown>";
         }

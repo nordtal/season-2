@@ -1,7 +1,6 @@
 package eu.nordtal.season.discordbot;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
@@ -15,11 +14,10 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.spec.Takes;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +25,6 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -40,30 +37,50 @@ public final class AdminLog {
 
     private static final String AREA = "Admin channel";
 
-    static final Layout JOURNAL = Layout.discord(
-            "access",
-            "admin-journal",
-            AREA,
-            List.of(
-                    Element.list("concerns", "access/admin.concerns"),
-                    Element.list("minecraft", "access/admin.minecraft")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(Line.title("access/admin.title")),
-                    Part.text(Line.text("access/admin.line")),
-                    Part.text(Line.text("access/admin.by"), Line.list("concerns"), Line.list("minecraft"))));
+    /**
+     * @param concerns the member the entry is about, or {@code null}
+     * @param minecraft the Minecraft account the entry is about, or {@code null}
+     */
+    record Journal(
+            @Example(Mark.PREVIEW) String mark,
 
-    static final Layout ALERT = Layout.discord(
-            "access",
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            MessageRef title,
+
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            MessageRef line,
+
+            @Takes({"admin/journal.actor", "admin/journal.person"})
+            MessageRef by,
+
+            @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
+            MessageRef concerns,
+
+            @Nullable String minecraft) {}
+
+    record Card(
+            @Example(Mark.PREVIEW) String mark,
+
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            MessageRef title) {}
+
+    record Pinged(Mention admin) {}
+
+    record Detail(
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            MessageRef line) {}
+
+    static final DocumentSpec<Journal> JOURNAL =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "admin-journal", AREA, Journal.class);
+
+    static final DocumentSpec<Card> ALERT = DocumentSpec.message(
+            StoredDocuments.NAMESPACE,
             "admin-alert",
             AREA,
-            List.of(
-                    Element.list("mentions", "access/admin.mention"),
-                    Element.list("lines", "access/admin.line"),
-                    Element.button("open", "admin/run.open")),
-            Part.text(Line.list("mentions")),
-            Part.container(Tone.BRAND, Part.text(Line.title("access/admin.title")), Part.text(Line.list("lines"))),
-            Part.row("open"));
+            Card.class,
+            Slot.list("mentions", Pinged.class),
+            Slot.list("lines", Detail.class),
+            Slot.button("open").optional());
 
     private static final Map<JournalAction, Mark> MARKS = Map.of(
             JournalAction.GRANT_ACCESS, Mark.GRANTED,
@@ -79,19 +96,19 @@ public final class AdminLog {
     private final AccessSpec config;
     private final AuditDirectory journal;
     private final AlertBook alerts;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
 
     public AdminLog(
             final JDA jda,
             final AccessSpec config,
             final AuditDirectory journal,
             final AlertBook alerts,
-            final LayoutRenderer layouts) {
+            final DocumentRenderer documents) {
         this.jda = jda;
         this.config = config;
         this.journal = journal;
         this.alerts = alerts;
-        this.layouts = layouts;
+        this.documents = documents;
     }
 
     /** Raises something an admin must act on. Steward routes it to push and back here. This method never throws. */
@@ -108,30 +125,24 @@ public final class AdminLog {
     }
 
     public boolean postAlert(final BotRequest.PostAlert alert) {
-        return send(card(layouts, alert), alert.mentions());
+        return send(card(documents, alert), alert.mentions());
     }
 
-    static LayoutRenderer.Drawn card(final LayoutRenderer layouts, final BotRequest.PostAlert alert) {
+    static DocumentRenderer.Drawn card(final DocumentRenderer documents, final BotRequest.PostAlert alert) {
         final String link = alert.link();
-        return layouts.render(
+        return documents.render(
                 ALERT,
-                LayoutRenderer.Filling.of(
-                        Map.of(
-                                "mentions",
-                                new LayoutRenderer.FilledList(alert.mentions().stream()
-                                        .map(admin -> MESSAGES.admin()
-                                                .mention(Mention.of(admin))
-                                                .args())
-                                        .toList()),
-                                "lines",
-                                new LayoutRenderer.FilledList(alert.detail().stream()
-                                        .map(line -> MESSAGES.admin().line(line).args())
-                                        .toList()),
-                                "open",
-                                link == null
-                                        ? new LayoutRenderer.FilledNothing()
-                                        : new LayoutRenderer.FilledButton(link, ButtonStyle.LINK)),
-                        MESSAGES.admin().title(mark(alert.level()).symbol(), alert.title())),
+                new Card(mark(alert.level()).symbol(), alert.title()),
+                Map.of(
+                        "mentions",
+                        DocumentRenderer.FilledList.of(alert.mentions().stream()
+                                .map(admin -> new Pinged(Mention.of(admin)))
+                                .toList()),
+                        "lines",
+                        DocumentRenderer.FilledList.of(
+                                alert.detail().stream().map(Detail::new).toList()),
+                        "open",
+                        link == null ? new DocumentRenderer.FilledNothing() : DocumentRenderer.FilledButton.link(link)),
                 Locales.DEFAULT);
     }
 
@@ -148,7 +159,7 @@ public final class AdminLog {
      *
      * @param sentId runs on a JDA thread with the message id, and not at all when the post fails
      */
-    public void post(final LayoutRenderer.Drawn card, final Consumer<String> sentId) {
+    public void post(final DocumentRenderer.Drawn card, final Consumer<String> sentId) {
         final MessageChannel channel = channel();
         if (channel == null) {
             return;
@@ -159,7 +170,7 @@ public final class AdminLog {
                         failure -> log.error("Could not post a card to the admin channel", failure));
     }
 
-    public void edit(final String messageId, final LayoutRenderer.Drawn card) {
+    public void edit(final String messageId, final DocumentRenderer.Drawn card) {
         final MessageChannel channel = channel();
         if (channel == null) {
             return;
@@ -180,54 +191,39 @@ public final class AdminLog {
         } catch (final RuntimeException exception) {
             log.error("Could not write the journal entry for {} {}", line.action(), line.detail(), exception);
         }
-        send(card(layouts, line), List.of());
+        send(card(documents, line), List.of());
     }
 
     public void show(final UUID entry) {
         journal.entry(entry)
                 .ifPresentOrElse(
                         row -> send(
-                                card(layouts, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line()),
+                                card(documents, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line()),
                                 List.of()),
                         () -> log.error("Journal entry {} is gone, so its card was not posted", entry));
     }
 
-    static LayoutRenderer.Drawn card(final LayoutRenderer layouts, final AuditLine line) {
-        return card(layouts, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line());
+    static DocumentRenderer.Drawn card(final DocumentRenderer documents, final AuditLine line) {
+        return card(documents, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line());
     }
 
-    static LayoutRenderer.Drawn card(
-            final LayoutRenderer layouts,
+    static DocumentRenderer.Drawn card(
+            final DocumentRenderer documents,
             final JournalAction action,
             final Actor actor,
             final @Nullable DiscordId subject,
             final @Nullable UUID account,
             final MessageRef line) {
-        return layouts.render(
+        return documents.render(
                 JOURNAL,
-                LayoutRenderer.Filling.of(
-                        Map.of(
-                                "concerns",
-                                new LayoutRenderer.FilledList(
-                                        subject == null
-                                                ? List.of()
-                                                : List.of(MESSAGES.admin()
-                                                        .concerns(
-                                                                TEXTS.journal().who(Actor.person(subject)))
-                                                        .args())),
-                                "minecraft",
-                                new LayoutRenderer.FilledList(
-                                        account == null
-                                                ? List.of()
-                                                : List.of(MESSAGES.admin()
-                                                        .minecraft(account.toString())
-                                                        .args()))),
-                        MESSAGES.admin()
-                                .title(
-                                        MARKS.getOrDefault(action, Mark.NOTED).symbol(),
-                                        TEXTS.journal().action(action)),
-                        MESSAGES.admin().line(line),
-                        MESSAGES.admin().by(TEXTS.journal().who(actor))),
+                new Journal(
+                        MARKS.getOrDefault(action, Mark.NOTED).symbol(),
+                        TEXTS.journal().action(action),
+                        line,
+                        TEXTS.journal().who(actor),
+                        subject == null ? null : TEXTS.journal().who(Actor.person(subject)),
+                        account == null ? null : account.toString()),
+                Map.of(),
                 Locales.DEFAULT);
     }
 
@@ -245,7 +241,7 @@ public final class AdminLog {
         return channel;
     }
 
-    private boolean send(final LayoutRenderer.Drawn card, final List<DiscordId> admins) {
+    private boolean send(final DocumentRenderer.Drawn card, final List<DiscordId> admins) {
         final MessageChannel channel = channel();
         if (channel == null) {
             log.warn("No admin channel, so this was not posted to Discord: {}", card.text());
@@ -258,7 +254,7 @@ public final class AdminLog {
         return true;
     }
 
-    static MessageCreateData pinging(final LayoutRenderer.Drawn card, final List<DiscordId> admins) {
+    static MessageCreateData pinging(final DocumentRenderer.Drawn card, final List<DiscordId> admins) {
         return MessageCreateBuilder.from(card.create())
                 .setAllowedMentions(List.of())
                 .mentionUsers(admins.stream().map(DiscordId::value).toList())

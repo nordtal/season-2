@@ -7,13 +7,14 @@ import { assert, describe, expect, it } from "vitest"
 /**
  * Nothing in Steward is German. This file and the rules file are lists of German words and are not scanned.
  *
- * Forbidden words: words in `de.properties` but not in `en.properties`, by stem, plus `language-rules.json`.
+ * Forbidden words: words in the German texts of the bot's documents but not in the English ones, by stem, plus
+ * `language-rules.json`.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const frontend = path.resolve(here, "..")
 const repository = path.resolve(frontend, "../..")
-const bundle = path.join(repository, "discord-bot/src/main/resources/messages/access")
+const documents = path.join(repository, "discord-bot/src/main/resources/documents/discord")
 
 type Rules = {
   alsoEnglish: string[]
@@ -28,23 +29,24 @@ type Rules = {
 
 const rules: Rules = JSON.parse(readFileSync(path.join(repository, "steward/language-rules.json"), "utf8"))
 
-function bundleWords(file: string): Set<string> {
+function bundleWords(language: string): Set<string> {
   const words = new Set<string>()
-  for (const line of readFileSync(path.join(bundle, file), "utf8").split("\n")) {
-    const separator = line.indexOf("=")
-    if (separator === -1 || line.trimStart().startsWith("#")) continue
-    for (const word of line.slice(separator + 1).match(/[A-Za-zÄÖÜäöüß]{3,}/g) ?? []) {
-      words.add(word.toLowerCase())
+  const text = new RegExp(`"${language}":\\s*"((?:[^"\\\\]|\\\\.)*)"`, "g")
+  for (const file of readdirSync(documents).filter((name) => name.endsWith(".json"))) {
+    for (const [, value] of readFileSync(path.join(documents, file), "utf8").matchAll(text)) {
+      for (const word of value.match(/[A-Za-zÄÖÜäöüß]{3,}/g) ?? []) {
+        words.add(word.toLowerCase())
+      }
     }
   }
   return words
 }
 
 function forbidden(): string[] {
-  const english = bundleWords("en.properties")
+  const english = bundleWords("en")
   const allowed = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
   const words = new Set<string>()
-  for (const word of bundleWords("de.properties")) {
+  for (const word of bundleWords("de")) {
     if (!english.has(word) && !allowed.has(word)) words.add(word)
   }
   for (const word of rules.extra) {

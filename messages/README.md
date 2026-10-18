@@ -82,42 +82,50 @@ key, and the nearest one wins. A place has a surface (`Display.Surface`: the gam
 Steward). The surface groups the key on Steward's Translations page and decides how Steward previews
 the place. The length limit of a key is the strictest limit of its places (`Display.strictest`).
 
-## Discord layouts
+## Discord documents
 
-A Discord message is a `Layout` (`spec.layout`). The module whose code fills the layout declares it
-once as a `static final` field and names the class in its build with
-`messageSpec { layoutClasses.add(...) }`. A layout has a name in kebab case, a bundle, an area, a
-surface and a tree of Components V2 parts.
+Everything the bot posts is a document (`document`): one JSON file
+`documents/<namespace>/<name>.json` in the resources of the module whose code fills it. The file holds
+the tree of Components V2 parts and every text in every language. The code declares the document once
+as a `static final` `DocumentSpec` and names its class in the build with
+`messageSpec { documentClasses.add(...) }`. The declaration holds only:
 
-The code fills an `Element`, which the tree places once by its id. A modal (`Layout.modal`) is a
-layout of a title and one field per row. Its texts are `DISCORD_MODAL` places, and only its texts
-change. A button or select that is filled with nothing is left out. So is a row that holds nothing
-else, and so is a text block that holds only headings and empty data lists.
+- the name in kebab case, the namespace and the area Steward lists it under;
+- the shape: a message, a modal, a plain message content or a channel name;
+- the values its texts may name, the components of a record, each with an `@Example` and, for a value
+  that is a text of a bundle, the keys it `@Takes`;
+- the slots the code fills (`Slot`): a button, a select, a field, a data list or a block per
+  language, each required or optional.
 
-The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema. It lists each
-layout with the values its texts may name and every key the layout shows. A data list's line and a
-select's option line may also name the values of each item. The task refuses a layout that places an
-element wrongly, places a key where its `@Shown` does not list the place, or asks Discord for
-something it cannot draw.
+A text is `{"en": "...", "de": "..."}`. A language that maps to a list shows one of its versions at
+random. A part, a line or a row item with `when` shows only if its value holds: `value`, `!value` or
+`value=constant` (`Condition`). That replaces the code's choice between layouts. A data list's line
+and a select's option line may also name the values of each item.
 
-steward-agent ships the layouts with the bundle (`MessageBundle.layouts`). A key shown in two or more
-layouts is a building block of them (`LayoutSchema.buildingBlocks`).
+The `messageSchema` task checks each file against its declaration and writes
+`documents/<namespace>/declarations.json`. `DocumentCheck` refuses a file that:
 
-An editor can rebuild a layout. The rebuild keeps the layout's identity and the elements the code
-fills. It may move them, place fewer keys, add a line of its own text per language (`Line.added`) and
-add link buttons (`Element.link`). `LayoutCheck.rebuildProblems` compares the rebuild with the
-packaged layout and keeps its `LayoutSchema.hash`. An image is `attachment://`, `https://` or
-`upload://<id>`, an image that an admin uploaded in Steward and that the bot sends as an attachment.
-Steward stores rebuilds in the database (`LayoutStore`), and the bot reads them again on
-`nordtal_messages`.
+- places a slot wrongly or leaves out a required one;
+- names a value it does not declare;
+- lacks an English text, or a language that the document's other texts have;
+- breaks the Components V2 limits, which are JDA's constants. `DocumentRendererTest` in discord-bot
+  compares the two;
+- breaks the Wording and terms rules of `MessageCheck`.
 
-`LayoutMerge` keeps a rebuild when a release changes the layout:
+steward-agent ships the declarations and documents with the bundle (`MessageBundle.documents`).
+`Documents.Packaged.hash` is the SHA-256 of a packaged declaration and document.
 
-- An element or key that the release removed is removed from the rebuild.
-- A section or block per language whose element was removed keeps what it held.
-- A new element is placed at the end, and new buttons go in rows.
-- An added text that names a value the layout no longer has shows the replacement word of that value.
-- A rebuild that still does not fit is replaced by the packaged layout.
+An admin's document replaces the packaged one whole. It may move the slots, leave out the optional
+ones, change every text and add link buttons and images. An image is `attachment://`, `https://` or
+`upload://<id>`, which is an image that an admin uploaded in Steward and that the bot sends as an
+attachment. `DocumentStore` keeps the document with the packaged hash it was written over, and the
+bot reads it again on `nordtal_messages`. Steward shows documents read only.
+
+`DocumentMerge` keeps an admin's document when a release changes the packaged one:
+
+- A slot that the release removed, or gave another type, is taken out.
+- A required slot that the release added is placed at the end, as the release places it.
+- A document that still does not fit is set aside for the packaged one.
 
 Every change is an `Adaptation`, which Steward lists.
 

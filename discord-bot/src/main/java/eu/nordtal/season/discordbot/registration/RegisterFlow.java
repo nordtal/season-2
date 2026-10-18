@@ -1,17 +1,16 @@
 package eu.nordtal.season.discordbot.registration;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessReader;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer.Reply;
+import eu.nordtal.season.discordbot.Replies;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,61 +37,49 @@ import net.dv8tion.jda.api.utils.messages.MessageEditData;
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {
 
+    record Registered(@Example("Red_Fox") String name) {}
+
+    record Invitation(TeamContext team) {}
+
     /** The modal that the Register button opens. It asks for the team name. */
-    static final Layout NAME = Layout.modal(
-            "access",
-            "register-name",
-            "Register",
-            "access/register.modal.title",
-            Element.input("name", "access/register.modal.name-label", "access/register.modal.name-placeholder"));
+    static final DocumentSpec<DocumentSpec.None> NAME = DocumentSpec.modal(
+            StoredDocuments.NAMESPACE, "register-name", "Register", DocumentSpec.None.class, Slot.input("name"));
 
     /** The answer to a successful registration, with the button that invites a partner. */
-    static final Layout REGISTERED = Layout.discord(
-            "access",
-            "register-success",
-            "Register",
-            List.of(Element.button("invite", "access/register.invite-button")),
-            Part.text(Line.text("access/register.success")),
-            Part.row("invite"));
+    static final DocumentSpec<Registered> REGISTERED = DocumentSpec.message(
+            StoredDocuments.NAMESPACE, "register-success", "Register", Registered.class, Slot.button("invite"));
 
     /** The question whom to invite, with a select of the guild's members. */
-    static final Layout PICKER = Layout.discord(
-            "access",
-            "invite-picker",
-            "Register",
-            List.of(Element.select("partner", "access/register.invite.picker-placeholder")),
-            Part.text(Line.text("access/register.invite.pick")),
-            Part.row("partner"));
+    static final DocumentSpec<DocumentSpec.None> PICKER =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "invite-picker", "Register", Slot.select("partner"));
 
     /** The invitation that the partner receives, with an accept and a decline button. */
-    static final Layout INVITATION = Layout.discord(
-            "access",
+    static final DocumentSpec<Invitation> INVITATION = DocumentSpec.message(
+            StoredDocuments.NAMESPACE,
             "invite-dm",
             "Register",
-            List.of(
-                    Element.button("accept", "access/register.invite.accept"),
-                    Element.button("decline", "access/register.invite.decline")),
-            Part.text(Line.text("access/register.invite.dm")),
-            Part.row("accept", "decline"));
+            Invitation.class,
+            Slot.button("accept"),
+            Slot.button("decline"));
 
     private final JDA jda;
     private final Teams teams;
     private final Ids ids;
     private final AccessReader access;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private final Executor executor;
 
     public RegisterFlow(
             final JDA jda,
             final Teams teams,
             final AccessReader access,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final Executor executor) {
         this.jda = jda;
         this.teams = teams;
         this.ids = Ids.of(teams.game());
         this.access = access;
-        this.layouts = layouts;
+        this.documents = documents;
         this.executor = executor;
     }
 
@@ -113,13 +100,13 @@ public final class RegisterFlow extends ListenerAdapter {
     private void openRegisterModal(final ButtonInteractionEvent event) {
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
 
-        final LayoutRenderer.FilledInput name = new LayoutRenderer.FilledInput(
+        final DocumentRenderer.FilledInput name = new DocumentRenderer.FilledInput(
                 placeholder -> TextInput.create(ids.registerNameInput(), TextInputStyle.SHORT)
                         .setPlaceholder(placeholder)
                         .setRequiredRange(Teams.NAME_MIN_LENGTH, Teams.NAME_MAX_LENGTH)
                         .build());
-        event.replyModal(layouts.modal(
-                        NAME, ids.registerModal(), new LayoutRenderer.Filling(Map.of(), Map.of("name", name)), locale))
+        event.replyModal(documents.modal(
+                        NAME, ids.registerModal(), new DocumentSpec.None(), Map.of("name", name), locale))
                 .queue();
     }
 
@@ -140,7 +127,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Registering a {} team failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, MESSAGES.register().failed()))
+                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });
@@ -150,31 +137,30 @@ public final class RegisterFlow extends ListenerAdapter {
         final RegistrationResult result =
                 teams.register(DiscordId.of(event.getUser().getId()), name);
 
-        final MessageRef reply = RegisterReplies.registration(result, name);
         event.getHook()
                 .editOriginal(
                         result.status() == RegistrationResult.Status.REGISTERED
-                                ? layouts.render(
+                                ? documents
+                                        .render(
                                                 REGISTERED,
-                                                LayoutRenderer.Filling.of(
-                                                        Map.of(
-                                                                "invite",
-                                                                new LayoutRenderer.FilledButton(
-                                                                        ids.invite(), ButtonStyle.SECONDARY)),
-                                                        reply),
+                                                new Registered(name),
+                                                Map.of(
+                                                        "invite",
+                                                        new DocumentRenderer.FilledButton(
+                                                                ids.invite(), ButtonStyle.SECONDARY)),
                                                 locale)
                                         .edit()
-                                : reply(locale, reply))
+                                : reply(locale, RegisterReplies.registration(result)))
                 .queue();
     }
 
     private void openInvitePicker(final ButtonInteractionEvent event) {
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
-        event.reply(layouts.render(
+        event.reply(documents
+                        .render(
                                 PICKER,
-                                new LayoutRenderer.Filling(
-                                        Map.of(),
-                                        Map.of("partner", new LayoutRenderer.FilledMembers(ids.inviteSelect()))),
+                                new DocumentSpec.None(),
+                                Map.of("partner", new DocumentRenderer.FilledMembers(ids.inviteSelect())),
                                 locale)
                         .create())
                 .setEphemeral(true)
@@ -200,7 +186,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Inviting a {} partner failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, MESSAGES.register().failed()))
+                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });
@@ -209,7 +195,7 @@ public final class RegisterFlow extends ListenerAdapter {
     private void invite(final EntitySelectInteractionEvent event, final Locale locale, final User partner) {
         if (partner.isBot()) {
             event.getHook()
-                    .editOriginal(reply(locale, MESSAGES.register().invite().targetUnavailable()))
+                    .editOriginal(reply(locale, Reply.of(Replies.INVITE_UNAVAILABLE)))
                     .queue();
             return;
         }
@@ -227,15 +213,14 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void dmInvite(final User partner, final UUID memberId, final String teamName) {
         final Locale locale = access.language(DiscordId.of(partner.getId()));
-        final LayoutRenderer.Drawn invitation = layouts.render(
+        final DocumentRenderer.Drawn invitation = documents.render(
                 INVITATION,
-                LayoutRenderer.Filling.of(
-                        Map.of(
-                                "accept",
-                                new LayoutRenderer.FilledButton(ids.inviteAccept() + memberId, ButtonStyle.SUCCESS),
-                                "decline",
-                                new LayoutRenderer.FilledButton(ids.inviteDecline() + memberId, ButtonStyle.DANGER)),
-                        MESSAGES.register().invite().dm(new TeamContext(teamName))),
+                new Invitation(new TeamContext(teamName)),
+                Map.of(
+                        "accept",
+                        new DocumentRenderer.FilledButton(ids.inviteAccept() + memberId, ButtonStyle.SUCCESS),
+                        "decline",
+                        new DocumentRenderer.FilledButton(ids.inviteDecline() + memberId, ButtonStyle.DANGER)),
                 locale);
 
         jda.openPrivateChannelById(partner.getId())
@@ -255,8 +240,8 @@ public final class RegisterFlow extends ListenerAdapter {
                                 "Could not open a DM with {} for an invite ({})", partner.getId(), failure.toString()));
     }
 
-    private MessageEditData reply(final Locale locale, final MessageRef text) {
-        return layouts.reply(locale, text).edit();
+    private MessageEditData reply(final Locale locale, final Reply<?> text) {
+        return documents.reply(locale, text).edit();
     }
 
     private void answerInvite(final ButtonInteractionEvent event, final UUID memberId, final boolean accept) {
@@ -271,7 +256,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Answering a {} invite failed", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, MESSAGES.register().failed()))
+                        .editOriginal(reply(locale, Reply.of(Replies.REGISTER_FAILED)))
                         .queue();
             }
         });
@@ -279,7 +264,7 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void report(
             final ButtonInteractionEvent event, final Locale locale, final boolean accept, final AnswerResult result) {
-        final LayoutRenderer.Drawn reply = layouts.reply(locale, RegisterReplies.answer(result, accept));
+        final DocumentRenderer.Drawn reply = documents.reply(locale, RegisterReplies.answer(result, accept));
         if (result.status() == AnswerResult.Status.CLOSED) {
             // The buttons stay, because the invite can be answered when the round opens.
             event.getHook().sendMessage(reply.create()).setEphemeral(true).queue();
@@ -296,8 +281,8 @@ public final class RegisterFlow extends ListenerAdapter {
             final Locale ownerLocale = access.language(DiscordId.of(ownerId));
             final DiscordMemberContext player = new DiscordMemberContext(
                     DiscordId.of(event.getUser().getId()), event.getUser().getEffectiveName());
-            final LayoutRenderer.Drawn note =
-                    layouts.reply(ownerLocale, RegisterReplies.ownerNote(accept, player, new TeamContext(teamName)));
+            final DocumentRenderer.Drawn note =
+                    documents.reply(ownerLocale, RegisterReplies.ownerNote(accept, player, new TeamContext(teamName)));
             jda.openPrivateChannelById(ownerId)
                     .queue(
                             channel -> channel.sendMessage(note.create())

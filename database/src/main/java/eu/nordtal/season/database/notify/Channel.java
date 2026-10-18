@@ -42,7 +42,7 @@ public enum Channel {
     SETTINGS("nordtal_settings"),
 
     /**
-     * A message override or a rebuilt layout changed. The payload is its bundle.
+     * A message override or an admin's document changed. The payload is its bundle or namespace.
      * steward emits, every process with bundles listens.
      */
     MESSAGES("nordtal_messages"),

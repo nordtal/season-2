@@ -17,11 +17,11 @@ import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.messages.spec.Formerly;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
+import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
@@ -261,15 +261,6 @@ public interface AdminTexts {
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef state(@Arg("state") UpdateReport.State state);
 
-        @Name("Services, as a heading")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef services();
-
-        @Name("What explains a failed run, as a heading")
-        @Shown(Display.DISCORD_TEXT)
-        @Formerly("run.notes")
-        MessageRef why();
-
         @Name("The part of a run a note is about")
         @Shown(Display.STEWARD)
         MessageRef step(@Arg("step") UpdateReport.Step step);
@@ -282,9 +273,19 @@ public interface AdminTexts {
         @Shown(Display.DISCORD_TEXT)
         MessageRef noBuild();
 
-        @Name("The button that opens a run or an alert in Steward")
-        @Shown(Display.DISCORD_BUTTON)
-        MessageRef open();
+        @Name("What changed of a service")
+        @Shown(Display.DISCORD_TEXT)
+        MessageRef change(
+                @Arg("artefact") @Example("paper") String artefact,
+                @Arg("change") @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build") MessageRef change);
+
+        @Name("A version replaced by another")
+        @Shown(Display.DISCORD_TEXT)
+        MessageRef moved(@Arg("from") @Example("1.21.4") String from, @Arg("to") @Example("1.21.5") String to);
+
+        @Name("A version")
+        @Shown(Display.DISCORD_TEXT)
+        MessageRef version(@Arg("to") @Example("1.21.5") String to);
     }
 
     /** An alert: its title and the lines below it. */

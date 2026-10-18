@@ -1,0 +1,88 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Hunger Games",
+                "de": "Hunger Games"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Team",
+                "de": "Team"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "1-2 players",
+                "de": "1-2 Spieler"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Name",
+                "de": "Name"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "3-15 characters",
+                "de": "3-15 Zeichen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "No-show",
+                "de": "Nicht da"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "*duo → solo, full health*",
+                "de": "*Duo → solo, volle Gesundheit*"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "register",
+          "label": {
+            "en": "Register",
+            "de": "Registrieren"
+          }
+        }
+      ]
+    }
+  ]
+}

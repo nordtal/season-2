@@ -13,12 +13,14 @@ import eu.nordtal.season.database.phase.PhaseChange;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
+import eu.nordtal.season.messages.document.DocumentMerge;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Item;
+import eu.nordtal.season.messages.document.Line;
+import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.LayoutMerge;
-import eu.nordtal.season.messages.spec.layout.LayoutSchema;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.value.Kind;
@@ -38,7 +40,7 @@ import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
 import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.game.GameDataRoutes;
-import eu.nordtal.season.steward.messages.LayoutsApi;
+import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
 import eu.nordtal.season.steward.metric.Metrics;
 import eu.nordtal.season.steward.season.SeasonRoutes;
@@ -109,7 +111,7 @@ public final class StewardWire {
             MessagesApi.Saved.class,
             MessagesApi.Fallback.class,
             MessagesApi.Syntax.class,
-            LayoutsApi.Layouts.class,
+            DocumentsApi.DocumentList.class,
             MessageCheck.Problem.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
@@ -176,18 +178,17 @@ public final class StewardWire {
             Map.entry(Display.Surface.class, "MessageSurface"),
             Map.entry(MessagesApi.Syntax.class, "MessageSyntax"),
             Map.entry(MessageCheck.Problem.class, "MessageProblem"),
-            Map.entry(LayoutsApi.Layouts.class, "Layouts"),
-            Map.entry(LayoutsApi.LayoutView.class, "LayoutView"),
-            Map.entry(LayoutsApi.AddedFallback.class, "LayoutAddedFallback"),
-            Map.entry(LayoutSchema.Entry.class, "LayoutEntry"),
-            Map.entry(Element.class, "LayoutElement"),
-            Map.entry(Element.Kind.class, "LayoutElementKind"),
-            Map.entry(Part.class, "LayoutPart"),
-            Map.entry(Part.Type.class, "LayoutPartType"),
-            Map.entry(Line.class, "LayoutLine"),
-            Map.entry(Line.Style.class, "LayoutLineStyle"),
-            Map.entry(LayoutMerge.Adaptation.class, "LayoutAdaptation"),
-            Map.entry(LayoutMerge.Change.class, "LayoutChange"),
+            Map.entry(Part.class, "DocumentPart"),
+            Map.entry(Part.Type.class, "DocumentPartType"),
+            Map.entry(Line.class, "DocumentLine"),
+            Map.entry(Line.Style.class, "DocumentLineStyle"),
+            Map.entry(Item.class, "DocumentItem"),
+            Map.entry(Value.class, "DocumentValue"),
+            Map.entry(Slot.class, "DocumentSlot"),
+            Map.entry(Slot.Type.class, "DocumentSlotType"),
+            Map.entry(DocumentSpec.Shape.class, "DocumentShape"),
+            Map.entry(DocumentMerge.Adaptation.class, "DocumentAdaptation"),
+            Map.entry(DocumentMerge.Change.class, "DocumentChange"),
             Map.entry(Declaration.class, "MessageDeclaration"),
             Map.entry(Kind.class, "ValueKind"));
 

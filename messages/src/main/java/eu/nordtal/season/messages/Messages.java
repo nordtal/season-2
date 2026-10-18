@@ -462,6 +462,30 @@ public final class Messages {
         return prepare(viewer, message, MessageText.parse(text, markup(message.key())));
     }
 
+    /**
+     * Returns a text that no key holds, such as a document's, prepared with its values.
+     *
+     * @param kinds each value's declared kind, which a missing value shows the replacement word of
+     * @param source names the text in the log when a value is missing
+     * @throws MessageSyntaxException if the text cannot be parsed
+     */
+    public Prepared prepare(
+            final Viewer viewer,
+            final String text,
+            final Map<String, ?> values,
+            final Map<String, Kind> kinds,
+            final TextFormat format,
+            final String source) {
+        final ZoneId zone = viewer.zone() == null ? environment.zone() : viewer.zone();
+        final List<Piece> pieces = Filling.fill(
+                MessageText.parse(text, false),
+                Contexts.flatten(values, environment, viewer.player()),
+                kinds,
+                name -> reportMissingValue(source, name));
+        return new Prepared(
+                pieces, viewer.language(), zone, format, words(new Viewer(viewer.language(), zone, viewer.player())));
+    }
+
     private Prepared prepare(final Viewer viewer, final MessageRef message, final MessageText text) {
         final Locale language = viewer.language();
         final ZoneId zone = viewer.zone() == null ? environment.zone() : viewer.zone();

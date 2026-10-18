@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.spec.layout.LayoutTexts;
 import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -94,7 +93,7 @@ class MessageSpecCheckTest {
 
     @Test
     void aMessageValueWithoutAnExampleIsPreviewedAsTheFirstKeyItTakes() {
-        final MessageSchema.Arg button = MessageSchema.entries(LayoutTexts.class).stream()
+        final MessageSchema.Arg button = MessageSchema.entries(DiscordTexts.class).stream()
                 .filter(entry -> entry.key().equals("steps"))
                 .findFirst()
                 .orElseThrow()
@@ -103,7 +102,7 @@ class MessageSpecCheckTest {
 
         assertEquals("buy", button.example());
         assertEquals(List.of("buy"), button.takes());
-        assertEquals(List.of(), MessageSpecCheck.problems(LayoutTexts.class));
+        assertEquals(List.of(), MessageSpecCheck.problems(DiscordTexts.class));
     }
 
     @MessageSpec("taking")

@@ -28,7 +28,8 @@ import org.junit.jupiter.api.Test;
  * Checks that no German is in the steward modules.
  * They are steward, steward-agent, steward-bunq, the admin texts, their deploy script and the compose file.
  *
- * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
+ * The word list is the German texts of the bot's documents minus the English ones, plus
+ * {@code language-rules.json}, matched by stem.
  */
 class NothingIsGermanTest {
 
@@ -45,7 +46,7 @@ class NothingIsGermanTest {
             "deploy/README.md",
             "compose.yml");
 
-    private static final String BUNDLE = "discord-bot/src/main/resources/messages/access/";
+    private static final String BUNDLE = "discord-bot/src/main/resources/documents/discord";
     private static final String RULES = "steward/language-rules.json";
 
     /** The files whose subject is German, exempted by exact file name, because Steward edits the bot's bundles. */
@@ -138,10 +139,10 @@ class NothingIsGermanTest {
     private static Set<String> forbidden() {
         final Rules rules = rules();
         final Set<String> allowed = lowercased(rules.alsoEnglish());
-        final Set<String> english = bundleWords("en.properties");
+        final Set<String> english = bundleWords("en");
 
         final Set<String> forbidden = new TreeSet<>();
-        for (final String word : bundleWords("de.properties")) {
+        for (final String word : bundleWords("de")) {
             if (!english.contains(word) && !allowed.contains(word)) {
                 forbidden.add(word);
             }
@@ -154,22 +155,27 @@ class NothingIsGermanTest {
         return forbidden;
     }
 
-    private static Set<String> bundleWords(final String name) {
-        final Path file = RepositoryRoot.path().resolve(BUNDLE + name);
+    private static Set<String> bundleWords(final String language) {
+        final Path directory = RepositoryRoot.path().resolve(BUNDLE);
         assertTrue(
-                Files.isRegularFile(file),
-                file + " is not there, so this test derived its word"
+                Files.isDirectory(directory),
+                directory + " is not there, so this test derived its word"
                         + " list from nothing. Fix the path rather than the assertion.");
+        final Pattern text = Pattern.compile("\"" + language + "\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
         final Set<String> words = new HashSet<>();
-        for (final String line : lines(file)) {
-            final int separator = line.indexOf('=');
-            if (separator == -1 || line.stripLeading().startsWith("#")) {
-                continue;
+        try (Stream<Path> files = Files.list(directory)) {
+            for (final Path file :
+                    files.filter(path -> path.toString().endsWith(".json")).toList()) {
+                final Matcher texts = text.matcher(String.join("\n", lines(file)));
+                while (texts.find()) {
+                    final Matcher matcher = WORD.matcher(texts.group(1));
+                    while (matcher.find()) {
+                        words.add(matcher.group().toLowerCase(Locale.ROOT));
+                    }
+                }
             }
-            final Matcher matcher = WORD.matcher(line.substring(separator + 1));
-            while (matcher.find()) {
-                words.add(matcher.group().toLowerCase(Locale.ROOT));
-            }
+        } catch (final IOException failure) {
+            throw new UncheckedIOException(failure);
         }
         return words;
     }

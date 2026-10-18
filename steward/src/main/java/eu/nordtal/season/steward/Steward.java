@@ -247,7 +247,7 @@ public final class Steward {
                 agent::plan,
                 new PluginsForward(agent, data.updates()),
                 eu.nordtal.season.database.message.MessageOverrideStore.using(database.dataSource()),
-                eu.nordtal.season.database.layout.LayoutStore.using(database.dataSource()),
+                eu.nordtal.season.database.document.DocumentStore.using(database.dataSource()),
                 settings,
                 CLOCK,
                 scheduler);

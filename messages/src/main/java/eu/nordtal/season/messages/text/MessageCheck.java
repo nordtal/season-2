@@ -297,6 +297,14 @@ public final class MessageCheck {
         if (declaration.limit() <= 0) {
             return;
         }
+        final int shown = shownLength(text, declaration);
+        if (shown > declaration.limit()) {
+            error(SAYS.tooLong(shown, declaration.limit()));
+        }
+    }
+
+    /** Returns how many characters the text shows with every value at its example. */
+    public static int shownLength(final MessageText text, final Declaration declaration) {
         final Map<String, Object> examples = new HashMap<>();
         declaration.examples().forEach((name, example) -> {
             final Kind kind = declaration.values().getOrDefault(name, Kind.TEXT);
@@ -306,14 +314,12 @@ public final class MessageCheck {
                 examples.put(name, example);
             }
         });
-        final String shown = PlainText.of(
-                Filling.fill(text, examples, declaration.values(), ignored -> {}),
-                Locale.ENGLISH,
-                ZoneOffset.UTC,
-                MEASURE);
-        if (shown.length() > declaration.limit()) {
-            error(SAYS.tooLong(shown.length(), declaration.limit()));
-        }
+        return PlainText.of(
+                        Filling.fill(text, examples, declaration.values(), ignored -> {}),
+                        Locale.ENGLISH,
+                        ZoneOffset.UTC,
+                        MEASURE)
+                .length();
     }
 
     private static List<String> sorted(final Set<String> names) {

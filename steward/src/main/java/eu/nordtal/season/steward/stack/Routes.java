@@ -6,7 +6,6 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
-import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
@@ -94,7 +93,7 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
-    /** Registers the routes for message bundles and layouts. */
+    /** Registers the routes for message bundles and Discord documents. */
     private static void messageRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
@@ -109,23 +108,8 @@ public final class Routes {
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
-        config.routes.get("/api/layouts", api.layouts::list, Gate.KEY_HELD);
-        config.routes.put(
-                "/api/layouts/{bundle}/{layout}",
-                ctx -> Journaling.line(ctx, new JournalDetail.MessagesSaved(api.layouts.save(ctx, caller.actor(ctx)))),
-                Gate.KEY_HELD,
-                Journaled.as(JournalAction.SAVE_MESSAGES));
-        config.routes.delete(
-                "/api/layouts/{bundle}/{layout}",
-                ctx -> Journaling.line(ctx, new JournalDetail.MessagesSaved(api.layouts.remove(ctx))),
-                Gate.KEY_HELD,
-                Journaled.as(JournalAction.SAVE_MESSAGES));
-        config.routes.post(
-                "/api/layout-images",
-                ctx -> api.layouts.upload(ctx, caller.actor(ctx)),
-                Gate.KEY_HELD,
-                Unjournaled.SHOWN_ONCE_SAVED);
-        config.routes.get("/api/layout-images/{id}", api.layouts::image, Gate.KEY_HELD);
+        config.routes.get("/api/documents", api.documents::list, Gate.KEY_HELD);
+        config.routes.get("/api/document-images/{id}", api.documents::image, Gate.KEY_HELD);
     }
 
     /** Registers the routes for the host numbers, the schedule, the backups and the action feed. */

@@ -1,0 +1,27 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Who do you want to invite?",
+            "de": "Wen möchtest du einladen?"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "partner",
+          "placeholder": {
+            "en": "Choose who to invite",
+            "de": "Wen möchtest du einladen?"
+          }
+        }
+      ]
+    }
+  ]
+}

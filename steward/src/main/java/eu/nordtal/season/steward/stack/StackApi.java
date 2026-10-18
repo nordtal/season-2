@@ -4,8 +4,8 @@ import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditDirectory;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.MessagePreview;
-import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.UpdateDirectory;
@@ -19,7 +19,7 @@ import eu.nordtal.season.steward.backup.NightlyClock;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
-import eu.nordtal.season.steward.messages.LayoutsApi;
+import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
 import eu.nordtal.season.steward.settings.SettingsApi;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -110,7 +110,7 @@ public final class StackApi implements AutoCloseable {
     final @Nullable Refreshed<AgentWire.Resolve> available;
 
     final MessagesApi messages;
-    final LayoutsApi layouts;
+    final DocumentsApi documents;
     final ActionsApi actions;
     private final DiskUsage disk;
     /** The console line count per service, capped at {@code LOG_CAPACITY_MAX}. */
@@ -141,7 +141,7 @@ public final class StackApi implements AutoCloseable {
      * @param resolve steward-agent's resolve, or {@code null}, which makes the endpoint answer 503
      * @param managedPlugins the plugin routes, or {@code null} without a database, which makes them answer 503
      * @param messageOverrides the message overrides, or {@code null} without a database, which refuses a save
-     * @param layoutStore the layouts and images, or {@code null} without a database, which refuses a save
+     * @param documentStore the admins' documents and images, or {@code null} without a database, which refuses a save
      * @param nightly the current schedule
      * @param settings every process's settings, or {@code null} without a database, which makes their routes answer 503
      */
@@ -154,7 +154,7 @@ public final class StackApi implements AutoCloseable {
             final @Nullable Supplier<AgentWire.Resolve> resolve,
             final @Nullable PluginsForward managedPlugins,
             final @Nullable MessageOverrideStore messageOverrides,
-            final @Nullable LayoutStore layoutStore,
+            final @Nullable DocumentStore documentStore,
             final @Nullable SettingStore settings,
             final Clock clock,
             final Scheduler scheduler) {
@@ -167,7 +167,7 @@ public final class StackApi implements AutoCloseable {
         this.agent = agent;
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);
-        this.layouts = new LayoutsApi(agent, layoutStore, settings);
+        this.documents = new DocumentsApi(agent, documentStore, settings);
         this.actions = new ActionsApi(updates, audit);
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);

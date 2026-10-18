@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Thank you for your donation. You keep the donor role.",
+            "de": "Danke für deine Spende. Die Spender-Rolle behältst du."
+          }
+        }
+      ]
+    }
+  ]
+}

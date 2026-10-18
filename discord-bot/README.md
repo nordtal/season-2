@@ -50,12 +50,12 @@ COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -
 - `onboarding/`: the language and region roles, the lock and the onboarding messages.
 - `roles/`: every role the bot uses (`GuildRoles`).
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
-- `LayoutRenderer`: draws a declared layout as a Components V2 message within Discord's limits. Every message
-  the bot sends is one. If Steward stores a rebuild of a layout (`StoredLayouts`, re-read on
-  `nordtal_messages`), the next publish draws the rebuild. `LayoutMerge` merges it when a release changed
-  the layout.
+- `DocumentRenderer`: draws a document (`src/main/resources/documents/discord/`) as a Components V2
+  message, a modal, a plain message or a channel name within Discord's limits. Everything the bot posts
+  is one. If an admin wrote a document in Steward (`StoredDocuments`, re-read on `nordtal_messages`), the
+  next publish draws it. `DocumentMerge` adapts it when a release changed the packaged document.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
-- `src/main/resources/messages/`: the translations.
+- `src/main/resources/documents/`: the documents with their translations.
 
 ## Roles
 

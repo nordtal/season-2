@@ -18,7 +18,7 @@ class DrawnTest {
     @Test
     void theEditSetsComponentsV2EmptiesTheEmbedsAndReplacesTheImages() {
         try (MessageEditData edit =
-                new LayoutRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of("link.png"), List.of()).edit()) {
+                new DocumentRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of("link.png"), List.of()).edit()) {
             final DataObject sent = edit.toData();
 
             assertAll(
@@ -37,7 +37,7 @@ class DrawnTest {
     @Test
     void aNewMessageIsComponentsV2WithoutContent() {
         try (MessageCreateData create =
-                new LayoutRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of(), List.of()).create()) {
+                new DocumentRenderer.Drawn(List.of(TextDisplay.of("Access")), List.of(), List.of()).create()) {
             final DataObject sent = create.toData();
 
             assertAll(
@@ -53,7 +53,7 @@ class DrawnTest {
     void itsWordsAreItsTextBlocksInsideAndOutsideABox() {
         assertEquals(
                 "Title\nLead\nAfter",
-                new LayoutRenderer.Drawn(
+                new DocumentRenderer.Drawn(
                                 List.of(
                                         Container.of(TextDisplay.of("Title"), TextDisplay.of("Lead")),
                                         TextDisplay.of("After")),

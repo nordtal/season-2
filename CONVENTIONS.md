@@ -252,9 +252,9 @@ run `git config core.hooksPath .githooks` once per clone.
   not already say what a change does; the sentence says what the change does in practice, and Steward shows
   it between the field's name and its input. Every other field carries `@NoExplanationNeeded`.
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
-  values set apart as two lines or two pills, or the second as an icon. A message bundle holds no pipe,
+  values set apart as two lines or two pills, or the second as an icon. A bundle or a document holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and
-  all of it in the bundles checked)_
+  all of it in the bundles and documents checked)_
 - **One icon per domain term.** A term Steward names (aura, spins, a service, a backup, a phase, access, an alert
   level) is drawn with the icon `steward/frontend/src/components/steward/term-icons.tsx` gives it, wherever it
   appears: page, pill, form field, table, tooltip, navigation and palette. That icon means nothing else, and a field
@@ -266,7 +266,7 @@ run `git config core.hooksPath .githooks` once per clone.
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a
-  lower-case nordtal in a text. _(checked in the bundles)_
+  lower-case nordtal in a text. _(checked in the bundles and documents)_
 - **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's
   container accent and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.

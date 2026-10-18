@@ -5,14 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.Mark;
-import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import net.dv8tion.jda.api.components.MessageTopLevelComponent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -32,13 +34,13 @@ class OnboardingMessageTest {
             new Languages(List.of("en", "de")));
 
     private static final DiscordRenderer RENDERER =
-            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN));
+            StoredDocumentsStandIn.renderer().messages();
 
-    private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER, StoredLayoutsStandIn.none());
+    private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER, StoredDocumentsStandIn.none());
 
     @Test
     void theWelcomeIsOneBoxInTheDefaultLanguageOverItsBanner() {
-        final LayoutRenderer.Drawn welcome = message.welcome();
+        final DocumentRenderer.Drawn welcome = message.welcome();
         final Container box = (Container) welcome.components().getFirst();
 
         assertAll(
@@ -109,5 +111,19 @@ class OnboardingMessageTest {
     private static StringSelectMenu select(final List<MessageTopLevelComponent> components) {
         return (StringSelectMenu)
                 ((ActionRow) components.getLast()).getComponents().getFirst();
+    }
+
+    @Test
+    void aBlockPerLanguageLosesItsLastLanguagesBeyondFortyComponents() {
+        final DocumentRenderer.Drawn drawn = StoredDocumentsStandIn.renderer()
+                .render(
+                        OnboardingMessage.CHANGE,
+                        new DocumentSpec.None(),
+                        Map.of(
+                                "each", new DocumentRenderer.FilledLanguages(Collections.nCopies(15, Locale.GERMAN)),
+                                "change", new DocumentRenderer.FilledButton(Ids.ONBOARD)),
+                        Locale.ENGLISH);
+
+        assertEquals(20, drawn.components().size());
     }
 }

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Your access lasts until **{until}**. Have fun on Nordtal.",
+            "de": "Dein Zugang gilt bis **{until}**. Viel Spaß auf Nordtal."
+          }
+        }
+      ]
+    }
+  ]
+}

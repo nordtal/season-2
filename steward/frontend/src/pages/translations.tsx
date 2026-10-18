@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 import type { MessageTexts } from "@/lib/api"
-import { useLayouts, useMessageTexts } from "@/lib/queries"
+import { useDocuments, useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
 import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
@@ -15,10 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export type TranslationsSearch = { service?: string } & Opened
 
-/** Keeps the service filter and the open layout and text, each only when it is a word. */
+/** Keeps the service filter and the open document or text, each only when it is a word. */
 export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
   return Object.fromEntries(
-    (["service", "layout", "text"] as const).flatMap((name) => {
+    (["service", "document", "text"] as const).flatMap((name) => {
       const value = search[name]
       return typeof value === "string" && value !== "" ? [[name, value]] : []
     }),
@@ -53,7 +53,7 @@ export function TranslationsPage() {
 }
 
 /**
- * Every text of every bundle as the layouts that show it, grouped by where they appear and then by area. A text that the command palette found opens in its layout, in the language it was found in.
+ * Every Discord document and every text of every bundle, grouped by where they appear and then by area. A text that the command palette found opens in the language it was found in.
  */
 export function Translations({
   service,
@@ -67,7 +67,7 @@ export function Translations({
   onOpen: (opened: Opened) => void
 }) {
   const texts = useMessageTexts()
-  const layouts = useLayouts()
+  const documents = useDocuments()
   const [target, setTarget] = useState<Target | null>(null)
   const [query, setQuery] = useState("")
   const header = useRef<HTMLElement>(null)
@@ -111,8 +111,7 @@ export function Translations({
         {(read) => (
           <TextsForm
             texts={read}
-            layouts={layouts.data}
-            layoutsSettled={!layouts.isPending}
+            documents={documents.data}
             service={service}
             target={target}
             search={{ query, onQuery: setQuery, at: header }}

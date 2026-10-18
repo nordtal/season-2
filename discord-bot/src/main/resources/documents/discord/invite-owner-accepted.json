@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{player.name} accepted your invitation. Team **{team.name}** is complete.",
+            "de": "{player.name} hat deine Einladung angenommen. Team **{team.name}** ist komplett."
+          }
+        }
+      ]
+    }
+  ]
+}

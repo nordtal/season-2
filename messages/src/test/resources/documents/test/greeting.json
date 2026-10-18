@@ -1,0 +1,11 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        { "text": { "en": "Hello {name}, you gave {amount}.", "de": "Hallo {name}, du hast {amount} gegeben." } }
+      ]
+    },
+    { "type": "ROW", "items": [{ "slot": "go", "label": { "en": "Go", "de": "Los" } }] }
+  ]
+}

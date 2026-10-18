@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "A team name has 3-15 characters. Use the Register button to try again.",
+            "de": "Ein Teamname hat 3-15 Zeichen. Versuch es noch einmal mit dem Registrieren-Knopf."
+          }
+        }
+      ]
+    }
+  ]
+}

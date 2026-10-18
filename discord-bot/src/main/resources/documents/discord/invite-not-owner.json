@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Register your own team before you invite anyone.",
+            "de": "Registriere zuerst dein eigenes Team, dann kannst du einladen."
+          }
+        }
+      ]
+    }
+  ]
+}

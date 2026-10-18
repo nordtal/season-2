@@ -1,0 +1,32 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Register your team",
+            "de": "Team registrieren"
+          },
+          "style": "TITLE"
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "name",
+          "label": {
+            "en": "Team name",
+            "de": "Teamname"
+          },
+          "placeholder": {
+            "en": "3-15 characters",
+            "de": "3-15 Zeichen"
+          }
+        }
+      ]
+    }
+  ]
+}

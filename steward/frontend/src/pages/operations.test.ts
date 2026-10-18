@@ -22,7 +22,9 @@ function row(over: Partial<Run> = {}): Run {
   }
 }
 
-/** A copy of `UpdateDirectory#cancelCountdown`: a counting kind, PENDING before its schedule or RUNNING before its end. */
+/**
+ * A copy of `UpdateDirectory#cancelCountdown`: a counting kind, PENDING before its schedule or RUNNING before its end.
+ */
 describe("cancellable - the window the backend would still take a row back in", () => {
   const now = new Date("2026-09-20T20:00:30Z")
 
@@ -36,7 +38,9 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 
   it("says no once the moment has arrived, which is the run that is actually stopping things", () => {
-    /** A RUNNING row counts to its countdown's end, a PENDING one to its schedule; either past is too late. */
+    /**
+     * A RUNNING row counts to its countdown's end and a PENDING one to its schedule. Either one past is too late.
+     */
     expect(cancellable(row({ status: "RUNNING", countdownEnd: "2026-09-20T20:00:00Z" }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "2026-09-20T20:00:30Z" }), now)).toBe(false)
   })
@@ -58,14 +62,18 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 
   it("says no to a row with no moment at all rather than throwing", () => {
-    /** A running row resolves before it counts down, and an unparseable date is never NaN > now either. */
+    /**
+     * A running row resolves before it counts down, and an unparseable date is never NaN > now either.
+     */
     expect(cancellable(row({ status: "RUNNING", countdownEnd: undefined }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "" }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "not a time" }), now)).toBe(false)
   })
 })
 
-/** One fact per line, counted in the bundle's words, so a plural is the bundle's and not a ternary here. */
+/**
+ * One fact per line, counted in the bundle's words, so a plural is the bundle's and not a ternary here.
+ */
 describe("summaryOf - what a run did, counted", () => {
   it("counts the services that moved and the files they moved, each in its own number", () => {
     const report: Run["report"] = {

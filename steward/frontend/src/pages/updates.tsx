@@ -35,7 +35,7 @@ import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from
 /**
  * The updates page: a header, three numbers and the lists, built like Backups.
  *
- * `update.at`, empty by default, schedules the same request the button writes.
+ * `update.at` is empty by default and schedules the same request that the button writes.
  */
 export function UpdatesPage() {
   const refresh = useRefreshAvailable()
@@ -51,7 +51,9 @@ export function UpdatesPage() {
               type="button"
               variant="outline"
               size="sm"
-              /** Steward holds a reading for six hours and asks every source again here; disabled while it asks. */
+              /**
+               * Steward holds a reading for six hours and asks every source again here. The button is disabled while it asks.
+               */
               disabled={refresh.isPending}
               onClick={() =>
                 refresh.mutate(undefined, {
@@ -113,7 +115,9 @@ function Summary() {
   )
 }
 
-/** Rank of each resolve outcome: a source that could not be asked sorts above ordinary work. */
+/**
+ * The rank of each resolve outcome. A source that could not be asked sorts above ordinary work.
+ */
 const AVAILABLE_RANK: Record<string, number> = {
   UNRESOLVED: 0,
   MOUNT_MISSING: 0,
@@ -126,7 +130,9 @@ const AVAILABLE_RANK: Record<string, number> = {
 /** Six absent rows, about what a resolve of this stack answers with. */
 const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
 
-/** The rows this card draws: work, failures, and artefacts with no build for this platform, failures first. */
+/**
+ * Returns the rows this card draws: work, failures, and artefacts with no build for this platform, failures first.
+ */
 function worthShowing(changes: AvailableChange[]): AvailableChange[] {
   return changes
     .filter((change) => change.work || change.failure || change.status === "UNSUPPORTED")
@@ -139,7 +145,7 @@ function worthShowing(changes: AvailableChange[]): AvailableChange[] {
 }
 
 /**
- * One row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume.
+ * Shows one row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume.
  *
  * An artefact with no pair gets a dash, with its reason as the title.
  */
@@ -171,9 +177,9 @@ function Pair({ from, to, exact }: { from: string; to: string; exact: boolean })
 }
 
 /**
- * What a run would install: rows with work, failures, and `UNSUPPORTED` artefacts.
+ * Shows what a run would install: rows with work, failures, and `UNSUPPORTED` artefacts.
  *
- * Hiding a failure would read as nothing to do; `UNSUPPORTED` answers why a plugin is missing.
+ * Hiding a failure would read as nothing to do. `UNSUPPORTED` answers why a plugin is missing.
  */
 function Available() {
   const available = useAvailable()
@@ -250,18 +256,20 @@ function Available() {
   )
 }
 
-/** What a run would note, drawn by the run page's view; its own panel, since panels are not nested. */
+/**
+ * What a run would note, drawn by the run page's view. It has its own panel, because panels are not nested.
+ */
 function PlanNotes() {
   const available = useAvailable()
   return available.data ? <RunNotes notes={available.data.notes} /> : null
 }
 
-/** The runs that install or restart: updates, restarts and the start-up install. */
+/** Returns the runs that install or restart: updates, restarts and the start-up install. */
 export function updateRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART" || run.kind === "INSTALL")
 }
 
-/** Four absent runs; the panel shows eight at most. */
+/** Four absent runs. The panel shows eight at most. */
 const WAITING_UPDATE_RUNS = Array.from({ length: 4 }, () => undefined)
 
 function Runs() {
@@ -360,7 +368,7 @@ const SCHEDULE_KEYS = ["update.at"] as const
 const DAYS_KEY = "update.days"
 
 /**
- * When an update runs on its own; an empty time, the default, is no schedule.
+ * Sets when an update runs on its own. An empty time, the default, is no schedule.
  *
  * Steward re-reads its file after a save, so no restart is needed.
  */

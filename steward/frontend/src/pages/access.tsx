@@ -26,7 +26,7 @@ import {
 /**
  * The Users page: who may join, and why they may.
  *
- * Payments and Journal are pages of their own and share its vocabulary: the chain request, tab, paid, access.
+ * Payments and Journal are pages of their own and share its vocabulary: the chain request, tab, paid and access.
  */
 
 /** Rows per page of the People table, paged after filtering. */
@@ -42,7 +42,7 @@ function PeopleTable({ children }: { children: ReactNode }) {
           <TableHead className="w-[20rem]">{t("steward.people.access")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.minecraft")}</TableHead>
           <TableHead className="w-[9rem]">{t("steward.people.roles")}</TableHead>
-          {/* The prestige tier is derived from this number, so it is the one lever an admin has. */}
+          {/* The prestige tier derives from this number, so it is the one lever an admin has. */}
           <TableHead className="w-[7rem]">{t("steward.people.playtime")}</TableHead>
           <TableHead className="w-[15rem]" />
         </TableRow>
@@ -55,7 +55,7 @@ function PeopleTable({ children }: { children: ReactNode }) {
 /** How many rows are drawn before the roster is there. */
 const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
 
-/** One person before there is one, in the shapes of the real row; the row action stays empty. */
+/** One person before there is one, in the shapes of the real row. The row action stays empty. */
 function WaitingPersonRow() {
   return (
     <TableRow>
@@ -87,16 +87,16 @@ function WaitingPersonRow() {
 }
 
 /**
- * The roster: everyone the bot knows, and what they may.
+ * The roster: everyone the bot knows, and what they may do.
  *
- * Every write here is a request the bot carries out, as `/access` in Discord does; a name opens the person's page.
+ * Every write here is a request that the bot carries out, as `/access` in Discord does. A name opens the person's page.
  */
 export function AccessPage() {
   const people = usePeople()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
-  // One clock for the whole render, so that two badges in one row cannot disagree about "now".
+  // One clock for the whole render, so two badges in one row cannot disagree about "now".
   const now = useNow()
 
   /** Resets the page whenever the filter changes, so a stale page number never flashes. */
@@ -115,7 +115,7 @@ export function AccessPage() {
 
       <div className="flex flex-col gap-3">
         <FilterBar>
-          {/* The placeholder is short enough for 360px; the long sentence is the accessible name. */}
+          {/* The placeholder is short enough for 360px. The long sentence is the accessible name. */}
           <SearchField
             value={needle}
             onValueChange={changeNeedle}
@@ -174,10 +174,10 @@ export function AccessPage() {
                 <PeopleTable>
                   {paged.map((person) => (
                     <TableRow key={person.discordId}>
-                      {/* No `data-label`, so on a phone the person heads the card, both accounts in one popover. */}
+                      {/* No `data-label`, so on a phone the person heads the card, with both accounts in one popover. */}
                       <TableCell className="font-medium" data-phone="top-start">
                         <div className="hidden flex-wrap items-center gap-2 @rows:flex">
-                          {/* The closed face, since the link is the way to everything else about them. */}
+                          {/* The closed face, because the link is the way to everything else about the person. */}
                           <Link
                             to="/access/$id"
                             params={{ id: person.discordId }}
@@ -185,7 +185,7 @@ export function AccessPage() {
                           >
                             <Entity id={person.discordId} kind="discord" interactive={false} />
                           </Link>
-                          {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
+                          {/* "Member" is left unsaid. LEFT and BANNED get a badge beside the name. */}
                           {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                         </div>
                         <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
@@ -193,7 +193,7 @@ export function AccessPage() {
                       <TableCell data-label={t("steward.people.access")} data-phone="bottom-start">
                         <AccessBadge person={person} now={now} />
                       </TableCell>
-                      {/* On a phone the account is part of the person; a missing link is a badge beside them. */}
+                      {/* On a phone the account is part of the person, and a missing link is a badge beside them. */}
                       <TableCell data-label={t("steward.people.minecraft")} data-phone="off">
                         {person.minecraftUuid ? (
                           <Entity id={person.minecraftUuid} kind="minecraft" />
@@ -203,13 +203,13 @@ export function AccessPage() {
                       </TableCell>
                       <TableCell data-label={t("steward.people.roles")} data-phone="top-end">
                         <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
-                          {/* What the desktop shows in the person's and the Minecraft column. */}
+                          {/* What the desktop shows in the person's column and the Minecraft column. */}
                           {person.memberState !== "MEMBER" ? (
                             <span className="contents @rows:hidden">
                               <MemberBadge state={person.memberState} />
                             </span>
                           ) : null}
-                          {/* "Not linked" is only worth a place on a phone while it keeps a paying person out. */}
+                          {/* "Not linked" is worth a place on a phone only while it keeps a paying person out. */}
                           {!person.minecraftUuid && person.accessActive ? (
                             <span className="contents @rows:hidden">
                               <LinkBadge person={person} />
@@ -247,7 +247,7 @@ export function AccessPage() {
                   ))}
                 </PeopleTable>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  {/* The one count of the list: how many match, and which of them this page shows. */}
+                  {/* The one count of the list: how many rows match, and which of them this page shows. */}
                   <p className="text-xs text-muted-foreground tnum">
                     {pageCount > 1
                       ? t("steward.people.range", {

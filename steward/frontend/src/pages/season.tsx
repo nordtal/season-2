@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { choice, t } from "@/lib/texts"
 
-/** The open network settings group, in the URL like a service's, so Ctrl-K can land on it. */
+/**
+ * The open network settings group. It is in the URL like a service's, so Ctrl-K can land on it.
+ */
 export type SeasonSearch = { file?: string }
 
 export function seasonSearch(search: Record<string, unknown>): SeasonSearch {
@@ -27,7 +29,7 @@ export function seasonSearch(search: Record<string, unknown>): SeasonSearch {
 /**
  * The season page: the phase, which decides who may join and where, its two dates, and the network's settings.
  *
- * Every process reads the phase from one row, so a switch applies on the next join; that is why it asks twice.
+ * Every process reads the phase from one row, so a switch applies on the next join. That is why it asks twice.
  */
 export function SeasonPage() {
   const season = useSeason()
@@ -42,7 +44,7 @@ export function SeasonPage() {
         {(current) => (
           <>
             <PhaseCard season={current} />
-            {/* No button ends a season: each one is a full rebuild, with nothing carried over. */}
+            {/* No button ends a season. Each one is a full rebuild, with nothing carried over. */}
             <DatesCard season={current} />
           </>
         )}
@@ -84,7 +86,7 @@ function PhaseCard({ season }: { season?: Season }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {/* Only while the dialog is shut; a refused switch keeps it open and repeats the refusal inside. */}
+        {/* Only while the dialog is shut. A refused switch keeps it open and repeats the refusal inside. */}
         {change.error && asked === null ? <Failure error={change.error} /> : null}
 
         {/* The five phases are static, so only which one is current waits. */}
@@ -197,7 +199,9 @@ function DateField({
   const dirty = local !== saved
   const [removing, setRemoving] = useState(false)
 
-  /** The field mounts before the answer, so it takes the saved value only while still untouched. */
+  /**
+   * The field mounts before the answer, so it takes the saved value only while it is untouched.
+   */
   if (local === "" && saved !== "") setLocal(saved)
 
   return (
@@ -228,7 +232,7 @@ function DateField({
         >
           {t("steward.form.save")}
         </Button>
-        {/* Reset while something is typed, Remove otherwise, so the row never wraps on a phone. */}
+        {/* Reset while something is typed and Remove otherwise, so the row never wraps on a phone. */}
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
             {t("steward.form.reset")}
@@ -266,7 +270,9 @@ function DateField({
   )
 }
 
-/** A phase's name from the bundle, or the constant itself for one this page does not know. */
+/**
+ * Returns a phase's name from the bundle, or the constant itself for one this page does not know.
+ */
 function phaseName(phase: string): string {
   return t("steward.season.phase", { phase: choice(phase) })
 }
@@ -276,7 +282,7 @@ function pad(value: number): string {
 }
 
 /**
- * An instant as `datetime-local` wants it: local wall clock, no zone, minute precision.
+ * Returns an instant as `datetime-local` wants it: local wall clock, no zone, minute precision.
  *
  * `toISOString().slice(0, 16)` would be UTC and off by the zone offset.
  */

@@ -247,7 +247,7 @@ describe("saving", () => {
     expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 
-  /** The save's own answer says whether the text is in force; the toast says which of two. */
+  /** The save's own answer says whether the text is in force. The toast says which of two. */
   it.each([
     ["in force", "APPLIED", toast.success],
     ["in force after a restart", "RESTART_REQUIRED", toast.info],
@@ -284,7 +284,9 @@ describe("saving", () => {
     await screen.findByDisplayValue("Welcome")
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    /** The reset draft shows the packaged "Welcome" too, so only the saved draft's Save button going proves the round trip. */
+    /**
+     * The reset draft shows the packaged "Welcome" too, so only the saved draft's Save button going proves the round trip.
+     */
     await waitFor(() => expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull())
     expect(await screen.findByDisplayValue("Welcome")).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull()
@@ -553,7 +555,9 @@ describe("a jump from the command palette", () => {
   })
 })
 
-/** Whether the group takes a dimmed look from any disabled element inside it, a tool included. */
+/**
+ * Returns whether the group takes a dimmed look from any disabled element inside it, a tool included.
+ */
 const dimmedByAnyTool = (group: Element) => [...group.classList].some((name) => name.startsWith("has-disabled:"))
 
 describe("the editor's look", () => {

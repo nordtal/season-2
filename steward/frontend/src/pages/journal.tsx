@@ -22,23 +22,29 @@ const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
  *
  * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
-/** An action as the admin bundle names it. */
+/** Returns an action as the admin bundle names it. */
 function actionLabel(action: JournalAction): string {
   return t("journal.action", { action: choice(action) })
 }
 
-/** A line with no values says nothing its action does not, so the phone card leaves it out. */
+/**
+ * Returns whether a line has no values. Such a line says nothing its action does not, so the phone card leaves it out.
+ */
 function restatesAction(entry: JournalEntry): boolean {
   return Object.keys(entry.line.args ?? {}).length === 0
 }
 
-/** Whether the entry concerns someone other than the one who acted, which alone earns a line on a phone. */
+/**
+ * Returns whether the entry concerns someone other than the one who acted, which alone earns a line on a phone.
+ */
 function concernsAnother(entry: JournalEntry): boolean {
   if (entry.subject) return entry.subject !== entry.actor.person
   return entry.mcUuid !== undefined
 }
 
-/** Journal entries as rows, ten waiting ones while `entries` is undefined; a person's page shows theirs with it. */
+/**
+ * Journal entries as rows, with ten waiting ones while `entries` is undefined. A person's page shows its own with it.
+ */
 export function JournalTable({
   entries,
   concerns = true,
@@ -106,7 +112,7 @@ export function JournalTable({
                 <TableCell data-phone="off" className="font-medium" title={entry.action}>
                   {actionLabel(entry.action)}
                 </TableCell>
-                {/* A profile, never an id; no admin at all is Steward's own mark. */}
+                {/* A profile and never an id. No admin at all is Steward's own mark. */}
                 <TableCell data-label={columns.actor} className="text-muted-foreground">
                   <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                 </TableCell>
@@ -123,7 +129,7 @@ export function JournalTable({
                     ) : null}
                   </TableCell>
                 ) : null}
-                {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
+                {/* The line, rendered from its key and typed values, wraps where TableCell would not. */}
                 <TableCell
                   data-label={columns.detail}
                   data-phone={restatesAction(entry) ? "off" : undefined}
@@ -138,7 +144,9 @@ export function JournalTable({
   )
 }
 
-/** Every part of the filter, empty; the unfiltered query names each so its key is the filtered one's while none is set. */
+/**
+ * Every part of the filter, empty. The unfiltered query names each, so its key is the filtered one's while none is set.
+ */
 const NO_FILTER = { action: "", subject: "", reference: "", minDays: "" }
 
 export function JournalPage() {
@@ -160,7 +168,7 @@ export function JournalPage() {
 
       <Panel title={t("steward.journal.entries")}>
         <FilterBar>
-          {/* An exact id, so it filters on Enter rather than on every keystroke. */}
+          {/* An exact id, so it filters on Enter and not on every keystroke. */}
           <SearchField
             value={typed}
             onValueChange={setTyped}

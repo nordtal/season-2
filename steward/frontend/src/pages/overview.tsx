@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button"
 import { t } from "@/lib/texts"
 
 /**
- * The landing page: is something wrong, how full is the box, where to go next.
+ * The landing page: is something wrong, how full is the box, and where to go next.
  *
- * Laid out for a phone first. Every tile links to the page that can act on it; nothing here restarts anything.
+ * It is laid out for a phone first. Every tile links to the page that can act on it. Nothing here restarts anything.
  */
 export function OverviewPage() {
   const online = useOnline()
@@ -29,7 +29,7 @@ export function OverviewPage() {
 
       <MetricRow />
 
-      {/* On desktop the picture sits left of the actions; on a phone it goes last. */}
+      {/* On desktop the picture sits left of the actions. On a phone it goes last. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="order-last lg:order-first lg:col-span-2">
           <NetworkPanel />
@@ -45,7 +45,9 @@ export function OverviewPage() {
 /** The quiet line under a figure, while the figure is still out. */
 const WAITING_HINT = <SkeletonText className="w-20 text-xs" />
 
-/** CPU, memory, disk, latest backup, drift and issues; the detail behind each lives on the Operations page. */
+/**
+ * Shows CPU, memory, disk, latest backup, drift and issues. The detail behind each lives on the Operations page.
+ */
 function MetricRow() {
   const host = useHost()
   const cpu = useMetrics("host", "cpu_percent", 360)
@@ -118,7 +120,7 @@ function MetricRow() {
         ) : null}
       </MetricTile>
 
-      {/* `/operations/backups` holds what this number summarises, as `/alerts` does the issues'. */}
+      {/* `/operations/backups` holds what this number summarises, as `/alerts` does for the issues. */}
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
         <Stat
           label={t("steward.overview.latest-backup")}
@@ -147,9 +149,9 @@ function MetricRow() {
 }
 
 /**
- * The issue count steward judged, drawn like `Behind`: a count, and beneath it the names it is about.
+ * Shows the issue count that Steward judged, drawn like `Behind`: a count, and beneath it the names it is about.
  *
- * A settled `0` appears only once steward has read the stack; a failed read shows the row's dash.
+ * A settled `0` appears only once Steward has read the stack. A failed read shows the row's dash.
  */
 function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boolean; failed: boolean }) {
   if (alerts.length === 0) {
@@ -215,26 +217,32 @@ function MetricTile({
   )
 }
 
-/** The host's core count, or the dash while the host has not said. */
+/** Returns the host's core count, or the dash while the host has not said. */
 function cores(cpus: number | undefined): string {
   return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
 }
 
-/** The share of the host's memory in use now, or the dash while the host has not said its total. */
+/**
+ * Returns the share of the host's memory in use now, or the dash while the host has not said its total.
+ */
 function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number }) {
   if (!host.memoryTotalBytes) return "\u2013"
   return share(host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0), host.memoryTotalBytes)
 }
 
-/** A reading of the memory curve as the tile's number: a share of `total`, or bytes where no total is known. */
+/**
+ * Returns a reading of the memory curve as the tile's number: a share of `total`, or bytes where no total is known.
+ */
 function share(used: number, total: number | undefined): string {
   return total ? percent((used / total) * 100, 0) : bytes(used)
 }
 
-/** Four absent rows, the length `useActions(5)` settles at once the season is running. */
+/** Four absent rows, the length that `useActions(5)` settles at once the season is running. */
 const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
 
-/** The latest actions from `/api/actions`; every actor is drawn through `Entity`, never as a raw snowflake. */
+/**
+ * Shows the latest actions from `/api/actions`. Every actor is drawn through `Entity` and never as a raw snowflake.
+ */
 function ActionsPanel() {
   const actions = useActions(5)
   const now = useNow()
@@ -249,10 +257,12 @@ function ActionsPanel() {
       >
         {(list) => (
           <ul className="flex flex-col">
-            {/* Four while waiting, because that is what `useActions(5)` all but always answers. */}
+            {/* Four while waiting, because `useActions(5)` all but always answers four. */}
             {(list ?? WAITING_ACTIONS).map((action, index) => (
               <ActionRow
-                /** The feed has no id of its own, and position is stable because the list is never reordered here. */
+                /**
+                 * The feed has no id of its own, and position is stable because the list is never reordered here.
+                 */
                 key={index}
                 action={action}
                 now={now}

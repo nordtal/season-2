@@ -8,9 +8,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 /**
- * The Issues tile: what steward judged, and how complete that reading is.
+ * The Issues tile: what Steward judged, and how complete that reading is.
  *
- * Rendered in a real memory router, so a link to a missing route fails.
+ * It renders in a real memory router, so a link to a missing route fails.
  */
 
 function json(status: number, body: unknown): Response {
@@ -79,12 +79,12 @@ function alert(subject: string, level: "warn" | "down") {
   }
 }
 
-/** A reading steward finished, with these alerts in it. */
+/** A reading that Steward finished, with these alerts in it. */
 function reading(alerts: unknown[], unreadable: string | null = null) {
   return { checkedAt: new Date().toISOString(), unreadable, level: "ok", alerts, recent: [] }
 }
 
-/** Everything the start page asks for; `alerts` is a function so a test can hold it open. */
+/** Everything the start page asks for. `alerts` is a function, so a test can hold it open. */
 function backend(over: {
   services?: unknown[]
   backups?: unknown[]
@@ -114,13 +114,13 @@ function backend(over: {
   })
 }
 
-/** A route this test never draws, only routes to. */
+/** A route this test never draws and only routes to. */
 const nothing = () => null
 
-/** The default a held promise's resolver starts as. */
+/** The default that a held promise's resolver starts as. */
 const noop = () => undefined
 
-/** The page under a router holding only the routes it links into. */
+/** The page under a router that holds only the routes it links into. */
 function draw() {
   const root = createRootRoute()
   const routeTree = root.addChildren([
@@ -138,7 +138,7 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  /** The tooltip provider the Shell normally supplies, which the table's badges need. */
+  /** The tooltip provider that the Shell normally supplies, which the table's badges need. */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -148,13 +148,13 @@ function draw() {
   )
 }
 
-/** The Issues tile, walked up from its label to the div holding value and hint. */
+/** The Issues tile, found by walking up from its label to the div that holds value and hint. */
 function issuesTile(): HTMLElement | null {
   const label = screen.queryByText("Issues")
   return label?.closest("div") ?? null
 }
 
-/** What the tile says altogether, or "" before it renders. */
+/** Everything the tile says, or "" before it renders. */
 const said = () => issuesTile()?.textContent ?? ""
 
 const COULD_NOT_READ = /could not/
@@ -172,7 +172,7 @@ describe("OverviewPage - the Issues tile prints what steward judged", () => {
     )
     draw()
 
-    /** The tile prints an alert's subject, not its title. */
+    /** The tile prints an alert's subject and not its title. */
     await waitFor(() => expect(said()).toContain("smp, bot"))
     expect(said()).toContain("2")
     expect(issuesTile()?.innerHTML).toContain("text-destructive")
@@ -180,7 +180,7 @@ describe("OverviewPage - the Issues tile prints what steward judged", () => {
   })
 
   it("keeps the tile empty while steward has not read the stack yet", async () => {
-    /** A settled "0" must never appear before steward has looked. */
+    /** A settled "0" must never appear before Steward has looked. */
     vi.stubGlobal("fetch", backend({ alerts: () => Promise.resolve({ ...reading([]), checkedAt: undefined }) }))
     draw()
 
@@ -264,7 +264,9 @@ describe("OverviewPage - the number row pairs up its tiles", () => {
   })
 })
 
-/** The tile order, read in DOM order since the defect is an order: CPU, Memory, Disk, Latest backup, Behind, Issues. */
+/**
+ * Returns the tile order, read in DOM order because the defect is an order: CPU, Memory, Disk, Latest backup, Behind, Issues.
+ */
 function metricLabels(): string[] {
   const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
   return Array.from(grid?.children ?? []).map((tile) => tile.querySelector("span")?.textContent ?? "")
@@ -321,7 +323,7 @@ describe("OverviewPage - the heading is how many are in the game", () => {
 /**
  * The bottom section is the network picture and the actions, with no service table beside it.
  *
- * jsdom has no layout, so only presence is asserted, not position.
+ * jsdom has no layout, so the test asserts presence and not position.
  */
 describe("OverviewPage - the bottom section", () => {
   it("draws the network picture and no longer draws the service table", async () => {
@@ -339,7 +341,9 @@ describe("OverviewPage - the bottom section", () => {
 
     await waitFor(() => expect(document.querySelector('[data-node="smp"]')).not.toBeNull())
     expect(screen.getByRole("heading", { name: "Network" })).toBeTruthy()
-    /** Every service the arrangement names is drawn, with or without a container behind it. */
+    /**
+     * Every service that the arrangement names is drawn, with or without a container behind it.
+     */
     expect(document.querySelector('[data-node="postgres"]')).not.toBeNull()
 
     /** No disclosure element remains. */

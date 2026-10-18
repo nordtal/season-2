@@ -20,16 +20,18 @@ export function translationsSearch(search: Record<string, unknown>): Translation
   return typeof search.service === "string" && search.service !== "" ? { service: search.service } : {}
 }
 
-/** The value of the filter's first choice; a service is named in lowercase, so none is called this. */
+/**
+ * The value of the filter's first choice. A service is named in lowercase, so none is called this.
+ */
 const EVERY_SERVICE = "ALL"
 
 /** The service filter and the search share a width, and halve the row on a phone. */
 const CONTROL_WIDTH = "min-w-0 flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto"
 
-/** A counter, not state: the number only has to differ from the last one. */
+/** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
 
-/** The Translations page, its filter kept in the URL's `?service=`. */
+/** The Translations page, with its filter kept in the URL's `?service=`. */
 export function TranslationsPage() {
   const search = useSearch({ from: "/translations" })
   const navigate = useNavigate({ from: "/translations" })
@@ -42,9 +44,9 @@ export function TranslationsPage() {
 }
 
 /**
- * Every text of every bundle, grouped by where it appears and then by topic, filtered to one service if asked.
+ * Every text of every bundle, grouped by where it appears and then by topic, and filtered to one service if asked.
  *
- * A text the command palette found is opened here, in the language it was found in.
+ * A text that the command palette found is opened here, in the language it was found in.
  */
 export function Translations({
   service,
@@ -58,7 +60,9 @@ export function Translations({
   const [query, setQuery] = useState("")
   const header = useRef<HTMLElement>(null)
 
-  /** A jump from the command palette; each gets a new number, so the same hit twice lands twice. */
+  /**
+   * A jump from the command palette. Each gets a new number, so the same hit twice lands twice.
+   */
   useEffect(() => {
     const land = () => {
       const jump = takePendingTextJump()

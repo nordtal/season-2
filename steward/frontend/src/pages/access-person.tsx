@@ -27,23 +27,29 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-/** What the Users page and a person's page show and change about one person: the badges, the actions, every dialog. */
+/**
+ * What the Users page and a person's page show and change about one person: the badges, the actions and every dialog.
+ */
 
-/** What to call somebody in a control's accessible name, in the order the table itself reads. */
+/**
+ * Returns what to call somebody in a control's accessible name, in the order the table itself reads.
+ */
 export function personName(person: Person): string {
   return person.discordDisplayName ?? person.discordUsername ?? person.mcName ?? person.discordId
 }
 
-/** Guild membership; `MEMBER` is the quiet one, so LEFT and BANNED stand out. */
+/** Guild membership. `MEMBER` is the quiet one, so LEFT and BANNED stand out. */
 const MEMBER_TONES: Record<string, Tone> = { LEFT: "warn", BANNED: "down" }
 
 /**
  * A guild membership as a badge.
  *
- * A purchased period keeps running when the member leaves, and a ban refuses the login while the paid period expires.
+ * A purchased period keeps running when the member leaves. A ban refuses the login while the paid period runs out.
  */
 export function MemberBadge({ state }: { state: string }) {
-  /** An unknown value is shown, not swallowed, so a state added later reads as new rather than empty. */
+  /**
+   * An unknown value is shown and not swallowed, so a state added later reads as new and not as empty.
+   */
   return (
     <StatusBadge tone={MEMBER_TONES[state] ?? "idle"}>
       {t("steward.people.member", { state: choice(state) }) || state}
@@ -51,7 +57,7 @@ export function MemberBadge({ state }: { state: string }) {
   )
 }
 
-/** A toast body naming the person it is about, next to a fixed label. */
+/** A toast body that names the person it is about, next to a fixed label. */
 function personToast(label: string, discordId: string): ReactNode {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -65,9 +71,9 @@ function personToast(label: string, discordId: string): ReactNode {
 const MOST_DAYS = 365
 
 /**
- * Granting: the bot writes a period with the source ADMIN (no payment, no tab), gives the role and tells the person.
+ * Grants access. The bot writes a period with the source ADMIN (no payment, no tab), gives the role and tells the person.
  *
- * A day is 24 hours; a period is appended behind a running one and starts no earlier than the SMP launch. An unknown id makes an account.
+ * A day is 24 hours. A period is appended behind a running one and starts no earlier than the SMP launch. An unknown id makes an account.
  */
 export function GrantDialog({
   person,
@@ -106,7 +112,9 @@ export function GrantDialog({
           { discordId: discordId.trim(), days: parsedDays },
           {
             onSuccess: (written, asked) => {
-              /** The person if opened from their row, otherwise the id that was typed. */
+              /**
+               * The person if the dialog was opened from their row, else the id that was typed.
+               */
               toast.success(personToast(t("steward.people.granted"), asked.discordId), {
                 description: t("steward.people.valid-until", { until: written.until }),
               })
@@ -155,12 +163,12 @@ export function GrantDialog({
 }
 
 /**
- * Sets an account's total play time by hand, the one lever on the prestige tier.
+ * Sets an account's total play time by hand. It is the one lever on the prestige tier.
  *
- * Hours and minutes over range are carried, not refused; the wire carries seconds.
+ * Hours and minutes over their range are carried and not refused. The wire carries seconds.
  */
 
-/** An empty field is zero; anything else that is not a number is NaN, which `usable` catches. */
+/** An empty field is zero. Anything else that is not a number is NaN, which `usable` catches. */
 function parseField(value: string): number {
   return Number(value.replace(",", "."))
 }
@@ -208,7 +216,7 @@ export function PlaytimeDialog({
       }}
     >
       <div className="flex flex-col gap-1.5">
-        {/* Three columns even on a phone, since the three are one number read left to right. */}
+        {/* Three columns even on a phone, because the three read as one number from left to right. */}
         <div className="grid grid-cols-3 gap-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="playtime-days">{t("steward.form.days")}</Label>
@@ -256,7 +264,9 @@ export function PlaytimeDialog({
   )
 }
 
-/** Unlinks the Minecraft account; the paid period stays, the person may link again, and the bot tells them. */
+/**
+ * Unlinks the Minecraft account. The paid period stays, the person may link again, and the bot tells them.
+ */
 export function UnlinkDialog({
   person,
   open,
@@ -295,7 +305,9 @@ export function UnlinkDialog({
   )
 }
 
-/** Lets one player through without the resource pack from their next login on, or takes that back. */
+/**
+ * Lets one player through without the resource pack from their next login on, or takes that back.
+ */
 export function PackExemptionDialog({
   person,
   open,
@@ -330,7 +342,9 @@ export function PackExemptionDialog({
   )
 }
 
-/** Makes a member an admin below the signed-in one, whom only they and the admins above can revoke; the Discord role follows. */
+/**
+ * Makes a member an admin below the signed-in one. Only that admin and the admins above can revoke it, and the Discord role follows.
+ */
 export function MakeAdminDialog({
   person,
   open,
@@ -405,9 +419,10 @@ export function RevokeAdminDialog({
 }
 
 /**
- * Revokes every running period; the person dialog closes first, so there are never two focus traps.
+ * Revokes every running period. The person dialog closes first, so there are never two focus traps.
  *
  * The proxy re-checks connected players, so revoking throws them out. A revoked period stays on record, marked.
+ *
  * @param open when given, the dialog is controlled from outside and draws no trigger of its own
  */
 export function RevokeDialog({
@@ -441,7 +456,7 @@ export function RevokeDialog({
       act={() => {
         revoke.mutate(person.discordId, {
           onSuccess: (result) => {
-            /** Zero means the run had already ended or somebody else revoked it. */
+            /** Zero means that the run had already ended or somebody else revoked it. */
             if (result.revoked === 0) {
               toast.warning(t("steward.people.nothing-to-revoke"), {
                 description: personToast(t("steward.people.none-running"), person.discordId),
@@ -465,9 +480,9 @@ export function RevokeDialog({
 }
 
 /**
- * Access from `accessActive` (the login decision) and `accessUntil` (the latest period, revoked ones included).
+ * Shows access from `accessActive` (the login decision) and `accessUntil` (the latest period, revoked ones included).
  *
- * Two readings, so revoked access never looks like none ever bought; the periods tell revoked from not begun.
+ * Two readings keep revoked access from looking like none ever bought. The periods tell revoked from not begun.
  */
 export function AccessBadge({ person, now }: { person: Person; now: number }) {
   const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
@@ -496,7 +511,7 @@ export function AccessBadge({ person, now }: { person: Person; now: number }) {
   )
 }
 
-/** Warns about the one state with no face to draw: paid but no Minecraft account linked. */
+/** Warns about the one state with no face to draw: paid, but no Minecraft account linked. */
 export function LinkBadge({ person }: { person: Person }) {
   return (
     <StatusBadge
@@ -509,7 +524,7 @@ export function LinkBadge({ person }: { person: Person }) {
 }
 
 /**
- * The roles a person holds, as badges; a dash for none, which a phone's card leaves out with its line.
+ * Shows the roles a person holds as badges, and a dash for none, which a phone's card leaves out with its line.
  *
  * The supporter role is given once and never taken away, so handing it out in Discord is harmless.
  */
@@ -542,24 +557,26 @@ export function RoleBadges({
   )
 }
 
-/** Whether a person holds any role, for the line a phone's card draws only then. */
+/** Returns whether a person holds any role, for the line that a phone's card draws only then. */
 export function hasRole(person: Person): boolean {
   return person.donor || person.admin || Boolean(person.packExemptAt)
 }
 
-/** Which of a person's dialogs is open; one at a time, rendered beside the actions and never inside them. */
+/**
+ * Which of a person's dialogs is open. One is open at a time, rendered beside the actions and never inside them.
+ */
 type PersonDialog = "grant" | "playtime" | "revoke" | "unlink" | "make-admin" | "revoke-admin" | "pack"
 
 /**
- * Everything that can be done to one person, with its dialogs: a menu in a roster row, buttons on their page.
+ * Offers everything that can be done to one person, with its dialogs: a menu in a roster row, buttons on their page.
  *
- * A dialog is rendered beside the menu, since a Radix popover unmounts one opened from inside it.
+ * A dialog is rendered beside the menu, because a Radix popover unmounts one that was opened from inside it.
  */
 export function PersonActions({ person, menu = false }: { person: Person; menu?: boolean }) {
   const people = usePeople()
   const me = useMe()
   const [dialog, setDialog] = useState<PersonDialog | null>(null)
-  // Which admins the signed-in one may revoke: their own branch, and nobody else's.
+  // The admins the signed-in one may revoke: their own branch and nobody else's.
   const below = adminsBelow(people.data ?? [], me.data?.id)
   const close = (open: boolean) => (open ? null : setDialog(null))
   const actions = rowActions(person, {
@@ -605,9 +622,9 @@ export function PersonActions({ person, menu = false }: { person: Person; menu?:
 }
 
 /**
- * The actions one row offers, each only where it applies.
+ * Returns the actions one row offers, each only where it applies.
  *
- * Revoke needs active access, Unlink a linked account; Grant is always there. The periods are on the page.
+ * Revoke needs active access and Unlink needs a linked account. Grant is always there. The periods are on the page.
  */
 function rowActions(
   person: Person,
@@ -692,7 +709,7 @@ function rowActions(
     })
   }
 
-  // Last on purpose: this is for whoever draws the pack, not a routine action.
+  // Last on purpose, because this is for whoever draws the pack and not a routine action.
   if (person.packExemptAt || person.minecraftUuid) {
     actions.push({
       key: "pack",
@@ -708,14 +725,16 @@ function rowActions(
   return actions
 }
 
-/** The exemption badge's tooltip: who let them through without the pack, and when. */
+/** Returns the exemption badge's tooltip: who let them through without the pack, and when. */
 function packExemptText(person: Person, people: readonly Person[]): string {
   const admin = people.find((other) => other.discordId === person.packExemptBy)
   const by = admin ? personName(admin) : (person.packExemptBy ?? t("steward.people.some-admin"))
   return t("steward.people.no-pack-tip", { by, at: person.packExemptAt ?? "" })
 }
 
-/** The admin badge's tooltip: who granted this one, by the name the roster knows them by. */
+/**
+ * Returns the admin badge's tooltip: who granted this one, by the name the roster knows them by.
+ */
 function grantedByText(person: Person, people: readonly Person[]): string {
   if (!person.adminGrantedBy) return t("steward.people.root-admin")
   const granter = people.find((other) => other.discordId === person.adminGrantedBy)

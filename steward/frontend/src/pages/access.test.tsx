@@ -24,7 +24,7 @@ import {
 /**
  * The Access page: faces for identifiers, search over four fields, and filtering before paging.
  *
- * `unlink` is a row action, covered lower down; `settle` is in `payments.test.tsx`, against the same backend.
+ * `unlink` is a row action, covered lower down. `settle` is in `payments.test.tsx`, against the same backend.
  */
 
 afterEach(() => {
@@ -160,7 +160,7 @@ describe("AccessPage - the Minecraft column draws a face", () => {
 })
 
 describe("AccessPage - pagination filters the whole roster before it pages", () => {
-  // Fifteen seconds: it draws 21 rows and waits twice, close to the default budget on a busy machine.
+  // Fifteen seconds, because it draws 21 rows and waits twice, which is close to the default budget on a busy machine.
   it(
     "holds 21 matches over two pages of at most 20, without the second page vanishing from the search",
     { timeout: 15_000 },
@@ -172,7 +172,7 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
 
       fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
 
-      // Page 1: twenty rows, and the one count names them against the whole filtered total.
+      // Page 1 has twenty rows, and the one count names them against the whole filtered total.
       await waitFor(() => expect(document.querySelectorAll("tbody tr")).toHaveLength(20))
       expect(screen.getByText("1-20 of 21 users")).toBeTruthy()
 
@@ -184,7 +184,9 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
   )
 })
 
-/** Play time is listed and overridable, since the donor tier derives from `player_playtime.seconds` alone. */
+/**
+ * Play time is listed and overridable, because the donor tier derives from `player_playtime.seconds` alone.
+ */
 describe("AccessPage - play time in the list, and overridable", () => {
   it("prints an account's play time as a span, not as a number of seconds", async () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }))
@@ -241,7 +243,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 
   it("carries an out-of-range field instead of refusing it", async () => {
-    // "0 days 50 hours" is two days and two hours; an empty field counts as zero.
+    // "0 days 50 hours" is two days and two hours. An empty field counts as zero.
     const calls: { url: string; body: unknown }[] = []
     vi.stubGlobal(
       "fetch",
@@ -319,12 +321,12 @@ describe("AccessPage - unlink as a row action", () => {
 })
 
 /** An action is drawn only when the row's state allows it, so linked Ally and bare bob differ. */
-/** The badges beside the person on a phone's card. */
+/** Returns the badges beside the person on a phone's card. */
 function badges(row: HTMLElement): HTMLElement {
   return assertElement(row.querySelector('td[data-phone="top-end"]'), "the badges")
 }
 
-/** The slot each cell of a row takes in a phone's card, in the order of the cells. */
+/** Returns the slot that each cell of a row takes in a phone's card, in the order of the cells. */
 function slots(row: HTMLElement): (string | null)[] {
   return [...row.querySelectorAll(":scope > td")].map((cell) => cell.getAttribute("data-phone"))
 }
@@ -366,7 +368,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    /** Ally has four; bob has one, and still gets the popover. */
+    /** Ally has four actions. bob has one and still gets the popover. */
     const ally = await rowFor("Ally")
     const bob = await rowFor("bob")
     expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
@@ -395,7 +397,9 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     )
     draw(<AccessPage />)
 
-    /** The person and their roles, then access and play time, the actions beside both; Minecraft is part of the person. */
+    /**
+     * The person and their roles come first, then access and play time, with the actions beside both. Minecraft is part of the person.
+     */
     const card = ["top-start", "bottom-start", "off", "top-end", "bottom-end", "action"]
     expect(slots(await rowFor("quiet"))).toEqual(card)
     expect(slots(await rowFor("player"))).toEqual(card)
@@ -468,7 +472,9 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 })
 
-/** Every access change is a request in the bot's inbox, since only the bot applies the role and tells the person. */
+/**
+ * Every access change is a request in the bot's inbox, because only the bot applies the role and tells the person.
+ */
 describe("AccessPage - access changes are asked of the bot", () => {
   it("refuses a grant longer than 365 days before it is sent", async () => {
     const fetched = backend()
@@ -556,7 +562,9 @@ describe("AccessPage - the generic command card is gone", () => {
   })
 })
 
-/** Admins are granted and revoked here; "Revoke admin" is drawn only for an admin below the signed in one. */
+/**
+ * Admins are granted and revoked here. "Revoke admin" is drawn only for an admin below the signed-in one.
+ */
 describe("AccessPage - the admin tree", () => {
   const TREE = [
     person({ discordId: ME, discordUsername: "me", admin: true, adminGrantedBy: null }),

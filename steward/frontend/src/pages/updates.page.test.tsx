@@ -9,7 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { changesOf } from "@/lib/query-fixtures"
 
 /**
- * The Updates page: built like Backups, but its own.
+ * The Updates page is built like Backups, but its own.
  *
  * It saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
  */
@@ -127,7 +127,7 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
   })
 }
 
-/** A route this test never draws, only routes to. */
+/** A route this test never draws and only routes to. */
 const nothing = () => null
 
 function draw() {
@@ -171,7 +171,9 @@ describe("UpdatesPage - its own schedule", () => {
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
-    /** update.days is Sunday alone and backup.days Monday, so an unpressed Monday proves the update keys are read. */
+    /**
+     * update.days is Sunday alone and backup.days is Monday, so an unpressed Monday proves that the update keys are read.
+     */
     expect((await screen.findByRole("button", { name: "Sun" })).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Mon" }).getAttribute("aria-pressed")).toBe("false")
 

@@ -10,7 +10,9 @@ import type { Run } from "@/lib/api"
 import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** Asserts the sentence handed to sonner, since `<Toaster />` lives in the shell and this test renders one page. */
+/**
+ * Asserts the sentence handed to sonner, because `<Toaster />` lives in the shell and this test renders one page.
+ */
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn<(message: string) => void>(),
@@ -26,7 +28,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-/** A row as `/api/updates` answers with one; the caller says which run it is. */
+/** A row as `/api/updates` answers with one. The caller says which run it is. */
 function run(over: Partial<Run> = {}): Run {
   return {
     id: 79,
@@ -37,7 +39,7 @@ function run(over: Partial<Run> = {}): Run {
     said: {},
     scope: [],
     requested: new Date().toISOString(),
-    // A minute ahead: the countdown steward has not picked up yet.
+    // A minute ahead: the countdown that Steward has not picked up yet.
     scheduledFor: new Date(Date.now() + 60_000).toISOString(),
     moving: [],
     started: "",
@@ -79,7 +81,7 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
   return vi.fn<typeof fetch>(impl)
 }
 
-/** A route this test never draws, only routes to. */
+/** A route this test never draws and only routes to. */
 const nothing = () => null
 
 function draw() {
@@ -104,7 +106,9 @@ function draw() {
   )
 }
 
-/** The Cancel on a run's row, told apart from the "Cancel" every dialog's own footer carries. */
+/**
+ * Returns the Cancel on a run's row, told apart from the "Cancel" that every dialog's own footer carries.
+ */
 function cancelButtons() {
   return screen.queryAllByRole("button", { name: /^cancel$/i })
 }
@@ -114,7 +118,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** On the row, since a button coming and going in the header would move the others on a phone. */
+/**
+ * On the row, because a button that comes and goes in the header would move the others on a phone.
+ */
 describe("the Cancel is on the row, and only while there is something to cancel", () => {
   it("is there for a countdown that has not run out", async () => {
     vi.stubGlobal("fetch", backend([run()]))
@@ -134,7 +140,9 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 
   it("is gone once the run is actually under way", async () => {
-    /** Past `countdownEnd` steward holds the lock and would answer "too late", so there is nothing to press. */
+    /**
+     * Past `countdownEnd` Steward holds the lock and would answer "too late", so there is nothing to press.
+     */
     vi.stubGlobal(
       "fetch",
       backend([run({ status: "RUNNING", countdownEnd: new Date(Date.now() - 1000).toISOString() })]),
@@ -161,7 +169,9 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 })
 
-/** No dialog first, since a confirmation in front of an undo is a countdown running out while it is read. */
+/**
+ * No dialog comes first, because a confirmation in front of an undo is a countdown that runs out while it is read.
+ */
 describe("pressing it asks the backend at once", () => {
   it("sends POST /api/updates/cancel with no dialog in between", async () => {
     const fetchMock = backend([run()])
@@ -179,7 +189,9 @@ describe("pressing it asks the backend at once", () => {
   })
 
   it("says what the backend said when the countdown ran out first", async () => {
-    /** A 409 means the row was claimed between tap and request, and the sentence must say so. */
+    /**
+     * A 409 means that the row was claimed between the tap and the request, and the sentence must say so.
+     */
     const fetchMock = backend([run()], () => json(409, { title: "too late - the countdown has already run out" }))
     vi.stubGlobal("fetch", fetchMock)
     draw()

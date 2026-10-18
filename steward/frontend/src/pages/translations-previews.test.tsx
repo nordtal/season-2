@@ -12,7 +12,9 @@ afterEach(() => {
   resetDrafts()
 })
 
-/** A key shown in three places, two of which a preview reaches, and a page text no preview reaches. */
+/**
+ * A key shown in three places, two of which a preview reaches, and a page text that no preview reaches.
+ */
 function threePlaces(sent: unknown[]) {
   vi.stubGlobal(
     "fetch",

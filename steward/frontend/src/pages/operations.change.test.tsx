@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { Change } from "@/pages/operations"
 
-/** A change of a run's report: told in a message when no version names it, as the bot and the terminal render it. */
+/**
+ * A change of a run's report is told in a message when no version names it, as the bot and the terminal render it.
+ */
 
 afterEach(cleanup)
 

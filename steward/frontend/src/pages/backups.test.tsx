@@ -37,7 +37,7 @@ function entry(over: Record<string, unknown>) {
   }
 }
 
-/** `steward.yml` as steward sends it: the schedule. */
+/** `steward.yml` as Steward sends it: the schedule. */
 function stewardConfig() {
   return {
     service: "steward",
@@ -66,7 +66,7 @@ function stewardConfig() {
 
 const RUNS_FILE = "steward-agent/runs"
 
-/** steward-agent's `runs` group: the retention a backup run applies. */
+/** steward-agent's `runs` group: the retention that a backup run applies. */
 function runsConfig() {
   return {
     service: "steward-agent",
@@ -327,7 +327,9 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(sent).toBeTruthy())
-    /** In week order, not click order, and as a list, since a list of one flattens to a scalar. */
+    /**
+     * In week order and not click order, and as a list, because a list of one flattens to a scalar.
+     */
     expect(changesOf(sent)["backup.days"]).toEqual(["MONDAY", "TUESDAY", "THURSDAY"])
   })
 

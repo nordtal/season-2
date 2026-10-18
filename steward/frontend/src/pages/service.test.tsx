@@ -79,7 +79,9 @@ describe("ServiceHead - the number row", () => {
   })
 })
 
-/** Both curves follow one range, picked beside the Stats heading, six hours until somebody picks another. */
+/**
+ * Both curves follow one range, picked beside the Stats heading. It is six hours until somebody picks another.
+ */
 describe("ServiceHead - the range of the curves", () => {
   it("asks for six hours of CPU and RAM, counted in minutes", () => {
     draw(<ServiceHead name="smp" service={service()} />)
@@ -109,7 +111,9 @@ describe("ServiceHead - the range of the curves", () => {
   })
 })
 
-/** Held down and crashed look the same to Docker; only `hold` tells them apart, and absent is not false. */
+/**
+ * Held down and crashed look the same to Docker. Only `hold` tells them apart, and absent is not false.
+ */
 describe("ServiceHead - a service somebody is holding down", () => {
   it("says so when the row carries a hold", () => {
     draw(
@@ -123,7 +127,7 @@ describe("ServiceHead - a service somebody is holding down", () => {
       />,
     )
 
-    /** One badge reading "held down", not Docker's word in red with an explanation beside it. */
+    /** One badge reads "held down", and not Docker's word in red with an explanation beside it. */
     expect(screen.queryByText("held down")).not.toBeNull()
     expect(screen.queryByText("exited")).toBeNull()
   })
@@ -141,7 +145,9 @@ describe("ServiceHead - a service somebody is holding down", () => {
   })
 })
 
-/** A one-shot and a resting standby have nothing to chart; the head says how they stand instead. */
+/**
+ * A one-shot and a resting standby have nothing to chart, so the head says how they stand instead.
+ */
 const migrate = (exitCode: number) =>
   service({
     service: "migrate",

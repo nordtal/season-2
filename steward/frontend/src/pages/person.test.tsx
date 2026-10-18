@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersonPage } from "@/pages/person"
 import { assertElement, backend, draw } from "@/pages/access.fixtures"
 
-/** One person's page: their figures, their periods, payments and journal, and the writes on them as buttons. */
+/**
+ * One person's page: their figures, periods, payments and journal, and the writes on them as buttons.
+ */
 
 afterEach(() => {
   cleanup()

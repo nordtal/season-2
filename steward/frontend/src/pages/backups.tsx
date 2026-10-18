@@ -28,7 +28,7 @@ import { ScheduleDialog } from "@/pages/backup-dialogs"
 /**
  * Everything about the backups: the numbers, the runs and the schedule.
  *
- * A secret is never drawn; a backup and a restore are runs like every other.
+ * A secret is never drawn. A backup and a restore are runs like every other.
  */
 export function BackupsPage() {
   return (
@@ -52,9 +52,9 @@ export function BackupsPage() {
 }
 
 /**
- * Three numbers, roughly two to a row on a phone.
+ * Three numbers, about two to a row on a phone.
  *
- * Nothing queries the Storage Box yet, so "Storage available" says so instead of drawing a number.
+ * Nothing queries the Storage Box yet, so "Storage available" says so and draws no number.
  */
 function Summary() {
   const backups = useBackups()
@@ -74,7 +74,7 @@ function Summary() {
         tone={backups.data && !newest ? "down" : undefined}
         hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
       />
-      {/* Neutral rather than warn, since "not tracked" is a fact about the feature: steward does not ask the Storage Box. */}
+      {/* Neutral and not warn, because "not tracked" is a fact about the feature: Steward does not ask the Storage Box. */}
       <Stat label={t("steward.backups.storage")} value={t("steward.backups.not-tracked")} />
       <Stat
         label={t("steward.backups.next")}
@@ -91,12 +91,12 @@ function Summary() {
   )
 }
 
-/** The `BACKUP` rows of steward's inbox, newest first. */
+/** Returns the `BACKUP` rows of Steward's inbox, newest first. */
 function backupRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "BACKUP")
 }
 
-/** How many of a run's report lines were saved, out of how many. */
+/** Returns how many of a run's report lines were saved, out of how many. */
 function saved(run: Run): { saved: number; total: number } {
   const lines = run.report?.services ?? []
   return { saved: lines.filter((line) => line.state === "SAVED").length, total: lines.length }
@@ -109,7 +109,7 @@ function ran(run: Run): string {
   return span((finished.getTime() - started.getTime()) / 1000)
 }
 
-/** Four waiting runs; the panel shows eight at most. */
+/** Four waiting runs. The panel shows eight at most. */
 const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
 
 /** The last backup runs, each row a link to its detail page. */
@@ -193,7 +193,7 @@ function Runs() {
 /**
  * Asks for a restore of one finished archive, once what it replaces is typed back.
  *
- * The run backs up first, counts down and stops what the archive replaces; `deploy/restore.sh` is for a host without steward-agent.
+ * The run backs up first, counts down and stops what the archive replaces. `deploy/restore.sh` serves a host without steward-agent.
  */
 function RestoreDialog() {
   const backups = useBackups()
@@ -290,7 +290,7 @@ function RestoreDialog() {
 }
 
 /**
- * The archives one run wrote: those modified within a minute of the run's start and finish.
+ * Returns the archives one run wrote: those modified within a minute of the run's start and finish.
  *
  * A run that cannot be dated matches nothing.
  */
@@ -310,7 +310,7 @@ function archivesOf(run: Run, backups: Backup[]): Backup[] {
     .toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
-/** What one file is, from its name, with `.partial` said plainly. */
+/** Returns what one file is, from its name, with `.partial` said plainly. */
 function holds(backup: Backup): string {
   const what = archived(backup.name)
   const subject =

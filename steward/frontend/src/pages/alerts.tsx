@@ -9,7 +9,7 @@ import { QueryState } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-/** What is wrong now, as steward last judged it, and every alert raised lately, newest first. */
+/** What is wrong now, as Steward last judged it, and every alert raised lately, newest first. */
 export function AlertsPage() {
   const alerts = useAlerts()
   return (
@@ -82,7 +82,7 @@ export function AlertsPage() {
 /**
  * One alert: its level in words, its title rendered from the admin bundle, and the lines below it.
  *
- * The title wraps rather than cut, since its subject is what tells two alerts apart; an older line keeps its breaks.
+ * The title wraps and is never cut, because its subject tells two alerts apart. An older line keeps its breaks.
  */
 function AlertLine({
   level,

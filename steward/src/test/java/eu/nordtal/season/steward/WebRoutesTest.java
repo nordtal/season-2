@@ -192,7 +192,7 @@ class WebRoutesTest extends WebTestSupport {
 
         final HttpResponse<String> decade = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":3650}");
         assertEquals(400, decade.statusCode(), decade.body());
-        assertTrue(decade.body().contains("between 1 and 365 days"), decade.body());
+        assertTrue(decade.body().contains("1 to 365 days"), decade.body());
     }
 
     /**

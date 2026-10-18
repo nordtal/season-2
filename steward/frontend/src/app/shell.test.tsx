@@ -28,7 +28,7 @@ function draw() {
 
 const signInButton = () => screen.queryByRole("link", { name: /Sign in with Discord/ })
 
-const stuckDoor = () => screen.queryByText(/not an expired session/)
+const stuckDoor = () => screen.queryByText(/session has not expired/)
 
 beforeEach(() => {
   fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>()
@@ -136,7 +136,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 })
 
 function setupPage() {
-  return screen.queryByText(/One more thing: your security key/)
+  return screen.queryByText(/Register your security key/)
 }
 
 function signedIn(keys: unknown) {

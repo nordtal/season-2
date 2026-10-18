@@ -211,7 +211,7 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.getAllByText("no Discord name on record").length).toBeGreaterThan(0)
-    expect(screen.getByText(/never observed/i)).toBeTruthy()
+    expect(screen.getByText(/never seen/i)).toBeTruthy()
   })
 })
 

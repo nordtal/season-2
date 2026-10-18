@@ -187,7 +187,9 @@ class MessageSpecsTest {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
         assertTrue(problems.contains("greeting: no @Name"), problems::toString);
         assertTrue(
-                problems.stream().anyMatch(problem -> problem.startsWith("greeting (en): {player} is nothing")),
+                problems.stream()
+                        .anyMatch(problem -> problem.startsWith("greeting (en): this message offers")
+                                && problem.endsWith("not {player}")),
                 problems::toString);
         assertTrue(
                 problems.contains("greeting (en): the text never shows name, which the message is given"),

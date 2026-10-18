@@ -336,7 +336,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     fireEvent.click(await screen.findByRole("button", { name: "Mon" }))
     fireEvent.click(screen.getByRole("button", { name: "Thu" }))
 
-    expect(await screen.findByText(/no night is picked/i)).toBeTruthy()
+    expect(await screen.findByText(/until a night is picked/i)).toBeTruthy()
   })
 })
 
@@ -546,6 +546,6 @@ describe("BackupsPage - what moved here from Operations", () => {
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
-    expect(await screen.findByText("Every file still carries the .partial suffix.")).toBeTruthy()
+    expect(await screen.findByText("Every file still has the .partial suffix.")).toBeTruthy()
   })
 })

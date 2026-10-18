@@ -51,11 +51,10 @@ class OverrideCheckTest {
 
     @Test
     void anUndeclaredPlaceholderOrActionIsRefused() {
-        assertTrue(
-                errors(WON, "{winner.nope} {winner.name} {spins}").getFirst().startsWith("{winner.nope} is nothing"));
+        assertTrue(errors(WON, "{winner.nope} {winner.name} {spins}").getFirst().contains("not {winner.nope}"));
         assertTrue(errors(WON, "{winner.name} {spins} <action:quit>x</action>")
                 .getFirst()
-                .contains("no action"));
+                .contains("not <action:quit>"));
     }
 
     @Test
@@ -75,7 +74,7 @@ class OverrideCheckTest {
                 List.of(new MessageArg("days", "number", null, false, "30", false)));
         assertEquals(List.of(), errors(button, "Buy {days} days"));
         assertTrue(
-                errors(button, "Buy {days} days " + "x".repeat(80)).getFirst().contains("80 fit"));
+                errors(button, "Buy {days} days " + "x".repeat(80)).getFirst().contains("fits 80"));
     }
 
     @Test

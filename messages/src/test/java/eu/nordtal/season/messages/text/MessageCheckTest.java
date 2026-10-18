@@ -64,7 +64,7 @@ class MessageCheckTest {
         assertEquals("check.value.unknown", problem.key());
         assertEquals("loser.name", problem.args().get("name"));
         assertEquals(
-                "{loser.name} is nothing this message offers; it offers n, open, reason, winner.name and winner.self",
+                "this message offers n, open, reason, winner.name and winner.self, not {loser.name}",
                 MessageCheck.english(problem));
     }
 
@@ -80,8 +80,8 @@ class MessageCheckTest {
 
     @Test
     void anUnknownRoleOrAttributeIsRefused() {
-        refused(packaged("{loser.name} {winner.name} {n}"), "{loser.name} is nothing this message offers");
-        refused(packaged("{winner.colour} {winner.name} {n}"), "{winner.colour} is nothing");
+        refused(packaged("{loser.name} {winner.name} {n}"), "not {loser.name}");
+        refused(packaged("{winner.colour} {winner.name} {n}"), "not {winner.colour}");
     }
 
     @Test
@@ -102,30 +102,30 @@ class MessageCheckTest {
 
     @Test
     void aColourIsAnOverridesAndNeverAPackagedTexts() {
-        refused(packaged("<#ff0000>{winner.name} {n}</#ff0000>"), "names colours only by tone");
-        refused(packaged("<red>{winner.name} {n}</red>"), "names colours only by tone");
+        refused(packaged("<#ff0000>{winner.name} {n}</#ff0000>"), "names a colour by its tone");
+        refused(packaged("<red>{winner.name} {n}</red>"), "names a colour by its tone");
         assertEquals(List.of(), override("<gradient:#ff0000:#00ff00>{winner.name} {n}</gradient>"));
     }
 
     @Test
     void aValueInATagArgumentIsRefusedExceptInAHoverTextOrAClickTarget() {
-        refused(packaged("<font:'{reason}'>{winner.name} {n}</font>"), "where no value may");
+        refused(packaged("<font:'{reason}'>{winner.name} {n}</font>"), "takes a value such as");
         refused(packaged("<hover:show_text:{reason}>{winner.name} {n}</hover>"), "without quotes");
         assertEquals(List.of(), packaged("<click:suggest_command:'/msg {winner.name}'>{winner.name} {n}</click>"));
     }
 
     @Test
     void anActionMustBeOneTheCodeOffers() {
-        refused(packaged("<action:deny>no</action> {winner.name} {n}"), "names no action this message offers");
+        refused(packaged("<action:deny>no</action> {winner.name} {n}"), "not <action:deny>");
     }
 
     @Test
     void aKindStyleOrChoiceThatDoesNotFitIsRefused() {
         refused(packaged("{winner.name} {n, duration}"), "{n} is a number, not a duration");
-        refused(packaged("{winner.name} {n, number, fancy}"), "has no style fancy");
-        refused(packaged("{winner.name} {n, select, other {x}}"), "chooses on a number");
-        refused(packaged("{winner.name} {n, plural, single {x} other {y}}"), "no plural category");
-        refused(packaged("{winner.name} {n} {open, plural, other {x}}"), "chooses on a choice");
+        refused(packaged("{winner.name} {n, number, fancy}"), "not fancy");
+        refused(packaged("{winner.name} {n, select, other {x}}"), "needs a choice, not a number");
+        refused(packaged("{winner.name} {n, plural, single {x} other {y}}"), "but a plural case is");
+        refused(packaged("{winner.name} {n} {open, plural, other {x}}"), "needs a number, not a choice");
     }
 
     @Test
@@ -140,7 +140,7 @@ class MessageCheckTest {
         final Declaration button =
                 new Declaration(Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"), false);
         assertEquals(List.of(), MessageCheck.errors("Buy {n} now", button, Mode.OVERRIDE));
-        refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters long");
+        refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters, and its place fits");
     }
 
     @Test
@@ -172,8 +172,7 @@ class MessageCheckTest {
     @Test
     void anotherWordForAGameTermIsRefusedInABundleAndAWarningInAnOverride() {
         assertEquals(
-                List.of(
-                        "the text writes Lobby for the game term waiting-room, which it names as the terms bundle does"),
+                List.of("write the game term waiting-room as the terms bundle names it, not Lobby"),
                 packaged("{winner.name} waits in the Lobby {n}"));
         refused(packaged("{winner.name} {n} <hover:show_text:'Staffel 2'>here</hover>"), "season");
         assertEquals(

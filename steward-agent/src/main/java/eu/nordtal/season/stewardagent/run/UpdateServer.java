@@ -146,7 +146,7 @@ public final class UpdateServer implements AutoCloseable {
 
     private void carryOut(final UpdateRequest request) {
         log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
-        // Every stage the run reaches redraws the Discord embed and the chat line.
+        // Every stage the run reaches redraws the Discord card and the chat line.
         final Outcome outcome = runner.run(request, report -> {
             // A progress write must never decide the run, or a stopped service would stay stopped.
             try {

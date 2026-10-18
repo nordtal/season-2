@@ -138,6 +138,9 @@ public final class MessageSpecCheck {
             for (final MessageSchema.Arg arg : entry.args()) {
                 for (final String taken : Objects.requireNonNullElse(arg.takes(), List.<String>of())) {
                     final String own = taken.startsWith(bundle + "/") ? taken.substring(bundle.length() + 1) : taken;
+                    if (MessageSchema.whole(taken)) {
+                        continue;
+                    }
                     if (!FORMER.matcher(taken).matches()) {
                         problems.add(entry.key() + ": @Takes names " + taken + ", which is neither key nor bundle/key");
                     } else if (!own.contains("/") && !declared.contains(own)) {

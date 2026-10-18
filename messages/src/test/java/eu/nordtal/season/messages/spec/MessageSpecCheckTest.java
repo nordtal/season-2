@@ -123,6 +123,35 @@ class MessageSpecCheckTest {
         MessageRef steps(@Arg("button") @Takes("buy") @Example("sell") MessageRef button);
     }
 
+    @MessageSpec("taking")
+    @Shown(Display.DISCORD_EMBED)
+    interface TakingABundleUnpreviewed {
+
+        @Name("Line")
+        MessageRef line(@Arg("text") @Takes("values/*") MessageRef text);
+    }
+
+    @MessageSpec("taking")
+    @Shown(Display.DISCORD_EMBED)
+    interface TakingABundleWithAnExampleOfAnother {
+
+        @Name("Line")
+        MessageRef line(@Arg("text") @Takes("values/*") @Example("admin/run.why") MessageRef text);
+    }
+
+    @Test
+    void aValueThatTakesAWholeBundleIsPreviewedAsAKeyOfIt() {
+        assertTrue(
+                assertThrows(IllegalStateException.class, () -> MessageSchema.entries(TakingABundleUnpreviewed.class))
+                        .getMessage()
+                        .endsWith("text takes values/*, so it needs an @Example to preview"));
+        assertTrue(assertThrows(
+                        IllegalStateException.class,
+                        () -> MessageSchema.entries(TakingABundleWithAnExampleOfAnother.class))
+                .getMessage()
+                .endsWith("the example admin/run.why of text is none of its values values/*"));
+    }
+
     @Test
     void onlyAMessageValueTakesKeysAndItsExampleIsOneOfThem() {
         assertTrue(assertThrows(IllegalStateException.class, () -> MessageSchema.entries(TakingAText.class))

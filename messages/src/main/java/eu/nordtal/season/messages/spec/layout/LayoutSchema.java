@@ -168,12 +168,27 @@ public final class LayoutSchema {
             for (final MessageSchema.Arg arg : found.get().entry().args()) {
                 for (final String taken : Objects.requireNonNullElse(arg.takes(), List.<String>of())) {
                     final String full = taken.contains("/") ? taken : bundle + "/" + taken;
-                    takenBy.putIfAbsent(full, key);
-                    next.addLast(full);
+                    final List<String> keys = MessageSchema.whole(full)
+                            ? wholeBundle(full.substring(0, full.length() - 2), schemas)
+                            : List.of(full);
+                    for (final String each : keys) {
+                        takenBy.putIfAbsent(each, key);
+                        next.addLast(each);
+                    }
                 }
             }
         }
         return List.copyOf(shown);
+    }
+
+    /** Every key of {@code bundle} as {@code bundle/key}, or a problem through the caller when there is no such one. */
+    private static List<String> wholeBundle(
+            final String bundle, final Function<String, Optional<MessageSchema.Bundle>> schemas) {
+        return schemas.apply(bundle)
+                .map(found -> found.messages().stream()
+                        .map(entry -> bundle + "/" + entry.key())
+                        .toList())
+                .orElse(List.of(bundle + "/*"));
     }
 
     /** Every key shown in two or more of the layouts, to the layouts it is shown in as {@code bundle/name}. */

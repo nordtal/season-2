@@ -46,7 +46,7 @@ public interface AdminTexts {
 
     Alerts alert();
 
-    @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+    @Shown({Display.STEWARD, Display.DISCORD_TEXT})
     ReportTexts report();
 
     /** One line per action, rendered from the values of its journal entry. */
@@ -55,15 +55,15 @@ public interface AdminTexts {
     interface Journal {
 
         @Name("Action")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED_HEADING})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef action(@Arg("action") JournalAction action);
 
         @Name("Who did it, when nobody pressed anything")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef actor(@Arg("kind") @Example("steward") Actor.Kind kind);
 
         @Name("Who did it, a person")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef person(@Arg("person") Mention person);
 
         /** Who did it: a person as a mention, anyone else as the word for their kind. */
@@ -71,18 +71,6 @@ public interface AdminTexts {
             final DiscordId person = actor.person();
             return person == null ? actor(actor.kind()) : person(Mention.of(person));
         }
-
-        @Name("By, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef by();
-
-        @Name("Minecraft account, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef minecraft();
-
-        @Name("Concerns, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef concerns();
 
         @Name("First admin")
         MessageRef adminRoot();
@@ -100,23 +88,23 @@ public interface AdminTexts {
         MessageRef exemptPack();
 
         @Name("Access granted")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef grantAccess(@Arg("days") int days, @Arg("until") Instant until);
 
         @Name("Access revoked")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef revokeAccess(@Arg("grants") int grants);
 
         @Name("Play time set")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef setPlaytime(@Arg("seconds") Duration seconds);
 
         @Name("Account linked")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef link();
 
         @Name("Account unlinked")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef unlink(@Arg("selfService") boolean selfService);
 
         @Name("Payment settled")
@@ -240,11 +228,11 @@ public interface AdminTexts {
         MessageRef startGame();
 
         @Name("Access anchored to the grant")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef unanchoredGrant(@Arg("from") Instant from);
 
         @Name("Refused linking for the hour")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef linkCodesExhausted();
     }
 
@@ -262,7 +250,7 @@ public interface AdminTexts {
 
         /** A run named in words: the title of its card and of its failed alert, and its row in the feed. */
         @Name("A run's kind and stage, as a title")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED_HEADING, Display.PUSH})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT, Display.PUSH})
         MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") UpdateReport.Stage stage);
 
         @Name("Services that came back")
@@ -270,15 +258,15 @@ public interface AdminTexts {
         MessageRef successful(@Arg("successful") long successful, @Arg("total") long total);
 
         @Name("A service's state in a run")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef state(@Arg("state") UpdateReport.State state);
 
         @Name("Services, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef services();
 
         @Name("What explains a failed run, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
+        @Shown(Display.DISCORD_TEXT)
         @Formerly("run.notes")
         MessageRef why();
 
@@ -290,30 +278,18 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef outcome(@Arg("outcome") UpdateReport.Outcome outcome);
 
-        @Name("Duration, as a heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef duration();
-
-        @Name("How long a run took")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef took(@Arg("took") Duration took);
-
         @Name("An artefact with no build for this Minecraft version")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_TEXT)
         MessageRef noBuild();
 
-        @Name("The button that opens a run in Steward")
+        @Name("The button that opens a run or an alert in Steward")
         @Shown(Display.DISCORD_BUTTON)
         MessageRef open();
-
-        @Name("Lines left out")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef more(@Arg("count") int count);
     }
 
     /** An alert: its title and the lines below it. */
     @Name("Alerts")
-    @Shown({Display.STEWARD, Display.PUSH, Display.DISCORD_EMBED_HEADING})
+    @Shown({Display.STEWARD, Display.PUSH, Display.DISCORD_TEXT})
     interface Alerts {
 
         @Name("Level")
@@ -321,7 +297,7 @@ public interface AdminTexts {
         MessageRef level(@Arg("level") Alert.Level level);
 
         @Name("Words as they came: a program's answer, or a line from before typed alerts")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef words(@Arg("text") String text);
 
         @Name("All clear")
@@ -331,11 +307,11 @@ public interface AdminTexts {
         MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);
 
         @Name("Which run")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef run(@Arg("run") long run);
 
         @Name("Why a run failed, about one service")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef failure(@Arg("service") @Example("smp") String service, @Arg("what") MessageRef what);
 
         @Name("No services")
@@ -348,11 +324,11 @@ public interface AdminTexts {
         MessageRef unhealthy(@Arg("service") @Example("smp") String service);
 
         @Name("Failing healthcheck")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef healthFails();
 
         @Name("Docker's word")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef dockerState(@Arg("state") String state);
 
         @Name("A one-shot service failed")
@@ -368,21 +344,21 @@ public interface AdminTexts {
         MessageRef deadPack();
 
         @Name("Which pack")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef offeredPack(@Arg("url") String url);
 
         @Name("No finished backup")
         MessageRef noBackup();
 
         @Name("Only started backups")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef onlyStarted();
 
         @Name("No database dump")
         MessageRef noDump();
 
         @Name("What a missing dump means")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef dumpMatters();
 
         @Name("No archive of a volume")
@@ -401,7 +377,7 @@ public interface AdminTexts {
         MessageRef oldOffsite(@Arg("hours") long hours);
 
         @Name("The permitted age")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef permittedAge(@Arg("hours") long hours);
 
         @Name("A full disk")
@@ -411,23 +387,23 @@ public interface AdminTexts {
         MessageRef memory(@Arg("percent") long percent);
 
         @Name("The threshold")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef threshold(@Arg("percent") long percent);
 
         @Name("No memory limit")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef noLimit();
 
         @Name("A payment needs a look")
         MessageRef payment();
 
         @Name("An unknown reference")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef unknownReference(
                 @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
 
         @Name("A request no longer open")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef notOpen(
                 @Arg("payment") String payment,
                 @Arg("amount") Money amount,
@@ -435,12 +411,12 @@ public interface AdminTexts {
                 @Arg("status") PaymentRequestStatus status);
 
         @Name("A payment claimed twice")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef claimed(
                 @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
 
         @Name("A payment below every tier")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef noTier(
                 @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
 
@@ -448,7 +424,7 @@ public interface AdminTexts {
         MessageRef roleAmbiguous(@Arg("name") String name);
 
         @Name("None of them taken")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef noneAdopted();
 
         @Name("A role not created")
@@ -458,28 +434,28 @@ public interface AdminTexts {
         MessageRef lockWithoutChannel();
 
         @Name("Nobody locked")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef nobodyLocked();
 
         @Name("Channels the lock does not close")
         MessageRef lockNotKept(@Arg("count") int count);
 
         @Name("Which channel, and what went wrong")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef failedIn(@Arg("channel") String channel, @Arg("error") String error);
 
         @Name("A role not changed")
         MessageRef roleNotChanged(@Arg("role") DiscordRole role, @Arg("given") boolean given);
 
         @Name("Who, and what went wrong")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef failedFor(@Arg("person") Mention person, @Arg("error") String error);
 
         @Name("A direct message not delivered")
         MessageRef dm();
 
         @Name("To whom")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef to(@Arg("person") Mention person);
 
         @Name("A link failed")
@@ -492,7 +468,7 @@ public interface AdminTexts {
         MessageRef linkRefused();
 
         @Name("Which request, and why bunq refused it")
-        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef refused(@Arg("reference") String reference, @Arg("refusal") TabRefusal refusal);
     }
 }

@@ -208,7 +208,7 @@ public class AccessBot implements AutoCloseable {
 
         // start() reads the table once so the feed begins at the last run.
         final UpdateFeed updateFeed =
-                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock, stewardUrl);
+                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl);
         updateFeed.start();
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());
@@ -296,7 +296,7 @@ public class AccessBot implements AutoCloseable {
                 accessConfig,
                 AuditDirectory.using(database.dataSource()),
                 AlertBook.using(database.dataSource()),
-                core.messages());
+                core.renderer());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);

@@ -63,7 +63,8 @@ is expanded one level, as `{winner.team.name}`. `Contexts` is the registry. Ever
   English elsewhere.
 - A `message` value is a phrase written once and placed in many texts. It is never rendered ahead
   into a string: only the target knows the reader's language and how to draw the tones. `@Takes`
-  names the keys it may take (`key` or `bundle/key`), and without an `@Example` the first is previewed.
+  names the keys it may take (`key`, `bundle/key`, or `bundle/*` for any key of that bundle, which needs an
+  `@Example`), and without an `@Example` the first is previewed.
 
 ## A message as data
 
@@ -83,7 +84,7 @@ plain text it shows; `WebTargetVectorsTest` holds this side to them, the fronten
 ## Where a text is shown
 
 A key names every place it really appears (`Display`) with `@Shown`, on the spec, a section or the
-key, the nearest winning: a run's state is shown in Steward and in the admin channel's embed, a
+key, the nearest winning: a run's state is shown in Steward and in the admin channel's run card, a
 milestone's name on the board, the boss bar, a menu, chat, a title and an announcement. Each place
 says where it is (`Display.Surface`: the game, Discord or Steward), which groups the key on Steward's
 Translations page and decides how each place is previewed there. The key's length limit is the strictest of
@@ -99,7 +100,9 @@ button or a thumbnail beside it, a separator, a gallery, a row of buttons or one
 repeated once per language. A text block's lines are keys, each plain, a title or a heading, or a data
 list. What the code fills in is an `Element`, placed once in the tree by its id: a button, a select, a
 data list, the block per language or a modal's field. A modal (`Layout.modal`) is a layout of its
-title and one field per row, whose texts are `DISCORD_MODAL` places; only its texts change.
+title and one field per row, whose texts are `DISCORD_MODAL` places; only its texts change. A button or select
+filled with nothing is left out, a row with it when nothing else is in it, and so is a text block of only
+headings and data lists that are all empty.
 
 The `messageSchema` task writes `messages/<bundle>/layouts.json` beside the schema: each layout with
 the values its texts may name (theirs and the globals, but not a data list's line or a select's option

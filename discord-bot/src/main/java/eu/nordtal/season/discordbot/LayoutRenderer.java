@@ -130,6 +130,9 @@ public final class LayoutRenderer {
         }
     }
 
+    /** A button or select the code leaves out this time; a row with nothing else in it is left out with it. */
+    public record FilledNothing() implements Filled {}
+
     /** A data list's items, each the values of its line. */
     public record FilledList(List<Map<String, Object>> items) implements Filled {
 
@@ -352,6 +355,9 @@ public final class LayoutRenderer {
         List<MessageTopLevelComponent> top(final Locale locale) {
             final List<MessageTopLevelComponent> drawn = new ArrayList<>();
             for (final Part part : layout.parts()) {
+                if (empty(part)) {
+                    continue;
+                }
                 if (part.type() == Part.Type.LANGUAGES) {
                     for (final Locale language : languagesOf(part)) {
                         for (final Part inner : Objects.requireNonNullElse(part.parts(), List.<Part>of())) {
@@ -401,7 +407,9 @@ public final class LayoutRenderer {
             components++;
             final List<ContainerChildComponent> children = new ArrayList<>();
             for (final Part inner : Objects.requireNonNullElse(part.parts(), List.<Part>of())) {
-                children.add(inner.type() == Part.Type.ROW ? row(inner, locale, tag) : child(inner, locale, tag));
+                if (!empty(inner)) {
+                    children.add(inner.type() == Part.Type.ROW ? row(inner, locale, tag) : child(inner, locale, tag));
+                }
             }
             final Container container = Container.of(children);
             return part.accent() == null
@@ -433,6 +441,7 @@ public final class LayoutRenderer {
         private Section section(final Part part, final Locale locale, final @Nullable String tag) {
             components++;
             final List<TextDisplay> texts = Objects.requireNonNullElse(part.parts(), List.<Part>of()).stream()
+                    .filter(inner -> !empty(inner))
                     .limit(SECTION_TEXTS)
                     .map(inner -> text(inner, locale))
                     .toList();
@@ -452,6 +461,7 @@ public final class LayoutRenderer {
             components++;
             final List<ActionRowChildComponent> children = new ArrayList<>();
             for (final String id : Objects.requireNonNullElse(part.elements(), List.<String>of()).stream()
+                    .filter(id -> !(filling.elements().get(id) instanceof FilledNothing))
                     .limit(ROW_BUTTONS)
                     .toList()) {
                 children.add(
@@ -462,6 +472,26 @@ public final class LayoutRenderer {
                         });
             }
             return ActionRow.of(children);
+        }
+
+        /** A row of only elements left out, or a block of only headings and data lists that are all empty. */
+        private boolean empty(final Part part) {
+            return switch (part.type()) {
+                case ROW ->
+                    Objects.requireNonNullElse(part.elements(), List.<String>of()).stream()
+                            .allMatch(id -> filling.elements().get(id) instanceof FilledNothing);
+                case TEXT -> {
+                    final List<Line> lines = Objects.requireNonNullElse(part.lines(), List.<Line>of());
+                    yield lines.stream().anyMatch(line -> line.list() != null)
+                            && lines.stream()
+                                    .allMatch(line -> line.list() != null
+                                            ? filled(filling, line.list(), FilledList.class)
+                                                    .items()
+                                                    .isEmpty()
+                                            : line.style() != null);
+                }
+                default -> false;
+            };
         }
 
         private Button button(final String id, final Locale locale, final @Nullable String tag) {

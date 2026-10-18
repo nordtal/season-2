@@ -389,7 +389,7 @@ class UpdateRunTest {
         assertTrue(
                 progress.size() >= 4,
                 "a run that only writes its answer at the end leaves an admin looking at an"
-                        + " unchanging message for minutes, which is what the live embed exists to"
+                        + " unchanging message for minutes, which is what the live card exists to"
                         + " stop being");
     }
 

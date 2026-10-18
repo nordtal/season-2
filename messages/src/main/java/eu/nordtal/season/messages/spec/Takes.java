@@ -7,9 +7,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Every key a value that is a message may take, each {@code key} in this bundle or {@code bundle/key} in another.
- * A layout shows them wherever it places the message, which makes a key nested in several layouts a building block;
- * the first one is previewed when the value has no {@link eu.nordtal.season.messages.value.Example}.
+ * Every key a message value may take: {@code key} in this bundle, {@code bundle/key} or {@code bundle/*} elsewhere.
+ * A layout shows them wherever it places the message; the first is previewed without an @Example, which one taking
+ * a whole bundle must have. A key nested in several layouts is a building block of them.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

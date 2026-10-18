@@ -62,7 +62,7 @@ class UpdateReportsTest {
                 null,
                 back.services().get(0).changes().get(0).from(),
                 "a first deployment installs rather than upgrades, and the report has to be able"
-                        + " to say so - 'null -> 1.4.36' in an embed is a bug report waiting to"
+                        + " to say so - 'null -> 1.4.36' in a card is a bug report waiting to"
                         + " happen");
         assertEquals("1.4.36", back.services().get(0).changes().get(0).to());
     }

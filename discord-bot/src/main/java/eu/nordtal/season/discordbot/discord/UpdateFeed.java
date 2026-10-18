@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordbot.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
+import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.update.UpdateDirectory;
@@ -10,11 +11,14 @@ import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.Card;
-import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.LayoutRenderer;
 import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.messages.MessageRef;
-import java.time.Clock;
+import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.spec.layout.Element;
+import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.messages.spec.layout.Line;
+import eu.nordtal.season.messages.spec.layout.Part;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,11 +29,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
-import java.util.function.IntFunction;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -48,34 +49,50 @@ public final class UpdateFeed {
     /** Where a run is drawn; {@link #of(AdminLog)} is the only implementation that ships. */
     public interface Board {
 
-        /** Posts a card with the button below it, if any, and hands over the message id once Discord has it. */
-        void post(MessageEmbed embed, @Nullable Button link, java.util.function.Consumer<String> sentId);
+        /** Posts a card and hands over the message id once Discord has it. */
+        void post(LayoutRenderer.Drawn card, java.util.function.Consumer<String> sentId);
 
-        void edit(String messageId, MessageEmbed embed, @Nullable Button link);
+        void edit(String messageId, LayoutRenderer.Drawn card);
 
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
-                public void post(
-                        final MessageEmbed embed,
-                        final @Nullable Button link,
-                        final java.util.function.Consumer<String> sentId) {
-                    admin.post(embed, link, sentId);
+                public void post(final LayoutRenderer.Drawn card, final java.util.function.Consumer<String> sentId) {
+                    admin.post(card, sentId);
                 }
 
                 @Override
-                public void edit(final String messageId, final MessageEmbed embed, final @Nullable Button link) {
-                    admin.edit(messageId, embed, link);
+                public void edit(final String messageId, final LayoutRenderer.Drawn card) {
+                    admin.edit(messageId, card);
                 }
             };
         }
     }
 
+    /** A run: its mark and title, who asked and how long it took, a line per service and per failure, its page. */
+    static final Layout RUN = Layout.discord(
+            "access",
+            "admin-run",
+            "Admin channel",
+            List.of(
+                    Element.list("by", "access/admin.by"),
+                    Element.list("took", "access/admin.duration"),
+                    Element.list("services", "access/admin.service"),
+                    Element.list("why", "access/admin.failure"),
+                    Element.button("open", "admin/run.open")),
+            Part.container(
+                    Tone.BRAND,
+                    Part.text(Line.title("access/admin.title")),
+                    Part.text(Line.list("by"), Line.list("took")),
+                    Part.text(Line.heading("admin/run.services"), Line.list("services")),
+                    Part.text(Line.heading("admin/run.why"), Line.list("why"))),
+            Part.row("open"));
+
     private record Drawn(String messageId, @Nullable String showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
-    private final DiscordRenderer messages;
+    private final LayoutRenderer layouts;
 
     /** The highest id already handled; only the tick thread writes it. */
     private volatile long lastSeen;
@@ -89,21 +106,15 @@ public final class UpdateFeed {
     /** Set by every signal, so one that arrives during a pass is followed by exactly one more. */
     private final java.util.concurrent.atomic.AtomicBoolean again = new java.util.concurrent.atomic.AtomicBoolean();
 
-    private final Clock clock;
     private final String stewardUrl;
 
     /** @param stewardUrl Steward's address, which each card links its run's page below; empty links nothing */
     public UpdateFeed(
-            final UpdateDirectory updates,
-            final Board board,
-            final DiscordRenderer messages,
-            final Clock clock,
-            final String stewardUrl) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+            final UpdateDirectory updates, final Board board, final LayoutRenderer layouts, final String stewardUrl) {
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.layouts = Objects.requireNonNull(layouts, "layouts");
     }
 
     /** Starts from the highest id, posting finished runs inside {@link #CATCH_UP} once so a restart loses none. */
@@ -116,7 +127,7 @@ public final class UpdateFeed {
                     continue;
                 }
                 // Posted and forgotten: it is over.
-                board.post(embed(request), link(request), messageId -> {});
+                board.post(card(request), messageId -> {});
             }
             // A run still going falls through both loops above; registering it here makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
@@ -124,9 +135,7 @@ public final class UpdateFeed {
                     continue;
                 }
                 board.post(
-                        embed(request),
-                        link(request),
-                        messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
+                        card(request), messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
@@ -195,7 +204,7 @@ public final class UpdateFeed {
                 continue;
             }
             final boolean over = request.status().isFinished();
-            board.post(embed(request), link(request), messageId -> {
+            board.post(card(request), messageId -> {
                 if (over) {
                     return;
                 }
@@ -231,7 +240,7 @@ public final class UpdateFeed {
             final Drawn drawn = entry.getValue();
             // Discord rate-limits edits, and this polls every two seconds.
             if (!java.util.Objects.equals(drawn.showing(), request.result())) {
-                board.edit(drawn.messageId(), embed(request), link(request));
+                board.edit(drawn.messageId(), card(request));
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
             }
             if (request.status().isFinished()) {
@@ -241,106 +250,107 @@ public final class UpdateFeed {
     }
 
     /** Draws one run; a row with no parsable report reads as {@code RESOLVING}. */
-    private MessageEmbed embed(final UpdateRequest request) {
+    private LayoutRenderer.Drawn card(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return fields(report, request, messages, true, clock.instant());
-    }
-
-    /** The button to the run's page in Steward, or none without Steward's address. */
-    private @Nullable Button link(final UpdateRequest request) {
-        return stewardUrl.isBlank()
-                ? null
-                : Button.link(
-                        stewardUrl + request.page(),
-                        messages.format(Locales.DEFAULT, TEXTS.run().open()));
-    }
-
-    static MessageEmbed fields(
-            final UpdateReport report, final UpdateRequest request, final DiscordRenderer messages, final Instant now) {
-        return fields(report, request, messages, false, now);
+        return card(report, request, layouts, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
     }
 
     /**
-     * Draws one run as data: its kind and stage as title, the outcome as its emoji, one line per service.
+     * Draws one run as data: its kind and stage as title, the outcome as its mark, one line per service.
      *
-     * @param context whether to say who asked, and from where; only the admin channel's feed does
+     * @param context whether to say who asked; only the admin channel's feed does
+     * @param page    the run's page in Steward, which its button opens, or {@code null} for no button
      */
-    static MessageEmbed fields(
+    static LayoutRenderer.Drawn card(
             final UpdateReport report,
             final UpdateRequest request,
-            final DiscordRenderer messages,
+            final LayoutRenderer layouts,
             final boolean context,
-            final Instant now) {
-        final Function<MessageRef, String> text = message -> messages.format(Locales.DEFAULT, message);
-        final Card card = Card.of(
-                        glance(report.stage()).before(text.apply(TEXTS.run().title(request.kind(), report.stage()))))
-                .timestamp(request.finished() == null ? now : request.finished());
-        final IntFunction<String> more =
-                count -> Card.italic(text.apply(TEXTS.run().more(count)));
-
-        if (context) {
-            card.field(text.apply(TEXTS.journal().by()), asker(request, messages));
-        }
-        if (request.finished() != null && request.requested() != null) {
-            card.field(
-                    text.apply(TEXTS.run().duration()),
-                    text.apply(TEXTS.run().took(Duration.between(request.requested(), request.finished()))));
-        }
-
-        // The services get the budget first: which server failed matters more than why.
-        final List<String> lines = new ArrayList<>();
-        for (final UpdateReport.ServiceLine line : report.services()) {
-            lines.add(line(line, request.kind(), text));
-        }
-        final List<String> why = new ArrayList<>();
+            final @Nullable String page) {
+        final List<Map<String, Object>> why = new ArrayList<>();
         for (final UpdateReport.Failure said : report.failures()) {
-            // The renderer escapes every value; a multi-line text only reads in monospace and repeats the lines.
-            final String shown = text.apply(said.what()).strip();
+            // A multi-line text only reads in monospace and repeats the lines.
+            final String shown =
+                    layouts.messages().format(Locales.DEFAULT, said.what()).strip();
             if (!shown.isBlank() && shown.indexOf('\n') < 0) {
-                why.add(said.service() == null ? shown : Card.bold(said.service()) + " " + shown);
+                final String service = said.service();
+                why.add(MESSAGES.admin()
+                        .failure(service != null, service == null ? "" : service, said.what())
+                        .args());
             }
         }
-        card.block(text.apply(TEXTS.run().services()), lines, more);
-        card.block(text.apply(TEXTS.run().why()), why, more);
-        return card.build();
+        final Instant requested = request.requested();
+        final Instant finished = request.finished();
+        return layouts.render(
+                RUN,
+                LayoutRenderer.Filling.of(
+                        Map.of(
+                                "by",
+                                new LayoutRenderer.FilledList(
+                                        context
+                                                ? List.of(MESSAGES.admin()
+                                                        .by(TEXTS.journal().who(request.actor()))
+                                                        .args())
+                                                : List.of()),
+                                "took",
+                                new LayoutRenderer.FilledList(
+                                        finished != null && requested != null
+                                                ? List.of(MESSAGES.admin()
+                                                        .duration(Duration.between(requested, finished))
+                                                        .args())
+                                                : List.of()),
+                                "services",
+                                new LayoutRenderer.FilledList(report.services().stream()
+                                        .map(line -> MESSAGES.admin()
+                                                .service(
+                                                        marker(line.state()).symbol(),
+                                                        line.service(),
+                                                        TEXTS.run().state(line.state()),
+                                                        changes(line, request.kind()))
+                                                .args())
+                                        .toList()),
+                                "why",
+                                new LayoutRenderer.FilledList(why),
+                                "open",
+                                page == null
+                                        ? new LayoutRenderer.FilledNothing()
+                                        : new LayoutRenderer.FilledButton(page, ButtonStyle.LINK)),
+                        MESSAGES.admin()
+                                .title(
+                                        glance(report.stage()).symbol(),
+                                        TEXTS.run().title(request.kind(), report.stage()))),
+                Locales.DEFAULT);
     }
 
-    /**
-     * Renders a service line: its mark, the service and its state, then each change on its own indented line below.
-     *
-     * A told change named after the run's own kind leaves its name out, since the title says it.
-     */
-    private static String line(
-            final UpdateReport.ServiceLine line, final UpdateKind kind, final Function<MessageRef, String> text) {
-        final StringBuilder shown = new StringBuilder(marker(line.state()).symbol())
-                .append(' ')
-                .append(Card.bold(line.service()))
-                .append(' ')
-                .append(Card.italic(text.apply(TEXTS.run().state(line.state()))));
+    /** What changed of a service; a told change named after the run's kind leaves out the name the title says. */
+    private static List<MessageRef> changes(final UpdateReport.ServiceLine line, final UpdateKind kind) {
+        final List<MessageRef> changes = new ArrayList<>();
         for (final UpdateReport.Change change : line.changes()) {
-            // An em space, since Discord may drop the plain spaces a line starts with.
-            shown.append("\n\u2003");
-            if (change.told() == null || !change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))) {
-                shown.append(Card.escape(change.artefact())).append(' ');
-            }
-            shown.append(
-                    switch (change.state()) {
-                        // No build for this Minecraft version, which stops no server.
-                        case UNSUPPORTED -> Card.italic(text.apply(TEXTS.run().noBuild()));
-                        case MOVING -> moving(change, text);
-                    });
+            final MessageRef shown = switch (change.state()) {
+                // No build for this Minecraft version, which stops no server.
+                case UNSUPPORTED -> TEXTS.run().noBuild();
+                case MOVING -> moving(change);
+            };
+            changes.add(
+                    change.told() != null
+                                    && change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))
+                            ? shown
+                            : MESSAGES.admin().change(change.artefact(), shown));
         }
-        return shown.toString();
+        return changes;
     }
 
-    /** Renders a change that moves: in words when no version names it, else its version or the pair of them. */
-    private static String moving(final UpdateReport.Change change, final Function<MessageRef, String> text) {
+    /** A change that moves: in words when no version names it, else its version or the pair of them. */
+    private static MessageRef moving(final UpdateReport.Change change) {
         final MessageRef told = change.told();
         if (told != null) {
-            return Card.italic(text.apply(told));
+            return told;
         }
-        return change.from() == null ? Card.bold(change.to()) : Card.arrow(version(change.from()), change.to());
+        final String from = change.from();
+        return from == null
+                ? MESSAGES.admin().version(change.to())
+                : MESSAGES.admin().moved(version(from), change.to());
     }
 
     /** A version as it reads, but a SHA-1, which only the resource pack is known by, cut to its first seven. */
@@ -371,10 +381,5 @@ public final class UpdateFeed {
             case FAILED -> Mark.FAILED;
             case CANCELLED -> Mark.STOPPED;
         };
-    }
-
-    /** Who asked for a run, as the journal names who did something: a mention for a person, a word for the rest. */
-    static String asker(final UpdateRequest request, final DiscordRenderer messages) {
-        return messages.format(Locales.DEFAULT, TEXTS.journal().who(request.actor()));
     }
 }

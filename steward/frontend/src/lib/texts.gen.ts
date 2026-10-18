@@ -289,7 +289,6 @@ export type TextArgs = {
   "journal.announce": {
     languages: Arg["list"]
   }
-  "journal.by": Record<string, never>
   "journal.cancel-run": {
     run: Arg["number"]
     kind: Arg["choice"]
@@ -299,7 +298,6 @@ export type TextArgs = {
   "journal.complete-objective": {
     objective: Arg["text"]
   }
-  "journal.concerns": Record<string, never>
   "journal.console": {
     service: Arg["text"]
     command: Arg["text"]
@@ -330,7 +328,6 @@ export type TextArgs = {
   }
   "journal.link": Record<string, never>
   "journal.link-codes-exhausted": Record<string, never>
-  "journal.minecraft": Record<string, never>
   "journal.person": {
     person: Arg["mention"]
   }
@@ -726,12 +723,8 @@ export type TextArgs = {
   "report.words": {
     text: Arg["text"]
   }
-  "run.duration": Record<string, never>
   "run.kind": {
     kind: Arg["choice"]
-  }
-  "run.more": {
-    count: Arg["number"]
   }
   "run.no-build": Record<string, never>
   "run.open": Record<string, never>
@@ -755,9 +748,6 @@ export type TextArgs = {
   "run.title": {
     kind: Arg["choice"]
     stage: Arg["choice"]
-  }
-  "run.took": {
-    took: Arg["duration"]
   }
   "run.why": Record<string, never>
   "steward.alerts.all-clear": Record<string, never>

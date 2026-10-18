@@ -62,4 +62,6 @@ messageSpec {
     layoutClasses.add("eu.nordtal.season.discordbot.access.discord.LinkFlow")
     layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingFlow")
     layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterFlow")
+    layoutClasses.add("eu.nordtal.season.discordbot.AdminLog")
+    layoutClasses.add("eu.nordtal.season.discordbot.discord.UpdateFeed")
 }

@@ -15,8 +15,9 @@ import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
 import eu.nordtal.season.messages.Messages;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,7 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +41,7 @@ class UpdateFeedTest {
     /** What was posted and edited, instead of a guild. */
     private static final class Board implements UpdateFeed.Board {
 
-        record Post(MessageEmbed embed, @Nullable Button link, String messageId) {}
+        record Post(LayoutRenderer.Drawn card, String messageId) {}
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
@@ -51,20 +53,20 @@ class UpdateFeedTest {
         Runnable duringPost = () -> {};
 
         @Override
-        public void post(final MessageEmbed embed, final @Nullable Button link, final Consumer<String> sentId) {
+        public void post(final LayoutRenderer.Drawn card, final Consumer<String> sentId) {
             final Runnable during = duringPost;
             duringPost = () -> {};
             during.run();
             final String id = "msg-" + (posted.size() + 1);
-            posted.add(new Post(embed, link, id));
+            posted.add(new Post(card, id));
             if (acknowledge) {
                 sentId.accept(id);
             }
         }
 
         @Override
-        public void edit(final String messageId, final MessageEmbed embed, final @Nullable Button link) {
-            edited.add(new Post(embed, link, messageId));
+        public void edit(final String messageId, final LayoutRenderer.Drawn card) {
+            edited.add(new Post(card, messageId));
         }
     }
 
@@ -174,10 +176,13 @@ class UpdateFeedTest {
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
-    private final DiscordRenderer messages = DiscordRenderer.of(Messages.load(
-            UpdateFeedTest.class.getClassLoader(), List.of("messages/access", "messages/admin"), Locale.ENGLISH));
-    private final UpdateFeed feed =
-            new UpdateFeed(rows, board, messages, Clock.systemUTC(), "https://steward.example/");
+    private final LayoutRenderer layouts = new LayoutRenderer(
+            DiscordRenderer.of(Messages.load(
+                    UpdateFeedTest.class.getClassLoader(),
+                    List.of("messages/access", "messages/admin"),
+                    Locale.ENGLISH)),
+            StoredLayoutsStandIn.none());
+    private final UpdateFeed feed = new UpdateFeed(rows, board, layouts, "https://steward.example/");
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {
@@ -258,9 +263,9 @@ class UpdateFeedTest {
         feed.tick();
 
         assertEquals(1, board.posted.size());
-        final java.util.Map<String, String> context = new java.util.HashMap<>();
-        board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals("<@300000000000000077>", context.get("By"), "who asked is a field of its own, as a mention");
+        assertTrue(
+                lines(board.posted.getFirst().card()).contains("**By** <@300000000000000077>"),
+                "who asked is a line of its own, as a mention");
 
         rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
@@ -327,7 +332,7 @@ class UpdateFeedTest {
                 List.of(),
                 board.edited,
                 "the message id arrives on a JDA thread and may never arrive at all; the row is the"
-                        + " record and the embed is only a drawing of it");
+                        + " record and the card is only a drawing of it");
     }
 
     @Test
@@ -338,18 +343,6 @@ class UpdateFeedTest {
 
         assertEquals(1, board.posted.size());
         assertEquals(List.of(), board.edited);
-    }
-
-    @Test
-    void theAskerIsAMentionForAPersonAndAWordForStewardAndTheHost() {
-        final java.util.function.Function<Actor, String> asker = actor -> UpdateFeed.asker(
-                new UpdateRequest(
-                        1L, UpdateKind.UPDATE, UpdateStatus.FAILED, actor, NOW, NOW, null, List.of(), NOW, NOW, null),
-                messages);
-
-        assertEquals("<@300000000000000077>", asker.apply(OWNER), "Discord renders a mention for a person");
-        assertEquals("Steward", asker.apply(Actor.STEWARD));
-        assertEquals("the host", asker.apply(Actor.HOST));
     }
 
     @Test
@@ -368,14 +361,12 @@ class UpdateFeedTest {
         rows.put(row(2L, UpdateStatus.FAILED, UpdateReports.toJson(failed), NOW));
         feed.tick();
 
-        final MessageEmbed good = board.posted.get(0).embed();
-        final MessageEmbed bad = board.posted.get(1).embed();
-        assertEquals(good.getColorRaw(), bad.getColorRaw(), "a finished and a failed run carry the same line");
-        assertTrue(good.getTitle().startsWith("✅"), good.getTitle());
-        assertTrue(bad.getTitle().startsWith("🛑"), bad.getTitle());
-        final String goodLines = good.getFields().stream()
-                .map(MessageEmbed.Field::getValue)
-                .collect(java.util.stream.Collectors.joining("\n"));
+        final LayoutRenderer.Drawn good = board.posted.get(0).card();
+        final LayoutRenderer.Drawn bad = board.posted.get(1).card();
+        assertEquals(accent(good), accent(bad), "a finished and a failed run carry the same line");
+        assertTrue(title(good).startsWith("✅"), title(good));
+        assertTrue(title(bad).startsWith("🛑"), title(bad));
+        final String goodLines = lines(good);
         assertTrue(goodLines.contains("✅ **smp**"), goodLines);
         assertTrue(goodLines.contains("➖ **limbo**"), goodLines);
         for (final String symbol : List.of("✔", "✖", "○", "◑", "\u2013")) {
@@ -401,16 +392,16 @@ class UpdateFeedTest {
         rows.put(row(2L, UpdateStatus.DONE, stored, NOW));
         feed.tick();
 
-        final String now = lines(board.posted.get(0).embed());
-        final String before = lines(board.posted.get(1).embed());
-        assertTrue(now.contains("image *out of date*"), now);
+        final String now = lines(board.posted.get(0).card());
+        final String before = lines(board.posted.get(1).card());
+        assertTrue(now.contains("image out of date"), now);
         assertFalse(now.contains("report.image-outdated"), now);
         assertFalse(now.contains("**-**"), "the placeholder of a version is never shown: " + now);
-        assertTrue(before.contains("image **out of date**"), before);
+        assertTrue(before.contains("image out of date"), before);
     }
 
     @Test
-    void eachChangeIsItsOwnIndentedLineBelowItsServiceAndAPacksHashIsShort() {
+    void aServicesChangesFollowItOnItsLineAndAPacksHashIsShort() {
         final UpdateReport done = new UpdateReport(
                 UpdateReport.Stage.DONE,
                 List.of(
@@ -432,9 +423,9 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(done), NOW));
         feed.tick();
 
-        final String shown = lines(board.posted.get(0).embed());
-        assertTrue(shown.contains("✅ **smp** *running*\n\u2003paper 133 → **134**\n\u2003image *renewed*\n"), shown);
-        assertTrue(shown.contains("✅ **proxy** *running*\n\u2003resource-pack f8fb664 → **0.24.0**"), shown);
+        final String shown = lines(board.posted.get(0).card());
+        assertTrue(shown.contains("✅ **smp** *running* paper 133 → 134 and image renewed\n"), shown);
+        assertTrue(shown.contains("✅ **proxy** *running* resource-pack f8fb664 → 0.24.0"), shown);
     }
 
     @Test
@@ -452,8 +443,8 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(saved), NOW));
         feed.tick();
 
-        final String shown = lines(board.posted.getFirst().embed());
-        assertTrue(shown.contains("backup *1.2 MiB in 12s*"), shown);
+        final String shown = lines(board.posted.getFirst().card());
+        assertTrue(shown.contains("backup 1.2 MiB in 12s"), shown);
         assertFalse(shown.contains("report."), "no key is ever shown in place of its words: " + shown);
     }
 
@@ -476,7 +467,8 @@ class UpdateFeedTest {
                 .withNote(UpdateReport.Note.skipped(
                         UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()));
 
-        final MessageEmbed card = UpdateFeed.fields(done, row(1, UpdateStatus.DONE, null, NOW), messages, NOW);
+        final LayoutRenderer.Drawn card =
+                UpdateFeed.card(done, row(1, UpdateStatus.DONE, null, NOW), layouts, false, null);
 
         assertEquals(List.of("Duration", "Services"), names(card), "a run that went well is its lines");
         assertFalse(lines(card).contains("came back slowly"), lines(card));
@@ -507,7 +499,8 @@ class UpdateFeedTest {
                 .withNote(UpdateReport.Note.failed(
                         UpdateReport.Step.RUN, TEXTS.report().failedUnexpectedly("boom")));
 
-        final MessageEmbed card = UpdateFeed.fields(failed, row(1, UpdateStatus.FAILED, null, NOW), messages, NOW);
+        final LayoutRenderer.Drawn card =
+                UpdateFeed.card(failed, row(1, UpdateStatus.FAILED, null, NOW), layouts, false, null);
 
         assertEquals(List.of("Duration", "Services", "Why"), names(card));
         assertEquals(
@@ -534,9 +527,10 @@ class UpdateFeedTest {
                                 UpdateReport.Step.STANDBY, TEXTS.report().standbyNoContainer())
                         .on("limbo-standby"));
 
-        final MessageEmbed stopped =
-                UpdateFeed.fields(cancelled, row(1, UpdateStatus.CANCELLED, null, NOW), messages, NOW);
-        final MessageEmbed running = UpdateFeed.fields(going, row(2, UpdateStatus.RUNNING, null, null), messages, NOW);
+        final LayoutRenderer.Drawn stopped =
+                UpdateFeed.card(cancelled, row(1, UpdateStatus.CANCELLED, null, NOW), layouts, false, null);
+        final LayoutRenderer.Drawn running =
+                UpdateFeed.card(going, row(2, UpdateStatus.RUNNING, null, null), layouts, false, null);
 
         assertFalse(names(stopped).contains("Why"), names(stopped).toString());
         assertFalse(names(running).contains("Why"), "the card is edited once the run settles: " + names(running));
@@ -577,7 +571,7 @@ class UpdateFeedTest {
                 reportAt(UpdateReport.Stage.DONE)));
         feed.tick();
 
-        assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().embed()));
+        assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().card()));
     }
 
     @Test
@@ -593,9 +587,9 @@ class UpdateFeedTest {
         final UpdateRequest backup = new UpdateRequest(
                 1L, UpdateKind.BACKUP, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
 
-        final MessageEmbed card = UpdateFeed.fields(saved, backup, messages, NOW);
+        final LayoutRenderer.Drawn card = UpdateFeed.card(saved, backup, layouts, false, null);
 
-        assertEquals("✅ **database** *saved*\n\u2003*8.8 MiB in 2s*", field(card, "Services"));
+        assertEquals("✅ **database** *saved* 8.8 MiB in 2s", field(card, "Services"));
     }
 
     @Test
@@ -611,9 +605,9 @@ class UpdateFeedTest {
         final UpdateRequest restore = new UpdateRequest(
                 1L, UpdateKind.RESTORE, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
 
-        final MessageEmbed card = UpdateFeed.fields(restored, restore, messages, NOW);
+        final LayoutRenderer.Drawn card = UpdateFeed.card(restored, restore, layouts, false, null);
 
-        assertEquals("✅ **smp-1.tar.zst** *restored*\n\u2003*1.2 MiB*", field(card, "Services"));
+        assertEquals("✅ **smp-1.tar.zst** *restored* 1.2 MiB", field(card, "Services"));
     }
 
     @Test
@@ -624,22 +618,23 @@ class UpdateFeedTest {
         feed.tick();
 
         final Button posted =
-                java.util.Objects.requireNonNull(board.posted.getFirst().link());
+                java.util.Objects.requireNonNull(link(board.posted.getFirst().card()));
         assertEquals("https://steward.example/operations/updates/7", posted.getUrl());
         assertEquals("Open in Steward", posted.getLabel());
         assertEquals(
                 posted.getUrl(),
-                java.util.Objects.requireNonNull(board.edited.getFirst().link()).getUrl(),
+                java.util.Objects.requireNonNull(link(board.edited.getFirst().card()))
+                        .getUrl(),
                 "an edit keeps the link");
     }
 
     @Test
     void withoutStewardsAddressTheCardCarriesNoLink() {
-        final UpdateFeed unlinked = new UpdateFeed(rows, board, messages, Clock.systemUTC(), "");
+        final UpdateFeed unlinked = new UpdateFeed(rows, board, layouts, "");
         rows.put(row(7L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         unlinked.tick();
 
-        assertEquals(null, board.posted.getFirst().link());
+        assertEquals(null, link(board.posted.getFirst().card()));
     }
 
     // The start-up install, said only when it failed
@@ -661,8 +656,7 @@ class UpdateFeedTest {
 
         assertEquals(1, board.posted.size());
         assertEquals(
-                "🛑 The start-up install failed",
-                board.posted.getFirst().embed().getTitle());
+                "🛑 The start-up install failed", title(board.posted.getFirst().card()));
     }
 
     @Test
@@ -680,30 +674,58 @@ class UpdateFeedTest {
     }
 
     private String title(final UpdateKind kind, final UpdateReport.Stage stage) {
-        return UpdateFeed.fields(
-                        UpdateReport.at(stage),
-                        new UpdateRequest(
-                                1L, kind, UpdateStatus.RUNNING, OWNER, NOW, NOW, null, List.of(), NOW, null, null),
-                        messages,
-                        NOW)
-                .getTitle();
+        return title(UpdateFeed.card(
+                UpdateReport.at(stage),
+                new UpdateRequest(1L, kind, UpdateStatus.RUNNING, OWNER, NOW, NOW, null, List.of(), NOW, null, null),
+                layouts,
+                false,
+                null));
     }
 
-    private static List<String> names(final MessageEmbed embed) {
-        return embed.getFields().stream().map(MessageEmbed.Field::getName).toList();
+    private static String title(final LayoutRenderer.Drawn card) {
+        return card.text().lines().findFirst().orElseThrow().replaceFirst("^## ", "");
     }
 
-    private static String field(final MessageEmbed embed, final String name) {
-        return embed.getFields().stream()
-                .filter(field -> name.equals(field.getName()))
-                .map(MessageEmbed.Field::getValue)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("no field " + name + " in " + names(embed)));
+    /** The card's sections in order: its by and duration lines, then each heading. */
+    private static List<String> names(final LayoutRenderer.Drawn card) {
+        return card.text()
+                .lines()
+                .map(line -> line.startsWith("**By**")
+                        ? "By"
+                        : line.startsWith("**Duration**")
+                                ? "Duration"
+                                : line.startsWith("### ") ? line.substring(4) : null)
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 
-    private static String lines(final MessageEmbed embed) {
-        return embed.getFields().stream()
-                .map(MessageEmbed.Field::getValue)
+    /** The lines under a heading, up to the next one. */
+    private static String field(final LayoutRenderer.Drawn card, final String name) {
+        final List<String> all = card.text().lines().toList();
+        final int heading = all.indexOf("### " + name);
+        if (heading < 0) {
+            throw new AssertionError("no heading " + name + " in " + names(card));
+        }
+        return all.subList(heading + 1, all.size()).stream()
+                .takeWhile(line -> !line.startsWith("### "))
                 .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    private static String lines(final LayoutRenderer.Drawn card) {
+        return card.text();
+    }
+
+    private static @Nullable Integer accent(final LayoutRenderer.Drawn card) {
+        return MessageComponentTree.of(card.components())
+                .findAll(net.dv8tion.jda.api.components.container.Container.class)
+                .getFirst()
+                .getAccentColorRaw();
+    }
+
+    private static @Nullable Button link(final LayoutRenderer.Drawn card) {
+        return MessageComponentTree.of(card.components()).findAll(Button.class).stream()
+                .filter(button -> button.getStyle() == ButtonStyle.LINK)
+                .findFirst()
+                .orElse(null);
     }
 }

@@ -216,6 +216,10 @@ class LayoutRendererTest {
                 continue;
             }
             final JsonObject one = elements.getAsJsonObject(element.id());
+            if (one.isEmpty()) {
+                filled.put(element.id(), new LayoutRenderer.FilledNothing());
+                continue;
+            }
             filled.put(
                     element.id(),
                     switch (element.kind()) {

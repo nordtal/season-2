@@ -187,5 +187,33 @@
         "components": [{ "type": 10, "content": "## Beitrag" }, { "type": 10, "content": "### Preise" }]
       }
     ]
+  },
+  {
+    "name": "a block whose data list is empty and a row whose button is left out are not drawn",
+    "layout": {
+      "name": "left-out",
+      "bundle": "layouts",
+      "area": "Contribution",
+      "surface": "DISCORD",
+      "elements": [
+        { "id": "buy", "kind": "BUTTON", "keys": ["layouts/buy"] },
+        { "id": "tiers", "kind": "LIST", "keys": ["layouts/tier"] }
+      ],
+      "parts": [
+        {
+          "type": "CONTAINER",
+          "accent": "#4a63d8",
+          "parts": [
+            { "type": "TEXT", "lines": [{ "key": "layouts/title", "style": "TITLE" }] },
+            { "type": "TEXT", "lines": [{ "key": "layouts/prices", "style": "HEADING" }, { "list": "tiers" }] }
+          ]
+        },
+        { "type": "ROW", "elements": ["buy"] }
+      ]
+    },
+    "language": "en",
+    "texts": { "en": { "layouts/title": "Contribution", "layouts/prices": "Prices", "layouts/buy": "Buy", "layouts/tier": "{days} days for {price}" } },
+    "filling": { "values": {}, "elements": { "buy": {}, "tiers": { "items": [] } } },
+    "components": [{ "type": 17, "accent_color": 4875224, "components": [{ "type": 10, "content": "## Contribution" }] }]
   }
 ]

@@ -1,7 +1,6 @@
 package eu.nordtal.season.discordbot.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.update.UpdateDirectory;
@@ -11,14 +10,14 @@ import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Mark;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.spec.Takes;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -30,7 +29,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -49,48 +47,65 @@ public final class UpdateFeed {
     public interface Board {
 
         /** Posts a card and passes the message id to {@code sentId} when Discord has the message. */
-        void post(LayoutRenderer.Drawn card, java.util.function.Consumer<String> sentId);
+        void post(DocumentRenderer.Drawn card, java.util.function.Consumer<String> sentId);
 
-        void edit(String messageId, LayoutRenderer.Drawn card);
+        void edit(String messageId, DocumentRenderer.Drawn card);
 
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
-                public void post(final LayoutRenderer.Drawn card, final java.util.function.Consumer<String> sentId) {
+                public void post(final DocumentRenderer.Drawn card, final java.util.function.Consumer<String> sentId) {
                     admin.post(card, sentId);
                 }
 
                 @Override
-                public void edit(final String messageId, final LayoutRenderer.Drawn card) {
+                public void edit(final String messageId, final DocumentRenderer.Drawn card) {
                     admin.edit(messageId, card);
                 }
             };
         }
     }
 
-    static final Layout RUN = Layout.discord(
-            "access",
+    /**
+     * @param by who asked, or {@code null} where the card does not name it
+     * @param took how long a finished run took, or {@code null}
+     */
+    record Run(
+            @Example(Mark.PREVIEW) String mark,
+            @Takes("admin/run.title") MessageRef title,
+
+            @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
+            MessageRef by,
+
+            @Nullable Duration took) {}
+
+    record Service(
+            @Example(Mark.PREVIEW) String mark,
+            @Example("smp") String service,
+            @Takes("admin/run.state") MessageRef state,
+            List<MessageRef> changes) {}
+
+    record Failure(
+            boolean named,
+            @Example("smp") String service,
+
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            MessageRef what) {}
+
+    static final DocumentSpec<Run> RUN = DocumentSpec.message(
+            StoredDocuments.NAMESPACE,
             "admin-run",
             "Admin channel",
-            List.of(
-                    Element.list("by", "access/admin.by"),
-                    Element.list("took", "access/admin.duration"),
-                    Element.list("services", "access/admin.service"),
-                    Element.list("why", "access/admin.failure"),
-                    Element.button("open", "admin/run.open")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(Line.title("access/admin.title")),
-                    Part.text(Line.list("by"), Line.list("took")),
-                    Part.text(Line.heading("admin/run.services"), Line.list("services")),
-                    Part.text(Line.heading("admin/run.why"), Line.list("why"))),
-            Part.row("open"));
+            Run.class,
+            Slot.list("services", Service.class),
+            Slot.list("why", Failure.class),
+            Slot.button("open").optional());
 
     private record Drawn(String messageId, @Nullable String showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
 
     /** The highest request id handled. Only the tick thread writes it. */
     private volatile long lastSeen;
@@ -107,11 +122,14 @@ public final class UpdateFeed {
 
     /** @param stewardUrl Steward's address, which the link on each card starts with. An empty value shows no link. */
     public UpdateFeed(
-            final UpdateDirectory updates, final Board board, final LayoutRenderer layouts, final String stewardUrl) {
+            final UpdateDirectory updates,
+            final Board board,
+            final DocumentRenderer documents,
+            final String stewardUrl) {
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
-        this.layouts = Objects.requireNonNull(layouts, "layouts");
+        this.documents = Objects.requireNonNull(documents, "documents");
     }
 
     /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
@@ -242,10 +260,10 @@ public final class UpdateFeed {
     }
 
     /** Draws one run. A row with no parsable report has the stage {@code RESOLVING}. */
-    private LayoutRenderer.Drawn card(final UpdateRequest request) {
+    private DocumentRenderer.Drawn card(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return card(report, request, layouts, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
+        return card(report, request, documents, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
     }
 
     /**
@@ -254,64 +272,44 @@ public final class UpdateFeed {
      * @param context whether to name who asked
      * @param page the run's page in Steward, which the button opens, or {@code null} for no button
      */
-    static LayoutRenderer.Drawn card(
+    static DocumentRenderer.Drawn card(
             final UpdateReport report,
             final UpdateRequest request,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final boolean context,
             final @Nullable String page) {
-        final List<Map<String, Object>> why = new ArrayList<>();
+        final List<Failure> why = new ArrayList<>();
         for (final UpdateReport.Failure said : report.failures()) {
             // A multi-line text is not shown.
             final String shown =
-                    layouts.messages().format(Locales.DEFAULT, said.what()).strip();
+                    documents.messages().format(Locales.DEFAULT, said.what()).strip();
             if (!shown.isBlank() && shown.indexOf('\n') < 0) {
                 final String service = said.service();
-                why.add(MESSAGES.admin()
-                        .failure(service != null, service == null ? "" : service, said.what())
-                        .args());
+                why.add(new Failure(service != null, service == null ? "" : service, said.what()));
             }
         }
         final Instant requested = request.requested();
         final Instant finished = request.finished();
-        return layouts.render(
+        return documents.render(
                 RUN,
-                LayoutRenderer.Filling.of(
-                        Map.of(
-                                "by",
-                                new LayoutRenderer.FilledList(
-                                        context
-                                                ? List.of(MESSAGES.admin()
-                                                        .by(TEXTS.journal().who(request.actor()))
-                                                        .args())
-                                                : List.of()),
-                                "took",
-                                new LayoutRenderer.FilledList(
-                                        finished != null && requested != null
-                                                ? List.of(MESSAGES.admin()
-                                                        .duration(Duration.between(requested, finished))
-                                                        .args())
-                                                : List.of()),
-                                "services",
-                                new LayoutRenderer.FilledList(report.services().stream()
-                                        .map(line -> MESSAGES.admin()
-                                                .service(
-                                                        marker(line.state()).symbol(),
-                                                        line.service(),
-                                                        TEXTS.run().state(line.state()),
-                                                        changes(line, request.kind()))
-                                                .args())
-                                        .toList()),
-                                "why",
-                                new LayoutRenderer.FilledList(why),
-                                "open",
-                                page == null
-                                        ? new LayoutRenderer.FilledNothing()
-                                        : new LayoutRenderer.FilledButton(page, ButtonStyle.LINK)),
-                        MESSAGES.admin()
-                                .title(
-                                        glance(report.stage()).symbol(),
-                                        TEXTS.run().title(request.kind(), report.stage()))),
+                new Run(
+                        glance(report.stage()).symbol(),
+                        TEXTS.run().title(request.kind(), report.stage()),
+                        context ? TEXTS.journal().who(request.actor()) : null,
+                        finished != null && requested != null ? Duration.between(requested, finished) : null),
+                Map.of(
+                        "services",
+                        DocumentRenderer.FilledList.of(report.services().stream()
+                                .map(line -> new Service(
+                                        marker(line.state()).symbol(),
+                                        line.service(),
+                                        TEXTS.run().state(line.state()),
+                                        changes(line, request.kind())))
+                                .toList()),
+                        "why",
+                        DocumentRenderer.FilledList.of(why),
+                        "open",
+                        page == null ? new DocumentRenderer.FilledNothing() : DocumentRenderer.FilledButton.link(page)),
                 Locales.DEFAULT);
     }
 
@@ -327,7 +325,7 @@ public final class UpdateFeed {
                     change.told() != null
                                     && change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))
                             ? shown
-                            : MESSAGES.admin().change(change.artefact(), shown));
+                            : TEXTS.run().change(change.artefact(), shown));
         }
         return changes;
     }
@@ -339,9 +337,7 @@ public final class UpdateFeed {
             return told;
         }
         final String from = change.from();
-        return from == null
-                ? MESSAGES.admin().version(change.to())
-                : MESSAGES.admin().moved(version(from), change.to());
+        return from == null ? TEXTS.run().version(change.to()) : TEXTS.run().moved(version(from), change.to());
     }
 
     /** Returns the version, with a SHA-1 cut to its first seven characters. */

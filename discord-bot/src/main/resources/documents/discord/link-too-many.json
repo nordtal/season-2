@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Too many wrong codes. Try again later.",
+            "de": "Zu viele falsche Codes. Versuch es später noch einmal."
+          }
+        }
+      ]
+    }
+  ]
+}

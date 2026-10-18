@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "An admin revoked your access to Nordtal.",
+            "de": "Ein Admin hat deinen Zugang zu Nordtal entzogen."
+          }
+        }
+      ]
+    }
+  ]
+}

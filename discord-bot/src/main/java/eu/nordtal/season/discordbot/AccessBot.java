@@ -10,10 +10,10 @@ import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.audit.AuditDirectory;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
-import eu.nordtal.season.database.layout.LayoutStore;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
@@ -85,7 +85,7 @@ public class AccessBot implements AutoCloseable {
      * The bundles the bot renders, one {@code <tag>.properties} per language.
      * Steward shares the admin bundle, in English only.
      */
-    public static final List<String> BUNDLES = List.of("messages/access", "messages/admin", "messages/database");
+    public static final List<String> BUNDLES = List.of("messages/admin", "messages/database");
 
     private static final String SERVICE = "discord-bot";
 
@@ -108,15 +108,15 @@ public class AccessBot implements AutoCloseable {
     private record CoreServices(
             GuildLanguages languages,
             DiscordRenderer messages,
-            StoredLayouts layouts,
+            StoredDocuments documents,
             Tiers tiers,
             PaymentRequests requests,
             Purchases purchases,
             Setting<OnboardingSpec> onboarding,
             String networkZone) {
 
-        LayoutRenderer renderer() {
-            return new LayoutRenderer(messages, layouts);
+        DocumentRenderer renderer() {
+            return new DocumentRenderer(messages, documents);
         }
     }
 
@@ -161,7 +161,7 @@ public class AccessBot implements AutoCloseable {
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
-            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.layouts(), wiring);
+            publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.documents(), wiring);
 
             this.signals = finishStartup(
                     databaseConfig, settings, accessConfig, core, wiring, phases, updates, botConfig.stewardUrl());
@@ -188,7 +188,7 @@ public class AccessBot implements AutoCloseable {
         final StatusChannels status = new StatusChannels(
                 jda,
                 core.languages(),
-                core.messages(),
+                core.renderer(),
                 phases,
                 SnapshotDirectory.using(database.dataSource()),
                 clock,
@@ -210,7 +210,8 @@ public class AccessBot implements AutoCloseable {
                 wiring.purchaseFlow(),
                 openInbox(new BotInbox(
                         wiring.inboxEffects(),
-                        wiring.announcements()::post,
+                        (tag, message) -> wiring.announcements()
+                                .post(tag, locale -> core.messages().format(locale, message)),
                         wiring.admin()::postAlert,
                         wiring.bookings()::tell,
                         previewed -> wiring.roles()
@@ -225,7 +226,7 @@ public class AccessBot implements AutoCloseable {
                                                         previewed.preview().text())))),
                 wiring.adminRole(),
                 core.messages(),
-                core.layouts());
+                core.documents());
 
         // Last, so the marker file exists only after the constructor has finished.
         final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
@@ -251,7 +252,7 @@ public class AccessBot implements AutoCloseable {
         return new CoreServices(
                 languages,
                 messages,
-                new StoredLayouts(LayoutStore.using(database.dataSource())),
+                new StoredDocuments(DocumentStore.using(database.dataSource())),
                 tiers,
                 requests,
                 purchases,
@@ -349,7 +350,7 @@ public class AccessBot implements AutoCloseable {
                 database.jdbi(),
                 admin::alert,
                 core.messages(),
-                core.layouts(),
+                core.documents(),
                 lane);
     }
 
@@ -398,7 +399,7 @@ public class AccessBot implements AutoCloseable {
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart);
         final eu.nordtal.season.discordbot.announce.Announcements announcements =
-                new eu.nordtal.season.discordbot.announce.Announcements(jda, core.languages(), core.messages(), log);
+                new eu.nordtal.season.discordbot.announce.Announcements(jda, core.languages(), log);
 
         final List<CommandData> commands = new ArrayList<>();
         commands.addAll(LinkFlow.commands());
@@ -422,12 +423,12 @@ public class AccessBot implements AutoCloseable {
             final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
-            final StoredLayouts layouts,
+            final StoredDocuments documents,
             final DiscordWiring wiring) {
         // First, because every reconcile below reads a role that this call finds or creates.
         wiring.onboarding().resolveRoles();
-        new ManagedMessages(jda, languages, tiers, messages, layouts, database.jdbi()).publishAll();
-        new RegisterMessages(jda, languages, messages, layouts, database.jdbi()).publishAll();
+        new ManagedMessages(jda, languages, tiers, messages, documents, database.jdbi()).publishAll();
+        new RegisterMessages(jda, languages, messages, documents, database.jdbi()).publishAll();
         wiring.guildState().reconcile();
         wiring.channels().publish();
         wiring.roles().reconcile();
@@ -461,7 +462,7 @@ public class AccessBot implements AutoCloseable {
             final Runnable drainInbox,
             final AdminRole adminRole,
             final DiscordRenderer messages,
-            final StoredLayouts layouts) {
+            final StoredDocuments documents) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
                 databaseConfig.username(),
@@ -479,7 +480,7 @@ public class AccessBot implements AutoCloseable {
             log.info("No language has a status-channel; the sidebar status is off");
         }
         MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
-        layouts.follow(messages.raw().bundles(), hub);
+        documents.follow(hub);
         settings.listen(hub, onboarding::settingsChanged);
         hub.start();
         return hub;

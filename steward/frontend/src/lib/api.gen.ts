@@ -427,10 +427,8 @@ export type MessageSyntax = {
   kinds: Record<string, string[]>
 }
 
-export type Layouts = {
-  writable: boolean
-  layouts: LayoutView[]
-  buildingBlocks: Record<string, string[]>
+export type DocumentList = {
+  documents: DocumentView[]
   languages: string[]
   tiers: Tier[]
 }
@@ -805,12 +803,13 @@ export type Warning = {
 
 export type MessageFallbackReason = "STALE" | "REFUSED"
 
-export type LayoutView = {
-  entry: LayoutEntry
+export type DocumentView = {
+  declaration: DocumentDeclaration
+  services: string[]
+  packaged: Document
   hash: string
-  rebuild?: Layout
-  adapted: LayoutAdaptation[]
-  fallbacks: LayoutAddedFallback[]
+  written?: Document
+  adapted: DocumentAdaptation[]
 }
 
 export type Tier = {
@@ -954,30 +953,22 @@ export type MessageEntry = {
 
 export type MessagePreviewTarget = "GAME" | "DISCORD"
 
-export type LayoutEntry = {
-  layout: Layout
-  values: MessageDeclaration
-  shows: string[]
-}
-
-export type Layout = {
+export type DocumentDeclaration = {
+  namespace: string
   name: string
-  bundle: string
   area: string
-  surface: MessageSurface
-  elements: LayoutElement[]
-  parts: LayoutPart[]
+  shape: DocumentShape
+  values: Record<string, DocumentValue>
+  slots: DocumentSlot[]
 }
 
-export type LayoutAdaptation = {
-  change: LayoutChange
+export type Document = {
+  parts: DocumentPart[]
+}
+
+export type DocumentAdaptation = {
+  change: DocumentChange
   subject: string
-}
-
-export type LayoutAddedFallback = {
-  language: string
-  text: string
-  problems: MessageRef[]
 }
 
 export type Gauge =
@@ -1048,35 +1039,35 @@ export type MessageArg = {
   exampleWords: Record<string, string>
 }
 
-export type MessageDeclaration = {
-  values: Record<string, ValueKind>
-  roles: string[]
-  actions: string[]
-  markup: boolean
-  limit: number
-  examples: Record<string, string>
-  oneLine: boolean
+export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME"
+
+export type DocumentValue = {
+  kind: string
+  example: string
+  takes?: string[]
 }
 
-export type LayoutElement = {
+export type DocumentSlot = {
   id: string
-  kind: LayoutElementKind
-  keys: string[]
-  url?: string
-  labels?: Record<string, string>
+  type: DocumentSlotType
+  required: boolean
+  values: Record<string, DocumentValue>
 }
 
-export type LayoutPart = {
-  type: LayoutPartType
+export type DocumentPart = {
+  type: DocumentPartType
+  when?: string
   accent?: string
-  parts?: LayoutPart[]
-  lines?: LayoutLine[]
-  element?: string
-  elements?: string[]
+  parts?: DocumentPart[]
+  lines?: DocumentLine[]
+  button?: DocumentItem
+  thumbnail?: string
   media?: string[]
+  items?: DocumentItem[]
+  slot?: string
 }
 
-export type LayoutChange = "ELEMENT_ADDED" | "ELEMENT_REMOVED" | "KEY_REMOVED" | "SET_ASIDE"
+export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
 
 export type ChangeState = "MOVING" | "UNSUPPORTED"
 
@@ -1096,29 +1087,24 @@ export type LineSeen = {
 
 export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"
 
-export type ValueKind =
-  | "TEXT"
-  | "NUMBER"
-  | "DURATION"
-  | "INSTANT"
-  | "MONEY"
-  | "LIST"
-  | "DISPLAY_NAME"
-  | "MENTION"
-  | "ITEM"
-  | "GLYPH"
-  | "CHOICE"
-  | "MESSAGE"
+export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT"
 
-export type LayoutElementKind = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "LINK"
+export type DocumentPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "ROW" | "LANGUAGES"
 
-export type LayoutPartType = "CONTAINER" | "TEXT" | "SECTION" | "SEPARATOR" | "GALLERY" | "ROW" | "LANGUAGES"
-
-export type LayoutLine = {
-  key?: string
+export type DocumentLine = {
+  text: Record<string, string | string[]>
+  style?: DocumentLineStyle
+  when?: string
   list?: string
-  style?: LayoutLineStyle
-  texts?: Record<string, string>
 }
 
-export type LayoutLineStyle = "TITLE" | "HEADING"
+export type DocumentItem = {
+  slot?: string
+  link?: string
+  label?: Record<string, string | string[]>
+  placeholder?: Record<string, string | string[]>
+  option?: Record<string, string | string[]>
+  when?: string
+}
+
+export type DocumentLineStyle = "TITLE" | "HEADING"

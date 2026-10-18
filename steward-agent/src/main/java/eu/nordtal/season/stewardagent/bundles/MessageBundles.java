@@ -7,14 +7,16 @@ import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.PackagedTexts;
+import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.MessageSchema;
-import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Kind;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -50,7 +52,8 @@ public final class MessageBundles {
     /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
 
-    private static final Pattern LAYOUTS_ENTRY = Pattern.compile("messages/([^/]+)/layouts\\.json");
+    /** The declarations a module's documents write into the jar at build time, one file per namespace. */
+    private static final Pattern DOCUMENTS_ENTRY = Pattern.compile("documents/([^/]+)/declarations\\.json");
 
     private MessageBundles() {}
 
@@ -74,11 +77,12 @@ public final class MessageBundles {
         return found;
     }
 
-    /** Whether a jar carries a packaged bundle; one that cannot be opened is left out with a warning. */
+    /** Whether a jar carries a packaged bundle or documents; one that cannot be opened is left out with a warning. */
     private static boolean packagesBundles(final Path jar) {
         try (ZipFile zip = new ZipFile(jar.toFile())) {
             return zip.stream()
-                    .anyMatch(entry -> BUNDLE_ENTRY.matcher(entry.getName()).matches());
+                    .anyMatch(entry -> BUNDLE_ENTRY.matcher(entry.getName()).matches()
+                            || DOCUMENTS_ENTRY.matcher(entry.getName()).matches());
         } catch (final IOException e) {
             LOG.warn("{} cannot be opened to look for message bundles: {}", jar, e.toString());
             return false;
@@ -88,7 +92,7 @@ public final class MessageBundles {
     /**
      * Opens {@code location}'s jar and reads every bundle it packages into one form.
      *
-     * @return the bundle, each bundle's schema keys in its order, then the rest sorted, and every layout
+     * @return the bundle, each bundle's schema keys in its order, then the rest sorted, and every document
      * @throws IOException if the jar cannot be read
      * @throws IllegalStateException if a packaged file numbers its variants with a gap
      */
@@ -126,11 +130,7 @@ public final class MessageBundles {
             });
             entries.add(entryOf(key, bundle, texts, described.get(key), packaged));
         }
-        return new MessageBundle(
-                location.service(),
-                location.module(),
-                entries,
-                packaged.layouts().values().stream().flatMap(List::stream).toList());
+        return new MessageBundle(location.service(), location.module(), entries, packaged.documents());
     }
 
     private static MessageEntry entryOf(
@@ -185,32 +185,30 @@ public final class MessageBundles {
      *
      * @param texts bundle to language to key to variants
      * @param schemas bundle to described keys, sorted by bundle so the order does not follow the jar
-     * @param layouts bundle to layouts, sorted the same way
+     * @param documents every document as {@code {declaration, document}}, by namespace and name
      */
     private record Packaged(
             Map<String, Map<String, Map<String, List<String>>>> texts,
             Map<String, List<SchemaEntry>> schemas,
-            Map<String, List<JsonObject>> layouts) {}
+            List<JsonObject> documents) {}
 
     private static Packaged readPackaged(final MessageBundleLocation location) throws IOException {
         final Map<String, Map<String, Map<String, List<String>>>> texts = new TreeMap<>();
         final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
-        final Map<String, List<JsonObject>> layouts = new TreeMap<>();
+        final Set<String> namespaces = new TreeSet<>();
         try (ZipFile jar = new ZipFile(location.jar().toFile())) {
             final Enumeration<? extends ZipEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 final ZipEntry entry = entries.nextElement();
                 final Matcher schema = SCHEMA_ENTRY.matcher(entry.getName());
-                final Matcher layout = LAYOUTS_ENTRY.matcher(entry.getName());
+                final Matcher documents = DOCUMENTS_ENTRY.matcher(entry.getName());
                 final Matcher bundle = BUNDLE_ENTRY.matcher(entry.getName());
                 if (schema.matches()) {
                     try (InputStream in = jar.getInputStream(entry)) {
                         schemas.put(schema.group(1), readSchema(location, entry.getName(), in));
                     }
-                } else if (layout.matches()) {
-                    try (InputStream in = jar.getInputStream(entry)) {
-                        layouts.put(layout.group(1), readLayouts(location, entry.getName(), in));
-                    }
+                } else if (documents.matches()) {
+                    namespaces.add(documents.group(1));
                 } else if (bundle.matches()) {
                     try (InputStream in = jar.getInputStream(entry)) {
                         texts.computeIfAbsent(bundle.group(1), ignored -> new HashMap<>())
@@ -219,24 +217,33 @@ public final class MessageBundles {
                 }
             }
         }
-        return new Packaged(texts, schemas, layouts);
+        return new Packaged(texts, schemas, readDocuments(location, namespaces));
     }
 
-    /** One {@code layouts.json}, each layout as its tree; one that holds no layouts is logged and read as empty. */
-    private static List<JsonObject> readLayouts(
-            final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
-        try {
-            return LayoutSchema.decode(new String(in.readAllBytes(), StandardCharsets.UTF_8)).stream()
-                    .map(entry -> Json.gson().toJsonTree(entry).getAsJsonObject())
-                    .toList();
-        } catch (final RuntimeException e) {
-            LOG.warn(
-                    "{}: {} holds no layouts steward can read, so they are left out: {}",
-                    location.jar(),
-                    name,
-                    e.toString());
-            return List.of();
+    /** Every document of {@code namespaces} as its tree; a namespace steward cannot read is logged and left out. */
+    private static List<JsonObject> readDocuments(final MessageBundleLocation location, final Set<String> namespaces)
+            throws IOException {
+        final List<JsonObject> read = new ArrayList<>();
+        try (URLClassLoader jar =
+                new URLClassLoader(new URL[] {location.jar().toUri().toURL()}, null)) {
+            for (final String namespace : namespaces) {
+                try {
+                    Documents.packaged(jar, namespace).values().forEach(packaged -> {
+                        final JsonObject tree = new JsonObject();
+                        tree.add("declaration", Json.gson().toJsonTree(packaged.declaration()));
+                        tree.add("document", Json.tree(packaged.document().json()));
+                        read.add(tree);
+                    });
+                } catch (final RuntimeException e) {
+                    LOG.warn(
+                            "{}: the documents of {} are not readable, so they are left out: {}",
+                            location.jar(),
+                            namespace,
+                            e.toString());
+                }
+            }
         }
+        return read;
     }
 
     private record SchemaEntry(

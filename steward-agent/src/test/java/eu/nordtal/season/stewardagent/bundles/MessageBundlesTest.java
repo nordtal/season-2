@@ -8,6 +8,7 @@ import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
+import eu.nordtal.season.messages.document.Document;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
@@ -50,6 +51,17 @@ class MessageBundlesTest {
     void aWholeServicesBundleHasNoModuleAndItsJarComesFromItsImage() throws IOException {
         final Path jar = images.resolve("discord-bot.jar");
         writeJar(jar, Map.of("messages/access/en.properties", "contribution.title=Access\n"));
+
+        final List<MessageBundleLocation> found =
+                MessageBundles.discover(List.of(new ServiceJar("discord-bot", jar, true, true)));
+
+        assertEquals(List.of(new MessageBundleLocation("discord-bot", "", jar)), found);
+    }
+
+    @Test
+    void aJarThatShipsOnlyDocumentsIsFound() throws IOException {
+        final Path jar = images.resolve("discord-bot.jar");
+        writeJar(jar, Map.of("documents/access/declarations.json", "[]"));
 
         final List<MessageBundleLocation> found =
                 MessageBundles.discover(List.of(new ServiceJar("discord-bot", jar, true, true)));
@@ -261,38 +273,48 @@ class MessageBundlesTest {
         assertEquals("paper-common", entry(bundle, "reload.done").bundle());
     }
 
-    private static final String LAYOUTS = """
-            [{"layout": {"name": "welcome", "bundle": "smp", "area": "Join", "surface": "DISCORD", "elements": [],
-                         "parts": [{"type": "TEXT", "lines": [{"key": "smp/welcome"}]}]},
-              "values": {"values": {}, "roles": [], "actions": [], "markup": false, "limit": 0, "examples": {},
-                         "oneLine": false},
-              "shows": ["smp/welcome"]}]
+    private static final String DECLARATIONS = """
+            [{"namespace": "smp", "name": "welcome", "area": "Join", "shape": "MESSAGE", "values": {}, "slots": []}]
+            """;
+
+    private static final String WELCOME = """
+            {"parts": [{"type": "TEXT", "lines": [{"text": {"en": "Welcome"}}]}]}
             """;
 
     @Test
-    void eachLayoutTheJarShipsBesideItsTextsIsCarriedAsItsLayoutsFileHoldsIt() throws IOException {
-        writeJar(
-                configs.resolve("smp/smp-0.9.1.jar"),
-                Map.of("messages/smp/en.properties", "welcome=Welcome\n", "messages/smp/layouts.json", LAYOUTS));
-
-        final MessageBundle bundle =
-                MessageBundles.read(new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar")));
-
-        assertEquals(Json.tree(LAYOUTS).getAsJsonArray().asList(), bundle.layouts());
-    }
-
-    @Test
-    void aLayoutsFileThatHoldsNoLayoutsIsLeftOutAndTheTextsStillShow() throws IOException {
+    void eachDocumentTheJarShipsIsCarriedWithItsDeclaration() throws IOException {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 Map.of(
-                        "messages/smp/en.properties", "welcome=Welcome\n",
-                        "messages/smp/layouts.json", "[{\"shows\": [\"smp/welcome\"]}]"));
+                        "documents/smp/declarations.json", DECLARATIONS,
+                        "documents/smp/welcome.json", WELCOME));
 
         final MessageBundle bundle =
                 MessageBundles.read(new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar")));
 
-        assertEquals(List.of(), bundle.layouts());
+        assertEquals(1, bundle.documents().size());
+        assertEquals(
+                Json.tree(DECLARATIONS).getAsJsonArray().get(0),
+                bundle.documents().getFirst().get("declaration"));
+        assertEquals(
+                Document.decode(WELCOME),
+                Document.decode(bundle.documents().getFirst().get("document").toString()));
+    }
+
+    @Test
+    void aNamespaceWhoseDocumentIsMissingIsLeftOutAndTheTextsStillShow() throws IOException {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties",
+                        "welcome=Welcome\n",
+                        "documents/smp/declarations.json",
+                        DECLARATIONS));
+
+        final MessageBundle bundle =
+                MessageBundles.read(new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar")));
+
+        assertEquals(List.of(), bundle.documents());
         assertEquals(List.of("Welcome"), entry(bundle, "welcome").packaged("en"));
     }
 

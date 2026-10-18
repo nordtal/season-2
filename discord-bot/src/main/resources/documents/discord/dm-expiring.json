@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Your access ends **{until, instant, relative}** ({until}). Buy more in {channel} to extend it.",
+            "de": "Dein Zugang endet **{until, instant, relative}** ({until}). Kauf in {channel} mehr, um ihn zu verlängern."
+          },
+          "when": "channel"
+        },
+        {
+          "text": {
+            "en": "Your access ends **{until, instant, relative}** ({until}). Buy more in the contribution channel to extend it.",
+            "de": "Dein Zugang endet **{until, instant, relative}** ({until}). Kauf in dem Beitragskanal mehr, um ihn zu verlängern."
+          },
+          "when": "!channel"
+        }
+      ]
+    }
+  ]
+}

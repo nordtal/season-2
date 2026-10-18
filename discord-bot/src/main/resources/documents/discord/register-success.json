@@ -1,0 +1,27 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Team **{name}** is registered. You can invite a partner below or play alone.",
+            "de": "Team **{name}** ist registriert. Du kannst unten einen Partner einladen oder allein spielen."
+          }
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "invite",
+          "label": {
+            "en": "Invite a partner",
+            "de": "Partner einladen"
+          }
+        }
+      ]
+    }
+  ]
+}

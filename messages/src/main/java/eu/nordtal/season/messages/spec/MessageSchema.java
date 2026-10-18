@@ -3,8 +3,6 @@ package eu.nordtal.season.messages.spec;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.Contexts;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.LayoutSchema;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Action;
 import eu.nordtal.season.messages.value.Example;
@@ -12,6 +10,7 @@ import eu.nordtal.season.messages.value.Kind;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.nio.charset.StandardCharsets;
@@ -180,8 +179,18 @@ public final class MessageSchema {
     private static Arg argOf(final Method method, final Parameter parameter) {
         final eu.nordtal.season.messages.spec.Arg arg =
                 parameter.getAnnotation(eu.nordtal.season.messages.spec.Arg.class);
-        final String name = arg == null ? null : arg.value();
-        final Class<?> type = parameter.getType();
+        return arg(method.toString(), arg == null ? null : arg.value(), parameter.getType(), parameter);
+    }
+
+    /**
+     * Returns the argument of a value of {@code type}, read from its {@code @Example} and {@code @Takes}.
+     * A message's parameter and a document's record component share it.
+     *
+     * @param where names the declaration in a refusal
+     * @throws IllegalStateException if the type is no kind, or the annotations disagree with it
+     */
+    public static Arg arg(
+            final String where, final @Nullable String name, final Class<?> type, final AnnotatedElement element) {
         if (Contexts.isContext(type)) {
             return new Arg(name, null, Contexts.type(type), null, false);
         }
@@ -189,21 +198,21 @@ public final class MessageSchema {
             return new Arg(name, null, null, null, true);
         }
         final Kind kind = Kind.of(type)
-                .orElseThrow(() -> new IllegalStateException(method + ": " + name + " is a " + type.getSimpleName()
+                .orElseThrow(() -> new IllegalStateException(where + ": " + name + " is a " + type.getSimpleName()
                         + ", which is no kind a message can show"));
-        final Example example = parameter.getAnnotation(Example.class);
-        final Takes takes = parameter.getAnnotation(Takes.class);
+        final Example example = element.getAnnotation(Example.class);
+        final Takes takes = element.getAnnotation(Takes.class);
         if (takes != null && kind != Kind.MESSAGE) {
             throw new IllegalStateException(
-                    method + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
+                    where + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
         }
         final List<String> choices = takes == null ? choices(type) : List.of(takes.value());
         if (example == null && takes != null && whole(choices.getFirst())) {
             throw new IllegalStateException(
-                    method + ": " + name + " takes " + choices.getFirst() + ", so it needs an @Example to preview");
+                    where + ": " + name + " takes " + choices.getFirst() + ", so it needs an @Example to preview");
         }
         if (example != null && !choices.isEmpty() && !takes(choices, example.value())) {
-            throw new IllegalStateException(method + ": the example " + example.value() + " of " + name
+            throw new IllegalStateException(where + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
         final String shown =
@@ -424,33 +433,18 @@ public final class MessageSchema {
     public record GlobalJson(String name, String context) {}
 
     /**
-     * Writes {@code <output>/messages/<bundle>/schema.json} per spec and {@code layouts.json}.
-     * A bundle gets the layouts listed under it. A spec or a layout that fails a check is refused.
+     * Writes {@code <output>/messages/<bundle>/schema.json} for a spec.
+     *
+     * @throws IllegalStateException if the spec disagrees with its bundle
      */
-    public static void main(final String[] args) throws Exception {
-        if (args.length < 2) {
-            throw new IllegalArgumentException(
-                    "usage: MessageSchema <output directory> <spec class>... [--layouts <class>...]");
+    public static void write(final Path output, final Class<?> spec) throws IOException {
+        final List<String> problems = MessageSpecCheck.problems(spec);
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(
+                    spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
         }
-        final List<String> names = Arrays.asList(args).subList(1, args.length);
-        final int split = names.contains("--layouts") ? names.indexOf("--layouts") : names.size();
-        final List<Class<?>> specs = new ArrayList<>();
-        for (final String name : names.subList(0, split)) {
-            final Class<?> spec = Class.forName(name);
-            specs.add(spec);
-            final List<String> problems = MessageSpecCheck.problems(spec);
-            if (!problems.isEmpty()) {
-                throw new IllegalStateException(
-                        spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
-            }
-            final Path file = Path.of(args[0], "messages", bundle(spec), "schema.json");
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, json(spec), StandardCharsets.UTF_8);
-        }
-        final List<Layout> layouts = new ArrayList<>();
-        for (final String holder : names.subList(Math.min(split + 1, names.size()), names.size())) {
-            layouts.addAll(LayoutSchema.declared(Class.forName(holder)));
-        }
-        LayoutSchema.write(Path.of(args[0]), specs, layouts);
+        final Path file = output.resolve("messages").resolve(bundle(spec)).resolve("schema.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, json(spec), StandardCharsets.UTF_8);
     }
 }

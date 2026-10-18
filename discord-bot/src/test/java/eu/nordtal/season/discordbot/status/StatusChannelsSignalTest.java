@@ -9,16 +9,14 @@ import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.phase.PhaseDirectory;
-import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.messages.Messages;
 import java.lang.reflect.Proxy;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.dv8tion.jda.api.JDA;
 import org.junit.jupiter.api.Test;
@@ -44,7 +42,7 @@ class StatusChannelsSignalTest {
         return new StatusChannels(
                 jda,
                 noStatusChannel,
-                DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH)),
+                StoredDocumentsStandIn.renderer(),
                 phases,
                 () -> NetworkSnapshot.EMPTY,
                 Clock.systemUTC());

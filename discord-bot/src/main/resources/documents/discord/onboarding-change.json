@@ -1,0 +1,53 @@
+{
+  "parts": [
+    {
+      "type": "LANGUAGES",
+      "slot": "each",
+      "parts": [
+        {
+          "type": "CONTAINER",
+          "accent": "#4a63d8",
+          "parts": [
+            {
+              "type": "TEXT",
+              "lines": [
+                {
+                  "text": {
+                    "en": "Language and region",
+                    "de": "Sprache und Region"
+                  },
+                  "style": "TITLE"
+                },
+                {
+                  "text": {
+                    "en": "Change",
+                    "de": "Ändern"
+                  },
+                  "style": "HEADING"
+                },
+                {
+                  "text": {
+                    "en": "**{change.label}** → language and region, at any time",
+                    "de": "**{change.label}** → Sprache und Region, jederzeit"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "change",
+              "label": {
+                "en": "Change",
+                "de": "Ändern"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

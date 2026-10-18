@@ -1,0 +1,53 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "{mark} {title}"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "{line}"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "**By** {by}"
+              }
+            },
+            {
+              "text": {
+                "en": "**Concerns** {concerns}"
+              },
+              "when": "concerns"
+            },
+            {
+              "text": {
+                "en": "**Minecraft** `{minecraft}`"
+              },
+              "when": "minecraft"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

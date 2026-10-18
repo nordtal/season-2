@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "You cannot invite this account. It is a bot or already registered for this event.",
+            "de": "Diesen Account kannst du nicht einladen. Er ist ein Bot oder schon für dieses Event registriert."
+          }
+        }
+      ]
+    }
+  ]
+}

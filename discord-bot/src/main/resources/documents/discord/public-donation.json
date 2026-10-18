@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{user.name} donated {amount}. Thank you!",
+            "de": "{user.name} hat {amount} gespendet. Danke!"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,22 +1,24 @@
 package eu.nordtal.season.discordbot.status;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.network.NetworkSnapshot;
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import org.junit.jupiter.api.Test;
 
 class StatusNameTest {
 
-    private static final DiscordRenderer MESSAGES =
-            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN));
+    private static final DocumentRenderer MESSAGES = StoredDocumentsStandIn.renderer();
     private static final Instant NOW = Instant.parse("2026-09-03T12:00:00Z");
 
     private static final NetworkSnapshot RUNNING =
@@ -85,6 +87,15 @@ class StatusNameTest {
     void theSmpShowsRegisteredPlayersDeliberatelyNotTheMilestone() {
         // Chosen over the milestone percentage, which moves faster than the rename budget.
         assertEquals("31 players", render(SeasonPhase.SMP));
+        assertEquals(
+                "1,200 players",
+                StatusName.render(
+                        MESSAGES,
+                        Locale.ENGLISH,
+                        SeasonPhase.SMP,
+                        new NetworkSnapshot(8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 1200),
+                        null,
+                        NOW));
     }
 
     @Test
@@ -109,10 +120,39 @@ class StatusNameTest {
                 final String name =
                         StatusName.render(MESSAGES, locale, phase, RUNNING, NOW.plus(Duration.ofDays(365)), NOW);
                 assertTrue(
-                        name.length() <= StatusName.MAX_LENGTH,
+                        name.length() <= Channel.MAX_NAME_LENGTH,
                         phase + "/" + locale + " is " + name.length() + " characters: " + name);
             }
         }
+    }
+
+    @Test
+    void aPhaseIsAnnouncedByItsPhraseInTheReadersLanguage() {
+        assertEquals(
+                "The network phase is now **Season running** (it was **Before the event**).",
+                announce(Locale.ENGLISH, SeasonPhase.SMP, SeasonPhase.PRE_EVENT));
+        assertEquals(
+                "Die Netzwerkphase ist jetzt **Saison läuft** (vorher **Vor dem Event**).",
+                announce(Locale.GERMAN, SeasonPhase.SMP, SeasonPhase.PRE_EVENT));
+    }
+
+    @Test
+    void noPhaseIsAnnouncedByItsEnumKey() {
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            for (final SeasonPhase phase : SeasonPhase.values()) {
+                final String sentence = announce(locale, phase, phase);
+                for (final SeasonPhase key : SeasonPhase.values()) {
+                    assertFalse(
+                            sentence.contains(
+                                    key.name().toLowerCase(Locale.ROOT).replace('_', '-')),
+                            locale + " announces " + phase + " as a raw key: " + sentence);
+                }
+            }
+        }
+    }
+
+    private static String announce(final Locale locale, final SeasonPhase phase, final SeasonPhase previous) {
+        return MESSAGES.plain(StatusChannels.ANNOUNCE, new StatusChannels.Phase(phase, previous), locale);
     }
 
     private static String render(final SeasonPhase phase) {

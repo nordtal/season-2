@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "You are already registered for this event.",
+            "de": "Du bist für dieses Event schon registriert."
+          }
+        }
+      ]
+    }
+  ]
+}

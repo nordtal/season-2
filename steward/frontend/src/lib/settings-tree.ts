@@ -1,5 +1,5 @@
-import type { ConfigEntry, LayoutView, MessageEntry, MessageText } from "@/lib/api"
-import { layoutId, layoutOf, pageLayouts, type PageLayout } from "@/lib/layouts"
+import type { ConfigEntry, DocumentView, MessageEntry, MessageText } from "@/lib/api"
+import { documentId, pageCards, type PageCard } from "@/lib/documents"
 import { entryHaystack } from "@/lib/settings-search"
 import { groupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
 import { choice, t } from "@/lib/texts"
@@ -182,28 +182,28 @@ export function textId(entry: MessageEntry): string {
 }
 
 /**
- * Returns the Translations page as a tree: a branch per group, then a declared layout's area or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
+ * Returns the Translations page as a tree: a branch per group, then a Discord document's area or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
  */
 export function textsTree(
   texts: MessageText[],
   places: Places,
-  views: readonly LayoutView[] = [],
-): TreeNode<PageLayout>[] {
-  const builder = new Builder<PageLayout>()
-  const grouped = pageLayouts(texts, views)
+  views: readonly DocumentView[] = [],
+  service?: string,
+): TreeNode<PageCard>[] {
+  const builder = new Builder<PageCard>()
+  const grouped = pageCards(texts, views, service)
     .map((card) => ({
       card,
-      group: card.kind === "layout" ? layoutOf(card.view).surface : groupOf(card.text.entry, places),
+      group: card.kind === "document" ? ("DISCORD" as const) : groupOf(card.text.entry, places),
     }))
     .toSorted((a, b) => TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group))
   for (const { card, group } of grouped) {
     const root = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
-    // A top topic is named by its label, so a layout's area and the texts of the same topic share one branch.
+    // A top topic is named by its label, so a document's area and the texts of the same topic share one branch.
     const top = (label: string) => builder.branch(`${group}:@${label}`, label, root).id
-    if (card.kind === "layout") {
-      const layout = layoutOf(card.view)
-      const id = `layout:${layoutId(layout)}`
-      builder.add(top(layout.area), { kind: "leaf", id, ids: card.view.entry.shows, value: card, wide: true })
+    if (card.kind === "document") {
+      const id = `document:${documentId(card.view.declaration)}`
+      builder.add(top(card.view.declaration.area), { kind: "leaf", id, ids: [id], value: card, wide: true })
       continue
     }
     const entry = card.text.entry

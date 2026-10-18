@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Invitation sent to {partner.name}. Your team is complete when they accept.",
+            "de": "Einladung an {partner.name} gesendet. Euer Team ist komplett, sobald die Einladung angenommen ist."
+          }
+        }
+      ]
+    }
+  ]
+}

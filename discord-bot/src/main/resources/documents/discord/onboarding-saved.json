@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Saved: **{language}**, **{region}**.",
+            "de": "Gespeichert: **{language}**, **{region}**."
+          }
+        }
+      ]
+    }
+  ]
+}

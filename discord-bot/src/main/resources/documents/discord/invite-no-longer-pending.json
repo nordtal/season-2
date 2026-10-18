@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "This invitation is closed.",
+            "de": "Diese Einladung ist abgeschlossen."
+          }
+        }
+      ]
+    }
+  ]
+}

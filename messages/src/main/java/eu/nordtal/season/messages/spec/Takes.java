@@ -9,11 +9,10 @@ import java.lang.annotation.Target;
 /** Lists the keys a message value may take.
  * A key is {@code key} in this bundle, {@code bundle/key} or {@code bundle/*} in another.
  * A value that takes a whole bundle needs an {@code @Example}.
- * A key nested in several layouts is a building block of them.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.PARAMETER})
+@Target({ElementType.PARAMETER, ElementType.RECORD_COMPONENT})
 public @interface Takes {
     String[] value();
 }

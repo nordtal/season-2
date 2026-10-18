@@ -8,6 +8,7 @@ import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.discordbot.AccessBot;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import java.lang.reflect.Proxy;
@@ -68,12 +69,12 @@ class AnnouncementsTest {
                     new GuildLanguages.Language("de", "", "", "", "", "", "222")),
             new eu.nordtal.season.common.language.Languages(List.of("en", "de")));
 
-    private final Announcements subject = new Announcements(channels, languages, BUNDLES, log);
+    private final Announcements subject = new Announcements(channels, languages, log);
 
     @Test
     void everyPostedLineIsLoggedAtInfoWithItsLanguageAndChannel() {
-        assertTrue(subject.post("en", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Frontier"))));
-        assertTrue(subject.post("de", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Grenzland"))));
+        assertTrue(post("en", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Frontier"))));
+        assertTrue(post("de", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Grenzland"))));
 
         assertEquals(
                 List.of(
@@ -91,15 +92,20 @@ class AnnouncementsTest {
 
     @Test
     void anAdminsWordsKeepTheirMarkdownAndANameDoesNot() {
-        assertTrue(subject.post("en", ANNOUNCEMENT.words("The **End** opens at 8_pm.")));
-        assertTrue(subject.post("en", ANNOUNCEMENT.milestone(new MilestoneContext("Far_Side"))));
+        assertTrue(post("en", ANNOUNCEMENT.words("The **End** opens at 8_pm.")));
+        assertTrue(post("en", ANNOUNCEMENT.milestone(new MilestoneContext("Far_Side"))));
 
         assertEquals(List.of("111: The **End** opens at 8_pm.", "111: Far\\_Side is complete."), sent);
     }
 
     @Test
     void aLanguageWithoutAChannelIsNotPosted() {
-        assertFalse(subject.post("fr", ANNOUNCEMENT.words("Bonjour")), "nothing is posted where nobody reads");
+        assertFalse(post("fr", ANNOUNCEMENT.words("Bonjour")), "nothing is posted where nobody reads");
         assertEquals(List.of(), sent);
+    }
+
+    /** Posts a text as the bot posts what Steward asks for. */
+    private boolean post(final String languageTag, final MessageRef message) {
+        return subject.post(languageTag, locale -> BUNDLES.format(locale, message));
     }
 }

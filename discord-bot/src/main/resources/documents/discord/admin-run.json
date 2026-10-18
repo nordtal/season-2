@@ -1,0 +1,83 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "{mark} {title}"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "**By** {by}"
+              },
+              "when": "by"
+            },
+            {
+              "text": {
+                "en": "**Duration** {took, duration, short}"
+              },
+              "when": "took"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Services"
+              },
+              "style": "HEADING"
+            },
+            {
+              "list": "services",
+              "text": {
+                "en": "{mark} **{service}** *{state}* {changes}"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Why"
+              },
+              "style": "HEADING"
+            },
+            {
+              "list": "why",
+              "text": {
+                "en": "{named, select, true {**{service}** {what}} other {{what}}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "open",
+          "label": {
+            "en": "Open in Steward"
+          }
+        }
+      ]
+    }
+  ]
+}

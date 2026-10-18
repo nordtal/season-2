@@ -1,21 +1,17 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.Replies;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,30 +44,22 @@ import org.jspecify.annotations.Nullable;
 public final class OnboardingFlow extends ListenerAdapter {
 
     /** The answer to a language choice. It asks for the region in the chosen language. */
-    static final Layout REGION = Layout.discord(
-            "access",
-            "onboarding-region",
-            "Onboarding",
-            List.of(Element.select("regions", "access/onboarding.region.choose")),
-            Part.container(
-                    Tone.BRAND,
-                    Part.text(
-                            Line.title("access/onboarding.region.title"), Line.text("access/onboarding.region.lead"))),
-            Part.row("regions"));
+    static final DocumentSpec<DocumentSpec.None> REGION =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "onboarding-region", "Onboarding", Slot.select("regions"));
 
     /** The dialog of the change message. It asks for the language and the region. */
-    static final Layout CHOICE = Layout.modal(
-            "access",
+    static final DocumentSpec<DocumentSpec.None> CHOICE = DocumentSpec.modal(
+            StoredDocuments.NAMESPACE,
             "onboarding-choice",
             "Onboarding",
-            "access/onboarding.modal.title",
-            Element.input("language", "access/onboarding.modal.language"),
-            Element.input("region", "access/onboarding.modal.region"));
+            DocumentSpec.None.class,
+            Slot.input("language"),
+            Slot.input("region"));
 
     private final Onboarding onboarding;
     private final GuildLanguages languages;
     private final GuildRoles roles;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private final String networkZone;
     private final Consumer<Alert> alerts;
     private final Executor lane;
@@ -84,14 +72,14 @@ public final class OnboardingFlow extends ListenerAdapter {
             final Onboarding onboarding,
             final GuildLanguages languages,
             final GuildRoles roles,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final String networkZone,
             final Consumer<Alert> alerts,
             final Executor lane) {
         this.onboarding = onboarding;
         this.languages = languages;
         this.roles = roles;
-        this.layouts = layouts;
+        this.documents = documents;
         this.networkZone = networkZone;
         this.alerts = alerts;
         this.lane = lane;
@@ -131,7 +119,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         switch (Answer.after(given, region.isPresent(), !regions.isEmpty())) {
             case ASK_REGION ->
-                hook.editOriginal(region(layouts, Ids.ONBOARD_PICK_REGION + tag, regions, reads)
+                hook.editOriginal(region(documents, Ids.ONBOARD_PICK_REGION + tag, regions, reads)
                                 .edit())
                         .queue();
             case SAVED ->
@@ -142,7 +130,8 @@ public final class OnboardingFlow extends ListenerAdapter {
                         "{} chose the language {}, which was not given or leaves no region to offer",
                         member.getId(),
                         tag);
-                hook.editOriginal(reply(reads, MESSAGES.onboarding().failed())).queue();
+                hook.editOriginal(reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
+                        .queue();
             }
         }
     }
@@ -159,28 +148,32 @@ public final class OnboardingFlow extends ListenerAdapter {
         hook.editOriginal(
                         Answer.after(given, given, false) == Answer.SAVED && language.isPresent()
                                 ? saved(reads, language.get(), region.orElseThrow())
-                                : reply(reads, MESSAGES.onboarding().failed()))
+                                : reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
                 .queue();
     }
 
     /** Returns the region question in {@code reads}. Its select offers {@code regions} under the id {@code id}. */
-    static LayoutRenderer.Drawn region(
-            final LayoutRenderer layouts, final String id, final List<SelectOption> regions, final Locale reads) {
-        final List<LayoutRenderer.Option> options = regions.stream()
-                .map(option -> new LayoutRenderer.Option(option.getValue(), option.getLabel(), Map.of(), null))
+    static DocumentRenderer.Drawn region(
+            final DocumentRenderer documents, final String id, final List<SelectOption> regions, final Locale reads) {
+        final List<DocumentRenderer.Option> options = regions.stream()
+                .map(option -> new DocumentRenderer.Option(option.getValue(), option.getLabel(), Map.of(), null))
                 .toList();
-        return layouts.render(
+        return documents.render(
                 REGION,
-                new LayoutRenderer.Filling(Map.of(), Map.of("regions", new LayoutRenderer.FilledSelect(id, options))),
+                new DocumentSpec.None(),
+                Map.of("regions", new DocumentRenderer.FilledSelect(id, options)),
                 reads);
     }
 
     private MessageEditData saved(final Locale reads, final Role language, final Role region) {
-        return reply(reads, MESSAGES.onboarding().saved(language.getName(), region.getName()));
+        return reply(
+                reads,
+                new DocumentRenderer.Reply<>(
+                        Replies.ONBOARDING_SAVED, new Replies.Saved(language.getName(), region.getName())));
     }
 
-    private MessageEditData reply(final Locale reads, final MessageRef text) {
-        return layouts.reply(reads, text).edit();
+    private MessageEditData reply(final Locale reads, final DocumentRenderer.Reply<?> text) {
+        return documents.reply(reads, text).edit();
     }
 
     private static Set<String> ids(final Member member) {
@@ -202,7 +195,9 @@ public final class OnboardingFlow extends ListenerAdapter {
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         if (spoken.isEmpty() || regions.isEmpty()) {
             log.warn("{} wanted to choose, but no language or no region has a role yet", member.getId());
-            event.reply(layouts.reply(locale, MESSAGES.onboarding().failed()).create())
+            event.reply(documents
+                            .reply(locale, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED))
+                            .create())
                     .setEphemeral(true)
                     .queue();
             return;
@@ -213,18 +208,17 @@ public final class OnboardingFlow extends ListenerAdapter {
                 .or(() -> offered(spoken, Locales.tag(locale)));
         final Optional<String> regionNow =
                 held(guild, choices, Choices.Kind.REGION, held).or(() -> offered(regions, networkZone));
-        event.replyModal(layouts.modal(
+        event.replyModal(documents.modal(
                         CHOICE,
                         Ids.ONBOARD_MODAL + language.tag(),
-                        new LayoutRenderer.Filling(
-                                Map.of(),
-                                Map.of(
-                                        "language",
-                                        new LayoutRenderer.FilledInput(
-                                                placeholder -> menu(Ids.ONBOARD_LANGUAGE, spoken, spokenNow)),
-                                        "region",
-                                        new LayoutRenderer.FilledInput(
-                                                placeholder -> menu(Ids.ONBOARD_REGION, regions, regionNow)))),
+                        new DocumentSpec.None(),
+                        Map.of(
+                                "language",
+                                new DocumentRenderer.FilledInput(
+                                        placeholder -> menu(Ids.ONBOARD_LANGUAGE, spoken, spokenNow)),
+                                "region",
+                                new DocumentRenderer.FilledInput(
+                                        placeholder -> menu(Ids.ONBOARD_REGION, regions, regionNow))),
                         locale))
                 .queue();
     }
@@ -246,7 +240,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             if (language.isEmpty() || region.isEmpty()) {
                 log.warn("{} chose {} and {}, of which one has no role", member.getId(), tag, zone);
                 event.getHook()
-                        .editOriginal(reply(asked, MESSAGES.onboarding().failed()))
+                        .editOriginal(reply(asked, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
                         .queue();
                 return;
             }
@@ -258,7 +252,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     .editOriginal(
                             given
                                     ? saved(reads, language.get(), region.get())
-                                    : reply(reads, MESSAGES.onboarding().failed()))
+                                    : reply(reads, DocumentRenderer.Reply.of(Replies.ONBOARDING_FAILED)))
                     .queue();
         });
     }

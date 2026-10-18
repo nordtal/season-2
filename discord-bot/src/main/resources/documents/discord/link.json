@@ -1,0 +1,74 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Account link",
+                "de": "Account-Verknüpfung"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Steps",
+                "de": "Schritte"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "Join the server → copy the code → **{link.label}**",
+                "de": "Server betreten → Code kopieren → **{link.label}**"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Other account",
+                "de": "Anderer Account"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "/unlink → link again",
+                "de": "/unlink → neu verknüpfen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "GALLERY",
+          "media": ["attachment://link.png"]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "link",
+          "label": {
+            "en": "Enter my code",
+            "de": "Code eingeben"
+          }
+        }
+      ]
+    }
+  ]
+}

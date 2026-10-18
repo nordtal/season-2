@@ -3,10 +3,9 @@ package eu.nordtal.season.discordbot.access.discord;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import java.util.Locale;
 import java.util.Map;
 import net.dv8tion.jda.api.components.label.Label;
@@ -15,25 +14,22 @@ import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.modals.Modal;
 import org.junit.jupiter.api.Test;
 
-/** Only the texts of the modal come from the bundle. */
+/** Only the texts of the modal come from its document. */
 class LinkFlowTest {
 
-    private static final LayoutRenderer RENDERER = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH)), StoredLayoutsStandIn.none());
+    private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
 
     @Test
     void theCodeModalIsTitledAndLabelledByItsTextsAroundTheFieldTheCodeBuilds() {
         final Modal modal = RENDERER.modal(
                 LinkFlow.CODE,
                 "link-modal",
-                new LayoutRenderer.Filling(
-                        Map.of(),
-                        Map.of(
-                                "code",
-                                new LayoutRenderer.FilledInput(
-                                        placeholder -> TextInput.create("code", TextInputStyle.SHORT)
-                                                .setPlaceholder(placeholder)
-                                                .build()))),
+                new DocumentSpec.None(),
+                Map.of(
+                        "code",
+                        new DocumentRenderer.FilledInput(placeholder -> TextInput.create("code", TextInputStyle.SHORT)
+                                .setPlaceholder(placeholder)
+                                .build())),
                 Locale.ENGLISH);
         final Label label = (Label) modal.getComponents().getFirst();
 

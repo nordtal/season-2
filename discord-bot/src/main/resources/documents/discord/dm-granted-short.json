@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "You paid {paid} for **{days, plural, one {# day} other {# days}}**. Your access lasts until **{until}**.",
+            "de": "Du hast {paid} für **{days, plural, one {# Tag} other {# Tage}}** gezahlt. Dein Zugang gilt bis **{until}**."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Registration is closed while a game runs. It opens when the game ends.",
+            "de": "Die Anmeldung ist geschlossen, solange ein Spiel läuft. Sie öffnet, wenn das Spiel endet."
+          }
+        }
+      ]
+    }
+  ]
+}

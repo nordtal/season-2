@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Saving failed. An admin knows. Try again in a few minutes.",
+            "de": "Das Speichern hat nicht geklappt. Ein Admin weiß Bescheid. Versuch es in ein paar Minuten noch einmal."
+          }
+        }
+      ]
+    }
+  ]
+}

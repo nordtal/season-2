@@ -1,10 +1,11 @@
 package eu.nordtal.season.discordbot.registration;
 
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.discordbot.DocumentRenderer.Reply;
+import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import java.util.HashSet;
@@ -19,32 +20,32 @@ class RegisterRepliesTest {
             new DiscordMemberContext(DiscordId.of("300000000000000002"), "Fox");
 
     @Test
-    void everyRegistrationStatusHasItsOwnReply() {
-        final Set<MessageRef> replies = new HashSet<>();
+    void everyRefusedRegistrationHasItsOwnReply() {
+        final Set<Reply<?>> replies = new HashSet<>();
         for (final RegistrationResult.Status status : RegistrationResult.Status.values()) {
-            replies.add(RegisterReplies.registration(new RegistrationResult(status, null), "Red_Fox"));
+            if (status != RegistrationResult.Status.REGISTERED) {
+                replies.add(RegisterReplies.registration(new RegistrationResult(status, null)));
+            }
         }
 
-        assertEquals(RegistrationResult.Status.values().length, replies.size());
+        assertEquals(RegistrationResult.Status.values().length - 1, replies.size());
     }
 
     @Test
-    void aRegisteredTeamIsToldItsNameAndARefusedOneItsReason() {
+    void aRefusedTeamIsToldItsReasonAndARegisteredOneIsAnsweredByItsButton() {
         assertEquals(
-                MESSAGES.register().success("Red_Fox"),
-                RegisterReplies.registration(RegistrationResult.registered(ID), "Red_Fox"));
+                Reply.of(Replies.REGISTER_NAME_TAKEN), RegisterReplies.registration(RegistrationResult.nameTaken()));
         assertEquals(
-                MESSAGES.register().nameTaken(),
-                RegisterReplies.registration(RegistrationResult.nameTaken(), "Red_Fox"));
-        assertEquals(
-                MESSAGES.register().invalidName(), RegisterReplies.registration(RegistrationResult.invalidName(), "x"));
-        assertEquals(
-                MESSAGES.register().closed(), RegisterReplies.registration(RegistrationResult.closed(), "Red_Fox"));
+                Reply.of(Replies.REGISTER_INVALID_NAME),
+                RegisterReplies.registration(RegistrationResult.invalidName()));
+        assertEquals(Reply.of(Replies.REGISTER_CLOSED), RegisterReplies.registration(RegistrationResult.closed()));
+        assertThrows(
+                IllegalArgumentException.class, () -> RegisterReplies.registration(RegistrationResult.registered(ID)));
     }
 
     @Test
     void everyInvitationStatusHasAReplyAndOnlyNotRegisteredSharesOne() {
-        final Set<MessageRef> replies = new HashSet<>();
+        final Set<Reply<?>> replies = new HashSet<>();
         for (final InviteResult.Status status : InviteResult.Status.values()) {
             replies.add(RegisterReplies.invitation(new InviteResult(status, null, null, null), PARTNER));
         }
@@ -54,7 +55,7 @@ class RegisterRepliesTest {
 
     @Test
     void anInviterWhoIsNotTheOwnerIsToldSoWhetherOrNotTheyAreOnATeam() {
-        final MessageRef notOwner = MESSAGES.register().invite().notOwner();
+        final Reply<?> notOwner = Reply.of(Replies.INVITE_NOT_OWNER);
 
         assertEquals(notOwner, RegisterReplies.invitation(InviteResult.notRegistered(), PARTNER));
         assertEquals(notOwner, RegisterReplies.invitation(InviteResult.notOwner(), PARTNER));
@@ -63,44 +64,44 @@ class RegisterRepliesTest {
     @Test
     void aSentInviteNamesThePartner() {
         assertEquals(
-                MESSAGES.register().invite().sent(PARTNER),
+                new Reply<>(Replies.INVITE_SENT, new Replies.Partner(PARTNER)),
                 RegisterReplies.invitation(InviteResult.invited(ID, ID, "Red_Fox"), PARTNER));
     }
 
     @Test
     void aClosedRoundIsNamedTheSameWayInEveryStep() {
-        assertEquals(MESSAGES.register().closed(), RegisterReplies.invitation(InviteResult.closed(), PARTNER));
-        assertEquals(MESSAGES.register().closed(), RegisterReplies.answer(AnswerResult.closed(), true));
+        final Reply<?> closed = Reply.of(Replies.REGISTER_CLOSED);
+
+        assertEquals(closed, RegisterReplies.invitation(InviteResult.closed(), PARTNER));
+        assertEquals(closed, RegisterReplies.answer(AnswerResult.closed(), true));
     }
 
     @Test
     void anAnswerToAnInviteThatIsGoneSaysSo() {
         assertEquals(
-                MESSAGES.register().invite().noLongerPending(),
-                RegisterReplies.answer(AnswerResult.notPending(), false));
+                Reply.of(Replies.INVITE_NO_LONGER_PENDING), RegisterReplies.answer(AnswerResult.notPending(), false));
     }
 
     @Test
     void anAcceptedAndADeclinedInviteAreToldApart() {
-        final TeamContext team = new TeamContext("Red_Fox");
+        final Replies.Team team = new Replies.Team(new TeamContext("Red_Fox"));
 
         assertEquals(
-                MESSAGES.register().invite().accepted(team),
+                new Reply<>(Replies.INVITE_ACCEPTED, team),
                 RegisterReplies.answer(AnswerResult.answered(ID, "Red_Fox"), true));
         assertEquals(
-                MESSAGES.register().invite().declined(team),
+                new Reply<>(Replies.INVITE_DECLINED, team),
                 RegisterReplies.answer(AnswerResult.answered(ID, "Red_Fox"), false));
     }
 
     @Test
     void theOwnerHearsTheAnswerThePartnerGave() {
         final TeamContext team = new TeamContext("Red_Fox");
+        final Replies.Answer answer = new Replies.Answer(PARTNER, team);
 
         assertEquals(
-                MESSAGES.register().invite().ownerNotifiedAccepted(PARTNER, team),
-                RegisterReplies.ownerNote(true, PARTNER, team));
+                new Reply<>(Replies.INVITE_OWNER_ACCEPTED, answer), RegisterReplies.ownerNote(true, PARTNER, team));
         assertEquals(
-                MESSAGES.register().invite().ownerNotifiedDeclined(PARTNER, team),
-                RegisterReplies.ownerNote(false, PARTNER, team));
+                new Reply<>(Replies.INVITE_OWNER_DECLINED, answer), RegisterReplies.ownerNote(false, PARTNER, team));
     }
 }

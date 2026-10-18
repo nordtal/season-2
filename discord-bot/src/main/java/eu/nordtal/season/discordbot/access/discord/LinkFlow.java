@@ -1,7 +1,6 @@
 package eu.nordtal.season.discordbot.access.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
@@ -13,11 +12,12 @@ import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
+import eu.nordtal.season.discordbot.Replies;
+import eu.nordtal.season.discordbot.StoredDocuments;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Mention;
 import java.util.List;
 import java.util.Locale;
@@ -44,16 +44,12 @@ public final class LinkFlow extends ListenerAdapter {
     private static final int CODE_MIN_LENGTH = 4;
     private static final int CODE_MAX_LENGTH = 16;
 
-    static final Layout CODE = Layout.modal(
-            "access",
-            "link-code",
-            "Link",
-            "access/link.modal.title",
-            Element.input("code", "access/link.modal.code-label", "access/link.modal.code-placeholder"));
+    static final DocumentSpec<DocumentSpec.None> CODE = DocumentSpec.modal(
+            StoredDocuments.NAMESPACE, "link-code", "Link", DocumentSpec.None.class, Slot.input("code"));
 
     private final AccessDirectory access;
     private final AccessRoles roles;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private final AdminLog admin;
     private final RedemptionLimit limit;
     private final Executor executor;
@@ -61,13 +57,13 @@ public final class LinkFlow extends ListenerAdapter {
     public LinkFlow(
             final AccessDirectory access,
             final AccessRoles roles,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final AdminLog admin,
             final RedemptionLimit limit,
             final Executor executor) {
         this.access = access;
         this.roles = roles;
-        this.layouts = layouts;
+        this.documents = documents;
         this.admin = admin;
         this.limit = limit;
         this.executor = executor;
@@ -84,13 +80,12 @@ public final class LinkFlow extends ListenerAdapter {
         }
         final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
 
-        final LayoutRenderer.FilledInput code = new LayoutRenderer.FilledInput(
+        final DocumentRenderer.FilledInput code = new DocumentRenderer.FilledInput(
                 placeholder -> TextInput.create(Ids.LINK_CODE_INPUT, TextInputStyle.SHORT)
                         .setPlaceholder(placeholder)
                         .setRequiredRange(CODE_MIN_LENGTH, CODE_MAX_LENGTH)
                         .build());
-        event.replyModal(layouts.modal(
-                        CODE, Ids.LINK_MODAL, new LayoutRenderer.Filling(Map.of(), Map.of("code", code)), locale))
+        event.replyModal(documents.modal(CODE, Ids.LINK_MODAL, new DocumentSpec.None(), Map.of("code", code), locale))
                 .queue();
     }
 
@@ -118,9 +113,7 @@ public final class LinkFlow extends ListenerAdapter {
                         TEXTS.alert().linkFailed(),
                         List.of(TEXTS.alert().failedFor(member(event.getUser()), String.valueOf(exception))),
                         "/access"));
-                event.getHook()
-                        .editOriginal(reply(locale, MESSAGES.link().failed()))
-                        .queue();
+                event.getHook().editOriginal(reply(locale, Replies.LINK_FAILED)).queue();
             }
         });
     }
@@ -131,9 +124,7 @@ public final class LinkFlow extends ListenerAdapter {
         // Acquire before the database is touched. The acquire is atomic, so two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
-            event.getHook()
-                    .editOriginal(reply(locale, MESSAGES.link().tooMany()))
-                    .queue();
+            event.getHook().editOriginal(reply(locale, Replies.LINK_TOO_MANY)).queue();
             return;
         }
 
@@ -148,7 +139,7 @@ public final class LinkFlow extends ListenerAdapter {
                     limit.clear(discordId);
                     admin.record(new AuditLine(JournalAction.LINK, Actor.person(discordId), discordId, linked, null));
                     event.getHook()
-                            .editOriginal(reply(locale, MESSAGES.link().success()))
+                            .editOriginal(reply(locale, Replies.LINK_SUCCESS))
                             .queue();
                 }
                 case INVALID_CODE -> {
@@ -157,12 +148,12 @@ public final class LinkFlow extends ListenerAdapter {
                         lockedOut(event.getUser());
                     }
                     event.getHook()
-                            .editOriginal(reply(locale, MESSAGES.link().invalidCode()))
+                            .editOriginal(reply(locale, Replies.LINK_INVALID_CODE))
                             .queue();
                 }
                 case ALREADY_LINKED ->
                     event.getHook()
-                            .editOriginal(reply(locale, MESSAGES.link().alreadyLinked()))
+                            .editOriginal(reply(locale, Replies.LINK_ALREADY_LINKED))
                             .queue();
             }
         } finally {
@@ -184,9 +175,7 @@ public final class LinkFlow extends ListenerAdapter {
         executor.execute(() -> {
             final Optional<UUID> mcUuid = access.linkedMinecraftAccount(discordId);
             if (!access.unlink(discordId)) {
-                event.getHook()
-                        .editOriginal(reply(locale, MESSAGES.unlink().none()))
-                        .queue();
+                event.getHook().editOriginal(reply(locale, Replies.UNLINK_NONE)).queue();
                 return;
             }
 
@@ -196,14 +185,12 @@ public final class LinkFlow extends ListenerAdapter {
                     discordId,
                     mcUuid.orElse(null),
                     new JournalDetail.Unlinked(true)));
-            event.getHook()
-                    .editOriginal(reply(locale, MESSAGES.unlink().success()))
-                    .queue();
+            event.getHook().editOriginal(reply(locale, Replies.UNLINK_SUCCESS)).queue();
         });
     }
 
-    private MessageEditData reply(final Locale locale, final MessageRef text) {
-        return layouts.reply(locale, text).edit();
+    private MessageEditData reply(final Locale locale, final DocumentSpec<DocumentSpec.None> text) {
+        return documents.reply(locale, text).edit();
     }
 
     static Mention member(final User user) {

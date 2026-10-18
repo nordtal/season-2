@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{player.name} declined your invitation to team **{team.name}**.",
+            "de": "{player.name} hat deine Einladung zu Team **{team.name}** abgelehnt."
+          }
+        }
+      ]
+    }
+  ]
+}

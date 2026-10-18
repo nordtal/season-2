@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "You cannot invite yourself.",
+            "de": "Du kannst dich nicht selbst einladen."
+          }
+        }
+      ]
+    }
+  ]
+}

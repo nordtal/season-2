@@ -1,7 +1,6 @@
 package eu.nordtal.season.discordbot.access.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessDirectory;
@@ -10,7 +9,8 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.discordbot.AdminLog;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
@@ -50,7 +50,7 @@ public final class AccessRoles {
     private final GuildRoles roles;
     private final Withholding withholding;
     private final AccessDirectory access;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private static final String PAGE = "/access";
 
     private final AdminLog admin;
@@ -65,7 +65,7 @@ public final class AccessRoles {
             final GuildRoles roles,
             final Withholding withholding,
             final AccessDirectory access,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final AdminLog admin,
             final Jdbi jdbi,
             final Clock clock) {
@@ -76,7 +76,7 @@ public final class AccessRoles {
         this.roles = roles;
         this.withholding = withholding;
         this.access = access;
-        this.layouts = layouts;
+        this.documents = documents;
         this.admin = admin;
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
@@ -231,14 +231,22 @@ public final class AccessRoles {
                 continue;
             }
             final Locale locale = localeOf(deadline.discordId());
-            dm(deadline.discordId(), MESSAGES.dm().expiring(deadline.validUntil(), contributionChannel(locale)));
+            dm(
+                    deadline.discordId(),
+                    new DocumentRenderer.Reply<>(
+                            Replies.DM_EXPIRING,
+                            new Replies.Reminder(deadline.validUntil(), contributionChannel(locale))));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
             if (!claim(deadline, "EXPIRED")) {
                 continue;
             }
-            dm(deadline.discordId(), MESSAGES.dm().expired(contributionChannel(localeOf(deadline.discordId()))));
+            dm(
+                    deadline.discordId(),
+                    new DocumentRenderer.Reply<>(
+                            Replies.DM_EXPIRED,
+                            new Replies.Ended(contributionChannel(localeOf(deadline.discordId())))));
         }
     }
 
@@ -257,8 +265,8 @@ public final class AccessRoles {
         return access.language(discordId);
     }
 
-    public void dm(final DiscordId discordId, final MessageRef message) {
-        final LayoutRenderer.Drawn drawn = layouts.reply(localeOf(discordId), message);
+    public void dm(final DiscordId discordId, final DocumentRenderer.Reply<?> message) {
+        final DocumentRenderer.Drawn drawn = documents.reply(localeOf(discordId), message);
         jda.openPrivateChannelById(discordId.value())
                 .queue(
                         channel -> channel.sendMessage(drawn.create())
@@ -348,11 +356,10 @@ public final class AccessRoles {
                 AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), detail, PAGE);
     }
 
+    /** Returns the language's contribution channel as a mention, or an empty text where it has none. */
     private String contributionChannel(final Locale locale) {
         final String id = languages.forLocale(locale).contributionChannelId();
-        return Configured.isSet(id)
-                ? "<#" + id + ">"
-                : layouts.messages().format(locale, MESSAGES.dm().channel());
+        return Configured.isSet(id) ? "<#" + id + ">" : "";
     }
 
     /**

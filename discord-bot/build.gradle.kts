@@ -53,15 +53,16 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.season.discordbot.AccessMessages")
-    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.ManagedMessages")
-    layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterMessages")
-    layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingMessage")
-    layoutClasses.add("eu.nordtal.season.discordbot.Replies")
-    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.PurchaseFlow")
-    layoutClasses.add("eu.nordtal.season.discordbot.access.discord.LinkFlow")
-    layoutClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingFlow")
-    layoutClasses.add("eu.nordtal.season.discordbot.registration.RegisterFlow")
-    layoutClasses.add("eu.nordtal.season.discordbot.AdminLog")
-    layoutClasses.add("eu.nordtal.season.discordbot.discord.UpdateFeed")
+    documentClasses.add("eu.nordtal.season.discordbot.access.discord.ManagedMessages")
+    documentClasses.add("eu.nordtal.season.discordbot.registration.RegisterMessages")
+    documentClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingMessage")
+    documentClasses.add("eu.nordtal.season.discordbot.Replies")
+    documentClasses.add("eu.nordtal.season.discordbot.access.discord.PurchaseFlow")
+    documentClasses.add("eu.nordtal.season.discordbot.access.discord.LinkFlow")
+    documentClasses.add("eu.nordtal.season.discordbot.onboarding.OnboardingFlow")
+    documentClasses.add("eu.nordtal.season.discordbot.registration.RegisterFlow")
+    documentClasses.add("eu.nordtal.season.discordbot.AdminLog")
+    documentClasses.add("eu.nordtal.season.discordbot.discord.UpdateFeed")
+    documentClasses.add("eu.nordtal.season.discordbot.status.StatusName")
+    documentClasses.add("eu.nordtal.season.discordbot.status.StatusChannels")
 }

@@ -1,7 +1,6 @@
 package eu.nordtal.season.discordbot.access.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
-import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.Alert;
@@ -11,16 +10,15 @@ import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
-import eu.nordtal.season.discordbot.AccessMessages;
 import eu.nordtal.season.discordbot.AdminLog;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
+import eu.nordtal.season.discordbot.Replies;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.access.payment.Purchases;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.spec.layout.Element;
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Clock;
 import java.time.Duration;
@@ -46,53 +44,42 @@ import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
 
-    static final Layout CHOOSE = Layout.discord(
-            "access",
-            "purchase-choose",
-            "Purchase",
-            List.of(Element.select("days", "access/purchase.choose", "access/purchase.option")),
-            Part.text(Line.text("access/purchase.choose")),
-            Part.row("days"));
+    record Option(@Example("30") long days, Money price) {}
 
-    static final Layout SUMMARY = Layout.discord(
-            "access",
+    /**
+     * @param price    the price of the days alone
+     * @param donation the donation the total includes
+     * @param donating whether the member added the donation
+     * @param amount   the donation the button offers
+     */
+    record Summary(
+            @Example("30") long days, Money price, Money donation, Money total, boolean donating, Money amount) {}
+
+    record Link(
+            Money total,
+            @Example("https://bunq.me/t/example") String url,
+            @Example("NT-A1B2C3") String reference,
+            Instant until) {}
+
+    static final DocumentSpec<DocumentSpec.None> CHOOSE = DocumentSpec.message(
+            StoredDocuments.NAMESPACE, "purchase-choose", "Purchase", Slot.select("days", Option.class));
+
+    static final DocumentSpec<Summary> SUMMARY = DocumentSpec.message(
+            StoredDocuments.NAMESPACE,
             "purchase-summary",
             "Purchase",
-            List.of(
-                    Element.button("confirm", "access/purchase.button.confirm"),
-                    Element.button("change", "access/purchase.button.change"),
-                    Element.button("donation", "access/purchase.button.donation.add")),
-            Part.text(Line.text("access/purchase.summary"), Line.text("access/purchase.summary.total")),
-            Part.row("confirm", "change", "donation"));
+            Summary.class,
+            Slot.button("confirm"),
+            Slot.button("change"),
+            Slot.button("donation"));
 
-    static final Layout SUMMARY_DONATION = Layout.discord(
-            "access",
-            "purchase-summary-donation",
-            "Purchase",
-            List.of(
-                    Element.button("confirm", "access/purchase.button.confirm"),
-                    Element.button("change", "access/purchase.button.change"),
-                    Element.button("donation", "access/purchase.button.donation.remove")),
-            Part.text(
-                    Line.text("access/purchase.summary"),
-                    Line.text("access/purchase.summary.donation"),
-                    Line.text("access/purchase.summary.total")),
-            Part.row("confirm", "change", "donation"));
-
-    static final Layout LINK = Layout.discord(
-            "access",
-            "purchase-link",
-            "Purchase",
-            List.of(),
-            Part.text(
-                    Line.text("access/purchase.link"),
-                    Line.text("access/purchase.link.reference"),
-                    Line.text("access/purchase.link.ttl")));
+    static final DocumentSpec<Link> LINK =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class);
 
     private final Tiers tiers;
     private final Purchases purchases;
     private final PaymentRequests requests;
-    private final LayoutRenderer layouts;
+    private final DocumentRenderer documents;
     private final AccessRoles roles;
     private final AdminLog admin;
     private final Executor executor;
@@ -110,7 +97,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             final Tiers tiers,
             final Purchases purchases,
             final PaymentRequests requests,
-            final LayoutRenderer layouts,
+            final DocumentRenderer documents,
             final AccessRoles roles,
             final AdminLog admin,
             final Executor executor,
@@ -119,7 +106,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         this.tiers = tiers;
         this.purchases = purchases;
         this.requests = requests;
-        this.layouts = layouts;
+        this.documents = documents;
         this.roles = roles;
         this.admin = admin;
         this.executor = executor;
@@ -151,7 +138,7 @@ public final class PurchaseFlow extends ListenerAdapter {
 
         final Optional<Tier> tier = tiers.byDays(days);
         if (tier.isEmpty()) {
-            reply(event, locale, MESSAGES.purchase().tierGone());
+            reply(event, locale, Replies.PURCHASE_TIER_GONE);
             return;
         }
 
@@ -172,7 +159,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     private void chooseDays(final ButtonInteractionEvent event, final Locale locale) {
-        final LayoutRenderer.Drawn drawn = choose(layouts, tiers, locale);
+        final DocumentRenderer.Drawn drawn = choose(documents, tiers, locale);
         if (Ids.CHANGE.equals(event.getComponentId())) {
             event.editMessage(drawn.edit()).queue();
         } else {
@@ -180,19 +167,15 @@ public final class PurchaseFlow extends ListenerAdapter {
         }
     }
 
-    static LayoutRenderer.Drawn choose(final LayoutRenderer layouts, final Tiers tiers, final Locale locale) {
-        final List<LayoutRenderer.Option> options = tiers.all().stream()
-                .map(tier -> new LayoutRenderer.Option(
-                        String.valueOf(tier.days()),
-                        null,
-                        MESSAGES.purchase()
-                                .option(tier.days(), Money.euroCents(tier.priceCents()))
-                                .args(),
-                        null))
+    static DocumentRenderer.Drawn choose(final DocumentRenderer documents, final Tiers tiers, final Locale locale) {
+        final List<DocumentRenderer.Option> options = tiers.all().stream()
+                .map(tier -> new DocumentRenderer.Option(
+                        String.valueOf(tier.days()), new Option(tier.days(), Money.euroCents(tier.priceCents())), null))
                 .toList();
-        return layouts.render(
+        return documents.render(
                 CHOOSE,
-                LayoutRenderer.Filling.of(Map.of("days", new LayoutRenderer.FilledSelect(Ids.DAYS_SELECT, options))),
+                new DocumentSpec.None(),
+                Map.of("days", new DocumentRenderer.FilledSelect(Ids.DAYS_SELECT, options)),
                 locale);
     }
 
@@ -200,14 +183,14 @@ public final class PurchaseFlow extends ListenerAdapter {
         final Optional<PaymentRequest> open =
                 requests.openOf(DiscordId.of(event.getUser().getId()));
         if (open.isEmpty() || open.get().tab().isPresent()) {
-            reply(event, locale, MESSAGES.purchase().gone());
+            reply(event, locale, Replies.PURCHASE_GONE);
             return;
         }
 
         final PaymentRequest request = open.get();
         final Optional<Tier> tier = tiers.byDays(request.days());
         if (tier.isEmpty()) {
-            reply(event, locale, MESSAGES.purchase().tierGone());
+            reply(event, locale, Replies.PURCHASE_TIER_GONE);
             return;
         }
 
@@ -229,7 +212,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         final Optional<PaymentRequest> open =
                 requests.openOf(DiscordId.of(event.getUser().getId()));
         if (open.isEmpty()) {
-            reply(event, locale, MESSAGES.purchase().gone());
+            reply(event, locale, Replies.PURCHASE_GONE);
             return;
         }
 
@@ -246,9 +229,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                     }
                     waiting.put(request.id(), new Waiting(event.getHook(), locale, clock.instant()));
                     event.getHook()
-                            .editOriginal(layouts.reply(
-                                            locale,
-                                            MESSAGES.purchase().linkSection().pending())
+                            .editOriginal(documents
+                                    .reply(locale, Replies.PURCHASE_PENDING)
                                     .edit())
                             .queue();
                 }
@@ -286,8 +268,8 @@ public final class PurchaseFlow extends ListenerAdapter {
             final InteractionHook hook, final Locale locale, final PaymentRequest request, final Duration waited) {
         final PaymentWait wait = PaymentWait.of(request, waited);
         switch (wait) {
-            case GONE -> edit(hook, layouts.reply(locale, MESSAGES.purchase().gone()));
-            case LINK -> edit(hook, link(layouts, request, locale));
+            case GONE -> edit(hook, documents.reply(locale, Replies.PURCHASE_GONE));
+            case LINK -> edit(hook, link(documents, request, locale));
             case REFUSED -> {
                 final TabRefusal refusal = Objects.requireNonNull(request.tabRefusal());
                 admin.alert(new Alert(
@@ -299,12 +281,18 @@ public final class PurchaseFlow extends ListenerAdapter {
                         "/payments"));
                 edit(
                         hook,
-                        layouts.reply(locale, MESSAGES.purchase().linkSection().refused(refusal.passes())));
+                        documents.reply(
+                                locale,
+                                new DocumentRenderer.Reply<>(
+                                        Replies.PURCHASE_REFUSED, new Replies.Refused(refusal.passes()))));
             }
             case GIVE_UP -> {
                 edit(
                         hook,
-                        layouts.reply(locale, MESSAGES.purchase().linkSection().slow(request.reference())));
+                        documents.reply(
+                                locale,
+                                new DocumentRenderer.Reply<>(
+                                        Replies.PURCHASE_SLOW, new Replies.Reference(request.reference()))));
                 log.warn("Request {} had no tab after {}", request.reference(), PaymentWait.LIMIT);
             }
             case WAITING -> {}
@@ -312,52 +300,50 @@ public final class PurchaseFlow extends ListenerAdapter {
         return wait.ends();
     }
 
-    static LayoutRenderer.Drawn link(final LayoutRenderer layouts, final PaymentRequest request, final Locale locale) {
-        return layouts.render(
+    static DocumentRenderer.Drawn link(
+            final DocumentRenderer documents, final PaymentRequest request, final Locale locale) {
+        return documents.render(
                 LINK,
-                LayoutRenderer.Filling.of(
-                        Map.of(),
-                        MESSAGES.purchase()
-                                .link(
-                                        Money.euroCents(request.amountCents()),
-                                        Objects.requireNonNull(request.shareUrl())),
-                        MESSAGES.purchase().linkSection().reference(request.reference()),
-                        MESSAGES.purchase().linkSection().ttl(request.expires())),
+                new Link(
+                        Money.euroCents(request.amountCents()),
+                        Objects.requireNonNull(request.shareUrl()),
+                        request.reference(),
+                        request.expires()),
+                Map.of(),
                 locale);
     }
 
-    private void edit(final InteractionHook hook, final LayoutRenderer.Drawn drawn) {
+    private void edit(final InteractionHook hook, final DocumentRenderer.Drawn drawn) {
         hook.editOriginal(drawn.edit())
                 .queue(ok -> {}, failure -> log.warn("Could not finish a purchase message", failure));
     }
 
     private void showSummary(final IDeferrableCallback event, final Locale locale, final PaymentRequest request) {
         event.getHook()
-                .editOriginal(summary(layouts, tiers, request, locale).edit())
+                .editOriginal(summary(documents, tiers, request, locale).edit())
                 .queue();
     }
 
-    static LayoutRenderer.Drawn summary(
-            final LayoutRenderer layouts, final Tiers tiers, final PaymentRequest request, final Locale locale) {
-        final AccessMessages.Purchase purchase = MESSAGES.purchase();
-        final List<MessageRef> texts = List.of(
-                purchase.summary(request.days(), Money.euroCents(request.amountCents() - request.donationCents())),
-                purchase.summarySection().total(Money.euroCents(request.amountCents())),
-                purchase.summarySection().donation(Money.euroCents(request.donationCents())),
-                purchase.button().donation().add(Money.euroCents(tiers.donationCents())));
-        return layouts.render(
-                request.donationRequested() ? SUMMARY_DONATION : SUMMARY,
-                LayoutRenderer.Filling.of(
-                        Map.of(
-                                "confirm", new LayoutRenderer.FilledButton(Ids.CONFIRM, ButtonStyle.SUCCESS),
-                                "change", new LayoutRenderer.FilledButton(Ids.CHANGE, ButtonStyle.SECONDARY),
-                                "donation", new LayoutRenderer.FilledButton(Ids.DONATION, ButtonStyle.SECONDARY)),
-                        texts.toArray(MessageRef[]::new)),
+    static DocumentRenderer.Drawn summary(
+            final DocumentRenderer documents, final Tiers tiers, final PaymentRequest request, final Locale locale) {
+        return documents.render(
+                SUMMARY,
+                new Summary(
+                        request.days(),
+                        Money.euroCents(request.amountCents() - request.donationCents()),
+                        Money.euroCents(request.donationCents()),
+                        Money.euroCents(request.amountCents()),
+                        request.donationRequested(),
+                        Money.euroCents(tiers.donationCents())),
+                Map.of(
+                        "confirm", new DocumentRenderer.FilledButton(Ids.CONFIRM, ButtonStyle.SUCCESS),
+                        "change", new DocumentRenderer.FilledButton(Ids.CHANGE, ButtonStyle.SECONDARY),
+                        "donation", new DocumentRenderer.FilledButton(Ids.DONATION, ButtonStyle.SECONDARY)),
                 locale);
     }
 
-    private void reply(final IReplyCallback event, final Locale locale, final MessageRef text) {
-        event.reply(layouts.reply(locale, text).create()).setEphemeral(true).queue();
+    private void reply(final IReplyCallback event, final Locale locale, final DocumentSpec<DocumentSpec.None> text) {
+        event.reply(documents.reply(locale, text).create()).setEphemeral(true).queue();
     }
 
     private void fail(
@@ -371,8 +357,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 List.of(TEXTS.alert().failedFor(LinkFlow.member(event.getUser()), String.valueOf(exception))),
                 "/payments"));
         event.getHook()
-                .editOriginal(
-                        layouts.reply(locale, MESSAGES.purchase().failed()).edit())
+                .editOriginal(documents.reply(locale, Replies.PURCHASE_FAILED).edit())
                 .queue();
     }
 }

@@ -15,8 +15,5 @@ public enum Unjournaled implements RouteRole {
     CEREMONY_START,
 
     /** A text shown to the admin alone. */
-    SHOWN_TO_ONESELF,
-
-    /** An uploaded image, which the later save of a layout journals. */
-    SHOWN_ONCE_SAVED
+    SHOWN_TO_ONESELF
 }

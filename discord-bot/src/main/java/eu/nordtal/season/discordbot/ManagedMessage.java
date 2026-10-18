@@ -23,7 +23,7 @@ public final class ManagedMessage {
      * An empty channel id means no message.
      * A failure is logged and never thrown, so one bad channel does not stop the others.
      */
-    public void publish(final String kind, final String channelId, final LayoutRenderer.Drawn content) {
+    public void publish(final String kind, final String channelId, final DocumentRenderer.Drawn content) {
         if (!Configured.isSet(channelId)) {
             return;
         }
@@ -50,7 +50,7 @@ public final class ManagedMessage {
         }
     }
 
-    private boolean edit(final MessageChannel channel, final String messageId, final LayoutRenderer.Drawn content) {
+    private boolean edit(final MessageChannel channel, final String messageId, final DocumentRenderer.Drawn content) {
         try {
             channel.editMessageById(messageId, content.edit()).complete();
             return true;

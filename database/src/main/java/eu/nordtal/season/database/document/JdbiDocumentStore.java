@@ -1,0 +1,123 @@
+package eu.nordtal.season.database.document;
+
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.Jdbis;
+import eu.nordtal.season.messages.document.Document;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+
+final class JdbiDocumentStore implements DocumentStore {
+
+    private final Jdbi jdbi;
+
+    JdbiDocumentStore(final DataSource dataSource) {
+        this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
+    }
+
+    @Override
+    public List<StoredDocument> documents(final Collection<String> namespaces) {
+        if (namespaces.isEmpty()) {
+            return List.of();
+        }
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                        SELECT namespace, name, document::text AS document, replaced FROM document_override
+                        WHERE namespace = ANY(:namespaces) ORDER BY namespace, name""")
+                .bindArray("namespaces", String.class, List.copyOf(namespaces))
+                .map((rows, context) -> new StoredDocument(
+                        rows.getString("namespace"),
+                        rows.getString("name"),
+                        Document.decode(rows.getString("document")),
+                        rows.getString("replaced")))
+                .list());
+    }
+
+    @Override
+    public void change(final StoredDocument document, final Actor actor) {
+        jdbi.useTransaction(handle -> {
+            for (final String address : uploads(document.document()).toList()) {
+                final long id = Image.idOf(address).orElseThrow();
+                if (handle.createQuery("SELECT count(*) FROM layout_image WHERE id = :id")
+                                .bind("id", id)
+                                .mapTo(Integer.class)
+                                .one()
+                        == 0) {
+                    throw new IllegalArgumentException("no image is stored as " + address);
+                }
+            }
+            handle.createUpdate("""
+                            INSERT INTO document_override (namespace, name, document, replaced, actor_kind, actor_id, changed)
+                            VALUES (:namespace, :name, CAST(:document AS jsonb), :replaced, :kind, :id, now())
+                            ON CONFLICT (namespace, name) DO UPDATE SET document = excluded.document,
+                                replaced = excluded.replaced, actor_kind = excluded.actor_kind,
+                                actor_id = excluded.actor_id, changed = excluded.changed""")
+                    .bind("namespace", document.namespace())
+                    .bind("name", document.name())
+                    .bind("document", document.document().json())
+                    .bind("replaced", document.replaced())
+                    .bind("kind", actor.kind().name())
+                    .bind("id", actor.id())
+                    .execute();
+            signal(handle, document.namespace());
+        });
+    }
+
+    private static Stream<String> uploads(final Document document) {
+        return document.allParts().stream()
+                .flatMap(part -> Stream.concat(part.allMedia().stream(), Stream.ofNullable(part.thumbnail())))
+                .filter(address -> address.startsWith(Image.SCHEME));
+    }
+
+    @Override
+    public void remove(final String namespace, final String name) {
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("DELETE FROM document_override WHERE namespace = :namespace AND name = :name")
+                    .bind("namespace", namespace)
+                    .bind("name", name)
+                    .execute();
+            signal(handle, namespace);
+        });
+    }
+
+    // Sends the signal in the transaction that wrote the row.
+    private static void signal(final Handle handle, final String namespace) {
+        handle.createQuery("SELECT pg_notify('nordtal_messages', :namespace) IS NULL")
+                .bind("namespace", namespace)
+                .mapTo(Boolean.class)
+                .one();
+    }
+
+    @Override
+    public long upload(final String mediaType, final byte[] bytes, final Actor actor) {
+        return jdbi.inTransaction(handle -> {
+            handle.createUpdate("""
+                            INSERT INTO layout_image (media_type, bytes, actor_kind, actor_id, uploaded)
+                            VALUES (:type, :bytes, :kind, :id, now())
+                            ON CONFLICT (sha256) DO NOTHING""")
+                    .bind("type", mediaType)
+                    .bind("bytes", bytes)
+                    .bind("kind", actor.kind().name())
+                    .bind("id", actor.id())
+                    .execute();
+            return handle.createQuery("SELECT id FROM layout_image WHERE sha256 = encode(sha256(:bytes), 'hex')")
+                    .bind("bytes", bytes)
+                    .mapTo(Long.class)
+                    .one();
+        });
+    }
+
+    @Override
+    public Optional<Image> image(final long id) {
+        return jdbi.withHandle(
+                handle -> handle.createQuery("SELECT id, media_type, bytes FROM layout_image WHERE id = :id")
+                        .bind("id", id)
+                        .map((rows, context) ->
+                                new Image(rows.getLong("id"), rows.getString("media_type"), rows.getBytes("bytes")))
+                        .findOne());
+    }
+}

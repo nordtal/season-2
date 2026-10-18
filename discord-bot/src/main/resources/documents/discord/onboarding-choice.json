@@ -1,0 +1,40 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Language and region",
+            "de": "Sprache und Region"
+          },
+          "style": "TITLE"
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "language",
+          "label": {
+            "en": "Language",
+            "de": "Sprache"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "region",
+          "label": {
+            "en": "Region",
+            "de": "Region"
+          }
+        }
+      ]
+    }
+  ]
+}

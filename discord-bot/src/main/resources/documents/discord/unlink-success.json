@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Your Minecraft account is unlinked.",
+            "de": "Dein Minecraft-Account ist getrennt."
+          }
+        }
+      ]
+    }
+  ]
+}

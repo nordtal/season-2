@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "This purchase is closed. Use the button in the channel to start a new one.",
+            "de": "Dieser Kauf ist abgeschlossen. Starte mit dem Knopf im Kanal einen neuen."
+          }
+        }
+      ]
+    }
+  ]
+}

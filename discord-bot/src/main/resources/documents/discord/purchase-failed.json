@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Creating the payment link failed. An admin knows. Try again in a few minutes.",
+            "de": "Der Zahlungslink konnte nicht erstellt werden. Ein Admin weiß Bescheid. Versuch es in ein paar Minuten noch einmal."
+          }
+        }
+      ]
+    }
+  ]
+}

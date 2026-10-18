@@ -1,0 +1,40 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your region",
+                "de": "Deine Region"
+              },
+              "style": "TITLE"
+            },
+            {
+              "text": {
+                "en": "Choose the region you play from. Nordtal shows every time in its time zone.",
+                "de": "Wähle die Region, aus der du spielst. Nordtal zeigt jede Zeit in ihrer Zeitzone."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "regions",
+          "placeholder": {
+            "en": "Choose your region",
+            "de": "Wähle deine Region"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -8,11 +8,9 @@ import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
-import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.DocumentRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -27,8 +25,7 @@ import org.junit.jupiter.api.Test;
 
 class PurchaseFlowTest {
 
-    private static final LayoutRenderer RENDERER = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH)), StoredLayoutsStandIn.none());
+    private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
 
     private static final Tiers TIERS = Tiers.of(List.of(new Tier(30, 500), new Tier(90, 1250)), 300);
 
@@ -36,7 +33,7 @@ class PurchaseFlowTest {
 
     @Test
     void theChoiceAsksOverASelectOfEveryTier() {
-        final LayoutRenderer.Drawn drawn = PurchaseFlow.choose(RENDERER, TIERS, Locale.ENGLISH);
+        final DocumentRenderer.Drawn drawn = PurchaseFlow.choose(RENDERER, TIERS, Locale.ENGLISH);
         final StringSelectMenu select = (StringSelectMenu)
                 ((ActionRow) drawn.components().getLast()).getComponents().getFirst();
 
@@ -59,7 +56,7 @@ class PurchaseFlowTest {
 
     @Test
     void theSummaryWithoutADonationOffersOneAtItsPrice() {
-        final LayoutRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(0, null), Locale.ENGLISH);
+        final DocumentRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(0, null), Locale.ENGLISH);
         final List<Button> buttons = ((ActionRow) drawn.components().getLast()).getButtons();
 
         assertAll(
@@ -77,7 +74,7 @@ class PurchaseFlowTest {
 
     @Test
     void theSummaryWithADonationNamesItAndOffersToRemoveIt() {
-        final LayoutRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(300, null), Locale.ENGLISH);
+        final DocumentRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(300, null), Locale.ENGLISH);
 
         assertAll(
                 () -> assertEquals("""
@@ -94,7 +91,7 @@ class PurchaseFlowTest {
 
     @Test
     void theLinkIsOneTextBlockOfTheLinkItsReferenceAndItsExpiry() {
-        final LayoutRenderer.Drawn drawn =
+        final DocumentRenderer.Drawn drawn =
                 PurchaseFlow.link(RENDERER, request(0, "https://bunq.me/t/example"), Locale.ENGLISH);
 
         assertAll(

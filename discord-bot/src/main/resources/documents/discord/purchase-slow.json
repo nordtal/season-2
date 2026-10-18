@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "The payment link is still missing. Your reference is **{reference}**. Send it to an admin.",
+            "de": "Der Zahlungslink fehlt noch. Dein Verwendungszweck ist **{reference}**. Schick ihn einem Admin."
+          }
+        }
+      ]
+    }
+  ]
+}

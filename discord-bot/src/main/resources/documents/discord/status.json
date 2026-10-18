@@ -1,0 +1,93 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "when": "phase=pre-launch",
+      "lines": [
+        {
+          "text": {
+            "en": "Opens in {days}d {hours}h",
+            "de": "Start in {days}T {hours}Std"
+          },
+          "when": "countdown=days"
+        },
+        {
+          "text": {
+            "en": "Opens in {hours}h",
+            "de": "Start in {hours}Std"
+          },
+          "when": "countdown=hours"
+        },
+        {
+          "text": {
+            "en": "Opens in {minutes} min",
+            "de": "Start in {minutes} Min"
+          },
+          "when": "countdown=minutes"
+        },
+        {
+          "text": {
+            "en": "Opens any moment",
+            "de": "Start jeden Moment"
+          },
+          "when": "countdown=imminent"
+        },
+        {
+          "text": {
+            "en": "Opening date to come",
+            "de": "Starttermin folgt"
+          },
+          "when": "countdown=unknown"
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "phase=pre-event",
+      "lines": [
+        {
+          "text": {
+            "en": "{teams, plural, one {# team} other {# teams}} registered",
+            "de": "{teams, plural, one {# Team} other {# Teams}} angemeldet"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "phase=start-event",
+      "lines": [
+        {
+          "text": {
+            "en": "{teams, plural, one {# team} other {# teams}} left, {players} alive",
+            "de": "{teams, plural, one {# Team} other {# Teams}} übrig, {players} am Leben"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "phase=smp",
+      "lines": [
+        {
+          "text": {
+            "en": "{players, plural, one {# player} other {# players}}",
+            "de": "{players} Spieler"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "phase=maintenance",
+      "lines": [
+        {
+          "text": {
+            "en": "Maintenance",
+            "de": "Wartung"
+          }
+        }
+      ]
+    }
+  ]
+}

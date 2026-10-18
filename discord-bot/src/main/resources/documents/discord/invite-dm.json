@@ -1,0 +1,34 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Team **{team.name}** invites you to the Hunger Games start event.",
+            "de": "Team **{team.name}** lädt dich zum Start-Event der Hunger Games ein."
+          }
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "accept",
+          "label": {
+            "en": "Accept",
+            "de": "Annehmen"
+          }
+        },
+        {
+          "slot": "decline",
+          "label": {
+            "en": "Decline",
+            "de": "Ablehnen"
+          }
+        }
+      ]
+    }
+  ]
+}

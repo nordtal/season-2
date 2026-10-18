@@ -1,0 +1,93 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Access",
+                "de": "Zugang"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Prices",
+                "de": "Preise"
+              },
+              "style": "HEADING"
+            },
+            {
+              "list": "tiers",
+              "text": {
+                "en": "**{price}** {days, plural, one {# day} other {# days}}",
+                "de": "**{price}** {days, plural, one {# Tag} other {# Tage}}"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Donation",
+                "de": "Spende"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "+{amount} → permanent donor role",
+                "de": "+{amount} → dauerhafte Spender-Rolle"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Renewal",
+                "de": "Verlängerung"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "*adds to your current access, nothing is lost*",
+                "de": "*wird an deinen Zugang angehängt, nichts geht verloren*"
+              }
+            }
+          ]
+        },
+        {
+          "type": "GALLERY",
+          "media": ["attachment://contribution.png"]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "buy",
+          "label": {
+            "en": "Buy access",
+            "de": "Zugang kaufen"
+          }
+        }
+      ]
+    }
+  ]
+}

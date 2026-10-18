@@ -1,0 +1,32 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Link your account",
+            "de": "Account verknüpfen"
+          },
+          "style": "TITLE"
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "code",
+          "label": {
+            "en": "Code",
+            "de": "Code"
+          },
+          "placeholder": {
+            "en": "The code from the login screen",
+            "de": "Der Code vom Login-Bildschirm"
+          }
+        }
+      ]
+    }
+  ]
+}

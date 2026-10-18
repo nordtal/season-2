@@ -28,7 +28,7 @@ afterEach(() => {
 describe("the groups", () => {
   const fixture = listing([
     text({ key: "welcome", name: "Welcome" }),
-    text({ key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
+    text({ key: "dm.granted", bundle: "admin", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
     text({ key: "page.title", bundle: "steward", name: "Page title", shown: ["STEWARD"] }),
     text({ key: "values.yes", bundle: "values", name: "Yes", shown: ["CHAT", "DISCORD_MESSAGE"] }),
   ])
@@ -84,7 +84,7 @@ describe("the service filter", () => {
     [
       text({ key: "welcome", name: "Welcome", texts: { en: ["<good>Welcome</good>"] }, format: "MINIMESSAGE" }),
       text(
-        { key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] },
+        { key: "dm.granted", bundle: "admin", name: "Granted", shown: ["DISCORD_MESSAGE"] },
         { path: "discord-bot/discord-bot", services: ["discord-bot"] },
       ),
     ],
@@ -526,7 +526,7 @@ describe("a jump from the command palette", () => {
       backend(
         listing([
           text({ texts: { en: ["Welcome"], de: ["packaged-de-welcome"] }, key: "welcome", name: "Welcome" }),
-          text({ key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
+          text({ key: "dm.granted", bundle: "admin", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
         ]),
       ),
     )

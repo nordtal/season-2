@@ -1,86 +1,103 @@
 package eu.nordtal.season.discordbot;
 
-import eu.nordtal.season.messages.spec.layout.Layout;
-import eu.nordtal.season.messages.spec.layout.LayoutSchema;
-import eu.nordtal.season.messages.spec.layout.Line;
-import eu.nordtal.season.messages.spec.layout.Part;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import eu.nordtal.season.messages.context.DiscordMemberContext;
+import eu.nordtal.season.messages.context.TeamContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Money;
+import java.time.Instant;
 
+/** The replies and direct messages: one text block each, filled with nothing but its values. */
 public final class Replies {
 
-    static final Layout PURCHASE_PENDING = reply("purchase-pending", "Purchase", "purchase.link.pending");
-    static final Layout PURCHASE_REFUSED = reply("purchase-refused", "Purchase", "purchase.link.refused");
-    static final Layout PURCHASE_SLOW = reply("purchase-slow", "Purchase", "purchase.link.slow");
-    static final Layout PURCHASE_GONE = reply("purchase-gone", "Purchase", "purchase.gone");
-    static final Layout PURCHASE_TIER_GONE = reply("purchase-tier-gone", "Purchase", "purchase.tier-gone");
-    static final Layout PURCHASE_FAILED = reply("purchase-failed", "Purchase", "purchase.failed");
+    public record Refused(boolean passes) {}
 
-    static final Layout LINK_SUCCESS = reply("link-success", "Link", "link.success");
-    static final Layout LINK_INVALID_CODE = reply("link-invalid-code", "Link", "link.invalid-code");
-    static final Layout LINK_ALREADY_LINKED = reply("link-already-linked", "Link", "link.already-linked");
-    static final Layout LINK_FAILED = reply("link-failed", "Link", "link.failed");
-    static final Layout LINK_TOO_MANY = reply("link-too-many", "Link", "link.too-many");
-    static final Layout UNLINK_SUCCESS = reply("unlink-success", "Link", "unlink.success");
-    static final Layout UNLINK_NONE = reply("unlink-none", "Link", "unlink.none");
+    public record Reference(@Example("NT-A1B2C3") String reference) {}
 
-    static final Layout ONBOARDING_SAVED = reply("onboarding-saved", "Onboarding", "onboarding.saved");
-    static final Layout ONBOARDING_FAILED = reply("onboarding-failed", "Onboarding", "onboarding.failed");
+    public record Saved(
+            @Example("English") String language,
+            @Example("Central Europe") String region) {}
 
-    static final Layout REGISTER_INVALID_NAME = reply("register-invalid-name", "Register", "register.invalid-name");
-    static final Layout REGISTER_NAME_TAKEN = reply("register-name-taken", "Register", "register.name-taken");
-    static final Layout REGISTER_ALREADY =
-            reply("register-already-registered", "Register", "register.already-registered");
-    static final Layout REGISTER_CLOSED = reply("register-closed", "Register", "register.closed");
-    static final Layout REGISTER_FAILED = reply("register-failed", "Register", "register.failed");
-    static final Layout INVITE_SENT = reply("invite-sent", "Register", "register.invite.sent");
-    static final Layout INVITE_NOT_OWNER = reply("invite-not-owner", "Register", "register.invite.not-owner");
-    static final Layout INVITE_TEAM_FULL = reply("invite-team-full", "Register", "register.invite.team-full");
-    static final Layout INVITE_PENDING = reply("invite-pending", "Register", "register.invite.pending");
-    static final Layout INVITE_SELF = reply("invite-self", "Register", "register.invite.cannot-invite-self");
-    static final Layout INVITE_UNAVAILABLE =
-            reply("invite-unavailable", "Register", "register.invite.target-unavailable");
-    static final Layout INVITE_ACCEPTED = reply("invite-accepted", "Register", "register.invite.accepted");
-    static final Layout INVITE_DECLINED = reply("invite-declined", "Register", "register.invite.declined");
-    static final Layout INVITE_NO_LONGER_PENDING =
-            reply("invite-no-longer-pending", "Register", "register.invite.no-longer-pending");
-    static final Layout INVITE_OWNER_ACCEPTED =
-            reply("invite-owner-accepted", "Register", "register.invite.owner-notified-accepted");
-    static final Layout INVITE_OWNER_DECLINED =
-            reply("invite-owner-declined", "Register", "register.invite.owner-notified-declined");
+    public record Partner(DiscordMemberContext partner) {}
 
-    static final Layout DM_GRANTED = reply("dm-granted", "Direct messages", "dm.granted");
-    static final Layout DM_GRANTED_SHORT = reply("dm-granted-short", "Direct messages", "dm.granted.short");
-    static final Layout DM_GRANTED_ADMIN = reply("dm-granted-admin", "Direct messages", "dm.granted.admin");
-    static final Layout DM_DONOR = reply("dm-donor", "Direct messages", "dm.donor");
-    static final Layout DM_EXPIRING = reply("dm-expiring", "Direct messages", "dm.expiring");
-    static final Layout DM_EXPIRED = reply("dm-expired", "Direct messages", "dm.expired");
-    static final Layout DM_REVOKED = reply("dm-revoked", "Direct messages", "dm.revoked");
+    public record Team(TeamContext team) {}
 
-    static final Layout PUBLIC_DONATION = reply("public-donation", "Contribution", "public.donation");
+    public record Answer(DiscordMemberContext player, TeamContext team) {}
 
-    private static final Map<String, Layout> BY_KEY = LayoutSchema.declared(Replies.class).stream()
-            .collect(Collectors.toUnmodifiableMap(
-                    layout -> layout.keys().getFirst().substring("access/".length()), Function.identity()));
+    public record Until(Instant until) {}
+
+    public record Paid(Money paid, @Example("30") long days, Instant until) {}
+
+    public record Given(@Example("30") long days, Instant until) {}
+
+    /** @param channel the contribution channel, empty where the language has none */
+    public record Reminder(
+            Instant until, @Example("#contribution") String channel) {}
+
+    /** @param channel the contribution channel, empty where the language has none */
+    public record Ended(@Example("#contribution") String channel) {}
+
+    public record Donated(DiscordMemberContext user, Money amount) {}
+
+    public static final DocumentSpec<DocumentSpec.None> PURCHASE_PENDING = reply("purchase-pending", "Purchase");
+    public static final DocumentSpec<Refused> PURCHASE_REFUSED = reply("purchase-refused", "Purchase", Refused.class);
+    public static final DocumentSpec<Reference> PURCHASE_SLOW = reply("purchase-slow", "Purchase", Reference.class);
+    public static final DocumentSpec<DocumentSpec.None> PURCHASE_GONE = reply("purchase-gone", "Purchase");
+    public static final DocumentSpec<DocumentSpec.None> PURCHASE_TIER_GONE = reply("purchase-tier-gone", "Purchase");
+    public static final DocumentSpec<DocumentSpec.None> PURCHASE_FAILED = reply("purchase-failed", "Purchase");
+
+    public static final DocumentSpec<DocumentSpec.None> LINK_SUCCESS = reply("link-success", "Link");
+    public static final DocumentSpec<DocumentSpec.None> LINK_INVALID_CODE = reply("link-invalid-code", "Link");
+    public static final DocumentSpec<DocumentSpec.None> LINK_ALREADY_LINKED = reply("link-already-linked", "Link");
+    public static final DocumentSpec<DocumentSpec.None> LINK_FAILED = reply("link-failed", "Link");
+    public static final DocumentSpec<DocumentSpec.None> LINK_TOO_MANY = reply("link-too-many", "Link");
+    public static final DocumentSpec<DocumentSpec.None> UNLINK_SUCCESS = reply("unlink-success", "Link");
+    public static final DocumentSpec<DocumentSpec.None> UNLINK_NONE = reply("unlink-none", "Link");
+
+    public static final DocumentSpec<Saved> ONBOARDING_SAVED = reply("onboarding-saved", "Onboarding", Saved.class);
+    public static final DocumentSpec<DocumentSpec.None> ONBOARDING_FAILED = reply("onboarding-failed", "Onboarding");
+
+    public static final DocumentSpec<DocumentSpec.None> REGISTER_INVALID_NAME =
+            reply("register-invalid-name", "Register");
+    public static final DocumentSpec<DocumentSpec.None> REGISTER_NAME_TAKEN = reply("register-name-taken", "Register");
+    public static final DocumentSpec<DocumentSpec.None> REGISTER_ALREADY =
+            reply("register-already-registered", "Register");
+    public static final DocumentSpec<DocumentSpec.None> REGISTER_CLOSED = reply("register-closed", "Register");
+    public static final DocumentSpec<DocumentSpec.None> REGISTER_FAILED = reply("register-failed", "Register");
+    public static final DocumentSpec<Partner> INVITE_SENT = reply("invite-sent", "Register", Partner.class);
+    public static final DocumentSpec<DocumentSpec.None> INVITE_NOT_OWNER = reply("invite-not-owner", "Register");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_TEAM_FULL = reply("invite-team-full", "Register");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_PENDING = reply("invite-pending", "Register");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_SELF = reply("invite-self", "Register");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_UNAVAILABLE = reply("invite-unavailable", "Register");
+    public static final DocumentSpec<Team> INVITE_ACCEPTED = reply("invite-accepted", "Register", Team.class);
+    public static final DocumentSpec<Team> INVITE_DECLINED = reply("invite-declined", "Register", Team.class);
+    public static final DocumentSpec<DocumentSpec.None> INVITE_NO_LONGER_PENDING =
+            reply("invite-no-longer-pending", "Register");
+    public static final DocumentSpec<Answer> INVITE_OWNER_ACCEPTED =
+            reply("invite-owner-accepted", "Register", Answer.class);
+    public static final DocumentSpec<Answer> INVITE_OWNER_DECLINED =
+            reply("invite-owner-declined", "Register", Answer.class);
+
+    public static final DocumentSpec<Until> DM_GRANTED = reply("dm-granted", "Direct messages", Until.class);
+    public static final DocumentSpec<Paid> DM_GRANTED_SHORT = reply("dm-granted-short", "Direct messages", Paid.class);
+    public static final DocumentSpec<Given> DM_GRANTED_ADMIN =
+            reply("dm-granted-admin", "Direct messages", Given.class);
+    public static final DocumentSpec<DocumentSpec.None> DM_DONOR = reply("dm-donor", "Direct messages");
+    public static final DocumentSpec<Reminder> DM_EXPIRING = reply("dm-expiring", "Direct messages", Reminder.class);
+    public static final DocumentSpec<Ended> DM_EXPIRED = reply("dm-expired", "Direct messages", Ended.class);
+    public static final DocumentSpec<DocumentSpec.None> DM_REVOKED = reply("dm-revoked", "Direct messages");
+
+    public static final DocumentSpec<Donated> PUBLIC_DONATION = reply("public-donation", "Contribution", Donated.class);
 
     private Replies() {}
 
-    /**
-     * Returns the layout of the reply whose one text is {@code key}.
-     *
-     * @throws IllegalArgumentException if no reply shows that text
-     */
-    static Layout of(final String key) {
-        final Layout layout = BY_KEY.get(key);
-        if (layout == null) {
-            throw new IllegalArgumentException("no reply layout shows " + key);
-        }
-        return layout;
+    private static DocumentSpec<DocumentSpec.None> reply(final String name, final String area) {
+        return DocumentSpec.message(StoredDocuments.NAMESPACE, name, area);
     }
 
-    private static Layout reply(final String name, final String area, final String key) {
-        return Layout.discord("access", name, area, List.of(), Part.text(Line.text("access/" + key)));
+    private static <V extends Record> DocumentSpec<V> reply(
+            final String name, final String area, final Class<V> values) {
+        return DocumentSpec.message(StoredDocuments.NAMESPACE, name, area, values);
     }
 }

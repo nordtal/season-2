@@ -14,16 +14,13 @@ import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.LayoutRenderer;
-import eu.nordtal.season.discordbot.StoredLayoutsStandIn;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.discordbot.DocumentRenderer;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -39,7 +36,7 @@ class UpdateFeedTest {
 
     private static final class Board implements UpdateFeed.Board {
 
-        record Post(LayoutRenderer.Drawn card, String messageId) {}
+        record Post(DocumentRenderer.Drawn card, String messageId) {}
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
@@ -51,7 +48,7 @@ class UpdateFeedTest {
         Runnable duringPost = () -> {};
 
         @Override
-        public void post(final LayoutRenderer.Drawn card, final Consumer<String> sentId) {
+        public void post(final DocumentRenderer.Drawn card, final Consumer<String> sentId) {
             final Runnable during = duringPost;
             duringPost = () -> {};
             during.run();
@@ -63,7 +60,7 @@ class UpdateFeedTest {
         }
 
         @Override
-        public void edit(final String messageId, final LayoutRenderer.Drawn card) {
+        public void edit(final String messageId, final DocumentRenderer.Drawn card) {
             edited.add(new Post(card, messageId));
         }
     }
@@ -173,13 +170,8 @@ class UpdateFeedTest {
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
-    private final LayoutRenderer layouts = new LayoutRenderer(
-            DiscordRenderer.of(Messages.load(
-                    UpdateFeedTest.class.getClassLoader(),
-                    List.of("messages/access", "messages/admin"),
-                    Locale.ENGLISH)),
-            StoredLayoutsStandIn.none());
-    private final UpdateFeed feed = new UpdateFeed(rows, board, layouts, "https://steward.example/");
+    private final DocumentRenderer documents = StoredDocumentsStandIn.renderer();
+    private final UpdateFeed feed = new UpdateFeed(rows, board, documents, "https://steward.example/");
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {
@@ -358,8 +350,8 @@ class UpdateFeedTest {
         rows.put(row(2L, UpdateStatus.FAILED, UpdateReports.toJson(failed), NOW));
         feed.tick();
 
-        final LayoutRenderer.Drawn good = board.posted.get(0).card();
-        final LayoutRenderer.Drawn bad = board.posted.get(1).card();
+        final DocumentRenderer.Drawn good = board.posted.get(0).card();
+        final DocumentRenderer.Drawn bad = board.posted.get(1).card();
         assertEquals(accent(good), accent(bad), "a finished and a failed run carry the same line");
         assertTrue(title(good).startsWith("✅"), title(good));
         assertTrue(title(bad).startsWith("🛑"), title(bad));
@@ -462,8 +454,8 @@ class UpdateFeedTest {
                 .withNote(UpdateReport.Note.skipped(
                         UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()));
 
-        final LayoutRenderer.Drawn card =
-                UpdateFeed.card(done, row(1, UpdateStatus.DONE, null, NOW), layouts, false, null);
+        final DocumentRenderer.Drawn card =
+                UpdateFeed.card(done, row(1, UpdateStatus.DONE, null, NOW), documents, false, null);
 
         assertEquals(List.of("Duration", "Services"), names(card), "a run that went well is its lines");
         assertFalse(lines(card).contains("came back slowly"), lines(card));
@@ -494,8 +486,8 @@ class UpdateFeedTest {
                 .withNote(UpdateReport.Note.failed(
                         UpdateReport.Step.RUN, TEXTS.report().failedUnexpectedly("boom")));
 
-        final LayoutRenderer.Drawn card =
-                UpdateFeed.card(failed, row(1, UpdateStatus.FAILED, null, NOW), layouts, false, null);
+        final DocumentRenderer.Drawn card =
+                UpdateFeed.card(failed, row(1, UpdateStatus.FAILED, null, NOW), documents, false, null);
 
         assertEquals(List.of("Duration", "Services", "Why"), names(card));
         assertEquals(
@@ -522,10 +514,10 @@ class UpdateFeedTest {
                                 UpdateReport.Step.STANDBY, TEXTS.report().standbyNoContainer())
                         .on("limbo-standby"));
 
-        final LayoutRenderer.Drawn stopped =
-                UpdateFeed.card(cancelled, row(1, UpdateStatus.CANCELLED, null, NOW), layouts, false, null);
-        final LayoutRenderer.Drawn running =
-                UpdateFeed.card(going, row(2, UpdateStatus.RUNNING, null, null), layouts, false, null);
+        final DocumentRenderer.Drawn stopped =
+                UpdateFeed.card(cancelled, row(1, UpdateStatus.CANCELLED, null, NOW), documents, false, null);
+        final DocumentRenderer.Drawn running =
+                UpdateFeed.card(going, row(2, UpdateStatus.RUNNING, null, null), documents, false, null);
 
         assertFalse(names(stopped).contains("Why"), names(stopped).toString());
         assertFalse(names(running).contains("Why"), "the card is edited once the run settles: " + names(running));
@@ -580,7 +572,7 @@ class UpdateFeedTest {
         final UpdateRequest backup = new UpdateRequest(
                 1L, UpdateKind.BACKUP, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
 
-        final LayoutRenderer.Drawn card = UpdateFeed.card(saved, backup, layouts, false, null);
+        final DocumentRenderer.Drawn card = UpdateFeed.card(saved, backup, documents, false, null);
 
         assertEquals("✅ **database** *saved* 8.8 MiB in 2s", field(card, "Services"));
     }
@@ -598,7 +590,7 @@ class UpdateFeedTest {
         final UpdateRequest restore = new UpdateRequest(
                 1L, UpdateKind.RESTORE, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, null);
 
-        final LayoutRenderer.Drawn card = UpdateFeed.card(restored, restore, layouts, false, null);
+        final DocumentRenderer.Drawn card = UpdateFeed.card(restored, restore, documents, false, null);
 
         assertEquals("✅ **smp-1.tar.zst** *restored* 1.2 MiB", field(card, "Services"));
     }
@@ -623,7 +615,7 @@ class UpdateFeedTest {
 
     @Test
     void withoutStewardsAddressTheCardCarriesNoLink() {
-        final UpdateFeed unlinked = new UpdateFeed(rows, board, layouts, "");
+        final UpdateFeed unlinked = new UpdateFeed(rows, board, documents, "");
         rows.put(row(7L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         unlinked.tick();
 
@@ -668,17 +660,17 @@ class UpdateFeedTest {
         return title(UpdateFeed.card(
                 UpdateReport.at(stage),
                 new UpdateRequest(1L, kind, UpdateStatus.RUNNING, OWNER, NOW, NOW, null, List.of(), NOW, null, null),
-                layouts,
+                documents,
                 false,
                 null));
     }
 
-    private static String title(final LayoutRenderer.Drawn card) {
+    private static String title(final DocumentRenderer.Drawn card) {
         return card.text().lines().findFirst().orElseThrow().replaceFirst("^## ", "");
     }
 
     /** Returns the sections of the card in order: the by and duration lines, then each heading. */
-    private static List<String> names(final LayoutRenderer.Drawn card) {
+    private static List<String> names(final DocumentRenderer.Drawn card) {
         return card.text()
                 .lines()
                 .map(line -> line.startsWith("**By**")
@@ -690,7 +682,7 @@ class UpdateFeedTest {
                 .toList();
     }
 
-    private static String field(final LayoutRenderer.Drawn card, final String name) {
+    private static String field(final DocumentRenderer.Drawn card, final String name) {
         final List<String> all = card.text().lines().toList();
         final int heading = all.indexOf("### " + name);
         if (heading < 0) {
@@ -701,18 +693,18 @@ class UpdateFeedTest {
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 
-    private static String lines(final LayoutRenderer.Drawn card) {
+    private static String lines(final DocumentRenderer.Drawn card) {
         return card.text();
     }
 
-    private static @Nullable Integer accent(final LayoutRenderer.Drawn card) {
+    private static @Nullable Integer accent(final DocumentRenderer.Drawn card) {
         return MessageComponentTree.of(card.components())
                 .findAll(net.dv8tion.jda.api.components.container.Container.class)
                 .getFirst()
                 .getAccentColorRaw();
     }
 
-    private static @Nullable Button link(final LayoutRenderer.Drawn card) {
+    private static @Nullable Button link(final DocumentRenderer.Drawn card) {
         return MessageComponentTree.of(card.components()).findAll(Button.class).stream()
                 .filter(button -> button.getStyle() == ButtonStyle.LINK)
                 .findFirst()

@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Your access has ended. Buy a new period in {channel} to join again.",
+            "de": "Dein Zugang ist abgelaufen. Kauf in {channel} einen neuen Zeitraum, um wieder zu spielen."
+          },
+          "when": "channel"
+        },
+        {
+          "text": {
+            "en": "Your access has ended. Buy a new period in the contribution channel to join again.",
+            "de": "Dein Zugang ist abgelaufen. Kauf in dem Beitragskanal einen neuen Zeitraum, um wieder zu spielen."
+          },
+          "when": "!channel"
+        }
+      ]
+    }
+  ]
+}

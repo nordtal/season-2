@@ -1,0 +1,67 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "accent": "#4a63d8",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Welcome to Nordtal",
+                "de": "Willkommen auf Nordtal"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Choose your language and your region. Then every channel opens.",
+                "de": "Wähle deine Sprache und deine Region. Danach stehen dir alle Kanäle offen."
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Steps",
+                "de": "Schritte"
+              },
+              "style": "HEADING"
+            },
+            {
+              "text": {
+                "en": "**Language** → **region** → done",
+                "de": "**Sprache** → **Region** → fertig"
+              }
+            }
+          ]
+        },
+        {
+          "type": "GALLERY",
+          "media": ["attachment://onboarding.png"]
+        }
+      ]
+    },
+    {
+      "type": "ROW",
+      "items": [
+        {
+          "slot": "language",
+          "placeholder": {
+            "en": "Choose your language",
+            "de": "Wähle deine Sprache"
+          }
+        }
+      ]
+    }
+  ]
+}

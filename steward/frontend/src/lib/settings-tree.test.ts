@@ -138,7 +138,7 @@ describe("the texts as a tree", () => {
     const tree = textsTree(
       [
         text({ key: "smp.grave.decay", section: ["Smp", "Graves"] }),
-        text({ key: "dm.granted", bundle: "access", section: ["Direct message"], shown: ["DISCORD_MESSAGE", "CHAT"] }),
+        text({ key: "dm.granted", bundle: "admin", section: ["Direct message"], shown: ["DISCORD_MESSAGE", "CHAT"] }),
         text({ key: "smp.grave.limit", section: ["Smp", "Graves"], shown: ["GUI"] }),
         text({ key: "page.title", bundle: "steward", section: ["Page"], shown: ["STEWARD"] }),
       ],
@@ -146,7 +146,7 @@ describe("the texts as a tree", () => {
     )
     expect(shape(tree)).toEqual([
       "[Discord > Direct message]",
-      "  access/dm.granted",
+      "  admin/dm.granted",
       "[In game > Smp > Graves]",
       "  smp/smp.grave.decay",
       "  smp/smp.grave.limit",
@@ -192,31 +192,30 @@ describe("the texts as a tree", () => {
     expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward & Admin]", "  smp/other"])
   })
 
-  it("lists a declared layout as one leaf under its area, beside the texts of that topic it does not show", () => {
+  it("lists a Discord document as one leaf under its area, beside the texts of that topic", () => {
     const tree = textsTree(
       [
-        text({ key: "contribution.title", bundle: "access", section: ["Contribution"], shown: ["DISCORD_MESSAGE"] }),
-        text({ key: "contribution.button", bundle: "access", section: ["Contribution"], shown: ["DISCORD_BUTTON"] }),
-        text({ key: "contribution.thanks", bundle: "access", section: ["Contribution"], shown: ["DISCORD_MESSAGE"] }),
+        text({ key: "contribution.thanks", bundle: "admin", section: ["Contribution"], shown: ["DISCORD_MESSAGE"] }),
         text({ key: "welcome", shown: ["CHAT"] }),
       ],
       PLACES,
-      [
-        view({ name: "contribution", area: "Contribution" }, [
-          "access/contribution.title",
-          "access/contribution.button",
-        ]),
-      ],
+      [view({ name: "contribution", area: "Contribution" }, { parts: [] })],
     )
 
     expect(shape(tree)).toEqual([
       "[Discord > Contribution]",
-      "  layout:access/contribution",
-      "  access/contribution.thanks",
+      "  document:discord/contribution",
+      "  admin/contribution.thanks",
       "[In game]",
       "  smp/welcome",
     ])
-    expect(ancestorsOf(tree, "access/contribution.button")).toEqual(["DISCORD:@Contribution"])
+    expect(ancestorsOf(tree, "document:discord/contribution")).toEqual(["DISCORD:@Contribution"])
+  })
+
+  it("lists only the documents of the service the page is filtered to", () => {
+    const tree = textsTree([], PLACES, [view({ name: "contribution" }, { parts: [] })], "smp")
+
+    expect(shape(tree)).toEqual([])
   })
 
   it("shows a message by its name, or by its last segment made readable", () => {

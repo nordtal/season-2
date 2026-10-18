@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url"
 import { assert, describe, expect, it } from "vitest"
 
 /**
- * Nothing in Steward is German; this file and the rules file are lists of German words and are not scanned.
+ * Nothing in Steward is German. This file and the rules file are lists of German words and are not scanned.
  *
- * Forbidden: words in `de.properties` but not `en.properties`, by stem, plus `language-rules.json`.
+ * Forbidden words: words in `de.properties` but not in `en.properties`, by stem, plus `language-rules.json`.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -28,7 +28,9 @@ type Rules = {
 
 const rules: Rules = JSON.parse(readFileSync(path.join(repository, "steward/language-rules.json"), "utf8"))
 
-/** Every word of three letters or more in a message bundle's values, never its keys. */
+/**
+ * Returns every word of three letters or more in the values of a message bundle, never in its keys.
+ */
 function bundleWords(file: string): Set<string> {
   const words = new Set<string>()
   for (const line of readFileSync(path.join(bundle, file), "utf8").split("\n")) {
@@ -57,7 +59,7 @@ function forbidden(): string[] {
 const ALSO_ENGLISH = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
 
 /**
- * Whether a word is German by stem: a derived word plus a German ending, or a prefix of a derived compound.
+ * Returns whether a word is German by stem: a derived word plus a German ending, or a prefix of a derived compound.
  *
  * The endings are German only, so `stopped` is not `stoppe` plus `d`.
  */
@@ -76,7 +78,9 @@ export function isGerman(word: string, german: Set<string>): boolean {
   return false
 }
 
-/** A word as a reader sees one: `_` and digits join it, so `NORDTAL_STEWARD_CONFIG_DIR` is not `dir`. */
+/**
+ * Matches a word as a reader sees it: `_` and digits join it, so `NORDTAL_STEWARD_CONFIG_DIR` is not `dir`.
+ */
 const WORD = /(?<![\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\wÄÖÜäöüß])/g
 
 const SHAPES = rules.shapes.map((shape) => new RegExp(shape, "i"))
@@ -86,13 +90,15 @@ const ABBREVIATION = new RegExp(`(${rules.abbreviations.join("|")})`)
 const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
 
 /**
- * The exemptions: this file and the palette's search synonyms, which are typed, never printed.
+ * The exemptions: this file and the palette's search synonyms, which are typed and never printed.
  *
  * Everything else imports the German synonym from there, so it stays inside the scan.
  */
 const EXEMPT = new Set([path.join(here, "language.test.ts"), path.join(frontend, "src", "app", "run-search-terms.ts")])
 
-/** Everything a reader of this interface can reach: its sources, its page and its build file. */
+/**
+ * Returns everything that a reader of this interface can reach: its sources, its page and its build file.
+ */
 function scanned(): string[] {
   const files: string[] = [path.join(frontend, "index.html"), path.join(frontend, "vite.config.ts")]
   const walk = (directory: string) => {
@@ -125,7 +131,7 @@ function offences(guilty: (line: string) => boolean): string[] {
 
 const matching = (pattern: RegExp) => (line: string) => pattern.test(line)
 
-/** Derived once, since it is asked of every line of every source file. */
+/** Derived once, because the code asks it for every line of every source file. */
 const GERMAN = new Set(forbidden())
 
 function germanWords(line: string): boolean {
@@ -136,20 +142,24 @@ const hasGermanShape = (line: string) => SHAPES.some((shape) => shape.test(line)
 
 describe("nothing in Steward is German", () => {
   it("derives its word list from the bot's own bundle, and it is not a short one", () => {
-    /** A collapse to a handful means the bundle moved or the parse broke, and the guard stopped guarding. */
+    /**
+     * A collapse to a handful of words means that the bundle moved or the parse broke, and the guard no longer guards.
+     */
     expect(forbidden().length).toBeGreaterThan(150)
     expect(forbidden()).toContain("vergleich")
     expect(forbidden()).not.toContain("stand")
   })
 
   it("knows a German word by its stem, not only by the form the bot happens to use", () => {
-    /** Inflection, compounding and shape, the three ways a derived list is extended. */
+    /** Inflection, compounding and shape: the three ways to extend a derived list. */
     expect(isGerman("Befehle", GERMAN), "inflection: the list only says Befehl").toBe(true)
     expect(isGerman("Konfiguration", GERMAN), "compounding: the list only says Konfigurationsdateien").toBe(true)
-    /** No stem or ending derives it, so it is in the rules file by hand. */
+    /** No stem or ending derives this word, so it is in the rules file by hand. */
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 
-    /** English still passes: `started` and `stopped` extend `starte` and `stoppe` by an English `d`. */
+    /**
+     * English still passes: `started` and `stopped` extend `starte` and `stoppe` by an English `d`.
+     */
     const english = [
       "Configuration",
       "Commands",
@@ -169,7 +179,7 @@ describe("nothing in Steward is German", () => {
     expect(hasGermanShape('label="Gelaufen"')).toBe(true)
     expect(hasGermanShape('title="Einstellung"')).toBe(true)
     expect(hasGermanShape("<Button>Verwerfen</Button>")).toBe(true)
-    /** `ge...t` participles are left alone, since they share their shape with `government`. */
+    /** `ge...t` participles are left alone, because they share their shape with `government`. */
     expect(hasGermanShape("const government = readableNumber(x)")).toBe(false)
     expect(hasGermanShape("<span>the gentlest version</span>")).toBe(false)
   })

@@ -8,10 +8,10 @@ import config from "../vite.config"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
-/** A path handed to `api()`, which is the one function in this frontend that calls `fetch`. */
+/** Matches a path passed to `api()`, the one function in this frontend that calls `fetch`. */
 const CALL = /\bapi(?:<[^>]*>)?\(\s*[`"'](\/[^`"']*)/g
 
-/** A real navigation. `<Link to=...>` is the router and never leaves the browser. */
+/** Matches a real navigation. `<Link to=...>` is the router and never leaves the browser. */
 const NAVIGATION = /<a\s+href="(\/[^"]*)"/g
 
 function sources(directory: string): string[] {
@@ -23,7 +23,7 @@ function sources(directory: string): string[] {
   })
 }
 
-/** The first segment of a path: `/api/services/smp` is proxied by an entry for `/api`. */
+/** Returns the first segment of a path. An entry for `/api` proxies `/api/services/smp`. */
 function prefixOf(calledPath: string): string {
   return `/${calledPath.split("/")[1] ?? ""}`
 }
@@ -44,7 +44,9 @@ function called(): Map<string, string> {
   return found
 }
 
-/** `npm run dev` proxies every prefix the interface calls; a missing one gets Vite's HTML fallback with a 200. */
+/**
+ * `npm run dev` proxies every prefix that the interface calls. A missing prefix gets Vite's HTML fallback with a 200.
+ */
 describe("the dev server", () => {
   it("proxies every prefix the interface calls", () => {
     const proxy = config.server?.proxy ?? {}
@@ -58,7 +60,9 @@ describe("the dev server", () => {
   })
 
   it("finds both of the prefixes this interface has", () => {
-    /** Without this, a call shape the regexes do not know passes as nothing to proxy. */
+    /**
+     * Without this check, a call shape that the regexes do not know passes as nothing to proxy.
+     */
     expect([...called().keys()].toSorted()).toEqual(["/api", "/auth"])
   })
 })

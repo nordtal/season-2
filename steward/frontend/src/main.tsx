@@ -13,7 +13,7 @@ import "@/index.css"
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      /** A dashboard read constantly must not refetch on every focus change. */
+      /** A dashboard that is read constantly must not refetch on every focus change. */
       staleTime: 5_000,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -21,14 +21,18 @@ const queryClient = new QueryClient({
   },
 })
 
-/** Tracks window height and iOS's blur band before the first render, guarded since a throw here is a black screen. */
+/**
+ * Tracks the window height and iOS's blur band before the first render. A throw here would be a black screen, so it is guarded.
+ */
 try {
   trackAppFrame()
 } catch (error) {
   console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
 }
 
-/** Registered at once, since a service worker needs no permission; a browser without one skips this. */
+/**
+ * Registered at once, because a service worker needs no permission. A browser without one skips this.
+ */
 registerServiceWorker().catch((error: unknown) => {
   console.error("the service worker did not register; web push will not be available", error)
 })

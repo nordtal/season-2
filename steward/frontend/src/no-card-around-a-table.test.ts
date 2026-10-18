@@ -6,7 +6,9 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** A `steward-table` row is a bordered card on a phone, so the table never sits in a `Card`: a `Panel` holds it. */
+/**
+ * A `steward-table` row is a bordered card on a phone, so a table never sits in a `Card`. A `Panel` holds it.
+ */
 const CARD = /from "@\/components\/ui\/card"/
 const TABLE = /steward-table/
 
@@ -42,7 +44,7 @@ describe("no bordered card around a phone table", () => {
     )
   })
 
-  /** Without this, a broken path or pattern makes the rule above pass by finding nothing. */
+  /** Without this, a broken path or pattern would make the rule above pass by finding nothing. */
   it("actually finds both halves in the sources", () => {
     const files = sourceFiles(source).map((file) => readFileSync(file, "utf8"))
     expect(files.filter((text) => TABLE.test(text)).length).toBeGreaterThan(3)

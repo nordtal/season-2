@@ -6,10 +6,12 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/** Every dialog goes through `responsive-dialog.tsx`; the import is checked, since a JSX tag can be renamed there. */
+/**
+ * Every dialog goes through `responsive-dialog.tsx`. The test checks the import, because a JSX tag can be renamed there.
+ */
 const RAW = /from\s+"@\/components\/ui\/(dialog|alert-dialog|drawer)"/
 
-/** The files allowed to import a raw one, each with its reason; exemption is by file. */
+/** The files that may import a raw dialog, each with its reason. An exemption applies per file. */
 const ALLOWED = new Map<string, string>([
   [
     path.join("components", "ui", "responsive-dialog.tsx"),
@@ -53,7 +55,9 @@ function offenders(): string[] {
 
 describe("every dialog goes through the responsive one", () => {
   it("leaves the sheet the full width of a phone, so nothing narrows it without an `sm:`", () => {
-    /** The drawer is `inset-x-0`; an unprefixed `max-w-*` on it leaves a gap on the right, as the palette once had. */
+    /**
+     * The drawer is `inset-x-0`. An unprefixed `max-w-*` on it leaves a gap on the right, as the palette once had.
+     */
     const tags =
       /<(ResponsiveDialogContent|ResponsiveAlertDialogContent|CommandDialog)\b((?:[^>"{]|"[^"]*"|\{(?:[^{}]|\{[^{}]*\})*\})*)>/g
     const narrowing = /(^|\s)(max-w-|w-(?!full)|mx-|inset-|left-|right-|-?translate-x-)\S*/
@@ -84,7 +88,7 @@ describe("every dialog goes through the responsive one", () => {
   })
 
   it("the command palette and the security-key prompt are converted, by name", () => {
-    /** Named explicitly, since a revert of either shell would read like a refactor. */
+    /** Both shells are named explicitly, because a revert of either would read like a refactor. */
     for (const file of [path.join("components", "ui", "command.tsx"), path.join("app", "security-keys.tsx")]) {
       const text = readFileSync(path.join(source, file), "utf8")
       assert.include(

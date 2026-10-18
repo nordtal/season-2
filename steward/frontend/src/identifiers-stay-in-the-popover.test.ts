@@ -6,22 +6,24 @@ import { fileURLToPath } from "node:url"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Goes red when a Discord id or Minecraft uuid is drawn outside the identity popover.
+ * Fails when a Discord id or Minecraft UUID is drawn outside the identity popover.
  *
- * Reads the source, so it covers pages with no render test; `pages/access.test.tsx` proves the rule by rendering.
+ * It reads the source, so it covers pages that have no render test. `pages/access.test.tsx` proves the rule by rendering.
  */
 const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid", "actorId", "requestedBy"]
 
 const ALLOWED = ["components/steward/identity.tsx"]
 
-/** Only `Entity` decides whether an identifier is a person, so only it may import `PersonIdentity`. */
+/**
+ * Only `Entity` decides whether an identifier is a person, so only it may import `PersonIdentity`.
+ */
 const MAY_IMPORT_PERSON_IDENTITY = ["components/steward/entity.tsx"]
 const PERSON_IDENTITY_IMPORT = /import\s*\{[^}]*\bPersonIdentity\b[^}]*\}\s*from\s*"@\/components\/steward\/identity"/
 
 /**
- * An expression a person reads: a JSX child, preceded by `>` or indentation, or a `title` tooltip.
+ * Matches an expression that a person reads: a JSX child preceded by `>` or indentation, or a `title` tooltip.
  *
- * One line at a time, so a JSX child wrapped over several lines is invisible to it.
+ * It reads one line at a time, so it does not see a JSX child that wraps over several lines.
  */
 const JSX_CHILD = /(?:>|^\s*)\{([^{}:]*)\}/
 const TOOLTIP = /title=\{([^{}]*)\}/
@@ -39,7 +41,7 @@ function sourceFiles(directory: string): string[] {
   return found
 }
 
-/** Every place an identifier field ends up as something a person reads. */
+/** Returns every place where an identifier field ends up as something that a person reads. */
 function drawnIdentifiers(): string[] {
   const offenders: string[] = []
   for (const file of sourceFiles(source)) {
@@ -89,7 +91,9 @@ describe("an identifier is drawn in one place and nowhere else", () => {
   })
 
   it("actually reads the sources, so an empty result means something", () => {
-    /** Without this, a broken path or extension makes the rule above pass by finding nothing. */
+    /**
+     * Without this check, a broken path or extension makes the rule above pass by finding nothing.
+     */
     const files = sourceFiles(source)
     expect(files.length).toBeGreaterThan(30)
     expect(files.some((f) => f.endsWith("pages/access.tsx"))).toBe(true)

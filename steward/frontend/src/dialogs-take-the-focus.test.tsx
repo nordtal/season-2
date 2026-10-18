@@ -29,7 +29,7 @@ function Page({ alert, field }: { alert: boolean; field: boolean }) {
   return (
     <>
       <input aria-label="Console line" />
-      {/* Opened without taking the focus first, as a refused request opens the step-up over the console's field. */}
+      {/* The dialog opens without taking the focus first, as a refused request opens the step-up over the console's field. */}
       <button type="button" onClick={() => setOpen(true)}>
         Open
       </button>

@@ -15,7 +15,9 @@ import { PersonPage } from "@/pages/person"
 import { OverviewPage } from "@/pages/overview"
 import { AlertsPage } from "@/pages/alerts"
 
-/** The route tree, written out, since a generated `routeTree.gen.ts` in src/ would keep `viteBuild` out of date. */
+/**
+ * The route tree, written out, because a generated `routeTree.gen.ts` in src/ would keep `viteBuild` out of date.
+ */
 
 const rootRoute = createRootRoute({
   component: Shell,
@@ -24,14 +26,16 @@ const rootRoute = createRootRoute({
 
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
-  /** The open tab and file live in the URL, so a reload stays and Ctrl-K can land on a tab. */
+  /**
+   * The open tab and file live in the URL, so a reload stays on them and Ctrl-K can land on a tab.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/services/$name",
     component: ServicePage,
     validateSearch: serviceSearch,
   }),
-  /** Operations is Updates and Backups; the two old addresses redirect rather than 404. */
+  /** Operations is Updates and Backups. The two old addresses redirect and do not 404. */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations",
@@ -64,7 +68,9 @@ const routes = [
     path: "/operations/backups/$id",
     component: BackupRunDetailPage,
   }),
-  /** No `/configuration` or `/settings`: files are cards on their service's page, and the account is the popover. */
+  /**
+   * There is no `/configuration` or `/settings`. Files are cards on their service's page, and the account is the popover.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/season",
@@ -83,7 +89,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
-  // The run page's layouts on real runs, loaded apart; goes once one is picked.
+  // The run page's layouts on real runs, loaded apart. It goes once one is picked.
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/designs/run-page",
@@ -96,7 +102,7 @@ const routeTree = rootRoute.addChildren(routes)
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  // Served from a jar behind Caddy at the root of its own host, so no basepath.
+  // Served from a jar behind Caddy at the root of its own host, so there is no basepath.
   scrollRestoration: true,
 })
 

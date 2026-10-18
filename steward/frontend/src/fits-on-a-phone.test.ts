@@ -9,14 +9,14 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 const STACKED_RULE = "@container (width < --theme(--container-rows))"
 
 /**
- * Source rules that keep the interface fitting a 390px screen, since jsdom has no layout to measure.
+ * Source rules that keep the interface fitting a 390px screen, because jsdom has no layout to measure.
  *
- * They only prove a rule is still written; a change to a width needs a picture from `ui-shots`.
+ * They only prove that a rule is still written. A change to a width needs a picture from `ui-shots`.
  */
 /**
- * Every double-quoted string in the sources shaped like a Tailwind class list, `cn(…)` and `cva(…)` included.
+ * Returns every double-quoted string in the sources that has the shape of a Tailwind class list, `cn(…)` and `cva(…)` included.
  *
- * Comments are stripped first, since a comment explaining a grid is not a grid.
+ * Comments are stripped first, because a comment that explains a grid is not a grid.
  */
 function everyClassAttribute(directory: string): Array<{ file: string; classes: string }> {
   const found: Array<{ file: string; classes: string }> = []
@@ -40,7 +40,9 @@ function everyClassAttribute(directory: string): Array<{ file: string; classes: 
   return found
 }
 
-/** The static class lists of every text field, the primitives' own included; `type` attributes that are not text are skipped. */
+/**
+ * Returns the static class lists of every text field, including the primitives' own. `type` attributes that are not text are skipped.
+ */
 function everyTextField(directory: string): Array<{ file: string; tag: string; classes: string }> {
   const found: Array<{ file: string; tag: string; classes: string }> = []
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -64,7 +66,7 @@ function everyTextField(directory: string): Array<{ file: string; tag: string; c
 }
 
 /**
- * Every `<a>` and router `<Link>` whose only child is an icon, with its class list and whether a `Button asChild` wraps it.
+ * Returns every `<a>` and router `<Link>` whose only child is an icon, with its class list and whether a `Button asChild` wraps it.
  *
  * An icon is a self-closing element named `…Icon` or `…Mark`.
  */
@@ -96,7 +98,9 @@ function everyIconLink(directory: string): Array<{ file: string; tag: string; cl
 
 describe("the rules that make it fit on a phone", () => {
   it("keeps every text field at 16px below md, since iOS zooms into anything smaller", () => {
-    /** The palette on an iPhone zoomed in on focus and stayed zoomed, its list cut off at the right edge. */
+    /**
+     * The palette on an iPhone zoomed in on focus and stayed zoomed, with its list cut off at the right edge.
+     */
     const small = /(^|\s)text-(xs|sm|\[\d+px\])(\s|$)/
     const offending: string[] = []
     for (const { file, tag, classes } of everyTextField(source)) {
@@ -137,7 +141,9 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("gives every grid an explicit column count, so one long word cannot widen the page", () => {
-    /** Below `lg` a grid without `grid-cols-1` has an implicit `auto` track, which one snowflake widened past 390px. */
+    /**
+     * Below `lg` a grid without `grid-cols-1` has an implicit `auto` track, which one snowflake widened past 390px.
+     */
     const offenders = everyClassAttribute(source)
       .filter(({ classes }) => /(^|\s)grid(\s|$)/.test(classes))
       .filter(({ classes }) => !/(^|\s)grid-cols-/.test(classes))
@@ -152,7 +158,9 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("does not size the shell with a viewport unit, because a home screen gets those wrong", () => {
-    /** `h-svh` cut the page and the sidebar off on an iPhone home screen; `--app-height` is measured instead. */
+    /**
+     * `h-svh` cut the page and the sidebar off on an iPhone home screen, so `--app-height` is measured instead.
+     */
     const shell = fs.readFileSync(path.join(source, "app/shell.tsx"), "utf8")
     const sidebar = fs.readFileSync(path.join(source, "components/ui/sidebar.tsx"), "utf8")
     const classes = [shell, sidebar]
@@ -170,7 +178,9 @@ describe("the rules that make it fit on a phone", () => {
 
   it("caps the scroll area's inner box at the viewport, rather than at its content", () => {
     const scrollArea = fs.readFileSync(path.join(source, "components/ui/scroll-area.tsx"), "utf8")
-    /** Class attributes only, since the comment beside the rule names it too. */
+    /**
+     * The check covers class attributes only, because the comment beside the rule names the class too.
+     */
     const classes = [...scrollArea.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).join(" ")
     assert.include(
       classes,
@@ -183,7 +193,9 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("caps a status badge at the width of the cell it sits in", () => {
-    /** `Badge` is `w-fit shrink-0 overflow-hidden`, so without the cap a date is clipped with no ellipsis. */
+    /**
+     * `Badge` is `w-fit shrink-0 overflow-hidden`, so without the cap a date is clipped without an ellipsis.
+     */
     const status = fs.readFileSync(path.join(source, "components/steward/status.tsx"), "utf8")
     const classes = [...status.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]).join(" ")
 
@@ -217,7 +229,9 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("lets a stacked cell actually wrap, not just break inside an unbreakable word", () => {
-    /** `whitespace-nowrap` on the cells outranks the stacked rule, so `overflow-wrap` alone never wraps prose. */
+    /**
+     * `whitespace-nowrap` on the cells outranks the stacked rule, so `overflow-wrap` alone never wraps prose.
+     */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
     const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(
@@ -230,7 +244,9 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("puts a cell's second child beside its label instead of underneath it", () => {
-    /** A labelled cell's second child would auto-place into the label column and collide with the next label. */
+    /**
+     * The second child of a labelled cell would be placed automatically into the label column and collide with the next label.
+     */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
     const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(

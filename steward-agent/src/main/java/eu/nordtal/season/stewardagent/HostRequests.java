@@ -18,6 +18,7 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DatabaseWaiting;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
+import eu.nordtal.season.stewardagent.schema.Schema;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +61,7 @@ final class HostRequests {
             return 1;
         }
         try (Database database = opened) {
-            final UpdateDirectory runs = UpdateDirectory.using(database.dataSource());
+            final UpdateDirectory runs = Schema.updates(database);
             return "status".equals(args[0]) ? status(runs, args) : request(runs, args);
         }
     }

@@ -5,7 +5,6 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.setting.SettingStore;
-import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
@@ -20,6 +19,7 @@ import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.PlanReport;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
+import eu.nordtal.season.stewardagent.schema.Schema;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -69,7 +69,7 @@ public final class Bootstrap {
         }
         final UpdateReport written = report.get();
         try {
-            final UpdateRequest run = UpdateDirectory.using(database.dataSource())
+            final UpdateRequest run = Schema.updates(database)
                     .record(
                             new StewardRequest.Install(services),
                             Actor.STEWARD,

@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -28,15 +29,13 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     private static final String ONE_OPEN = "steward_inbox_one_open";
 
     private final UpdateDao dao;
-    private final RunStepDao steps;
-    private final RunRecorder recorder;
+    private final JdbiRunRecorder recorder;
     private final Inbox<StewardRequest> inbox;
 
-    JdbiUpdateDirectory(final DataSource dataSource) {
+    JdbiUpdateDirectory(final DataSource dataSource, final BooleanSupplier current) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.dao = Jdbis.over(dataSource).onDemand(UpdateDao.class);
-        this.steps = Jdbis.over(dataSource).onDemand(RunStepDao.class);
-        this.recorder = new JdbiRunRecorder(dataSource);
+        this.recorder = new JdbiRunRecorder(dataSource, Objects.requireNonNull(current, "current"));
         this.inbox = Inbox.over(dataSource, StewardRequest.TABLE);
     }
 
@@ -91,14 +90,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     /** Returns the run with the services its request names written beside it. */
     private UpdateRequest named(final Request<StewardRequest> request) {
-        steps.named(request.id(), request.payload().services().toArray(String[]::new));
+        recorder.named(request.id(), request.payload().services());
         return run(request);
     }
 
-    /** Writes the stage of the report on the run's row, which a reader of the row needs no report for. */
     private void staged(final long id, final String result) {
-        UpdateReports.parse(result)
-                .ifPresent(report -> steps.stage(id, report.stage().name()));
+        UpdateReports.parse(result).ifPresent(report -> recorder.stage(id, report.stage()));
     }
 
     /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
@@ -225,7 +222,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         Objects.requireNonNull(length, "length");
         final Optional<UpdateRequest> counting =
                 dao.startCountdown(id, Math.max(0L, length.toSeconds()), moving.toArray(String[]::new));
-        counting.ifPresent(row -> steps.moving(id, moving.toArray(String[]::new)));
+        counting.ifPresent(row -> recorder.moving(id, moving));
         return counting;
     }
 
@@ -241,7 +238,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<UpdateRequest> cancelCountdown() {
-        return dao.cancelCountdown();
+        final Optional<UpdateRequest> cancelled = dao.cancelCountdown();
+        cancelled.ifPresent(row -> recorder.stage(row.id(), UpdateReport.Stage.CANCELLED));
+        return cancelled;
     }
 
     @Override
@@ -267,7 +266,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                 .map(UpdateDao.Handed::id)
                 .toList();
         final int settled = inbox.settleOrphans(failedFor(why), spared);
-        steps.failedStages();
+        recorder.failedStages();
         return settled;
     }
 
@@ -294,7 +293,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public void putBack(final String row, final MessageRef why) {
         inbox.putBack(row, failedFor(why));
-        steps.failedStages();
+        recorder.failedStages();
     }
 
     @Override

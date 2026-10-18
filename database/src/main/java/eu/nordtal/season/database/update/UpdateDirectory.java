@@ -6,6 +6,7 @@ import eu.nordtal.season.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -25,7 +26,16 @@ public interface UpdateDirectory {
 
     /** Returns a directory over {@code dataSource}; it holds no resource of its own. */
     static UpdateDirectory using(final DataSource dataSource) {
-        return new JdbiUpdateDirectory(dataSource);
+        return using(dataSource, () -> true);
+    }
+
+    /**
+     * The same, for code that can run ahead of the database's schema, as an update's one-shot does until it migrates.
+     *
+     * @param current whether the schema has every table this code writes; a run's rows wait for it
+     */
+    static UpdateDirectory using(final DataSource dataSource, final BooleanSupplier current) {
+        return new JdbiUpdateDirectory(dataSource, current);
     }
 
     /**

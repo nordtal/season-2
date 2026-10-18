@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
@@ -21,6 +22,7 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
+import eu.nordtal.season.stewardagent.schema.Schema;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -61,7 +63,11 @@ class RunnerTest {
 
     @BeforeEach
     void open() {
-        postgres = TestDatabase.fresh();
+        open(TestDatabase.fresh());
+    }
+
+    private void open(final TestDatabase over) {
+        postgres = over;
         database = Database.open(
                 new DatabaseSpec() {
                     @Override
@@ -80,7 +86,7 @@ class RunnerTest {
                     }
                 },
                 "steward-test");
-        directory = UpdateDirectory.using(database.dataSource());
+        directory = Schema.updates(database);
         runner = new Runner(defaults(), database, containers, snapshots, directory, driven(), removal);
     }
 
@@ -116,6 +122,29 @@ class RunnerTest {
                         "VERIFY smp DONE",
                         "PLAYERS_BACK DONE"),
                 steps(request.id()));
+    }
+
+    /**
+     * A one-shot is a release ahead of the schema until its run migrates, so it writes no table the database lacks.
+     *
+     * The database is at the newest migration of 0.27.0, before a run's steps were rows.
+     */
+    @Test
+    void aRunOnTheSchemaBeforeItsOwnMigrationWritesNoTableThatIsNotThereYet() {
+        database.close();
+        final TestDatabase older = TestDatabase.empty();
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "53");
+        open(older);
+
+        final UpdateRequest first = claimed(UpdateKind.RESTART, List.of("smp"));
+        final Outcome before = runner.run(first, progress::add);
+
+        assertEquals(UpdateStatus.DONE, before.status(), before.report());
+        directory.finish(first.id(), before.status(), before.report());
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
+        final UpdateRequest after = claimed(UpdateKind.RESTART, List.of("smp"));
+        assertEquals(UpdateStatus.DONE, runner.run(after, progress::add).status());
+        assertFalse(steps(after.id()).isEmpty(), "once the schema has the tables, the run writes its rows again");
     }
 
     /** A one-shot's last act is the long-running agent at its own release, after every server is back. */

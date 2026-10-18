@@ -5,10 +5,7 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The pack's side of {@code <glyph:name>}: one of {@link Glyphs#named()}, drawn in {@code minecraft:default}.
- * The font is named on the glyph because another font draws something else at that code point.
- */
+/** The {@code <glyph:name>} tag. It draws a glyph of {@link Glyphs#named()} in {@code minecraft:default}. */
 public final class GlyphTag implements GlyphNames {
 
     private static final Key DEFAULT_FONT = Key.key("minecraft", "default");

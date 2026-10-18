@@ -10,13 +10,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * How far every {@code nordtal:bossbar} glyph moves the cursor, so a HUD pill fits what it holds.
- * The build derives the table from the pack, and an undeclared character advances {@link #MISSING}.
- */
+/** The cursor advance of each {@code nordtal:bossbar} glyph. An undeclared character advances {@link #MISSING}. */
 public final class BossBarAdvances {
 
-    /** The advance of the client's missing-glyph box: five pixels plus the separator. */
+    /** The advance of the client's missing-glyph box. */
     public static final int MISSING = 6;
 
     private static final String RESOURCE = "/nordtal/hud/bossbar-advances.properties";
@@ -25,22 +22,21 @@ public final class BossBarAdvances {
 
     private BossBarAdvances() {}
 
-    /** Returns how far {@code codePoint} moves the cursor, or {@link #MISSING} if the font lacks it. */
+    /** Returns the cursor advance of {@code codePoint}, or {@link #MISSING} if the font lacks it. */
     public static int advance(final int codePoint) {
         return TABLE.getOrDefault(codePoint, MISSING);
     }
 
-    /** Returns whether the font declares {@code codePoint}. */
     public static boolean covers(final int codePoint) {
         return TABLE.containsKey(codePoint);
     }
 
-    /** Returns the cursor's displacement after drawing {@code text} in {@code nordtal:bossbar}. */
+    /** Returns the cursor advance of {@code text} in {@code nordtal:bossbar}. */
     public static int width(final String text) {
         return text.codePoints().map(BossBarAdvances::advance).sum();
     }
 
-    /** Returns the whole table, code point to advance, for tests. */
+    /** Returns the table of code point to advance. */
     public static Map<Integer, Integer> table() {
         return Map.copyOf(TABLE);
     }

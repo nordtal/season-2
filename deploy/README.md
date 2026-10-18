@@ -119,6 +119,8 @@ The entrypoint writes these values only when they are missing, unless the item s
 - Proxy `velocity.toml`: forwarding mode, `bind`, `online-mode`, `[servers]`, `try` and an empty `[forced-hosts]`.
 - Proxy `forwarding.secret` and `accepts-transfers = true` under `[advanced]`: written at every start.
 - `config/paper-global.yml` of each backend: `proxies.velocity.enabled: true`.
+- `config/paper-world-defaults.yml` of each backend: `locate-structures-outside-world-border: true`
+  at every start, so that an eye of ender finds a stronghold beyond the border.
 - `server.properties` of each backend: `online-mode=false` and `white-list=false` at every start,
   `level-name=$LEVEL_NAME` once, and `level-seed=$LEVEL_SEED` while the world has no `level.dat`.
 

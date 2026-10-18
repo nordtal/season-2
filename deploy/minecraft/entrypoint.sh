@@ -189,6 +189,17 @@ proxies:
 YAML
         log "seeded config/paper-global.yml with Velocity modern forwarding enabled"
     fi
+
+    # An eye of ender flies only to a stronghold Paper locates, and every stronghold lies beyond the
+    # season's early border. Enforced at every start, because Paper writes false into a file it creates.
+    local world="$DATA/config/paper-world-defaults.yml" key=locate-structures-outside-world-border
+    if [[ ! -f "$world" ]]; then
+        printf 'environment:\n  %s: true\n' "$key" > "$world"
+        log "seeded config/paper-world-defaults.yml with ${key}: true"
+    elif grep -qxF "  ${key}: false" "$world"; then
+        sed -i "s|^  ${key}: false\$|  ${key}: true|" "$world"
+        log "config/paper-world-defaults.yml: ${key} set to true"
+    fi
 }
 
 # entrypoint-test.sh runs these functions against fixtures, because a wrong jar fails silently.

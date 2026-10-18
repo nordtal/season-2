@@ -10,30 +10,31 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What one member's language, region and lock roles and their record become, decided apart from Discord.
+ * The changes to the language, region and lock roles of one member and to their record.
  *
  * @param add the ids of the roles to give
  * @param remove the ids of the roles to take
- * @param record what changes in the record, one entry per kind whose value differs
+ * @param record the changes of the record, one per kind whose value differs
  */
 record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
 
     /**
-     * One value the record takes.
+     * A new value of the record.
      *
-     * @param value the tag or zone, or {@code null} for the network's
+     * @param value the tag or zone, or {@code null} for the network's value
      */
     record Change(Choices.Kind kind, @Nullable String value) {}
 
     /**
-     * Decides what a member keeps: per kind the newest chosen role, else the one the record holds, else the first.
+     * Decides what a member keeps.
+     * Per kind the member keeps the chosen role, else the recorded one, else the first held one.
      *
-     * @param idOf the id of a key's role while the guild has it; a kind with a role missing is left alone
+     * @param idOf the id of the role with a key, if the guild has it. A kind with a missing role is not changed.
      * @param held the ids of the roles the member holds
-     * @param chosen the ids just given or chosen, which win over the rest of their kind, held or not
-     * @param lock the lock role's id, or {@code null} while there is none
-     * @param locking whether a member without a language or a region is given the lock role; one who holds it
-     *     keeps it until both are held, the lock on or off
+     * @param chosen the ids of the roles just given or chosen, which win over the other roles of their kind
+     * @param lock the id of the lock role, or {@code null} if there is none
+     * @param locking whether a member without a language or a region gets the lock role. A member who holds the
+     *     role keeps it until the member holds both, whether the lock is on or off.
      */
     static Settlement of(
             final Choices choices,
@@ -77,7 +78,6 @@ record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
         return new Settlement(Set.copyOf(add), Set.copyOf(remove), List.copyOf(changes));
     }
 
-    /** Returns whether nothing changes, in Discord or in the record. */
     boolean isEmpty() {
         return add.isEmpty() && remove.isEmpty() && record.isEmpty();
     }

@@ -10,15 +10,11 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
 
-/**
- * The {@code onboarding} group: where a member chooses a language and a region, the regions, and the lock.
- *
- * Taken while the bot runs, so a change applies at once.
- */
+/** The {@code onboarding} group: the channels where a member chooses a language and a region, the regions, the lock. */
 @ConfigSpec
 public interface OnboardingSpec {
 
-    /** Where a locked member chooses a language and a region; it is all the lock role sees. */
+    /** The channel where a locked member chooses a language and a region. The lock role sees only this channel. */
     @Order(1)
     @Name("Onboarding channel")
     @Key("channel")
@@ -28,7 +24,6 @@ public interface OnboardingSpec {
         return "";
     }
 
-    /** Holds the message to change a language or a region later. */
     @Order(2)
     @Name("Change channel")
     @Key("change-channel")
@@ -46,7 +41,7 @@ public interface OnboardingSpec {
         return false;
     }
 
-    /** Found by its exact name, created when missing, and followed through a rename. */
+    /** The bot finds the role by its exact name, creates it when missing and follows a rename. */
     @Order(4)
     @Name("Lock role")
     @Key("lock-role")
@@ -55,7 +50,7 @@ public interface OnboardingSpec {
         return "Onboarding";
     }
 
-    /** Each region is a role of its name; a member who holds it reads times in its zone. */
+    /** Each region is a role of its name. A member who holds the role reads times in its zone. */
     @Order(5)
     @Name("Regions")
     @Key("regions")
@@ -67,7 +62,6 @@ public interface OnboardingSpec {
     @Reload
     void reload();
 
-    /** One region: the name of its role and the time zone it stands for. */
     @ConfigSpec
     interface RegionSpec {
 

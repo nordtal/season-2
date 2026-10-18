@@ -40,14 +40,14 @@ import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The onboarding's choices: the welcome's language, then the region asked in it, and the change message's dialog.
- *
- * Choosing gives the roles and nothing else; {@link Onboarding} takes the rest of their kind, the lock and the record.
+ * Handles the choices of the onboarding: language, region and the change dialog.
+ * A choice only gives roles. {@link Onboarding} removes the other roles of the kind and the lock role.
+ * It writes the record.
  */
 @Slf4j
 public final class OnboardingFlow extends ListenerAdapter {
 
-    /** The answer to a language, in it: the region asked in a box, the select under it. */
+    /** The answer to a language choice. It asks for the region in the chosen language. */
     static final Layout REGION = Layout.discord(
             "access",
             "onboarding-region",
@@ -59,7 +59,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                             Line.title("access/onboarding.region.title"), Line.text("access/onboarding.region.lead"))),
             Part.row("regions"));
 
-    /** The change message's dialog, which asks for both choices at once. */
+    /** The dialog of the change message. It asks for the language and the region. */
     static final Layout CHOICE = Layout.modal(
             "access",
             "onboarding-choice",
@@ -77,10 +77,8 @@ public final class OnboardingFlow extends ListenerAdapter {
     private final Executor lane;
 
     /**
-     * Creates it.
-     *
-     * @param networkZone the zone a member without a region reads, offered first when it is a region
-     * @param lane the lane {@link Onboarding} runs on, so a choice and its settling never overlap
+     * @param networkZone the zone of a member without a region, which the dialog preselects when it is a region
+     * @param lane the lane of {@link Onboarding}
      */
     public OnboardingFlow(
             final Onboarding onboarding,
@@ -120,7 +118,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         }
     }
 
-    /** Gives the language chosen on the welcome and answers in it, asking for the region unless one is held. */
+    /** Gives the chosen language and answers in it. The answer asks for the region unless the member holds one. */
     private void answerLanguage(final InteractionHook hook, final Member member, final String tag) {
         final Guild guild = member.getGuild();
         final Choices choices = onboarding.choices();
@@ -149,7 +147,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         }
     }
 
-    /** Gives the region chosen in the answer to a language and turns that answer into the outcome, in that language. */
+    /** Gives the chosen region and replaces the answer to the language choice with the outcome, in that language. */
     private void answerRegion(
             final InteractionHook hook, final Member member, final GuildLanguages.Language asked, final String zone) {
         final Guild guild = member.getGuild();
@@ -165,7 +163,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                 .queue();
     }
 
-    /** The region asked in {@code reads}, its select of {@code regions} under the custom id {@code id}. */
+    /** Returns the region question in {@code reads}. Its select offers {@code regions} under the id {@code id}. */
     static LayoutRenderer.Drawn region(
             final LayoutRenderer layouts, final String id, final List<SelectOption> regions, final Locale reads) {
         final List<LayoutRenderer.Option> options = regions.stream()
@@ -254,7 +252,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             }
             final boolean given = give(member, language.get(), DiscordRole.LANGUAGE)
                     && give(member, region.get(), DiscordRole.REGION);
-            // Answered in the language just chosen, which is the one the member reads from now on.
+            // The answer is in the chosen language.
             final Locale reads = given ? Locales.parse(tag) : asked;
             event.getHook()
                     .editOriginal(
@@ -265,7 +263,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         });
     }
 
-    /** Gives the role unless it is held, and returns whether the member holds it now. */
+    /** Gives the role unless the member holds it. Returns whether the member holds the role. */
     private boolean give(final Member member, final Role role, final DiscordRole kind) {
         if (member.getRoles().contains(role)) {
             return true;
@@ -280,7 +278,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         }
     }
 
-    /** The choices of a kind whose role the guild has, each under the role's name as it reads in Discord now. */
+    /** Returns the choices of the kind whose role the guild has, labelled with the current role name. */
     private List<SelectOption> options(final Guild guild, final Choices choices, final Choices.Kind kind) {
         return choices.of(kind).stream()
                 .flatMap(choice -> roles.role(guild, choice.key()).stream()
@@ -288,7 +286,6 @@ public final class OnboardingFlow extends ListenerAdapter {
                 .toList();
     }
 
-    /** The value of the choice of this kind the member holds, if any. */
     private Optional<String> held(
             final Guild guild, final Choices choices, final Choices.Kind kind, final Set<String> held) {
         return choices.among(kind, held, key -> roles.role(guild, key).map(Role::getId)).stream()

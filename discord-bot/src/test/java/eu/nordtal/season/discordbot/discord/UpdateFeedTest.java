@@ -33,12 +33,10 @@ import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** What the admin channel is told about a run nobody in Discord started. */
 class UpdateFeedTest {
 
     private static final Instant NOW = Instant.parse("2026-09-08T20:00:00Z");
 
-    /** What was posted and edited, instead of a guild. */
     private static final class Board implements UpdateFeed.Board {
 
         record Post(LayoutRenderer.Drawn card, String messageId) {}
@@ -46,10 +44,10 @@ class UpdateFeedTest {
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
 
-        /** Whether Discord acknowledges a post, so "no message id yet" can be driven too. */
+        /** Whether Discord acknowledges a post. False tests the state with no message id yet. */
         boolean acknowledge = true;
 
-        /** Runs inside the next post, standing in for a signal that arrives in the middle of a pass. */
+        /** Runs inside the next post and stands in for a signal that arrives during a pass. */
         Runnable duringPost = () -> {};
 
         @Override
@@ -70,7 +68,6 @@ class UpdateFeedTest {
         }
     }
 
-    /** Only the four reads the feed makes. */
     private static final class Rows implements UpdateDirectory {
 
         @Override
@@ -209,7 +206,7 @@ class UpdateFeedTest {
         final List<Runnable> queued = new ArrayList<>();
         final java.util.concurrent.Executor busy = queued::add;
         rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
-        // The run moves on while the first pass is drawing it, and the signal of that write arrives mid-pass.
+        // The run moves on while the first pass draws it, and the signal of that write arrives during the pass.
         board.duringPost = () -> {
             rows.put(row(2, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
             feed.submit(busy);
@@ -230,7 +227,7 @@ class UpdateFeedTest {
         };
         assertThrows(java.util.concurrent.RejectedExecutionException.class, () -> feed.submit(shuttingDown));
 
-        // Without the release in the catch, one rejection would silence the feed for good.
+        // Without the release in the catch block, one rejection silences the feed for good.
         rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         final List<Runnable> queued = new ArrayList<>();
         feed.submit(queued::add);
@@ -309,7 +306,7 @@ class UpdateFeedTest {
 
     @Test
     void aRunThatEndedWhileTheBotWasDownIsPostedOnceAsAResult() {
-        // A row below max(id) is one the feed would never look at again.
+        // A row below max(id) is one that the feed never looks at again.
         rows.put(row(1L, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.FAILED), NOW.minus(Duration.ofMinutes(4))));
         rows.put(row(2L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW.minus(Duration.ofHours(9))));
         feed.start();
@@ -448,8 +445,6 @@ class UpdateFeedTest {
         assertFalse(shown.contains("report."), "no key is ever shown in place of its words: " + shown);
     }
 
-    // Why a run went wrong, and nothing else
-
     @Test
     void aSuccessfulRunShowsNoNotesWhateverItsRecordsSay() {
         final UpdateReport done = UpdateReport.at(UpdateReport.Stage.DONE)
@@ -535,8 +530,6 @@ class UpdateFeedTest {
         assertFalse(names(stopped).contains("Why"), names(stopped).toString());
         assertFalse(names(running).contains("Why"), "the card is edited once the run settles: " + names(running));
     }
-
-    // The run's kind, said once
 
     @Test
     void theTitleNamesTheRunsKindAtEachStage() {
@@ -637,8 +630,6 @@ class UpdateFeedTest {
         assertEquals(null, link(board.posted.getFirst().card()));
     }
 
-    // The start-up install, said only when it failed
-
     @Test
     void aStartUpInstallThatWentWellIsNotPosted() {
         feed.start();
@@ -686,7 +677,7 @@ class UpdateFeedTest {
         return card.text().lines().findFirst().orElseThrow().replaceFirst("^## ", "");
     }
 
-    /** The card's sections in order: its by and duration lines, then each heading. */
+    /** Returns the sections of the card in order: the by and duration lines, then each heading. */
     private static List<String> names(final LayoutRenderer.Drawn card) {
         return card.text()
                 .lines()
@@ -699,7 +690,6 @@ class UpdateFeedTest {
                 .toList();
     }
 
-    /** The lines under a heading, up to the next one. */
     private static String field(final LayoutRenderer.Drawn card, final String name) {
         final List<String> all = card.text().lines().toList();
         final int heading = all.indexOf("### " + name);

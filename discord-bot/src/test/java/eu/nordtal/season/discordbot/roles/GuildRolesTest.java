@@ -13,10 +13,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** How the bot finds, adopts, creates and then follows the roles it uses, with a guild that is a map. */
 class GuildRolesTest {
 
-    /** The guild's roles by id, each with its name; created roles get the next free id. */
+    /** The roles of the guild by id with their names. A created role gets the next free id. */
     private static final class Guild implements GuildRoles.RoleList {
 
         private final Map<String, String> names = new LinkedHashMap<>();
@@ -53,7 +52,6 @@ class GuildRolesTest {
         }
     }
 
-    /** The table, as a map. */
     private static final class Table implements DiscordRoleDao {
 
         private final Map<String, String> rows = new LinkedHashMap<>();
@@ -107,7 +105,7 @@ class GuildRolesTest {
 
     @Test
     void aStoredRoleIsFollowedByItsIdHoweverItIsCalledNow() {
-        // An admin renamed it, and somebody made a new role of the old name: the stored one stays the role.
+        // An admin renamed the role and somebody created a new role with the old name, so the stored role stays.
         table.store(GuildRoles.ACCESS, "10");
         final Guild guild = new Guild().with("10", "Members").with("12", "Access");
 

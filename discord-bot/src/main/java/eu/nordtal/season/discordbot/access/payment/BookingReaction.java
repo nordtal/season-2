@@ -18,10 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
-/**
- * Tells a payer what steward booked: the roles, the direct messages, the public thank-you and the admin card.
- * The booking is committed before the bot hears of it; nothing here writes a payment.
- */
 @Slf4j
 public final class BookingReaction {
 
@@ -47,7 +43,6 @@ public final class BookingReaction {
         this.seasonStart = seasonStart;
     }
 
-    /** Carries out everything the payer and the admins are told of one booking. */
     public void tell(final BotRequest.PaymentBooked booked) {
         final DiscordId payer = booked.person();
         seasonStart.warnIfUnanchored(payer, booked.from());
@@ -57,7 +52,6 @@ public final class BookingReaction {
             roles.grantDonorRole(payer);
         }
 
-        // "Downgraded" means the payer edited the amount down, which the DM says plainly.
         roles.dm(
                 payer,
                 booked.downgraded()
@@ -78,11 +72,8 @@ public final class BookingReaction {
         log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());
     }
 
-    /** Thanks a donation in public, in the channel of the donor's language; a plain purchase stays private. */
     private void announceDonation(final DiscordId discordId, final int donationCents, final Locale locale) {
-        // An unconfigured language tag lands in the fallback channel.
         final String channelId = languages.forLocale(locale).contributionChannelId();
-        // No contribution channel means no public thank-you; the donation is still booked.
         if (!Configured.isSet(channelId)) {
             return;
         }
@@ -95,7 +86,6 @@ public final class BookingReaction {
                                 locale,
                                 MESSAGES.publicSection()
                                         .donation(
-                                                // Discord shows the mention; the id is a name only elsewhere.
                                                 new DiscordMemberContext(discordId, discordId.value()),
                                                 Money.euroCents(donationCents)))
                         .create())

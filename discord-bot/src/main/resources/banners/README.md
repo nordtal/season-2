@@ -1,8 +1,7 @@
 # Banner images
 
-Three placeholder PNGs, 2560x640, attached to the bot's managed messages as
-`attachment://contribution.png`, `attachment://link.png` and `attachment://onboarding.png` (the welcome in the
-onboarding channel).
+`contribution.png`, `link.png` and `onboarding.png` are placeholder images of 2560x640 pixels. The bot attaches them
+to its managed messages as `attachment://contribution.png`, `attachment://link.png` and `attachment://onboarding.png`.
+The onboarding image belongs to the welcome in the onboarding channel.
 
-To change a banner, replace the file and keep its name: `ManagedMessage` loads them from the
-classpath by name. They are attachments rather than URLs because Discord media URLs expire.
+To change a banner, replace the file under the same name. `ManagedMessage` loads the files from the classpath by name.

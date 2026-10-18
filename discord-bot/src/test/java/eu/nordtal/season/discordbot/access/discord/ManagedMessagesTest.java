@@ -17,7 +17,6 @@ import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.junit.jupiter.api.Test;
 
-/** The contribution and link messages, drawn from their layouts. */
 class ManagedMessagesTest {
 
     private static final LayoutRenderer RENDERER = new LayoutRenderer(

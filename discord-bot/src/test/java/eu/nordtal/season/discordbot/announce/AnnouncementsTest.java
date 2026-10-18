@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 
-/** What the bot posts for an announcement, rendered in each language from the bundles it loads, and what it logs. */
 class AnnouncementsTest {
 
     private static final DiscordRenderer BUNDLES = DiscordRenderer.of(
@@ -30,7 +29,6 @@ class AnnouncementsTest {
 
     private static final Map<String, String> GUILD = Map.of("111", "announcements", "222", "ankuendigungen");
 
-    /** One logged line, with its level and its placeholders filled in. */
     record Line(String level, String text) {}
 
     private final List<Line> logged = new ArrayList<>();

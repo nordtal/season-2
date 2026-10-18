@@ -47,14 +47,13 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps every member's language and region roles, their record and the lock in step, and every role the bot uses.
- *
- * All of it runs on one lane: a member's change, a new channel, a lost role, the sweep and a changed setting.
+ * Keeps the language and region roles of each member, their record and the lock consistent.
+ * A member's change, a new channel, a deleted role, the sweep and a changed setting all run on one lane.
  */
 @Slf4j
 public final class Onboarding extends ListenerAdapter implements Withholding {
 
-    /** The page in Steward an alert about the onboarding opens: the bot's settings. */
+    /** The page in Steward that an onboarding alert opens. */
     static final String PAGE = "/services/discord-bot";
 
     private static final String WITHOUT_CHANNEL = "onboarding channel";
@@ -74,14 +73,20 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private final Executor lane;
     private volatile Choices choices;
 
-    /** The lock role, whether a member without both choices holds it now, and whether it is on without a channel. */
+    /**
+     * The lock state.
+     *
+     * @param role the lock role
+     * @param locking whether a member without both choices holds the role
+     * @param withoutChannel whether the lock is on and the onboarding channel is not set
+     */
     private record Lock(@Nullable Role role, boolean locking, boolean withoutChannel) {}
 
     /**
-     * Creates it; nothing touches Discord before {@link #resolveRoles()}.
+     * Creates the onboarding. It uses Discord only after {@link #resolveRoles()}.
      *
-     * @param fixed the roles the bot uses apart from the choices, found and kept here with them
-     * @param lane the serial executor every change runs on
+     * @param fixed the roles that the bot uses besides the choices
+     * @param lane the serial executor that runs every change
      */
     public Onboarding(
             final JDA jda,
@@ -112,12 +117,11 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         this.choices = Choices.of(languages, setting.get());
     }
 
-    /** Returns the choices as last taken from the settings. */
     Choices choices() {
         return choices;
     }
 
-    /** Finds, adopts or creates every role the bot uses; once at start, before anything reads a role. */
+    /** Finds, adopts or creates every role the bot uses. It runs once at start, before any code reads a role. */
     public void resolveRoles() {
         final Guild guild = guild();
         if (guild != null) {
@@ -125,7 +129,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    /** Publishes the messages where members choose and change, then catches up on every member and channel. */
+    /** Publishes the messages where members choose and change, then runs the sweep. */
     public void start() {
         lane.execute(() -> {
             publish();
@@ -133,12 +137,11 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         });
     }
 
-    /** Catches up on every member and channel; the periodic reconcile. */
     public void reconcile() {
         lane.execute(this::sweep);
     }
 
-    /** Takes the onboarding group again after a change in Steward; a refused change keeps the values in use. */
+    /** Reloads the onboarding group after a change in Steward. A refused change keeps the loaded values. */
     public void settingsChanged() {
         lane.execute(() -> {
             final boolean wasLocked = setting.get().lock();
@@ -159,7 +162,6 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         });
     }
 
-    /** Takes the lock role from every member holding it, once, as the lock is switched off. */
     private void release() {
         final Guild guild = guild();
         if (guild != null) {
@@ -207,7 +209,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    /** Takes what the member holds on the gateway thread, so each event is settled against its own moment. */
+    /** Reads the roles of the member on the gateway thread, then settles the member on the lane. */
     private void settleLater(final Guild guild, final Member member, final Collection<Role> chosen) {
         if (!ours(guild) || member.getUser().isBot()) {
             return;
@@ -322,7 +324,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    /** Returns whether {@code member} holds the lock role, which withholds the rest, the lock on or off. */
+    /** Returns whether the member holds the lock role, whether the lock is on or off. */
     @Override
     public boolean withholds(final Member member) {
         if (!ours(member.getGuild()) || member.getUser().isBot()) {
@@ -332,7 +334,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         return role != null && member.getRoles().contains(role);
     }
 
-    /** Returns the lock role, and whether it locks now, saying once when it is on without a channel. */
+    /** Returns the lock state and raises an alert while the lock is on without an onboarding channel. */
     private Lock lock(final Guild guild) {
         final Lock lock = state(guild);
         if (lock.withoutChannel()) {
@@ -351,7 +353,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         return lock;
     }
 
-    /** Returns the lock role and whether it locks now, without a word to anyone, so any thread may ask. */
+    /** Returns the lock state without raising an alert. Any thread may call it. */
     private Lock state(final Guild guild) {
         final OnboardingSpec spec = setting.get();
         final Role role = roles.role(guild, GuildRoles.LOCK).orElse(null);
@@ -377,14 +379,13 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                 : DiscordRole.REGION;
     }
 
-    /** Returns every role the bot uses: the fixed ones, then the choices and the lock role. */
+    /** Returns the fixed roles, then the roles of the choices and the lock role. */
     private List<GuildRoles.Wanted> wanted() {
         final List<GuildRoles.Wanted> wanted = new ArrayList<>(fixed);
         wanted.addAll(choices.wanted());
         return wanted;
     }
 
-    /** Returns the id of a key's role while the guild has it. */
     private Function<String, Optional<String>> idOf(final Guild guild) {
         return key -> roles.role(guild, key).map(Role::getId);
     }

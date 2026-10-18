@@ -12,15 +12,9 @@ import eu.nordtal.season.spec.annotation.Protected;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
 
-/**
- * The {@code access} group: the guild, its roles and channels, and the life of a purchase.
- *
- * The price list is the network's. Roles are named, channels are ids; the guild is required.
- */
 @ConfigSpec
 public interface AccessSpec {
 
-    /** The guild the bot manages; every other guild it is in is ignored. */
     @Order(1)
     @Name("Guild ID")
     @Key("guild-id")
@@ -29,21 +23,18 @@ public interface AccessSpec {
         return "";
     }
 
-    /** Each role is found by its name, created when missing, and followed through a rename in Discord. */
     @Order(2)
     @Name("Roles")
     @Key("role-names")
     @NoExplanationNeeded
     RoleNamesSpec roleNames();
 
-    /** Channel ids that are not specific to a language; a language's own are on its entry under languages. */
     @Order(3)
     @Name("Channels")
     @Key("channels")
     @NoExplanationNeeded
     ChannelsSpec channels();
 
-    /** A missing translation falls back to the 'en' entry. */
     @Order(4)
     @Name("Languages")
     @Key("languages")
@@ -76,7 +67,9 @@ public interface AccessSpec {
         return 10;
     }
 
-    /** The bundle file name in every module's messages directory and the value stored as a player's locale. */
+    /**
+     * Raising it lowers the four-character link code's brute-force resistance from decades to weeks.
+     */
     @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
@@ -88,11 +81,13 @@ public interface AccessSpec {
     @Reload
     void reload();
 
-    /** One language: its tag, the role that chooses it, and the channels that carry its messages. */
     @ConfigSpec
     interface LanguageSpec {
 
-        /** Empty is the language's own name, such as Deutsch. */
+        /**
+         * The bundle file name in every module's messages directory.
+         * It is also the value stored as a player's locale.
+         */
         @Order(1)
         @Name("Tag")
         @Key("tag")
@@ -101,7 +96,7 @@ public interface AccessSpec {
             return "";
         }
 
-        /** Carries the buy-access message in this language, and its donation thank-yous. */
+        /** Empty means the language's own name, such as Deutsch. */
         @Order(2)
         @Name("Role name")
         @Key("role-name")
@@ -110,7 +105,7 @@ public interface AccessSpec {
             return "";
         }
 
-        /** Carries the account-link message in this language. */
+        /** The buy-access message in this language and its donation thank-yous go here. */
         @Order(3)
         @Name("Contribution channel")
         @Key("contribution-channel")
@@ -120,11 +115,7 @@ public interface AccessSpec {
             return "";
         }
 
-        /**
-         * Carries the Hunger Games registration message.
-         *
-         * Separate from the contribution channel, because access is not required to play.
-         */
+        /** The account-link message in this language goes here. */
         @Order(4)
         @Name("Link channel")
         @Key("link-channel")
@@ -134,7 +125,10 @@ public interface AccessSpec {
             return "";
         }
 
-        /** The bot only renames it and never posts in it. Empty means none. */
+        /**
+         * The Hunger Games registration message goes here.
+         * It is separate from the contribution channel, because access is not required to play.
+         */
         @Order(5)
         @Name("Hunger Games channel")
         @Key("hunger-games-channel")
@@ -144,7 +138,7 @@ public interface AccessSpec {
             return "";
         }
 
-        /** The bot posts milestones and season announcements here for this language. */
+        /** The bot only renames it and never posts in it. Empty means none. */
         @Order(6)
         @Name("Status channel")
         @Key("status-channel")
@@ -154,7 +148,7 @@ public interface AccessSpec {
             return "";
         }
 
-        /** Managed by the bot: a hand-granted role is undone at the next reconcile, so /grant-access is the way. */
+        /** The bot posts milestones and season announcements here for this language. */
         @Order(7)
         @Name("Announcement channel")
         @Key("announcement-channel")
@@ -165,11 +159,10 @@ public interface AccessSpec {
         }
     }
 
-    /** The names of the roles the bot keeps that are not per-language. */
     @ConfigSpec
     interface RoleNamesSpec {
 
-        /** Granted on a donation and never revoked, so handing it out in Discord is safe. */
+        /** The bot undoes a hand-granted role at the next reconcile. Use /grant-access. */
         @Order(1)
         @Name("Access role")
         @Key("access")
@@ -178,7 +171,10 @@ public interface AccessSpec {
             return "Access";
         }
 
-        /** Follows the admins decided in Steward: the bot adds and removes it and never reads it as a permission. */
+        /**
+         * The bot grants it on a donation and never revokes it.
+         * Handing it out in Discord is safe.
+         */
         @Order(2)
         @Name("Donor role")
         @Key("donor")
@@ -188,9 +184,8 @@ public interface AccessSpec {
         }
 
         /**
-         * Receives everything needing a human.
-         *
-         * That is unmatchable or expired payments, failed DMs, role errors, and every link or unlink.
+         * The bot adds and removes it as the admins decided in Steward.
+         * It never reads it as a permission.
          */
         @Order(3)
         @Name("Admin role")
@@ -201,11 +196,13 @@ public interface AccessSpec {
         }
     }
 
-    /** Channel ids the bot writes to that are not per-language. */
     @ConfigSpec
     interface ChannelsSpec {
 
-        /** Raising it takes the four-character link code's brute-force resistance from decades toward weeks. */
+        /**
+         * It receives everything that needs a human.
+         * That is unmatchable or expired payments, failed DMs, role errors, and every link or unlink.
+         */
         @Order(1)
         @Name("Admin channel")
         @Key("admin")
@@ -216,7 +213,6 @@ public interface AccessSpec {
         }
     }
 
-    /** The life cycle of a payment request. */
     @ConfigSpec
     interface PaymentSpec {
 

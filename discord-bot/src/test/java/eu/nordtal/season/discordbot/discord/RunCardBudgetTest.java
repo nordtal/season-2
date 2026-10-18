@@ -22,11 +22,7 @@ import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import org.junit.jupiter.api.Test;
 
-/**
- * The run card stays inside what Discord takes of one Components V2 message, however much a run has to say.
- *
- * Discord refuses the whole message past it, which would hide exactly the runs with the most to say.
- */
+/** The run card stays within the size limit of one Components V2 message, however much a run reports. */
 class RunCardBudgetTest {
 
     private static final LayoutRenderer LAYOUTS = new LayoutRenderer(
@@ -104,7 +100,7 @@ class RunCardBudgetTest {
 
     @Test
     void theAdminChannelsContextIsInsideTheLimitsToo() {
-        // Only the feed draws with context, so this is the only case measuring who asked.
+        // Only the feed draws with context, so only this case measures who asked.
         assertInside(UpdateFeed.card(report(40, 600, 30, 400), longAsker(), LAYOUTS, true, null));
     }
 
@@ -122,7 +118,6 @@ class RunCardBudgetTest {
         return UpdateFeed.card(report, request, LAYOUTS, false, null);
     }
 
-    /** The block under the Why heading. */
     private static String why(final LayoutRenderer.Drawn card) {
         final String text = card.text();
         return text.substring(text.indexOf("### Why"));
@@ -148,7 +143,7 @@ class RunCardBudgetTest {
         return report;
     }
 
-    /** The longest asker a row can carry: a person, whose Discord id has at most twenty digits. */
+    /** The longest asker of a row is a person, whose Discord id has at most twenty digits. */
     private static UpdateRequest longAsker() {
         return request(Actor.person(eu.nordtal.season.common.id.DiscordId.of("9".repeat(20))));
     }

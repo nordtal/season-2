@@ -8,18 +8,14 @@ import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import java.util.Objects;
 
-/**
- * What the registration flow says for each result of {@link Teams}, as functions of plain values.
- *
- * {@link RegisterFlow} only sends the message chosen here.
- */
+/** Chooses the message for each result of {@link Teams}. {@link RegisterFlow} sends it. */
 final class RegisterReplies {
 
     private static final AccessMessages.Register REGISTER = MESSAGES.register();
 
     private RegisterReplies() {}
 
-    /** The reply to a registration; {@code name} is the team name that was typed. */
+    /** Returns the reply to a registration. {@code name} is the team name that the member typed. */
     static MessageRef registration(final RegistrationResult result, final String name) {
         return switch (result.status()) {
             case REGISTERED -> REGISTER.success(name);
@@ -30,7 +26,6 @@ final class RegisterReplies {
         };
     }
 
-    /** The reply to the owner who picked a partner. */
     static MessageRef invitation(final InviteResult result, final DiscordMemberContext partner) {
         final AccessMessages.Register.Invite invite = REGISTER.invite();
         return switch (result.status()) {
@@ -44,7 +39,7 @@ final class RegisterReplies {
         };
     }
 
-    /** The reply to the partner who answered; a closed round keeps the invite open, so it only says so. */
+    /** Returns the reply to the partner who answered. A closed round keeps the invite open. */
     static MessageRef answer(final AnswerResult result, final boolean accept) {
         return switch (result.status()) {
             case CLOSED -> REGISTER.closed();
@@ -58,7 +53,6 @@ final class RegisterReplies {
         };
     }
 
-    /** The note to the team owner about the partner's answer. */
     static MessageRef ownerNote(final boolean accept, final DiscordMemberContext player, final TeamContext team) {
         return accept
                 ? REGISTER.invite().ownerNotifiedAccepted(player, team)

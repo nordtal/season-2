@@ -12,14 +12,8 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/**
- * The sweeps: who should hold the access role, and whose access is about to end or just ended.
- *
- * These set-shaped queries serve only the bot's timers, so they stay out of {@code :common}'s {@code AccessDirectory}.
- */
 public interface ReconcileDao {
 
-    /** Everyone a non-revoked grant covers right now, which is exactly the set that should hold the role. */
     @SqlQuery("""
             SELECT DISTINCT discord_id
             FROM access_grant
@@ -29,7 +23,6 @@ public interface ReconcileDao {
             """)
     List<String> withActiveAccess();
 
-    /** Returns users whose current run of access ends within the next {@code hours}, one row per user. */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
             FROM access_grant
@@ -40,7 +33,6 @@ public interface ReconcileDao {
     @RegisterRowMapper(AccessDeadlineMapper.class)
     List<AccessDeadline> endingWithin(@Bind("hours") int hours);
 
-    /** Returns users whose access ran out within the last {@code hours} and has not been renewed. */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
             FROM access_grant
@@ -55,7 +47,7 @@ public interface ReconcileDao {
     /**
      * Records that one message about one deadline has been sent.
      *
-     * @return 1 the first time, 0 afterwards
+     * @return 1 the first time and 0 afterwards
      */
     @SqlUpdate("""
             INSERT INTO expiry_notice (discord_id, valid_until, kind)
@@ -67,15 +59,12 @@ public interface ReconcileDao {
             @Bind("validUntil") OffsetDateTime validUntil,
             @Bind("kind") String kind);
 
-    /** Returns every Discord account the bot has ever written about, to find those that left while it was down. */
     @SqlQuery("SELECT discord_id FROM discord_user")
     List<String> allUsers();
 
-    /** Deletes link codes that have run out. */
     @SqlUpdate("DELETE FROM link_code WHERE expires <= now()")
     int deleteExpiredLinkCodes();
 
-    /** Maps the two columns the deadline queries return. */
     final class AccessDeadlineMapper implements RowMapper<AccessDeadline> {
 
         @Override

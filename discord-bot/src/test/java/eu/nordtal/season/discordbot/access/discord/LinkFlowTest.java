@@ -15,7 +15,7 @@ import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.modals.Modal;
 import org.junit.jupiter.api.Test;
 
-/** The link message's modal, drawn from its layout: only its texts come from the bundle. */
+/** Only the texts of the modal come from the bundle. */
 class LinkFlowTest {
 
     private static final LayoutRenderer RENDERER = new LayoutRenderer(

@@ -17,7 +17,6 @@ import java.util.List;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.junit.jupiter.api.Test;
 
-/** A stored rebuild as the bot draws it, and a stored image as it sends it beside a layout that shows it. */
 class StoredLayoutsTest {
 
     private static final LayoutStore.LayoutImage JPEG = new LayoutStore.LayoutImage(7, "image/jpeg", new byte[] {1, 2});

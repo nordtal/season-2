@@ -6,9 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 
 /**
- * Refuses to start against a database this jar was not built against.
- *
- * The migrate service migrates; without this the bot would fail on its first query, inside a Discord interaction.
+ * Refuses to start against a database this jar was not built against. The migrate service migrates.
+ * Without this check the bot would fail on its first query, inside a Discord interaction.
  */
 @Slf4j
 final class SchemaCheck {
@@ -16,15 +15,15 @@ final class SchemaCheck {
     private SchemaCheck() {}
 
     /**
-     * @throws IllegalStateException if the database is not at this jar's schema; the message names steward's command
+     * @throws IllegalStateException if the database is not at this jar's schema. The message names Steward's command.
      */
     static void validate(final DataSource dataSource) {
         try {
-            // Resolved against this class's own class loader, so the migrations bundled in the shaded jar are found.
+            // Use this class's class loader, so the migrations bundled in the shaded jar are found.
             Flyway.configure(SchemaCheck.class.getClassLoader())
                     .dataSource(dataSource)
                     .locations("classpath:db/migration")
-                    // Flyway parses the files to validate them, and V1 names the roles by placeholder.
+                    // Flyway parses the files to validate them, and V1 names the roles with a placeholder.
                     .placeholders(DatabaseRole.placeholders(DatabaseRole.PREFIX))
                     .load()
                     .validate();

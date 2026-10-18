@@ -17,11 +17,6 @@ import java.util.Objects;
 import net.dv8tion.jda.api.utils.MarkdownSanitizer;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The Discord target: every text the bot sends, from the same prepared pieces as every other target.
- * In markdown each value is escaped, a moment is Discord's timestamp and a member a mention; a plain text takes
- * every value as it is. The README's "Texts" says why.
- */
 public final class DiscordRenderer {
 
     private final Messages messages;
@@ -30,23 +25,21 @@ public final class DiscordRenderer {
         this.messages = Objects.requireNonNull(messages, "messages");
     }
 
-    /** Returns the Discord target over {@code messages}. */
     public static DiscordRenderer of(final Messages messages) {
         return new DiscordRenderer(messages);
     }
 
-    /** Returns the bundles behind this renderer, which the overrides are layered on. */
     public Messages raw() {
         return messages;
     }
 
-    /** Renders a message for a member who reads {@code locale}. */
     public String format(final @Nullable Locale locale, final MessageRef message) {
         return render(messages.prepare(Viewer.of(locale), message));
     }
 
     /**
-     * Renders a text an admin is trying for a message's key, in place of the key's own, with the message's values.
+     * Renders {@code text} in place of the message key's own text.
+     * An admin is trying that text. It is filled with the message's values.
      *
      * @throws eu.nordtal.season.messages.text.MessageSyntaxException when the text cannot be read
      */
@@ -54,7 +47,6 @@ public final class DiscordRenderer {
         return render(messages.prepare(Viewer.of(locale), message, text));
     }
 
-    /** Renders prepared pieces as Discord shows them. */
     private String render(final Messages.Prepared prepared) {
         final boolean markdown = prepared.format() == TextFormat.DISCORD_MARKDOWN;
         final StringBuilder out = new StringBuilder();
@@ -73,10 +65,6 @@ public final class DiscordRenderer {
         return out.toString();
     }
 
-    /**
-     * Makes text inert for Discord's markdown, a backslash included, every single character and not only pairs.
-     * Every value the bot places in markdown is escaped here, the layouts' own lines too.
-     */
     public static String escape(final String text) {
         return MarkdownSanitizer.escape(text.replace("\\", "\\\\"), true);
     }
@@ -101,7 +89,7 @@ public final class DiscordRenderer {
         };
     }
 
-    /** The one formatter's text, escaped in markdown; a link stays as it is, since a backslash would end up in it. */
+    /** Escapes the text in markdown, but a link stays as it is, because a backslash would end up in it. */
     private static String text(
             final Kind kind,
             final Object value,
@@ -112,7 +100,6 @@ public final class DiscordRenderer {
         return markdown && !(kind == Kind.TEXT && link(shown)) ? escape(shown) : shown;
     }
 
-    /** A message in a markdown message, drawn in Discord's way too, so its mentions and moments stay what they are. */
     private String nested(final MessageRef message, final Messages.Prepared outer) {
         final Messages.Prepared inner = messages.prepare(new Viewer(outer.language(), outer.zone(), null), message);
         final String shown = render(inner);
@@ -123,7 +110,6 @@ public final class DiscordRenderer {
             final List<?> items, final boolean or, final Messages.Prepared prepared, final boolean markdown) {
         final List<String> shown = new ArrayList<>(items.size());
         for (final Object item : items) {
-            // As every target lists: an item of no kind, or a list inside the list, as its text.
             final Kind kind = Kind.ofValue(item).orElse(Kind.TEXT);
             shown.add(
                     kind == Kind.LIST
@@ -133,7 +119,6 @@ public final class DiscordRenderer {
         return ValueText.join(shown, or, prepared.words());
     }
 
-    /** Discord's timestamp, drawn in each reader's zone and language: {@code <t:1790000000:f>}. */
     private static String timestamp(final Instant instant, final @Nullable String style) {
         final char shape = switch (style == null ? "datetime" : style) {
             case "date" -> 'D';

@@ -17,13 +17,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/** The sliding-window cap that makes a four-character link code safe, against a movable clock. */
 class RedemptionLimitTest {
 
     private static final String SOMEBODY = "111111111111111111";
     private static final String SOMEBODY_ELSE = "222222222222222222";
 
-    /** A clock that stands still until a test moves it. */
     private static final class Movable extends Clock {
 
         private Instant now = Instant.parse("2026-09-03T12:00:00Z");
@@ -68,7 +66,7 @@ class RedemptionLimitTest {
 
     @Test
     void anAttemptThatWasNotAWrongGuessIsGivenBack() {
-        // Right code, a linked account or a throwing database: none is evidence of guessing.
+        // A right code, a linked account and a throwing database do not count as guesses.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
 
         limit.acquire(DiscordId.of(SOMEBODY));
@@ -81,7 +79,7 @@ class RedemptionLimitTest {
 
     @Test
     void releasingWithNothingRecordedIsHarmless() {
-        // After a successful redemption clear() already emptied the account, and finally still runs.
+        // clear() has emptied the account after a successful redemption, so the finally block releases nothing.
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
         limit.release(DiscordId.of(SOMEBODY));
@@ -91,7 +89,7 @@ class RedemptionLimitTest {
 
     @Test
     void concurrentModalsCannotGetMoreAttemptsThanTheCap() throws Exception {
-        // Interactions run on a pool of four workers, so check-then-record can race.
+        // Interactions run on four workers, so a check followed by a record can race.
         final int cap = 5;
         final int threads = 32;
         final RedemptionLimit limit = new RedemptionLimit(cap, new Movable());

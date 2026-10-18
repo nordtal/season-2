@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** Which access and donor roles a member holds while the onboarding's lock withholds them, and once it lifts. */
 class AccessRolesTest {
 
     @Test
@@ -37,7 +36,7 @@ class AccessRolesTest {
 
     @Test
     void withNothingWithheldTheDonorRoleIsNeverTaken() {
-        // A role an admin handed out by hand stays, and one the flag does not name is not given.
+        // A role that an admin gave by hand stays. A role that the flag does not name is not given.
         assertAll(
                 () -> assertEquals(Change.KEEP, AccessRoles.donorChange(false, false, true)),
                 () -> assertEquals(Change.KEEP, AccessRoles.donorChange(false, false, false)),

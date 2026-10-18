@@ -18,10 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * {@link Teams} against a real PostgreSQL and the real migrations, whose constraints are the rules under test.
- *
- * Skipped when no Docker daemon is reachable.
+/** The constraints of the real migrations are the rules under test.
+ * The test is skipped when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TeamsIntegrationTest {
@@ -222,7 +220,7 @@ class TeamsIntegrationTest {
                                 .one()));
     }
 
-    /** What the game does to the round: it is the one that moves its state. */
+    /** The game moves the state of the round. */
     private static void moveRound(final UUID round, final String state) {
         database.jdbi()
                 .useHandle(handle -> handle.createUpdate("UPDATE registration SET state = :state WHERE id = :id")

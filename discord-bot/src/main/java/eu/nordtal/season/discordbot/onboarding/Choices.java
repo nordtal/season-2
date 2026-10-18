@@ -13,13 +13,12 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The roles a member chooses one of per kind, a language and a region, in the order they are offered.
+ * The roles a member chooses from, a language and a region, in the order they are offered.
  *
- * Every rule about which one a member keeps lives here, apart from Discord, so it is tested without a guild.
+ * The rules about which role a member keeps are here and use no Discord object.
  */
 final class Choices {
 
-    /** What a choice sets in the member's record. */
     enum Kind {
         LANGUAGE,
         REGION
@@ -28,7 +27,7 @@ final class Choices {
     /**
      * One role a member may choose.
      *
-     * @param value the language's tag or the region's zone, as the record stores it
+     * @param value the language tag or the region zone that the record stores
      */
     record Choice(Kind kind, String key, String name, String value) {}
 
@@ -64,7 +63,7 @@ final class Choices {
         return kind == Kind.LANGUAGE ? languages : regions;
     }
 
-    /** Returns every role this needs, the lock role last. */
+    /** Returns every role of the choices, then the lock role. */
     List<GuildRoles.Wanted> wanted() {
         final List<GuildRoles.Wanted> wanted = new ArrayList<>();
         for (final Kind kind : Kind.values()) {
@@ -75,16 +74,16 @@ final class Choices {
     }
 
     /**
-     * Returns whether every role of this kind is in the guild, which is what settling the kind needs.
+     * Returns whether the kind has choices and the guild has every role of the kind.
      *
-     * A member holding a role of the kind the bot could not take must not lose their record for it.
+     * Settling the kind needs this, so a member keeps the record for a role that the bot could not take.
      */
     boolean ready(final Kind kind, final Function<String, Optional<String>> idOf) {
         return !of(kind).isEmpty()
                 && of(kind).stream().allMatch(choice -> idOf.apply(choice.key()).isPresent());
     }
 
-    /** Returns the choices of this kind among {@code roleIds}, in the order they are offered. */
+    /** Returns the choices of the kind whose role is in {@code roleIds}, in the order they are offered. */
     List<Choice> among(
             final Kind kind, final Collection<String> roleIds, final Function<String, Optional<String>> idOf) {
         return of(kind).stream()
@@ -93,17 +92,16 @@ final class Choices {
                 .toList();
     }
 
-    /** Returns the choice of this kind whose value is {@code value}, if one is offered. */
     Optional<Choice> byValue(final Kind kind, final @Nullable String value) {
         return of(kind).stream().filter(choice -> choice.value().equals(value)).findFirst();
     }
 
     /**
-     * Returns the one choice a member keeps: the newest added, else the one their record holds, else the first.
+     * Returns the choice a member keeps: the first added one, else the recorded one, else the first held one.
      *
-     * @param held what they hold of one kind, in the order offered
-     * @param added what of it was just added, in the order offered
-     * @param recorded the value their record holds, or {@code null}
+     * @param held the choices of one kind that the member holds, in the order offered
+     * @param added the held choices that were just added, in the order offered
+     * @param recorded the value in the member's record, or {@code null}
      */
     static Optional<Choice> kept(final List<Choice> held, final List<Choice> added, final @Nullable String recorded) {
         if (!added.isEmpty()) {

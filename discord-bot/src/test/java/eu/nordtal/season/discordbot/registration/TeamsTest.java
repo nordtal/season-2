@@ -10,12 +10,12 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.Test;
 
-/** The {@link Teams} validations that run before any query, against a database that throws on connect. */
+/** The {@link Teams} validations that run before any query, tested with a database that throws on connect. */
 class TeamsTest {
 
     private static final Teams TEAMS = new Teams(
             Jdbi.create(new DataSource() {
-                        // Only the two methods JDBI's SqlObjectPlugin calls; every other throws.
+                        // Only the two methods that JDBI's SqlObjectPlugin calls work, and every other method throws.
                         @Override
                         public Connection getConnection() {
                             throw new UnsupportedOperationException("this test must never reach the database");

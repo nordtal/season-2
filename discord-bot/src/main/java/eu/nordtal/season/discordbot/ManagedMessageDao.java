@@ -5,11 +5,6 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/**
- * Which message the bot last posted for each managed message kind, so a restart edits it instead of posting again.
- *
- * Any feature with a message per kind uses it, since {@code managed_message.kind} is unconstrained.
- */
 public interface ManagedMessageDao {
 
     @SqlQuery("SELECT message_id FROM managed_message WHERE kind = :kind AND channel_id = :channelId")

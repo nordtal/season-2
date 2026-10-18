@@ -13,9 +13,9 @@ import net.dv8tion.jda.api.events.session.SessionRecreateEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 /**
- * Publishes the guild's channels into {@code guild_channels}, so Steward's pickers name them without the bot's token.
+ * Writes the guild's channels to {@code guild_channels}, which Steward's pickers read.
  *
- * The whole list is written at start, on every change of a channel and after a new session, one write at a time.
+ * The list is written at start, on every channel change and after a new session. The writes run one at a time.
  */
 @Slf4j
 public final class ChannelList extends ListenerAdapter {
@@ -25,7 +25,6 @@ public final class ChannelList extends ListenerAdapter {
     private final GuildChannels store;
     private final Executor lane;
 
-    /** @param lane where each write runs, so a slow database never holds up the gateway's events */
     public ChannelList(final JDA jda, final String guildId, final GuildChannels store, final Executor lane) {
         this.jda = Objects.requireNonNull(jda, "jda");
         this.guildId = Objects.requireNonNull(guildId, "guildId");
@@ -33,14 +32,13 @@ public final class ChannelList extends ListenerAdapter {
         this.lane = Objects.requireNonNull(lane, "lane");
     }
 
-    /** Writes the list the bot sees now, after the writes asked for before it. */
     public void publish() {
         lane.execute(this::write);
     }
 
     @Override
     public void onGenericChannel(final GenericChannelEvent event) {
-        // A thread is no channel a setting names, and Discord's own list of the guild's channels leaves them out.
+        // A thread is not a channel that a setting names.
         if (event.isFromGuild()
                 && event.getGuild().getId().equals(guildId)
                 && !event.getChannelType().isThread()) {
@@ -50,7 +48,7 @@ public final class ChannelList extends ListenerAdapter {
 
     @Override
     public void onSessionRecreate(final SessionRecreateEvent event) {
-        // A new session rebuilds the cache without an event for what changed meanwhile.
+        // A new session rebuilds the cache without events for earlier changes.
         publish();
     }
 

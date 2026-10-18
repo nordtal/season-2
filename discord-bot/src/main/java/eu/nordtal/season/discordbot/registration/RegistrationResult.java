@@ -5,7 +5,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The outcome of registering a team, from {@link Teams#register(DiscordId, String)}.
+ * The outcome of {@link Teams#register(DiscordId, String)}.
  *
  * @param teamId null unless {@link #status()} is {@link Status#REGISTERED}
  */
@@ -35,10 +35,10 @@ public record RegistrationResult(Status status, @Nullable UUID teamId) {
     public enum Status {
         REGISTERED,
         CLOSED,
-        /** Outside the 3 to 15 character range the modal already enforces. */
+        /** The name is outside the length range. */
         INVALID_NAME,
         NAME_TAKEN,
-        /** Already OWNER, INVITED or ACCEPTED on some team in the current round. */
+        /** The account is OWNER, INVITED or ACCEPTED in a team of the current round. */
         ALREADY_REGISTERED
     }
 }

@@ -16,9 +16,9 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 
 /**
- * Keeps the Discord admin role matching the admin tree in the database, never the other way round.
+ * Sets the Discord admin role of each member to match the admin tree in the database.
  *
- * A failure is alerted once per account and then kept quiet until it succeeds.
+ * A failure raises one alert per account until the account succeeds.
  */
 @Slf4j
 public final class AdminRole {
@@ -50,7 +50,6 @@ public final class AdminRole {
         }
         final Role role = roles.role(guild, GuildRoles.ADMIN).orElse(null);
         if (role == null) {
-            // GuildRoles has said why.
             log.warn("There is no admin role yet; it was not reconciled");
             return;
         }
@@ -70,7 +69,7 @@ public final class AdminRole {
         for (final DiscordId discordId : shouldHave.stream().map(DiscordId::of).toList()) {
             final Member member = guild.getMemberById(discordId.value());
             if (member == null) {
-                // Not in the member cache: leaving drops the admin anyway.
+                // The member is not in the cache.
                 continue;
             }
             guild.addRoleToMember(member, role)

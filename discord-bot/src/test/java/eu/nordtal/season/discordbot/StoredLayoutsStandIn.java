@@ -6,17 +6,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-/** Stored layouts held in memory, for a test that draws a layout without a database. */
 public final class StoredLayoutsStandIn {
 
     private StoredLayoutsStandIn() {}
 
-    /** Returns stored layouts that hold no rebuild and no image. */
     public static StoredLayouts none() {
         return holding(List.of(), List.of());
     }
 
-    /** Returns stored layouts that hold these rebuilds and images. */
     public static StoredLayouts holding(
             final List<LayoutStore.StoredLayout> rebuilds, final List<LayoutStore.LayoutImage> images) {
         final StoredLayouts layouts = new StoredLayouts(new LayoutStore() {

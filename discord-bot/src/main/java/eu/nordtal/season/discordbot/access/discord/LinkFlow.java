@@ -38,18 +38,12 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
-/**
- * Account linking on the Discord side: the link message's modal and {@code /unlink}.
- *
- * {@link RedemptionLimit} counts guesses per Discord account; every unlink is written to the admin channel.
- */
 @Slf4j
 public final class LinkFlow extends ListenerAdapter {
 
     private static final int CODE_MIN_LENGTH = 4;
     private static final int CODE_MAX_LENGTH = 16;
 
-    /** The modal the link message's button opens, which asks for the code the login screen showed. */
     static final Layout CODE = Layout.modal(
             "access",
             "link-code",
@@ -79,7 +73,6 @@ public final class LinkFlow extends ListenerAdapter {
         this.executor = executor;
     }
 
-    /** Returns the commands the bot registers on startup, open to everyone. */
     public static List<CommandData> commands() {
         return List.of(Commands.slash("unlink", "Remove the Minecraft account linked to your Discord account."));
     }
@@ -110,7 +103,6 @@ public final class LinkFlow extends ListenerAdapter {
         final String typed = event.getValue(Ids.LINK_CODE_INPUT) == null
                 ? ""
                 : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
-        // Codes are generated upper-case; normalising means a lower-case type-in is not punished.
         final String code = typed.strip().toUpperCase(Locale.ROOT);
 
         event.deferReply(true).queue();
@@ -136,7 +128,7 @@ public final class LinkFlow extends ListenerAdapter {
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
         final DiscordId discordId = DiscordId.of(event.getUser().getId());
 
-        // Taken before the database is touched, and atomically: two workers cannot share the last attempt.
+        // Acquire before the database is touched. The acquire is atomic, so two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
             event.getHook()
@@ -145,14 +137,13 @@ public final class LinkFlow extends ListenerAdapter {
             return;
         }
 
-        // Only a wrong guess keeps the attempt: a redemption failing on an unreachable database proves no guess.
+        // Only a wrong guess keeps the attempt. A redemption that fails on an unreachable database proves no guess.
         boolean wrongGuess = false;
         try {
             final LinkRedemption result = access.redeemLinkCode(discordId, code);
 
             switch (result.status()) {
                 case LINKED -> {
-                    // LINKED guarantees mcUuid, per LinkRedemption's contract.
                     final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
                     admin.record(new AuditLine(JournalAction.LINK, Actor.person(discordId), discordId, linked, null));
@@ -169,7 +160,6 @@ public final class LinkFlow extends ListenerAdapter {
                             .editOriginal(reply(locale, MESSAGES.link().invalidCode()))
                             .queue();
                 }
-                // Not counted: the code was real and the account already has one.
                 case ALREADY_LINKED ->
                     event.getHook()
                             .editOriginal(reply(locale, MESSAGES.link().alreadyLinked()))
@@ -216,18 +206,15 @@ public final class LinkFlow extends ListenerAdapter {
         return layouts.reply(locale, text).edit();
     }
 
-    /** The member an alert names, with the name Discord shows for them. */
     static Mention member(final User user) {
         return new Mention(DiscordId.of(user.getId()), user.getName());
     }
 
-    /** Tells the admins a member used up the hour's link codes; one person mistyping looks like this too. */
     private void lockedOut(final User user) {
         log.warn("{} has used up its link-code attempts for this hour", user.getId());
         admin.record(lockedOut(DiscordId.of(user.getId())));
     }
 
-    /** Returns the line the bot writes about a member it refuses more link codes for the hour. */
     public static AuditLine lockedOut(final DiscordId member) {
         return AuditLine.about(JournalAction.LINK_CODES_EXHAUSTED, Actor.BOT, member, null);
     }

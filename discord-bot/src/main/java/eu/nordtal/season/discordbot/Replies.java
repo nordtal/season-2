@@ -9,10 +9,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * Every reply, direct message and public line of the bot that is one text, each a layout of that one text block.
- * {@link LayoutRenderer#reply} finds the layout by its text's key.
- */
 public final class Replies {
 
     static final Layout PURCHASE_PENDING = reply("purchase-pending", "Purchase", "purchase.link.pending");
@@ -65,7 +61,6 @@ public final class Replies {
 
     static final Layout PUBLIC_DONATION = reply("public-donation", "Contribution", "public.donation");
 
-    /** Each layout above by the key of its one text, as a {@link eu.nordtal.season.messages.MessageRef} names it. */
     private static final Map<String, Layout> BY_KEY = LayoutSchema.declared(Replies.class).stream()
             .collect(Collectors.toUnmodifiableMap(
                     layout -> layout.keys().getFirst().substring("access/".length()), Function.identity()));
@@ -73,7 +68,7 @@ public final class Replies {
     private Replies() {}
 
     /**
-     * The layout of the reply whose one text is {@code key}.
+     * Returns the layout of the reply whose one text is {@code key}.
      *
      * @throws IllegalArgumentException if no reply shows that text
      */

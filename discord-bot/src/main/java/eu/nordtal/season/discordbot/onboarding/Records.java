@@ -6,13 +6,13 @@ import java.util.stream.Collectors;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** Reads the language and the zone the record of each member holds, which the roles are compared with. */
+/** Reads the language and the time zone of each member's record. */
 final class Records {
 
-    /** One member's record as stored: {@code null} is the network's. */
+    /** The stored record of one member. {@code null} means the network's value. */
     record Recorded(@Nullable String language, @Nullable String zone) {
 
-        /** The record of somebody who has none yet. */
+        /** The record of a member who has none. */
         static final Recorded NONE = new Recorded(null, null);
 
         @Nullable
@@ -29,7 +29,6 @@ final class Records {
         this.jdbi = jdbi;
     }
 
-    /** Returns every record by Discord id. */
     Map<String, Recorded> all() {
         return jdbi
                 .withHandle(handle -> handle.createQuery(SELECT)
@@ -41,7 +40,6 @@ final class Records {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    /** Returns one member's record, or {@link Recorded#NONE}. */
     Recorded of(final String discordId) {
         final Optional<Recorded> found =
                 jdbi.withHandle(handle -> handle.createQuery(SELECT + " WHERE discord_id = :id")

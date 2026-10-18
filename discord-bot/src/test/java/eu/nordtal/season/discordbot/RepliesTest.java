@@ -10,7 +10,7 @@ import java.util.Locale;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.junit.jupiter.api.Test;
 
-/** A reply of one text is that text's own layout: one text block, filled with the text's values. */
+/** A reply to one text is one text block filled with the values of the text. */
 class RepliesTest {
 
     private static final LayoutRenderer RENDERER = new LayoutRenderer(

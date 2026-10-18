@@ -23,7 +23,6 @@ import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import org.junit.jupiter.api.Test;
 
-/** The two onboarding messages: the welcome that asks a locked member for a language, and the one to change later. */
 class OnboardingMessageTest {
 
     private static final GuildLanguages LANGUAGES = GuildLanguages.of(

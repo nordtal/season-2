@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/** The language rules {@link GuildLanguages} owns, which the guild-facing classes cannot exercise without a guild. */
 class LanguagesTest {
 
     private static final Languages NETWORK = new Languages(List.of("en", "de"));
@@ -23,14 +22,13 @@ class LanguagesTest {
     private static final GuildLanguages.Language FR =
             new GuildLanguages.Language("fr", "Français", "31", "32", "33", "");
 
-    /** The two languages that exist today, in the order {@code DefaultLanguages} writes them. */
     private static GuildLanguages today() {
         return GuildLanguages.of(List.of(EN, DE), NETWORK);
     }
 
     @Test
     void theAnnouncementChannelIsTheSecondOptionalId() {
-        // The six-id constructor has no announcement channel; the seventh id switches it on.
+        // The constructor with six ids has no announcement channel. The seventh id adds it.
         assertFalse(EN.hasAnnouncementChannel());
         final GuildLanguages.Language withChannel =
                 new GuildLanguages.Language("en", "English", "11", "12", "13", "14", "15");
@@ -49,7 +47,7 @@ class LanguagesTest {
                 () -> assertEquals("31", three.forLocale(Locale.FRENCH).contributionChannelId()),
                 () -> assertEquals("32", three.forLocale(Locale.FRENCH).linkChannelId()),
                 () -> assertEquals(3, three.all().size()),
-                // Messages.load gets the whole list, so the French bundle is read without a code change.
+                // Messages.load takes the whole list, so the French bundle needs no code change.
                 () -> assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, three.locales()),
                 () -> assertEquals("CONTRIBUTION_FR", FR.contributionKind()),
                 () -> assertEquals("LINK_FR", FR.linkKind()));
@@ -72,14 +70,13 @@ class LanguagesTest {
                 () -> assertEquals("21", today().forLocale(Locale.GERMAN).contributionChannelId()),
                 () -> assertEquals("12", today().forLocale(Locale.ENGLISH).linkChannelId()),
                 () -> assertEquals("22", today().forLocale(Locale.GERMAN).linkChannelId()),
-                // discord_user.locale stores the language only, so de-AT is German.
+                // discord_user.locale stores only the language, so de-AT is German.
                 () -> assertEquals(
                         "21", today().forLocale(Locale.forLanguageTag("de-AT")).contributionChannelId()));
     }
 
     @Test
     void aLanguageThatIsNotConfiguredFallsBackToEnRatherThanToNothing() {
-        // A tag whose entry was removed from the access group falls back to English.
         assertAll(
                 () -> assertEquals("en", today().forLocale(Locale.FRENCH).tag()),
                 () -> assertEquals("11", today().forLocale(Locale.FRENCH).contributionChannelId()),

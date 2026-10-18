@@ -24,7 +24,6 @@ import net.dv8tion.jda.api.JDA;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** What makes the status channel names follow a change: the channels they wait on, and one tick for a burst. */
 class StatusChannelsSignalTest {
 
     private final AtomicInteger ticks = new AtomicInteger();

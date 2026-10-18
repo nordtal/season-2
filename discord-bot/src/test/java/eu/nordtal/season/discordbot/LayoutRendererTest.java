@@ -38,7 +38,6 @@ import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.junit.jupiter.api.Test;
 
-/** The renderer draws the shared vectors as they expect and keeps every message within Discord's limits. */
 class LayoutRendererTest {
 
     private static final Path VECTORS = Path.of("messages/src/test/resources");
@@ -119,7 +118,6 @@ class LayoutRendererTest {
                                         "change", new LayoutRenderer.FilledButton(Ids.ONBOARD))),
                         Locale.ENGLISH);
 
-        // Each language draws a container, its text, a row and its button.
         assertEquals(20, drawn.components().size());
     }
 
@@ -180,7 +178,6 @@ class LayoutRendererTest {
                 .getAsString();
     }
 
-    /** The components as the bot sends them to Discord. */
     static JsonElement sent(final List<MessageTopLevelComponent> components) {
         try (var data = new MessageCreateBuilder()
                 .useComponentsV2()
@@ -192,7 +189,6 @@ class LayoutRendererTest {
         }
     }
 
-    /** Whether every field {@code expected} names is in {@code actual} with that value. */
     private static boolean within(final JsonElement expected, final JsonElement actual) {
         if (expected.isJsonObject() && actual.isJsonObject()) {
             return expected.getAsJsonObject().entrySet().stream()

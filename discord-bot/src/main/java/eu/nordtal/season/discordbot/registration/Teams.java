@@ -11,9 +11,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
- * Team registration for one game over {@code registration}, {@code team} and {@code team_member}.
+ * Registers teams of one game in {@code registration}, {@code team} and {@code team_member}.
  *
- * Every check is also a schema constraint and only picks the answer; nothing changes while the game holds the round.
+ * Every check is also a schema constraint and only chooses the result. Nothing changes while the game holds the round.
  */
 public final class Teams {
 
@@ -30,12 +30,11 @@ public final class Teams {
         this.dao = jdbi.onDemand(RegistrationDao.class);
     }
 
-    /** Returns the game these teams register for. */
     public Game game() {
         return game;
     }
 
-    /** Returns the round that has not ended, opening a new one after the last game was decided. */
+    /** Returns the round that has not ended. It opens a new round when none exists. */
     RegistrationDao.Current current() {
         final Optional<RegistrationDao.Current> existing = dao.current(game.key());
         if (existing.isPresent()) {
@@ -44,7 +43,7 @@ public final class Teams {
         try {
             return dao.open(game.key());
         } catch (final UnableToExecuteStatementException exception) {
-            // Somebody else's first registration opened it a moment ago.
+            // Another registration opened the round meanwhile.
             if (isUniqueViolation(exception)) {
                 return dao.current(game.key()).orElseThrow(() -> exception);
             }
@@ -55,8 +54,7 @@ public final class Teams {
     /**
      * Registers a new team with {@code discordId} as its owner.
      *
-     * @param discordId the registering Discord account
-     * @param name the team name, 3 to 15 characters, unique within the round
+     * @param name the team name, 3 to 15 characters and unique in the round
      */
     public RegistrationResult register(final DiscordId discordId, final String name) {
         final String trimmed = name == null ? "" : name.strip();
@@ -90,11 +88,11 @@ public final class Teams {
                 txDao.insertOwner(team, registrationId, discordId);
                 return Optional.of(team);
             });
-            // A game started between the check above and this transaction.
+            // A game started after the check.
             return teamId.map(RegistrationResult::registered).orElseGet(RegistrationResult::closed);
         } catch (final UnableToExecuteStatementException exception) {
             if (isUniqueViolation(exception)) {
-                // Somebody else's registration landed between the check above and this transaction.
+                // Another registration was written after the check.
                 return dao.activeMembershipId(registrationId, discordId).isPresent()
                         ? RegistrationResult.alreadyRegistered()
                         : RegistrationResult.nameTaken();
@@ -104,10 +102,9 @@ public final class Teams {
     }
 
     /**
-     * Invites {@code partnerDiscordId} onto {@code ownerDiscordId}'s team.
+     * Invites {@code partnerDiscordId} to the team of {@code ownerDiscordId}.
      *
-     * @param ownerDiscordId   must be the OWNER of a team in the current round
-     * @param partnerDiscordId who is being invited
+     * @param ownerDiscordId the OWNER of a team in the current round
      */
     public InviteResult invite(final String ownerDiscordId, final String partnerDiscordId) {
         if (ownerDiscordId.equals(partnerDiscordId)) {
@@ -165,10 +162,10 @@ public final class Teams {
     }
 
     /**
-     * Accepts an invite on behalf of the invited account.
+     * Accepts an invite.
      *
-     * @param memberId the INVITED row's id, carried by the accept button
-     * @param respondingDiscordId only this account's own invite can be answered with it
+     * @param memberId the id of the INVITED row, which the accept button holds
+     * @param respondingDiscordId the invited account, which is the only account that can answer
      */
     public AnswerResult accept(final UUID memberId, final String respondingDiscordId) {
         if (dao.accept(memberId, DiscordId.of(respondingDiscordId)) != 1) {
@@ -186,7 +183,7 @@ public final class Teams {
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());
     }
 
-    /** Declines an invite, with the same rules as {@link #accept(UUID, String)}. */
+    /** Declines an invite under the rules of {@link #accept(UUID, String)}. */
     public AnswerResult decline(final UUID memberId, final String respondingDiscordId) {
         if (dao.decline(memberId, DiscordId.of(respondingDiscordId)) != 1) {
             return AnswerResult.notPending();
@@ -195,7 +192,6 @@ public final class Teams {
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());
     }
 
-    /** Returns the OWNER of a team, to report an answer to an invite back to. */
     public Optional<String> ownerOf(final UUID teamId) {
         return dao.ownerDiscordId(teamId);
     }

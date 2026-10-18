@@ -33,11 +33,6 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Journals what members do and what the bot notes, posts each line to the admin channel, and raises the rest.
- *
- * An {@link #alert} is a row steward routes, so this class never decides who hears of it; {@link #postAlert} draws one.
- */
 @Slf4j
 public final class AdminLog {
 
@@ -45,7 +40,6 @@ public final class AdminLog {
 
     private static final String AREA = "Admin channel";
 
-    /** A journal entry: its mark and action, its line, who did it, and whom and which account it concerns. */
     static final Layout JOURNAL = Layout.discord(
             "access",
             "admin-journal",
@@ -59,7 +53,6 @@ public final class AdminLog {
                     Part.text(Line.text("access/admin.line")),
                     Part.text(Line.text("access/admin.by"), Line.list("concerns"), Line.list("minecraft"))));
 
-    /** An alert: the admins it calls above the box, so they are pinged, and its page's button below. */
     static final Layout ALERT = Layout.discord(
             "access",
             "admin-alert",
@@ -72,7 +65,6 @@ public final class AdminLog {
             Part.container(Tone.BRAND, Part.text(Line.title("access/admin.title")), Part.text(Line.list("lines"))),
             Part.row("open"));
 
-    /** The mark of a journal line in the admin channel; an action not listed here is posted with a pencil. */
     private static final Map<JournalAction, Mark> MARKS = Map.of(
             JournalAction.GRANT_ACCESS, Mark.GRANTED,
             JournalAction.REVOKE_ACCESS, Mark.REVOKED,
@@ -102,7 +94,7 @@ public final class AdminLog {
         this.layouts = layouts;
     }
 
-    /** Raises something an admin must act on; steward routes it to push and back here, and this never throws. */
+    /** Raises something an admin must act on. Steward routes it to push and back here. This method never throws. */
     public void alert(final Alert alert) {
         raise(alerts, alert);
     }
@@ -111,17 +103,14 @@ public final class AdminLog {
         try {
             book.raise(alert, RAISED_BY);
         } catch (final RuntimeException exception) {
-            // With the database gone, this line is the only place the alert exists.
             log.error("Could not raise the alert {}: {}", alert.title(), alert.detail(), exception);
         }
     }
 
-    /** Posts an alert steward routed here, and answers whether there was an admin channel to post it to. */
     public boolean postAlert(final BotRequest.PostAlert alert) {
         return send(card(layouts, alert), alert.mentions());
     }
 
-    /** Draws an alert: the admins it calls, its level's mark and title, the lines below it and its page's button. */
     static LayoutRenderer.Drawn card(final LayoutRenderer layouts, final BotRequest.PostAlert alert) {
         final String link = alert.link();
         return layouts.render(
@@ -146,7 +135,6 @@ public final class AdminLog {
                 Locales.DEFAULT);
     }
 
-    /** Returns the mark of an alert's level. */
     static Mark mark(final Alert.Level level) {
         return switch (level) {
             case DOWN -> Mark.FAILED;
@@ -158,7 +146,7 @@ public final class AdminLog {
     /**
      * Posts a card that a caller can rewrite later, and pings nobody.
      *
-     * @param sentId called on a JDA thread with the message id, and not at all when the post fails
+     * @param sentId runs on a JDA thread with the message id, and not at all when the post fails
      */
     public void post(final LayoutRenderer.Drawn card, final Consumer<String> sentId) {
         final MessageChannel channel = channel();
@@ -171,7 +159,6 @@ public final class AdminLog {
                         failure -> log.error("Could not post a card to the admin channel", failure));
     }
 
-    /** Rewrites a message this class posted; a failure is only logged, so it can never stop a run. */
     public void edit(final String messageId, final LayoutRenderer.Drawn card) {
         final MessageChannel channel = channel();
         if (channel == null) {
@@ -184,9 +171,8 @@ public final class AdminLog {
     }
 
     /**
-     * Writes one journal entry and posts it to the admin channel, and never throws.
-     *
-     * The action it records has already happened. The card renders the same values the entry stores, so both agree.
+     * Writes one journal entry, posts it to the admin channel and never throws.
+     * The action has already happened. The card renders the values the entry stores, so both agree.
      */
     public void record(final AuditLine line) {
         try {
@@ -197,7 +183,6 @@ public final class AdminLog {
         send(card(layouts, line), List.of());
     }
 
-    /** Posts the card of a journal entry another service wrote, such as a booking's, drawn from its row. */
     public void show(final UUID entry) {
         journal.entry(entry)
                 .ifPresentOrElse(
@@ -211,7 +196,6 @@ public final class AdminLog {
         return card(layouts, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line());
     }
 
-    /** Draws a journal entry: its action as the title, its line, who did it and whom it concerns. */
     static LayoutRenderer.Drawn card(
             final LayoutRenderer layouts,
             final JournalAction action,
@@ -248,7 +232,6 @@ public final class AdminLog {
     }
 
     private @Nullable MessageChannel channel() {
-        // Unconfigured and unresolvable log differently: no channel picked, or one since removed.
         if (!Configured.isSet(config.channels().admin())) {
             return null;
         }
@@ -262,11 +245,9 @@ public final class AdminLog {
         return channel;
     }
 
-    /** Posts a card, pinging only {@code admins}: a mention elsewhere in a card names someone without a ping. */
     private boolean send(final LayoutRenderer.Drawn card, final List<DiscordId> admins) {
         final MessageChannel channel = channel();
         if (channel == null) {
-            // At warn: with no admin channel this is the only place the message exists.
             log.warn("No admin channel, so this was not posted to Discord: {}", card.text());
             return false;
         }

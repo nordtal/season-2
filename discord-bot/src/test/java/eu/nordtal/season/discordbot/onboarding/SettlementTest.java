@@ -12,7 +12,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** Which language, region and lock role a member keeps, and what their record becomes, without a guild. */
 class SettlementTest {
 
     private static final String EN = "10";
@@ -145,7 +144,7 @@ class SettlementTest {
 
     @Test
     void aKindWithARoleTheBotCouldNotTakeIsLeftAloneAndLocksNobody() {
-        // Two roles called "US East" in the guild: neither is taken, so a holder of one must not lose their zone.
+        // The guild has two roles called "US East", so neither is taken and a holder of one keeps the zone.
         guild.remove(GuildRoles.region("America/New_York"));
 
         final Settlement settlement = settle(Set.of(EN), Set.of(), recorded("en", "America/New_York"), true);

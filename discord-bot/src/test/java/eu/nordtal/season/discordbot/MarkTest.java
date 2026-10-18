@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** The set of emojis every Discord message takes its marks from. */
 class MarkTest {
 
     @Test
@@ -68,7 +67,7 @@ class MarkTest {
         assertTrue(typed.isEmpty(), "an emoji belongs to Mark, but these hold one: " + typed);
     }
 
-    /** Whether a code point is an emoji or a variation selector, which is how Discord draws a mark. */
+    /** Discord draws a mark as an emoji or a variation selector. */
     private static boolean emoji(final int codePoint) {
         return codePoint >= 0x1F000
                 || (codePoint >= 0x2300 && codePoint <= 0x23FF)

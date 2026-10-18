@@ -7,11 +7,6 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.jdbi.v3.core.Jdbi;
 
-/**
- * Keeps one bot message per kind in its channel, editing the one it posted last rather than posting another.
- * The id is kept in {@code managed_message}; a remembered message that is gone is posted anew. An edit turns an embed
- * message into Components V2, which Discord never turns back.
- */
 @Slf4j
 public final class ManagedMessage {
 
@@ -24,12 +19,11 @@ public final class ManagedMessage {
     }
 
     /**
-     * Posts or edits the message of {@code kind} in its channel; an empty channel id means no message.
-     *
+     * Posts or edits the message of {@code kind} in its channel.
+     * An empty channel id means no message.
      * A failure is logged and never thrown, so one bad channel does not stop the others.
      */
     public void publish(final String kind, final String channelId, final LayoutRenderer.Drawn content) {
-        // Checked first: getChannelById throws on an empty id.
         if (!Configured.isSet(channelId)) {
             return;
         }
@@ -56,7 +50,6 @@ public final class ManagedMessage {
         }
     }
 
-    /** Returns {@code false} when the remembered message is gone, so the caller posts a fresh one. */
     private boolean edit(final MessageChannel channel, final String messageId, final LayoutRenderer.Drawn content) {
         try {
             channel.editMessageById(messageId, content.edit()).complete();

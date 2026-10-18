@@ -9,9 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 
 /**
- * One open log stream from the agent, read as {@link AgentWire.LogEvent}s until either end closes it.
- *
- * {@link #close()} from another thread is what ends a {@link #read} that is blocked on a quiet log.
+ * An open log stream of the agent, read as {@link AgentWire.LogEvent}s.
+ * {@link #close()} from another thread ends a {@link #read} that is blocked.
  */
 public final class LogFollow implements Closeable {
 
@@ -22,9 +21,9 @@ public final class LogFollow implements Closeable {
     }
 
     /**
-     * Hands every event to {@code events} as it arrives, and returns when the stream ends.
+     * Passes every event to {@code events} as it arrives and returns when the stream ends.
      *
-     * @throws IOException when the stream breaks or is closed underneath the read
+     * @throws IOException if the stream breaks or is closed during the read
      */
     public void read(final Consumer<AgentWire.LogEvent> events) throws IOException {
         final BufferedReader lines = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8));
@@ -52,7 +51,7 @@ public final class LogFollow implements Closeable {
         }
     }
 
-    /** SSE drops exactly one space after the colon, and keeps any further ones as part of the value. */
+    // SSE drops exactly one space after the colon and keeps any further ones.
     private static String stripOneSpace(final String value) {
         return value.startsWith(" ") ? value.substring(1) : value;
     }

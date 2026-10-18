@@ -1,27 +1,25 @@
 # internal-api
 
-The HTTP wire between `steward` and the services only it may call, `steward-agent` and
-`steward-bunq`. One server, one client, one gate, so each service runs the same token check and
-`steward` reads every failure the same way.
+`internal-api` is the HTTP wire between `steward` and the two services only it calls, `steward-agent`
+and `steward-bunq`. Both services use one server and `steward` uses one client, so every service
+checks the token the same way and `steward` reads every failure the same way.
 
-- `InternalServer` reads `NORDTAL_<SERVICE>_PORT` and `NORDTAL_<SERVICE>_TOKEN`, refuses to start
-  without a token, and answers `401` on every `/api/*` route but `/api/health` unless
-  `X-Steward-Token` matches. The comparison is constant time. `serve` also keeps `common`'s
-  readiness marker fresh, which is what the container's healthcheck reads: the image has no HTTP
-  client, and every JVM service is then judged healthy the same way.
-- `InternalClient` is what `steward` holds per service. A refusal arrives as a `Failure` naming the
-  service, so an error page can say which one answered: `504` on a timeout, `502` when nothing
-  answered at all.
-- `BankWire` is the bank's half of the wire: the routes and the records that cross it. Amounts are
-  integer cents and times ISO instants, so neither end needs the bank's SDK to read them.
-- `agent` is the agent's half: `AgentWire` (the routes and records, documented in
-  [`../steward-agent/README.md`](../steward-agent/README.md)) and `AgentClient`, the only way steward
-  reaches Docker and the volumes. A run sees it as `ContainerOps` and `Snapshots`.
-- `sse.Follows` keeps a long server-sent event stream alive on the process's scheduler: a heartbeat,
-  a check whether the reader may still read, and every follow ended before Jetty stops. The agent's log streams and steward's
-  relay of them are both one.
+- `InternalServer` reads `NORDTAL_<SERVICE>_PORT` and `NORDTAL_<SERVICE>_TOKEN`. It refuses to start
+  without a token. It answers `401` on every `/api/*` route except `/api/health` unless
+  `X-Steward-Token` matches, and compares the token in constant time. `serve` also keeps the
+  readiness marker of `common` fresh. The container's health check reads the marker, because the
+  image has no HTTP client.
+- `InternalClient` is the client that `steward` holds per service. A refusal arrives as a `Failure`
+  that names the service. A timeout is a `504`, and no answer at all is a `502`.
+- `BankWire` holds the routes and records of `steward-bunq`. Amounts are integer cents and times are
+  ISO instants.
+- `agent` holds `AgentWire`, the routes and records of `steward-agent` (see
+  [`../steward-agent/README.md`](../steward-agent/README.md)), and `AgentClient`, the only way that
+  `steward` reaches Docker and the volumes.
+- `sse.Follows` keeps a long server-sent event stream alive on the process's scheduler. It sends a
+  heartbeat, checks that the reader may still read, and ends every follow before Jetty stops.
 
-Both services also sit on an internal Docker network shared with `steward` alone;
-`TopologyDeploymentTest` holds that shape.
+Both services sit on an internal Docker network that only `steward` shares. `TopologyDeploymentTest`
+holds that.
 
-`:architecture` keeps the module to Javalin, Gson, slf4j and `:common`.
+`:architecture` limits the module to Javalin, Gson, slf4j and `:common`.

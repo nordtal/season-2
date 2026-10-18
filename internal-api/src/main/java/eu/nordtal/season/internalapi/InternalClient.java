@@ -12,9 +12,8 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Steward's way to a service behind an {@link InternalServer}: JSON both ways, the shared secret in its header.
- *
- * An answer passes through unparsed; only a failure is turned into a {@link Failure} that names the service.
+ * The client of steward for a service behind an {@link InternalServer}: JSON both ways, the shared secret in a header.
+ * Only a failure is parsed, into a {@link Failure}.
  */
 public final class InternalClient {
 
@@ -24,9 +23,9 @@ public final class InternalClient {
     private final Duration timeout;
 
     /**
-     * Talks to {@code service} at {@code baseUrl}, waiting at most {@code timeout} for an answer.
+     * Calls {@code service} at {@code baseUrl} and waits at most {@code timeout} for an answer.
      *
-     * @throws IllegalArgumentException when a token would travel to {@code baseUrl} in the clear
+     * @throws IllegalArgumentException if a token would travel to {@code baseUrl} unencrypted
      */
     public InternalClient(final String service, final String baseUrl, final String token, final Duration timeout) {
         final String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -36,7 +35,6 @@ public final class InternalClient {
         this.web = WebClient.create(timeout).header(InternalServer.TOKEN_HEADER, token);
     }
 
-    /** Returns the compose service this client talks to, as every message names it. */
     public String service() {
         return service;
     }
@@ -49,7 +47,7 @@ public final class InternalClient {
         return get(path, timeout);
     }
 
-    /** Sends a GET that may take {@code within} to answer, for a question slower than the client's timeout. */
+    /** Sends a GET that may take {@code within} to answer. */
     public String get(final String path, final Duration within) {
         return answered(path, within, () -> web.get(uri(path), within));
     }
@@ -58,13 +56,13 @@ public final class InternalClient {
         return post(path, json, timeout);
     }
 
-    /** Sends a POST that may take {@code within} to answer, for work that holds the request while it runs. */
+    /** Sends a POST that may take {@code within} to answer. */
     public String post(final String path, final String json, final Duration within) {
         return answered(path, within, () -> web.post(uri(path), "application/json", json, within));
     }
 
     /**
-     * Opens a GET whose body is read as it arrives, an event stream or a download, until the caller closes it.
+     * Opens a GET whose body is read as it arrives, until the caller closes it.
      *
      * @param accept the media type asked for, {@code text/event-stream} for events
      */
@@ -79,12 +77,11 @@ public final class InternalClient {
         }
     }
 
-    /** Sends one request and answers its body, turning every way it can go wrong into a {@link Failure}. */
+    /** Sends one request and returns its body. Every failure becomes a {@link Failure}. */
     private String answered(final String path, final Duration within, final Exchange exchange) {
         try {
             final Reply reply = exchange.send();
             if (!reply.ok()) {
-                // Many of these statuses (a proxy's 307, a bodiless 502) carry no body of their own.
                 throw new Failure(
                         service,
                         reply.status(),
@@ -97,7 +94,7 @@ public final class InternalClient {
         }
     }
 
-    /** Names how a request that never got an answer went wrong: too slow, interrupted, or nobody there. */
+    /** Returns the {@link Failure} for a request without an answer: too slow, interrupted or nobody there. */
     private Failure failureOf(final String path, final Duration within, final IOException e) {
         if (e instanceof HttpTimeoutException) {
             return new Failure(
@@ -109,7 +106,6 @@ public final class InternalClient {
         return new Failure(service, 502, service + " could not be reached at " + baseUrl + " for " + path, null);
     }
 
-    /** One request, sent when {@link #answered} asks for it. */
     @FunctionalInterface
     private interface Exchange {
         Reply send() throws IOException;
@@ -119,7 +115,7 @@ public final class InternalClient {
         return URI.create(baseUrl + path);
     }
 
-    /** The service did not answer, or answered with a failure; the message is a sentence to show. */
+    /** The service did not answer or answered with a failure. The message is a sentence to show. */
     public static final class Failure extends RuntimeException {
 
         private final String where;
@@ -133,12 +129,13 @@ public final class InternalClient {
             this.body = body;
         }
 
-        /** What the service asked reported about the one behind it, such as the daemon, as a 502 naming that one. */
+        /**
+         * Returns a 502 that names the service behind the one called, for example the Docker daemon.
+         */
         public static Failure behind(final String where, final String message) {
             return new Failure(where, 502, message, null);
         }
 
-        /** Which service did not answer; the interface shows it, so it must not be a guess. */
         public String where() {
             return where;
         }
@@ -147,7 +144,6 @@ public final class InternalClient {
             return status;
         }
 
-        /** Returns what the service itself said, which is the explanation worth showing, if it said anything. */
         public @Nullable String body() {
             return body;
         }

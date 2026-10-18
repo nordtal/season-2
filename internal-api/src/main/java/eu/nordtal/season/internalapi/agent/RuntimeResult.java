@@ -5,11 +5,11 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What came of asking the runtime for the project's services; an unreached daemon differs from an empty project.
+ * The project's services as the runtime reports them. An unreached daemon differs from an empty project.
  *
  * @param reached whether the runtime could be read at all
- * @param services what was found, empty when it could not
- * @param message why not, or {@code null} when it could
+ * @param services the services found, empty if it could not be read
+ * @param message the reason if it could not be read, otherwise {@code null}
  */
 public record RuntimeResult(
         boolean reached,
@@ -28,7 +28,6 @@ public record RuntimeResult(
         return new RuntimeResult(false, List.of(), message);
     }
 
-    /** Returns the entry for that compose service, if the project has a container for it. */
     public Optional<ServiceRuntime> service(final String name) {
         return services.stream().filter(entry -> entry.service().equals(name)).findFirst();
     }

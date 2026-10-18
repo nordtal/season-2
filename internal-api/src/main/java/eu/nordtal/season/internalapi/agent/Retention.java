@@ -15,21 +15,21 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Decides which backups expire: each day collapses to its last run, then days, weeks and months are kept.
+ * Decides which backups expire. A day keeps its last run, then days, weeks and months are kept.
  *
  * @param daily how many of the most recent days are kept in full
  * @param weekly how many ISO weeks keep their newest surviving day
  * @param monthly how many calendar months keep their newest surviving day
- * @param collapseAfterDays how long several runs of one day are all kept before only the last survives
+ * @param collapseAfterDays after how many days only the last run of a day survives
  */
 public record Retention(int daily, int weekly, int monthly, int collapseAfterDays) {
 
-    /** One archive: a name for the report and the moment taken from the stamp in its file name, not its mtime. */
+    /** One archive: its name and the moment from the stamp in its file name. */
     public record Dated(String name, Instant taken) {}
 
     public Retention {
         if (daily < 1) {
-            // Zero would delete every backup and is likely an unset value read as 0.
+            // Zero would delete every backup.
             throw new IllegalArgumentException("backup.retention.daily must be at least 1, was " + daily);
         }
         if (weekly < 0 || monthly < 0) {
@@ -43,10 +43,9 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
     }
 
     /**
-     * Returns which archives of one series may go, oldest first; nothing inside the grace window ever goes.
+     * Returns which archives of one series may go, oldest first. Nothing inside the grace window goes.
      *
-     * @param all everything of one series on the disk, in any order
-     * @param now the moment of the sweep, which decides what is still inside the grace
+     * @param all everything of one series on the disk
      */
     public List<Dated> expired(final List<Dated> all, final Instant now) {
         return expired(all, now, false);
@@ -54,7 +53,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
 
     /**
      * Returns which archives of a series that is no longer taken may go, oldest first.
-     * The days, weeks and months to keep are counted back from {@code now} on the calendar, so the series ages out.
+     * Days, weeks and months count back from {@code now}.
      */
     public List<Dated> expiredByCalendar(final List<Dated> all, final Instant now) {
         return expired(all, now, true);
@@ -64,7 +63,6 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         final LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
         final Instant settledBefore = now.minus(Duration.ofDays(collapseAfterDays));
 
-        // Newest first, so "the last run of a day" and "the newest day of a week" are both the first entry a loop sees.
         final List<Dated> newestFirst = all.stream()
                 .sorted(Comparator.comparing(Dated::taken)
                         .thenComparing(Dated::name)
@@ -74,18 +72,15 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         final Set<Dated> keep = new HashSet<>();
         final Map<LocalDate, Dated> perDay = new LinkedHashMap<>();
         for (final Dated one : newestFirst) {
-            // The first one met on a given day is the last one taken and stands for the day.
             perDay.putIfAbsent(LocalDate.ofInstant(one.taken(), ZoneOffset.UTC), one);
-            // Inside the grace every run survives; an unsettled day is not collapsed.
             if (!one.taken().isBefore(settledBefore)) {
                 keep.add(one);
             }
         }
 
-        // A day's representative survives only if the schedule keeps its day.
         final List<Dated> days = List.copyOf(perDay.values());
 
-        // By the calendar, each schedule only sees the days inside its own window, counted back from today.
+        // With the calendar, each schedule counts days back from today inside its own window.
         final List<Dated> dailyDays = byCalendar ? since(days, today.minusDays(daily - 1L)) : days;
         final List<Dated> weeklyDays =
                 byCalendar ? since(days, today.minusWeeks(weekly - 1L).with(DayOfWeek.MONDAY)) : days;
@@ -111,11 +106,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
                 .toList();
     }
 
-    /**
-     * Returns the newest day of each of the {@code buckets} newest weeks or months.
-     *
-     * Counted from the newest bucket, so the total is at most {@code daily + weekly + monthly}.
-     */
+    /** Returns the newest day of each of the {@code buckets} newest weeks or months. */
     private static List<Dated> newestOfEach(
             final List<Dated> daysNewestFirst,
             final int buckets,

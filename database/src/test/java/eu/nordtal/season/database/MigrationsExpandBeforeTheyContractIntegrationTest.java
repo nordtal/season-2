@@ -176,6 +176,24 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "id", "occurred", "action", "actor_kind", "actor_id");
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "subject", "mc_uuid", "line", "reference", "days");
         }
+        // The rebuilt Discord layout tables, which no proxy or limbo code read.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.33.0", role, "SELECT", "layout_line", "bundle", "key", "layout", "line", "list", "part");
+            listed(unused, "0.33.0", role, "SELECT", "layout_line", "style");
+            listed(unused, "0.33.0", role, "SELECT", "layout_line_text", "bundle", "language", "layout", "line");
+            listed(unused, "0.33.0", role, "SELECT", "layout_line_text", "part", "text");
+            listed(unused, "0.33.0", role, "SELECT", "layout_link", "bundle", "element", "layout", "url");
+            listed(unused, "0.33.0", role, "SELECT", "layout_link_label", "bundle", "element", "label", "language");
+            listed(unused, "0.33.0", role, "SELECT", "layout_link_label", "layout");
+            listed(unused, "0.33.0", role, "SELECT", "layout_media", "address", "bundle", "image", "layout", "part");
+            listed(unused, "0.33.0", role, "SELECT", "layout_media", "position");
+            listed(unused, "0.33.0", role, "SELECT", "layout_override", "actor_id", "actor_kind", "bundle", "changed");
+            listed(unused, "0.33.0", role, "SELECT", "layout_override", "layout", "replaced");
+            listed(unused, "0.33.0", role, "SELECT", "layout_part", "accent", "bundle", "element", "layout", "parent");
+            listed(unused, "0.33.0", role, "SELECT", "layout_part", "part", "type");
+            listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "bundle", "element", "layout", "part");
+            listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "position");
+        }
         return Map.copyOf(unused);
     }
 

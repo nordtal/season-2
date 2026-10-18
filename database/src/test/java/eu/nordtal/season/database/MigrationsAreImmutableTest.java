@@ -204,6 +204,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V73__a_server_tries_a_settings_change_before_it_is_saved.sql",
                 "09d953945d0ec6508f4152d6fbe4b2454d4691c37cd778808fa496dd96175ff1");
+        FROZEN.put(
+                "V74__the_rebuilt_layout_tables_are_gone.sql",
+                "f89028916eff562514fe77a7d476bb5210739361b7603dbfad8c99fa8fe9a002");
     }
 
     @Test

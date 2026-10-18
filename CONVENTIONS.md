@@ -5,27 +5,102 @@ this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warn
 
 ## Wording
 
-Every text written for this project is **plain technical prose**, the register of a reference
-manual: Markdown, comments, doc comments, commit messages, pull requests, Plane work items and every
-text a player, a Discord member or an admin reads (message bundles, embeds, Steward's interface).
-Every sentence passes each of these tests, and a sentence that fails one is rewritten until it
-passes all of them:
+Every text written for this project is short, plain technical prose: Markdown, comments, doc
+comments, commit messages, pull requests, Plane work items and every text a player, a Discord
+member or an admin reads (message bundles, embeds, Steward's interface). A rewrite first cuts, then
+rewords what is left.
 
-- **Subject:** it names what it is about by its one name: a component, class, file, setting, table
-  or command as the code names it, a game term as `resource-pack/glyphs.json` and
-  `eu.nordtal.season.common.Platform` name it.
-- **Fact:** its verb states what that subject does, holds, reads, writes, requires or refuses, so a
-  reader can check the sentence against the code or the game.
+### Cut
+
+A line stays only if its reader needs it at that place. Everything else goes.
+
+- **What the code says:** a README or comment does not list fields, endpoints, steps or options
+  that a name, a signature or the code next to it already shows. A README keeps what the module is
+  for, what it requires and refuses, and how to run it.
+- **Reasons and history:** no "because" or "once" sentence and no account of how something came to
+  be, unless a reader without it makes a mistake.
+- **Explanations in player texts:** a player text says what happens and what the player does next,
+  never why.
+- **Jokes and remarks:** a line that carries no fact goes.
+
+### Reword
+
+Every sentence that stays passes each of these tests:
+
+- **Subject:** it names its subject by its one name: a component, class, file, setting, table or
+  command as the code names it, a game term as the glossary below names it. A player text names
+  game terms only, never a component.
+- **Fact:** its verb states what that subject does, holds, reads, writes, requires or refuses. A
+  rewrite never states more than the code does: a fact it cannot check against the code stays as it
+  was.
 - **Literal words:** every word carries its technical meaning. A component is described by its
   function (`steward-agent` holds the Docker socket), never by an image of it (a door, a gate, a
-  heart).
-- **Simple words:** the shortest common word that is exact, in sentences of one statement each.
+  heart). Code names keep their names; a rename is a code change of its own.
+- **Short:** the shortest common word that is exact, one statement per sentence, no filler
+  ("please", "currently", "in order to"). German and English follow the same tests, and German
+  addresses the player as _du_.
 - **Full sentence:** subject, verb and object are written out. A table cell, a diagram label, a
-  commit title, a button and a title in an interface may be a noun phrase; every other line is a
-  complete sentence. An instruction to the
-  reader is an imperative sentence (`Run it on a host with Docker.`).
-- **Label:** a heading or bold label is the subject's name followed by a colon (`**Bank key:**`), and
-  the sentence after it carries the whole fact, so a reader who skips the label loses nothing.
+  heading, a commit title, a button and a title in an interface may be a noun phrase. An
+  instruction is an imperative sentence (`Run it on a host with Docker.`).
+- **Label:** a bold label is the subject's name followed by a colon (`**Bank key:**`), and the
+  sentence after it carries the whole fact. A heading has no colon.
+
+Where a place limits a text (a server-list line, a boss bar, a button), the limit wins over the
+full sentence. A value spliced into another text (`{countdown}`) is written to read correctly in
+every text that uses it.
+
+### Phrasing
+
+Rewording is not optional: every sentence that stays is written anew, and one that only lost words
+still fails. Each pattern below shows a sentence that fails and one that passes.
+
+- **Lists are sentences.** A list item is a full sentence that names its subject. A bold lead-in is
+  allowed only as a label, the name of the thing the sentence is about.
+  - Fails: `**Recreating itself.** A one-shot renews steward-agent.`
+  - Passes: `steward-agent never recreates itself. A one-shot container recreates it.`
+- **The subject comes first.** A sentence opens with what it is about, not with a condition or a
+  pronoun whose noun is in another sentence.
+  - Fails: `Until migrate has applied its newest migration, it writes no run rows.`
+  - Passes: `The one-shot writes no run rows before migrate has finished.`
+- **Plain verbs.** A verb says what happens: start, stop, create, delete, read, write, copy, move,
+  wait, send, refuse. A verb that paints a picture (carries, settles, renews, hands back, goes to,
+  evacuates) is replaced, unless it is a name in the code.
+  - Fails: `An update to a newer release goes to a one-shot.`
+  - Passes: `A one-shot container of the new release runs an update to that release.`
+- **No private words.** A word the reader cannot know (one-shot, slot, payload, settle) is either a
+  name in the code, set in code type, or explained in plain words where it first appears.
+- **One fact per sentence.** No semicolons and no chain of "and" between two facts.
+- **Comments in a command block are sentences too.**
+  - Fails: `# pull, up, wait, exit with the code`
+  - Passes: `# Pull every image, start the stack and wait until it is healthy.`
+- **A heading names a topic.** "Rules", "Notes" and "Details" name none.
+- **German is written, not translated.** A German text says the meaning as a German player would
+  say it, in German word order, without the English sentence behind it.
+  - Fails: `Verbinde dich erneut, um es noch einmal zu versuchen.`
+  - Passes: `Verbinde dich neu.`
+  - Fails: `Du wirst jetzt hinübergeschickt.`
+  - Passes: `Du kommst jetzt zurück.`
+
+Before a rewrite is done, each sentence is read on its own: if a reader would ask "who?", "what
+is that?" or "what does that mean here?", it is written again.
+
+### Glossary
+
+The one name of each game term, in English and German. A text uses no other word for it, and a new
+term is added here before a text uses it.
+
+| term                 | Deutsch       | meaning                                                        |
+| -------------------- | ------------- | -------------------------------------------------------------- |
+| access               | Zugang        | the right to join the servers for a paid or granted period     |
+| contribution channel | Beitragskanal | the Discord channel where a member pays for access             |
+| Hunger Games         | Hunger Games  | the season's start event, played in teams                      |
+| milestone            | Meilenstein   | a step on the SMP's milestone track                            |
+| network              | Netzwerk      | all Nordtal servers behind the proxy                           |
+| period               | Zeitraum      | a span of days of access bought at once                        |
+| phase                | Phase         | the season's current stage, which decides which server is open |
+| season               | Saison        | one year of Nordtal, set up from scratch                       |
+| SMP                  | SMP           | the survival server                                            |
+| waiting room         | Warteraum     | the server every player joins first and waits on               |
 
 ## Comments
 

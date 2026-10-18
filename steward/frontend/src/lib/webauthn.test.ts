@@ -226,18 +226,18 @@ describe("what a person is told went wrong", () => {
     /** A cancel means "try again" and a known key means "use another". */
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/cancelled/)
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/Nothing was registered/)
-    expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already registered/)
+    expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already has that key/)
   })
 
   it("blames this server for the one failure that is this server's", () => {
     /** A relying-party mismatch is the server's fault. */
-    expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/configuration fault on this server/)
+    expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/server.s configuration is wrong/)
   })
 
   it("falls back to the browser's own words, and to a sentence when it has none", () => {
     expect(whyTheKeyFailed(named("TypeError", "options is not an object"))).toBe("options is not an object")
-    expect(whyTheKeyFailed(named("TypeError"))).toMatch(/did not say why/)
-    expect(whyTheKeyFailed("not an error at all")).toMatch(/did not say why/)
+    expect(whyTheKeyFailed(named("TypeError"))).toMatch(/gave no reason/)
+    expect(whyTheKeyFailed("not an error at all")).toMatch(/gave no reason/)
   })
 })
 

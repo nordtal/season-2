@@ -262,6 +262,6 @@ describe("SmpActions", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
 
-    expect(await within(dialog).findByText(/Nobody picked this up within two minutes/)).toBeTruthy()
+    expect(await within(dialog).findByText(/did not read it within two minutes/)).toBeTruthy()
   })
 })

@@ -201,7 +201,7 @@ describe("ServiceConsole", () => {
         vi.advanceTimersByTime(30_000)
       })
     }
-    expect(screen.getByRole("alert").textContent).toContain("Can't reach the log.")
+    expect(screen.getByRole("alert").textContent).toContain("The log cannot be reached.")
     expect(screen.getByRole("alert").textContent).toContain("no running container for smp")
     expect(screen.queryByText("alpha")).toBeNull()
   })

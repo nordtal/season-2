@@ -536,7 +536,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
     await waitFor(() => expect(failure).toHaveBeenCalled())
-    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("Nothing was changed")
+    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("Nothing changed")
     failure.mockRestore()
   })
 })

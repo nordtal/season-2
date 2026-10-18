@@ -242,7 +242,7 @@ describe("SeasonPage - a date can be removed again", () => {
 
     const dialog = await remove("SMP launch")
     expect(sent).toHaveLength(0)
-    expect(dialog.textContent).toContain("not an undo")
+    expect(dialog.textContent).toContain("undoes nothing")
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
 
     await waitFor(() => expect(sent).toEqual([{ which: "smpStart", at: null }]))
@@ -253,7 +253,7 @@ describe("SeasonPage - a date can be removed again", () => {
     draw(<SeasonPage />)
 
     const dialog = await remove("Network launch")
-    expect(dialog.textContent).not.toContain("not an undo")
+    expect(dialog.textContent).not.toContain("undoes nothing")
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())

@@ -32,7 +32,7 @@ describe("what the confirmation promises before a plugin is removed", () => {
      * An unknown folder is not named, not even by a fallback. `plugins/` alone is the correct sentence.
      */
     expect(sentence).not.toMatch(/plugins\/\S+\//)
-    expect(sentence).toContain("could not be read")
+    expect(sentence).toContain("names no data folder")
     expect(sentence).toContain("Chunky-Bukkit-1.5.3.jar")
   })
 

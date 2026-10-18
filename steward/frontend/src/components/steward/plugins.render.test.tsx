@@ -251,7 +251,7 @@ describe("ServicePlugins", () => {
     )
     draw()
 
-    expect(await screen.findByText("Updates can't be checked right now.")).toBeTruthy()
+    expect(await screen.findByText("Updates cannot be checked now.")).toBeTruthy()
     await screen.findByText("JourneyMap")
     expect(screen.queryByText("up to date")).toBeNull()
     expect(screen.queryByText(/→/)).toBeNull()
@@ -268,7 +268,7 @@ describe("ServicePlugins", () => {
     await screen.findByText("up to date")
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
 
-    expect(await screen.findByText("Updates can't be checked right now.")).toBeTruthy()
+    expect(await screen.findByText("Updates cannot be checked now.")).toBeTruthy()
     expect(screen.queryByText("up to date")).toBeNull()
   })
 

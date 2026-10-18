@@ -157,8 +157,8 @@ class MessageContextsTest {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
         assertTrue(
                 problems.stream()
-                        .anyMatch(problem ->
-                                problem.startsWith("hit (en): {victim.name} is nothing this message offers")),
+                        .anyMatch(problem -> problem.startsWith("hit (en): this message offers")
+                                && problem.endsWith("not {victim.name}")),
                 problems::toString);
         assertTrue(
                 problems.contains("hit (en): the text never shows target, which the message is given"),

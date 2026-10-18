@@ -106,7 +106,7 @@ describe("RecreateButton - before anything is pressed", () => {
 
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).toBe("steward-agent is configured but not answering.")
+    expect(button.title).toBe("steward-agent is configured but does not answer.")
     expect(button.title).not.toContain("already on this host")
   })
 

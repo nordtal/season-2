@@ -449,7 +449,7 @@ describe("placeholders", () => {
 
     fireEvent.change(await source("Greeting"), { target: { value: "Hello {palyer}" } })
 
-    await screen.findByText("{palyer} is nothing this message offers; it offers player")
+    await screen.findByText("this message offers player, not {palyer}")
     expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(false)
   })
 

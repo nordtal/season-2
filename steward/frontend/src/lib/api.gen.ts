@@ -365,6 +365,29 @@ export type RemovalAsked = {
   artifact: string
 }
 
+export type PluginFiles = {
+  service: string
+  mounted: boolean
+  files: PluginFile[]
+}
+
+export type PluginFileDocument = {
+  file: PluginFile
+  text: string
+  revision: string
+}
+
+export type PluginFileSaved = {
+  file: PluginFile
+  revision: string
+  restartRequired: boolean
+}
+
+export type PluginFileEdit = {
+  text: string
+  revision: string
+}
+
 export type ConfigLocation = {
   service: string
   name: string
@@ -756,6 +779,17 @@ export type RunNote = {
   outcome: RunOutcome
   service?: string
   what: MessageRef
+}
+
+export type PluginFile = {
+  service: string
+  plugin: string
+  name?: string
+  iconUrl?: string
+  path: string
+  size: number
+  readable: boolean
+  writable: boolean
 }
 
 export type ConfigEntry = {

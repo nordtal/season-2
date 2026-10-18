@@ -180,6 +180,27 @@ public final class AgentClient {
                 AgentWire.PluginAdded.class);
     }
 
+    public AgentWire.PluginFiles pluginFiles(final String service) {
+        return Json.decode(
+                http.get(AgentWire.of(AgentWire.PLUGIN_FILES, encode(service))), AgentWire.PluginFiles.class);
+    }
+
+    public AgentWire.PluginFileDocument pluginFile(final String service, final String plugin, final String path) {
+        return Json.decode(http.get(pluginFileRoute(service, plugin, path)), AgentWire.PluginFileDocument.class);
+    }
+
+    /** Writes one plugin file. A revision that is no longer the file's fails with 409. */
+    public AgentWire.PluginFileSaved savePluginFile(
+            final String service, final String plugin, final String path, final AgentWire.PluginFileSave save) {
+        return Json.decode(
+                http.post(pluginFileRoute(service, plugin, path), Json.encode(save)), AgentWire.PluginFileSaved.class);
+    }
+
+    private static String pluginFileRoute(final String service, final String plugin, final String path) {
+        return AgentWire.of(AgentWire.PLUGIN_FILE, encode(service)) + "?plugin=" + encode(plugin) + "&path="
+                + encode(path);
+    }
+
     /** Returns the sentence of the failure: the agent's own words, or else the client's. */
     public static String sentence(final InternalClient.Failure failure) {
         return refusal(failure).map(AgentWire.Refusal::error).orElseGet(() -> {

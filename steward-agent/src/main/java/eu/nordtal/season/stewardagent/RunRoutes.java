@@ -8,6 +8,7 @@ import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.plan.PlanView;
+import eu.nordtal.season.stewardagent.plan.PluginFiles;
 import eu.nordtal.season.stewardagent.plan.PluginsApi;
 import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.season.stewardagent.run.PluginRemoval;
@@ -66,6 +67,11 @@ final class RunRoutes {
         config.routes.get(AgentWire.PLUGINS, pluginsApi::list);
         config.routes.get(AgentWire.PLUGIN_SEARCH, pluginsApi::search);
         config.routes.post(AgentWire.PLUGINS, pluginsApi::add);
+        final PluginFiles files =
+                new PluginFiles(pluginsApi::plugins, Path.of(this.config.get().volumesRoot()));
+        config.routes.get(AgentWire.PLUGIN_FILES, files::list);
+        config.routes.get(AgentWire.PLUGIN_FILE, files::read);
+        config.routes.post(AgentWire.PLUGIN_FILE, files::save);
     }
 
     PluginRemoval removal() {

@@ -82,7 +82,12 @@ public final class PluginsApi {
     }
 
     public void list(final Context ctx) {
-        final Topology.Service service = serviceOf(ctx.pathParam("name"));
+        ctx.json(plugins(ctx.pathParam("name")));
+    }
+
+    /** Lists the plugins of one server, throwing a 404 for a name that is not a server. */
+    public AgentWire.Plugins plugins(final String name) {
+        final Topology.Service service = serviceOf(name);
         final List<ManagedPlugin> added = plugins.on(service.name());
         final Installation installed = scan(service.name());
 
@@ -98,12 +103,12 @@ public final class PluginsApi {
         rows.addAll(notYetInstalledRows(added, claimed));
         rows.sort(Comparator.comparing(row -> row.name.toLowerCase(java.util.Locale.ROOT)));
 
-        ctx.json(new AgentWire.Plugins(
+        return new AgentWire.Plugins(
                 service.name(),
                 service.kind().modrinthLoader(),
                 gameVersion,
                 installed.mounted(),
-                noteReleases(rows.stream().map(PluginRow::wire).toList(), plugins.releases(service.name()))));
+                noteReleases(rows.stream().map(PluginRow::wire).toList(), plugins.releases(service.name())));
     }
 
     private List<PluginRow> installedRows(

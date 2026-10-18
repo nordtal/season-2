@@ -19,7 +19,7 @@ import java.util.List;
 final class StackServer {
 
     /** A caller that stays signed in. */
-    private static final Caller ALWAYS = new Caller() {
+    static final Caller ALWAYS = new Caller() {
         @Override
         public Actor actor(final Context ctx) {
             return Actor.STEWARD;

@@ -14,7 +14,6 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link MessageOverrideStore}; it borrows the pool it is given and owns nothing. */
 final class JdbiMessageOverrideStore implements MessageOverrideStore {
 
     private final Jdbi jdbi;
@@ -94,7 +93,6 @@ final class JdbiMessageOverrideStore implements MessageOverrideStore {
                         .bind("id", actor.id())
                         .execute();
             }
-            // An override that is removed replaced nothing any more.
             for (int variant = 0; !texts.isEmpty() && variant < original.size(); variant++) {
                 handle.createUpdate("""
                                 INSERT INTO message_override_original (bundle, key, language, variant, text)
@@ -106,7 +104,7 @@ final class JdbiMessageOverrideStore implements MessageOverrideStore {
                         .bind("text", original.get(variant))
                         .execute();
             }
-            // Committed with the rows, so nobody re-reads before they are there.
+            // In the same transaction, so no reader sees the signal before the rows.
             handle.createQuery("SELECT pg_notify('nordtal_messages', :bundle) IS NULL")
                     .bind("bundle", bundle)
                     .mapTo(Boolean.class)

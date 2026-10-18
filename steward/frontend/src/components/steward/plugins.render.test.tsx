@@ -5,10 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * The plugins tab: three lists by where a plugin comes from, the answer of the update check on each row, and a check button that only reads.
- */
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }
@@ -150,7 +146,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** Returns the plugin names drawn under the group heading with the given name. */
 const namesIn = (heading: string) =>
   within(screen.getByRole("heading", { name: heading }).parentElement!)
     .getAllByRole("listitem")

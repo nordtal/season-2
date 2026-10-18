@@ -6,58 +6,33 @@ import type { NodeId, Topology } from "./topology"
 import { type Box, EDGE_COLOR, type Geometry, type Point, Wires, bundle, collapseToGroups } from "./wires"
 
 /**
- * Where the cards go, in lanes from 0 to 1 that {@link place} turns into pixels, so only the gaps stretch.
- *
  * `y` stays absolute. Cards in different lanes never share a row where they collide at `minWidth`.
  */
 
-/**
- * The card size, 144x76, measured from the card's rows plus room for the toolbar. It stays fixed whatever the canvas does.
- */
+/** Measured from the card's rows plus room for the toolbar. */
 export const NODE = { width: 144, height: 76 }
 
-/**
- * The room that a lane-0 card leaves to the canvas edge. It is larger than `GROUP_PADDING`, so a frame is not cut off.
- */
+/** It is larger than `GROUP_PADDING`, so a frame is not cut off. */
 export const MARGIN = 16
 
-/** A card's place: which lane it sits in, and how far down. */
 export type Spot = { id: NodeId; lane: number; y: number }
 
-/**
- * Several cards in one tinted column that acts as a single endpoint for an edge.
- *
- * `lane` and `y` are the centre of the group's frame, like those of a `Spot`. Members stack `GROUP_GAP` apart.
- */
+/** `lane` and `y` are the centre of the group's frame, like those of a `Spot`. */
 export type GroupSpec = { id: string; members: NodeId[]; lane: number; y: number }
 
 export type Arrangement = {
-  /**
-   * The narrowest canvas that the arrangement must be right at. Below it the picture is scaled down.
-   */
+  /** Below it the picture is scaled down. */
   minWidth: number
-  /**
-   * The widest canvas that the arrangement is drawn at. Beyond it the picture is centred and not stretched further.
-   */
+  /** Beyond it the picture is centred and not stretched further. */
   maxWidth: number
   height: number
   spots: Spot[]
   groups?: GroupSpec[]
-  /**
-   * Where the database lines meet before they enter the sink. Without it the lines are drawn separately.
-   */
   junction?: { lane: number; y: number }
-  /**
-   * Per-edge detours, keyed by the resolved `from-to`, for siblings that would otherwise run through each other.
-   */
+  /** For siblings that would otherwise run through each other. */
   bows?: Record<string, number>
 }
 
-/**
- * One arrangement at one width, with every lane resolved to an x.
- *
- * Everything downstream works in absolute pixels.
- */
 export type Placed = {
   width: number
   height: number
@@ -67,12 +42,10 @@ export type Placed = {
   bows?: Record<string, number>
 }
 
-/** Returns the x that a lane lands on at a given canvas width. */
 export function laneX(lane: number, width: number): number {
   return MARGIN + NODE.width / 2 + lane * (width - 2 * MARGIN - NODE.width)
 }
 
-/** Resolves an arrangement against a canvas width. */
 export function place(arrangement: Arrangement, width: number): Placed {
   const at = (lane: number) => laneX(lane, width)
   return {
@@ -99,9 +72,6 @@ export const GROUP_PADDING = 10
 type PlacedGroup = Placed["groups"][number]
 type PlacedSpot = Placed["spots"][number]
 
-/**
- * Returns where a group's members land: one column, centred on the group's own point, `GROUP_GAP` apart.
- */
 export function groupMemberSpots(group: PlacedGroup): PlacedSpot[] {
   const total = group.members.length * NODE.height + (group.members.length - 1) * GROUP_GAP
   let y = group.y - total / 2 + NODE.height / 2
@@ -112,9 +82,6 @@ export function groupMemberSpots(group: PlacedGroup): PlacedSpot[] {
   })
 }
 
-/**
- * Returns the frame around a group: its members' bounding box plus `GROUP_PADDING` on every side.
- */
 export function groupBox(group: PlacedGroup): Box {
   const members = groupMemberSpots(group)
   const top = members[0].y - NODE.height / 2
@@ -127,12 +94,10 @@ export function groupBox(group: PlacedGroup): Box {
   }
 }
 
-/** Returns every card that an arrangement places, individually named or packed into a group. */
 export function allSpots(placed: Placed): PlacedSpot[] {
   return [...placed.spots, ...placed.groups.flatMap(groupMemberSpots)]
 }
 
-/** Returns the rectangle of every card. The lines are drawn from these rectangles. */
 export function geometryOf(placed: Placed): Geometry {
   const boxes: Record<string, Box> = {}
   for (const spot of allSpots(placed)) {
@@ -154,9 +119,6 @@ export function geometryOf(placed: Placed): Geometry {
   return { boxes, groups, memberOf, width: placed.width, height: placed.height }
 }
 
-/**
- * Returns the top-level shapes, one per group or lone card, for the overlap and on-canvas checks.
- */
 export function regionsOf(placed: Placed): Record<string, Box> {
   const geometry = geometryOf(placed)
   const regions: Record<string, Box> = { ...geometry.boxes }
@@ -167,11 +129,7 @@ export function regionsOf(placed: Placed): Record<string, Box> {
   return regions
 }
 
-/**
- * Returns how wide the element that holds the picture is.
- *
- * In jsdom it returns 0, which resolves to `minWidth`, the tightest version of the picture.
- */
+/** In jsdom it returns 0, which resolves to `minWidth`, the tightest version of the picture. */
 function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0)
 
@@ -195,11 +153,7 @@ function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
   return width
 }
 
-/**
- * The picture, drawn from its arrangement at the container's width. It stretches and does not scale.
- *
- * It scales down only below `minWidth`, so it does not overflow.
- */
+/** It stretches and does not scale. It scales down only below `minWidth`. */
 export function Field({ plan, topology, id }: { plan: Arrangement; topology: Topology; id: string }) {
   const outer = useRef<HTMLDivElement>(null)
   const available = useAvailableWidth(outer)

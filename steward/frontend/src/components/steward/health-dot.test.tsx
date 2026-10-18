@@ -7,10 +7,6 @@ import { afterEach, assert, describe, expect, it } from "vitest"
 
 import { HealthDot } from "@/components/steward/status"
 
-/**
- * `HealthDot` is green in the network view and silent in the sidebar. The sidebar must never set `quiet`.
- */
-
 const here = path.dirname(fileURLToPath(import.meta.url))
 const sidebarFile = path.resolve(here, "../../app/app-sidebar.tsx")
 
@@ -48,9 +44,6 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 })
 
-/**
- * Returns the places where a source file sets `quiet`. It takes a string, so the test can prove that the detector detects.
- */
 export function mentionsQuiet(source: string): string[] {
   return source
     .split("\n")
@@ -79,7 +72,6 @@ describe("the sidebar stays silent", () => {
   })
 })
 
-/** A held service shows as held, because only `service_hold` tells it from a crash. */
 describe("a held service is not a broken one", () => {
   const held = { state: "exited", hold: { since: "2026-09-20T18:00:00Z", by: "hmtill" } }
 
@@ -101,7 +93,6 @@ describe("a held service is not a broken one", () => {
   })
 
   it("changes nothing about a held container that is running anyway", () => {
-    /** A held service that is up and unhealthy stays red, as steward's alerts judge it. */
     render(<HealthDot service={{ ...held, state: "running", health: "unhealthy", alert: "down" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })

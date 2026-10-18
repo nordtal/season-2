@@ -18,9 +18,7 @@ import { StewardMark } from "@/app/steward-mark"
 export const NETWORK = "network"
 
 /**
- * The Settings tab: the service's groups of settings in one list, with the chosen group as a tree.
- *
- * The open file is the page's `?file=`. The page passes it in and receives changes through a callback. This component does not keep it.
+ * The open file is the page's `?file=`. The page passes it in and receives changes through a callback.
  */
 export function ServiceSettings({
   service,
@@ -134,9 +132,6 @@ export function ServiceSettings({
 /** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
 
-/**
- * Returns the router's own position in the browser history, or 0 for an entry that it never numbered.
- */
 function historyEntryIndex(): number {
   const state: unknown = window.history.state
   const key = "__TSR_index"
@@ -149,7 +144,6 @@ function byLabel(a: FileItem, b: FileItem): number {
   return a.label.localeCompare(b.label)
 }
 
-/** Returns the groups of settings, each with the editor that its plugin names for it. */
 function filesOf(service: string, configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
   const settings: FileItem[] = configs
     .filter((file) => file.service === service)

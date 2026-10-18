@@ -7,11 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ReactNode } from "react"
 
-/**
- * Status badges in the theme's three status colours, wrapping shadcn's `Badge`.
- *
- * Every badge also shows a word, so colour is never the only signal.
- */
+/** Every badge also shows a word, so colour is never the only signal. */
 
 export type Tone = "ok" | "warn" | "down" | "idle"
 
@@ -22,9 +18,6 @@ const TONES: Record<Tone, string> = {
   idle: "border-border bg-secondary text-muted-foreground",
 }
 
-/**
- * A badge in the colour of its tone around the word for the state, with `tipContent` as its tip.
- */
 export function StatusBadge({
   tone,
   children,
@@ -54,11 +47,7 @@ export function StatusBadge({
   )
 }
 
-/**
- * Wraps a small mark or badge in the one tip of this interface, which opens on hover, focus and a tap.
- *
- * The trigger is a focusable span, so a mark that is not a control still answers the keyboard.
- */
+/** The trigger is a focusable span, so a mark that is not a control still answers the keyboard. */
 export function Tip({ content, children, className }: { content: ReactNode; children: ReactNode; className?: string }) {
   return (
     <Tooltip>
@@ -72,17 +61,11 @@ export function Tip({ content, children, className }: { content: ReactNode; chil
   )
 }
 
-/**
- * The fields that {@link serviceTone} and {@link ServiceState} need. `alert` is the alert rule's verdict on the row.
- */
 export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert"> &
   Partial<Pick<Service, "oneShot" | "lastRun">>
 
 /**
- * Reduces one service to a tone. {@link ServiceState} and {@link HealthDot} share it, so they cannot drift apart.
- *
- * Red is the alert rule's word alone. A stop that the rule raises nothing about is intended, as for a standby or a hold, so it is `idle`.
- * A one-shot that exited cleanly did its job, so it is `ok`.
+ * Red is the alert rule's word alone. A stop that the rule raises nothing about is intended, as for a standby or a hold, so it is `idle`. A one-shot that exited cleanly did its job, so it is `ok`.
  */
 export function serviceTone(service: ServiceHealth): Tone {
   if (service.alert === "down") return "down"
@@ -91,19 +74,15 @@ export function serviceTone(service: ServiceHealth): Tone {
   return "ok"
 }
 
-/** Returns whether this is a one-shot whose last run exited with code 0. */
 export function completed(service: ServiceHealth): boolean {
   return service.oneShot === true && service.state !== "running" && service.lastRun?.exitCode === 0
 }
 
-/**
- * Returns whether this service is stopped on purpose. A hold on a running container says nothing.
- */
+/** A hold on a running container says nothing. */
 export function held(service: ServiceHealth): boolean {
   return service.hold !== undefined && service.state !== "running"
 }
 
-/** Docker's container state, with the health folded in where there is one. */
 export function ServiceState({ service }: { service: ServiceHealth }) {
   const { state, health, hold, lastRun } = service
   const tone = serviceTone(service)
@@ -173,7 +152,6 @@ const DOT_TONE: Record<Tone, string> = {
   idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
-/** The state word that each tone says. `steward.service.state` turns it into the reader's word. */
 const DOT_STATE: Record<Tone, string> = {
   ok: "healthy",
   warn: "starting",
@@ -182,8 +160,6 @@ const DOT_STATE: Record<Tone, string> = {
 }
 
 /**
- * The health of one service as a dot, for the sidebar and the network view.
- *
  * `quiet` hides the fine state. An undefined `service` draws a neutral dot and never the fine one.
  */
 export function HealthDot({
@@ -193,13 +169,9 @@ export function HealthDot({
 }: {
   service?: ServiceHealth
   className?: string
-  /**
-   * Whether a healthy service draws nothing at all: `true` for the sidebar, `false` for the picture.
-   */
   quiet?: boolean
 }) {
   if (!service) {
-    /** A dot that is still waiting shimmers, like every other loading surface. */
     return (
       <Skeleton
         role="img"
@@ -240,8 +212,6 @@ const AVAILABLE_TONE: Record<string, Tone> = {
 }
 
 /**
- * One artefact's resolve status, in four answers that are kept apart.
- *
  * "could not ask" never looks like "up to date", because a silent source looks like one with no change.
  * "not installed" is normal on a fresh volume. On a running server it means a new file or a renamed jar.
  * "unsupported" means that the source has no build for the network's Minecraft version. Nothing failed, and the artefact stays listed so the next run picks up a build when one appears.
@@ -258,9 +228,6 @@ const DRIFT_TONE: Record<string, Tone> = { UP_TO_DATE: "ok", OUTDATED: "warn" }
 
 /**
  * Image drift: UNKNOWN is never silent or green. LOCAL is ahead of the registry and is neutral.
- */
-/**
- * Returns the drift that a service is drawn with. Anything built on the host reads as a local build, whatever its image says.
  */
 export function shownDrift(drift: ImageState, localBuild?: LocalBuild): ImageState {
   return localBuild ? "LOCAL" : drift
@@ -284,10 +251,7 @@ export function DriftBadge({
 }
 
 /**
- * Returns what a drift badge or mark adds: the image, the jars of a local build, and for an unchecked image the reason.
- *
- * A local build is one made on this host and in no release. An update that would replace it names it and asks first.
- * It returns nothing when the image is not known, because the word on the badge is then all there is.
+ * A local build is one made on this host and in no release. An update that would replace it names it and asks first. It returns nothing when the image is not known.
  */
 export function driftTip(drift: ImageState, image?: string, localBuild?: LocalBuild): ReactNode {
   const shown = shownDrift(drift, localBuild)
@@ -321,20 +285,15 @@ export function driftTip(drift: ImageState, image?: string, localBuild?: LocalBu
   )
 }
 
-/** The status of a run, as its row in steward's inbox has it. */
 export function RunStatus({ status }: { status: string }) {
   const tone: Tone = status === "DONE" ? "ok" : status === "FAILED" ? "down" : status === "RUNNING" ? "warn" : "idle"
   return <StatusBadge tone={tone}>{runStatus(status)}</StatusBadge>
 }
 
-/**
- * Returns the outcome of a run in the words of {@link RunStatus}, for text such as the command palette's search.
- */
 export function runStatus(status: string): string {
   return t("run.status", { status: choice(status) })
 }
 
-/** Returns the kind of a run. */
 export function runKind(kind: string): string {
   return t("run.kind", { kind: choice(kind) })
 }

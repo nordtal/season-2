@@ -37,13 +37,11 @@ const SHOWN = 200
 /** Radix refuses "" as an item value. */
 const ALL = "*"
 
-/** The icon of an entry for which the game draws no item, by its registry. */
 const GENERIC: Record<string, Icon> = {
   statistic: TERM_ICON.statistic,
   advancement: TERM_ICON.advancement,
 }
 
-/** Fetches the choices for one reference from the directory that it names, and only that one. */
 function useChoices(
   reference: ConfigReference,
   sibling: string | undefined,
@@ -61,9 +59,6 @@ function useChoices(
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 
-/**
- * What a choice is drawn with in front of its name: its item, its registry's generic icon, or a channel's kind.
- */
 function Mark({
   choice,
   icons,
@@ -91,7 +86,6 @@ function Mark({
   return <GameIcon icons={icons} item={choice.icon} size={size} />
 }
 
-/** One value as a chip: its icon and name, or the raw id with a warning where nothing lists it. */
 function Chip({
   value,
   choice,
@@ -136,9 +130,6 @@ function Chip({
   )
 }
 
-/**
- * What a setting names, read only: its chips, with the warning chip for a value that nothing lists.
- */
 export function ReferenceValues({
   reference,
   values,
@@ -175,9 +166,6 @@ export function ReferenceValues({
   )
 }
 
-/**
- * What a setting names, as small icons alone: the first `max`, then how many more. A name replaces the icon where there is none.
- */
 export function ReferenceMarks({
   reference,
   values,
@@ -189,7 +177,6 @@ export function ReferenceMarks({
   values: string[]
   sibling?: string
   max?: number
-  /** Draws each value's name beside its icon too, for a value that alone says what is counted. */
   named?: boolean
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
@@ -230,8 +217,6 @@ export function ReferenceMarks({
 }
 
 /**
- * A setting that names something, picked from what the game, the guild or Steward lists.
- *
  * A list holds chips and adds values with the same picker. A value that nothing lists stays, marked, and is never replaced.
  */
 export function ReferencePicker({
@@ -250,10 +235,8 @@ export function ReferencePicker({
   reference: ConfigReference
   values: string[]
   multi: boolean
-  /** The value of the sibling that `reference.dependsOn` names. */
   sibling?: string
   disabled: boolean
-  /** The plain control, drawn with the reason when nothing can be listed. */
   typed: ReactNode
   onChange: (values: string[]) => void
 }) {
@@ -369,7 +352,6 @@ export function ReferencePicker({
   )
 }
 
-/** The searchable list inside the sheet, with the catalogue's namespaces and tags as filters. */
 function Options({
   label,
   choices,

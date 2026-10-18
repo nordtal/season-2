@@ -31,16 +31,8 @@ import { ColourMenu } from "@/components/steward/message-editor/colour-menu"
 import { GlyphTile, type Tones } from "@/components/steward/message-editor/preview"
 import { MenuTrigger, ToolButton } from "@/components/steward/message-editor/tools"
 
-/**
- * What both editors share: the placeholder, glyph and colour menus, and the style buttons that use them.
- */
-
-/** The start of a plural's or a choice's source. The fields below the editor edit its cases. */
 const CHOICE_HEAD = /^\{\s*([^\s,{}]+)\s*,\s*(?:plural|select)\s*,/
 
-/**
- * Returns the chip for a raw run: `#` in a plural's case, or a plural or choice named by the value it depends on.
- */
 export function rawChip(source: string): ReactNode {
   if (source === "#") return <PlaceholderChip name="#" />
   const choice = CHOICE_HEAD.exec(source)
@@ -51,9 +43,6 @@ export function rawChip(source: string): ReactNode {
   ) : null
 }
 
-/**
- * A placeholder as the editors show it: a pill. A value that every message has is set apart in grey.
- */
 export function PlaceholderChip({
   name,
   global,
@@ -63,7 +52,6 @@ export function PlaceholderChip({
   name: string
   global?: boolean
   className?: string
-  /** Drawn before the name, such as the icon of a value whose cases are edited apart. */
   children?: ReactNode
 }) {
   return (
@@ -81,9 +69,6 @@ export function PlaceholderChip({
   )
 }
 
-/**
- * The message's values, with a role's attributes under its name, each with the example it is previewed with.
- */
 export function PlaceholderMenu({
   args,
   fill,
@@ -196,9 +181,6 @@ function clickLabel(action: ClickAction): string {
   return t(CLICK_LABELS[action])
 }
 
-/**
- * A field whose value may contain the message's values. The placeholder menu writes one in at the caret.
- */
 function ValueField({
   value,
   onChange,
@@ -245,7 +227,6 @@ function ValueField({
   )
 }
 
-/** Apply and remove buttons under a small form in a popover. */
 function ApplyRow({ onApply, onRemove, ready }: { onApply: () => void; onRemove?: () => void; ready: boolean }) {
   return (
     <div className="flex gap-2">
@@ -380,9 +361,6 @@ export function LinkMenu({
   )
 }
 
-/**
- * One of the message's actions around the selection. A click runs what the code bound to that name.
- */
 export function ActionMenu({
   actions,
   action,
@@ -438,7 +416,6 @@ export function ActionMenu({
   )
 }
 
-/** How one value is written: the styles that its kind offers, or none for the kind's own way. */
 export function ValueStyleMenu({
   styles,
   value,
@@ -509,8 +486,6 @@ const DECORATION_ICONS: Record<Decoration, ReactNode> = {
 }
 
 /**
- * The style buttons for a format. They act on the editor's selection.
- *
  * `hover` is the editor's own hover control. It is left out inside a hover, which has no hover, click or action.
  */
 export function StyleButtons({

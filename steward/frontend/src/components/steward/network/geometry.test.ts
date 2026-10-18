@@ -21,8 +21,6 @@ import { layoutFaults, topologyOf } from "./topology"
 import { type Box, bundle, curve, inside, overlaps, resolvedSources, samplePath } from "./wires"
 
 /**
- * The network picture as numbers, because the placement of the plan is a pure function and jsdom has no layout.
- *
  * Every assertion runs at `minWidth`, at `maxWidth` and at two widths between, where the failures are.
  */
 const WIDTHS = [372, 410, 560, 720] as const
@@ -32,7 +30,6 @@ const LAYOUTS = WIDTHS.map((width) => [`${width}px`, place(PLAN, width)] as cons
 const TOPOLOGY = topologyOf(NETWORK_MAP)
 const TRAFFIC = TOPOLOGY.edges.filter((edge) => edge.kind === "traffic")
 
-/** How far a line may reach into a card before it counts as running through the card. */
 const SLACK = -4
 
 function crossings(d: string, boxes: Record<string, Box>, allowed: string[]): string[] {
@@ -122,7 +119,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
       expect(`${key} foot through ${through.join(", ")}`).toBe(`${key} foot through `)
     })
 
-    /** The trunk must read as a real path, or the test could not check it. */
     expect(samplePath(merged.trunk).length).toBeGreaterThan(1)
     const throughTrunk = crossings(merged.trunk, regions, [])
     expect(`trunk through ${throughTrunk.join(", ")}`).toBe("trunk through ")
@@ -178,7 +174,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     for (const group of placed.groups) {
       const members = groupMemberSpots(group)
       for (let i = 1; i < members.length; i++) {
-        /** Restated as the gap between stacked cards and not as the distance between centres. */
         expect(members[i].y - members[i - 1].y - NODE.height).toBe(GROUP_GAP)
       }
 
@@ -231,9 +226,6 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 })
 
-/**
- * The drawing stretches while the cards keep their size. The test asserts each half on its own.
- */
 describe("stretching", () => {
   it("leaves every card the same size at every width", () => {
     for (const [, placed] of LAYOUTS) {
@@ -250,9 +242,6 @@ describe("stretching", () => {
         `at ${WIDTHS[i]}px the lanes are ${Math.max(gaps[i], gaps[i - 1] + 1)}px apart`,
       )
     }
-    /**
-     * The drawing stretches by exactly the extra room, and all of it goes into the gap between lane 0 and lane 1.
-     */
     expect(gaps[gaps.length - 1] - gaps[0]).toBe(WIDTHS[WIDTHS.length - 1] - WIDTHS[0])
   })
 

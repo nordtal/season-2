@@ -4,8 +4,6 @@ import { cn } from "cn"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
- * One labelled number with a caveat as a hint underneath.
- *
  * Without `value` it shows the label and a bar where the number will be, so nothing moves when the number arrives.
  */
 export function Stat({
@@ -17,7 +15,6 @@ export function Stat({
   valueClassName,
 }: {
   label: string
-  /** Absent while the figure loads. */
   value?: ReactNode
   hint?: ReactNode
   tone?: "ok" | "warn" | "down"
@@ -43,16 +40,12 @@ export function Stat({
   )
 }
 
-/**
- * A bar for something with a ceiling, such as disk or memory. It changes colour at a threshold.
- */
 export function UsageBar({
   used,
   total,
   warnAt = 80,
   dangerAt = 90,
 }: {
-  /** Both are absent while the reading loads. The track is then drawn empty and shimmering. */
   used?: number
   total?: number
   warnAt?: number

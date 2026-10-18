@@ -4,10 +4,6 @@ import { afterEach, describe, expect, it } from "vitest"
 import { Preview } from "@/components/steward/message-editor/preview"
 import { parse } from "@/lib/rich-text"
 
-/**
- * The game's places draw a text line by line as the client does: spaces kept, lines stacked, no extra wrapping.
- */
-
 afterEach(cleanup)
 
 const TONES = { muted: "#AAAAAA", emphasis: "#FFFFFF" }

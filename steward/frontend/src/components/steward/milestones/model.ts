@@ -4,9 +4,7 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { blankSection, sectionsOf, withValue } from "@/components/steward/repeatable-cards"
 
 /**
- * The milestones group as its editor reads it: the keys that the editor places, and nothing about what they mean.
- *
- * Labels, controls, choices and references still come from the schema. A key that the editor does not place is edited in the objective's sheet or the milestone's fields like any other.
+ * A key that the editor does not place is edited in the objective's sheet or the milestone's fields like any other.
  */
 export const KEY = {
   milestones: "milestones",
@@ -18,15 +16,12 @@ export const KEY = {
   spinBudget: "spin-budget",
 } as const
 
-/** The milestone fields drawn as small marks in the list, each with its schema label. */
 export const MARKED = ["unlocks", "border-diameter", "admin-unlocked"] as const
 
-/** An objective's budgets. A milestone and the whole track show them as sums. */
 export const BUDGETS = [KEY.auraBudget, KEY.spinBudget] as const
 
 export type Budget = (typeof BUDGETS)[number]
 
-/** Returns every budget summed over the objectives of `milestones`. */
 export function budgetSums(milestones: SectionValues[]): Record<Budget, number> {
   const sums: Record<Budget, number> = {
     [KEY.auraBudget]: 0,
@@ -41,9 +36,6 @@ export function budgetSums(milestones: SectionValues[]): Record<Budget, number> 
   return sums
 }
 
-/**
- * The schema of the track: the milestone's fields, an objective's fields and the track's own entry.
- */
 export type TrackSchema = {
   entry: ConfigEntry
   milestone: ConfigEntry[]
@@ -71,9 +63,6 @@ export function objectivesOf(section: SectionValues | undefined): SectionValues[
   return sectionsOf(section?.[KEY.objectives])
 }
 
-/**
- * Returns `list` with the element at `from` moved to `to`, or unchanged where `to` is outside the list.
- */
 export function moved<T>(list: T[], from: number, to: number): T[] {
   if (to < 0 || to >= list.length || from === to) return list
   const out = [...list]

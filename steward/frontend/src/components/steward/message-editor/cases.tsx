@@ -12,7 +12,6 @@ import { PlaceholderChip } from "@/components/steward/message-editor/parts"
 import type { Tones } from "@/components/steward/message-editor/preview"
 import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
 
-/** What every case field is drawn with, as the field around the choice is. */
 export type CaseContext = {
   format: Format
   args: MessageArg[]
@@ -21,21 +20,14 @@ export type CaseContext = {
   tones: Tones
   kinds: Record<string, string[]>
   label: string
-  /** The language being edited. A plural offers the plural categories of this language. */
   language: string
-  /** The style that the runs sit in. Each case field draws its own text inside it. */
   around?: Style
   disabled?: boolean
 }
 
-/** The keys a case may have: a plural's `=n`, or a choice's value. */
 const CASE_KEY = { plural: /^=\d+$/, select: /^[A-Za-z0-9_-]+$/ }
 
-/**
- * Shows every plural and choice of `runs`. Each case has a field of its own, and a choice inside a case is below its field.
- *
- * `outer` names the plural that a `#` stands for around these runs, for the choices inside a plural's case.
- */
+/** `outer` names the plural that a `#` stands for around these runs. */
 export function ChoiceFields({
   runs,
   onChange,
@@ -72,9 +64,6 @@ export function ChoiceFields({
   )
 }
 
-/**
- * One plural or choice: the value it depends on, a field per case, and the cases that the language still needs.
- */
 function ChoiceCases({
   choice,
   outer,
@@ -139,9 +128,6 @@ function ChoiceCases({
   )
 }
 
-/**
- * Offers the plural categories that the language needs and has no case for, then any other case by its key.
- */
 function AddCase({
   plural,
   needed,

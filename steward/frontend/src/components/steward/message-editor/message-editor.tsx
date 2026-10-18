@@ -43,43 +43,28 @@ import { LIT, UNSEEN, useLanding, type Highlight } from "@/components/steward/se
  */
 export type MessageDraft = Record<Language, string[] | null>
 
-/** The pause in milliseconds after typing before the validator is asked. */
 const CHECK_DELAY = 300
 
 export type MessageEditorProps = {
   entry: MessageEntry
-  /**
-   * The jar that the text is read from, `<service>/<module>`, as the check and the preview name it.
-   */
   path: string
-  /** The service whose palette the previews use, or `undefined` for the network's. */
   service?: string
-  /** The languages that the key is offered in, English first. */
   languages: Language[]
-  /**
-   * The colour of each tone by tag, as the settings of `service` name it. It is empty for the network's own.
-   */
   colours: Record<string, string>
-  /** Every place where a text can be shown, with its location. */
   places: Places
   writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
   /** `undefined` drops this language's draft. `null` asks for the packaged texts back. */
   onChange: (language: Language, value: string[] | null | undefined) => void
-  /** The key's overrides that no process shows, at most one per language. */
   fallbacks: MessageFallback[]
-  /** Saves a fallen-back override as it is, which takes it over. */
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
-  /**
-   * Maps each place of the key that a preview reaches to where it reaches the admin. It is absent for a key that no preview reaches.
-   */
   previews?: Record<string, MessagePreviewTarget>
 }
 
 /**
- * The text of one key in one language and variant: A shows it as it looks, B as it is written. It shows the validator's verdict and where the text appears with example values. A fallen-back override comes first, with the text it was written over.
+ * A shows the text as it looks and B as it is written. A fallen-back override comes first, with the text it was written over.
  */
 export function MessageEditor({
   entry,
@@ -104,7 +89,6 @@ export function MessageEditor({
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
   const examples = useMessageExamples()
-  // The service's own colours, so a tone looks as its players see it.
   const tones = useMemo(
     () => (Object.keys(colours).length > 0 ? colours : (syntax.data?.tones ?? {})),
     [colours, syntax.data],
@@ -341,9 +325,6 @@ export function MessageEditor({
   )
 }
 
-/**
- * An override that no process shows: the text it was written over, what the jar has now, and the override itself.
- */
 function FallbackPanel({
   fallback,
   format,
@@ -398,7 +379,7 @@ function FallbackPanel({
 }
 
 /**
- * The runs that A edits. They are kept apart from the text, so a run boundary made by A survives until the text changes from elsewhere. A change that leaves the runs as the stored text reads writes the stored text back as it was written.
+ * Kept apart from the text, so a run boundary made by A survives until the text changes from elsewhere.
  */
 function useRuns(
   text: string,
@@ -432,9 +413,6 @@ function useRuns(
   return [runs, update]
 }
 
-/**
- * One place of the key: its name, the text as it looks there, and the way to see it there oneself.
- */
 function PlacePreview({
   place,
   places,
@@ -446,18 +424,13 @@ function PlacePreview({
   blocked,
   request,
 }: {
-  /** `undefined` for the one plain preview of a key that no place shows on its own. */
   place: string | undefined
   places: Places
-  /** Where a preview of this place reaches the admin, if it does. */
   target: MessagePreviewTarget | undefined
   runs: Run[]
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
-  /**
-   * Whether the text as it stands cannot be sent, because it is empty or the validator refuses it.
-   */
   blocked: boolean
   request: PreviewRequest
 }) {
@@ -499,9 +472,6 @@ function PlacePreview({
   )
 }
 
-/**
- * What a preview sends besides its place: the text as it stands, and the values that `fill` gives it.
- */
 type PreviewRequest = {
   path: string
   service: string | undefined
@@ -511,9 +481,7 @@ type PreviewRequest = {
   fill: Fill
 }
 
-/**
- * Sends the text as it stands to the admin alone, drawn as `shown` shows it, in the palette of the service if one is named. The request's outcome follows. A value that every message has belongs to the receiving process.
- */
+/** A value that every message has belongs to the receiving process. */
 function usePreview({ path, service, entry, language, text, fill }: PreviewRequest, shown: string | undefined) {
   const action = useGameAction()
   const [id, setId] = useState<string | null>(null)

@@ -3,13 +3,10 @@ import { useServices } from "@/lib/queries"
 
 import { INGRESS, type NodeId } from "./topology"
 
-/**
- * `/api/services` arranged per box, from the one query that the sidebar and the pages already share.
- */
 export type Network = {
   query: ReturnType<typeof useServices>
   service: (id: NodeId) => Service | undefined
-  /** The count to draw on a box, or `undefined` when nobody has reported one. That is not zero. */
+  /** `undefined` is not zero: nobody has reported one. */
   players: (id: NodeId) => number | undefined
 }
 

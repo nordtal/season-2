@@ -19,26 +19,17 @@ import { Button } from "@/components/ui/button"
 import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { t } from "@/lib/texts"
 
-/**
- * What a group of settings and the Translations page are drawn with alike: the tree, its rows, and the jump to a field.
- */
-
 export type Target = { file: string; id: string; language?: Language; seq: number }
 
-/** A group of settings as the Settings tab lists it. */
 export type FileItem = {
   id: string
   label: string
   readable: boolean
   writable: boolean
   location: ConfigLocation
-  /**
-   * The custom editor that its plugin's descriptor names for it, instead of the form built from its schema.
-   */
   editor?: string
 }
 
-/** Returns whether the two-column layout, Tailwind's `lg`, is showing. */
 export function useWide(): boolean {
   const query = "(min-width: 64rem)"
   const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches)
@@ -53,21 +44,14 @@ export function useWide(): boolean {
   return wide
 }
 
-/** Marks an entry with unsaved changes. */
 export function DraftDot() {
   return <span aria-label={t("steward.settings.changed")} className="size-1.5 shrink-0 rounded-full bg-primary" />
 }
 
 export type Highlight = { id: string; seq: number; language?: Language }
 
-/**
- * A search that the page draws itself, such as in its title row, and the element that holds it.
- */
 export type OutsideSearch = { query: string; onQuery: (query: string) => void; at: RefObject<HTMLElement | null> }
 
-/**
- * The part that both share: search box, description, tree with counts, and the pinned save row.
- */
 export function TreeView<L>({
   file,
   nodes,
@@ -86,7 +70,6 @@ export function TreeView<L>({
 }: {
   file: string
   nodes: TreeNode<L>[]
-  /** The keys of this file that hold a draft. */
   draftIds: Set<string>
   matches: (value: L, query: string) => boolean
   notice: string | null
@@ -94,17 +77,11 @@ export function TreeView<L>({
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   save: ReactNode
   above?: ReactNode
-  /** Every branch starts closed, whatever the file's size. */
   collapsed?: boolean
-  /** Leaves are full-width rows under each other and not a grid of fields. */
   list?: boolean
-  /**
-   * The page's own search, in place of the search box above the tree. The page clears it for a jump.
-   */
+  /** The page clears it for a jump. */
   search?: OutsideSearch
-  /** What the search box searches, for a screen reader. */
   searchLabel?: string
-  /** The text shown when there is nothing to draw and nothing was searched. */
   empty?: string
 }) {
   const [ownQuery, setOwnQuery] = useState("")
@@ -120,7 +97,6 @@ export function TreeView<L>({
    * The branches that the last jump opens. They are kept as state, because the render that finds them is redone before it commits.
    */
   const [jumpChain, setJumpChain] = useState<string[] | null>(null)
-  /** The arrow back up appears only once the search box has left the screen. */
   const [scrolledAway, setScrolledAway] = useState(false)
   useEffect(() => {
     const node = search.current
@@ -206,9 +182,6 @@ export function TreeView<L>({
   )
 }
 
-/**
- * A group's save and its other controls, pinned to the bottom of the content above whatever chrome sits there.
- */
 export function PinnedRow({ children }: { children: ReactNode }) {
   return (
     <div className="pointer-events-none sticky bottom-(--content-bottom) mt-2 flex items-center justify-end gap-2">
@@ -234,7 +207,6 @@ function NodeList<L>({
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   list?: boolean
 }) {
-  // Neighbouring leaves share one grid. A branch interrupts it.
   const groups: Array<TreeLeaf<L>[] | TreeBranch<L>> = []
   for (const node of nodes) {
     const last = groups[groups.length - 1]
@@ -319,7 +291,6 @@ function NodeList<L>({
   )
 }
 
-/** Scrolls a field into view and lights it up once per jump. */
 export function useLanding(highlight: Highlight | null) {
   const ref = useRef<HTMLDivElement>(null)
   const seq = highlight?.seq

@@ -12,9 +12,7 @@ export type EntityKind = "discord" | "minecraft" | "service"
 const SNOWFLAKE = /^\d{17,20}$/
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 
-/**
- * Returns what an identifier is, from its shape or from the served `services`. `unknown` is a valid result, not a failure.
- */
+/** `unknown` is a valid result, not a failure. */
 export function entityKind(id: string, services: readonly string[]): EntityKind | "unknown" {
   const trimmed = id.trim()
   if (SNOWFLAKE.test(trimmed)) return "discord"
@@ -37,30 +35,16 @@ export function findPerson(people: Person[] | undefined, kind: EntityKind, id: s
 }
 
 export type EntityProps = {
-  /** The identifier as the row holds it. It is ignored when `system` is set. */
   id?: string
-  /** Overrides the detection, for an identifier whose shape does not say what it is. */
   kind?: EntityKind
-  /**
-   * Marks that Steward itself acted, such as the nightly clock. The entity is drawn as Steward's mark.
-   */
+  /** Steward itself acted, such as the nightly clock. */
   system?: boolean
-  /**
-   * When `false`, it draws the closed face without a popover or link, for places that are interactive.
-   */
   interactive?: boolean
-  /**
-   * With `both`, it draws a person's Discord and Minecraft accounts side by side, whichever of the two `id` is.
-   */
   face?: "both"
   className?: string
 }
 
-/**
- * Draws any identifier that Steward shows and decides from its shape whether it is a person, a service or unknown.
- *
- * An unknown identifier shows a question mark and does not pass for a name. `kind` overrides the detection.
- */
+/** An unknown identifier shows a question mark and does not pass for a name. */
 export function Entity({ id, kind, system, interactive, face, className }: EntityProps) {
   /**
    * It looks the name up only when the identifier is neither a Discord id nor a UUID, the one case the shape cannot settle.
@@ -143,9 +127,6 @@ export function Entity({ id, kind, system, interactive, face, className }: Entit
   )
 }
 
-/**
- * Shows who asked for a run or wrote an action: a person by their Discord id, Steward itself, the host or the bot.
- */
 export function Actor({ kind, id, className }: { kind: ActorKind; id: string; className?: string }) {
   if (kind === "PERSON" && id) return <Entity id={id} kind="discord" className={className} />
   if (kind === "HOST") return <Entity id="host" className={className} />

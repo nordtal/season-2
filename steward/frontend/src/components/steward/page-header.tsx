@@ -1,10 +1,6 @@
 import type { ReactNode, Ref } from "react"
 
-/**
- * The top of every page: its title and its actions.
- *
- * There is deliberately no prop for a note under the title.
- */
+/** There is deliberately no prop for a note under the title. */
 export function PageHeader({ title, actions, ref }: { title: ReactNode; actions?: ReactNode; ref?: Ref<HTMLElement> }) {
   return (
     <header ref={ref} className="flex flex-wrap items-center justify-between gap-4">

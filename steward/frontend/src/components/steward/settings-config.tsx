@@ -27,13 +27,6 @@ import {
 } from "@/components/steward/settings-view"
 import { t } from "@/lib/texts"
 
-/**
- * A config file of the Settings tab: its form, its fields and the save that reloads the service.
- */
-
-/**
- * Returns whether `document` has the two reload fields that every GET and PUT of a group sends.
- */
 function isReloadAware(document: ConfigDocument): document is ConfigDocument {
   return "restartRequired" in document && typeof document.restartRequired === "boolean"
 }
@@ -106,7 +99,7 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
 }
 
 /**
- * `compact` sits beside other fields and drops the explanation. `cell` is half of a paired row and is named for screen readers.
+ * `compact` sits beside other fields and drops the explanation. `cell` is half of a paired row.
  */
 type FieldLayout = "full" | "compact" | "cell"
 
@@ -174,7 +167,6 @@ function span(entry: ConfigEntry): string {
   return entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)"
 }
 
-/** Two sections with the same keys as one row per key: the key's name, then both fields. */
 function PairedRows({ pair, field }: { pair: PairedBlocks; field: (entry: ConfigEntry, block: string) => ReactNode }) {
   const columns: CSSVars = {
     "--paired-columns": `auto ${span(pair.rows[0].left)} ${span(pair.rows[0].right)}`,

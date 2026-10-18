@@ -10,11 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { runKind } from "@/components/steward/status"
 import { message, t } from "@/lib/texts"
 
-/**
- * Asks for a RECREATE run of one service. The run makes the container again from the image that is already on this host.
- *
- * It is a run like any other, so players are warned and moved before the container goes.
- */
+/** It is a run like any other, so players are warned and moved before the container goes. */
 export function RecreateButton({
   service,
   variant = "outline",
@@ -36,9 +32,6 @@ export function RecreateButton({
    */
   compact?: boolean
   size?: "default" | "sm"
-  /**
-   * Lets a page hide the word below a breakpoint. The button keeps the word as its accessible name.
-   */
   labelClassName?: string
   className?: string
   /** Lets the caller open and close the dialog, for the service page's ⋯ menu. */
@@ -56,7 +49,6 @@ export function RecreateButton({
   const ask = useAskForRun()
   const { unavailable, title } = useRecreateGate(service)
 
-  /** The agent refuses to recreate itself, so its button is not drawn. */
   if (service === "steward-agent") return null
 
   return (
@@ -107,8 +99,6 @@ export function RecreateButton({
 }
 
 /**
- * Returns whether Recreate can be offered, and the sentence that says why not.
- *
  * It is a hook of its own, so the service page's menu disables the same item for the same reason.
  */
 export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
@@ -119,9 +109,6 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
   const run = useRunLock().run
   const lock =
     run && touches(run, service) ? { locked: true, title: lockTitle(run) } : { locked: false, title: undefined }
-  /**
-   * An answer that the agent is unavailable or unreachable locks the button. The first load leaves it open.
-   */
   const unreachable = agent.data?.available === true && agent.data.reachable === false
   const unavailable = agent.data?.available === false || unreachable || agent.isError || lock.locked
   const title =

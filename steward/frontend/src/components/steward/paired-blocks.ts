@@ -1,14 +1,11 @@
 import type { ConfigEntry } from "@/lib/api"
 
 /**
- * Two adjacent sibling `MAP` blocks with the same scalar keys in the same order, drawn as one row per key.
- *
  * Anything else stays two stacks, because a pairing that shifted a row is the mistake this prevents.
  */
 export type PairedBlocks = {
   left: ConfigEntry
   right: ConfigEntry
-  /** One row per shared key, in the left block's order. */
   rows: Array<{ key: string; left: ConfigEntry; right: ConfigEntry }>
 }
 
@@ -50,7 +47,6 @@ export function pairedBlocks(entries: ConfigEntry[]): PairedBlocks[] {
   return found
 }
 
-/** Returns every path that a pair consumes: the two headings and all of their children. */
 export function pairedPaths(pairs: PairedBlocks[]): Set<string> {
   const taken = new Set<string>()
   for (const pair of pairs) {
@@ -68,7 +64,6 @@ function parentOf(entry: ConfigEntry): string {
   return entry.path.includes(".") ? entry.path.slice(0, entry.path.lastIndexOf(".")) : ""
 }
 
-/** Returns everything nested under a `MAP`, at any depth, up to its next sibling. */
 function descendantsOf(entries: ConfigEntry[], map: ConfigEntry): ConfigEntry[] {
   return entries.filter((entry) => entry.path.startsWith(map.path + "."))
 }

@@ -8,7 +8,7 @@ const TOPOLOGY = topologyOf(NETWORK_MAP)
 const NAMES = TOPOLOGY.names
 
 /**
- * A hand-written arrangement silently loses a service that the stack gained. `view.tsx` then draws the table instead.
+ * A hand-written arrangement silently loses a service that the stack gained, and then `view.tsx` draws the table.
  */
 describe("layoutFaults names what an arrangement forgot", () => {
   it("notices a service that no draft placed, which is the failure it exists for", () => {

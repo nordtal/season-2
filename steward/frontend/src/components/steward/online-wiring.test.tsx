@@ -7,8 +7,6 @@ import { useServices } from "@/lib/queries"
 import { queryResult } from "@/lib/query-fixtures"
 
 /**
- * Being the only player online shows a face and not just `+1`.
- *
  * `pages/overview.tsx` must pass the roster of the `proxy` row to `useOnline`, whose default is `[]`.
  */
 vi.mock("@/lib/queries", () => ({ useServices: vi.fn<typeof useServices>(), useAvatarBaseUrl: () => undefined }))

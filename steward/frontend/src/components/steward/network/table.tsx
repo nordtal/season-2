@@ -12,8 +12,6 @@ import { imageTag, type Section } from "./topology"
 import { t } from "@/lib/texts"
 
 /**
- * The network on a phone: one row per service with the card's facts, grouped by the sections of the topology.
- *
  * The grouping replaces the edges, because a "connected to" column would be neither table nor graph.
  */
 export function NetworkTable({ sections }: { sections: readonly Section[] }) {
@@ -29,7 +27,6 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
             const players = network.players(id)
             return (
               <div
-                /** `network.test.tsx` reads it the same way as a card. */
                 key={id}
                 data-row={id}
                 className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1 last:border-b-0"

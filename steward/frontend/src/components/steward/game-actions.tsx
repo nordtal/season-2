@@ -18,17 +18,11 @@ export type Ask = {
   confirm: string
 }
 
-/**
- * Returns a key as the track file spells it, readable: `ancient-debris` becomes "Ancient debris".
- */
 export function keyName(key: string): string {
   const spaced = key.replace(/[-_]+/g, " ").trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-/**
- * The hunger games round, started with one button. Every registered player goes into the arena, and the countdown begins.
- */
 export function HungerGamesActions() {
   const round = useHungerGamesRound()
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -96,7 +90,6 @@ function StartAnyway({ onStart }: { onStart: () => void }) {
   )
 }
 
-/** Asks, sends, and then stays open and shows the result. */
 export function ActionDialog({
   ask,
   onClose,
@@ -105,7 +98,6 @@ export function ActionDialog({
 }: {
   ask: Ask | null
   onClose: () => void
-  /** The query that this action changes. It is read again once the server has answered. */
   refresh: string
   after?: (run: CommandRun) => ReactNode
 }) {
@@ -160,11 +152,7 @@ export function ActionDialog({
   )
 }
 
-/**
- * Shows the states a request can be in, each in words.
- *
- * EXPIRED means that no server claimed the row, so none is listening. The action did not fail.
- */
+/** EXPIRED means that no server claimed the row, so none is listening. The action did not fail. */
 export function RequestOutcome({ run }: { run: CommandRun }) {
   const tone =
     run.status === "FAILED" || run.status === "EXPIRED"

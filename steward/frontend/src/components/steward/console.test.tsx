@@ -7,10 +7,6 @@ import { announce } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
 import { ServiceConsole, offeredSteps } from "./console"
 
-/**
- * The Console window: newest line on top, levels as colours, stack traces, run lines, Find, steps and failures.
- */
-
 type Listener = (event: Event) => void
 
 class FakeEventSource {
@@ -43,7 +39,6 @@ function mount() {
   act(() => live().emit("open"))
 }
 
-/** The console line of a server whose published tree is already cached, so nothing is fetched. */
 function mountLine(nodes: CommandNode[]) {
   const client = new QueryClient()
   client.setQueryData(keys.commandTree("smp"), { nodes })
@@ -91,7 +86,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** Returns whether an element is drawn in the dimmed text colour. */
 const dimmed = (element: Element) => element.getAttribute("class")?.split(/\s+/).includes("text-muted-foreground")
 
 describe("ServiceConsole", () => {
@@ -121,7 +115,6 @@ describe("ServiceConsole", () => {
     expect(screen.getByText(/Smp\.onEnable/).className).toContain("text-destructive")
     expect(screen.getByText("Can't keep up!").className).toContain("text-warning")
     expect(screen.getByText(/players online/).className).toContain("text-foreground")
-    // The thread name is gone, and the time stays apart from the text.
     expect(screen.queryByText(/Server thread/)).toBeNull()
   })
 
@@ -182,7 +175,6 @@ describe("ServiceConsole", () => {
     expect(orphan.className).toContain("sm:col-start-3")
     expect(carried.className).toContain("sm:col-start-3")
     expect(orphan.className).not.toContain("col-span-full")
-    // A line that continues nothing keeps the whole width.
     feed(["line", "There are 0 of a max of 40 players online:"])
     expect(screen.getByText(/players online/).className).toContain("col-span-full")
   })

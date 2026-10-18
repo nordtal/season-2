@@ -10,10 +10,6 @@ import { MilestonesEditor } from "@/components/steward/milestones/milestones-edi
 import { moved } from "@/components/steward/milestones/model"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * The milestones editor: chosen by the descriptor, drawn from the schema, compact, and saved like any group.
- */
-
 const FILE = "smp/milestones"
 
 function entry(key: string, more: Partial<ConfigEntry> = {}): ConfigEntry {

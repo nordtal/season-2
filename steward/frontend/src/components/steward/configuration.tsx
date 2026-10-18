@@ -8,9 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { t } from "@/lib/texts"
 
-/**
- * The marker for a key that an environment variable answers. A saved value has no effect until the variable is removed.
- */
+/** A saved value has no effect until the variable is removed. */
 export function EnvironmentOverriddenBadge() {
   return (
     <Tooltip>
@@ -39,9 +37,6 @@ function isSectionValuesArray(value: Draft[string] | undefined): value is Sectio
   )
 }
 
-/**
- * Returns only the keys that differ from the stored values, so a change of one word is one row.
- */
 export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
@@ -70,9 +65,7 @@ export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
 }
 
 /**
- * Titles `languages` cards by the language name of their tag. It is the one `SECTIONS` entry with a natural title.
- *
- * A blank tag falls back to the plain index.
+ * It is the one `SECTIONS` entry with a natural title. A blank tag falls back to the plain index.
  */
 function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: number) => string) | undefined {
   if (entry.path !== "languages") return undefined
@@ -82,9 +75,6 @@ function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: n
   }
 }
 
-/**
- * Returns the control of an entry: cards for `SECTIONS`, list rows for `LIST`, else `ScalarControl`.
- */
 export function Control({
   entry,
   draft,

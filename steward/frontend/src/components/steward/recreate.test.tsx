@@ -10,8 +10,6 @@ import { asButton } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * "Recreate" asks for a run and never touches a container itself.
- *
  * The fake backend answers by URL, because the dialog asks three questions in an order that may change.
  */
 
@@ -24,7 +22,6 @@ function json({ status = 200, body }: Answer): Response {
   })
 }
 
-/** The agent's state and the run inbox. */
 function backend(
   over: {
     available?: boolean
@@ -62,7 +59,6 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Opens the dialog and presses the confirming "Recreate" inside it, not the trigger. */
 async function start() {
   fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
   const dialog = await screen.findByRole("alertdialog")
@@ -84,7 +80,6 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is not drawn at all for the agent itself", async () => {
-    /** The agent refuses to recreate itself, so no button is drawn for it. */
     draw(<RecreateButton service="steward-agent" />)
 
     expect(screen.queryByRole("button")).toBeNull()
@@ -147,9 +142,6 @@ describe("RecreateButton - when /api/agent itself cannot be asked", () => {
 
 describe("RecreateButton - before /api/agent has answered at all", () => {
   it("keeps the button active but says nobody has checked yet, until the agent answers", async () => {
-    /**
-     * The first load leaves the button open. Once the agent has answered, the button needs no title.
-     */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",

@@ -9,7 +9,6 @@ import { changed, type Draft } from "@/components/steward/configuration"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { t } from "@/lib/texts"
 
-/** What one key of a group's draft can hold: text, a list, or a list of sections. */
 export type DraftValue = string | string[] | SectionValues[]
 
 function isSectionValues(value: unknown): value is SectionValues {
@@ -37,8 +36,6 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
 }
 
 /**
- * Holds a group's unsaved edits and the save that sends them. The schema form and every custom editor use it.
- *
  * A value set back to the stored value leaves the draft, so the count is the number of changes a save makes.
  */
 export function useGroupDraft(file: string, document: ConfigDocument) {
@@ -72,18 +69,12 @@ export function useGroupDraft(file: string, document: ConfigDocument) {
   return { draft, changes, count, set, submit, discard: () => clearDraft(file), save }
 }
 
-/**
- * Returns the notice above a group's fields: why a save is refused, why it cannot happen, or that it waits for a restart.
- */
 export function noticeOf(document: ConfigDocument): string | null {
   if (document.problem) return t("steward.settings.refused", { problem: document.problem })
   if (!document.writable) return t("steward.settings.read-only")
   return document.restartRequired ? t("steward.settings.restart-needed") : null
 }
 
-/**
- * The save of a draft, with the discard beside it that drops all of the draft at once. It shows only while there is something to save.
- */
 export function SaveDraft({
   count,
   writable,

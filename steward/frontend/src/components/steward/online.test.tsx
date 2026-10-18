@@ -5,9 +5,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { OnlineLine, type Online } from "@/components/steward/online"
 
 /**
- * With no roster, the whole count shows in the overflow circle. That is the state of the product.
- *
- * The page's own test covers the number and the dash. The circle needs a roster that the page cannot supply.
+ * With no roster, the whole count shows in the overflow circle. The page's own test covers the number and the dash.
  */
 const queryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

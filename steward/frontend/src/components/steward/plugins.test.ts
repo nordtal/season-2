@@ -4,8 +4,6 @@ import { groupPlugins, pluginStatus, removalSentence, versionLine, versionOf } f
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
- * The removal confirmation names the plugin's data folder, which the removal deletes too.
- *
  * The folder cannot be derived from the jar: `Chunky-Bukkit-<version>.jar` makes `plugins/Chunky/`.
  */
 const plugin = (over: Partial<ServicePlugin> = {}): ServicePlugin => ({

@@ -1,12 +1,9 @@
 import type { Arrangement } from "./place"
 
 /**
- * The one arrangement of the network view, in lanes that `place.tsx` resolves against any width.
- *
  * The cards of the middle lane each get a row that no side card uses, because at `minWidth` the lanes overlap.
  */
 export const PLAN: Arrangement = {
-  /** The panel's width at a 1024px viewport. Narrower panels scale the picture down slightly. */
   minWidth: 372,
   /**
    * Past this width the three lanes are so far apart that the arrows outgrow the cards, so the picture is centred.

@@ -30,11 +30,6 @@ import {
 import { DraftDot, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
-/**
- * The form of the Translations page: every text in its group and topic, where it appears, its editor, and the one save.
- */
-
-/** The one draft of the Translations page, keyed by each text's `<bundle>/<key>`. */
 export const TEXTS_FILE = "texts"
 
 /**
@@ -59,7 +54,6 @@ function isMessageDraftRecord(value: unknown): value is Record<string, MessageDr
   return typeof value === "object" && value !== null && Object.values(value).every(isMessageDraft)
 }
 
-/** Returns the draft as a save sends it, every key under its bundle. */
 function changesOf(draft: Record<string, MessageDraft>, byId: Map<string, MessageText>): MessageChanges["changes"] {
   const changes: MessageChanges["changes"] = {}
   for (const [id, changed] of Object.entries(draft)) {
@@ -77,10 +71,8 @@ export function TextsForm({
   search,
 }: {
   texts: MessageTexts
-  /** The service that the page is filtered to. Only its texts show, in its palette. */
   service: string | undefined
   target: Target | null
-  /** The search in the page's title row. */
   search: OutsideSearch
 }) {
   const draft = useDraft<MessageDraft>(TEXTS_FILE, isMessageDraftRecord)
@@ -102,9 +94,6 @@ export function TextsForm({
       ),
     [texts.texts, texts.languages],
   )
-  /**
-   * The palette of the filtered service. Without a filter there is none, and the network's own applies.
-   */
   const colours = service === undefined ? undefined : texts.colours[service]
   const fallenBack = useMemo(() => {
     const found = new Map<string, MessageFallback[]>()
@@ -147,9 +136,7 @@ export function TextsForm({
     )
   }
 
-  /**
-   * Saves a fallen-back override as it stands. That writes it over the jar's current text, and its draft is dropped.
-   */
+  /** That writes it over the jar's current text, and its draft is dropped. */
   function takeOverOf(entry: MessageEntry) {
     return (language: Language, override: string[]) =>
       takeOver.mutate(
@@ -227,7 +214,6 @@ export function TextsForm({
   )
 }
 
-/** Where a text appears: one pill per place, or one pill for a whole surface that it fills. */
 function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
   const pills = pillsOf(entry, places)
   if (pills.length === 0) return null
@@ -249,7 +235,7 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
 }
 
 /**
- * One key: its name with where it appears, and its text on the line below. Opened, it is one card with its name, where it appears, its editor and its previews. The text's line is left out, because the editor shows the text.
+ * Opened, it is one card with its name, where it appears, its editor and its previews. The text's line is left out, because the editor shows the text.
  */
 function TextRow({
   open,
@@ -257,7 +243,6 @@ function TextRow({
   colours,
   ...editor
 }: Omit<MessageEditorProps, "colours"> & {
-  /** The palette of the filtered service, or `undefined` for the network's. */
   colours: Record<string, string> | undefined
   open: boolean
   onOpen: (open: boolean) => void
@@ -267,7 +252,6 @@ function TextRow({
   const typed = draft?.[ENGLISH]
   const text = (typed === undefined ? shownOf(entry, ENGLISH) : (typed ?? packagedOf(entry, ENGLISH)))[0] ?? ""
 
-  // A jump from the command palette lands on a key by opening it.
   useEffect(() => {
     if (highlight) onOpen(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps

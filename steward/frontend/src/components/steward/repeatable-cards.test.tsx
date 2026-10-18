@@ -20,10 +20,6 @@ vi.mock("@/lib/queries", () => ({
   usePeople: () => queryResult(undefined),
 }))
 
-/**
- * `RepeatableCards` against fixtures of a repeating structure, one card per entry with add and remove.
- */
-
 function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
   return {
     path: over.key,
@@ -156,7 +152,6 @@ describe("RepeatableCards", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
-    /** The click only arms the confirmation, so nothing is drafted yet. */
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
@@ -202,9 +197,6 @@ describe("RepeatableCards", () => {
   })
 })
 
-/**
- * Removing an entry confirms with the list's own explanation. The dialog is the same for every unprotected entry.
- */
 describe("RepeatableCards - confirming a removal", () => {
   it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -312,7 +304,6 @@ describe("RepeatableCards - a protected entry", () => {
   })
 })
 
-/** A title shows only when the caller supplies one. Every other entry keeps "Entry N". */
 describe("RepeatableCards - a caller-supplied title", () => {
   it("uses it instead of the plain index", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -338,9 +329,6 @@ describe("RepeatableCards - a caller-supplied title", () => {
   })
 })
 
-/**
- * A card says when it misses a channel that its spec does not mark optional, whatever section it sits in.
- */
 describe("RepeatableCards - an incomplete card", () => {
   const REQUIRED_CHANNEL = field({
     key: "contribution-channel",
@@ -362,7 +350,6 @@ describe("RepeatableCards - an incomplete card", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     screen.getByText(/incomplete/i)
-    /** The name appears as the field's label and again in the "missing" sentence. */
     expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
   })
 
@@ -390,9 +377,6 @@ describe("RepeatableCards - an incomplete card", () => {
 })
 
 describe("RepeatableCards - sections inside sections", () => {
-  /**
-   * The milestone track: objectives within milestones, items within objectives, as deep as the schema.
-   */
   const OBJECTIVE: ConfigEntry[] = [
     field({ key: "key", label: "ID" }),
     field({ key: "target", label: "Target", type: "INTEGER" }),

@@ -8,10 +8,6 @@ import { SmpActions, trackSteps } from "@/components/steward/milestone-track"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { words } from "@/lib/query-fixtures"
 
-/**
- * The whole track in the file's order, with each task's details and action behind a popover and no command visible.
- */
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }

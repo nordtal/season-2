@@ -7,13 +7,11 @@ import { Stat } from "@/components/steward/stat"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 
-/** How far back a curve reaches, in minutes. These are the ranges that the service page offers. */
 export const RANGES = [2, 10, 60, 360, 720] as const
 export type Range = (typeof RANGES)[number]
 
 type Reading = { at: number; value: number }
 
-/** The range of a page's curves, as a small select that stays out of the way. */
 export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (minutes: Range) => void }) {
   return (
     <Select
@@ -42,9 +40,7 @@ export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (
 }
 
 /**
- * One number with its curve below it. Touching or hovering the curve moves the reading at that moment into the number.
- *
- * Without `label` only the curve shows, for a tile that already draws its number.
+ * Touching or hovering the curve moves the reading at that moment into the number. Without `label` only the curve shows, for a tile that already draws its number.
  */
 export function MetricChart({
   label,
@@ -59,17 +55,13 @@ export function MetricChart({
   valueClassName,
 }: {
   label?: string
-  /** The current number. It is absent while the query is pending. */
   value?: string
-  /** The caveat under the number, as `Stat` draws it. */
   hint?: ReactNode
-  /** Absent while the series loads. A strip of the same height is drawn instead. */
   points?: MetricPoint[]
   format: (value: number) => string
   colour: string
   height?: number
   className?: string
-  /** Passed to the number's `Stat`, for a row that lays it out differently on a phone. */
   statClassName?: string
   valueClassName?: string
 }) {

@@ -9,8 +9,6 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /**
- * The search and filter row of every page that has one. The search field comes first and grows, and the filters are beside it.
- *
  * The row wraps only when the controls do not fit on one line. The field is never narrower than half a phone.
  */
 export function FilterBar({
@@ -30,8 +28,6 @@ export function FilterBar({
 }
 
 /**
- * The search field with a magnifier inside it, and a clear button once something is typed.
- *
  * With `onSubmit` it filters on Enter only, as an exact match must. Clearing submits the empty value at once.
  */
 export function SearchField({
@@ -47,9 +43,7 @@ export function SearchField({
   value: string
   onValueChange: (value: string) => void
   onSubmit?: (value: string) => void
-  /** The keyboard that a phone shows. `numeric` is for a number. */
   inputMode?: "numeric"
-  /** The field's accessible name. It may say more than the placeholder has room for. */
   label: string
   placeholder?: string
   className?: string
@@ -100,12 +94,9 @@ export function SearchField({
   )
 }
 
-/** The value of a {@link FilterSelect} that keeps every row. */
 const EVERY = "\u0000every"
 
-/**
- * A filter by one value. `""` keeps every row. It has a name for screen readers and no visible label.
- */
+/** `""` keeps every row. */
 export function FilterSelect({
   value,
   onValueChange,
@@ -117,7 +108,6 @@ export function FilterSelect({
   value: string
   onValueChange: (value: string) => void
   label: string
-  /** The text of the choice that keeps every row. */
   every: string
   options: { value: string; label: string }[]
   className?: string
@@ -139,9 +129,6 @@ export function FilterSelect({
   )
 }
 
-/**
- * A filter that is on or off. It is a button that stays pressed and ticked while the filter holds.
- */
 export function FilterToggle({
   pressed,
   onPressedChange,
@@ -164,9 +151,6 @@ export function FilterToggle({
   )
 }
 
-/**
- * Shows what every row of the search shares, such as the loader and version a plugin must run on.
- */
 export function FilterContext({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <Badge variant="outline" className="h-6 text-muted-foreground" title={title}>

@@ -15,16 +15,10 @@ export const SAMPLE_TEXT = "Nordtal"
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
-/**
- * Returns a valid `#rrggbb`, or `null` for anything else, including an empty or partly typed value.
- */
 function validHex(value: string): string | null {
   return HEX_COLOUR.test(value) ? value : null
 }
 
-/**
- * A hex colour, typed or picked, with a preview on Minecraft's chat background behind an eye button.
- */
 export function ColourControl({
   id,
   value,
@@ -94,16 +88,11 @@ export function ColourControl({
   )
 }
 
-/**
- * Returns the parent path of an entry: everything before the last `.`, or "" for a top-level entry.
- */
 function parentOf(entry: ConfigEntry): string {
   return entry.path.includes(".") ? entry.path.slice(0, entry.path.lastIndexOf(".")) : ""
 }
 
 /**
- * Groups consecutive colour entries with the same parent. `colourRuns` draws each group as one row.
- *
  * An entry is a colour when its spec declares one, so an entry with a blank value stays in its group.
  */
 export function colourRuns(entries: ConfigEntry[]): ConfigEntry[][] {

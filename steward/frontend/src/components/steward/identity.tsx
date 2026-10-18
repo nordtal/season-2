@@ -9,28 +9,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 
-/**
- * The one display of a person, and the only place that may draw a Discord id or a Minecraft UUID.
- *
- * Closed, it shows an avatar and a name. Its popover holds both ids, each with a copy button.
- */
+/** The only place that may draw a Discord id or a Minecraft UUID. */
 
-/**
- * Composes a Minecraft head URL from the UUID and the configured base, so a new base leaves no stale URL.
- */
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
 
-  /** The UUID goes into the path, before any query that the base carries, such as `?scale=16`. */
+  /** The UUID goes before any query that the base carries. */
   const [path, query] = splitQuery(baseUrl)
 
-  /** The hyphens are removed, so each face has one spelling and one cache entry. */
   return `${path.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}${query}`
 }
 
-/**
- * Returns `["https://host/face", "?scale=16"]`, with an empty second element when there is no query.
- */
 function splitQuery(baseUrl: string): [string, string] {
   const at = baseUrl.search(/[?#]/)
   return at === -1 ? [baseUrl, ""] : [baseUrl.slice(0, at), baseUrl.slice(at)]
@@ -58,31 +47,20 @@ export async function copyToClipboard(value: string): Promise<boolean> {
 }
 
 export type PersonIdentityProps = {
-  /** Not required with {@link system}, which has no id to show. */
   discordId?: string
   discordUsername?: string
   discordDisplayName?: string
   discordAvatarUrl?: string
   mcUuid?: string
   mcName?: string
-  /**
-   * The base that a Minecraft head is composed from, `useAvatarBaseUrl()`. Without it no head is drawn.
-   */
+  /** Without it no head is drawn. */
   avatarBaseUrl?: string
   className?: string
-  /**
-   * Marks that Steward did it and not a person. It draws the server's mark and the word "Steward" without a popover.
-   */
   system?: boolean
-  /**
-   * The half drawn while closed: `discord` (default), `minecraft`, or `both` side by side. The popover is the same for all three.
-   */
   face?: "discord" | "minecraft" | "both"
-  /** `false` draws the closed face alone, for a place that is itself interactive. */
   interactive?: boolean
 }
 
-/** Returns the name shown while closed. */
 function displayName(props: PersonIdentityProps): { text: string | null } {
   if (props.discordDisplayName) {
     return { text: props.discordDisplayName }
@@ -201,9 +179,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
   )
 }
 
-/**
- * A link to the person's page under Users. It is drawn only inside a router, so a card rendered alone stays a card.
- */
+/** It is drawn only inside a router, so a card rendered alone stays a card. */
 function PersonPageLink({ discordId }: { discordId: string }) {
   const router = useRouter({ warn: false })
   if (!router) return null
@@ -220,7 +196,6 @@ function PersonPageLink({ discordId }: { discordId: string }) {
   )
 }
 
-/** An id as selectable text with a copy button, for a browser without clipboard access. */
 function CopyableId({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -255,7 +230,6 @@ function CopyableId({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The small round Discord avatar, in the closed face or in the popover header. */
 function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: string | null; size?: string }) {
   const [broken, setBroken] = useState(false)
 
@@ -280,18 +254,13 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
   )
 }
 
-/**
- * The small rounded-square Minecraft head, drawn from a composed URL.
- *
- * It shows a skeleton while waiting or loading and a question mark if it fails. Its size never changes.
- */
+/** It shows a skeleton while waiting or loading and a question mark if it fails. */
 export function MinecraftHead({
   mcUuid,
   baseUrl,
   size = "size-5",
   rounded = "rounded-sm",
 }: {
-  /** Missing while the row around this head loads. */
   mcUuid?: string
   baseUrl?: string
   size?: string

@@ -23,8 +23,6 @@ import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
 /**
- * The window of the Console tab. It has the controls and the line into the server, in one row on a desktop and two rows on a phone, and below them the log with the newest line on top.
- *
  * The stream reconnects by itself. Scrolling away stops following until the arrow brings it back.
  */
 export function ServiceConsole({
@@ -35,11 +33,7 @@ export function ServiceConsole({
 }: {
   name: string
   hasConsole: boolean
-  /**
-   * Says why the log may end: a run is stopping this service (`going`), or the service is not running (`gone`).
-   */
   offline?: "going" | "gone"
-  /** The number of lines steward can fill. The steps above it are not offered. */
   capacity: number | undefined
 }) {
   const [limit, setLimit] = useState<number>(DEFAULT_LIMIT)
@@ -179,9 +173,7 @@ export function ServiceConsole({
   )
 }
 
-/**
- * Returns the steps that steward can fill. The lowest step is always offered, and the window says when it runs dry.
- */
+/** The lowest step is always offered, and the window says when it runs dry. */
 export function offeredSteps(capacity: number | undefined): number[] {
   return STEPS.filter((step) => step === DEFAULT_LIMIT || (capacity ?? 0) >= step)
 }
@@ -190,9 +182,7 @@ function pad(value: number): string {
   return String(value).padStart(2, "0")
 }
 
-/**
- * Saves the raw lines that the window holds, oldest first, as a file. The filter applies and the markers are left out.
- */
+/** The filter applies and the markers are left out. */
 function download(name: string, entries: LogEntry[]) {
   const text = entries
     .filter((entry) => entry.kind === "line")
@@ -231,9 +221,7 @@ function parse(entry: LogEntry): ParsedLine {
 
 type Row = { entry: LogEntry; line: ParsedLine | null; level: Level | null }
 
-/** The distance in pixels from the top within which the window follows new lines. */
 const FOLLOWING = 8
-/** The distance from the top in pixels from which the arrow back to the top shows. */
 const AWAY = 48
 
 function LogLines({ entries }: { entries: LogEntry[] }) {
@@ -310,7 +298,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         onScroll={(event) => setAway(event.currentTarget.scrollTop > AWAY)}
         className="h-full overflow-auto px-2 pt-1.5 pb-16 [overflow-anchor:none] sm:px-3"
       >
-        {/* On a phone time and source have their own line above the text. From `sm` up all three are columns. */}
         <div ref={grid} className="grid grid-cols-1 gap-x-3 sm:grid-cols-[auto_auto_1fr]">
           {rows.map(({ entry, line, level }) =>
             line === null ? (
@@ -340,9 +327,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 key={entry.seq}
                 className={cn(
                   "break-words whitespace-pre-wrap",
-                  /**
-                   * A continuation line sits under the message. Any other line has the whole width.
-                   */
                   continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
                   level ? LEVEL_TEXT[level] : LEVEL_TEXT.INFO,
                 )}
@@ -372,8 +356,6 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
 }
 
 /**
- * The line into the server console. It sits above the log, where its answer appears, and is first in the row of controls.
- *
  * The up arrow walks a history that is not persisted, so the next person at this browser cannot read it.
  */
 function ConsoleLine({ name }: { name: string }) {
@@ -489,8 +471,6 @@ function ConsoleLine({ name }: { name: string }) {
 }
 
 /**
- * Shows the words that complete the word being typed, and the arguments expected there, under the line.
- *
  * A tap takes a word without moving the focus from the field, so the keyboard on a phone stays up.
  */
 function ConsoleSuggestions({

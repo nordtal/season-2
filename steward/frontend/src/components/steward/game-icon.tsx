@@ -1,12 +1,9 @@
 import type { GameIcons } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
-/** The width and height in pixels of each cell of the icon sheet. */
 const CELL = 32
 
-/**
- * Draws the icon of one item, cut from the sheet that steward-agent drew. It draws an empty square of the same size when the item has none.
- */
+/** It draws an empty square of the same size when the item has none. */
 export function GameIcon({
   icons,
   item,

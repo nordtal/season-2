@@ -6,9 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { IDENTIFIER_PATTERN, PersonIdentity, minecraftHeadUrl } from "@/components/steward/identity"
 import { asInput } from "@/lib/test-elements"
 
-/**
- * Identifiers appear only in this component's popover, each beside a button that copies it. They never appear while the popover is closed.
- */
+/** Identifiers appear only in the popover, each beside a button that copies it. */
 
 const DISCORD_ID = "214906139328839681"
 const MC_UUID = "11111111-2222-3333-4444-555555555555"
@@ -43,7 +41,6 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
   })
 
   it("falls back to readable text, not the raw id, for an account with no observed name", () => {
-    /** A former member or an unmirrored profile does not fall back to the identifier. */
     render(<PersonIdentity discordId={DISCORD_ID} />)
 
     expect(document.body.textContent).not.toContain(DISCORD_ID)
@@ -135,12 +132,10 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     const field = asInput(await screen.findByLabelText("Discord-ID"))
     expect(field.readOnly).toBe(true)
     expect(field.value).toBe(DISCORD_ID)
-    // The button stays clickable and must not throw without a clipboard.
     expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
   })
 })
 
-/** Renders a card inside the app's router with the route of the person page registered. */
 function inRouter(card: ReactNode) {
   const root = createRootRoute({ component: () => <>{card}</> })
   const person = createRoute({ getParentRoute: () => root, path: "/access/$id" })
@@ -184,7 +179,6 @@ describe("PersonIdentity - the way to the person's page", () => {
 })
 
 describe("PersonIdentity - nothing half-written, and no mark nobody can see", () => {
-  /** The popover writes no line under a name that has no timestamp, and no staleness mark. */
   it("writes no line under the Discord name, whether the name is fresh or ancient", () => {
     render(<PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" />)
     fireEvent.click(screen.getByRole("button"))
@@ -213,7 +207,6 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
   })
 
   it("still says so when there is genuinely nothing on record - that is a sentence, not a stub", () => {
-    /** "Never observed" is a complete answer and stays. */
     render(<PersonIdentity discordId={DISCORD_ID} />)
     fireEvent.click(screen.getByRole("button"))
 
@@ -266,7 +259,6 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("still works for a base pointing anywhere else, because it is configuration", () => {
-    /** A base that names mc-heads keeps working, because the base is a setting like any other. */
     expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(`https://mc-heads.net/avatar/${UNDASHED}`)
   })
 

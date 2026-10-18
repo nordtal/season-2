@@ -4,31 +4,16 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-/** One thing that can be done to the row this sits in. */
 export type RowAction = {
-  /** Stable across renders, so React keeps the right button when the set changes. */
   key: string
   /** The control itself. It must not open a dialog of its own. */
   node: ReactNode
 }
 
 /**
- * The actions of one table row: inline while there are at most two, otherwise behind a popover, or always behind it with `menu`.
- *
  * Three actions do not fit a 390px card. An action only sets page state, because a dialog inside the popover would close with it.
  */
-export function RowActions({
-  actions,
-  label,
-  menu = false,
-}: {
-  actions: RowAction[]
-  label: string
-  /**
-   * Always puts the actions behind the popover, for a table whose rows have sets of different sizes and would otherwise look ragged.
-   */
-  menu?: boolean
-}) {
+export function RowActions({ actions, label, menu = false }: { actions: RowAction[]; label: string; menu?: boolean }) {
   if (actions.length === 0) return null
 
   if (actions.length <= 2 && !menu) {

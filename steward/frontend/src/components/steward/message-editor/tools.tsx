@@ -5,8 +5,6 @@ import { cn } from "cn"
 import { t } from "@/lib/texts"
 import { Button } from "@/components/ui/button"
 
-/** The row above a field, and the buttons in it. They keep the editor's selection when pressed. */
-
 export function ToolButton({
   label,
   pressed,
@@ -39,7 +37,6 @@ export function ToolButton({
   )
 }
 
-/** A trigger in the tool row: an icon with its name as label. It keeps the editor's selection. */
 export function MenuTrigger({
   label,
   pressed,
@@ -77,7 +74,6 @@ export function BreakButton({ onPress, disabled }: { onPress: () => void; disabl
   )
 }
 
-/** In a plural's case it inserts `#`, the number that the plural is chosen by. */
 export function NumberButton({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
   return (
     <ToolButton label={t("steward.message-editor.the-number")} onPress={onPress} disabled={disabled}>
@@ -87,7 +83,7 @@ export function NumberButton({ onPress, disabled }: { onPress: () => void; disab
 }
 
 /**
- * The row of tools above a field. It is always there, scrolls sideways when it does not fit, and stays in view while the field scrolls under it, so a phone's keyboard never pushes it out of reach. Inside a hover it is a plain row.
+ * It scrolls sideways when it does not fit, and stays in view while the field scrolls under it, so a phone's keyboard never pushes it out of reach. Inside a hover it is a plain row.
  */
 export function Toolbar({ label, nested, children }: { label: string; nested?: boolean; children: ReactNode }) {
   return (
@@ -104,7 +100,6 @@ export function Toolbar({ label, nested, children }: { label: string; nested?: b
   )
 }
 
-/** The divider between the inserting tools and the styling tools. */
 export function ToolDivider() {
   return <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
 }

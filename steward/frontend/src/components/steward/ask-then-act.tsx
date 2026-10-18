@@ -15,8 +15,6 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The confirmation in front of a change: a question, then the change, then either the dialog closes or the failure shows inside it.
- *
  * While the change runs, nothing closes the dialog, so a slow answer is not lost behind a closed dialog.
  */
 export function AskThenAct({
@@ -36,34 +34,25 @@ export function AskThenAct({
   busy = false,
   closeLabel = t("steward.form.close"),
 }: {
-  /**
-   * When set, the caller decides whether the dialog is open. When left out, {@link trigger} opens it.
-   */
+  /** When set, the caller decides whether the dialog is open. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  /** The button that opens the dialog, wrapped as the trigger. */
   trigger?: ReactNode
   title: ReactNode
   description?: ReactNode
-  /** Content between the question and the buttons, such as fields or a warning. */
   children?: ReactNode
-  /** The text of the button that acts. */
   action: ReactNode
-  /** The text of that button while the action runs. It defaults to the action's text. */
   acting?: ReactNode
   cancel?: string
   destructive?: boolean
-  /** Disables the action, for example while a field is empty. */
   disabled?: boolean
   /**
-   * The change. A returned promise keeps the dialog open until it ends. A rejection shows inside the dialog as the failure.
+   * A returned promise keeps the dialog open until it ends. A rejection shows inside the dialog.
    */
   act: () => Promise<unknown> | void
-  /**
-   * The result of the change, for a change whose answer is worth reading. It is null until there is one. A success keeps the dialog open, and then only Close is offered.
-   */
+  /** A success keeps the dialog open, and then only Close is offered. */
   answered?: ReactNode
-  /** Something the caller still waits for. It keeps the dialog open like the change does. */
+  /** Keeps the dialog open like the change does. */
   busy?: boolean
   closeLabel?: string
 }) {

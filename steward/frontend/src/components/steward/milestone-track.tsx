@@ -23,15 +23,10 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { t } from "@/lib/texts"
 
-/**
- * The definition of the track. The track reads it through the configuration API for its order and for what each step asks for.
- */
 export const TRACK_FILE = "smp/milestones"
 
-/** A task's progress and the settings that define it. */
 export type TrackTask = SmpObjective & { fields: ConfigEntry[] }
 
-/** A step's progress and the settings that define it. */
 export type TrackStep = Omit<SmpMilestone, "objectives"> & { fields: ConfigEntry[]; objectives: TrackTask[] }
 
 /**
@@ -61,7 +56,6 @@ function tasks(progress: SmpObjective[], section: ConfigEntry[]): TrackTask[] {
     .map((row) => ({ ...row, fields: details(declared.get(row.key) ?? [], row) }))
 }
 
-/** Returns the first list of sections among `entries`, each by its `key`. */
 function titled(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   const sections = entries.find((entry) => entry.kind === "SECTIONS")?.sections ?? []
   const out = new Map<string, ConfigEntry[]>()
@@ -72,9 +66,6 @@ function titled(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   return out
 }
 
-/**
- * Returns a section's settings without what its progress row already says, so nothing appears twice.
- */
 function details(section: ConfigEntry[], row: object): ConfigEntry[] {
   return section.filter((field) => !Object.hasOwn(row, field.key))
 }
@@ -84,7 +75,6 @@ function share(task: TrackTask): number {
   return task.target > 0 ? Math.min(100, Math.floor((task.amount * 100) / task.target)) : 0
 }
 
-/** The SMP's milestone track with every step at once: across on a wide screen, down on a phone. */
 export function SmpActions() {
   const track = useSmpTrack()
   const definition = useConfig(TRACK_FILE)
@@ -129,7 +119,7 @@ export function SmpActions() {
   )
 }
 
-/** One milestone. Unlocking it moves the track on and pays aura to everybody who qualified. */
+/** Unlocking it moves the track on and pays aura to everybody who qualified. */
 function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (ask: Ask) => void }) {
   const name = keyName(step.key)
   const active = step.state === "ACTIVE"
@@ -168,7 +158,6 @@ function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (a
             </Button>
           ) : null}
         </div>
-        {/* The tasks of a finished step are all done. On a phone they stay behind its popover. */}
         {step.objectives.length > 0 ? (
           <ul className={cn("grid grid-cols-2 gap-1 lg:grid-cols-1", step.state === "UNLOCKED" && "max-lg:hidden")}>
             {step.objectives.map((task) => (

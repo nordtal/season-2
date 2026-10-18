@@ -8,13 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
 export { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
-/**
- * Loading, empty and failed: the three states that every list here must have, so none is silently missing.
- *
- * A failure names the service that is down, taken from `ApiError.where`.
- */
+/** A failure names the service that is down, taken from `ApiError.where`. */
 
-/** Flat grey bars, for views whose loading state is n bars of one height. */
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
   return (
     <div className="flex flex-col gap-2" role="status" aria-busy="true">
@@ -85,9 +80,6 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
   )
 }
 
-/**
- * The parts of a query that this reads. `fetchStatus` is optional, for callers that pass a plain object.
- */
 type QueryLike<T> = {
   data: T | undefined
   error: unknown
@@ -97,14 +89,9 @@ type QueryLike<T> = {
   dataUpdatedAt?: number
 }
 
-/** How long an answer outlives a gateway error before the error replaces it. */
 export const TRANSIENT_GRACE_MS = 60_000
 
-/**
- * Returns whether a 502, 503 or 504 hit data that is still recent, so the answer stays.
- *
- * Those errors usually come from a redeploy or restart that the next poll recovers from. After a minute the failure shows.
- */
+/** Those errors usually come from a redeploy or restart. After a minute the failure shows. */
 export function transient(query: QueryLike<unknown>, now = Date.now()): boolean {
   const error = query.error
   if (!(error instanceof ApiError) || ![502, 503, 504].includes(error.status)) return false
@@ -113,8 +100,6 @@ export function transient(query: QueryLike<unknown>, now = Date.now()): boolean 
 }
 
 /**
- * The states around one query. `children` is called with `undefined` while waiting and with the data afterwards.
- *
  * Both branches render the child bare, because a wrapper in only one of them would remount the child when the answer arrives.
  */
 export function QueryState<T>(
@@ -124,15 +109,11 @@ export function QueryState<T>(
     isEmpty?: (data: T) => boolean
   } & (
     | {
-        /**
-         * Flat grey bars instead of the child's own shape. The child is then called with data only.
-         */
         rows: number
         children: (data: T) => ReactNode
       }
     | {
         rows?: undefined
-        /** Called with `undefined` while waiting and with the data once it is here. */
         children: (data: T | undefined) => ReactNode
       }
   ),

@@ -14,20 +14,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
 
-/**
- * The control of one scalar key. `configuration.tsx` and `repeatable-cards.tsx` share it, so neither imports the other.
- */
+/** `configuration.tsx` and `repeatable-cards.tsx` share it, so neither imports the other. */
 
 /**
- * Returns the plain-text name of a config file, built like `Labels.of`: no extension, words split, Capital Case.
- *
- * It is in this file so that `config-search.tsx` can import it without a cycle.
+ * Built like `Labels.of`: no extension, words split, Capital Case. It is here so that `config-search.tsx` can import it without a cycle.
  */
 export function humanFileName(name: string): string {
   return fileTitle(name)
 }
 
-/** Returns the short text between a label and its input, taken from the schema. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null
   if (entry.explanation) return entry.explanation
@@ -43,12 +38,10 @@ export function isRequiredChannel(entry: ConfigEntry): boolean {
   return entry.refers?.to === "DISCORD_CHANNEL" && !entry.refers.optional
 }
 
-/** Returns the name that the plugin's text gives a choice, or the value itself. */
 export function choiceName(choices: ConfigChoices, value: string): string {
   return choices.names?.[value] ?? value
 }
 
-/** Draws the item of a choice when the schema gives one. */
 export function ChoiceIcon({ choices, value, size = 20 }: { choices: ConfigChoices; value: string; size?: number }) {
   const item = choices.icons?.[value]
   const game = useGameData(choices.icons !== undefined)
@@ -56,9 +49,7 @@ export function ChoiceIcon({ choices, value, size = 20 }: { choices: ConfigChoic
   return <GameIcon icons={game.data.icons} item={item} size={size} />
 }
 
-/**
- * Shows the choices of a schema, each with its name and icon. A strict list is a select only. A suggestion list is a select beside a free text field.
- */
+/** A strict list is a select only. A suggestion list is a select beside a free text field. */
 function ChoicesControl({
   id,
   value,
@@ -108,7 +99,7 @@ function ChoicesControl({
   )
 }
 
-/** The plain text field. A reference falls back to it while nothing can be listed. */
+/** A reference falls back to it while nothing can be listed. */
 function TextControl({
   id,
   entry,
@@ -122,7 +113,6 @@ function TextControl({
   disabled: boolean
   onChange: (value: string) => void
 }) {
-  /** A value that already spans lines gets a box large enough for it. */
   if (value.includes("\n")) {
     return (
       <Textarea
@@ -150,9 +140,7 @@ function TextControl({
 }
 
 /**
- * The control of one scalar key. The precedence is: secret, choices, reference, boolean, text.
- *
- * `sibling` is the value of the field that a reference depends on, such as the statistic that a subject is counted by.
+ * The precedence is: secret, choices, reference, boolean, text. `sibling` is the value of the field that a reference depends on.
  */
 export function ScalarControl({
   id,
@@ -223,11 +211,7 @@ export function ScalarControl({
   return <TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />
 }
 
-/**
- * A list with one row per entry.
- *
- * The form sends the whole list with the file's `revision`, so a concurrent save gets a 409.
- */
+/** The form sends the whole list with the file's `revision`, so a concurrent save gets a 409. */
 export function ListControl({
   id,
   entry,
@@ -260,7 +244,6 @@ export function ListControl({
   )
 }
 
-/** The plain list: one text field per entry. */
 function ListRows({
   id,
   items,

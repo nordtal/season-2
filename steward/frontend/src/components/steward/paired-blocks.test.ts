@@ -27,7 +27,6 @@ function block(name: string, keys: string[], values: string[] = []): ConfigEntry
   ]
 }
 
-/** The shape of `prestige.yml`: `hours` and `colours`, thirteen keys each, in the same order. */
 const LADDER = [
   field({ key: "admin", path: "admin", value: "#ff5555" }),
   ...block("hours", ["tier-01", "tier-02", "tier-03"], ["0", "2", "5"]),
@@ -45,7 +44,6 @@ describe("pairedBlocks", () => {
     expect(pairs[0].left.path).toBe("hours")
     expect(pairs[0].right.path).toBe("colours")
     expect(pairs[0].rows.map((row) => row.key)).toEqual(["tier-01", "tier-02", "tier-03"])
-    /** `left` is the key of the left block and `right` the key of the right block. */
     expect(pairs[0].rows[1].left.path).toBe("hours.tier-02")
     expect(pairs[0].rows[1].right.path).toBe("colours.tier-02")
   })

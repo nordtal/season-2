@@ -6,11 +6,6 @@ import { ScalarControl } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 import { asInput } from "@/lib/test-elements"
 
-/**
- * The colour picker, which appears where a spec declares a colour, and `colourRuns`, which groups the rows.
- */
-
-/** The preview starts hidden, so every test about it opens it first. */
 const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
 
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
@@ -30,7 +25,6 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
   }
 }
 
-/** Returns a field whose spec declares a colour. */
 function colour(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return field({ refers: { to: "COLOUR", optional: false }, ...over })
 }
@@ -100,7 +94,6 @@ describe("ColourControl", () => {
     expect(sample.style.color).toBe("rgb(139, 168, 136)")
   })
 
-  /** A wrapped sample would make one colour in a row taller than the others. */
   it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
@@ -110,7 +103,6 @@ describe("ColourControl", () => {
     expect(sample.className).toContain("truncate")
   })
 
-  /** The preview has the field's width and starts hidden behind the eye. */
   it("draws no preview until it is asked for", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
 
@@ -139,7 +131,6 @@ describe("ColourControl", () => {
   })
 
   it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
-    /** An incomplete value does not crash the native input, and the preview keeps its size. */
     render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
@@ -148,7 +139,6 @@ describe("ColourControl", () => {
     const sample = screen.getByText(SAMPLE_TEXT)
     expect(sample.style.color).toBe("")
     expect(screen.queryByText(/type a hex value/i)).toBeNull()
-    // The name says what a sighted reader sees from the dimming.
     screen.getByRole("img", { name: /no valid colour to preview yet/i })
   })
 })
@@ -205,9 +195,6 @@ describe("colourRuns", () => {
   })
 
   it("groups the thirteen prestige tiers into one row and leaves admin out of it", () => {
-    /**
-     * The shape of `smp/smp/prestige-colours.yml`: `admin` at the top and thirteen tiers under `prestige`.
-     */
     const entries = [
       colour({ key: "admin", path: "admin", value: "#ff5555" }),
       colour({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),

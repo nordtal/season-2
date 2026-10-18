@@ -44,12 +44,10 @@ export type VisualEditorProps = {
   glyphs: GlyphInfo[]
   fill: Fill
   tones: Tones
-  /** The styles that each value kind offers, by the kind's token. */
   kinds: Record<string, string[]>
   label: string
   /** A hover's own text, which has no hover, click or action inside it. */
   nested?: boolean
-  /** In a plural's case: the number that `#` stands for, which the tool row offers. */
   pound?: string
   /**
    * In a plural's case: the style around the plural. It is drawn under each run's own style and never written.
@@ -61,9 +59,7 @@ export type VisualEditorProps = {
 type Range = { from: number; to: number }
 
 /**
- * A: the text as it looks, typed into directly, with placeholders as pills that move as one character.
- *
- * The runs are the state. Each `beforeinput` edit is applied to them, and only a composition is read back. The tool row sits above the field and stays there on a phone, scrolling sideways and not following the selection.
+ * The runs are the state. Each `beforeinput` edit is applied to them, and only a composition is read back. The tool row stays in view on a phone, scrolling sideways and not following the selection.
  */
 export function VisualEditor({
   runs,
@@ -136,7 +132,6 @@ export function VisualEditor({
     if (element) placeCaret(element, runs, at)
   }
 
-  // After every render that moved the caret, put it back where the model says it is.
   useLayoutEffect(() => {
     const element = root.current
     if (!element || !caret.current || document.activeElement !== element) return
@@ -375,7 +370,6 @@ export function VisualEditor({
   )
 }
 
-/** Returns the one value that the selection is exactly, with its place among the runs. */
 function selectedValue(
   runs: Run[],
   range: Range,
@@ -423,7 +417,6 @@ function RunView({
   glyphs: GlyphInfo[]
   fill: Fill
   tones: Tones
-  /** Selects this run. `at` is the caret position where the run starts. */
   onSelect: (at: number) => void
 }) {
   const minecraft = format === "MINIMESSAGE"
@@ -505,9 +498,7 @@ function RunView({
   }
 }
 
-/**
- * Draws hover, click and action as marks in the editor, because none of them is visible in the game until used.
- */
+/** None of the three is visible in the game until used. */
 function marksOf(style: Style, format: Format): CSSProperties {
   if (format === "DISCORD_MARKDOWN") return style.click ? { color: "#00a8fc" } : {}
   const marks: CSSProperties = {}
@@ -549,7 +540,6 @@ function textStyle(style: Style, format: Format, tones: Tones): CSSProperties {
   return css
 }
 
-/** Returns how many characters of plain text one run contributes to a gradient span. */
 function runLength(run: Run): number {
   return run.kind === "text" ? run.text.length : run.kind === "placeholder" ? 1 : 0
 }
@@ -565,7 +555,6 @@ function gradientSpan(runs: Run[], index: number): { start: number; total: numbe
   return { start, total }
 }
 
-/** A hover's text, edited with this same editor in a popover, without hover, click or action. */
 function HoverMenu({
   hover,
   onChange,
@@ -685,7 +674,6 @@ function runIndex(node: Node): number | null {
   return value === undefined ? null : Number(value)
 }
 
-/** Returns how many model positions a top-level child of the editor stands for. */
 function lengthOfNode(node: Node, runs: Run[]): number {
   const index = runIndex(node)
   if (index !== null) {
@@ -773,7 +761,6 @@ function placeCaret(root: HTMLElement, runs: Run[], range: Range) {
   selection.setBaseAndExtent(start.node, start.offset, end.node, end.offset)
 }
 
-/** After a composition: returns the runs as the DOM now reads them, and where its caret is. */
 function readDom(root: HTMLElement, runs: Run[]): { runs: Run[]; caret: Range } {
   const selection = document.getSelection()
   const caretAt =

@@ -11,9 +11,6 @@ import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 
-/**
- * One section's fields as a card edits them. A list of sections holds the same record one level down.
- */
 export type SectionValues = {
   [key: string]: string | string[] | SectionValues[]
 }
@@ -33,30 +30,22 @@ function fieldsToValues(fields: ConfigEntry[]): SectionValues {
   return values
 }
 
-/** Returns the document's own sections as records, which a card's draft starts from. */
 export function sectionsFromEntry(entry: ConfigEntry): SectionValues[] {
   return (entry.sections ?? []).map(fieldsToValues)
 }
 
-/**
- * Returns one field's value in a brand new section: what its template holds, which is the schema's default.
- */
 function blankValue(field: ConfigEntry): string | string[] | SectionValues[] {
   if (field.kind === "SECTIONS") return []
   if (field.kind === "LIST") return field.items ?? []
   return field.value ?? ""
 }
 
-/** Returns a brand new section with every key that `template` names, each at its default. */
 export function blankSection(template: ConfigEntry[]): SectionValues {
   const values: SectionValues = {}
   for (const field of template) values[field.key] = blankValue(field)
   return values
 }
 
-/**
- * Returns whether a field applies to `section`. It always does, unless its schema names the sibling values it is for.
- */
 export function appliesTo(field: ConfigEntry, section: SectionValues): boolean {
   return !field.appliesWhen || field.appliesWhen.values.includes(textOf(section, field.appliesWhen.key))
 }
@@ -79,29 +68,19 @@ export function withValue(
   return next
 }
 
-/** Returns a field's text, or "" for a field that holds a list. */
 function textOf(section: SectionValues | undefined, key: string): string {
   const value = section?.[key]
   return typeof value === "string" ? value : ""
 }
 
-/**
- * Returns a LIST field's own value: strings, never the sections array that a SECTIONS field holds.
- */
 function stringsOf(value: string | string[] | SectionValues[] | undefined): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
 }
 
-/**
- * Returns a SECTIONS field's own value: nested records, never the strings that a LIST field holds.
- */
 export function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
 
-/**
- * The entries of a `SECTIONS` value as cards, each drawn from `template`, added and removed one at a time.
- */
 export function RepeatableCards({
   entry,
   value,
@@ -114,9 +93,7 @@ export function RepeatableCards({
   value: SectionValues[]
   disabled: boolean
   onChange: (value: SectionValues[]) => void
-  /**
-   * The title of a card instead of "Entry N". The caller decides, because the schema has no titles.
-   */
+  /** The caller decides, because the schema has no titles. */
   sectionTitle?: (section: SectionValues, index: number) => string
   /**
    * Set for a list inside another card, whose entries are divided by a rule. It names the add button.
@@ -125,16 +102,11 @@ export function RepeatableCards({
 }) {
   const template = entry.template ?? NO_TEMPLATE
 
-  /**
-   * The channel fields that are not marked optional. If one is missing, the card is incomplete.
-   */
   const requiredChannelFields = useMemo(() => template.filter((field) => isRequiredChannel(field)), [template])
 
-  /** The index armed for removal. Only the dialog's confirmation removes it. */
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
 
-  /** The entry that the schema protects, disabled here because steward refuses its removal too. */
   const protectedIndex = entry.protectedEntry
     ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
     : -1
@@ -162,7 +134,6 @@ export function RepeatableCards({
     )
   }
 
-  /** A card's title: the caller's, else its own `key` field, else its position. */
   const titleOf = (section: SectionValues, index: number) =>
     sectionTitle?.(section, index) ?? (textOf(section, "key").trim() || `Entry ${index + 1}`)
 

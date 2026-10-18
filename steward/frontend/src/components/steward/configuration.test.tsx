@@ -16,11 +16,7 @@ import {
   search,
 } from "@/components/steward/configuration.fixtures"
 
-/**
- * The configuration form drawn from the schema next to a file, against a fake backend that answers by URL.
- *
- * The test does not use `jest-dom`, so the assertions read DOM properties directly.
- */
+/** The test does not use `jest-dom`, so the assertions read DOM properties directly. */
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -44,7 +40,6 @@ describe("the file row", () => {
     draw(<Settings service="steward" />)
 
     await screen.findByText("Steward")
-    /** The path is not shown under the name. */
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
@@ -92,9 +87,6 @@ describe("the file row", () => {
   })
 })
 
-/**
- * The search box of an open file matches label, path, value and explanation, never a secret's value, and it prunes the tree.
- */
 describe("searching a file", () => {
   const file = "steward/steward"
 
@@ -284,9 +276,6 @@ describe("headings and explanations", () => {
   })
 })
 
-/**
- * A field that an environment variable overrides is not editable, because saving it changes nothing.
- */
 describe("environment overrides", () => {
   const file = "steward/steward"
 
@@ -414,11 +403,7 @@ describe("a group whose stored values the service refused", () => {
   })
 })
 
-/**
- * A search hit also works when this page is already open and `navigate` remounts nothing.
- *
- * Otherwise the jump stays in the map and fires on the next visit.
- */
+/** Otherwise the jump stays in the map and fires on the next visit. */
 describe("a hit that arrives while this page is already open", () => {
   const file = "steward/steward"
 
@@ -448,7 +433,6 @@ describe("a hit that arrives while this page is already open", () => {
       entry({ path: "agent.token", key: "token", label: "Token" }),
     ])
     await screen.findByText("Steward")
-    // The field is in a file that nobody has opened, so it is closed.
     expect(screen.queryByText("Base url")).toBeNull()
 
     setPendingJump("steward", { file, path: "agent.base-url" })

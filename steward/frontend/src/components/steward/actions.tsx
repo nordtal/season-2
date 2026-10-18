@@ -7,7 +7,6 @@ import { message, t } from "@/lib/texts"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
-/** The icon of each {@link Action.kind}. It is the icon of the kind's term. */
 const KIND_ICON: Record<string, Icon> = {
   UPDATE: TERM_ICON.update,
   BACKUP: TERM_ICON.backup,
@@ -33,15 +32,7 @@ function iconOf(kind: string): Icon {
   return KIND_ICON[kind] ?? TERM_ICON.journal
 }
 
-/** One row: an icon for the kind, the label and its extent, then who is credited and when. */
-export function ActionRow({
-  action,
-  now,
-}: {
-  /** Missing while the feed loads. The row is then drawn empty. */
-  action?: Action
-  now: number
-}) {
+export function ActionRow({ action, now }: { action?: Action; now: number }) {
   /**
    * A property access, so the chosen icon reads as an existing component and not as one defined in place.
    */

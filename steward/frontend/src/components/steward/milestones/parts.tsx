@@ -31,7 +31,6 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** A small rounded mark that holds one value, as the list shows a milestone's settings. */
 function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
     <span
@@ -46,14 +45,11 @@ function Pill({ title, className, children }: { title?: string; className?: stri
   )
 }
 
-/** Returns a label from the schema, for a key that the editor places. */
 function labelOf(fields: ConfigEntry[], key: string): string {
   return fields.find((field) => field.key === key)?.label ?? key
 }
 
 /**
- * Budget sums as pills, each with its icon and the schema label of the objective field. A zero sum is left out.
- *
  * A pill gets its label as title only where it stands for a milestone or the season, so a card's own sums are not mistaken for them.
  */
 export function BudgetMarks({
@@ -79,14 +75,10 @@ export function BudgetMarks({
   })
 }
 
-/**
- * Returns a field's sibling value where its reference depends on one, such as the statistic that a subject is counted by.
- */
 function siblingOf(field: ConfigEntry, section: SectionValues): string | undefined {
   return field.refers?.dependsOn ? text(section, field.refers.dependsOn) : undefined
 }
 
-/** One field of a section, with the control that its schema asks for. */
 export function FieldControl({
   id,
   field,
@@ -121,13 +113,12 @@ export function FieldControl({
   )
 }
 
-/** Returns whether a field takes a whole row: a list, or a reference whose picker shows a name. */
 function isWide(field: ConfigEntry): boolean {
   return field.kind === "LIST" || (field.refers !== undefined && !isColour(field.refers))
 }
 
 /**
- * Returns the fields that a section asks for: those that apply to it, without a reference that has nothing to name, such as the subjects of a statistic kept per nothing.
+ * Returns the fields that apply to a section, without a reference that has nothing to name, such as the subjects of a statistic kept per nothing.
  */
 function useShownFields(fields: ConfigEntry[], section: SectionValues): ConfigEntry[] {
   const game = useGameData(fields.some((field) => field.refers?.to === "SUBJECT"))
@@ -137,9 +128,6 @@ function useShownFields(fields: ConfigEntry[], section: SectionValues): ConfigEn
   )
 }
 
-/**
- * A section's fields under their schema labels, two to a row where they are small. Only fields that apply show.
- */
 export function Fields({
   id,
   fields,
@@ -153,7 +141,6 @@ export function Fields({
   section: SectionValues
   disabled: boolean
   onChange: (key: string, value: string | string[]) => void
-  /** The grid's columns, two by default. */
   className?: string
 }) {
   const shown = useShownFields(fields, section)
@@ -187,13 +174,12 @@ export function Fields({
   )
 }
 
-/** Returns the milestone's own fields, without its objectives. */
 export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
   return schema.milestone.filter((field) => field.key !== KEY.objectives)
 }
 
 /**
- * A milestone's settings as pills, as the list shows them: a choice by its icon and name, a number by its icon, a flag when on, and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is left out. A number that applies only for a choice, such as a border's diameter, sits in that choice's pill.
+ * A field that does not apply, such as a diameter without a border, is left out. A number that applies only for a choice sits in that choice's pill.
  */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
@@ -239,9 +225,6 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
   )
 }
 
-/**
- * The objective's type as an icon where the icon can be drawn. The card writes the name beside it.
- */
 function TypeIcon({ objective, schema, size }: { objective: SectionValues; schema: TrackSchema; size: number }) {
   const choices = schema.objective.find((field) => field.key === KEY.type)?.choices
   const type = text(objective, KEY.type)
@@ -251,7 +234,7 @@ function TypeIcon({ objective, schema, size }: { objective: SectionValues; schem
 }
 
 /**
- * What an objective counts, field by field among those that apply: a list such as items or subjects by its icons, a single value by its icon and name, and a statistic by its name alone, because none of its icons would say which. A field that another field depends on comes after it, so subjects come before the statistic that counts them.
+ * A statistic shows by its name alone, because none of its icons would say which. A field that another field depends on comes after it, so subjects come before the statistic that counts them.
  */
 export function ObjectiveMarks({
   objective,
@@ -288,9 +271,6 @@ export function ObjectiveMarks({
     )
 }
 
-/**
- * An objective as a card of its own that opens the sheet. The card shows the type written out, the ID and the rewards, then the target and what it counts.
- */
 export function ObjectiveCard({
   objective,
   schema,
@@ -340,9 +320,6 @@ export function ObjectiveCard({
   )
 }
 
-/**
- * Every field of one objective in a sheet, which is a bottom sheet on a phone. Its edits go straight into the draft.
- */
 export function ObjectiveSheet({
   id,
   objective,
@@ -406,7 +383,6 @@ export function ObjectiveSheet({
   )
 }
 
-/** Move up, move down and remove for one milestone. */
 export function MilestoneActions({
   name,
   index,

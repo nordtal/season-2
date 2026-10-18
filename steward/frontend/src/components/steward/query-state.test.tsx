@@ -12,7 +12,6 @@ import { ApiError } from "@/lib/api"
 
 afterEach(cleanup)
 
-/** The shape a child is asked for: one expression, called with the data and without it. */
 const row = (data: string | undefined) => <span>{data ?? "…"}</span>
 
 describe("QueryState", () => {
@@ -42,7 +41,6 @@ describe("QueryState", () => {
     expect(screen.getByText("smp")).toBeTruthy()
   })
 
-  /** The child is the skeleton, so it is called while the answer is still pending. */
   it("calls the child while waiting, so the child can draw its own shape", () => {
     render(
       <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>{row}</QueryState>,
@@ -69,7 +67,6 @@ describe("QueryState", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
-  /** The old data stays through a refetch, because this reads `isPending` and not `isFetching`. */
   it("leaves the old data standing while the next answer is fetched", () => {
     render(
       <QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "fetching" }}>{row}</QueryState>,

@@ -5,8 +5,6 @@ import { colourOf, formatOf, parse } from "@/lib/rich-text"
 import { useGlyphs, useMessageSyntax } from "@/lib/queries"
 
 /**
- * A text on one line: colours and decorations are drawn, tags are removed, values are named pills, and glyphs are one line high.
- *
  * White is drawn in the page's foreground colour. A text that the parser cannot read is shown as written.
  */
 export function MessagePreview({
@@ -17,7 +15,6 @@ export function MessagePreview({
 }: {
   text: string
   format?: string
-  /** The tones in the colours of the text's own service. The defaults apply when absent. */
   colours?: Record<string, string>
   className?: string
 }) {

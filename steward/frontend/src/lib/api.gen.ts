@@ -430,7 +430,16 @@ export type MessageSyntax = {
 export type DocumentList = {
   documents: DocumentView[]
   languages: string[]
-  tiers: Tier[]
+}
+
+export type DocumentDraft = {
+  declaration: DocumentDeclaration
+  document: Document
+  language: string
+}
+
+export type DocumentDrawing = {
+  discord: Record<string, unknown>
 }
 
 export type MessageProblem = {
@@ -812,9 +821,17 @@ export type DocumentView = {
   adapted: DocumentAdaptation[]
 }
 
-export type Tier = {
-  days: number
-  priceCents: number
+export type DocumentDeclaration = {
+  namespace: string
+  name: string
+  area: string
+  shape: DocumentShape
+  values: Record<string, DocumentValue>
+  slots: DocumentSlot[]
+}
+
+export type Document = {
+  parts: DocumentPart[]
 }
 
 export type NetworkBox = {
@@ -953,22 +970,37 @@ export type MessageEntry = {
 
 export type MessagePreviewTarget = "GAME" | "DISCORD"
 
-export type DocumentDeclaration = {
-  namespace: string
-  name: string
-  area: string
-  shape: DocumentShape
-  values: Record<string, DocumentValue>
-  slots: DocumentSlot[]
-}
-
-export type Document = {
-  parts: DocumentPart[]
-}
-
 export type DocumentAdaptation = {
   change: DocumentChange
   subject: string
+}
+
+export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME"
+
+export type DocumentValue = {
+  kind: string
+  example: string
+  takes?: string[]
+}
+
+export type DocumentSlot = {
+  id: string
+  type: DocumentSlotType
+  required: boolean
+  values: Record<string, DocumentValue>
+}
+
+export type DocumentPart = {
+  type: DocumentPartType
+  when?: string
+  accent?: string
+  parts?: DocumentPart[]
+  lines?: DocumentLine[]
+  button?: DocumentItem
+  thumbnail?: string
+  media?: string[]
+  items?: DocumentItem[]
+  slot?: string
 }
 
 export type Gauge =
@@ -1039,53 +1071,7 @@ export type MessageArg = {
   exampleWords: Record<string, string>
 }
 
-export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME"
-
-export type DocumentValue = {
-  kind: string
-  example: string
-  takes?: string[]
-}
-
-export type DocumentSlot = {
-  id: string
-  type: DocumentSlotType
-  required: boolean
-  values: Record<string, DocumentValue>
-}
-
-export type DocumentPart = {
-  type: DocumentPartType
-  when?: string
-  accent?: string
-  parts?: DocumentPart[]
-  lines?: DocumentLine[]
-  button?: DocumentItem
-  thumbnail?: string
-  media?: string[]
-  items?: DocumentItem[]
-  slot?: string
-}
-
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
-
-export type ChangeState = "MOVING" | "UNSUPPORTED"
-
-export type LineAct = "STOP" | "BACKUP" | "INSTALL" | "RESTORE" | "RECREATE" | "RENEW" | "START" | "VERIFY"
-
-export type LineImage = "OUTDATED" | "PULLED" | "KEPT"
-
-export type LineFallback = "NONE" | "RUNNING" | "STARTED" | "REFUSED"
-
-export type LineBack = "YES" | "NO" | "INTERRUPTED"
-
-export type LineSeen = {
-  status?: string
-  health?: string
-  unread?: string
-}
-
-export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"
 
 export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT"
 
@@ -1106,5 +1092,23 @@ export type DocumentItem = {
   option?: Record<string, string | string[]>
   when?: string
 }
+
+export type ChangeState = "MOVING" | "UNSUPPORTED"
+
+export type LineAct = "STOP" | "BACKUP" | "INSTALL" | "RESTORE" | "RECREATE" | "RENEW" | "START" | "VERIFY"
+
+export type LineImage = "OUTDATED" | "PULLED" | "KEPT"
+
+export type LineFallback = "NONE" | "RUNNING" | "STARTED" | "REFUSED"
+
+export type LineBack = "YES" | "NO" | "INTERRUPTED"
+
+export type LineSeen = {
+  status?: string
+  health?: string
+  unread?: string
+}
+
+export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"
 
 export type DocumentLineStyle = "TITLE" | "HEADING"

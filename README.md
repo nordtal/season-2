@@ -116,6 +116,7 @@ jars of the services.
 | `database`          | library         | All PostgreSQL access: access, phase, payments, inboxes, signal hub, migration SQL.       |
 | `messages`          | library         | Message system without Adventure, used by the bot and Steward.                            |
 | `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity.                                 |
+| `discord-rendering` | library         | Documents and messages as Discord components, for the bot and Steward's previews.         |
 | `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list.                           |
 | `limbo-protocol`    | library         | Protocol between the proxy and limbo.                                                     |
 | `internal-api`      | library         | Token-authenticated HTTP between `steward`, `steward-agent` and `steward-bunq`.           |

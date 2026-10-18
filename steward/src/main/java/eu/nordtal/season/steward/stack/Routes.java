@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
@@ -110,6 +111,8 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_MESSAGES));
         config.routes.get("/api/documents", api.documents::list, Gate.KEY_HELD);
         config.routes.get("/api/document-images/{id}", api.documents::image, Gate.KEY_HELD);
+        // Draws a draft for the admin alone and changes nothing.
+        config.routes.post("/api/documents/render", api.documents::render, Gate.KEY_HELD, Unjournaled.SHOWN_TO_ONESELF);
     }
 
     /** Registers the routes for the host numbers, the schedule, the backups and the action feed. */

@@ -2,6 +2,8 @@ package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
 import java.util.Collection;
 import java.util.List;
@@ -21,7 +23,7 @@ public final class StoredDocumentsStandIn {
         return new DocumentRenderer(
                 DiscordRenderer.of(Messages.load(
                         StoredDocumentsStandIn.class.getClassLoader(),
-                        AccessBot.BUNDLES,
+                        DocumentRenderer.BUNDLES,
                         Locale.ENGLISH,
                         Locale.GERMAN)),
                 documents);

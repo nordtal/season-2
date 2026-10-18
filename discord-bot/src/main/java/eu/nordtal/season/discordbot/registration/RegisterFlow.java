@@ -2,10 +2,10 @@ package eu.nordtal.season.discordbot.registration;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessReader;
-import eu.nordtal.season.discordbot.DocumentRenderer;
-import eu.nordtal.season.discordbot.DocumentRenderer.Reply;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.discordrendering.DocumentRenderer.Reply;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.DocumentSpec;

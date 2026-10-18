@@ -27,6 +27,7 @@ dependencies {
     // The access API and the message system; :database only compiles against JDBI, HikariCP and slf4j.
     implementation(project(":database"))
     implementation(project(":messages"))
+    implementation(project(":discord-rendering"))
     // The one loader, the database group and checks every process shares.
     implementation(project(":settings"))
     implementation(libs.bundles.access.persistence)

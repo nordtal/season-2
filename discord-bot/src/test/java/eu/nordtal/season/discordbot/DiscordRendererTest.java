@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.DatabaseMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.TeamContext;

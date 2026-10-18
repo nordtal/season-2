@@ -9,6 +9,7 @@ import type {
   CommandRun,
   Document,
   DocumentDeclaration,
+  DocumentDraft,
   DocumentList,
   DocumentView,
   MessageEntry,
@@ -89,7 +90,7 @@ export function view(over: Partial<DocumentDeclaration> & { name: string }, docu
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { documents: views, languages: ["en"], tiers: [], ...over }
+  return { documents: views, languages: ["en"], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
@@ -97,6 +98,8 @@ export type Around = {
   documents?: DocumentList
   fallbacks?: MessageFallback[]
   check?: (text: string) => MessageProblem[]
+  /** Draws a document's draft as the server would, as Discord's JSON. */
+  render?: (draft: DocumentDraft) => Record<string, unknown>
   /** Answers a preview's body with the request's name. */
   preview?: (body: unknown) => string
   /** What became of each request, by name. */
@@ -115,6 +118,9 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     }
     if (url === "/api/messages") return json(texts)
     if (url === "/api/documents") return json(around.documents ?? documents([]))
+    if (url === "/api/documents/render" && around.render) {
+      return json({ discord: around.render(JSON.parse(init?.body ?? "")) })
+    }
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})
     if (url === "/api/message-fallbacks") return json(around.fallbacks ?? [])

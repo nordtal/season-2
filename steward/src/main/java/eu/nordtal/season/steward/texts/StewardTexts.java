@@ -305,6 +305,9 @@ public interface StewardTexts {
             @Name("Nowhere to preview")
             MessageRef noPreview(@Arg("key") String key);
 
+            @Name("Draft not drawn")
+            MessageRef draftUndrawable(@Arg("document") String document, @Arg("reason") String reason);
+
             @Name("No player to preview to")
             MessageRef previewUnlinked();
 

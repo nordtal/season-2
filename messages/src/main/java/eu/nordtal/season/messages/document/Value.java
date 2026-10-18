@@ -2,6 +2,7 @@ package eu.nordtal.season.messages.document;
 
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.spec.MessageSchema;
+import eu.nordtal.season.messages.value.Kind;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.util.LinkedHashMap;
@@ -17,6 +18,16 @@ import org.jspecify.annotations.Nullable;
  * @param takes the keys a message value may take, else {@code null}
  */
 public record Value(String kind, String example, @Nullable List<String> takes) {
+
+    /** Returns the example as a value of its kind, or as the text it is where it does not read as one. */
+    public Object exampleValue() {
+        final Kind token = Kind.byToken(kind).orElse(Kind.TEXT);
+        try {
+            return token.example(example);
+        } catch (final RuntimeException unreadable) {
+            return example;
+        }
+    }
 
     /** Returns the values of a record's components by name, with a context expanded into its attributes. */
     public static Map<String, Value> of(final Class<? extends Record> type) {

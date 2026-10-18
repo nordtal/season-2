@@ -12,6 +12,7 @@ import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
@@ -71,6 +72,39 @@ class DocumentRendererTest {
             }
         }
         assertEquals(List.of(), wrong);
+    }
+
+    /** The preview once drew a price of 300 cents as "+300" and a tier as "30 days30". */
+    @Test
+    void aPreviewWritesEachExampleAsTheBotWritesItsValue() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("\\n**€3.00** 30 days\""), drawn);
+        assertTrue(drawn.contains("+€3.00 →"), drawn);
+    }
+
+    @Test
+    void everyPackagedDocumentHasAPreviewInItsShape() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            final JsonObject drawn = JsonParser.parseString(
+                            renderer.preview(each, List.of(Locale.ENGLISH, Locale.GERMAN), Locale.GERMAN))
+                    .getAsJsonObject();
+            final String field = switch (each.declaration().shape()) {
+                case MESSAGE, MODAL -> "components";
+                case PLAIN -> "content";
+                case CHANNEL_NAME -> "name";
+            };
+            assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
+        }
+    }
+
+    private static Documents.Packaged packaged(final String name) {
+        return Documents.packaged(DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .get(name);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.messages;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,6 +82,7 @@ class DocumentsApiIntegrationTest {
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
                     config.routes.get("/api/documents", documents::list);
                     config.routes.get("/api/document-images/{id}", documents::image);
+                    config.routes.post("/api/documents/render", documents::render);
                 })
                 .start(0);
         port = app.port();
@@ -145,6 +147,51 @@ class DocumentsApiIntegrationTest {
         assertEquals("image/png", image.headers().firstValue("Content-Type").orElseThrow());
         assertArrayEquals(PNG, image.body());
         send("GET", "/api/document-images/999", new byte[0], 404);
+    }
+
+    @Test
+    void aDraftIsDrawnByTheBotsRendererWithItsExamples() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));
+        draft.add("document", Json.tree(WELCOME));
+        draft.addProperty("language", "de");
+
+        final JsonObject discord = GSON.fromJson(
+                        send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 200), JsonObject.class)
+                .getAsJsonObject("discord");
+
+        final JsonObject container = discord.getAsJsonArray("components").get(0).getAsJsonObject();
+        assertEquals(0x5865f2, container.get("accent_color").getAsInt());
+        assertEquals(
+                "## welcome-de Alex",
+                container
+                        .getAsJsonArray("components")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("content")
+                        .getAsString());
+        assertEquals(
+                "join-de",
+                discord.getAsJsonArray("components")
+                        .get(1)
+                        .getAsJsonObject()
+                        .getAsJsonArray("components")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("label")
+                        .getAsString());
+    }
+
+    @Test
+    void aDraftTheRendererCannotDrawIsRefused() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));
+        draft.add("document", Json.tree("""
+                {"parts":[{"type":"SECTION","parts":[{"type":"TEXT","lines":[{"text":{"en":"Hi"}}]}]}]}"""));
+        draft.addProperty("language", "en");
+
+        send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 422);
+        send("POST", "/api/documents/render", "{".getBytes(UTF_8), 400);
     }
 
     private static Documents.Packaged packaged() {

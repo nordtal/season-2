@@ -803,6 +803,10 @@ export type TextArgs = {
   "steward.answer.discord-unreachable": {
     error: Arg["text"]
   }
+  "steward.answer.draft-undrawable": {
+    document: Arg["text"]
+    reason: Arg["text"]
+  }
   "steward.answer.empty": Record<string, never>
   "steward.answer.empty-text": {
     language: Arg["text"]
@@ -1248,6 +1252,7 @@ export type TextArgs = {
   "steward.message-editor.italic": Record<string, never>
   "steward.message-editor.line-break": Record<string, never>
   "steward.message-editor.link": Record<string, never>
+  "steward.message-editor.member": Record<string, never>
   "steward.message-editor.new-case": Record<string, never>
   "steward.message-editor.no-colour": Record<string, never>
   "steward.message-editor.obfuscated": Record<string, never>

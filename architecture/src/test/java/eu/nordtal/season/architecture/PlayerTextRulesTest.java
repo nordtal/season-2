@@ -122,7 +122,7 @@ class PlayerTextRulesTest {
     void everyDiscordTextGoesThroughTheDiscordTarget() {
         noClasses()
                 .that()
-                .resideInAPackage("eu.nordtal.season.discordbot..")
+                .resideInAnyPackage("eu.nordtal.season.discordbot..", "eu.nordtal.season.discordrendering..")
                 .should()
                 .callMethodWhere(DescribedPredicate.describe(
                         "Messages#format",

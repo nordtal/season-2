@@ -112,6 +112,8 @@ public final class StewardWire {
             MessagesApi.Fallback.class,
             MessagesApi.Syntax.class,
             DocumentsApi.DocumentList.class,
+            DocumentsApi.DocumentDraft.class,
+            DocumentsApi.DocumentDrawing.class,
             MessageCheck.Problem.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,

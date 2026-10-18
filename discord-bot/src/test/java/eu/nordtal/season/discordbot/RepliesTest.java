@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.discordrendering.DocumentRenderer;
 import java.util.List;
 import java.util.Locale;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;

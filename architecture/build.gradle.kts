@@ -8,6 +8,7 @@ val checkedModules =
         ":database",
         ":messages",
         ":message-rendering",
+        ":discord-rendering",
         ":pack-rendering",
         ":limbo-protocol",
         ":settings",

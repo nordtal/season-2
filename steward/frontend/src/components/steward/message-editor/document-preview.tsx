@@ -1,20 +1,14 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
+import type { ReactNode } from "react"
 
-import type {
-  Document,
-  DocumentDeclaration,
-  DocumentItem,
-  DocumentLine,
-  DocumentPart,
-  DocumentSlot,
-  DocumentValue,
-  Tier,
-} from "@/lib/api"
-import { sourceOf, type DocumentText } from "@/lib/documents"
-import { euros } from "@/lib/format"
+import type { Document, DocumentDeclaration } from "@/lib/api"
+import { useDocumentDrawing } from "@/lib/queries"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { branchesOf, parse } from "@/lib/rich-text"
+import { markdownRuns } from "@/lib/rich-text"
+import { t } from "@/lib/texts"
+import { useDebounced } from "@/lib/use-debounced"
+import { QueryState, Skeleton } from "@/components/steward/query-state"
 import {
   DiscordButton,
   DiscordMessage,
@@ -23,261 +17,275 @@ import {
   DiscordSelect,
 } from "@/components/steward/message-editor/preview"
 
-/** Names a value of type message as the example draws it: the text of its example key, or `null` to show the key. */
-export type DrawExample = (id: string, language: Language) => string | null
-
-type Context = {
-  declaration: DocumentDeclaration
-  languages: readonly Language[]
-  tiers: readonly Tier[]
-  example: DrawExample
-}
-
-type Values = Record<string, string>
+/** How long typing pauses before the server draws the draft again. */
+const PAUSE_MS = 300
 
 /**
- * A Discord document as the bot draws it, or as its modal, filled with the live tiers and languages and else with the declared examples.
+ * A Discord document as the bot draws it, or as its modal. The server draws it with the bot's own renderer, every value at its declared example; this only draws Discord's JSON.
  */
 export function DiscordDocumentPreview({
   declaration,
   document,
   language = ENGLISH,
-  languages,
-  tiers,
-  example,
   className,
-}: Omit<Context, never> & {
+}: {
+  declaration: DocumentDeclaration
   document: Document
   language?: Language
   className?: string
 }) {
-  const context: Context = { declaration, languages, tiers, example }
+  const draft = useDebounced(document, PAUSE_MS)
+  const drawing = useDocumentDrawing(declaration, draft, language)
   const Frame = declaration.shape === "MODAL" ? DiscordModal : DiscordMessage
   return (
-    <Frame className={className}>
-      <div className="mt-1 flex max-w-[480px] flex-col gap-2">
-        <Parts parts={document.parts} language={language} context={context} />
-      </div>
-    </Frame>
+    <QueryState query={drawing}>
+      {(drawn) => (
+        <Frame className={className}>
+          <div className="mt-1 flex max-w-[480px] flex-col gap-2">
+            {drawn === undefined ? (
+              <Skeleton className="h-16 w-full" />
+            ) : (
+              <Drawn shape={declaration.shape} discord={drawn.discord} language={language} />
+            )}
+          </div>
+        </Frame>
+      )}
+    </QueryState>
   )
 }
 
-function Parts({
-  parts,
+/** A component of Discord's JSON, by the fields this preview draws. */
+type Component = {
+  type: number
+  components?: Component[]
+  component?: Component
+  accessory?: Component
+  content?: string
+  accent_color?: number
+  label?: string
+  placeholder?: string
+  url?: string
+  media?: { url: string }
+  items?: { media: { url: string } }[]
+}
+
+/** Discord's numbers for its component types. */
+const ROW = 1
+const BUTTON = 2
+const STRING_SELECT = 3
+const TEXT_INPUT = 4
+const USER_SELECT = 5
+const SECTION = 9
+const TEXT = 10
+const THUMBNAIL = 11
+const GALLERY = 12
+const SEPARATOR = 14
+const CONTAINER = 17
+const LABEL = 18
+
+function Drawn({
+  shape,
+  discord,
   language,
-  context,
 }: {
-  parts: DocumentPart[] | undefined
+  shape: DocumentDeclaration["shape"]
+  discord: Record<string, unknown>
   language: Language
-  context: Context
 }) {
+  switch (shape) {
+    case "MODAL":
+      return (
+        <>
+          <div className="text-xl leading-snug font-bold text-white">{textOf(discord.title)}</div>
+          <Components components={componentsOf(discord.components)} language={language} />
+        </>
+      )
+    case "PLAIN":
+      return <Markdown text={textOf(discord.content)} language={language} />
+    case "CHANNEL_NAME":
+      return <span className="font-medium text-white">{textOf(discord.name)}</span>
+    default:
+      return <Components components={componentsOf(discord.components)} language={language} />
+  }
+}
+
+function textOf(value: unknown): string {
+  return typeof value === "string" ? value : ""
+}
+
+function componentsOf(value: unknown): Component[] {
+  return Array.isArray(value) ? value : []
+}
+
+function Components({ components, language }: { components: Component[] | undefined; language: Language }) {
   return (
     <>
-      {(parts ?? [])
-        .filter((part) => holds(part.when, context))
-        .map((part, index) => (
-          <PartView key={index} part={part} language={language} context={context} />
-        ))}
+      {(components ?? []).map((component, index) => (
+        <ComponentView key={index} component={component} language={language} />
+      ))}
     </>
   )
 }
 
-function PartView({ part, language, context }: { part: DocumentPart; language: Language; context: Context }) {
-  switch (part.type) {
-    case "CONTAINER":
+function ComponentView({ component, language }: { component: Component; language: Language }): ReactNode {
+  switch (component.type) {
+    case CONTAINER:
       return (
         <div
           className="flex flex-col gap-2 rounded-[8px] border-l-4 p-4"
-          style={{ background: "#2b2d31", borderColor: part.accent ?? "transparent" }}
+          style={{
+            background: "#2b2d31",
+            borderColor:
+              component.accent_color === undefined
+                ? "transparent"
+                : `#${component.accent_color.toString(16).padStart(6, "0")}`,
+          }}
         >
-          <Parts parts={part.parts} language={language} context={context} />
+          <Components components={component.components} language={language} />
         </div>
       )
-    case "TEXT":
-      return <TextBlock lines={part.lines ?? []} language={language} context={context} />
-    case "SECTION":
+    case TEXT:
+      return <Markdown text={component.content ?? ""} language={language} />
+    case SECTION:
       return (
         <div className="flex items-start gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Parts parts={part.parts} language={language} context={context} />
+            <Components components={component.components} language={language} />
           </div>
-          {part.button ? (
-            <ItemView item={part.button} language={language} context={context} />
-          ) : (
-            <Media address={part.thumbnail} className="size-20 shrink-0" />
-          )}
+          {component.accessory ? <ComponentView component={component.accessory} language={language} /> : null}
         </div>
       )
-    case "SEPARATOR":
-      return <hr className="my-1 border-t" style={{ borderColor: "#3f4147" }} />
-    case "GALLERY":
+    case THUMBNAIL:
+      return <Media url={component.media?.url} className="size-20 shrink-0" />
+    case GALLERY:
       return (
-        <div className={cn("grid grid-cols-1 gap-1", (part.media?.length ?? 0) > 1 && "grid-cols-2")}>
-          {(part.media ?? []).map((address) => (
-            <Media key={address} address={address} className="h-28 w-full" />
+        <div className={cn("grid grid-cols-1 gap-1", (component.items?.length ?? 0) > 1 && "grid-cols-2")}>
+          {(component.items ?? []).map((item, index) => (
+            <Media key={index} url={item.media.url} className="h-28 w-full" />
           ))}
         </div>
       )
-    case "ROW":
+    case SEPARATOR:
+      return <hr className="my-1 border-t" style={{ borderColor: "#3f4147" }} />
+    case ROW:
       return (
         <div className="flex flex-wrap gap-2">
-          {(part.items ?? [])
-            .filter((item) => holds(item.when, context))
-            .map((item, index) => (
-              <ItemView key={index} item={item} language={language} context={context} />
-            ))}
+          <Components components={component.components} language={language} />
         </div>
       )
-    case "LANGUAGES":
+    case BUTTON:
       return (
-        <>
-          {(context.languages.length > 0 ? context.languages : [ENGLISH]).map((each) => (
-            <Parts key={each} parts={part.parts} language={each} context={context} />
-          ))}
-        </>
+        <DiscordButton link={component.url !== undefined}>
+          {component.label}
+          {component.url !== undefined ? <ArrowSquareOutIcon aria-hidden className="size-4" /> : null}
+        </DiscordButton>
+      )
+    case STRING_SELECT:
+    case USER_SELECT:
+      return <DiscordSelect className="w-full">{component.placeholder}</DiscordSelect>
+    case LABEL:
+      return (
+        <div className="flex w-full flex-col gap-2">
+          <div className="font-semibold text-white">{component.label}</div>
+          {component.component ? <ComponentView component={component.component} language={language} /> : null}
+        </div>
+      )
+    case TEXT_INPUT:
+      return (
+        <div className="flex h-10 items-center rounded-[3px] px-3" style={{ background: "#1e1f22", color: "#949ba4" }}>
+          {component.placeholder}
+        </div>
       )
     default:
       return null
   }
 }
 
-function TextBlock({ lines, language, context }: { lines: DocumentLine[]; language: Language; context: Context }) {
+/** A heading's size by its number of `#`, and `-#` for Discord's small grey line. */
+const HEADINGS: [string, string][] = [
+  ["### ", "font-bold text-white"],
+  ["## ", "text-xl leading-snug font-bold text-white"],
+  ["# ", "text-2xl leading-snug font-bold text-white"],
+  ["-# ", "text-xs text-[#949ba4]"],
+]
+
+/** Discord's markdown as a channel shows it, line by line, with its times and members. */
+function Markdown({ text, language }: { text: string; language: Language }) {
   return (
     <div className="flex flex-col whitespace-pre-wrap">
-      {lines
-        .filter((line) => holds(line.when, context))
-        .map((line, index) => {
-          const style = cn(
-            line.style === "TITLE" && "text-xl leading-snug font-bold text-white",
-            line.style === "HEADING" && "font-bold text-white",
-          )
-          const items = line.list === undefined ? [undefined] : itemsOf(slotOf(context, line.list), context.tiers)
-          return items.map((values, item) => (
-            <div key={`${index}/${item}`} className={style}>
-              <Words text={line.text} language={language} values={values} context={context} />
-            </div>
-          ))
-        })}
+      {text.split("\n").map((line, index) => {
+        const heading = HEADINGS.find(([marker]) => line.startsWith(marker))
+        const body = heading ? line.slice(heading[0].length) : line
+        return (
+          <div key={index} className={heading?.[1]}>
+            {body === "" ? <br /> : <Inline text={body} language={language} />}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-function slotOf(context: Context, id: string | undefined): DocumentSlot | undefined {
-  return context.declaration.slots.find((slot) => slot.id === id)
-}
+/** Splits out Discord's `<t:seconds:style>` and `<@id>`, which markdown leaves as they are. */
+const TOKEN = /<t:(-?\d+)(?::([tTdDfFR]))?>|<@!?(\d+)>/g
 
-/**
- * Returns the items of a data list, each the values of its line. The tiers fill the list the bot fills with them.
- */
-function itemsOf(list: DocumentSlot | undefined, tiers: readonly Tier[]): Array<Values | undefined> {
-  // shortcut: only the tiers list has live items, by its id; a further data list shows one item of examples until its data reaches the documents answer.
-  if (list?.id === "tiers" && tiers.length > 0) {
-    return tiers.map((tier) => ({ days: String(tier.days), price: euros(tier.priceCents) }))
-  }
-  return [
-    list ? Object.fromEntries(Object.entries(list.values).map(([name, value]) => [name, exampleOf(value)])) : undefined,
-  ]
-}
-
-/**
- * Returns whether a `when` holds for the declared examples: `value`, `!value` or `value=constant`. A slot holds, as its example fills it.
- */
-function holds(when: string | undefined, context: Context): boolean {
-  if (when === undefined) return true
-  const match = /^(!?)([a-z][A-Za-z0-9_.]*)(?:=([a-z0-9][a-z0-9-]*))?$/.exec(when)
-  if (!match) return false
-  const [, negated, name, constant] = match
-  if (constant !== undefined) return context.declaration.values[name]?.example === constant
-  const example = context.declaration.values[name]?.example
-  const truthy =
-    example === undefined
-      ? slotOf(context, name) !== undefined
-      : example !== "" && example !== "false" && !/^-?0+(\.0+)?$/.test(example)
-  return negated ? !truthy : truthy
-}
-
-function ItemView({ item, language, context }: { item: DocumentItem; language: Language; context: Context }) {
-  if (item.link !== undefined) {
-    return (
-      <DiscordButton link>
-        <Words text={item.label} language={language} context={context} />
-        <ArrowSquareOutIcon aria-hidden className="size-4" />
-      </DiscordButton>
+function Inline({ text, language }: { text: string; language: Language }) {
+  const parts: ReactNode[] = []
+  let at = 0
+  for (const match of text.matchAll(TOKEN)) {
+    parts.push(<Runs key={parts.length} text={text.slice(at, match.index)} />)
+    parts.push(
+      match[3] === undefined ? (
+        <span key={parts.length} className="rounded-[3px] px-0.5" style={{ background: "#3f4147" }}>
+          {timeOf(Number(match[1]), match[2], language)}
+        </span>
+      ) : (
+        <span
+          key={parts.length}
+          className="rounded-[3px] px-0.5 font-medium"
+          style={{ background: "rgba(88,101,242,0.3)", color: "#c9cdfb" }}
+        >
+          {t("steward.message-editor.member")}
+        </span>
+      ),
     )
+    at = match.index + match[0].length
   }
-  switch (slotOf(context, item.slot)?.type) {
-    case "BUTTON":
-      return (
-        <DiscordButton>
-          <Words text={item.label} language={language} context={context} fallback={item.slot} />
-        </DiscordButton>
-      )
-    case "SELECT":
-      return (
-        <DiscordSelect className="w-full">
-          <Words text={item.placeholder} language={language} context={context} />
-        </DiscordSelect>
-      )
-    case "INPUT":
-      return (
-        <div className="flex w-full flex-col gap-2">
-          <div className="font-semibold text-white">
-            <Words text={item.label} language={language} context={context} />
-          </div>
-          <div
-            className="flex h-10 items-center rounded-[3px] px-3"
-            style={{ background: "#1e1f22", color: "#949ba4" }}
-          >
-            <Words text={item.placeholder} language={language} context={context} />
-          </div>
-        </div>
-      )
-    default:
-      return null
-  }
+  parts.push(<Runs key={parts.length} text={text.slice(at)} />)
+  return <>{parts}</>
 }
 
-/** A value's example as the bot shows it; a sum of money is declared in cents. */
-function exampleOf(value: DocumentValue): string {
-  return value.kind === "money" ? euros(Number(value.example)) : value.example
+function Runs({ text }: { text: string }) {
+  return text === "" ? null : <DiscordRuns runs={markdownRuns(text)} fill={(name) => name} />
 }
 
-/** A text in `language` with its values filled in: the item's own, then the declared examples, then the name. */
-function Words({
-  text,
-  language,
-  values,
-  context,
-  fallback,
-}: {
-  text: DocumentText | undefined
-  language: Language
-  values?: Values
-  context: Context
-  fallback?: string
-}) {
-  const source = sourceOf(text, language)
-  if (!source) return fallback === undefined ? null : <span className="font-mono text-xs">{fallback}</span>
-  const fill = (name: string) => {
-    if (values?.[name] !== undefined) return values[name]
-    const value = context.declaration.values[name]
-    if (value === undefined) return name
-    return (value.kind === "message" ? context.example(value.example, language) : null) ?? exampleOf(value)
+/** A time as Discord shows it to a reader of `language`, in the reader's own zone. */
+function timeOf(seconds: number, style: string | undefined, language: Language): string {
+  const date = new Date(seconds * 1000)
+  if (style === "R") {
+    const days = Math.round((seconds * 1000 - Date.now()) / 86_400_000)
+    return new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(days, "day")
   }
-  const runs = parse(source, "DISCORD_MARKDOWN", [])
-  return runs ? <DiscordRuns runs={branchesOf(runs, "DISCORD_MARKDOWN", [], fill)} fill={fill} /> : <>{source}</>
+  const shapes: Record<string, Intl.DateTimeFormatOptions> = {
+    t: { timeStyle: "short" },
+    T: { timeStyle: "medium" },
+    d: { dateStyle: "short" },
+    D: { dateStyle: "long" },
+    F: { dateStyle: "full", timeStyle: "short" },
+  }
+  return date.toLocaleString(language, shapes[style ?? "f"] ?? { dateStyle: "long", timeStyle: "short" })
 }
 
 /**
  * An image of the document: a stored upload, an address, or a file the bot's jar packs, which Steward cannot read and draws as its name.
  */
-function Media({ address, className }: { address: string | undefined; className?: string }) {
-  if (address === undefined) return null
-  const upload = /^upload:\/\/(\d+)$/.exec(address)
-  if (upload || address.startsWith("https://")) {
+function Media({ url, className }: { url: string | undefined; className?: string }) {
+  if (url === undefined) return null
+  const upload = /^upload:\/\/(\d+)$/.exec(url)
+  if (upload || url.startsWith("https://")) {
     return (
       <img
-        src={upload ? `/api/document-images/${upload[1]}` : address}
+        src={upload ? `/api/document-images/${upload[1]}` : url}
         alt=""
         className={cn("rounded-[4px] object-cover", className)}
       />
@@ -285,10 +293,13 @@ function Media({ address, className }: { address: string | undefined; className?
   }
   return (
     <div
-      className={cn("flex items-center justify-center rounded-[4px] font-mono text-xs", className)}
+      className={cn(
+        "flex items-center justify-center overflow-hidden rounded-[4px] p-1 text-center font-mono text-xs break-all",
+        className,
+      )}
       style={{ background: "#1e1f22", color: "#949ba4" }}
     >
-      {address.replace(/^attachment:\/\//, "")}
+      {url.replace(/^attachment:\/\//, "")}
     </div>
   )
 }

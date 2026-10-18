@@ -1,4 +1,4 @@
-package eu.nordtal.season.discordbot;
+package eu.nordtal.season.discordrendering;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.messages.document.Condition;
@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -44,6 +45,8 @@ import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
@@ -51,6 +54,7 @@ import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
@@ -60,12 +64,12 @@ import org.jspecify.annotations.Nullable;
 /** Draws a document, or the one an admin wrote over it, as Discord components, a modal or a plain text. */
 public final class DocumentRenderer {
 
-    static final int COMPONENTS = Message.MAX_COMPONENT_COUNT_IN_COMPONENT_TREE;
+    public static final int COMPONENTS = Message.MAX_COMPONENT_COUNT_IN_COMPONENT_TREE;
 
-    static final int TEXT = Message.MAX_CONTENT_LENGTH_COMPONENT_V2;
+    public static final int TEXT = Message.MAX_CONTENT_LENGTH_COMPONENT_V2;
 
     private static final int SECTION_TEXTS = Section.MAX_COMPONENTS;
-    static final int ROW_BUTTONS = ActionRow.getMaxAllowed(Component.Type.BUTTON);
+    public static final int ROW_BUTTONS = ActionRow.getMaxAllowed(Component.Type.BUTTON);
     private static final String ATTACHMENT = "attachment://";
 
     public sealed interface Filled {}
@@ -190,12 +194,50 @@ public final class DocumentRenderer {
         }
     }
 
-    private final DiscordRenderer messages;
-    private final StoredDocuments stored;
+    /** Where the documents and the stored images come from. */
+    public interface Source {
 
-    public DocumentRenderer(final DiscordRenderer messages, final StoredDocuments stored) {
+        /**
+         * Returns the packaged declaration and the document shown for {@code spec}: an admin's, else the packaged one.
+         *
+         * @throws IllegalStateException if no such document is packaged
+         */
+        Documents.Packaged applied(DocumentSpec<?> spec);
+
+        /** Returns the attachment an {@code upload://} address shows, or nothing for another address. */
+        Optional<FileUpload> upload(String address);
+    }
+
+    /** Packages no document and uploads nothing, for a renderer that draws only drafts. */
+    private static final Source DRAFTS = new Source() {
+        @Override
+        public Documents.Packaged applied(final DocumentSpec<?> spec) {
+            throw new IllegalStateException("a renderer of drafts packages no document " + spec.id());
+        }
+
+        @Override
+        public Optional<FileUpload> upload(final String address) {
+            return Optional.empty();
+        }
+    };
+
+    /**
+     * The bundles a document's nested messages come from, one {@code <tag>.properties} per language.
+     * Steward shares the admin bundle, in English only.
+     */
+    public static final List<String> BUNDLES = List.of("messages/admin", "messages/database");
+
+    private final DiscordRenderer messages;
+    private final Source stored;
+
+    public DocumentRenderer(final DiscordRenderer messages, final Source stored) {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.stored = Objects.requireNonNull(stored, "stored");
+    }
+
+    /** A renderer that draws drafts only, whose images stay as their addresses. */
+    public DocumentRenderer(final DiscordRenderer messages) {
+        this(messages, DRAFTS);
     }
 
     public DiscordRenderer messages() {
@@ -235,7 +277,16 @@ public final class DocumentRenderer {
             final V values,
             final Map<String, Filled> fields,
             final Locale locale) {
-        final Pass pass = new Pass(stored.applied(spec), Value.read(values), fields, Map.of(), Map.of(), Map.of());
+        return modal(stored.applied(spec), id, Value.read(values), fields, locale);
+    }
+
+    private Modal modal(
+            final Documents.Packaged packaged,
+            final String id,
+            final Map<String, Object> values,
+            final Map<String, Filled> fields,
+            final Locale locale) {
+        final Pass pass = new Pass(packaged, values, fields, Map.of(), Map.of(), Map.of());
         final List<Part> parts = pass.document.parts();
         final List<Label> labels = new ArrayList<>();
         for (final Part row : parts.subList(1, parts.size())) {
@@ -258,8 +309,12 @@ public final class DocumentRenderer {
 
     /** Returns a plain document's text, each shown line on a line of its own, or a channel's name. */
     public <V extends Record> String plain(final DocumentSpec<V> spec, final V values, final Locale locale) {
-        final Pass pass = new Pass(stored.applied(spec), Value.read(values), Map.of(), Map.of(), Map.of(), Map.of());
-        final boolean name = spec.shape() == DocumentSpec.Shape.CHANNEL_NAME;
+        return plain(stored.applied(spec), Value.read(values), locale);
+    }
+
+    private String plain(final Documents.Packaged packaged, final Map<String, Object> values, final Locale locale) {
+        final Pass pass = new Pass(packaged, values, Map.of(), Map.of(), Map.of(), Map.of());
+        final boolean name = packaged.declaration().shape() == DocumentSpec.Shape.CHANNEL_NAME;
         final List<String> lines = new ArrayList<>();
         for (final Part part : pass.document.parts()) {
             if (pass.holds(part.when(), Map.of())) {
@@ -273,8 +328,59 @@ public final class DocumentRenderer {
                 : cut(String.join("\n", lines), Message.MAX_CONTENT_LENGTH);
     }
 
+    /**
+     * Draws a draft as Discord's own JSON: a message's payload, a modal, a plain message's content or a channel's name.
+     * Every value is its declared example, and every slot, optional ones too, is filled with an example.
+     *
+     * @param languages what a block per language repeats for
+     * @throws RuntimeException if the draft cannot be drawn, such as a section with neither button nor thumbnail
+     */
+    public String preview(final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
+        final DocumentDeclaration declaration = draft.declaration();
+        final Map<String, Object> values = examples(declaration.named());
+        final Map<String, Filled> slots = new HashMap<>();
+        declaration.slots().forEach(slot -> slots.put(slot.id(), example(slot, languages)));
+        return switch (declaration.shape()) {
+            case MESSAGE ->
+                new MessageCreateBuilder()
+                        .useComponentsV2()
+                        .setComponents(draw(draft, values, slots, locale).components())
+                        .build()
+                        .toData()
+                        .toString();
+            case MODAL ->
+                modal(draft, "preview", values, slots, locale).toData().toString();
+            case PLAIN ->
+                DataObject.empty().put("content", plain(draft, values, locale)).toString();
+            case CHANNEL_NAME ->
+                DataObject.empty().put("name", plain(draft, values, locale)).toString();
+        };
+    }
+
+    private static Map<String, Object> examples(final Map<String, Value> declared) {
+        final Map<String, Object> examples = new LinkedHashMap<>();
+        declared.forEach((name, value) -> examples.put(name, value.exampleValue()));
+        return examples;
+    }
+
+    private static Filled example(final Slot slot, final List<Locale> languages) {
+        return switch (slot.type()) {
+            case BUTTON -> new FilledButton(slot.id());
+            case SELECT ->
+                new FilledSelect(
+                        slot.id(),
+                        List.of(new Option(slot.id(), slot.lined() ? null : slot.id(), examples(slot.values()), null)));
+            case LIST -> new FilledList(List.of(examples(slot.values())));
+            case LANGUAGES -> new FilledLanguages(languages);
+            case INPUT ->
+                new FilledInput(placeholder -> TextInput.create(slot.id(), TextInputStyle.SHORT)
+                        .setPlaceholder(placeholder)
+                        .build());
+        };
+    }
+
     /** Draws a packaged declaration and document. Every other way of drawing a message ends here. */
-    Drawn draw(
+    public Drawn draw(
             final Documents.Packaged packaged,
             final Map<String, Object> values,
             final Map<String, Filled> slots,

@@ -124,7 +124,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Every image is pushed under the version alone. A stack runs exactly one release, named by the tag
+      # Every image but Caddy's is pushed under the version alone. A stack runs exactly one release, named by the tag
       # of steward-agent, and nothing pulls a moving tag. The source label links a package to a repository
       # on GHCR, and here it is always the repository that pushes it.
       - name: Build and push the bot image
@@ -160,15 +160,34 @@ jobs:
           tags: |
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
 
+      # Caddy's tag is the hash of deploy/caddy that compose.yml names and `check` verified. A tag already in
+      # the registry is never pushed again: a rebuild has another digest, and an update run would recreate
+      # Caddy for it and disconnect every player.
+      - name: Find whether the caddy image is in the registry
+        id: caddy
+        run: |
+          tag="$(sed -n 's|^ *image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:\([0-9a-f]*\)$|\1|p' compose.yml)"
+          [ -n "$tag" ] || { echo "compose.yml names no caddy tag" >&2; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # Only an answer that the tag is missing leads to a push; any other failure fails the run.
+          if answer="$(docker manifest inspect "ghcr.io/nordtal/caddy:$tag" 2>&1)"; then
+            echo "ghcr.io/nordtal/caddy:$tag is in the registry, nothing to push"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          elif ! printf '%s' "$answer" | grep -qi 'manifest unknown\|not found'; then
+            echo "$answer" >&2
+            exit 1
+          fi
+
       # Caddy with `caddy-l4` for port 25565, built with xcaddy, because modules are fixed at build time.
       - name: Build and push the caddy image
+        if: steps.caddy.outputs.pushed != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: deploy/caddy
           push: true
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           tags: |
-            ghcr.io/nordtal/caddy:${{ env.VERSION }}
+            ghcr.io/nordtal/caddy:${{ steps.caddy.outputs.tag }}
 
       # The image carries compose.yml. deploy/nordtal.sh renews it from outside the stack.
       - name: Build and push the steward-agent image

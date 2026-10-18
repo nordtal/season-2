@@ -37,6 +37,9 @@ class TopologyDeploymentTest {
     /** The compose service that runs PostgreSQL. */
     private static final String DATABASE = "postgres";
 
+    /** The compose service that carries HTTPS and the game ports. */
+    private static final String CADDY = "caddy";
+
     /**
      * Every service that runs a jar of ours on the image template. Each writes the readiness marker.
      */
@@ -523,7 +526,7 @@ class TopologyDeploymentTest {
         // A moving tag lets one service run another release than the agent that carries its schema.
         compose.services().forEach((name, service) -> {
             final String image = service.text("image").orElse("");
-            if (image.contains("nordtal")) {
+            if (image.contains("nordtal") && !CADDY.equals(name)) {
                 assertTrue(
                         OURS.matcher(image).matches(),
                         "compose.yml's '" + name + "' names the image " + image + ". Every image of ours is"
@@ -531,6 +534,49 @@ class TopologyDeploymentTest {
                                 + " release steward-agent runs is the release of everything.");
             }
         });
+    }
+
+    @Test
+    void caddyIsNamedByWhatItIsBuiltFromSoAnUpdateRunLeavesAnUnchangedCaddyRunning() throws Exception {
+        // Recreating Caddy cuts every player's connection, since it carries the game ports.
+        final String wanted = "${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:" + contextHash("deploy/caddy");
+        assertEquals(
+                wanted,
+                compose.service(CADDY).text("image").orElse(""),
+                "compose.yml must name Caddy's image by the hash of deploy/caddy. Set it to " + wanted);
+    }
+
+    @Test
+    void caddyBuildsFromPinnedInputsSoItsTagNamesOneImage() {
+        final String dockerfile = RepositoryRoot.read("deploy/caddy/Dockerfile");
+        assertAll(dockerfile
+                .lines()
+                .filter(line -> line.startsWith("FROM ") || line.contains("xcaddy build"))
+                .map(line -> () -> assertTrue(
+                        line.contains("@sha256:") || line.matches(".*--with \\S+@v[0-9.]+.*"),
+                        "deploy/caddy/Dockerfile builds from a moving input: " + line)));
+    }
+
+    /** The first twelve hex digits of a SHA-256 over every file's path and content, in path order. */
+    private static String contextHash(final String directory) throws java.io.IOException {
+        final java.nio.file.Path root = RepositoryRoot.resolve(directory);
+        final java.security.MessageDigest digest;
+        try {
+            digest = java.security.MessageDigest.getInstance("SHA-256");
+        } catch (final java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        try (var files = java.nio.file.Files.walk(root)) {
+            for (final java.nio.file.Path file : files.filter(java.nio.file.Files::isRegularFile)
+                    .sorted(java.util.Comparator.comparing(path -> RepositoryRoot.relative(root, path)))
+                    .toList()) {
+                digest.update(
+                        (RepositoryRoot.relative(root, file) + "\0").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                digest.update(java.nio.file.Files.readAllBytes(file));
+                digest.update((byte) 0);
+            }
+        }
+        return java.util.HexFormat.of().formatHex(digest.digest()).substring(0, 12);
     }
 
     @Test
@@ -552,6 +598,9 @@ class TopologyDeploymentTest {
                                 + ":<release>, and .github/workflows/release.yml pushes no such tag.");
             }
         });
+        assertTrue(
+                workflow.contains("ghcr.io/nordtal/caddy:${{ steps.caddy.outputs.tag }}"),
+                "release.yml no longer pushes Caddy under the tag that compose.yml names");
     }
 
     @Test

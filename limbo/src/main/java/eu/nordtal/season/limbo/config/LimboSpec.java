@@ -7,17 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/**
- * The {@code config} group: the waiting room's settings.
- *
- * The waiting reason is not here: the proxy sends it on {@code nordtal:limbo}, so the title has one source.
- */
+/** The {@code config} group of limbo. */
 @ConfigSpec
 public interface LimboSpec {
 
-    /**
-     * The empty world this plugin creates and puts everybody in; deleting it is safe, it is rebuilt on the next start.
-     */
+    /** The name of the empty world that limbo creates on start. */
     @Order(1)
     @Name("World name")
     @Key("world-name")
@@ -26,7 +20,7 @@ public interface LimboSpec {
         return "limbo";
     }
 
-    /** How far above the void players stand, so a stray fall lands them back rather than into nothing. */
+    /** The Y coordinate of the spawn. */
     @Order(2)
     @Name("Spawn Y")
     @Key("spawn-y")
@@ -35,7 +29,7 @@ public interface LimboSpec {
         return 64;
     }
 
-    /** How often the waiting title is re-sent. */
+    /** The seconds between two sends of the title. */
     @Order(3)
     @Name("Title refresh (seconds)")
     @Key("title-refresh-seconds")
@@ -44,7 +38,7 @@ public interface LimboSpec {
         return 4;
     }
 
-    /** Turns the empty world's sky into a black screen. */
+    /** Gives every player the blindness effect. */
     @Order(4)
     @Name("Blindness")
     @Key("blindness")

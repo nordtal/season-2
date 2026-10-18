@@ -24,9 +24,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The waiting room's entire interface: one title per player, in that player's own language, saying what they wait for.
- *
- * Refreshed on a timer with no fade, since an expired title leaves a black screen that looks hung.
+ * Shows each player a title with the reason for the wait, in the language of the player.
+ * A timer sends the title again every {@code title-refresh-seconds}.
  */
 public final class WaitingRoom {
 
@@ -53,9 +52,7 @@ public final class WaitingRoom {
         this.world = Objects.requireNonNull(world, "world");
     }
 
-    /**
-     * Puts a player into the waiting room's held state: adventure, flying, invulnerable, fed, blind, holding nothing.
-     */
+    /** Sets the player to adventure mode, flying and invulnerable, with full health and food and no items. */
     public void receive(final Player player) {
         player.setGameMode(GameMode.ADVENTURE);
         player.setInvulnerable(true);
@@ -76,11 +73,10 @@ public final class WaitingRoom {
                     PotionEffectType.BLINDNESS, PotionEffect.INFINITE_DURATION, 0, false, false, false));
         }
 
-        // Something has to be on screen before the proxy's WAIT arrives: a blank one looks like a crash.
         show(player, WaitReason.UNKNOWN, true);
     }
 
-    /** Shows a reason, fading it in only if it is different from the one already up. */
+    /** Shows the title of the reason. The title fades in when the player saw another reason before. */
     public void show(final Player player, final WaitReason reason) {
         show(player, reason, shown.get(player.getUniqueId()) != reason);
     }
@@ -102,13 +98,13 @@ public final class WaitingRoom {
                 times));
     }
 
-    /** Starts the refresh loop, one task for the whole server rather than one per player. */
+    /** Starts the timer that sends the titles. */
     public void start() {
         final Duration period = Duration.ofSeconds(config.titleRefreshSeconds());
         refresh = PaperScheduler.of(plugin).onMainEvery(period, period, this::tick);
     }
 
-    /** Stops the refresh loop. */
+    /** Stops the timer. */
     public void stop() {
         if (refresh != null) {
             refresh.cancel();
@@ -117,21 +113,17 @@ public final class WaitingRoom {
         shown.clear();
     }
 
-    /**
-     * Re-sends whatever this player already has on screen, without a fade.
-     *
-     * Used when the player's language arrives after the first title was drawn in English.
-     */
+    /** Sends the current title of the player again, without a fade. */
     public void redraw(final Player player) {
         show(player, shown.getOrDefault(player.getUniqueId(), WaitReason.UNKNOWN), false);
     }
 
-    /** Forgets a player. Called on quit, or the map grows for the lifetime of the process. */
+    /** Deletes the reason stored for the player. */
     public void forget(final UUID uuid) {
         shown.remove(uuid);
     }
 
-    /** Returns which reason each waiting player currently has on screen. */
+    /** Returns the reason shown to each player. */
     public Map<UUID, WaitReason> shown() {
         return Map.copyOf(shown);
     }
@@ -142,7 +134,6 @@ public final class WaitingRoom {
             show(player, reason, false);
 
             if (world.hasStrayed(player.getLocation())) {
-                // Falling out of an empty world streams chunks after a player looking at a black screen.
                 player.teleport(world.spawn());
                 player.setFlying(true);
             }

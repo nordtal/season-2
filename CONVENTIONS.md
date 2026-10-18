@@ -24,8 +24,9 @@ passes all of them:
   commit title, a button and a title in an interface may be a noun phrase; every other line is a
   complete sentence. An instruction to the
   reader is an imperative sentence (`Run it on a host with Docker.`).
-- **Label:** a heading or bold label is the subject's name followed by a colon (`**Bank key:**`), and
-  the sentence after it carries the whole fact, so a reader who skips the label loses nothing.
+- **Label:** a bold label is the subject's name followed by a colon (`**Bank key:**`), and the
+  sentence after it carries the whole fact, so a reader who skips the label loses nothing. A Markdown
+  heading is a plain noun phrase without a colon.
 
 ## Comments
 

@@ -122,7 +122,8 @@ unclosed or unknown tag, a colour in a packaged text, a value in a tag argument 
 text longer than the strictest of its places allows; a text that never shows a value it is given is
 an error in a bundle and a warning in an override. So are a line break in a text shown only where the game draws
 one line (`Display.oneLine`: a title, a subtitle, the action bar, a boss bar) and a link whose visible text is its own
-address, which shows a name instead and may show the address in a hover text. The build also refuses a key shown nowhere.
+address, which shows a name instead and may show the address in a hover text. The same holds for a word that `TermMessages.SYNONYMS`
+lists for a game term: a text writes the term as the `terms` bundle names it. The build also refuses a key shown nowhere.
 
 Each problem is a message of the English-only `check` bundle (`CheckMessages`), never a sentence in
 code, so an admin reads and changes it in the editor, and the build and a log say it in the packaged

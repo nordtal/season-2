@@ -89,7 +89,7 @@ class DiscordRendererTest {
                 "The network phase is now **Season running** (it was **Before the event**).",
                 DISCORD.format(Locale.ENGLISH, MESSAGES.announce().phase(SeasonPhase.SMP, SeasonPhase.PRE_EVENT)));
         assertEquals(
-                "Die Netzwerkphase ist jetzt **Staffel läuft** (vorher **Vor dem Event**).",
+                "Die Netzwerkphase ist jetzt **Saison läuft** (vorher **Vor dem Event**).",
                 DISCORD.format(Locale.GERMAN, MESSAGES.announce().phase(SeasonPhase.SMP, SeasonPhase.PRE_EVENT)));
     }
 

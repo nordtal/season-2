@@ -4,6 +4,7 @@ import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.messages.CheckMessages;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.TermMessages;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.messages.value.Words;
 import java.time.ZoneOffset;
@@ -18,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +35,9 @@ public final class MessageCheck {
     private static final Set<String> PLURAL_CASES = Set.copyOf(PLURAL_ORDER);
 
     private static final CheckMessages.Check SAYS = CheckMessages.TEXTS.check();
+
+    /** Each word of {@link TermMessages#SYNONYMS} as a whole word in any case, with the key of its term. */
+    private static final Map<Pattern, String> SYNONYMS = synonyms();
 
     /** Stands in for every word while a text is measured, so a limit holds in any language. */
     private static final Words MEASURE = (key, values) -> "........";
@@ -109,7 +115,7 @@ public final class MessageCheck {
         final Deque<String> open = new ArrayDeque<>();
         for (final Node node : nodes) {
             switch (node) {
-                case Node.Literal ignored -> {}
+                case Node.Literal literal -> synonyms(literal.text());
                 case Node.Pound ignored -> {}
                 case Node.Value value -> {
                     if (links.contains(value.name())) {
@@ -206,6 +212,8 @@ public final class MessageCheck {
                     } else {
                         value(value);
                     }
+                } else if (part instanceof final Node.Literal literal && takesValues && "hover".equals(name)) {
+                    synonyms(literal.text());
                 }
             }
         }
@@ -251,6 +259,26 @@ public final class MessageCheck {
         } else if (tag.shape() == Node.Tag.Shape.OPEN) {
             links.push("");
         }
+    }
+
+    /** A game term is written by its one name, never by a word {@link TermMessages#SYNONYMS} lists for it. */
+    private void synonyms(final String literal) {
+        SYNONYMS.forEach((word, term) -> {
+            final Matcher found = word.matcher(literal);
+            while (found.find()) {
+                problems.add(new Problem(mode == Mode.PACKAGED, SAYS.synonym(found.group(), term)));
+            }
+        });
+    }
+
+    private static Map<Pattern, String> synonyms() {
+        final Map<Pattern, String> patterns = new HashMap<>();
+        TermMessages.SYNONYMS.forEach((term, words) -> words.forEach(word -> patterns.put(
+                Pattern.compile(
+                        "(?<![\\p{L}\\p{N}])" + Pattern.quote(word) + "(?![\\p{L}\\p{N}])",
+                        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+                term)));
+        return Map.copyOf(patterns);
     }
 
     /** The kind a placeholder is declared with, noting it as used; {@code null} and an error for an unknown one. */

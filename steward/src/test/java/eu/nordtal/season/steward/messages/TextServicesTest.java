@@ -32,6 +32,7 @@ class TextServicesTest {
     void aBuildingBlockStaysWithEveryServiceThatShipsIt() {
         assertTrue(TextServices.shows("smp", "values", List.of("DISCORD_MESSAGE", "STEWARD")));
         assertTrue(TextServices.shows("steward", "values", List.of("CHAT")));
+        assertTrue(TextServices.shows("steward", "terms", List.of("CHAT")));
     }
 
     @Test

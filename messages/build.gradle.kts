@@ -6,6 +6,7 @@ plugins {
 
 messageSpec {
     specClasses.add("eu.nordtal.season.messages.ValueMessages")
+    specClasses.add("eu.nordtal.season.messages.TermMessages")
     specClasses.add("eu.nordtal.season.messages.CheckMessages")
 }
 

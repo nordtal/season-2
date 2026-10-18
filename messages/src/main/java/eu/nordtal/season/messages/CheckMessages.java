@@ -151,6 +151,9 @@ public interface CheckMessages {
             MessageRef closesOther(@Arg("tag") String tag, @Arg("open") String open);
         }
 
+        @Name("Another word for a game term")
+        MessageRef synonym(@Arg("word") String word, @Arg("term") String term);
+
         @Name("Too long")
         MessageRef tooLong(@Arg("length") int length, @Arg("limit") int limit);
     }

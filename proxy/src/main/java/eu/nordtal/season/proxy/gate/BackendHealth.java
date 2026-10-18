@@ -7,13 +7,11 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A per-server circuit breaker, opened by a failed connection and tested again by the next real release.
- *
- * {@link BackendKick} and {@code PackStation#releaseFailed} suspend; a successful connection {@link #clear}s.
+ * Records which backends are suspended. {@link BackendKick} and {@code PackStation#releaseFailed} suspend a backend.
  */
 public final class BackendHealth {
 
-    /** How long a backend stays suspended before the next release attempt may test it again. */
+    /** The time that a backend stays suspended. */
     public static final Duration RETRY = Duration.ofSeconds(10);
 
     private final Clock clock;
@@ -23,29 +21,21 @@ public final class BackendHealth {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /**
-     * Opens the breaker for {@code server} until {@link #RETRY} passes, restarting the window if it is open.
-     *
-     * @param server the backend name, or {@code null} to do nothing
-     */
+    /** Suspends the server for {@link #RETRY}. A {@code null} server is ignored. */
     public void suspend(final String server) {
         if (server != null) {
             suspendedUntil.put(server, clock.instant().plus(RETRY));
         }
     }
 
-    /**
-     * Closes the breaker for {@code server} after a real connection to it succeeded.
-     *
-     * @param server the backend name, or {@code null} to do nothing
-     */
+    /** Ends the suspension of the server. A {@code null} server is ignored. */
     public void clear(final String server) {
         if (server != null) {
             suspendedUntil.remove(server);
         }
     }
 
-    /** Whether {@code server} is inside its {@link #RETRY} window; never for {@code null} or an unknown name. */
+    /** Returns whether the server is suspended. It is {@code false} for {@code null} and for an unknown server. */
     public boolean isSuspended(final String server) {
         if (server == null) {
             return false;

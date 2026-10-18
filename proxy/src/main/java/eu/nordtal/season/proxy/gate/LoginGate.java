@@ -19,11 +19,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * The season 2 login decision, from one {@code AccessDirectory#accessState} round trip.
- *
- * Velocity 4 runs {@code @Subscribe} handlers off the Netty threads; {@code query-timeout-seconds} bounds the wait.
- */
+/** Decides each login from {@code AccessDirectory#accessState}. {@code query-timeout-seconds} limits the wait. */
 public final class LoginGate {
 
     private final Logger logger;
@@ -75,11 +71,8 @@ public final class LoginGate {
             return;
         }
 
-        // Written on every successful query, so an inactive state evicts a stale positive entry.
         fallback.remember(uuid, state);
-        // The facts the /phase command and the play-time writer need, from the same row.
         roster.remember(uuid, state);
-        // The one place this proxy sees a player's Minecraft name; account_link caches it.
         if (state.linked()) {
             mirrorMinecraftName(uuid, player.getUsername());
         }
@@ -107,7 +100,7 @@ public final class LoginGate {
         }
     }
 
-    /** Caches the Minecraft name this login just presented, best-effort. */
+    /** Stores the Minecraft name of the login. A failure is ignored. */
     private void mirrorMinecraftName(final UUID uuid, final String username) {
         try {
             access.setMinecraftName(uuid, username);
@@ -116,7 +109,7 @@ public final class LoginGate {
         }
     }
 
-    /** Issues a link code and refuses; a failure to issue one is treated as an unreachable database. */
+    /** Issues a link code and refuses the login. When the code cannot be issued, it refuses with the trouble screen. */
     private void issueCodeAndDeny(
             final LoginEvent event,
             final Player player,
@@ -128,12 +121,11 @@ public final class LoginGate {
             event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
         } catch (final RuntimeException exception) {
             logger.error("Could not issue a link code for {} ({})", uuid, player.getUsername(), exception);
-            // The unlinked screen is bilingual because the language is unknown; English is a guess.
             event.setResult(ComponentResult.denied(messages.trouble(Locale.ENGLISH)));
         }
     }
 
-    /** Applies {@link GateOutcome#withoutDatabase}: only a player the cache remembers as allowed gets in. */
+    /** Decides with {@link GateOutcome#withoutDatabase}. */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         final int online = proxy.getPlayerCount();
         final int maximum = players.maxPlayers();

@@ -4,15 +4,10 @@ import eu.nordtal.season.common.id.DiscordId;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-/** The whole SQL surface of the play-time counter; only the proxy writes {@code player_playtime}. */
+/** The SQL of {@code player_playtime}. */
 interface PlaytimeDao {
 
-    /**
-     * Adds seconds to a player's total in SQL, so two racing flushes both count.
-     *
-     * @param discordId the key of this table, not the Minecraft UUID
-     * @return 1
-     */
+    /** Adds the seconds to the total of the player and returns 1. */
     @SqlUpdate("""
             INSERT INTO player_playtime (discord_id, seconds, updated)
             VALUES (:discordId, :seconds, now())

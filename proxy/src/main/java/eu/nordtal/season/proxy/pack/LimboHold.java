@@ -5,24 +5,20 @@ import eu.nordtal.season.limboprotocol.WaitReason;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Whether a player in the waiting room may leave it yet, and if not, what they are waiting for.
- *
- * The questions run from what the player can influence to what resolves itself; the standby never releases.
- */
+/** Decides whether a player may leave the waiting room. The standby proxy never releases a player. */
 public final class LimboHold {
 
     private LimboHold() {}
 
     /**
-     * The first reason to keep waiting, or empty when the player may be connected onward.
+     * Returns the first reason to keep the player waiting, or empty when the player may leave.
      *
-     * @param packSettled whether the pack is applied, or there is none because {@code pack#enabled} is off
-     * @param admin whether the player carries {@code discord_user.admin}; maintenance does not hold them
-     * @param standby whether this is the standby proxy, which releases nobody, admins included
-     * @param destinationAvailable whether that phase's backend is registered and not suspended
-     * @param destinationUpdating whether an update run has that backend stopped
-     * @param destinationHeld whether {@code service_hold} keeps that backend stopped
+     * @param packSettled whether the pack is applied or {@code pack#enabled} is off
+     * @param admin whether the player is an admin, which {@code MAINTENANCE} does not hold
+     * @param standby whether this proxy is the standby, which holds every player
+     * @param destinationAvailable whether the backend of the phase is registered and not suspended
+     * @param destinationUpdating whether an update run has stopped the backend
+     * @param destinationHeld whether {@code service_hold} keeps the backend stopped
      */
     public static Optional<WaitReason> reason(
             final boolean packSettled,
@@ -41,15 +37,12 @@ public final class LimboHold {
             return Optional.of(WaitReason.MAINTENANCE);
         }
         if (standby) {
-            // UPDATE fits here too, and StandbyReturn keeps that promise without a seventh screen.
             return Optional.of(WaitReason.UPDATE);
         }
         if (destinationHeld) {
-            // Above the update: a DOWN run ends but the hold it wrote does not, so the older truth wins.
             return Optional.of(WaitReason.HELD);
         }
         if (destinationUpdating) {
-            // Not guarded by destinationAvailable: a stopped container stays registered for a moment.
             return Optional.of(WaitReason.UPDATE);
         }
         if (!destinationAvailable) {

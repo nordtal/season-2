@@ -98,9 +98,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Wires the season 2 proxy: the login gate, phase routing, play time, the pack station and update handling.
- *
- * A bad {@code database} group or the {@code gate} group fails closed: every login is refused, admins included.
+ * Creates the features of the proxy. An invalid {@code database} or {@code gate} group makes the proxy refuse every
+ * login, admins included.
  */
 @Plugin(
         id = "proxy",
@@ -111,22 +110,22 @@ import org.slf4j.Logger;
         authors = {"nordtal"})
 public final class ProxyPlugin {
 
-    /** The one clock of this process. */
+    /** The clock. */
     private final Clock clock = NetworkTime.clock();
 
-    /** The languages of the network's settings, or their defaults while those cannot be read. */
+    /** The languages of the network, the defaults until the settings are read. */
     private Languages languages = NetworkSettings.defaultLanguages();
 
-    /** The proxy's one bundle, once the settings named its languages; the refusal screen reuses it. */
+    /** The message bundle, set after the settings. */
     private @Nullable Messages messages;
 
-    /** The crest table every card is drawn by, as the network's prestige group last read; the hub's thread sets it. */
+    /** The crests of the prestige group. */
     private volatile Prestige prestige = Prestige.defaults();
 
     private final ProxyServer proxy;
     private final Logger logger;
 
-    /** The one way this proxy runs work later or again; nothing else here touches Velocity's scheduler. */
+    /** The scheduler. */
     private final VelocityScheduler scheduler;
 
     private final Path dataDirectory;
@@ -137,7 +136,7 @@ public final class ProxyPlugin {
     private @Nullable PlaytimeWriter playtime;
     private Scheduler.@Nullable Task heartbeat;
 
-    /** The settings groups once read, with the pool they were read through. */
+    /** The settings groups and the pool. */
     private record Loaded(
             HikariDataSource pool,
             DatabaseSpec database,
@@ -150,7 +149,7 @@ public final class ProxyPlugin {
             Setting<PlayersSpec> players,
             Setting<PrestigeSpec> prestigeSetting) {}
 
-    /** What the features of the proxy are wired from. */
+    /** The objects that several features use. */
     private record Shared(
             Loaded loaded,
             AccessDirectory access,
@@ -170,10 +169,10 @@ public final class ProxyPlugin {
             Homecoming homecoming,
             AtomicReference<PlayerRouter> routerRef) {}
 
-    /** The two update duties the signal hub wakes. */
+    /** The two update tasks that the signal hub triggers. */
     private record Updates(RestartWatch restartWatch, Evacuation evacuation) {}
 
-    /** The other reads of database state, which the signal hub wakes too and no timer repeats. */
+    /** The two further checks that the signal hub triggers. */
     private record Reads(ProxySwap swap, ExpiryWatch expiry) {}
 
     @Inject
@@ -195,7 +194,7 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Reads every settings group this proxy runs on, opening the pool first. */
+    /** Opens the pool and reads the settings groups. */
     private Loaded load() throws SettingsException {
         final Environment environment = Environment.of("NORDTAL_PROXY").withMain("proxy");
         final DatabaseSpec database = EnvironmentSettings.of(environment)
@@ -212,7 +211,6 @@ public final class ProxyPlugin {
         final NetworkSpec network = settings.load(
                         Group.of("network", NetworkSpec.class).whileRunning())
                 .get();
-        // The reply and tone colours, read once here; see Colours.GROUP.
         final ToneColours colours =
                 ToneColours.parse(Colours.declared(settings.load(Colours.GROUP).get()), logger::warn);
         final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
@@ -222,7 +220,6 @@ public final class ProxyPlugin {
         final LanguageAndTimeSpec languageAndTime =
                 settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
         languages = NetworkSettings.languages(languageAndTime);
-        // After the settings, which name the languages and the season; the database bundle holds the hover card.
         final Messages loadedMessages = Messages.load(
                         getClass().getClassLoader(),
                         List.of("messages/database", "messages/proxy"),
@@ -233,7 +230,7 @@ public final class ProxyPlugin {
                 opened, database, gate, pack, network, colours, loadedMessages, settings, players, prestigeSetting);
     }
 
-    /** Wires every feature in the order their event handlers must register, then starts the signal hub and the beat. */
+    /** Creates every feature, registers the event handlers in order, then starts the signal hub and the heartbeat. */
     private void start(final Loaded loaded) {
         final Shared shared = shared(loaded);
         final PackStation packs = wirePackStation(shared);
@@ -253,17 +250,14 @@ public final class ProxyPlugin {
         startHeartbeat();
     }
 
-    /** Builds what several features share. */
+    /** Creates the objects that several features use. */
     private Shared shared(final Loaded loaded) {
         final HikariDataSource pool = loaded.pool();
         final AccessDirectory access = AccessDirectory.using(pool, clock);
         final LoginRoster roster = new LoginRoster();
-        // The proxy's one renderer: a name is drawn bare, with the card of the player's login here.
         final MessageRenderer renderer =
                 MessageRenderer.of(loaded.messages(), Names.BARE, roster.cards(() -> prestige));
-        // One PhaseServers for the whole plugin, not one per caller.
         final PhaseServers phaseServers = PhaseServers.from(loaded.gate());
-        // Both proxies are the same image, so the role comes from configuration.
         final ProxyRole role = ProxyRole.of(loaded.network().standby());
         final InetSocketAddress publicAddress =
                 SwapAddresses.publicAddress(loaded.network().publicAddress()).orElse(null);
@@ -304,14 +298,12 @@ public final class ProxyPlugin {
                 routerRef);
     }
 
-    /** Reads where players stood before the last proxy swap, once, before Velocity binds its listener. */
+    /** Reads the servers of the players before the last proxy swap. */
     private ParkedSeats takeParkedSeats(final SwapStore swaps) {
         final ParkedSeats parked;
         try {
-            // The statement empties the table, so a second read would find nothing.
             parked = new ParkedSeats(swaps.takeAllSeats(), clock.instant());
         } catch (final RuntimeException failure) {
-            // Not fatal: a seat only changes where an admin lands.
             logger.warn(
                     "Could not read where players were standing before the last proxy swap; "
                             + "everybody will be routed by the season phase",
@@ -324,7 +316,7 @@ public final class ProxyPlugin {
         return parked;
     }
 
-    /** Offers the resource pack and holds players in the waiting room until they have applied it. */
+    /** Creates the pack station. */
     private PackStation wirePackStation(final Shared shared) {
         final PackSpec config = shared.loaded().pack();
         final PackMessages packMessages = new PackMessages(shared.renderer());
@@ -363,9 +355,8 @@ public final class ProxyPlugin {
         return packs;
     }
 
-    /** Routes players by the season phase and sweeps the waiting room. */
+    /** Creates the router and the sweep of the waiting room. */
     private PlayerRouter wireRouting(final Shared shared, final PackStation packs) {
-        // Every destination this plugin chooses is recorded, and every other refused.
         final RouteIntents intents = new RouteIntents(shared.roster(), shared.phaseServers(), logger);
         proxy.getEventManager().register(this, intents);
         final PlayerRouter router = new PlayerRouter(
@@ -390,12 +381,11 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, packs);
         final Duration sweepInterval = Duration.ofSeconds(shared.loaded().gate().limboSweepIntervalSeconds());
         final var _ = scheduler.every(sweepInterval, sweepInterval, packs::sweep);
-        // Read once, before the first player arrives, so the MAINTENANCE fallback runs as briefly as possible.
         shared.phaseWatch().refresh();
         return router;
     }
 
-    /** Refuses or admits each login and warns players whose access is about to end. */
+    /** Creates the login gate and the expiry check. */
     private ExpiryWatch wireLoginGate(final Shared shared) {
         final GateSpec gate = shared.loaded().gate();
         final LoginGate loginGate = new LoginGate(
@@ -420,7 +410,6 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, shared.roster());
         proxy.getEventManager().register(this, expiryWatch);
-        // A kick with a reason keeps the backend's screen; one with none goes to the waiting room. See BackendKick.
         proxy.getEventManager()
                 .register(
                         this,
@@ -434,7 +423,7 @@ public final class ProxyPlugin {
         return expiryWatch;
     }
 
-    /** Answers the server list from numbers the signal hub refreshes, never on the unauthenticated ping itself. */
+    /** Creates the server list ping. */
     private SnapshotStore wireServerList(final Shared shared) {
         final SnapshotStore snapshots = SnapshotStore.using(shared.loaded().pool(), logger);
         snapshots.refresh();
@@ -453,7 +442,7 @@ public final class ProxyPlugin {
         return snapshots;
     }
 
-    /** Writes the counts and who is connected, since this proxy knows every connection. */
+    /** Creates the writer of the player counts. */
     private OnlineWriter wireOnlineCounts(final Shared shared) {
         final HikariDataSource pool = shared.loaded().pool();
         final OnlineWriter onlineWriter = new OnlineWriter(
@@ -469,7 +458,7 @@ public final class ProxyPlugin {
         return onlineWriter;
     }
 
-    /** Counts each session's play time and flushes it on a timer. */
+    /** Creates the play time writer and its flush timer. */
     private void wirePlaytime(final Shared shared) {
         final PlaytimeWriter writer =
                 new PlaytimeWriter(PlaytimeStore.using(shared.loaded().pool()), shared.roster(), logger, clock);
@@ -479,10 +468,9 @@ public final class ProxyPlugin {
         final var _ = scheduler.every(flushInterval, flushInterval, writer::flushAll);
     }
 
-    /** Warns of a restart, then moves players into the waiting room on a task of its own beside the countdown. */
+    /** Creates the restart countdown and the evacuation of players. */
     private Updates wireUpdates(final Shared shared, final PackStation packs, final OnlineWriter onlineWriter) {
         final HikariDataSource pool = shared.loaded().pool();
-        // Only the proxy sees every player, so it gives the warning, counting towards the row's instant.
         final RestartWatch restartWatch = new RestartWatch(
                 scheduler,
                 proxy,
@@ -496,13 +484,11 @@ public final class ProxyPlugin {
                 new Evacuation(proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming());
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
-        // The counts hurry from the countdown on, not from the move; see OnlineWriter#tick.
         onlineWriter.whenHurrying(() -> restartWatch.isCountingDown() || evacuation.isAnyMoving());
-        // The countdown schedules a task on the zero instant and the commit's notification follows; both wake it.
         return new Updates(restartWatch, evacuation);
     }
 
-    /** Parks the network on the standby proxy when this one stops, and takes it back when this one is the standby. */
+    /** Creates the proxy swap. */
     private ProxySwap wireProxySwap(final Shared shared, final Updates updates) {
         final ProxySwap swap = new ProxySwap(
                 proxy,
@@ -512,11 +498,8 @@ public final class ProxyPlugin {
                 shared.role(),
                 shared.standbyAddress(),
                 clock);
-        // Second at zero, beside the announcement.
         updates.restartWatch().whenZeroReached(() -> atZero(updates.evacuation(), swap));
-        // Lets the announcement say whether a standby catches players, once per countdown.
         updates.restartWatch().standbyProxyAnswers(swap::canPark);
-        // An arrival between zero and the stop gets a sentence and goes to the standby too.
         proxy.getEventManager()
                 .register(
                         this,
@@ -543,7 +526,7 @@ public final class ProxyPlugin {
         return swap;
     }
 
-    /** Says at start how a swap will go, since a silent swap failure would look like a network that went down. */
+    /** Logs how the proxy swap will run. */
     private void logSwapPosture(final Shared shared, final ProxySwap swap) {
         final InetSocketAddress publicAddress = shared.publicAddress();
         final InetSocketAddress standbyAddress = shared.standbyAddress();
@@ -570,11 +553,10 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Registers the allowlist gate, the commands a player types and the console's command suggestions. */
+    /** Registers the command gate, the commands of the players and the command tree. */
     private void wireCommands(final Shared shared) {
         final PlayersSpec players = shared.loaded().players().get();
         final ToneColours colours = shared.loaded().colours();
-        // One list, the network's, enforced here and read by every Paper server too. See CommandGate/CommandFilter.
         proxy.getEventManager()
                 .register(
                         this,
@@ -586,12 +568,9 @@ public final class ProxyPlugin {
                                 () -> colours,
                                 ProxySounds.defaults(logger::warn)));
         logger.info("Players who are not admins may use: {}", players.commandAllowlist());
-        // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =
                 new PrivateMessages(proxy, shared.roster(), shared.renderer(), () -> colours, logger);
-        // Also a listener: it tracks who last spoke to whom for /r, dropped when somebody leaves.
         proxy.getEventManager().register(this, privateMessages);
-        // The invite is the gate group's, the same string every login screen already uses.
         final InfoTexts infoTexts =
                 new InfoTexts(shared.renderer(), shared.loaded().gate().discordInviteUrl(), shared.roster());
         final CommandManager commands = proxy.getCommandManager();
@@ -599,7 +578,6 @@ public final class ProxyPlugin {
         registered.addAll(infoTexts.commands());
         registered.forEach(command ->
                 commands.register(commands.metaBuilder(command).plugin(this).build(), command));
-        // The standby runs the same commands, so the console's suggestions come from the proxy players type in.
         if (!shared.role().isStandby()) {
             final CommandTrees trees = CommandTrees.of(
                     commands,
@@ -611,31 +589,24 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Opens the proxy's one LISTEN connection and subscribes every refresh to its channel, without starting it. */
+    /** Opens the signal hub and subscribes the refreshes. It does not start the hub. */
     private SignalHub wireSignals(
             final Shared shared, final PlayerRouter router, final Updates updates, final Reads reads) {
         final Loaded loaded = shared.loaded();
         final SignalHub hub = openHub(loaded, "proxy-signals");
         this.signals = hub;
         hub.on(Channel.PHASE, "the season phase", shared.phaseWatch()::refresh);
-        // The network's limit and allowlist, changed in Steward, arrive here without a restart.
         loaded.settings().listen(hub, () -> reloadNetwork(loaded.players(), loaded.prestigeSetting()));
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
         hub.on(Channel.ADMIN, "the admin roster", () -> refreshAdmins(shared, router));
-        // Latency here would drop the 30 second beat.
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
         hub.on(Channel.UPDATE, "the proxy swap", reads.swap()::check);
-        // Every wake-up also runs this, so a change no signal announced waits one quiet minute at most.
         hub.on(Channel.PHASE, "the players' access", () -> scheduler.execute(reads.expiry()::check));
         return hub;
     }
 
-    /**
-     * Opens the server list numbers' own LISTEN connection, without starting it.
-     *
-     * Apart because the SMP channel signals on every flush, and a wake-up runs every refresh of its hub.
-     */
+    /** Opens a signal hub for the server list numbers. It does not start the hub. */
     private SignalHub wireNumbers(final Shared shared, final SnapshotStore snapshots) {
         final SignalHub hub = openHub(shared.loaded(), "proxy-numbers");
         this.numberSignals = hub;
@@ -654,7 +625,7 @@ public final class ProxyPlugin {
                 logger);
     }
 
-    /** Re-reads the admin roster, which rides the phase's signals; re-routes only when somebody's flag changed. */
+    /** Reads the admins again and re-routes the players when an admin flag changed. */
     private void refreshAdmins(final Shared shared, final PlayerRouter router) {
         final int changed = shared.roster().refreshAdmins(shared.access().admins());
         if (changed > 0) {
@@ -663,7 +634,7 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Says at start what the proxy runs with. */
+    /** Logs the configuration. */
     private void logStartup(final Shared shared) {
         final GateSpec gate = shared.loaded().gate();
         final PlayersSpec players = shared.loaded().players().get();
@@ -692,7 +663,7 @@ public final class ProxyPlugin {
         }
     }
 
-    /** Takes the network's limit, allowlist and crest table again; a refused change keeps what runs. */
+    /** Reads the player limit, the allowlist and the crests again. An invalid change keeps the old values. */
     private void reloadNetwork(final Setting<PlayersSpec> players, final Setting<PrestigeSpec> prestigeSettings) {
         try {
             players.reload();
@@ -707,36 +678,30 @@ public final class ProxyPlugin {
         }
     }
 
-    /** What the zero beat moves: the backends first, then the network, the order a player travels. */
+    /** Runs the evacuation first and the proxy swap second. */
     private void atZero(final Evacuation evacuation, final ProxySwap swap) {
         evacuation.check();
         swap.check();
     }
 
-    /**
-     * Starts the container readiness marker (see {@link Readiness}) as the last step of {@link #start}.
-     *
-     * {@link #failClosed} never calls it, so a proxy refusing every login never reports ready.
-     */
+    /** Starts the {@link Readiness} heartbeat. {@link #failClosed} does not call it. */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(clock, logger::warn);
         heartbeat = scheduler.every(Duration.ZERO, Readiness.BEAT, readiness::refresh);
     }
 
-    /** Registers the only login handler, which refuses everybody. */
+    /** Registers a login handler that refuses every login. */
     private void failClosed(final Exception failure) {
         logger.error("proxy could not start, so NOBODY will be let onto this network. "
                 + "Fix the configuration and restart the proxy.");
         logger.error("{}", failure.getMessage(), failure);
 
-        // The bundle when the failure came after it, else the packaged one: the screen needs no database.
         try {
             final Messages shown = messages != null
                     ? messages
                     : Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales());
             proxy.getEventManager().register(this, new MisconfiguredGate(logger, MessageRenderer.of(shown)));
         } catch (final RuntimeException broken) {
-            // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.
             logger.error(
                     "proxy cannot even load its own packaged messages, so it cannot "
                             + "put up a refusal screen. Stopping the proxy - that is the only way left to "
@@ -747,21 +712,18 @@ public final class ProxyPlugin {
             return;
         }
 
-        // Whatever got opened before the failure has to go: a half-built plugin holding a pool is worse than nothing.
         closeResources();
     }
 
     @Subscribe
     public void onProxyShutdown(final ProxyShutdownEvent event) {
         if (playtime != null) {
-            // The last slice of every session, so a planned restart costs nobody play time.
             logger.info("Flushed play time for {} players on shutdown", playtime.flushAll());
         }
         closeResources();
     }
 
     private void closeResources() {
-        // Stops the beat so a proxy going down stops claiming to be up; going stale, not deleted, is the signal.
         if (heartbeat != null) {
             heartbeat.cancel();
             heartbeat = null;

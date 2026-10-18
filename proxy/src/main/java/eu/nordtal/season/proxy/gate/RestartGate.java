@@ -13,9 +13,8 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * Parks an arrival on the standby between a proxy swap's countdown reaching zero and the proxy stopping.
- *
- * Refusal is only the failure path, for a transfer that could not be sent; a player with a seat is let in.
+ * Transfers each player who joins between the end of the proxy swap countdown and the stop of the proxy to the standby.
+ * The gate refuses a player when the transfer fails.
  */
 public final class RestartGate {
 
@@ -26,17 +25,13 @@ public final class RestartGate {
     private final GateMessages messages;
     private final FallbackCache locales;
 
-    /** How many arrivals were sent on to the standby. */
+    /** The number of transferred players. */
     private final AtomicLong parked = new AtomicLong();
 
-    /** How many could not be and got the screen instead; it should stay at zero. */
+    /** The number of refused players. */
     private final AtomicLong refused = new AtomicLong();
 
-    /**
-     * Takes suppliers rather than the swap itself, so the {@code gate} package knows nothing about {@code update}.
-     *
-     * @param park seats the player and transfers them; {@code false} when the transfer could not be sent
-     */
+    /** @param park seats the player and transfers the player, returns {@code false} when the transfer fails */
     public RestartGate(
             final Logger logger,
             final BooleanSupplier stopping,
@@ -52,20 +47,20 @@ public final class RestartGate {
         this.locales = Objects.requireNonNull(locales, "locales");
     }
 
-    /** What happens to one arrival. */
+    /** The handling of a joining player. */
     enum Handling {
 
-        /** No run is moving this proxy, or they are the far end of one. */
+        /** The player joins this proxy. */
         LET_IN,
 
-        /** Straight on to the standby, the same way everybody already connected went. */
+        /** The player is transferred to the standby. */
         PARK
     }
 
     /**
-     * The rule, without a Velocity event around it.
+     * Returns the handling.
      *
-     * @param hasSeat whether {@code ParkedSeats} holds a seat for them, so they are arriving from the standby
+     * @param hasSeat whether {@code ParkedSeats} holds a seat for the player
      */
     static Handling decide(final boolean stopping, final boolean hasSeat) {
         if (!stopping || hasSeat) {
@@ -74,7 +69,7 @@ public final class RestartGate {
         return Handling.PARK;
     }
 
-    /** {@code PostLoginEvent}, not {@code LoginEvent}: the connection can carry the transfer packet by here. */
+    /** Transfers the player to the standby while the proxy stops. */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
         final Player player = event.getPlayer();
@@ -86,7 +81,6 @@ public final class RestartGate {
         try {
             moved = park.test(player);
         } catch (final RuntimeException failure) {
-            // Velocity refuses the transfer outright for a client older than 1.20.5.
             logger.warn("Could not park {} on arrival", player.getUsername(), failure);
             moved = false;
         }
@@ -102,11 +96,7 @@ public final class RestartGate {
         player.disconnect(refuse(uuid, player.getUsername()));
     }
 
-    /**
-     * The refusal without the Velocity event around it.
-     *
-     * @return the screen they get
-     */
+    /** Returns the screen of the refused player. */
     Component refuse(final UUID mcUuid, final String username) {
         final Locale locale = locales.localeOf(mcUuid);
         logger.warn(
@@ -118,12 +108,12 @@ public final class RestartGate {
         return messages.restarting(locale);
     }
 
-    /** How many arrivals were sent on to the standby since the proxy started. */
+    /** Returns the number of transferred players. */
     public long parkedCount() {
         return parked.get();
     }
 
-    /** Returns how many arrivals got the screen because the transfer could not be sent; zero on a clean run. */
+    /** Returns the number of refused players. */
     public long refusedCount() {
         return refused.get();
     }

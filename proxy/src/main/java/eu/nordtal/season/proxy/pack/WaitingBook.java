@@ -13,38 +13,37 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the proxy knows about each waiting-room player, and the rule that turns it into a {@link WaitingDecision}.
- *
- * State is per session: Velocity delivers {@code READY} before the arrival, so a per-visit flag would drop it.
+ * Stores the state of each player in the waiting room and decides with it. The state lasts for the session of the
+ * player.
  */
 public final class WaitingBook {
 
-    /** Everything known about one player between their login and their disconnect. */
+    /** The state of a player from login to disconnect. */
     private static final class Session {
 
-        /** Whether the proxy believes they are in the waiting room. */
+        /** Whether the player is in the waiting room. */
         private boolean waiting;
-        /** Set by {@link #releaseFailed}: the destination is registered but did not take them. */
+        /** The end of the window after {@link #releaseFailed}. */
         private @Nullable Instant backendDownUntil;
-        /** Which destination that was; the window applies to it alone. */
+        /** The backend of that window. */
         private @Nullable String backendDown;
-        /** Whether {@link #entered} has ever been called, which makes a READY "early". */
+        /** Whether {@link #entered} was called. */
         private boolean visited;
 
         private @Nullable Instant offeredAt;
 
         private boolean applied;
 
-        /** Whether an admin let this player through without the pack, as of their login. */
+        /** Whether an admin exempted the player from the pack. */
         private boolean exempt;
 
-        /** Whether {@code limbo} has said {@code READY} at any point this session. */
+        /** Whether {@code limbo} sent {@code READY}. */
         private boolean ready;
 
-        /** When the wait last came down to {@code READY} alone. */
+        /** The time since which only {@code READY} is missing. */
         private @Nullable Instant settledAt;
 
-        /** The reason on this player's screen, so an unchanged one is not re-sent. */
+        /** The reason on the screen of the player. */
         private @Nullable WaitReason shown;
     }
 
@@ -57,10 +56,8 @@ public final class WaitingBook {
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
     /**
-     * Takes the pack setting, both periods and the proxy's role.
-     *
-     * @param packOffered whether there is a pack to wait for, {@code pack#enabled}
-     * @param readyGrace how long the rest may be settled before release without {@code limbo}'s confirmation
+     * @param packOffered whether {@code pack#enabled} is on
+     * @param readyGrace the time after which a player is released without {@code READY}
      */
     public WaitingBook(
             final boolean packOffered,
@@ -77,11 +74,7 @@ public final class WaitingBook {
 
     // the three facts
 
-    /**
-     * Records that the player is now in the waiting room.
-     *
-     * @param uuid the player
-     */
+    /** Records that the player is in the waiting room. */
     public void entered(final UUID uuid) {
         final Session session = session(uuid);
         synchronized (session) {
@@ -90,11 +83,7 @@ public final class WaitingBook {
         }
     }
 
-    /**
-     * Records that the player left the waiting room; the session's facts survive.
-     *
-     * @param uuid the player
-     */
+    /** Records that the player left the waiting room. The other state of the session stays. */
     public void left(final UUID uuid) {
         final Session session = sessions.get(uuid);
         if (session == null) {
@@ -107,11 +96,7 @@ public final class WaitingBook {
         }
     }
 
-    /**
-     * Claims the one pack offer this session gets.
-     *
-     * @return whether the caller should send it; a player bounced back is not asked twice
-     */
+    /** Returns {@code true} once per session. The caller sends the pack offer then. */
     public boolean claimOffer(final UUID uuid) {
         final Session session = session(uuid);
         synchronized (session) {
@@ -124,10 +109,9 @@ public final class WaitingBook {
     }
 
     /**
-     * Records that an admin exempted this player, so no pack is offered or awaited.
+     * Records that an admin exempted the player from the pack.
      *
-     * @param uuid the player
-     * @return {@code true} the first time this session, so the caller logs the pass once
+     * @return {@code true} the first time in the session
      */
     public boolean packExempt(final UUID uuid) {
         final Session session = session(uuid);
@@ -138,11 +122,7 @@ public final class WaitingBook {
         }
     }
 
-    /**
-     * Records that the client applied the pack.
-     *
-     * @param uuid the player
-     */
+    /** Records that the client applied the pack. */
     public void packApplied(final UUID uuid) {
         final Session session = session(uuid);
         synchronized (session) {
@@ -151,9 +131,9 @@ public final class WaitingBook {
     }
 
     /**
-     * Records {@code limbo}'s {@code READY}, whether or not the arrival has been seen yet.
+     * Records {@code READY} of {@code limbo}.
      *
-     * @return whether it came before the arrival, the race described on this class
+     * @return whether {@code READY} came before {@link #entered}
      */
     public boolean ready(final UUID uuid) {
         final Session session = session(uuid);
@@ -163,13 +143,13 @@ public final class WaitingBook {
         }
     }
 
-    /** How long a failed release waits before the connection is tried again. */
+    /** The time before the connection is tried again after a failed release. */
     public static final Duration RELEASE_RETRY = Duration.ofSeconds(10);
 
     /**
-     * Puts the player back on the books after a release's connection failed.
+     * Returns the player to the waiting list after a failed release.
      *
-     * @param destination the backend that refused them; the retry window applies to it alone
+     * @param destination the backend that refused the connection
      */
     public void releaseFailed(final UUID uuid, final String destination) {
         final Session session = sessions.get(uuid);
@@ -194,16 +174,12 @@ public final class WaitingBook {
         }
     }
 
-    /**
-     * Drops everything known about a player; called on disconnect.
-     *
-     * @param uuid the player who has gone
-     */
+    /** Deletes the state of the player. */
     public void forget(final UUID uuid) {
         sessions.remove(uuid);
     }
 
-    /** How many sessions are on the books. */
+    /** Returns the number of sessions. */
     public int size() {
         return sessions.size();
     }
@@ -211,10 +187,10 @@ public final class WaitingBook {
     // the decision
 
     /**
-     * Says what should happen to one held player; cheap and idempotent.
+     * Returns the decision for the player. A release or a timeout ends the visit, so the next call returns {@code
+     * IDLE}.
      *
-     * @param destination the backend's name, so a retry window set for another is not applied
-     * @return what to do; a release or time-out ends the visit, so a concurrent caller gets {@code IDLE}
+     * @param destination the backend of the phase
      */
     public WaitingDecision decide(
             final UUID uuid,
@@ -241,7 +217,6 @@ public final class WaitingBook {
                 return WaitingDecision.timedOut();
             }
 
-            // A destination that refused the last connection counts as unavailable until the retry window passes.
             final boolean stillDown = session.backendDownUntil != null
                     && java.util.Objects.equals(session.backendDown, destination)
                     && clock.instant().isBefore(session.backendDownUntil);
@@ -249,7 +224,6 @@ public final class WaitingBook {
             final Optional<WaitReason> reason = LimboHold.reason(
                     packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
-                // Something other than READY is in the way, so the grace period restarts.
                 session.settledAt = null;
                 if (reason.get() == session.shown) {
                     return WaitingDecision.idle();
@@ -265,7 +239,6 @@ public final class WaitingBook {
 
             final Instant now = clock.instant();
             if (session.settledAt == null) {
-                // The first moment READY is the only thing left; silent to avoid a flicker.
                 session.settledAt = now;
                 return WaitingDecision.idle();
             }

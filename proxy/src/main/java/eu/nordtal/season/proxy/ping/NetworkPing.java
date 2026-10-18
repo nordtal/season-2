@@ -13,11 +13,7 @@ import java.time.Clock;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 
-/**
- * What the server browser shows: the MOTD for the current phase and the player limit the gate enforces.
- *
- * Nothing on this path blocks: Velocity awaits this event, so every value is a field read.
- */
+/** Sets the MOTD of the current phase and the player limit in the ping. It reads fields only and never blocks. */
 public final class NetworkPing {
 
     private final ProxyServer proxy;
@@ -30,11 +26,9 @@ public final class NetworkPing {
     private final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon;
 
     /**
-     * Takes the icon for every ping.
-     *
-     * @param players  the network's limit, read on every ping so a change in Steward shows on the next one
-     * @param language the network's default language, since a ping carries no reader
-     * @param favicon  the 64 x 64 icon, or empty for a ping without one
+     * @param players  the player limit of the network
+     * @param language the default language of the network
+     * @param favicon  the 64 x 64 icon, or empty for no icon
      */
     public NetworkPing(
             final ProxyServer proxy,
@@ -63,9 +57,8 @@ public final class NetworkPing {
         event.setPing(ping.build());
     }
 
-    /** The text for the current phase, in the network's language: a ping carries no reader. */
+    /** Returns the text of the current phase in the default language. */
     private Component description() {
-        // One read, not two: a ping mid-refresh could otherwise pair a stale phase with a new instant.
         final PhaseWatch.Known known = phases.known();
         final ServerListContext list = ServerListContext.of(
                 snapshots.current(),

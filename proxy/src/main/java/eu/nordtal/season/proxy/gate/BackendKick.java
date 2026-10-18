@@ -12,17 +12,16 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * What happens to a player a backend has just kicked.
- *
- * A reason proves a decision and is shown as a disconnect; no reason means a dead connection and goes to limbo.
+ * Handles a player whom a backend kicked. A kick with a reason disconnects the player. A kick without a reason moves
+ * the player to limbo.
  */
 public final class BackendKick {
 
     enum Decision {
         LEAVE,
-        /** Disconnect with the backend's own component instead of Velocity's English wrapper. */
+        /** Disconnect the player with the reason of the backend. */
         SHOW_REASON,
-        /** No reason was given: redirect to the waiting room instead of disconnecting. */
+        /** Move the player to the waiting room. */
         TO_LIMBO
     }
 
@@ -57,16 +56,14 @@ public final class BackendKick {
                         Objects.requireNonNull(reason, "SHOW_REASON only happens when a reason was given")));
             case TO_LIMBO -> toLimbo(event);
             case LEAVE -> {
-                // A Notify or a RedirectPlayer is somebody else's decision.
             }
         }
     }
 
     /**
-     * The whole decision, testable without a running proxy.
+     * Returns the decision.
      *
-     * @param result what Velocity was going to do
-     * @param reason the backend's own kick component, or {@code null} if it sent none
+     * @param reason the reason of the backend, {@code null} without one
      */
     static Decision decide(final KickedFromServerEvent.ServerKickResult result, final @Nullable Component reason) {
         if (!(result instanceof KickedFromServerEvent.DisconnectPlayer)) {
@@ -75,10 +72,9 @@ public final class BackendKick {
         return reason == null ? Decision.TO_LIMBO : Decision.SHOW_REASON;
     }
 
-    /** Suspends the lost backend and redirects to the waiting room, unless there is nowhere to send them. */
+    /** Suspends the backend and moves the player to the waiting room. */
     private void toLimbo(final KickedFromServerEvent event) {
         final String from = event.getServer().getServerInfo().getName();
-        // Either waiting room, or a reasonless kick during a swap bounces the player right back into it.
         if (servers.isWaitingRoom(from)) {
             logger.warn(
                     "'{}' lost {} with no reason given, and it is itself a waiting room; "
@@ -88,7 +84,6 @@ public final class BackendKick {
             return;
         }
 
-        // The live room first, the standby as a fallback, the same order PhaseRouting uses.
         final RegisteredServer target = proxy.getServer(servers.limbo())
                 .or(() -> proxy.getServer(servers.limboStandby()))
                 .orElse(null);
@@ -103,7 +98,6 @@ public final class BackendKick {
             return;
         }
 
-        // PackStation reads this through LimboHold's destinationAvailable.
         health.suspend(from);
         logger.warn(
                 "{} lost its connection to '{}' with no reason given; moving them to '{}' "

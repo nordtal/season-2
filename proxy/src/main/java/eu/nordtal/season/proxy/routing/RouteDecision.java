@@ -3,41 +3,43 @@ package eu.nordtal.season.proxy.routing;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** What should happen to one player, as a value {@code PlayerRouter} carries out and a test can assert. */
+/** The action for a player, which {@code PlayerRouter} executes. */
 public record RouteDecision(Action action, @Nullable String server) {
 
-    /** Everything that can happen to a player, plus "nothing". */
+    /** The actions. */
     public enum Action {
 
         /** Connect the player to {@link RouteDecision#server()}. */
         CONNECT,
 
-        /** Leave the player where they are: an admin during {@code MAINTENANCE}. */
+        /** Keep the player on the server. */
         STAY,
 
-        /** No Discord account is linked any more. Disconnect. */
+        /** Disconnect the player. No Discord account is linked. */
         REFUSE_UNLINKED,
 
-        /** The linked Discord account has left the guild or is banned. Disconnect. */
+        /** Disconnect the player. The Discord account has left the guild or is banned. */
         REFUSE_NOT_MEMBER,
 
-        /** {@code SMP} without an active access period. Disconnect, never a redirect to {@code limbo}. */
+        /** Disconnect the player. The phase is {@code SMP} and no period is running. */
         REFUSE_NO_ACCESS,
 
-        /** {@code MAINTENANCE} and no {@code limbo} to hold the player in, so the maintenance screen disconnects. */
+        /** Disconnect the player. The phase is {@code MAINTENANCE} and no {@code limbo} is registered. */
         REFUSE_MAINTENANCE_UNAVAILABLE,
 
-        /** The phase's backend is not registered and the phase is not {@code MAINTENANCE}: a config error. */
+        /** Disconnect the player. The backend of the phase is not registered. */
         REFUSE_NO_SERVER,
 
         /**
-         * The network was switched back to {@code PRE_LAUNCH} while this player was on it, unbought.
-         *
-         * Only reachable from the phase-change re-route; disconnects with the gate's countdown screen.
+         * Disconnect the player with the countdown screen. The phase changed to {@code PRE_LAUNCH} and the player has
+         * bought no period.
          */
         REFUSE_PRE_LAUNCH_BUY,
 
-        /** The same, for a player who has already bought a period. */
+        /**
+         * Disconnect the player with the countdown screen. The phase changed to {@code PRE_LAUNCH} and the player has
+         * bought a period.
+         */
         REFUSE_PRE_LAUNCH_READY
     }
 
@@ -57,12 +59,12 @@ public record RouteDecision(Action action, @Nullable String server) {
         return new RouteDecision(action, null);
     }
 
-    /** Whether this decision moves the player anywhere. */
+    /** Returns whether the decision connects the player. */
     public boolean connects() {
         return action == Action.CONNECT;
     }
 
-    /** Whether this decision ends the player's session. */
+    /** Returns whether the decision disconnects the player. */
     public boolean refuses() {
         return action != Action.CONNECT && action != Action.STAY;
     }

@@ -19,13 +19,12 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * Mid-session expiry: warn a few minutes before access ends, then disconnect when it does.
- *
- * Each player's access end is an event on the scheduler, re-read when it comes; {@link #check} is the pass behind it.
+ * Warns each player shortly before the period ends and disconnects the player when it ends. {@link #check} checks every
+ * player.
  */
 public final class ExpiryWatch {
 
-    /** How long past an instant a look waits, so a clock a little ahead of the database's still finds it passed. */
+    /** The time that a look waits after the instant it is set for. */
     static final Duration SLACK = Duration.ofSeconds(1);
 
     private final Scheduler scheduler;
@@ -36,10 +35,10 @@ public final class ExpiryWatch {
     private final GateMessages messages;
     private final Duration warningLead;
 
-    /** Whose warning has already fired for their current approach to expiry. */
+    /** The players who received the warning. */
     private final Set<UUID> warned = ConcurrentHashMap.newKeySet();
 
-    /** The next look at each connected player's access, set for the instant it matters. */
+    /** The scheduled look at the access of each player. */
     private final ConcurrentHashMap<UUID, Scheduler.Task> looks = new ConcurrentHashMap<>();
 
     private final Clock clock;
@@ -65,20 +64,19 @@ public final class ExpiryWatch {
 
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
-        // Otherwise a player warned once is never warned again on a later session inside the lead time.
         final UUID uuid = event.getPlayer().getUniqueId();
         warned.remove(uuid);
         cancelLook(uuid);
     }
 
-    /** Starts watching a player's access end from the moment they are in. */
+    /** Starts watching the player. */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
         final Player player = event.getPlayer();
         scheduler.execute(() -> checkOne(player));
     }
 
-    /** One pass over every connected player, for the hub's wake-ups: a change no event announced. */
+    /** Checks every connected player. */
     public void check() {
         for (final Player player : proxy.getAllPlayers()) {
             checkOne(player);
@@ -110,7 +108,6 @@ public final class ExpiryWatch {
 
         final Instant validUntil = state.validUntil().orElse(null);
         if (validUntil == null) {
-            // Normal before SMP for a linked member who never bought anything.
             cancelLook(uuid);
             return;
         }
@@ -122,17 +119,12 @@ public final class ExpiryWatch {
                 player.sendMessage(messages.expiryWarning(state.locale(), minutes));
             }
         } else {
-            // Renewed after a warning fired: a later approach to the new deadline warns again.
             warned.remove(uuid);
         }
         lookAgainWhenItMatters(player, state);
     }
 
-    /**
-     * Sets the next look at this player to the instant the warning is due, then the instant access ends.
-     *
-     * The look reads access again, so a renewal in between moves it on and a revocation ends it at once.
-     */
+    /** Schedules the next look at the player for the time of the warning, then for the end of the period. */
     private void lookAgainWhenItMatters(final Player player, final AccessState state) {
         final Optional<Duration> delay = untilNextLook(state, clock.instant(), warningLead);
         if (delay.isEmpty()) {
@@ -154,12 +146,10 @@ public final class ExpiryWatch {
     }
 
     /**
-     * How long until access next needs a look: the warning's instant while it is ahead, else the end of access.
+     * Returns the time until the next look: until the warning while it is ahead, otherwise until the end of the period.
      *
-     * @param state what the database just said
-     * @param now the proxy's clock
-     * @param lead how long before the end the warning is given
-     * @return empty when access has no end, or has already passed, which the hub's next wake-up settles
+     * @param lead the time before the end at which the warning is sent
+     * @return empty when the period has no end or has ended
      */
     static Optional<Duration> untilNextLook(final AccessState state, final Instant now, final Duration lead) {
         final Instant end = state.validUntil().orElse(null);
@@ -176,16 +166,14 @@ public final class ExpiryWatch {
         return Optional.of(remaining.plus(SLACK));
     }
 
-    /** Picks the disconnect screen through {@link GateOutcome}, so the sweep and the login gate agree. */
+    /** Returns the disconnect screen for the outcome of {@link GateOutcome}. */
     private Component reasonFor(final AccessState state) {
         return switch (GateOutcome.of(state)) {
             case NOT_LINKED -> messages.unlinked(state.locale());
             case NOT_MEMBER -> messages.notMember(state.locale());
             case NO_ACCESS -> messages.expired(state.locale());
-            // A network switched back to PRE_LAUNCH gets the screens the gate would show.
             case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), clock.instant());
             case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), clock.instant());
-            // Unreachable: only called when mayJoin() is false, and the table never answers FULL or TROUBLE.
             case ALLOW, FULL, TROUBLE -> messages.trouble(state.locale());
         };
     }

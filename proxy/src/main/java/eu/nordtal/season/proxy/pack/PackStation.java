@@ -28,9 +28,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Holds every player in {@code limbo} until the pack is applied and the phase's backend will have them.
- *
- * Events arrive in any order, so each handler records a fact and re-asks {@link WaitingBook}.
+ * Keeps each player in {@code limbo} until the pack is applied and the backend of the phase accepts the player. Each
+ * handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
 
@@ -44,20 +43,20 @@ public final class PackStation {
     private final WaitingBook book;
     private final BackendHealth health;
 
-    /** {@code null} when {@code pack#enabled} is off. */
+    /** The offer, {@code null} when {@code pack#enabled} is off. */
     private final @Nullable PackOffer offer;
 
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
 
-    /** UUIDs already reported for a forged message, so a spammer logs once. */
+    /** The players whose forged message was logged. */
     private final Set<UUID> reportedForgery = ConcurrentHashMap.newKeySet();
 
     private volatile Consumer<Player> release = player -> {};
 
-    /** Whether an update run has that backend stopped; false until {@link #whenUpdating} is called. */
+    /** Whether an update run has stopped the backend. */
     private volatile java.util.function.Predicate<String> updating = server -> false;
 
-    /** Whether somebody holds that backend down on purpose; false until {@link #whenHeld} is called. */
+    /** Whether an admin keeps the backend stopped. */
     private volatile java.util.function.Predicate<String> held = server -> false;
 
     public PackStation(
@@ -83,27 +82,27 @@ public final class PackStation {
         this.offer = offer;
     }
 
-    /** Registers {@code nordtal:limbo}; otherwise the proxy forwards the channel without seeing it. */
+    /** Registers {@code nordtal:limbo}. */
     public void registerChannel() {
         proxy.getChannelRegistrar().register(channel);
     }
 
-    /** Sets what to do with a player who has finished waiting, normally {@code PlayerRouter::releaseFromLimbo}. */
+    /** Sets the action for a player who finished waiting. */
     public void onRelease(final Consumer<Player> release) {
         this.release = Objects.requireNonNull(release, "release");
     }
 
-    /** Sets the per-destination update question, normally {@code Evacuation::isMoving}. */
+    /** Sets the check whether an update run has stopped a backend. */
     public void whenUpdating(final java.util.function.Predicate<String> updating) {
         this.updating = Objects.requireNonNull(updating, "updating");
     }
 
-    /** Sets the per-destination hold question, normally {@code Evacuation::isHeld}. */
+    /** Sets the check whether an admin keeps a backend stopped. */
     public void whenHeld(final java.util.function.Predicate<String> held) {
         this.held = Objects.requireNonNull(held, "held");
     }
 
-    /** Returns whether this player is held in the waiting room, so a phase change re-examines the hold. */
+    /** Returns whether the player waits in the waiting room. */
     public boolean isHeld(final UUID uuid) {
         return book.isWaiting(uuid);
     }
@@ -116,7 +115,6 @@ public final class PackStation {
         final UUID uuid = player.getUniqueId();
 
         if (!onLimbo(player)) {
-            // They have left the waiting room, released by us or moved by a phase change.
             book.left(uuid);
             return;
         }
@@ -130,7 +128,6 @@ public final class PackStation {
         if (offer == null) {
             return;
         }
-        // A login the fallback cache answered is not in the roster, so it gets the pack.
         if (roster.isPackExempt(player.getUniqueId())) {
             if (book.packExempt(player.getUniqueId())) {
                 logger.info("{} is exempt from the resource pack by an admin; no offer sent", player.getUsername());
@@ -158,7 +155,6 @@ public final class PackStation {
                 evaluate(player);
             }
             case ACCEPTED, DOWNLOADED -> {
-                // Intermediate: the player is still working on it.
             }
             case DECLINED -> {
                 logger.info("{} declined the resource pack", player.getUsername());
@@ -169,7 +165,6 @@ public final class PackStation {
                 disconnect(player, messages.failedDownload(locale));
             }
             case INVALID_URL -> {
-                // Everybody's problem, not this player's: pack#url does not load at all.
                 logger.error(
                         "The client of {} reports pack#url as unloadable. EVERY player will "
                                 + "fail this way until it is fixed.",
@@ -177,7 +172,6 @@ public final class PackStation {
                 disconnect(player, messages.invalidUrl(locale));
             }
             case DISCARDED -> {
-                // Only reachable if a backend sends its own pack over ours.
                 logger.warn("The resource pack was discarded for {}", player.getUsername());
             }
         }
@@ -191,7 +185,6 @@ public final class PackStation {
             return;
         }
 
-        // Consumed either way: nobody downstream needs this conversation.
         event.setResult(PluginMessageEvent.ForwardResult.handled());
 
         if (!(event.getSource() instanceof ServerConnection connection)) {
@@ -208,7 +201,6 @@ public final class PackStation {
             return;
         }
         if (message.get().type() != LimboProtocol.Type.READY) {
-            // WAIT runs proxy to limbo only; a backend sending one has a bug.
             logger.warn(
                     "'{}' sent a {} on {}, which only the proxy sends",
                     connection.getServerInfo().getName(),
@@ -219,7 +211,6 @@ public final class PackStation {
 
         final Player player = connection.getPlayer();
         if (book.ready(player.getUniqueId())) {
-            // The arrival event has not reached us yet; logged as the only evidence this race happens.
             logger.info(
                     "'{}' reported {} ready before the proxy had finished putting them in the "
                             + "waiting room; remembered rather than dropped",
@@ -230,7 +221,6 @@ public final class PackStation {
     }
 
     private void reportForgery(final PluginMessageEvent event) {
-        // A client writing on this channel is trying to skip the pack; logged once per player, never acted on.
         final UUID uuid = event.getSource() instanceof Player player ? player.getUniqueId() : null;
         if (uuid == null || reportedForgery.add(uuid)) {
             logger.warn(
@@ -243,9 +233,9 @@ public final class PackStation {
     // the decision
 
     /**
-     * Re-asks the question for every player in the waiting room, which also enforces the pack timeout.
+     * Evaluates every player in the waiting room. This enforces the pack timeout.
      *
-     * @return how many players were looked at
+     * @return the number of evaluated players
      */
     public int sweep() {
         int seen = 0;
@@ -258,7 +248,7 @@ public final class PackStation {
         return seen;
     }
 
-    /** Carries out whatever {@link WaitingBook} decides for one held player; nothing for anyone else. */
+    /** Executes the decision of {@link WaitingBook} for the player. */
     public void evaluate(final Player player) {
         final UUID uuid = player.getUniqueId();
         if (!book.isWaiting(uuid)) {
@@ -270,17 +260,14 @@ public final class PackStation {
         }
 
         final SeasonPhase phase = phases.lastKnown();
-        // The admin flag decides whether maintenance holds them and where a release sends them.
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
-        // Registered is not enough: BackendHealth also holds a backend that just kicked somebody.
         final boolean available = proxy.getServer(destination).isPresent() && !health.isSuspended(destination);
         final WaitingDecision decision = book.decide(
                 uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
 
         switch (decision.action()) {
             case IDLE -> {
-                // Already showing the right title, or waiting out the grace period.
             }
             case SHOW ->
                 sendToLimbo(
@@ -299,7 +286,6 @@ public final class PackStation {
                 release.accept(player);
             }
             case RELEASE_UNCONFIRMED -> {
-                // The player goes where they were going; only the channel is wrong.
                 logger.warn(
                         "Releasing {} to '{}' without a READY from '{}': everything else has "
                                 + "been settled for the grace period. The nordtal:limbo channel is "
@@ -315,7 +301,6 @@ public final class PackStation {
     private void sendToLimbo(final Player player, final byte[] data) {
         player.getCurrentServer().ifPresent(connection -> {
             if (!connection.sendPluginMessage(channel, data)) {
-                // The backend has not registered the channel; release skips WAIT, so nobody is stuck.
                 logger.warn(
                         "'{}' did not accept a {} message; is the limbo plugin running there?",
                         connection.getServerInfo().getName(),
@@ -324,11 +309,7 @@ public final class PackStation {
         });
     }
 
-    /**
-     * Puts a player back on the books after a release's connection failed, and suspends that backend.
-     *
-     * @param cause why, in one line
-     */
+    /** Returns the player to the waiting list after a failed release connection and suspends the backend. */
     public void releaseFailed(final Player player, final String cause) {
         final String destination =
                 routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
@@ -352,7 +333,7 @@ public final class PackStation {
         reportedForgery.remove(uuid);
     }
 
-    /** Whether this player is in either waiting room, {@code limbo} or {@code limbo-standby}. */
+    /** Returns whether the player is on {@code limbo} or {@code limbo-standby}. */
     private boolean onLimbo(final Player player) {
         return player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
@@ -365,7 +346,6 @@ public final class PackStation {
     }
 
     private void disconnect(final Player player, final Component reason) {
-        // Ends the visit before the disconnect, so a concurrent sweep decides nothing else about them.
         book.left(player.getUniqueId());
         player.disconnect(reason);
     }

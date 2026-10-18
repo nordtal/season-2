@@ -7,14 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/**
- * The proxy's own place in the network: whether it is the standby, where players reach it.
- * The limit and the allowlist are the network's, in {@code eu.nordtal.season.settings.network}; the MOTD is a message.
- */
+/** The address of the proxy and whether it is the standby. */
 @ConfigSpec
 public interface NetworkSpec {
 
-    /** The address a client reaches this network on, as a transfer names it. */
+    /** The address that a transfer names. */
     @Order(2)
     @Name("Public address")
     @Key("public-address")
@@ -23,7 +20,7 @@ public interface NetworkSpec {
         return "";
     }
 
-    /** The port the standby proxy is published on, the only thing that distinguishes it from this one. */
+    /** The port of the standby proxy. */
     @Order(3)
     @Name("Standby port")
     @Key("standby-port")
@@ -32,7 +29,7 @@ public interface NetworkSpec {
         return 25566;
     }
 
-    /** Where the live proxy itself listens, which the standby knocks on to know when to send players back. */
+    /** The address of the live proxy. The standby connects to it to find out when to send players back. */
     @Order(5)
     @Name("Live proxy address")
     @Key("live-address")
@@ -41,7 +38,7 @@ public interface NetworkSpec {
         return "proxy:25565";
     }
 
-    /** False for the proxy players connect to, true in exactly one place in compose.yml. */
+    /** Whether this proxy is the standby. */
     @Order(4)
     @Name("Standby")
     @Key("standby")

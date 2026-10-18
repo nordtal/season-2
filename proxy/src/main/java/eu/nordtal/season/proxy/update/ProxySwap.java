@@ -17,18 +17,15 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The live proxy's half of a proxy swap: it parks the whole network on the standby before it stops itself.
- *
- * Without a {@code public-address}, or on the standby itself, it does nothing and an update drops the network.
+ * Transfers every player to the standby proxy before an update run stops the live proxy. It does nothing on the standby
+ * and without a {@code public-address}.
  */
 public final class ProxySwap {
 
-    /**
-     * The proxy's compose service name, as steward's report spells it; {@code ProxySwapDecisionTest} pins it.
-     */
+    /** The compose service name of the proxy. */
     static final String OWN_SERVICE = OnlineCounts.PROXY;
 
-    /** The standby's compose service name, where a run moves this proxy's players. */
+    /** The compose service name of the standby proxy. */
     static final String STANDBY_SERVICE = OWN_SERVICE + "-standby";
 
     private final ProxyServer proxy;
@@ -40,19 +37,19 @@ public final class ProxySwap {
     private final Clock clock;
     private final StandbyReturn.Probe probe;
 
-    /** When this process started, so a run that has already restarted it is not mistaken for one about to. */
+    /** The start time of this process. */
     private final Instant startedAt;
 
-    /** Whether this run has parked the network; read from outside, whether the door stays shut until the stop. */
+    /** Whether the network is transferred in this run. */
     private volatile boolean parked;
 
-    /** The run under way, whose move each parked player is counted on; zero before one. */
+    /** The id of the run, zero before a run. */
     private volatile long run;
 
     /**
-     * Arms the swap towards the standby.
+     * Prepares the swap.
      *
-     * @param standby from {@code SwapAddresses#standbyAddress}, or {@code null} when no public address is configured
+     * @param standby from {@code SwapAddresses#standbyAddress}, {@code null} without a public address
      */
     public ProxySwap(
             final ProxyServer proxy,
@@ -65,11 +62,7 @@ public final class ProxySwap {
         this(proxy, logger, updates, seats, role, standby, clock, StandbyReturn::connects);
     }
 
-    /**
-     * Takes the standby probe as a seam, so the decision is testable without binding a port.
-     *
-     * @param probe how to ask whether the standby is actually up
-     */
+    /** @param probe asks whether the standby answers */
     ProxySwap(
             final ProxyServer proxy,
             final Logger logger,
@@ -90,34 +83,35 @@ public final class ProxySwap {
         this.startedAt = this.clock.instant();
     }
 
-    /** How long the standby gets to answer before this pass decides it is not there. */
+    /** The time that the standby has to answer. */
     static final Duration STANDBY_ANSWERS_WITHIN = Duration.ofSeconds(1);
 
-    /** Returns whether this proxy will park the network rather than drop it, for the startup log line. */
+    /** Returns whether this proxy transfers the network. */
     public boolean isArmed() {
         return standby != null && !role.isStandby();
     }
 
     /**
-     * Returns whether a run stopping this proxy has reached zero, so nobody new is let in.
-     *
-     * False on the standby and on a proxy with no {@code public-address}.
+     * Returns whether a run that stops this proxy has reached zero. It is false on the standby and without a {@code
+     * public-address}.
      */
     public boolean isStopping() {
         return parked;
     }
 
     /**
-     * Returns whether a standby proxy is answering right now; it opens a socket, so ask once per countdown.
-     *
-     * False on the standby itself and on a proxy with no {@code public-address}.
+     * Returns whether a standby proxy answers. It opens a socket. It is false on the standby and without a {@code
+     * public-address}.
      */
     public boolean canPark() {
         final InetSocketAddress target = standby;
         return target != null && isArmed() && probe.answers(target, STANDBY_ANSWERS_WITHIN);
     }
 
-    /** One pass, on every {@code nordtal_update} notification and at zero; never throws. */
+    /**
+     * Reads the update request and transfers the players when needed. It runs on every {@code nordtal_update}
+     * notification and never throws.
+     */
     public synchronized void check() {
         final InetSocketAddress target = standby;
         if (target == null || !isArmed()) {
@@ -137,7 +131,6 @@ public final class ProxySwap {
                 .orElse(false);
 
         final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(target, STANDBY_ANSWERS_WITHIN));
-        // The door is decided separately: park() happens once, being shut lasts as long as the run.
         parked = doorAfter(pass, parked);
         switch (pass) {
             case IDLE, ALREADY_DONE, ALREADY_MOVED -> {}
@@ -154,64 +147,51 @@ public final class ProxySwap {
     }
 
     /**
-     * Whether the door is shut once a pass has returned {@code pass}.
-     *
-     * Shut by {@code PARK} or {@code STANDBY_MISSING} and through {@code ALREADY_DONE}; open on {@code IDLE}.
+     * Returns whether the proxy accepts no new players after the {@code pass}. It is true for {@code PARK}, {@code
+     * STANDBY_MISSING} and {@code ALREADY_DONE}.
      */
     static boolean doorAfter(final Pass pass, final boolean wasShut) {
         return switch (pass) {
-            // ALREADY_MOVED is the run finished with this proxy while still running; the door has to stay open.
             case IDLE, ALREADY_MOVED -> false;
             case ALREADY_DONE -> wasShut;
             case STANDBY_MISSING, PARK -> true;
         };
     }
 
-    /**
-     * Returns whether this process started after the run's zero, which only the run itself can have caused.
-     *
-     * @param startedAt when this process started
-     * @param zero the run's own zero, from its row
-     */
+    /** Returns whether this process started after the zero of the run. */
     static boolean hasBeenThroughMe(final Instant startedAt, final Instant zero) {
         return zero != null && startedAt.isAfter(zero);
     }
 
-    /** What one pass of {@link #check()} does. */
+    /** The result of {@link #check()}. */
     enum Pass {
 
-        /** No run is about to stop this proxy. */
+        /** No run stops this proxy. */
         IDLE,
 
-        /** One is, and this proxy has already acted on it. */
+        /** A run stops this proxy and this proxy already transferred the players. */
         ALREADY_DONE,
 
-        /** One is, and this process was started by it: the opposite of {@link #IDLE} that wants the same inaction. */
+        /** A run stops this proxy and this process was started by the run. */
         ALREADY_MOVED,
 
-        /** One is, and there is no standby answering to park the network on. */
+        /** A run stops this proxy and no standby answers. */
         STANDBY_MISSING,
 
-        /** One is, the standby is up, and everybody goes there now. */
+        /** A run stops this proxy and the standby answers. */
         PARK
     }
 
-    /**
-     * The whole decision, without a proxy, a socket or a clock; a standby that does not answer is never parked on.
-     *
-     * @param standbyAnswers asked last, since it opens a socket
-     */
+    /** @param standbyAnswers asks whether the standby answers. It is called last because it opens a socket. */
     static Pass decide(
             final Set<String> imminent,
             final boolean alreadyParked,
             final boolean alreadyMoved,
             final BooleanSupplier standbyAnswers) {
         if (!imminent.contains(OWN_SERVICE)) {
-            // IDLE rather than a timer, so a second proxy run in the same session parks again.
             return Pass.IDLE;
         }
         if (alreadyMoved) {
-            // This process is what the run already started; parking now would hand the network over twice.
             return Pass.ALREADY_MOVED;
         }
         if (alreadyParked) {
@@ -220,7 +200,7 @@ public final class ProxySwap {
         return standbyAnswers.getAsBoolean() ? Pass.PARK : Pass.STANDBY_MISSING;
     }
 
-    /** Seats everybody and hands them the standby's address; a failed seat write does not stop a transfer. */
+    /** Stores the seat of every player and transfers the player to the standby. */
     private void park() {
         final var players = proxy.getAllPlayers();
         final InetSocketAddress target = standby;
@@ -239,7 +219,7 @@ public final class ProxySwap {
         }
     }
 
-    /** Counts one parked player on the run's move; a write that fails costs the count, never the transfer. */
+    /** Stores the count of the transferred players. A failed write is logged. */
     private void moved() {
         if (run == 0) {
             return;
@@ -252,9 +232,9 @@ public final class ProxySwap {
     }
 
     /**
-     * Seats one player and hands them the standby's address; {@code RestartGate} uses it for late arrivals.
+     * Stores the seat of the player and transfers the player to the standby. {@code RestartGate} calls it for late
+     * logins.
      *
-     * @param player who to hand over
      * @return whether the transfer was sent
      */
     public boolean park(final Player player) {
@@ -277,7 +257,6 @@ public final class ProxySwap {
             moved();
             return true;
         } catch (final RuntimeException failure) {
-            // Velocity refuses the transfer outright for a client older than 1.20.5; caught per player for that reason.
             logger.warn("Could not transfer {} to the standby proxy", player.getUsername(), failure);
             return false;
         }

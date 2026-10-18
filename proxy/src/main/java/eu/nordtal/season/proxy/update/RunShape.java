@@ -6,49 +6,49 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a run is about to do, and what that means for one player.
+ * The effect of an update run on the players.
  *
- * @param occasion what to call this, from the seat of somebody standing in the game
- * @param moving the compose services the run stops
- * @param proxyMoves whether this proxy is one of them
- * @param waitingRoom whether a waiting room survives the run
- * @param standbyProxy whether a standby proxy is there to catch the network when this one goes
+ * @param occasion the name of the run for the players
+ * @param moving the compose services that the run stops
+ * @param proxyMoves whether the run stops this proxy
+ * @param waitingRoom whether a waiting room runs during the run
+ * @param standbyProxy whether a standby proxy runs when this proxy stops
  */
 public record RunShape(
         Occasion occasion, Set<String> moving, boolean proxyMoves, boolean waitingRoom, boolean standbyProxy) {
 
-    /** What a run is called to a player: one per {@link UpdateKind} that stops anything, plus one. */
+    /** The name of a run for the players. */
     public enum Occasion {
 
-        /** {@link UpdateKind#DOWN}: a service goes off and stays off until somebody says otherwise. */
+        /** {@link UpdateKind#DOWN}. */
         DOWN,
 
-        /** {@link UpdateKind#RESTART}: a service goes round once. */
+        /** {@link UpdateKind#RESTART}. */
         RECREATE,
 
-        /** {@link UpdateKind#BACKUP}: it is being saved, so it has to hold still. */
+        /** {@link UpdateKind#BACKUP}. */
         BACKUP,
 
-        /** {@link UpdateKind#UPDATE}: new jars are going in. */
+        /** {@link UpdateKind#UPDATE}. */
         UPDATE,
 
-        /** No waiting room survives this run, so everyone is disconnected; any kind becomes this. */
+        /** No waiting room runs during the run, so the players are disconnected. It replaces every other kind. */
         MAINTENANCE
     }
 
-    /** What is about to happen to one player, in the order of how much it costs them. */
+    /** What happens to a player, ordered from the least to the most disruptive. */
     public enum Fate {
 
-        /** Nothing. Their server is not in the run and this proxy is not going anywhere. */
+        /** The server of the player and this proxy keep running. */
         NOTHING,
 
-        /** A loading screen through the standby proxy and back; their own server never stops. */
+        /** The player is transferred to the standby proxy and back. The server of the player keeps running. */
         RECONNECT,
 
-        /** The waiting room, and back again automatically when their server returns. */
+        /** The player waits in the waiting room until the server of the player returns. */
         WAITING_ROOM,
 
-        /** Out of the game. Nothing here can catch them; the countdown is all the warning there is. */
+        /** The player is disconnected. */
         DISCONNECT
     }
 
@@ -57,12 +57,12 @@ public record RunShape(
     }
 
     /**
-     * The shape of a run, from the row and what this proxy knows about its own surroundings.
+     * Returns the shape of a run.
      *
-     * @param kind what was asked for
-     * @param moving the services the run's own report says are moving
-     * @param waitingRoom whether {@link Evacuation#roomFor} found a room for this run
-     * @param standbyProxy whether the standby proxy answers right now
+     * @param kind the kind of the request
+     * @param moving the services that the report of the run names
+     * @param waitingRoom whether {@link Evacuation#roomFor} found a waiting room
+     * @param standbyProxy whether the standby proxy answers
      */
     public static RunShape of(
             final UpdateKind kind, final Set<String> moving, final boolean waitingRoom, final boolean standbyProxy) {
@@ -71,54 +71,49 @@ public record RunShape(
         return new RunShape(occasionOf(kind, waitingRoom), services, proxyMoves, waitingRoom, standbyProxy);
     }
 
-    /** No waiting room makes any kind {@link Occasion#MAINTENANCE}, so the room is decided before the kind. */
     private static Occasion occasionOf(final UpdateKind kind, final boolean waitingRoom) {
         if (!waitingRoom) {
             return Occasion.MAINTENANCE;
         }
         return switch (kind) {
             case DOWN -> Occasion.DOWN;
-            // A container that goes round once, whatever it comes back with.
             case RESTART, RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
-            // START and the start-up install never count down, and are named anyway.
             case UPDATE, START, INSTALL -> Occasion.UPDATE;
         };
     }
 
     /**
-     * What is about to happen to the player standing on this server.
+     * Returns what happens to the player.
      *
-     * @param on the backend they are connected to, or {@code null} while they are still logging in
+     * @param on the server of the player, {@code null} while the player logs in
      */
     public Fate fateFor(final @Nullable String on) {
         if (on != null && moving.contains(on)) {
-            // Their own server is stopping; the waiting room decides between a wait and a disconnect.
             return waitingRoom ? Fate.WAITING_ROOM : Fate.DISCONNECT;
         }
         if (proxyMoves) {
-            // Their proxy is stopping: a standby means two loading screens, no standby a disconnect.
             return standbyProxy ? Fate.RECONNECT : Fate.DISCONNECT;
         }
         return Fate.NOTHING;
     }
 
     /**
-     * Whether this player loses voice chat to the run: only on a reconnect outside a waiting room.
+     * Returns whether the player loses voice chat. It is true for a reconnect outside a waiting room.
      *
-     * @param fate what is about to happen to them
-     * @param inWaitingRoom whether they are standing in a waiting room right now
+     * @param fate what happens to the player
+     * @param inWaitingRoom whether the player is in a waiting room
      */
     public static boolean losesVoice(final Fate fate, final boolean inWaitingRoom) {
         return fate == Fate.RECONNECT && !inWaitingRoom;
     }
 
-    /** Returns whether this run stops any service at all. */
+    /** Returns whether the run stops any service. */
     public boolean touchesAnybody() {
         return !moving.isEmpty();
     }
 
-    /** Returns the one service this run is about, or {@code null} when it is more than one. */
+    /** Returns the only service of the run, {@code null} for several. */
     public @Nullable String onlyService() {
         return moving.size() == 1 ? moving.iterator().next() : null;
     }

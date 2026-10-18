@@ -6,20 +6,20 @@ import eu.nordtal.season.messages.context.MessageContext;
 import eu.nordtal.season.messages.value.Example;
 
 /**
- * What the server browser's text may name: the network's numbers as the last snapshot holds them.
+ * The numbers that the MOTD texts may use.
  *
- * @param online             players on the network now
- * @param max                the network's limit
- * @param countdown          how long until the network opens, as a phrase in the text's language
- * @param hgTeams            hunger games teams registered
- * @param hgTeamsAlive       teams with somebody still alive
- * @param hgParticipants     players registered for the hunger games
- * @param hgAlive            participants still alive
- * @param hgEliminated       participants out
- * @param smpMilestonesDone  milestones finished
- * @param smpMilestones      milestones in the season
- * @param smpAuraTotal       aura earned by everybody together
- * @param smpPlayers         players who have played the SMP
+ * @param online             the players on the network
+ * @param max                the player limit of the network
+ * @param countdown          the time until the network opens, as text
+ * @param hgTeams            the registered Hunger Games teams
+ * @param hgTeamsAlive       the teams with a living participant
+ * @param hgParticipants     the registered Hunger Games players
+ * @param hgAlive            the living participants
+ * @param hgEliminated       the eliminated participants
+ * @param smpMilestonesDone  the reached milestones
+ * @param smpMilestones      the milestones of the season
+ * @param smpAuraTotal       the aura of all players together
+ * @param smpPlayers         the players who played on the SMP
  */
 @ContextType(value = "server-list", name = "Server list")
 public record ServerListContext(
@@ -37,7 +37,7 @@ public record ServerListContext(
         @Example("40") int smpPlayers)
         implements MessageContext {
 
-    /** Returns the numbers of a snapshot, with the live count, the limit and the countdown beside them. */
+    /** Returns the context of the snapshot, the player count, the limit and the countdown. */
     public static ServerListContext of(
             final NetworkSnapshot snapshot, final int online, final int max, final String countdown) {
         return new ServerListContext(

@@ -12,19 +12,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Where each player stood before a proxy swap, held in memory for the minute after a restart.
- *
- * Filled once before Velocity binds and emptied as players arrive; only an admin's seat is honoured.
+ * Holds the server of each player from before a proxy swap. It is filled once before Velocity binds. Only the seat of
+ * an admin is used.
  */
 public final class ParkedSeats {
 
     private final Map<UUID, String> seats = new ConcurrentHashMap<>();
 
     /**
-     * Keeps the seats that are still fresh.
+     * Keeps the seats that are younger than {@link SwapStore#SEAT_VALID_FOR}.
      *
-     * @param rows every row {@link SwapStore#takeAllSeats()} returned, stale ones included
-     * @param now the proxy's clock; rows older than {@link SwapStore#SEAT_VALID_FOR} are dropped here
+     * @param rows the rows of {@link SwapStore#takeAllSeats()}
      */
     public ParkedSeats(final List<SwapStore.Seat> rows, final Instant now) {
         Objects.requireNonNull(rows, "rows");
@@ -38,25 +36,21 @@ public final class ParkedSeats {
         seats.putAll(fresh);
     }
 
-    /** Returns whether a seat is held for this player, without consuming it. */
+    /** Returns whether the player has a seat. */
     public boolean holds(final UUID player) {
         return seats.containsKey(player);
     }
 
-    /** Returns how many seats were carried over, for the startup log line only. */
+    /** Returns the number of seats. */
     public int size() {
         return seats.size();
     }
 
     /**
-     * Where the waiting room should let this player out to, consuming the seat.
+     * Returns the server for the released player and deletes the seat.
      *
-     * @param player who is being released
-     * @param admin whether they carry {@code discord_user.admin}, the only thing that lets a seat count
-     * @param phaseDestination where {@code PhaseRouting#decideRelease} says they go
-     * @param available the backends registered on this proxy
-     * @param servers the backend names
-     * @return where to actually connect them
+     * @param phaseDestination the server from {@code PhaseRouting#decideRelease}
+     * @param available the registered servers
      */
     public String releaseTo(
             final UUID player,
@@ -69,9 +63,10 @@ public final class ParkedSeats {
     }
 
     /**
-     * Returns an admin's seat when it names a registered backend that is not a waiting room, else the phase's.
+     * Returns the seat if the player is an admin and the seat is a registered server that is not a waiting room,
+     * otherwise the server of the phase.
      *
-     * @param seat where they were, or {@code null} for every login that is not the far end of a swap
+     * @param seat the server before the swap, {@code null} without a swap
      */
     static String destination(
             final @Nullable String seat,

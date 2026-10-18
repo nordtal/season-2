@@ -17,9 +17,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * A connected player a command answers, in their language with a tone.
- *
- * Discord id, language and admin flag all come from {@link LoginRoster}, never a query.
+ * A connected player that a command answers in the language of the player. {@link LoginRoster} provides the Discord id,
+ * language and admin flag.
  */
 public final class VelocityUser {
 
@@ -66,13 +65,12 @@ public final class VelocityUser {
     public void reply(final MessageRef message, final Tone tone) {
         player.sendMessage(Tones.paint(render(message), tone, colours.get()));
     }
-    /** Replies with a tone; the proxy plays no sound, so the feedback only names what kind of answer it is. */
+    /** Replies with the tone. The proxy plays no sound for the feedback. */
     public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
         reply(message, tone);
     }
 
     public String phrase(final MessageRef message) {
-        // Plain text: substituted into a MiniMessage-parsed message, where a component arrives as tags.
         return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 

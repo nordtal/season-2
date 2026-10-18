@@ -7,15 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/**
- * The {@code pack} group: the resource pack the proxy offers every player in the waiting room.
- *
- * {@link #sha1()} has no default, since the client refuses a pack whose hash disagrees with its URL.
- */
+/** The {@code pack} group: the resource pack that the proxy offers to every player in the waiting room. */
 @ConfigSpec
 public interface PackSpec {
 
-    /** Off keeps the waiting room. */
+    /** Whether the proxy offers the pack. */
     @Order(1)
     @Name("Enabled")
     @Key("enabled")
@@ -48,7 +44,7 @@ public interface PackSpec {
         return true;
     }
 
-    /** How long an unanswered pack offer is allowed before the player is disconnected; generous on purpose. */
+    /** The seconds until the proxy disconnects a player who has not answered the offer. */
     @Order(5)
     @Name("Apply timeout (seconds)")
     @Key("apply-timeout-seconds")

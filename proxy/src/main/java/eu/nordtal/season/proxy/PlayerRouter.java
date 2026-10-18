@@ -33,9 +33,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The Velocity half of routing: turns a {@link RouteDecision} into a connection or a disconnect.
- *
- * A phase change re-checks everyone but leaves players in the waiting room to the pack station.
+ * Executes a {@link RouteDecision} as a connection or a disconnect. A phase change leaves the players in the waiting
+ * room to the pack station.
  */
 public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
@@ -51,13 +50,13 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final PackStation packs;
     private final BackendHealth health;
 
-    /** Every destination chosen here, so {@link RouteIntents} can refuse the ones nothing chose. */
+    /** The intents of the chosen servers. */
     private final RouteIntents intents;
 
-    /** Where each player stood before the last proxy swap; empty on a start that did not follow one. */
+    /** The servers of the players before the last proxy swap. */
     private final ParkedSeats seats;
 
-    /** Tells a player a run moved out of the way before they return. */
+    /** Informs a returning player about the update run. */
     private final eu.nordtal.season.proxy.update.Homecoming homecoming;
 
     private final Clock clock;
@@ -96,9 +95,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Sends every admitted login to {@code limbo}, whatever the phase.
-     *
-     * Reads only memory, the phase from {@link PhaseWatch#lastKnown()} and the admin flag from {@link LoginRoster}.
+     * Sets {@code limbo} as the initial server of every admitted login. It reads {@link PhaseWatch#lastKnown()} and
+     * {@link LoginRoster}.
      */
     @Subscribe
     public void onChooseInitialServer(final PlayerChooseInitialServerEvent event) {
@@ -110,11 +108,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         switch (decision.action()) {
             case CONNECT -> {
                 final String server = Objects.requireNonNull(decision.server(), "CONNECT always carries a server");
-                // Before setInitialServer: Velocity fires ServerPreConnectEvent for the initial connection too.
                 intents.intend(uuid, server);
                 proxy.getServer(server).ifPresent(event::setInitialServer);
                 if (!routing.servers().isWaitingRoom(server)) {
-                    // Only an admin on a proxy with no waiting room gets here, skipping the pack.
                     logger.warn(
                             "No '{}' server is registered, so admin {} is connected straight to "
                                     + "'{}' in phase {} - WITHOUT the resource pack",
@@ -124,7 +120,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                             phase);
                 }
             }
-            // decideInitial never answers STAY; a future STAY logs rather than disconnects.
             case STAY ->
                 logger.warn(
                         "Routing answered STAY for {} at login in phase {}, which "
@@ -132,7 +127,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                         player.getUsername(),
                         phase);
             default -> {
-                // No waiting room. Clearing the initial server too, or Velocity falls back to velocity.toml's list.
                 event.setInitialServer(null);
                 logger.error(
                         "No '{}' server is registered on this proxy, so {} cannot be put in the "
@@ -145,29 +139,22 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         }
     }
 
-    /**
-     * Connects a player the pack station has finished with to the server their phase points at.
-     *
-     * @param player a player in the waiting room with nothing left to wait for
-     */
+    /** Connects a player whom the pack station released to the server of the phase. */
     public void releaseFromLimbo(final Player player) {
         final SeasonPhase phase = phases.lastKnown();
         final RouteDecision decision =
                 routing.decideRelease(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
 
         switch (decision.action()) {
-            // A registered but down backend holds the player with the BACKEND title instead of disconnecting them.
             case CONNECT -> {
                 final String phaseDestination =
                         Objects.requireNonNull(decision.server(), "CONNECT always carries a server");
-                // Only here: for everybody but an admin the seat names the server the phase names anyway.
                 final String destination = seats.releaseTo(
                         player.getUniqueId(),
                         roster.isAdmin(player.getUniqueId()),
                         phaseDestination,
                         registeredServerNames(),
                         routing.servers());
-                // Once per parked player, since this is also every ordinary login's last step.
                 homecoming.comingBack(player, destination);
                 connect(
                         player,
@@ -175,7 +162,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                         roster.localeOf(player.getUniqueId()),
                         cause -> packs.releaseFailed(player, cause));
             }
-            // Unreachable: decideRelease never answers STAY, since staying in limbo is a black screen.
             case STAY ->
                 logger.warn(
                         "The pack station released {} but routing says to leave them " + "where they are, in phase {}",
@@ -196,12 +182,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         onPhaseChanged(previous, current);
     }
 
-    /**
-     * Schedules a re-route of every connected player on the proxy scheduler.
-     *
-     * @param previous the phase before, {@code null} on the first read at startup
-     * @param current the phase now
-     */
+    /** Schedules a re-route of every connected player. */
     public void onPhaseChanged(final @Nullable SeasonPhase previous, final SeasonPhase current) {
         if (previous == null) {
             return;
@@ -215,10 +196,10 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Re-routes every connected player once.
+     * Re-routes every connected player.
      *
-     * @param phase for logging only; each player's re-read carries the phase used
-     * @return how many players were moved or disconnected
+     * @param phase the phase for the log
+     * @return the number of moved or disconnected players
      */
     public int rerouteAll(final SeasonPhase phase) {
         final Set<String> available = registeredServerNames();
@@ -243,7 +224,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         try {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
-            // Same rule as the expiry sweep: a database hiccup must not read as a mass eviction.
             logger.warn(
                     "Could not re-check {} ({}) while re-routing for a phase change; leaving " + "them where they are",
                     uuid,
@@ -258,7 +238,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         if (packs.isHeld(uuid)
                 && (decision.action() == RouteDecision.Action.CONNECT
                         || decision.action() == RouteDecision.Action.STAY)) {
-            // Still waiting: the pack station decides, and re-asking updates the title.
             packs.evaluate(player);
             return false;
         }
@@ -277,7 +256,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         };
     }
 
-    /** Moves one player, unless they are already there. */
+    /** Connects the player unless the player is on the server. */
     private boolean connect(final Player player, final String server, final Locale locale) {
         return connect(player, server, locale, cause -> {
             logger.error("Re-routing {} to '{}' failed: {}", player.getUsername(), server, cause);
@@ -286,9 +265,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Connects a player, logging failures without a stack trace.
+     * Connects the player and logs a failure without a stack trace.
      *
-     * @param onFailure given the reason as one line: a phase change disconnects, a release from limbo holds
+     * @param onFailure receives the reason as one line
      */
     private boolean connect(
             final Player player,
@@ -303,13 +282,11 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
         final RegisteredServer target = proxy.getServer(server).orElse(null);
         if (target == null) {
-            // Only reachable if a server was unregistered between building the name set and here.
             logger.error("'{}' disappeared from this proxy while re-routing {}", server, player.getUsername());
             player.disconnect(messages.noServer(locale));
             return true;
         }
 
-        // RouteIntents refuses every destination nothing chose, so the intent is recorded first.
         intents.intend(player.getUniqueId(), server);
         final var _ = player.createConnectionRequest(target).connect().whenComplete((result, error) -> {
             if (error != null) {
@@ -327,7 +304,6 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                                 .orElse(""));
                 return;
             }
-            // A successful connection is BackendHealth's only health check.
             health.clear(server);
         });
         return true;
@@ -340,9 +316,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Renders the refusal screen for a decision.
+     * Returns the screen for the refusal.
      *
-     * @param launch the announced opening, {@code null} where no {@code PRE_LAUNCH} refusal can occur
+     * @param launch the opening time, {@code null} without a date
      */
     private Component reasonFor(
             final RouteDecision decision,

@@ -11,11 +11,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * The resource-pack offer: one {@link ResourcePackInfo} per language, built once.
- *
- * The id derives from the SHA-1, so a client recognises the same pack across restarts and proxies.
- */
+/** The resource pack offer with one {@link ResourcePackInfo} for each language. The pack id derives from the SHA-1. */
 public final class PackOffer {
 
     private final ProxyServer proxy;
@@ -31,17 +27,11 @@ public final class PackOffer {
         this.config = Objects.requireNonNull(config, "config");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.hash = decodeHex(config.sha1());
-        // Name-based (version 3) from the hash bytes: same pack, same id, every time, everywhere.
         this.packId =
                 UUID.nameUUIDFromBytes(config.sha1().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
     }
 
-    /**
-     * The offer to send a player of {@code locale}.
-     *
-     * @param locale the player's language
-     * @return the offer to send them
-     */
+    /** Returns the offer for the language. */
     public ResourcePackInfo forLocale(final Locale locale) {
         final String language =
                 locale == null ? Locales.DEFAULT_TAG : locale.getLanguage().toLowerCase(Locale.ROOT);
@@ -55,13 +45,12 @@ public final class PackOffer {
                         .build());
     }
 
-    /** The id every offer carries, derived from the pack's own hash. */
+    /** Returns the pack id. */
     public UUID packId() {
         return packId;
     }
 
     private static byte[] decodeHex(final String hex) {
-        // Already validated by Configs#pack; fails loudly rather than risk a silently wrong hash.
         if (hex == null || hex.length() != 40) {
             throw new IllegalArgumentException("A pack SHA-1 is 40 hex characters, got: " + hex);
         }

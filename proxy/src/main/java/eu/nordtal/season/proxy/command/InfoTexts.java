@@ -17,16 +17,15 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * {@code /discord} and {@code /rules}: two commands that print one line each.
- *
- * The proxy owns them so they work in the waiting room; the invite is {@code gate#discord-invite-url}.
+ * The commands {@code /discord} and {@code /rules}. Each prints one line. {@code /discord} prints {@code
+ * gate#discord-invite-url}.
  */
 public final class InfoTexts {
 
-    /** What {@code /discord} prints. */
+    /** The text of {@code /discord}. */
     public static final Function<String, MessageRef> DISCORD_TEXT = ProxyMessages.MESSAGES.info()::discord;
 
-    /** What {@code /rules} prints. */
+    /** The text of {@code /rules}. */
     public static final Function<String, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
 
     private final MessageRenderer renderer;
@@ -39,7 +38,7 @@ public final class InfoTexts {
         this.roster = Objects.requireNonNull(roster, "roster");
     }
 
-    /** Both commands, ready for {@code CommandManager#register}. */
+    /** Returns both commands. */
     public List<BrigadierCommand> commands() {
         return List.of(command("discord", DISCORD_TEXT), command("rules", RULES_TEXT));
     }
@@ -49,10 +48,9 @@ public final class InfoTexts {
                 BrigadierCommand.literalArgumentBuilder(literal).executes(context -> print(context, text)));
     }
 
-    /** Prints the line from this module's bundle, whose value carries a clickable link. */
+    /** Prints the text to the player. */
     private int print(final CommandContext<CommandSource> context, final Function<String, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
-            // GAME and not CONSOLE: a clickable link is not what an operator wants from a console.
             context.getSource()
                     .sendMessage(
                             renderer.format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));

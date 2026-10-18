@@ -8,13 +8,13 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.sql.DataSource;
 
-/** Where a proxy swap keeps each player's backend and the standby's head count, outside memory. */
+/** Stores the server of each player and the player count of the standby proxy. */
 public interface SwapStore {
 
-    /** How long a seat is worth acting on; past it, a seat would override routing on an ordinary login. */
+    /** The time for which a seat is valid. */
     Duration SEAT_VALID_FOR = Duration.ofMinutes(3);
 
-    /** Returns a store over the proxy's own pool; it owns nothing and there is nothing to close. */
+    /** Returns a store over the pool of the proxy. */
     static SwapStore using(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         final SwapDao dao = Jdbis.over(dataSource).onDemand(SwapDao.class);
@@ -38,11 +38,10 @@ public interface SwapStore {
     }
 
     /**
-     * One row of {@code proxy_swap_seat}: where somebody was standing when they were parked.
+     * A row of {@code proxy_swap_seat}.
      *
-     * @param playerUuid the player
-     * @param server the backend, as {@code velocity.toml} spells it
-     * @param recordedAt when it was written, which tells this run's seats from leftovers
+     * @param server the server name of {@code velocity.toml}
+     * @param recordedAt the time of the write
      */
     record Seat(UUID playerUuid, String server, Instant recordedAt) {
 
@@ -52,33 +51,26 @@ public interface SwapStore {
             Objects.requireNonNull(recordedAt, "recordedAt");
         }
 
-        /** Returns whether this seat is still worth acting on, by {@link #SEAT_VALID_FOR}. */
+        /** Returns whether the seat is younger than {@link #SEAT_VALID_FOR}. */
         public boolean isFresh(final Instant now) {
             return !recordedAt.isBefore(now.minus(SEAT_VALID_FOR));
         }
     }
 
     /**
-     * Records where a player is standing, just before they are transferred away.
+     * Stores the server of the player before the transfer.
      *
-     * @param player the player
-     * @param server the backend they are on, as {@code velocity.toml} spells it
-     * @param now the proxy's clock
+     * @param server the server name of {@code velocity.toml}
      */
     void seat(UUID player, String server, Instant now);
 
-    /**
-     * Takes every seat and leaves the table empty; read once, at startup.
-     *
-     * @return every row there was, stale ones included
-     */
+    /** Returns every seat and deletes them. It runs once at startup. */
     List<Seat> takeAllSeats();
 
     /**
-     * The standby's heartbeat, so {@code steward} can see whether it is safe to stop it.
+     * Stores the number of players on the standby proxy. Steward stops the standby when the number is zero.
      *
-     * @param players how many the standby is holding right now; zero is what steward waits for
-     * @param now the proxy's clock, which tells a live zero from a dead process's last write
+     * @param now the time of the write
      */
     void reportStandby(int players, Instant now);
 }

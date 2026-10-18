@@ -11,11 +11,7 @@ import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 
-/**
- * The one place in {@code proxy} that names a sound to Velocity.
- *
- * Call it from Velocity's event thread, the one {@code CommandGate#onCommandExecute} runs on.
- */
+/** Plays the sounds of the proxy. Call it on the event thread of Velocity. */
 public final class ProxySounds implements CommandGate.Chime {
 
     private final FeedbackSounds sounds;
@@ -27,9 +23,9 @@ public final class ProxySounds implements CommandGate.Chime {
     }
 
     /**
-     * The one sound this module plays: {@link Feedback#REFUSED}, at the key and pitch smp's {@code sounds} group ships.
+     * Creates the sounds with {@link Feedback#REFUSED}, the only sound of the proxy.
      *
-     * @param problems where a value that had to be ignored is reported, once each
+     * @param problems receives each ignored value once
      */
     public static ProxySounds defaults(final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> declared = new EnumMap<>(Feedback.class);
@@ -44,10 +40,8 @@ public final class ProxySounds implements CommandGate.Chime {
             return;
         }
         try {
-            // MASTER: this is not ambience a client's sliders are meant for.
             player.playSound(Sound.sound(Key.key(sound.key()), Sound.Source.MASTER, sound.volume(), sound.pitch()));
         } catch (final RuntimeException exception) {
-            // A malformed key is refused at load, so the platform disagreed about something.
             sounds.failed(category, exception, problems);
         }
     }

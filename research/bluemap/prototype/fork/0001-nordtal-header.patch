@@ -1,0 +1,201 @@
+diff --git a/common/webapp/src/App.vue b/common/webapp/src/App.vue
+index 1b5cc3f0..2cd98e87 100644
+--- a/common/webapp/src/App.vue
++++ b/common/webapp/src/App.vue
+@@ -2,6 +2,7 @@
+   <div id="app" :class="{'theme-light': appState.theme === 'light', 'theme-dark': appState.theme === 'dark', 'theme-contrast': appState.theme === 'contrast'}">
+     <FreeFlightMobileControls v-if="mapViewer.mapState === 'loaded' && appState.controls.state === 'free'" />
+     <ZoomButtons v-if="showMapMenu && appState.controls.showZoomButtons && appState.controls.state !== 'free'" />
++    <NordtalHeader />
+     <ControlBar />
+     <div v-if="mapViewer.mapState !== 'loaded'" class="map-state-message">{{ $t("map." + mapViewer.mapState) }}</div>
+     <MainMenu :menu="appState.menu" />
+@@ -10,6 +11,7 @@
+ 
+ <script>
+ import ControlBar from "./components/ControlBar/ControlBar.vue";
++import NordtalHeader from "./components/Nordtal/NordtalHeader.vue";
+ import MainMenu from "./components/Menu/MainMenu.vue";
+ import FreeFlightMobileControls from "./components/Controls/FreeFlightMobileControls.vue";
+ import ZoomButtons from "./components/Controls/ZoomButtons.vue";
+@@ -20,6 +22,7 @@ export default {
+     FreeFlightMobileControls,
+     MainMenu,
+     ControlBar,
++    NordtalHeader,
+     ZoomButtons
+   },
+   computed: {
+diff --git a/common/webapp/src/assets/nordtal-logo.png b/common/webapp/src/assets/nordtal-logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..9f421cd900b8630fc01bd6e95832338e5ccbf9ce
+GIT binary patch
+literal 1794
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/common/webapp/src/components/ControlBar/ControlBar.vue b/common/webapp/src/components/ControlBar/ControlBar.vue
+index 5412ec18..5a97f710 100644
+--- a/common/webapp/src/components/ControlBar/ControlBar.vue
++++ b/common/webapp/src/components/ControlBar/ControlBar.vue
+@@ -133,7 +133,7 @@
+ 
+   .control-bar {
+     position: fixed;
+-    top: 0;
++    top: 3rem;
+     left: 0;
+ 
+     display: flex;
+diff --git a/common/webapp/src/components/Nordtal/NordtalHeader.vue b/common/webapp/src/components/Nordtal/NordtalHeader.vue
+new file mode 100644
+index 00000000..985b85d4
+--- /dev/null
++++ b/common/webapp/src/components/Nordtal/NordtalHeader.vue
+@@ -0,0 +1,80 @@
++<template>
++  <header class="nordtal-header">
++    <a class="logo" href="https://nordtal.eu"><img src="../../assets/nordtal-logo.png" alt="Nordtal"></a>
++    <nav class="maps">
++      <button v-for="map of appState.maps" :key="map.id"
++              :class="{active: mapViewer.map && mapViewer.map.id === map.id}"
++              @click="$bluemap.switchMap(map.id).then(() => $bluemap.resetCamera())">{{ map.name }}</button>
++    </nav>
++    <span class="players" v-if="!playerMarkerSet.fake">{{ playerMarkerSet.markers.length }}</span>
++  </header>
++</template>
++
++<script>
++export default {
++  name: "NordtalHeader",
++  data() {
++    return {
++      appState: this.$bluemap.appState,
++      mapViewer: this.$bluemap.mapViewer.data,
++      markers: this.$bluemap.mapViewer.markers.data,
++    };
++  },
++  computed: {
++    playerMarkerSet() {
++      return this.markers.markerSets.find(set => set.id === "bm-players") || {markers: [], fake: true};
++    },
++  },
++};
++</script>
++
++<style lang="scss">
++@import "/src/scss/variables.scss";
++
++.nordtal-header {
++  position: fixed;
++  top: 0;
++  left: 0;
++  right: 0;
++  height: 3rem;
++  display: flex;
++  align-items: center;
++  gap: 1rem;
++  padding: 0 1rem;
++  background-color: var(--theme-bg);
++  border-bottom: 1px solid var(--theme-bg-light);
++  color: var(--theme-fg);
++  pointer-events: auto;
++
++  .logo img {
++    height: 1.5rem;
++    image-rendering: pixelated;
++  }
++
++  .maps {
++    display: flex;
++    gap: 0.25rem;
++    overflow-x: auto;
++
++    button {
++      padding: 0.25rem 0.75rem;
++      border: none;
++      border-radius: 0.375rem;
++      background: none;
++      color: var(--theme-fg-light);
++      font: inherit;
++      cursor: pointer;
++
++      &.active {
++        background-color: var(--theme-switch-button-on);
++        color: var(--theme-fg);
++      }
++    }
++  }
++
++  .players {
++    margin-left: auto;
++    color: var(--theme-fg-light);
++  }
++}
++</style>
+diff --git a/common/webapp/src/scss/variables.scss b/common/webapp/src/scss/variables.scss
+index 7efae539..7dcc40f9 100644
+--- a/common/webapp/src/scss/variables.scss
++++ b/common/webapp/src/scss/variables.scss
+@@ -28,18 +28,18 @@ $mobile-break: 575.98px;
+ 
+ // themes
+ @mixin dark-theme {
+-  font-family: 'Quicksand', sans-serif;
++  font-family: system-ui, sans-serif;
+   font-size: 16px;
+   font-weight: 400;
+ 
+-  --theme-bg: #181818;
+-  --theme-bg-hover: #222;
+-  --theme-bg-light: #444;
+-  --theme-fg: #fff;
+-  --theme-fg-light: #aaa;
++  --theme-bg: #141414;
++  --theme-bg-hover: #232320;
++  --theme-bg-light: #2a2a27;
++  --theme-fg: #fffcf6;
++  --theme-fg-light: #a8a49c;
+ 
+   //SwitchButton
+-  --theme-switch-button-on: #00489d;
++  --theme-switch-button-on: #4a63d8;
+ 
+   //DayNightSwitch
+   --theme-stars-day: #fff;

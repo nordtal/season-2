@@ -1,0 +1,35 @@
+# The site block for map.nordtal.eu, as an addition to the inline Caddyfile in compose.yml.
+# The webroot of BlueMap is mounted read only at /srv/map.
+${MAP_HOST} {
+	root * /srv/map
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+
+	# The live data of the plugin: players, markers and the Server-Sent Events.
+	handle /maps/*/live/* {
+		reverse_proxy smp:8100 {
+			flush_interval -1
+		}
+	}
+
+	# BlueMap stores hires tiles and textures.json gzipped. Caddy sends the .gz file with its encoding.
+	@gz path /maps/*/textures.json *.prbm
+	handle @gz {
+		try_files {path}.gz =204
+		header Content-Encoding gzip
+	}
+
+	# A tile that is not rendered answers 204, not 404.
+	@tiles path /maps/*/tiles/*
+	handle @tiles {
+		try_files {path} =204
+	}
+
+	file_server
+}

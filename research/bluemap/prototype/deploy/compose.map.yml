@@ -1,0 +1,20 @@
+# A sketch of the two services for map.nordtal.eu. It is not part of compose.yml.
+services:
+  # BlueMap CLI renders the SMP world from a read only mount of its volume. It runs as a one-shot or with --watch.
+  bluemap:
+    image: ghcr.io/bluemap-minecraft/bluemap:v5.29
+    command: ["-r", "-u"]
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ${SMP_DATA}/nordtal:/app/world/nordtal:ro
+      - ${NORDTAL_DIR}/bluemap-data:/app/data
+      - ${NORDTAL_DIR}/bluemap-config:/app/config
+      - ${NORDTAL_DIR}/bluemap-web:/app/web
+    restart: unless-stopped
+
+  # Caddy mounts the same webroot read only and serves it as static files.
+  caddy:
+    volumes:
+      - ${NORDTAL_DIR}/bluemap-web:/srv/map:ro

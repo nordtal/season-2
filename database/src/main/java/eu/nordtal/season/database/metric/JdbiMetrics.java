@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.function.ToIntFunction;
 import javax.sql.DataSource;
 
-/** The only implementation of {@link MetricDirectory}; it borrows its pool and owns nothing. */
 final class JdbiMetrics implements MetricDirectory {
 
     private final MetricDao dao;
@@ -25,7 +24,7 @@ final class JdbiMetrics implements MetricDirectory {
     public void record(final List<MetricSample> samples) {
         Objects.requireNonNull(samples, "samples");
         if (samples.isEmpty()) {
-            // JDBI refuses an empty batch, and a sweep that measured nothing is not an error.
+            // JDBI refuses an empty batch.
             return;
         }
 
@@ -45,7 +44,7 @@ final class JdbiMetrics implements MetricDirectory {
         Objects.requireNonNull(from, "from");
         Objects.requireNonNull(to, "to");
         if (!to.isAfter(from)) {
-            // A collapsed window leaves a graph blank rather than failing a page render.
+            // A collapsed window returns no points.
             return List.of();
         }
         return dao.range(subject, metric, utc(from), utc(to));
@@ -64,9 +63,8 @@ final class JdbiMetrics implements MetricDirectory {
     }
 
     /**
-     * Applies a statement to each UTC hour holding raw samples before {@code olderThan}'s hour, oldest first.
-     * No statement touches more than an hour of samples, and each commits on its own: a failure leaves the hours
-     * before it done and the rest for the next call.
+     * Applies {@code statement} to each UTC hour with raw samples before the hour of {@code olderThan}, oldest first.
+     * Each hour commits on its own, so a failure leaves the earlier hours done.
      */
     private int walk(final Instant olderThan, final ToIntFunction<OffsetDateTime> statement) {
         final OffsetDateTime cut = utc(Resolution.hourOf(olderThan));
@@ -82,7 +80,6 @@ final class JdbiMetrics implements MetricDirectory {
         return total;
     }
 
-    /** Converts to an {@code OffsetDateTime} at UTC, so no JVM or server zone is assumed. */
     private static OffsetDateTime utc(final Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
     }

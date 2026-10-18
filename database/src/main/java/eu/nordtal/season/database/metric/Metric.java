@@ -1,6 +1,6 @@
 package eu.nordtal.season.database.metric;
 
-/** Every number steward samples, by the name the table and the browser use for it. */
+/** The numbers steward samples, each under a key. */
 public enum Metric {
     LOAD1("load1"),
     CPU_PERCENT("cpu_percent"),
@@ -16,7 +16,6 @@ public enum Metric {
         this.key = key;
     }
 
-    /** Returns the name stored in {@code metric_sample.metric} and asked for by the browser. */
     public String key() {
         return key;
     }

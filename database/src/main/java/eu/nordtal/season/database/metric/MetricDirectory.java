@@ -6,52 +6,46 @@ import java.util.List;
 import javax.sql.DataSource;
 
 /**
- * The time series behind Steward's start page, written and read by steward.
+ * Stores and reads the time series of Steward's start page. Only steward uses it.
  *
- * Raw samples are compacted into hourly means and then forgotten.
+ * Raw samples are compacted into hourly means and then deleted.
  */
 public interface MetricDirectory {
 
     /** How often the collector samples. */
     Duration SAMPLE_INTERVAL = Duration.ofSeconds(30);
 
-    /** How long a raw sample survives before it is compacted into its hour. A longer value grows every backup. */
+    /** How long a raw sample lives before compaction. A longer value grows every backup. */
     Duration RAW_RETENTION = Duration.ofDays(30);
 
-    /** Returns a directory over {@code dataSource}, holding no resource of its own. */
+    /** Returns a directory that borrows {@code dataSource}. */
     static MetricDirectory using(final DataSource dataSource) {
         return new JdbiMetrics(dataSource);
     }
 
-    /**
-     * Writes a batch of measurements at {@link Resolution#RAW}; an empty list does nothing.
-     * Idempotent per key: a sample already present for the same subject, metric and instant is kept and the new one
-     * dropped.
-     */
+    /** Writes measurements at {@link Resolution#RAW}. A sample with the same subject, metric and instant is kept. */
     void record(List<MetricSample> samples);
 
     /**
-     * Returns one series over a window, oldest first, which is what Steward draws.
-     * From the oldest raw sample's hour on, raw samples answer; before it, hourly means.
+     * Returns a series over a window, oldest first. Raw samples answer from the oldest raw sample's hour on.
      *
      * @param from inclusive
-     * @param to   exclusive
+     * @param to exclusive
      */
     List<MetricPoint> range(String subject, String metric, Instant from, Instant to);
 
     /**
-     * Turns raw samples before the start of the given instant's UTC hour into hourly means; steward only.
-     * Nothing is deleted, an hour with its mean is left alone, and each hour is its own statement, oldest first.
+     * Turns raw samples before the UTC hour of {@code olderThan} into hourly means. Steward only.
+     * It deletes nothing and skips an hour that has its mean.
      *
-     * @return how many hourly rows were written
+     * @return the hourly rows written
      */
     int compact(Instant olderThan);
 
     /**
-     * Deletes raw samples before the given instant's UTC hour whose hour already has a mean; steward only.
-     * Each hour is its own statement, oldest first.
+     * Deletes raw samples before the UTC hour of {@code olderThan} whose hour has a mean. Steward only.
      *
-     * @return how many raw rows were deleted
+     * @return the raw rows deleted
      */
     int forget(Instant olderThan);
 }

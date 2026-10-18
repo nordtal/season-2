@@ -11,17 +11,16 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The SQL surface of the time-series table; {@link MetricDirectory} is the API.
- * Every instant crosses as an {@link OffsetDateTime}, since an {@code Instant} can be shifted by the JVM or server
- * zone.
+ * The SQL of the time-series table. {@link MetricDirectory} is its API.
+ * Instants cross as {@link OffsetDateTime}, as the JVM or server zone can shift an {@code Instant}.
  */
 @RegisterRowMapper(MetricPointMapper.class)
 interface MetricDao {
 
     /**
-     * Writes one sweep of measurements as a JDBC batch, keeping any row already at the same key.
+     * Writes a sweep as a JDBC batch and keeps a row at an existing key.
      *
-     * @return one count per statement, 1 where a row was written and 0 where the key was taken
+     * @return one count per statement: 1 if written, 0 if the key existed
      */
     @SqlBatch("""
             INSERT INTO metric_sample (subject, metric, resolution, at, value)
@@ -31,11 +30,11 @@ interface MetricDao {
     int[] record(@BindMethods Iterable<BoundSample> samples);
 
     /**
-     * Returns one series over a window: raw samples from the oldest raw sample's hour on, hourly means before.
-     * Two index scans and a UNION ALL, since an OR would stop the range on {@code at} being indexed.
+     * Returns a series over a window: raw samples from the oldest raw sample's hour on, hourly means before.
+     * Two index scans and a UNION ALL keep the range on {@code at} indexed, which an OR would not.
      *
      * @param from inclusive
-     * @param to   exclusive
+     * @param to exclusive
      */
     @SqlQuery("""
             SELECT at, value, resolution
@@ -67,11 +66,10 @@ interface MetricDao {
             @Bind("to") OffsetDateTime to);
 
     /**
-     * Returns the instant of the oldest raw sample in {@code [from, to)}, or nothing when there is none.
-     * The partial index on raw rows by age answers it.
+     * Returns the instant of the oldest raw sample in {@code [from, to)}, or nothing.
      *
      * @param from inclusive
-     * @param to   exclusive
+     * @param to exclusive
      */
     @SqlQuery("""
             SELECT min(at)
@@ -83,11 +81,11 @@ interface MetricDao {
     Optional<OffsetDateTime> oldestRaw(@Bind("from") OffsetDateTime from, @Bind("to") OffsetDateTime to);
 
     /**
-     * Averages the raw samples of the one UTC hour starting at {@code hour} and writes each mean once.
-     * The bucket is the migration's alignment CHECK verbatim, since {@code date_trunc} is not immutable.
+     * Averages the raw samples of the UTC hour at {@code hour} and writes each mean once.
+     * The bucket repeats the migration's alignment CHECK, as {@code date_trunc} is not immutable.
      *
-     * @param hour inclusive, and an exact UTC hour
-     * @return how many hourly rows were written
+     * @param hour inclusive, an exact UTC hour
+     * @return the hourly rows written
      */
     @SqlUpdate("""
             INSERT INTO metric_sample (subject, metric, resolution, at, value)
@@ -106,10 +104,10 @@ interface MetricDao {
     int compactHour(@Bind("hour") OffsetDateTime hour);
 
     /**
-     * Deletes the raw samples of the one UTC hour starting at {@code hour} whose hour already has a mean.
+     * Deletes the raw samples of the UTC hour at {@code hour} that already have a mean.
      *
-     * @param hour inclusive, and an exact UTC hour
-     * @return how many raw rows went
+     * @param hour inclusive, an exact UTC hour
+     * @return the raw rows deleted
      */
     @SqlUpdate("""
             DELETE FROM metric_sample raw
@@ -125,6 +123,6 @@ interface MetricDao {
             """)
     int forgetHour(@Bind("hour") OffsetDateTime hour);
 
-    /** A {@link MetricSample} with its instant as an {@link OffsetDateTime}. */
+    /** A {@link MetricSample} with an {@link OffsetDateTime}. */
     record BoundSample(String subject, String metric, OffsetDateTime at, double value) {}
 }

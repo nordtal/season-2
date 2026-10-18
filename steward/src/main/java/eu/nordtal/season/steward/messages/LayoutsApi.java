@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -129,13 +128,7 @@ public final class LayoutsApi {
         final JsonObject body = bodyOf(ctx.body());
         final List<Part> parts = listOf(body, "parts", Part[].class);
         final List<Element> links = listOf(body, "links", Element[].class);
-        final Layout rebuild = new Layout(
-                packaged.name(),
-                packaged.bundle(),
-                packaged.area(),
-                packaged.surface(),
-                Stream.concat(packaged.elements().stream(), links.stream()).toList(),
-                parts);
+        final Layout rebuild = packaged.rebuilt(parts, links);
         final List<String> problems = new ArrayList<>(LayoutCheck.rebuildProblems(packaged, rebuild));
         rebuild.addedTexts().stream()
                 .flatMap(texts -> texts.keySet().stream())
@@ -295,14 +288,7 @@ public final class LayoutsApi {
                             : new LayoutView(
                                     entry,
                                     hash,
-                                    new Layout(
-                                            layout.name(),
-                                            layout.bundle(),
-                                            layout.area(),
-                                            layout.surface(),
-                                            Stream.concat(layout.elements().stream(), rebuild.links().stream())
-                                                    .toList(),
-                                            rebuild.parts()),
+                                    layout.rebuilt(rebuild.parts(), rebuild.links()),
                                     !rebuild.replaced().equals(hash)));
         });
         return new Layouts(

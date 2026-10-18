@@ -60,6 +60,13 @@ public record Layout(
         return keys;
     }
 
+    /** This layout as an editor rebuilt it: the rebuild's tree, and the link buttons it added beside the elements. */
+    public Layout rebuilt(final List<Part> rebuiltParts, final List<Element> links) {
+        final List<Element> all = new ArrayList<>(elements);
+        all.addAll(links);
+        return new Layout(name, bundle, area, surface, all, rebuiltParts);
+    }
+
     /** Every text an editor added, each by language tag: the added lines in order, then the link buttons' labels. */
     public List<Map<String, String>> addedTexts() {
         final List<Map<String, String>> texts = new ArrayList<>();

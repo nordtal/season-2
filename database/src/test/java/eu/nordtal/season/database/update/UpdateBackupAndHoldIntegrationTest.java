@@ -20,11 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Exercises the backup proof and the service holds of {@link UpdateDirectory} against a real PostgreSQL.
- *
- * Skips itself when no Docker daemon is reachable, like every integration test in this module.
- */
+/** Exercises the backup proof and the service holds of {@link UpdateDirectory} against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateBackupAndHoldIntegrationTest {
     private static DataSource dataSource;
@@ -42,9 +38,7 @@ class UpdateBackupAndHoldIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
-    /**
-     * The one volume line that makes a report a backup, built through {@link UpdateReports#toJson} so both sides agree.
-     */
+    /** The one volume line that makes a report a backup, built through {@link UpdateReports#toJson}. */
     private static UpdateReport report(final UpdateReport.State volume) {
         return UpdateReport.at(UpdateReport.Stage.DONE)
                 .with(new UpdateReport.ServiceLine(
@@ -55,7 +49,7 @@ class UpdateBackupAndHoldIntegrationTest {
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
     }
 
-    /** A run with every service back, nothing snapshotted, and the row DONE, which is no backup. */
+    /** A run with every service back and nothing snapshotted, with the row DONE, which is no backup. */
     private static UpdateReport reportWithNoVolumes() {
         return UpdateReport.at(UpdateReport.Stage.DONE)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
@@ -92,7 +86,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void aFailedRunDoesNotCountEvenWhenItsReportSavedSomethingFirst() {
-        // The dump runs before servers stop, so a failed run can carry SAVED; only the status decides.
+        // The dump runs before servers stop, so a failed run can carry SAVED. Only the status decides.
         backupRow("FAILED", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
 
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
@@ -112,7 +106,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void aResultNobodyCanParseProvesNothing() {
-        // A result that is prose, not a report, cannot tell a saved volume from a sentence.
+        // A result that is prose cannot tell a saved volume from a sentence.
         backupRow("DONE", 0.25, "Update finished. smp: running");
 
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
@@ -123,7 +117,7 @@ class UpdateBackupAndHoldIntegrationTest {
         final long good = backupRow("DONE", 20.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
         backupRow("DONE", 1.0, UpdateReports.toJson(reportWithNoVolumes()));
 
-        // A LIMIT 1 would answer with the newest row and miss a provable backup further down the window.
+        // A LIMIT 1 would answer with the newest row and miss a provable backup further down.
         assertEquals(
                 good,
                 updates.lastSuccessfulBackup(Duration.ofHours(24)).orElseThrow().id());
@@ -138,11 +132,7 @@ class UpdateBackupAndHoldIntegrationTest {
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
     }
 
-    /**
-     * Writes a settled {@code BACKUP} row {@code hoursAgo} in the past, on the database's clock.
-     *
-     * @return the id, so a test can say which row it expected back
-     */
+    /** Writes a settled {@code BACKUP} row {@code hoursAgo} in the past and returns its id. */
     private static long backupRow(final String status, final double hoursAgo, final String result) {
         execute("INSERT INTO steward_inbox (kind, payload, actor_kind, status, requested, scheduled_for, started,"
                 + " finished, outcome) VALUES ('BACKUP', '{\"services\": []}', 'STEWARD', '" + status + "',"
@@ -150,7 +140,7 @@ class UpdateBackupAndHoldIntegrationTest {
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
-                // A report is stored as an object, anything else as a JSON string, as steward stores them.
+                // A report is stored as an object and anything else as a JSON string, as steward stores them.
                 + (result.startsWith("{")
                         ? " cast($json$" + result + "$json$ AS jsonb))"
                         : " to_jsonb(cast($json$" + result + "$json$ AS text)))"));
@@ -172,7 +162,7 @@ class UpdateBackupAndHoldIntegrationTest {
         assertEquals(down.id(), held.requestId());
         assertNotNull(held.since());
 
-        // Pressing Down on something that is already down is somebody making sure, not an error.
+        // Pressing Down on something already down is no error.
         updates.hold("smp", Actor.person(DiscordId.of("300000000000000002")), down.id());
         assertEquals(1, updates.holds().size(), "the second press wrote a second row");
         assertEquals(
@@ -181,7 +171,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
         updates.release("smp");
         assertEquals(List.of(), updates.holds());
-        // Releasing twice is not an error either: the button is idempotent on purpose.
+        // Releasing twice is no error either.
         updates.release("smp");
     }
 

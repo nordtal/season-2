@@ -18,11 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
-/**
- * Every write the proxy reads the run row or the holds for says so on the channel.
- *
- * The proxy reads them only when told, so a write that stays silent is read late.
- */
+/** Every write that the proxy reads the run row or the holds for is announced on the channel. */
 class UpdateWritesAnnounceIntegrationTest {
 
     private static DataSource dataSource;

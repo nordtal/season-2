@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import eu.nordtal.season.database.DatabaseText;
 import org.junit.jupiter.api.Test;
 
-/** A size reads the same in a log line and in a report, and only the report's words can change. */
+/** A size reads the same in a log line and in a report. Only the words of the report can change. */
 class ByteSizeTest {
 
     @Test

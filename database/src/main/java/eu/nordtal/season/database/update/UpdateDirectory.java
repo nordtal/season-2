@@ -11,51 +11,42 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * steward's inbox, as seen by every process that can ask for a run.
- *
- * A request is a row plus an empty {@code pg_notify}; the notification is never the state, so a wake-up re-reads.
+ * The run inbox of steward, for every process that can ask for a run.
+ * A request is a row and an empty {@code pg_notify}. A wake-up re-reads the row.
  */
 public interface UpdateDirectory {
 
-    /**
-     * How long between an update being asked for and the servers going down, which is also the cancel window.
-     *
-     * It moves together with {@code Countdown.CHAT_THRESHOLDS}; a threshold above it is never heard.
-     */
+    /** The time between asking for an update and the servers going down, which is also the cancel window. */
     Duration UPDATE_COUNTDOWN = Duration.ofSeconds(60);
 
-    /** Returns a directory over {@code dataSource}; it holds no resource of its own. */
+    /** Returns a directory over {@code dataSource}. */
     static UpdateDirectory using(final DataSource dataSource) {
         return using(dataSource, () -> true);
     }
 
     /**
-     * The same, for code that can run ahead of the database's schema, as an update's one-shot does until it migrates.
+     * Returns a directory for code that can run ahead of the schema.
      *
-     * @param current whether the schema has every table this code writes; a run's rows wait for it
+     * @param current whether the schema has every table this code writes. Rows of a run wait for it
      */
     static UpdateDirectory using(final DataSource dataSource, final BooleanSupplier current) {
         return new JdbiUpdateDirectory(dataSource, current);
     }
 
     /**
-     * Asks for something to happen, and announces it in the same statement.
+     * Writes a request and announces it in the same statement.
      *
-     * @param kind  what to do
-     * @param actor who is asking
-     * @param delay how long steward must wait before claiming it; negative means zero
-     * @return the row as written
-     * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
-     *     held service
+     * @param delay how long steward waits before claiming it. Negative means zero
+     * @throws Refused with an {@link UpdateRefusal} when another run is open or a take-down names a held service
      */
     default UpdateRequest submit(final UpdateKind kind, final Actor actor, final @Nullable Duration delay) {
         return submit(kind, actor, delay, null);
     }
 
     /**
-     * The same, for a run that is only for some of the services.
+     * Writes a request for some services.
      *
-     * @param services compose service names; empty or {@code null} is the whole network
+     * @param services compose service names. Empty or {@code null} is the whole network
      */
     default UpdateRequest submit(
             final UpdateKind kind,
@@ -66,21 +57,19 @@ public interface UpdateDirectory {
     }
 
     /**
-     * The same, for a request of any kind, the ones that name more than their services included.
+     * Writes a request of any kind.
      *
-     * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
-     *     held service
+     * @throws Refused with an {@link UpdateRefusal} when another run is open or a take-down names a held service
      */
     UpdateRequest submit(
             eu.nordtal.season.database.inbox.StewardRequest request, Actor actor, @Nullable Duration delay);
 
     /**
-     * Writes a run nobody asked for, settled and announced, beside any open one: steward-agent's start-up install.
+     * Writes a finished run beside any open one, for the install when steward-agent starts.
      *
      * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
-     * @param result the report, as JSON
-     * @param took how long it ran, which puts its start that far before now on the database's clock
-     * @throws IllegalArgumentException if {@code status} is not one of those two
+     * @param took how long it ran, which puts its start that far before now
+     * @throws IllegalArgumentException if {@code status} is another one
      */
     default UpdateRequest record(
             final eu.nordtal.season.database.inbox.StewardRequest request,
@@ -96,7 +85,7 @@ public interface UpdateDirectory {
         return Optional.empty();
     }
 
-    /** Returns service names trimmed, without blanks and duplicates, in the order given; {@code null} is none. */
+    /** Returns the service names trimmed, without blanks and duplicates. {@code null} gives none. */
     static java.util.List<String> cleaned(final java.util.@Nullable List<String> services) {
         if (services == null) {
             return java.util.List.of();
@@ -109,184 +98,143 @@ public interface UpdateDirectory {
                 .toList();
     }
 
-    /** Returns which services a run is for, or empty for the whole network and for an unknown id. */
+    /** Returns the services of a run, empty for the whole network and for an unknown id. */
     default java.util.List<String> scopeOf(final long id) {
         return java.util.List.of();
     }
 
-    /** Returns every service being held down on purpose, newest first; usually none. */
+    /** Returns the held services, newest first. */
     default java.util.List<ServiceHold> holds() {
         return java.util.List.of();
     }
 
-    /** Returns whether that one service is being held down. */
+    /** Returns whether the service is held down. */
     default boolean isHeld(final String service) {
         return holds().stream().anyMatch(hold -> hold.service().equals(service));
     }
 
-    /**
-     * Writes a hold, or refreshes the one already there.
-     *
-     * The default throws, so a directory that cannot write never pretends it did.
-     */
+    /** Writes a hold, or refreshes the existing one. The default throws. */
     default void hold(final String service, final Actor heldBy, final @Nullable Long requestId) {
         throw new UnsupportedOperationException("this directory cannot hold a service down: " + service);
     }
 
-    /** Takes the hold off, if there is one; doing it twice is not an error. */
+    /** Removes the hold, if there is one. */
     default void release(final String service) {
         throw new UnsupportedOperationException("this directory cannot release a service: " + service);
     }
 
-    /**
-     * Reads a request back.
-     *
-     * @param id what {@link #submit} returned
-     * @return the row, or empty if it has been deleted by hand
-     */
+    /** Returns the request with the id, or empty if it was deleted. */
     Optional<UpdateRequest> find(long id);
 
     /**
-     * Returns the most recent requests, newest first.
+     * Returns the newest requests first.
      *
-     * @param limit the page size; a number below 1 is clamped to 1
+     * @param limit the page size, at least 1
      */
     java.util.List<UpdateRequest> recent(int limit);
 
-    /**
-     * Returns every request written after the one named, oldest first.
-     *
-     * @param id the last one already drawn; {@code 0} for everything
-     */
+    /** Returns every request after the id, oldest first. */
     java.util.List<UpdateRequest> since(long id);
 
-    /** Returns the highest id there is, or zero; where a feed starts, so a restart posts no history. */
+    /** Returns the highest id, or zero. */
     long latestId();
 
-    /** Returns every request that finished within the window, including ones below {@link #latestId()}. */
+    /** Returns every request that finished within the window. */
     java.util.List<UpdateRequest> finishedWithin(Duration window);
 
     /**
-     * Returns the most recent backup that finished {@code DONE} and saved at least one volume; blocking.
+     * Returns the newest backup that is {@code DONE} and saved a volume.
      *
-     * @param within how far back to look; hours, so yesterday's backup cannot authorise today's reset
-     * @return the run, or empty when there was none, it failed or it saved nothing
+     * @param within how far back to look
      */
     Optional<UpdateRequest> lastSuccessfulBackup(Duration within);
 
-    /**
-     * Takes the oldest due request and marks it running; only steward calls this.
-     *
-     * @return the claimed request, or empty when nothing is due
-     */
+    /** Marks the oldest due request as running and returns it. Only steward calls this. */
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer to a claimed request; only steward calls this.
+     * Writes the answer to a claimed request. Only steward calls this.
      *
-     * @param id     the row
      * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
-     * @param result the report, verbatim
-     * @return the finished row, or empty if it was not running any more
-     * @throws IllegalArgumentException if {@code status} is not a terminal one
+     * @return the finished row, or empty if it was not running
+     * @throws IllegalArgumentException if {@code status} is not final
      */
     Optional<UpdateRequest> finish(long id, UpdateStatus status, String result);
 
-    /**
-     * Rewrites a running request's report without settling it; a settled request is left alone.
-     *
-     * @param result the report so far, as JSON
-     * @return whether a running row was updated
-     */
+    /** Rewrites the report of a running request and returns whether a running row was updated. */
     boolean progress(long id, String result);
 
     /**
-     * Starts the countdown on a claimed request, once steward knows the plan has work in it.
+     * Starts the countdown on a claimed request.
      *
-     * @param id     the claimed request
-     * @param length how long the countdown runs, from now on the database's clock
-     * @param moving the services the run stops, which the proxy evacuates once the countdown runs out
-     * @return the row with its {@code countdown_end}, or empty when it was cancelled since the claim
+     * @param moving the services the run stops
+     * @return the row with its {@code countdown_end}, or empty if it was cancelled
      */
     Optional<UpdateRequest> startCountdown(long id, Duration length, java.util.Collection<String> moving);
 
-    /**
-     * Ends the countdown in one statement that decides the race with a cancel at zero; only steward calls this.
-     *
-     * @return {@code true} when the run may go ahead, {@code false} when somebody cancelled
-     */
+    /** Ends the countdown and returns whether the run may go ahead, false after a cancel. Only steward calls this. */
     boolean commitCountdown(long id);
 
-    /** Returns the outage counting down right now, which proxy shows, or empty. */
+    /** Returns the outage counting down, or empty. */
     Optional<UpdateRequest> countingDown();
 
-    /** Returns the run that is happening right now: claimed, past its countdown, servers down. */
+    /** Returns the run whose servers are going down, or empty. */
     Optional<UpdateRequest> running();
 
-    /** Returns the one open run, {@code PENDING} or {@code RUNNING}, or empty. */
+    /** Returns the open run, {@code PENDING} or {@code RUNNING}, or empty. */
     default Optional<UpdateRequest> open() {
         return Optional.empty();
     }
 
-    /**
-     * Withdraws the countdown that is running; its report says {@code CANCELLED}, and the journal says who.
-     *
-     * @return the cancelled row, or empty when the countdown had already run out
-     */
+    /** Withdraws the running countdown and returns the cancelled row, or empty after it ran out. */
     Optional<UpdateRequest> cancelCountdown();
 
-    /** Returns when the next pending request becomes due, or empty when there is none. */
+    /** Returns when the next pending request is due, or empty. */
     Optional<Instant> nextDue();
 
     /**
-     * Fails everything left {@code RUNNING} but a run handed to a container that still runs; once, at startup.
+     * Fails every {@code RUNNING} row except a run whose container still runs, at startup.
      *
-     * @param why the one note of the failed report written into those rows
-     * @param stillRunning asks the daemon whether the container a run was handed to still runs
-     * @return how many there were
+     * @param why the note written into the failed report
+     * @param stillRunning whether the daemon still runs the container with that name
+     * @return how many rows it failed
      */
     int settleOrphans(MessageRef why, java.util.function.Predicate<String> stillRunning);
 
     /**
-     * Hands a running request to a one-shot container, which settles it; the default hands nothing over.
+     * Gives a running request to a temporary container that finishes it. The default gives nothing.
      *
-     * @param runner the container's name, which {@link #settleOrphans} asks the daemon about
      * @return whether a running row took the name
      */
     default boolean handOver(final long id, final String runner) {
         return false;
     }
 
-    /** Returns the container a running request was handed to, or empty; the default knows of none. */
+    /** Returns the container of a running request, or empty. */
     default Optional<String> runnerOf(final long id) {
         return Optional.empty();
     }
 
-    /** Returns the container the open run is handed to, or empty; the default knows of none. */
+    /** Returns the container of the open run, or empty. */
     default Optional<String> handedTo() {
         return Optional.empty();
     }
 
-    /**
-     * Returns one row whole, as JSON, so a database restore can put it back; empty for an unknown id.
-     *
-     * The default carries nothing, for a directory that cannot write.
-     */
+    /** Returns one row as JSON for a restore, empty for an unknown id. */
     default Optional<String> carry(final long id) {
         return Optional.empty();
     }
 
     /**
-     * After a restore: fails every row the dump held open, then writes the carried row back and counts on from it.
+     * After a restore, fails every row the dump held open and writes the saved row back.
      *
      * @param row what {@link #carry} returned before the restore
-     * @param why the one note of the failed report written into the rows the dump held open
      */
     default void putBack(final String row, final MessageRef why) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
     }
 
-    /** Returns where a run's steps and facts are written; the default writes nothing. */
+    /** Returns where the steps and facts of a run are written. */
     default RunRecorder recorder() {
         return RunRecorder.NONE;
     }

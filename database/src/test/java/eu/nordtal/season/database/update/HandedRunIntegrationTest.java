@@ -13,11 +13,7 @@ import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * A run handed to a one-shot steward-agent, against a real PostgreSQL running the real migrations.
- *
- * The row stays open while the one-shot runs and is the lock; tests skip without Docker.
- */
+/** A run given to a temporary steward-agent, against PostgreSQL and the real migrations. The open row is the lock. */
 class HandedRunIntegrationTest {
 
     private static final String ONE_SHOT = "nordtal-s2-steward-agent-run";
@@ -25,11 +21,7 @@ class HandedRunIntegrationTest {
     private final UpdateDirectory updates =
             UpdateDirectory.using(TestDatabase.fresh().dataSource());
 
-    /**
-     * Checks that a run survives the agent's start while its one-shot runs, and not once the one-shot is gone.
-     *
-     * The agent the one-shot makes last starts while the row is still open; failing it would end the lock too early.
-     */
+    /** Checks that a run survives the start of the agent while its temporary container runs. */
     @Test
     void aRunHandedToAOneShotThatStillRunsIsNoOrphan() {
         final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);

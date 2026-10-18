@@ -22,10 +22,9 @@ import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
-/** The only implementation of {@link UpdateDirectory}; it borrows the pool and owns nothing. */
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
-    /** The unique index that keeps a second run from being asked for while one is open. */
+    /** The unique index that allows one open run. */
     private static final String ONE_OPEN = "steward_inbox_one_open";
 
     private final UpdateDao dao;
@@ -41,7 +40,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     /**
      * Writes a request only when no other run is open and none of its services is held.
-     * The database refuses a second open run by its unique index; holds only change while a run is open.
+     * The unique index refuses a second open run. Holds change only while a run is open.
      */
     @Override
     public UpdateRequest submit(final StewardRequest request, final Actor actor, final @Nullable Duration delay) {
@@ -57,7 +56,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                 throw new Refused(UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(List.copyOf(held)));
             }
         }
-        // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
+        // A negative delay means now.
         final Duration wait = delay == null || delay.isNegative() ? Duration.ZERO : delay;
         try {
             return named(inbox.submit(request, actor, Schedule.after(wait)));
@@ -88,7 +87,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         return recorded;
     }
 
-    /** Returns the run with the services its request names written beside it. */
     private UpdateRequest named(final Request<StewardRequest> request) {
         recorder.named(request.id(), request.payload().services());
         return run(request);
@@ -98,15 +96,14 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         UpdateReports.parse(result).ifPresent(report -> recorder.stage(id, report.stage()));
     }
 
-    /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
     private UpdateRequest run(final Request<StewardRequest> request) {
         return dao.find(request.id()).orElseThrow(() -> new IllegalStateException("run " + request.id() + " is gone"));
     }
 
     /**
-     * Returns the answer a run's outcome stores, which is always its report.
+     * Returns the answer that the outcome of a run stores, which is its report.
      *
-     * @throws IllegalArgumentException for a bare sentence, which no reader could tell in another language
+     * @throws IllegalArgumentException for a bare sentence, which no reader could translate
      */
     private static JsonElement answer(final String result) {
         final JsonElement report;
@@ -141,7 +138,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         dao.release(service);
     }
 
-    /** Returns the services with blanks and repeats dropped; empty is the whole network. */
     @Override
     public Optional<StewardRequest> requestOf(final long id) {
         return inbox.find(id).map(Request::payload);
@@ -181,7 +177,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                 .findFirst();
     }
 
-    /** Returns whether this row's report proves a file was saved; an unreadable report counts as no. */
+    /** Returns whether the report of this row proves that a file was saved. An unreadable report counts as no. */
     private static boolean saved(final UpdateRequest request) {
         return UpdateReports.parse(request.result())
                 .filter(report -> report.stage() == UpdateReport.Stage.DONE)
@@ -301,7 +297,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         return recorder;
     }
 
-    /** A failed report whose one note says why, which every reader of a run draws like any other. */
+    /** Returns a failed report with one note that says why. */
     private static UpdateReport failedFor(final MessageRef why) {
         return UpdateReport.at(UpdateReport.Stage.FAILED)
                 .withNote(UpdateReport.Note.failed(UpdateReport.Step.RUN, Objects.requireNonNull(why, "why")));

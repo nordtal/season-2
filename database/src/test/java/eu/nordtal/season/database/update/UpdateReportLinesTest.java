@@ -8,11 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests {@link UpdateReport#withoutLines}, which drops services a run deliberately left alone.
- *
- * A line promises the run did something to that service.
- */
+/** Tests {@link UpdateReport#withoutLines}, which drops the services a run leaves alone. */
 class UpdateReportLinesTest {
 
     private static final UpdateReport.Note HELD = UpdateReport.Note.skipped(

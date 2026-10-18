@@ -1,28 +1,26 @@
 package eu.nordtal.season.database.update;
 
 /**
- * Where an {@link UpdateRequest} has got to, stored as its inbox status.
- *
- * {@code PENDING -> RUNNING -> DONE | FAILED}, or {@code PENDING -> CANCELLED}; nothing goes back.
+ * The state of an {@link UpdateRequest}, stored as its inbox status.
+ * {@code PENDING -> RUNNING -> DONE | FAILED}, or {@code PENDING -> CANCELLED}. Nothing goes back.
  */
 public enum UpdateStatus {
 
     /** Written and waiting. */
     PENDING,
 
-    /** Claimed by steward; exactly one process holds it. */
+    /** Claimed by steward. Exactly one process holds it. */
     RUNNING,
 
-    /** Finished; {@code result} holds the report. */
+    /** Finished. {@code result} holds the report. */
     DONE,
 
-    /** Finished badly, with {@code result} saying how; also what a starting steward marks leftover running rows. */
+    /** Failed, with {@code result} saying how. A starting steward also marks leftover running rows with it. */
     FAILED,
 
-    /** Withdrawn before it ran; only reachable from {@link #PENDING}. */
+    /** Withdrawn before it ran. Only {@link #PENDING} reaches it. */
     CANCELLED;
 
-    /** Returns whether nothing more will happen to this row. */
     public boolean isFinished() {
         return this == DONE || this == FAILED || this == CANCELLED;
     }
@@ -30,8 +28,8 @@ public enum UpdateStatus {
     /**
      * Reads a value out of the database.
      *
-     * @param value the column, may be {@code null}
-     * @return the status, or {@link #FAILED} for anything this build does not recognise
+     * @param value the column, may be null
+     * @return the status, or {@link #FAILED} for a value this build does not recognise
      */
     public static UpdateStatus fromDatabase(final String value) {
         if (value == null) {

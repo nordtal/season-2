@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-/** The start-up install is written as a run already settled, against a real PostgreSQL; skips without Docker. */
+/** The install at start-up is written as a settled run, against PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class StartUpInstallIntegrationTest {
 

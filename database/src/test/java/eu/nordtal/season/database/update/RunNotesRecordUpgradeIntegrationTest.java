@@ -9,10 +9,7 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds what making a run's notes records does to the reports an installation already wrote.
- * Each note gets its step, outcome and service, one per service it named, in its order, and still reads.
- */
+/** Holds that reports written before notes became records keep their words. */
 class RunNotesRecordUpgradeIntegrationTest {
 
     private static String text(final String value) {
@@ -62,7 +59,7 @@ class RunNotesRecordUpgradeIntegrationTest {
                 "a stop that fails the run is a failure, and each server keeps its own player count");
     }
 
-    /** An update that went well, with a list of standbys, a size and words. */
+    /** A successful update with a list of standbys, a size and words. */
     private static long anUpdate(final Jdbi jdbi) {
         return settled(jdbi, "DONE", """
                 [{"key": "report.standbys-ready", "args": {"run": {"kind": "choice", "value": "install"},
@@ -75,7 +72,7 @@ class RunNotesRecordUpgradeIntegrationTest {
                         list(text("limbo-standby"), text("proxy-standby")), text("limbo-standby"), text("as said")));
     }
 
-    /** A refused update, with a standby named inside a message and a failed run's words. */
+    /** A refused update with a standby named inside a message and the words of a failed run. */
     private static long aRefusal(final Jdbi jdbi) {
         return settled(jdbi, "FAILED", """
                 [{"key": "report.no-standby", "args": {"run": {"kind": "choice", "value": "install"}}},
@@ -90,7 +87,7 @@ class RunNotesRecordUpgradeIntegrationTest {
                                   "args": {}}}}}}""".formatted(text("limbo-standby"))), list(text("steward")), text("as said")));
     }
 
-    /** A backup with an unverified stop that failed it and a player count per server. */
+    /** A backup with an unverified stop that failed it, and a player count per server. */
     private static long aBackup(final Jdbi jdbi) {
         return settled(jdbi, "FAILED", """
                 [{"key": "report.unverified-stop", "args": {"services": %s,

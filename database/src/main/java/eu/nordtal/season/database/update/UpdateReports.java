@@ -12,13 +12,12 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link UpdateReport} to and from the JSON in the run's outcome, through the codec that types its messages.
- *
+ * Converts {@link UpdateReport} to and from the JSON in the outcome of a run, with the codec of its messages.
  * {@link #parse} answers empty for an unreadable row, and every caller falls back to the raw text.
  */
 public final class UpdateReports {
 
-    /** The report's own shape with every message in English, and what each line says, for a terminal. */
+    /** The shape of the report with every message in English, for a terminal. */
     private static final Gson ENGLISH = Json.gson()
             .newBuilder()
             .registerTypeHierarchyAdapter(MessageRef.class, (JsonSerializer<MessageRef>)
@@ -49,8 +48,8 @@ public final class UpdateReports {
     /**
      * Parses the {@code result} column into a report.
      *
-     * @param json the {@code result} column, which may be {@code null}, empty, or plain text
-     * @return the report, or empty when this is not one
+     * @param json the column, which may be null, empty or plain text
+     * @return the report, or empty if the text is none
      */
     public static Optional<UpdateReport> parse(final @Nullable String json) {
         if (json == null || json.isBlank() || json.charAt(0) != '{') {
@@ -63,7 +62,7 @@ public final class UpdateReports {
         }
     }
 
-    /** The stored report as JSON with its messages in English; text that is no report comes back as it was. */
+    /** Returns the stored report as JSON with English messages, and other text unchanged. */
     public static String english(final String stored) {
         return parse(stored).map(ENGLISH::toJson).orElse(stored);
     }

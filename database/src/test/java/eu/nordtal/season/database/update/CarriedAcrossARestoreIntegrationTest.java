@@ -13,7 +13,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** A database restore replaces the inbox with the dump's; the run carrying it out is carried across. */
+/** A database restore replaces the inbox with the one in the dump, and the run that does it survives. */
 class CarriedAcrossARestoreIntegrationTest {
 
     private DataSource dataSource;
@@ -35,7 +35,7 @@ class CarriedAcrossARestoreIntegrationTest {
         assertTrue(updates.claimNext().isPresent());
         final String carried = updates.carry(restore.id()).orElseThrow();
 
-        // What the dump holds: the backup that was running when it was taken, and no sign of this run.
+        // What the dump holds: the backup that was running when it was taken and no sign of this run.
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("DELETE FROM steward_inbox WHERE id = " + restore.id());

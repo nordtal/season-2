@@ -7,38 +7,34 @@ import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The {@link RunRecorder} over the database and the only writer of a run's rows; it borrows the pool.
- *
- * Until the schema has their tables it writes nothing, so a one-shot ahead of the database starts at its migration.
- */
+/** Implements {@link RunRecorder} over the database. It is the only writer of the rows of a run. */
 final class JdbiRunRecorder implements RunRecorder {
 
     private final RunStepDao dao;
     private final BooleanSupplier current;
 
-    /** @param current whether the database is at the schema this code was built for */
+    /** @param current whether the database has the schema that this code was built for */
     JdbiRunRecorder(final DataSource dataSource, final BooleanSupplier current) {
         this.dao = Jdbis.over(dataSource).onDemand(RunStepDao.class);
         this.current = current;
     }
 
-    /** Writes the stage of the report on the run's row, which a reader of the row needs no report for. */
+    /** Writes the stage of the report on the row of the run. */
     void stage(final long run, final UpdateReport.Stage stage) {
         when(() -> dao.stage(run, stage.name()));
     }
 
-    /** Marks every run settled as failed by a statement that wrote no stage. */
+    /** Sets the stage of every failed run to {@code FAILED}. */
     void failedStages() {
         when(dao::failedStages);
     }
 
-    /** The services a request names, none of them moving yet. */
+    /** Writes the services that a request names as not moving. */
     void named(final long run, final List<String> services) {
         when(() -> dao.named(run, services.toArray(String[]::new)));
     }
 
-    /** Marks the services a run stops as moving. */
+    /** Marks the services that a run stops as moving. */
     void moving(final long run, final Collection<String> services) {
         when(() -> dao.moving(run, services.toArray(String[]::new)));
     }

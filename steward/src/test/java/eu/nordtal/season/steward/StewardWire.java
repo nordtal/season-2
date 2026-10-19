@@ -106,7 +106,7 @@ public final class StewardWire {
             StackApi.RestoreAsked.class,
             PluginsForward.RemovalAsked.class,
             AgentWire.PluginFiles.class,
-            AgentWire.PluginFileDocument.class,
+            PluginsForward.PluginFileView.class,
             AgentWire.PluginFileSaved.class,
             PluginsForward.PluginFileEdit.class,
             SettingsDocument.Location.class,

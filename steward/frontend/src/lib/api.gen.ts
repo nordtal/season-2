@@ -371,10 +371,11 @@ export type PluginFiles = {
   files: PluginFile[]
 }
 
-export type PluginFileDocument = {
+export type PluginFileView = {
   file: PluginFile
   text: string
   revision: string
+  entries?: ConfigEntry[]
 }
 
 export type PluginFileSaved = {
@@ -384,8 +385,9 @@ export type PluginFileSaved = {
 }
 
 export type PluginFileEdit = {
-  text: string
+  text?: string
   revision: string
+  changes?: Record<string, unknown>
 }
 
 export type ConfigLocation = {

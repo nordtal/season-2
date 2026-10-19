@@ -45,7 +45,8 @@ export function useServiceTabs(name: string): Tab[] | undefined {
   const service = useService(name)
   const configs = useConfigs()
   if (service.isPending || configs.isPending) return undefined
-  const settings = configs.isError || (configs.data ?? []).some((file) => file.service === name)
+  const settings =
+    configs.isError || service.data?.hasPlugins === true || (configs.data ?? []).some((file) => file.service === name)
   return [
     "console",
     ...(settings ? (["settings"] as const) : []),

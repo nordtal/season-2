@@ -1944,6 +1944,9 @@ export type TextArgs = {
   "steward.settings.env-override": Record<string, never>
   "steward.settings.env-override-tip": Record<string, never>
   "steward.settings.every-tag": Record<string, never>
+  "steward.settings.file-saved": {
+    file: Arg["text"]
+  }
   "steward.settings.files": Record<string, never>
   "steward.settings.filters": Record<string, never>
   "steward.settings.free-text": Record<string, never>

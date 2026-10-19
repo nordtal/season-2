@@ -30,7 +30,7 @@ testcontainers = "1.21.4"
 jimfs = "1.3.2"
 # :common's tests parse the font files with it. Paper's version, never shaded.
 gson = "2.14.0"
-# Tests read compose.yml with it. Paper's version, never shaded.
+# Tests read compose.yml with it, and Steward reads and edits plugin config files. Paper's version.
 snakeyaml = "2.7"
 # The web layer of steward and steward-agent; its JSON mapper is gson, as in :spec.
 javalin = "7.2.3"

@@ -1,4 +1,4 @@
-import { ClockCounterClockwiseIcon } from "@phosphor-icons/react"
+import { ClockCounterClockwiseIcon, GearSixIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/command"
 import { useNavigation } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
-import type { ConfigLocation, MessageText, Run } from "@/lib/api"
+import type { ConfigLocation, MessageText, PluginFile, Run, Service } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
 import { dateTime } from "@/lib/format"
-import { useConfigDocuments, useConfigs, useMessageTexts, useRuns } from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useMessageTexts, usePluginFilesOf, useRuns, useServices } from "@/lib/queries"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   entryHaystack,
@@ -31,7 +31,7 @@ import {
   setPendingTextJump,
 } from "@/lib/settings-search"
 import { NETWORK } from "@/components/steward/settings"
-import { messageName, textId } from "@/lib/settings-tree"
+import { messageName, pluginFileId, pluginLabel, textId } from "@/lib/settings-tree"
 import { shownOf } from "@/lib/message-text"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
@@ -42,6 +42,12 @@ const MAX_SETTINGS_HITS = 30
 
 const NO_CONFIGS: ConfigLocation[] = []
 const NO_TEXTS: MessageText[] = []
+const NO_SERVICES: Service[] = []
+
+/** A plugin file is found by its plugin's name and its path, and by its service after them. */
+function pluginFileValue(file: PluginFile): string {
+  return searchValue(`${pluginLabel(file)} ${file.path}`, file.service)
+}
 
 /**
  * Returns the search text of a run. It uses `dateTime`, because a `relative` time changes between renders.
@@ -78,14 +84,33 @@ export function CommandPalette() {
   const textsQuery = useMessageTexts(open && search.trim().length > 0)
   const texts = textsQuery.data?.texts ?? NO_TEXTS
 
+  const services = useServices(open && search.trim().length > 0).data?.services ?? NO_SERVICES
+  const withPlugins = React.useMemo(
+    () => services.filter((service) => service.hasPlugins).map((service) => service.service),
+    [services],
+  )
+  const pluginFiles = usePluginFilesOf(withPlugins, open && search.trim().length > 0)
+
   const reading =
-    open && search.trim().length > 0 && (documents.some((query) => query.isPending) || textsQuery.isPending)
+    open &&
+    search.trim().length > 0 &&
+    (documents.some((query) => query.isPending) || textsQuery.isPending || pluginFiles.some((query) => query.isPending))
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
     const configPairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
     return rankHits(searchSettingsAndMessages(configPairs, texts, search), search)
   }, [locations, documents, texts, search])
+
+  const pluginHits = React.useMemo(
+    () =>
+      search.trim()
+        ? pluginFiles
+            .flatMap((query) => query.data?.files ?? [])
+            .filter((file) => file.readable && rankValue(pluginFileValue(file), search) > 0)
+        : [],
+    [pluginFiles, search],
+  )
 
   /** The key listener is registered once, so it reads `open` through a ref. */
   const openRef = React.useRef(open)
@@ -190,7 +215,7 @@ export function CommandPalette() {
           </>
         ) : null}
         {/* These are plain divs outside any group, because cmdk filters out a placeholder `CommandItem`. */}
-        {reading && settingsHits.length === 0 ? (
+        {reading && settingsHits.length === 0 && pluginHits.length === 0 ? (
           <>
             <CommandSeparator />
             <div className="p-1">
@@ -204,11 +229,31 @@ export function CommandPalette() {
             </div>
           </>
         ) : null}
-        {settingsHits.length > 0 ? (
+        {settingsHits.length > 0 || pluginHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/* Settings hits and text hits share one group. */}
+            {/* Settings hits, plugin files and text hits share one group. */}
             <CommandGroup heading={t("steward.shell.settings")}>
+              {pluginHits.slice(0, MAX_SETTINGS_HITS).map((file) => (
+                <CommandItem
+                  key={`plugin-file-${file.service}-${pluginFileId(file)}`}
+                  value={`plugin-file-${file.service}-${pluginFileId(file)}`}
+                  keywords={[pluginFileValue(file)]}
+                  onSelect={() => {
+                    setOpen(false)
+                    void navigate({
+                      to: "/services/$name",
+                      params: { name: file.service },
+                      search: { tab: "settings", file: pluginFileId(file) },
+                    })
+                  }}
+                  className="min-h-control gap-2.5"
+                >
+                  <GearSixIcon aria-hidden className="text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{pluginLabel(file)}</span>
+                  <HitDetail where={file.service} text={file.path} />
+                </CommandItem>
+              ))}
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 if (hit.kind === "config") {
                   const service = hit.location.service || "steward"

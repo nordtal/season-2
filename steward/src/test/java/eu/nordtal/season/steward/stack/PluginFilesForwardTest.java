@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -173,6 +174,34 @@ class PluginFilesForwardTest {
         final JsonObject document =
                 JsonParser.parseString(send("GET", FILE, null).body()).getAsJsonObject();
         assertEquals("use-mysql: false\n", document.get("text").getAsString());
+        assertEquals(
+                "use-mysql",
+                document.getAsJsonArray("entries")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("path")
+                        .getAsString());
+    }
+
+    @Test
+    void theFormsChangesAreWrittenIntoTheTextOnDisk() throws Exception {
+        Files.writeString(config, "# kept\nuse-mysql: false # kept\n");
+        final String body = "{\"changes\":{\"use-mysql\":\"true\"},\"revision\":\""
+                + Sha256.hex("# kept\nuse-mysql: false # kept\n") + "\"}";
+
+        final HttpResponse<String> saved = send("PUT", FILE, body);
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals("# kept\nuse-mysql: true # kept\n", Files.readString(config));
+    }
+
+    @Test
+    void theFormsChangesAgainstAnOlderRevisionAreA409() throws Exception {
+        final HttpResponse<String> refused = send(
+                "PUT", FILE, "{\"changes\":{\"use-mysql\":\"true\"},\"revision\":\"" + Sha256.hex("older") + "\"}");
+
+        assertEquals(409, refused.statusCode());
+        assertEquals("use-mysql: false\n", Files.readString(config));
     }
 
     @Test
@@ -183,10 +212,13 @@ class PluginFilesForwardTest {
         final HttpResponse<String> saved = send("PUT", FILE, body);
 
         assertEquals(200, saved.statusCode(), saved.body());
-        assertTrue(JsonParser.parseString(saved.body())
-                .getAsJsonObject()
-                .get("restartRequired")
-                .getAsBoolean());
+        assertEquals(
+                "RESTART_REQUIRED",
+                JsonParser.parseString(saved.body())
+                        .getAsJsonObject()
+                        .getAsJsonObject("reload")
+                        .get("status")
+                        .getAsString());
         assertEquals("use-mysql: true\n", Files.readString(config));
         assertEquals(1, journal.size());
         assertEquals(JournalAction.SAVE_SETTINGS, journal.getFirst().action());
@@ -201,6 +233,7 @@ class PluginFilesForwardTest {
                 send("PUT", FILE, "{\"text\":\"use-mysql: true\\n\",\"revision\":\"" + Sha256.hex("older") + "\"}");
 
         assertEquals(409, refused.statusCode());
+        assertFalse(JsonParser.parseString(refused.body()).getAsJsonObject().has("where"), refused.body());
         assertEquals("use-mysql: false\n", Files.readString(config));
         assertTrue(journal.isEmpty());
     }

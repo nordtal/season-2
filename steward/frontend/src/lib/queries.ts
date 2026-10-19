@@ -47,6 +47,7 @@ import { live, RECONCILE, type Topic } from "@/lib/live"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
+import { retryUnless404 } from "@/lib/queries-settings"
 
 /** One hook per endpoint. A hook's live topics are decided here and not at the call site. */
 
@@ -471,8 +472,7 @@ export function usePlugins(service: string) {
     queryKey: keys.plugins(service),
     queryFn: () => api<ServicePlugins>(`/api/services/${encodeURIComponent(service)}/plugins`),
     ...live("RUNS"),
-    /** A 404 means no plugins folder. Every other failure gets one retry. */
-    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
+    retry: retryUnless404,
   })
 }
 

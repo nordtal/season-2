@@ -1,9 +1,9 @@
 import { useMemo } from "react"
+import type { UseMutationResult } from "@tanstack/react-query"
 
-import type { ConfigDocument } from "@/lib/api"
+import type { ConfigChanges, ConfigDocument, ReloadOutcome } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { useSaveConfig } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import { changed, type Draft } from "@/components/steward/configuration"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
@@ -35,12 +35,19 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
   return typeof value === "object" && value !== null && Object.values(value).every(isDraftValue)
 }
 
+/** A Nordtal group's save or a plugin file's: both take the form's changes and answer how they apply. */
+export type GroupSave = Pick<UseMutationResult, "isPending" | "error"> & {
+  mutate: (
+    edit: { revision: string; changes: ConfigChanges },
+    options: { onSuccess: (saved: { reload?: ReloadOutcome }) => void },
+  ) => void
+}
+
 /**
  * A value set back to the stored value leaves the draft, so the count is the number of changes a save makes.
  */
-export function useGroupDraft(file: string, document: ConfigDocument) {
+export function useGroupDraft(file: string, document: ConfigDocument, save: GroupSave) {
   const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
-  const save = useSaveConfig(document.path)
   const byPath = useMemo(() => new Map(document.entries.map((entry) => [entry.path, entry])), [document.entries])
   const changes = useMemo(() => changed(document, draft), [document, draft])
   const count = Object.keys(changes).length

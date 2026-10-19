@@ -21,6 +21,9 @@ import {
   type MessageFallback,
   type MessageProblem,
   type PluginDescriptor,
+  type PluginFiles,
+  type PluginFileSaved,
+  type PluginFileView,
   type GameData,
 } from "@/lib/api"
 import { live } from "@/lib/live"
@@ -65,6 +68,64 @@ export function useSaveConfig(file: string) {
       /** A 409 means that the cached copy is stale, so the group is read again. */
       if (failure instanceof ApiError && failure.status === 409) {
         void client.invalidateQueries({ queryKey: keys.config(file) })
+      }
+    },
+  })
+}
+
+function pluginFilesPath(service: string): string {
+  return `/api/services/${encodeURIComponent(service)}/plugin-files`
+}
+
+function pluginFilePath(service: string, plugin: string, path: string): string {
+  const query = new URLSearchParams({ plugin, path })
+  return `/api/services/${encodeURIComponent(service)}/plugin-file?${query}`
+}
+
+/** A 404 means no plugins folder. Every other failure gets one retry. */
+export function retryUnless404(count: number, error: Error): boolean {
+  return !(error instanceof ApiError && error.status === 404) && count < 1
+}
+
+export function usePluginFiles(service: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.pluginFiles(service),
+    queryFn: () => api<PluginFiles>(pluginFilesPath(service)),
+    ...live("RUNS"),
+    retry: retryUnless404,
+    enabled,
+  })
+}
+
+export function usePluginFilesOf(services: string[], enabled: boolean) {
+  return useQueries({
+    queries: services.map((service) => ({
+      queryKey: keys.pluginFiles(service),
+      queryFn: () => api<PluginFiles>(pluginFilesPath(service)),
+      staleTime: 5 * 60 * SECOND,
+      retry: retryUnless404,
+      enabled,
+    })),
+  })
+}
+
+export function usePluginFile(service: string, plugin: string, path: string) {
+  return useQuery({
+    queryKey: keys.pluginFile(service, plugin, path),
+    queryFn: () => api<PluginFileView>(pluginFilePath(service, plugin, path)),
+  })
+}
+
+/** The whole text or the form's changes. A save against an older revision is answered with 409 and does not overwrite. */
+export function useSavePluginFile(service: string, plugin: string, path: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (edit: { revision: string; changes?: ConfigChanges; text?: string }) =>
+      api<PluginFileSaved>(pluginFilePath(service, plugin, path), { method: "PUT", body: edit }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: keys.pluginFiles(service) }),
+    onError: (failure) => {
+      if (failure instanceof ApiError && failure.status === 409) {
+        void client.invalidateQueries({ queryKey: keys.pluginFile(service, plugin, path) })
       }
     },
   })

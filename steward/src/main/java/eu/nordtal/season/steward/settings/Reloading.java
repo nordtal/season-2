@@ -18,7 +18,7 @@ public record Reloading(Status status, MessageRef message) {
         return new Reloading(Status.APPLIED, message);
     }
 
-    static Reloading restartRequired(final MessageRef message) {
+    public static Reloading restartRequired(final MessageRef message) {
         return new Reloading(Status.RESTART_REQUIRED, message);
     }
 }

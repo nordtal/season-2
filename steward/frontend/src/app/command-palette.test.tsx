@@ -3,10 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import { useConfigDocuments, useConfigs, useMessageTexts, useRuns, useTopology } from "@/lib/queries"
+import {
+  useConfigDocuments,
+  useConfigs,
+  useMessageTexts,
+  usePluginFilesOf,
+  useRuns,
+  useServices,
+  useTopology,
+} from "@/lib/queries"
 import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
 import { takePendingJump, takePendingTextJump } from "@/lib/settings-search"
-import type { ConfigEntry, ConfigLocation, MessageEntry, MessageTexts, ConfigDocument, Run } from "@/lib/api"
+import type {
+  ConfigEntry,
+  ConfigLocation,
+  MessageEntry,
+  MessageTexts,
+  ConfigDocument,
+  PluginFile,
+  Run,
+  ServiceTable,
+} from "@/lib/api"
 
 const navigateSpy = vi.fn<(options: Record<string, unknown>) => void>()
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
@@ -17,6 +34,8 @@ vi.mock("@/lib/queries", () => ({
   useConfigDocuments: vi.fn<typeof useConfigDocuments>(),
   useMessageTexts: vi.fn<typeof useMessageTexts>(),
   useTopology: vi.fn<typeof useTopology>(),
+  useServices: vi.fn<typeof useServices>(),
+  usePluginFilesOf: vi.fn<typeof usePluginFilesOf>(),
 }))
 
 beforeEach(() => {
@@ -25,6 +44,8 @@ beforeEach(() => {
   vi.mocked(useConfigDocuments).mockReturnValue([])
   oneBundle([])
   vi.mocked(useTopology).mockReturnValue(queryResult(NETWORK_MAP))
+  vi.mocked(useServices).mockReturnValue(queryResult(services([])))
+  vi.mocked(usePluginFilesOf).mockReturnValue([])
 })
 
 afterEach(() => {
@@ -36,6 +57,8 @@ afterEach(() => {
   vi.mocked(useConfigDocuments).mockReset()
   vi.mocked(useMessageTexts).mockReset()
   vi.mocked(useTopology).mockReset()
+  vi.mocked(useServices).mockReset()
+  vi.mocked(usePluginFilesOf).mockReset()
 })
 
 const searchInput = () => screen.queryByPlaceholderText("Search pages, runs, settings…")
@@ -74,6 +97,10 @@ async function search(query: string) {
   const input = await waitFor(() => nonNull(searchInput(), "the search input"))
   fireEvent.change(input, { target: { value: query } })
   return input
+}
+
+function services(rows: ServiceTable["services"]): ServiceTable {
+  return { services: rows, drift: { checkedAt: "2026-10-19T00:00:00Z", reached: true, unverifiable: [] } }
 }
 
 function configLocation(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
@@ -415,6 +442,46 @@ describe("CommandPalette - finding a setting", () => {
     expect(takePendingJump("steward")).toEqual({
       file: "steward/steward",
       path: "agent.base-url",
+    })
+  })
+})
+
+describe("CommandPalette - finding a plugin's file", () => {
+  const luckPerms: PluginFile = {
+    service: "smp",
+    plugin: "LuckPerms",
+    name: "LuckPerms",
+    path: "yaml-storage/groups/default.yml",
+    size: 10,
+    readable: true,
+    writable: true,
+  }
+
+  it("finds it by its plugin's name and opens it on the service's settings tab", async () => {
+    vi.mocked(useServices).mockReturnValue(
+      queryResult(
+        services([
+          {
+            service: "smp",
+            containerId: "c",
+            state: "running",
+            hasConsole: true,
+            drift: "UP_TO_DATE",
+            hasPlugins: true,
+          },
+        ]),
+      ),
+    )
+    vi.mocked(usePluginFilesOf).mockReturnValue([queryResult({ service: "smp", mounted: true, files: [luckPerms] })])
+
+    await search("luckperms")
+    fireEvent.click(await screen.findByText("LuckPerms"))
+
+    expect(vi.mocked(usePluginFilesOf)).toHaveBeenCalledWith(["smp"], true)
+    expect(navigateSpy).toHaveBeenCalledWith({
+      to: "/services/$name",
+      params: { name: "smp" },
+      search: { tab: "settings", file: "plugin:LuckPerms/yaml-storage/groups/default.yml" },
     })
   })
 })

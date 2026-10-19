@@ -270,6 +270,8 @@ dependencies {
 
     // The settings forms read Spec, whose values are read and written through Gson.
     implementation(libs.gson)
+    // A plugin's YAML or JSON file becomes a form, and a save rewrites only the values it changed.
+    implementation(libs.snakeyaml)
     implementation(libs.bundles.access.persistence)
     runtimeOnly(libs.postgresql.driver)
 

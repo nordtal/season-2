@@ -9,6 +9,7 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.internalapi.agent.AgentClient;
+import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.steward.alert.Thresholds;
@@ -21,6 +22,7 @@ import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
+import eu.nordtal.season.stewardagent.plan.PluginFiles;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
@@ -86,7 +88,8 @@ public final class StewardPreview {
         try (Database database = Database.open(asSteward(postgres), "steward-preview");
                 ProcessScheduler scheduler = new ProcessScheduler(
                         "steward-preview", failure -> System.err.println("A task failed: " + failure));
-                AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {}, servicesOf(options.jars()));
+                AgentStandIn agent = new AgentStandIn(
+                        scratch, 0, cfg -> pluginFiles(cfg, scratch.resolve("volumes")), servicesOf(options.jars()));
                 StandInDiscord discord = new StandInDiscord()) {
             furnish(agent);
             final Path jars = options.jars();
@@ -147,6 +150,96 @@ public final class StewardPreview {
                 agent.configs.resolve("smp/smp.jar"),
                 "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}",
                 java.util.Map.of());
+        final Path plugins = agent.volumes.resolve("smp/plugins");
+        write(plugins.resolve("CoreProtect/config.yml"), """
+                # CoreProtect Config
+
+                # If enabled, CoreProtect stores its data in MySQL instead of SQLite.
+                use-mysql: false
+                # The prefix of every table CoreProtect creates.
+                table-prefix: co_
+                # How many days the data is kept. 0 keeps it forever.
+                rollback-days: 30
+                worlds-ignored: [world_the_end]
+                """);
+        write(plugins.resolve("LuckPerms/config.yml"), """
+                # The name of this server, used in contexts.
+                server: smp
+                storage-method: h2
+                data:
+                  # The address of the database server.
+                  address: localhost
+                  pool-settings:
+                    maximum-pool-size: 10
+                    minimum-idle: 10
+                """);
+        write(
+                plugins.resolve("LuckPerms/contexts.json"),
+                "{\n  \"static-contexts\": {},\n  \"default-contexts\": {}\n}\n");
+        write(plugins.resolve("LuckPerms/yaml-storage/groups/default.yml"), """
+                name: default
+                permissions:
+                - luckperms.user.info:
+                    value: true
+                """);
+        write(plugins.resolve("LuckPerms/yaml-storage/groups/admin.yml"), "name: admin\nweight: 100\n");
+        write(plugins.resolve("Chunky/config.yml"), """
+                version: 2
+                continue-on-restart: false
+                silent: false
+                update-interval: 1
+                """);
+        write(plugins.resolve("bStats/config.yml"), """
+                # bStats collects some basic information for plugin authors.
+                enabled: true
+                serverUuid: 6a9b1c3e-0000-4000-8000-000000000000
+                logFailedRequests: false
+                """);
+        write(plugins.resolve("bStats/notes.txt"), "Opened as text: no form for a .txt file.\n");
+    }
+
+    private static void write(final Path file, final String text) throws IOException {
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, text);
+    }
+
+    /** The third-party plugins on smp whose files the settings tab lists: a single file, a tree, no icon, no jar. */
+    private static final List<AgentWire.Plugin> PLUGINS = List.of(
+            plugin(
+                    "CoreProtect",
+                    "https://cdn.modrinth.com/data/Lu3KuzdV/b2c4b7b0033ab09cc166f2848003ef3a02c70a83.png"),
+            plugin(
+                    "LuckPerms",
+                    "https://cdn.modrinth.com/data/Vebnzrzj/90943902cc650e95b167265b8f2d7c893f82c8f4_96.webp"),
+            plugin("Chunky", null));
+
+    private static AgentWire.Plugin plugin(final String name, final @org.jspecify.annotations.Nullable String icon) {
+        return new AgentWire.Plugin(
+                name,
+                AgentWire.PluginGroup.ADDED,
+                null,
+                true,
+                true,
+                null,
+                null,
+                "1.0.0",
+                null,
+                name,
+                null,
+                null,
+                null,
+                null,
+                icon,
+                null);
+    }
+
+    /** Serves the plugin files of {@code volumes}, the stand-in's own, which {@link #furnish} fills. */
+    private static void pluginFiles(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
+        final PluginFiles files =
+                new PluginFiles(service -> new AgentWire.Plugins(service, "paper", "1.21.10", true, PLUGINS), volumes);
+        cfg.routes.get(AgentWire.PLUGIN_FILES, files::list);
+        cfg.routes.get(AgentWire.PLUGIN_FILE, files::read);
+        cfg.routes.post(AgentWire.PLUGIN_FILE, files::save);
     }
 
     /** {@link #RESTING}, and each service of {@code jars} that the compose.yml of the stand-in does not name yet. */

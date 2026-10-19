@@ -19,6 +19,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.texts.WebTexts;
 import eu.nordtal.season.stewardagent.AgentStandIn;
@@ -35,6 +36,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -462,6 +464,24 @@ class DocumentsApiIntegrationTest {
                                 Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}"))),
                         "de"),
                 previewed);
+    }
+
+    @Test
+    void aGameDraftIsPreviewedWhereItsShapeIsShown() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", Json.tree("""
+                {"namespace":"smp","name":"tab-footer","area":"Tab list","shape":"TAB_LIST",
+                  "values":{"online":{"kind":"text","example":"3"}},"slots":[]}"""));
+        draft.add("document", Json.tree("""
+                {"parts":[{"type":"TEXT","lines":[{"text":{"en":"{online} here"}}]}]}"""));
+        draft.addProperty("language", "en");
+
+        send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
+
+        assertEquals(Display.TAB_LIST, previewed.shown());
+        assertEquals(
+                "tab-footer",
+                Objects.requireNonNull(previewed.document()).declaration().name());
     }
 
     @Test

@@ -123,8 +123,9 @@ export function DocumentEditor({
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
   const name = documentName(view.declaration)
-  // A member receives only a message or a plain text; a modal, a channel's name and a game text are no direct message.
-  const sendable = view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
+  // A modal and a channel's name are no direct message; a game text goes to the admin's player.
+  const sendable = view.game || view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
+  const sendLabel = view.game ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
   const send = useSendDraft(view)
 
   // A restore is a save of the version's document, or of none for the packaged one.
@@ -194,8 +195,8 @@ export function DocumentEditor({
               type="button"
               variant="outline"
               size="icon"
-              aria-label={t("steward.message-editor.send-in-discord")}
-              title={t("steward.message-editor.send-in-discord")}
+              aria-label={sendLabel}
+              title={sendLabel}
               disabled={refused || send.busy}
               onClick={() => send.send(draft, language)}
             >
@@ -220,7 +221,7 @@ export function DocumentEditor({
   )
 }
 
-/** Sends the draft as it stands to the admin alone, as the bot's direct message. */
+/** Sends the draft as it stands to the admin alone: the bot's direct message, or their player in game. */
 function useSendDraft(view: DocumentView) {
   const action = useGameAction()
   const [id, setId] = useState<string | null>(null)

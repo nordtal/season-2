@@ -20,7 +20,7 @@ public final class TabList {
     /** The players online and the network's limit, which a counting footer shows. */
     public record Counted(long online, long max) {}
 
-    static final DocumentSpec<DocumentSpec.None> HEADER =
+    public static final DocumentSpec<DocumentSpec.None> HEADER =
             DocumentSpec.game("paper-common", "tab-header", "Tab list", DocumentSpec.Shape.TAB_LIST);
 
     private final MessageRenderer renderer;

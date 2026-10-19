@@ -22,7 +22,6 @@ import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Part;
-import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -211,14 +210,15 @@ public final class DocumentsApi {
     }
 
     /**
-     * {@code POST /api/document-preview} reads a {@link DocumentDraft} for the bot to send to the admin alone.
-     * It refuses a draft that no message holds, one a save would refuse and one the renderer cannot draw.
+     * {@code POST /api/document-preview} reads a {@link DocumentDraft} to show the admin alone.
+     * The bot sends a Discord one as a direct message, the game server the admin is on shows a game one. It refuses a
+     * draft that no message holds, one a save would refuse and one the renderer cannot draw.
      */
     public MessagePreview preview(final Context ctx) {
         final DocumentDraft draft = draftOf(ctx);
         final DocumentDeclaration declaration = draft.declaration();
         final DocumentSpec.Shape shape = declaration.shape();
-        if (shape != DocumentSpec.Shape.MESSAGE && shape != DocumentSpec.Shape.PLAIN) {
+        if (!shape.game() && shape != DocumentSpec.Shape.MESSAGE && shape != DocumentSpec.Shape.PLAIN) {
             throw new RequestRefused(400, ANSWER.draftNotMessage(declaration.id()));
         }
         final List<String> problems;
@@ -234,8 +234,15 @@ public final class DocumentsApi {
         final Documents.Packaged packaged = new Documents.Packaged(declaration, draft.document());
         final List<Locale> languages =
                 MessagesApi.languages(settings).stream().map(Locales::parse).toList();
+        final Locale language = Locales.parse(draft.language());
         try {
-            renderer(languages).documents().preview(packaged, languages, Locales.parse(draft.language()));
+            if (shape == DocumentSpec.Shape.MENU) {
+                menu(renderer(languages).game(), packaged, language);
+            } else if (shape.game()) {
+                text(renderer(languages).game(), packaged, language);
+            } else {
+                renderer(languages).documents().preview(packaged, languages, language);
+            }
         } catch (final RuntimeException undrawable) {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
@@ -259,33 +266,21 @@ public final class DocumentsApi {
     /** Draws a menu with the game's renderer, every value, entry and data list item at its declared example. */
     private static MenuDrawing menu(
             final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
-        final DocumentDeclaration declaration = packaged.declaration();
-        final GameDocument document =
-                new GameDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
-        final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
-        for (final Slot slot : declaration.slots()) {
-            if (slot.type() == Slot.Type.LIST) {
-                lists.put(slot.id(), List.of(Value.examples(slot.values())));
-            }
-        }
+        final GameDocument document = GameDocument.example(renderer, packaged, Viewer.of(language));
         final List<MenuPart> parts = new ArrayList<>();
         for (final Part part : packaged.document().parts()) {
             final String slot = part.slot();
             if (slot == null) {
                 continue;
             }
-            final Map<String, Object> entry = declaration
-                    .slot(slot)
-                    .map(declared -> Value.examples(declared.values()))
-                    .orElse(Map.of());
             if (part.type() == Part.Type.ITEM) {
-                final GameDocument.Drawn drawn = document.itemOf(slot, entry, lists);
+                final GameDocument.Drawn drawn = document.exampleItem(slot);
                 final List<String> lines = new ArrayList<>();
                 lines.add(markup(drawn.name()));
                 drawn.lore().forEach(line -> lines.add(markup(line)));
                 parts.add(new MenuPart(slot, part.type(), lines));
             } else if (part.type() == Part.Type.LABEL) {
-                parts.add(new MenuPart(slot, part.type(), List.of(document.labelOf(slot, entry))));
+                parts.add(new MenuPart(slot, part.type(), List.of(document.exampleLabel(slot))));
             }
         }
         return new MenuDrawing(markup(document.title()), parts);
@@ -294,12 +289,9 @@ public final class DocumentsApi {
     /** Draws a game text's lines with the game's renderer, every value at its declared example. */
     private static List<String> text(
             final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
-        final GameDocument document = new GameDocument(
-                renderer,
-                packaged,
-                Viewer.of(language),
-                Value.examples(packaged.declaration().named()));
-        return document.lines().stream().map(DocumentsApi::markup).toList();
+        return GameDocument.example(renderer, packaged, Viewer.of(language)).lines().stream()
+                .map(DocumentsApi::markup)
+                .toList();
     }
 
     /**

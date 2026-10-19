@@ -206,9 +206,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
         renderer = MessageRenderer.of(
                         messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige))
                 .reading(documents);
-        previews = new Previews(getServer()::getPlayer, renderer);
+        previews = new Previews(
+                getServer()::getPlayer, renderer, PaperScheduler.of(this).mainThread());
         hud = new Hud(this, identities);
         listen(hud);
+        // Declared first, the drafted bar stands above the lines the plugin declares in enable().
+        hud.declare(previews::bossBar);
         menus = new Menus(chime());
         listen(menus);
 

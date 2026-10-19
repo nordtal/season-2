@@ -467,7 +467,7 @@ function TextBlock({
           key={index}
           line={line}
           context={context}
-          styled={!menu}
+          styled={!view.game}
           entry={entry}
           removable={(part.lines?.length ?? 0) > 1 && !(line.list && holdsRequired(view.declaration, [line.list]))}
           onLine={(next) => set((it) => withLine(it, index, next))}
@@ -494,7 +494,7 @@ function LineEditor({
 }: {
   line: DocumentLine
   context: Context
-  /** Whether the line offers a title or heading, which a menu's item or label does not draw. */
+  /** Whether the line offers a title or heading, which only Discord draws. */
   styled: boolean
   entry: Record<string, DocumentValue> | undefined
   removable: boolean
@@ -697,8 +697,15 @@ function AddPart({
 }) {
   const slots = inside ? [] : unplacedSlots(view.declaration, [])
   const missing = unplacedSlots(view.declaration, parts).filter((slot) => slots.some((each) => each.id === slot.id))
-  // A menu holds its title, then only the items and labels the code places.
-  const kinds = view.declaration.shape === "MENU" ? [] : inside ? ADDED.filter((type) => type !== "CONTAINER") : ADDED
+  // A menu holds its title, then only the items and labels the code places; any other game text holds text blocks.
+  const kinds =
+    view.declaration.shape === "MENU"
+      ? []
+      : view.game
+        ? (["TEXT"] as const)
+        : inside
+          ? ADDED.filter((type) => type !== "CONTAINER")
+          : ADDED
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>

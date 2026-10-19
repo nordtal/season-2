@@ -1,13 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  ArrowCounterClockwiseIcon,
-  CodeIcon,
-  EraserIcon,
-  EyeIcon,
-  MinusIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-} from "@phosphor-icons/react"
+import { useMemo, useRef, useState } from "react"
+import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 import { useDebounced } from "@/lib/use-debounced"
 
@@ -22,21 +14,19 @@ import {
   useMessageExamples,
   useMessageSyntax,
 } from "@/lib/queries"
-import { branchesOf, formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
+import { branchesOf, formatOf, parse, plainText } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
+import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestOutcome } from "@/components/steward/game-actions"
-import { ChoiceFields } from "@/components/steward/message-editor/cases"
 import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
-import { SourceEditor } from "@/components/steward/message-editor/source-editor"
-import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
+import { RichField } from "@/components/steward/message-editor/rich-field"
 import { LIT, UNSEEN, useLanding, type Highlight } from "@/components/steward/settings-view"
 
 /**
@@ -95,7 +85,6 @@ export function MessageEditor({
   const language = held ?? own
   const setLanguage = onLanguage ?? setOwn
   const [variant, setVariant] = useState(0)
-  const [source, setSource] = useState(false)
   const ref = useLanding(highlight)
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
@@ -128,10 +117,8 @@ export function MessageEditor({
   const write = (next: string[]) => onChange(language, next)
   const writeText = (value: string) => write(variants.length === 0 ? [value] : variants.with(at, value))
 
-  const [runs, setRuns] = useRuns(text, format, toneTags, stored[at] ?? "", writeText)
-  const readable = runs !== null
+  const runs = useMemo(() => parse(text, format, toneTags), [text, format, toneTags])
   const drawn = runs === null ? null : branchesOf(runs, format, toneTags, fill)
-  const visual = readable && !source
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(path, entry.key, checked)
@@ -153,7 +140,7 @@ export function MessageEditor({
     setVariant(0)
   }
 
-  const common = { format, args: entry.args, glyphs: glyphs.data ?? [], fill, tones, label, disabled: !writable }
+  const common = { format, args: entry.args, fill, tones, label, disabled: !writable }
 
   return (
     <div
@@ -172,73 +159,75 @@ export function MessageEditor({
           onTakeOver={() => onTakeOver(language, fallback.override)}
         />
       ) : null}
-      <InputGroup
-        className={cn(
-          "h-auto flex-col items-stretch",
-          problems.some((problem) => problem.error) && "border-destructive",
-        )}
-      >
-        {visual ? (
-          <VisualEditor key={`${language}/${at}`} {...common} runs={runs} onChange={setRuns} kinds={kinds} />
-        ) : (
-          <SourceEditor {...common} text={text} onChange={writeText} />
-        )}
-        <InputGroupAddon align="block-end" className="flex-wrap gap-1 border-t border-input pt-1.5 pb-1.5">
-          <Tabs value={language} onValueChange={pickLanguage}>
-            <TabsList className="group-data-horizontal/tabs:h-7 p-0.5">
-              {languages.map((tab) => (
-                <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
-                  {tab.toUpperCase()}
-                  {overridden(tab) ? (
-                    <span aria-label={t("steward.settings.overridden")} className="size-1 rounded-full bg-primary" />
-                  ) : null}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          {variants.length > 1 ? (
-            <Tabs value={String(at)} onValueChange={(next) => setVariant(Number(next))}>
-              <TabsList
-                aria-label={t("steward.message-editor.variant")}
-                className="group-data-horizontal/tabs:h-7 p-0.5"
-              >
-                {variants.map((_, index) => (
-                  <TabsTrigger key={index} value={String(index)} className="px-2 text-xs tabular-nums">
-                    {index + 1}
+      <RichField
+        text={text}
+        stored={stored[at] ?? ""}
+        onText={writeText}
+        {...common}
+        kinds={kinds}
+        language={language}
+        revision={`${language}/${at}`}
+        invalid={problems.some((problem) => problem.error)}
+        start={
+          <>
+            <Tabs value={language} onValueChange={pickLanguage}>
+              <TabsList className="group-data-horizontal/tabs:h-7 p-0.5">
+                {languages.map((tab) => (
+                  <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
+                    {tab.toUpperCase()}
+                    {overridden(tab) ? (
+                      <span aria-label={t("steward.settings.overridden")} className="size-1 rounded-full bg-primary" />
+                    ) : null}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-          ) : null}
-          {writable ? (
-            <>
-              <InputGroupButton
-                size="icon-xs"
-                aria-label={t("steward.message-editor.add-variant")}
-                title={t("steward.message-editor.add-variant")}
-                onClick={() => {
-                  write([...(variants.length === 0 ? [""] : variants), text])
-                  setVariant(Math.max(variants.length, 1))
-                }}
-              >
-                <PlusIcon aria-hidden />
-              </InputGroupButton>
-              {variants.length > 1 ? (
+            {variants.length > 1 ? (
+              <Tabs value={String(at)} onValueChange={(next) => setVariant(Number(next))}>
+                <TabsList
+                  aria-label={t("steward.message-editor.variant")}
+                  className="group-data-horizontal/tabs:h-7 p-0.5"
+                >
+                  {variants.map((_, index) => (
+                    <TabsTrigger key={index} value={String(index)} className="px-2 text-xs tabular-nums">
+                      {index + 1}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : null}
+            {writable ? (
+              <>
                 <InputGroupButton
                   size="icon-xs"
-                  aria-label={t("steward.message-editor.remove-variant")}
-                  title={t("steward.message-editor.remove-variant")}
+                  aria-label={t("steward.message-editor.add-variant")}
+                  title={t("steward.message-editor.add-variant")}
                   onClick={() => {
-                    write(variants.toSpliced(at, 1))
-                    setVariant(Math.max(at - 1, 0))
+                    write([...(variants.length === 0 ? [""] : variants), text])
+                    setVariant(Math.max(variants.length, 1))
                   }}
                 >
-                  <MinusIcon aria-hidden />
+                  <PlusIcon aria-hidden />
                 </InputGroupButton>
-              ) : null}
-            </>
-          ) : null}
-          <span className="ml-auto flex items-center gap-1">
+                {variants.length > 1 ? (
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label={t("steward.message-editor.remove-variant")}
+                    title={t("steward.message-editor.remove-variant")}
+                    onClick={() => {
+                      write(variants.toSpliced(at, 1))
+                      setVariant(Math.max(at - 1, 0))
+                    }}
+                  >
+                    <MinusIcon aria-hidden />
+                  </InputGroupButton>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        }
+        end={
+          <>
             {entry.limit > 0 ? (
               <span
                 className={cn(
@@ -269,42 +258,9 @@ export function MessageEditor({
                 <EraserIcon aria-hidden />
               </InputGroupButton>
             ) : null}
-            <span role="group" className="flex rounded-md bg-muted p-0.5">
-              <InputGroupButton
-                size="icon-xs"
-                variant={visual ? "secondary" : "ghost"}
-                aria-pressed={visual}
-                aria-label={t("steward.message-editor.as-it-looks")}
-                title={t("steward.message-editor.as-it-looks")}
-                disabled={!readable}
-                onClick={() => setSource(false)}
-              >
-                <EyeIcon aria-hidden />
-              </InputGroupButton>
-              <InputGroupButton
-                size="icon-xs"
-                variant={visual ? "ghost" : "secondary"}
-                aria-pressed={!visual}
-                aria-label={t("steward.message-editor.source")}
-                title={t("steward.message-editor.source")}
-                onClick={() => setSource(true)}
-              >
-                <CodeIcon aria-hidden />
-              </InputGroupButton>
-            </span>
-          </span>
-        </InputGroupAddon>
-      </InputGroup>
-      {visual ? (
-        <ChoiceFields
-          key={`${language}/${at}`}
-          {...common}
-          runs={runs}
-          onChange={setRuns}
-          kinds={kinds}
-          language={language}
-        />
-      ) : null}
+          </>
+        }
+      />
       {problems.length > 0 ? (
         <ul className="flex flex-col gap-0.5 text-xs">
           {problems.map((problem, index) => (
@@ -393,38 +349,6 @@ function FallbackPanel({
 /**
  * Kept apart from the text, so a run boundary made by A survives until the text changes from elsewhere.
  */
-function useRuns(
-  text: string,
-  format: Format,
-  tones: readonly string[],
-  stored: string,
-  setText: (text: string) => void,
-): [Run[] | null, (runs: Run[]) => void] {
-  const [runs, setLocal] = useState<Run[] | null>(() => parse(text, format, tones))
-  const written = useRef(text)
-  const original = useMemo(() => parse(stored, format, tones), [stored, format, tones])
-
-  useEffect(() => {
-    if (text !== written.current) {
-      written.current = text
-      setLocal(parse(text, format, tones))
-    }
-  }, [text, format, tones])
-
-  // The tones arrive after the first render, so the text is read again with them.
-  useEffect(() => {
-    setLocal(parse(written.current, format, tones))
-  }, [format, tones])
-
-  const update = (next: Run[]) => {
-    setLocal(next)
-    const value = original !== null && same(normalize(next), original) ? stored : serialize(next, format)
-    written.current = value
-    setText(value)
-  }
-  return [runs, update]
-}
-
 function PlacePreview({
   place,
   places,

@@ -7,9 +7,9 @@ import {
   TrashIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react"
-import { useId, useRef, type ReactNode } from "react"
+import { useId, useMemo, useRef, type ReactNode } from "react"
 
-import type { DocumentPart, DocumentValue, DocumentView } from "@/lib/api"
+import type { DocumentPart, DocumentValue, DocumentView, MessageArg } from "@/lib/api"
 import {
   insertValue,
   readWhen,
@@ -22,11 +22,12 @@ import {
 import type { DocumentText } from "@/lib/documents"
 import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { useUploadImage } from "@/lib/queries"
+import { useMessageSyntax, useUploadImage } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { Failure } from "@/components/steward/query-state"
 import { ColourControl } from "@/components/steward/colour-control"
 import { Media } from "@/components/steward/message-editor/document-preview"
+import { RichField } from "@/components/steward/message-editor/rich-field"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -110,11 +111,13 @@ export function TextField({
   multiline?: boolean
 }) {
   const { language } = context
+  const named = { ...context.view.named, ...values }
   return (
     <Versions
       language={language}
       versions={versionsOf(text, language)}
-      names={[...Object.keys(context.view.named), ...Object.keys(values ?? {})]}
+      names={Object.keys(named)}
+      game={context.view.game ? named : undefined}
       disabled={!context.writable}
       multiline={multiline}
       onVersions={(versions) => onText(withVersions(text, language, versions))}
@@ -126,6 +129,7 @@ function Versions({
   language,
   versions,
   names,
+  game,
   disabled,
   multiline,
   onVersions,
@@ -133,24 +137,39 @@ function Versions({
   language: Language
   versions: string[]
   names: string[]
+  /** A game text's values, which it is written with in tones, glyphs and values as the game draws it. */
+  game?: Record<string, DocumentValue>
   disabled: boolean
   multiline?: boolean
   onVersions: (versions: string[]) => void
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      {versions.map((version, index) => (
-        <Version
-          key={index}
-          label={languageName(language)}
-          source={version}
-          names={names}
-          disabled={disabled}
-          multiline={multiline}
-          onSource={(source) => onVersions(versions.map((each, at) => (at === index ? source : each)))}
-          onRemove={versions.length > 1 ? () => onVersions(versions.filter((_, at) => at !== index)) : undefined}
-        />
-      ))}
+      {versions.map((version, index) =>
+        game ? (
+          <GameVersion
+            key={index}
+            language={language}
+            revision={`${language}/${index}`}
+            source={version}
+            values={game}
+            disabled={disabled}
+            onSource={(source) => onVersions(versions.map((each, at) => (at === index ? source : each)))}
+            onRemove={versions.length > 1 ? () => onVersions(versions.filter((_, at) => at !== index)) : undefined}
+          />
+        ) : (
+          <Version
+            key={index}
+            label={languageName(language)}
+            source={version}
+            names={names}
+            disabled={disabled}
+            multiline={multiline}
+            onSource={(source) => onVersions(versions.map((each, at) => (at === index ? source : each)))}
+            onRemove={versions.length > 1 ? () => onVersions(versions.filter((_, at) => at !== index)) : undefined}
+          />
+        ),
+      )}
       <AddButton
         label={t("steward.message-editor.add-variant")}
         disabled={disabled}
@@ -158,6 +177,65 @@ function Versions({
       />
     </div>
   )
+}
+
+/** A game text's version in the key editor's field, with the game's tones and glyphs and the document's values. */
+function GameVersion({
+  language,
+  revision,
+  source,
+  values,
+  disabled,
+  onSource,
+  onRemove,
+}: {
+  language: Language
+  revision: string
+  source: string
+  values: Record<string, DocumentValue>
+  disabled: boolean
+  onSource: (source: string) => void
+  onRemove: (() => void) | undefined
+}) {
+  const syntax = useMessageSyntax()
+  const args = useMemo(() => argsOf(values), [values])
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <RichField
+        text={source}
+        stored={source}
+        onText={onSource}
+        format="MINIMESSAGE"
+        args={args}
+        fill={(name) => values[name]?.example ?? name}
+        tones={syntax.data?.tones ?? {}}
+        kinds={syntax.data?.kinds ?? {}}
+        label={languageName(language)}
+        language={language}
+        revision={revision}
+        disabled={disabled}
+        end={
+          onRemove ? (
+            <IconButton label={t("steward.message-editor.remove-variant")} disabled={disabled} onPress={onRemove}>
+              <TrashIcon aria-hidden />
+            </IconButton>
+          ) : null
+        }
+      />
+    </div>
+  )
+}
+
+/** A document's values as the key editor's field names them; a value every document has carries a dot. */
+export function argsOf(values: Record<string, DocumentValue>): MessageArg[] {
+  return Object.entries(values).map(([name, value]) => ({
+    name,
+    kind: value.kind,
+    global: name.includes("."),
+    example: value.example,
+    action: false,
+    exampleWords: {},
+  }))
 }
 
 function Version({

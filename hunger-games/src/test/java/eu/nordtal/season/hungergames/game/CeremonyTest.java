@@ -4,13 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.Sent;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,9 @@ import org.junit.jupiter.api.Test;
 /** The ceremony names players the way the tab list does, never by an account identifier. */
 class CeremonyTest {
 
-    private static final Messages MESSAGES = Messages.load("messages/hunger-games", Locale.ENGLISH, Locale.GERMAN);
+    private static final MessageRenderer RENDERER = MessageRenderer.of(
+                    Messages.load("messages/database", Locale.ENGLISH, Locale.GERMAN))
+            .reading(new AppliedDocuments(CeremonyTest.class.getClassLoader(), Set.of("hunger-games")));
 
     private static final UUID IDA = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID OLE = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -63,9 +67,8 @@ class CeremonyTest {
 
     private static String render(final Ceremony.Decision decision) {
         final StringBuilder out = new StringBuilder();
-        for (final MessageRef line : Ceremony.lines(decision)) {
-            out.append(PlainTextComponentSerializer.plainText()
-                            .serialize(MessageRenderer.of(MESSAGES).format(Locale.ENGLISH, line)))
+        for (final Sent<?> line : Ceremony.lines(decision)) {
+            out.append(PlainTextComponentSerializer.plainText().serialize(RENDERER.format(Locale.ENGLISH, line)))
                     .append('\n');
         }
         return out.toString();

@@ -1,7 +1,5 @@
 package eu.nordtal.season.hungergames.lobby;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
@@ -9,7 +7,7 @@ import eu.nordtal.season.hungergames.game.GameDao;
 import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.value.Action;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -17,7 +15,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import net.kyori.adventure.text.Component;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -28,8 +25,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Lobby {
 
-    /** The action of the ready button. */
-    private static final Action READY = new Action("/hg ready");
+    record Broadcast(long ready, long total) {}
+
+    /** The rules, the number of ready teams and the ready button. */
+    static final DocumentSpec<Broadcast> BROADCAST =
+            DocumentSpec.game("hunger-games", "lobby-broadcast", "Lobby", DocumentSpec.Shape.CHAT, Broadcast.class);
 
     private final Plugin plugin;
     private final GameDao dao;
@@ -82,10 +82,7 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = identities.languageOf(player.getUniqueId());
-            final Component message =
-                    renderer.format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, READY));
-            player.sendMessage(renderer.format(locale, MESSAGES.hg().lobby().rules()));
-            player.sendMessage(message);
+            player.sendMessage(renderer.format(locale, BROADCAST.with(new Broadcast(readyTeams, totalTeams))));
         }
     }
 

@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.RepositoryRoot;
+import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.Line;
+import eu.nordtal.season.messages.document.Part;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -17,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -56,13 +60,15 @@ class ResourcePackTest {
      * {@code smp.milestone.} also covers a chat line, which is the safe direction.
      */
     private static final List<String> HUD_KEY_PREFIXES =
-            List.of("smp.hud.", "smp.world.", "smp.milestone.", "smp.navigate.", "hg.hud.");
+            List.of("smp.hud.", "smp.world.", "smp.milestone.", "smp.navigate.");
 
     private static final List<String> HUD_BUNDLES = List.of(
-            "smp/src/main/resources/messages/smp/en.properties",
-            "smp/src/main/resources/messages/smp/de.properties",
-            "hunger-games/src/main/resources/messages/hunger-games/en.properties",
-            "hunger-games/src/main/resources/messages/hunger-games/de.properties");
+            "smp/src/main/resources/messages/smp/en.properties", "smp/src/main/resources/messages/smp/de.properties");
+
+    /** The documents whose text is drawn inside a boss bar, as {@code GameHud} uses them. */
+    private static final List<String> HUD_DOCUMENTS = Stream.of("alive", "dead", "loot", "border")
+            .map(name -> "hunger-games/src/main/resources/documents/hunger-games/hud-" + name + ".json")
+            .toList();
 
     @Test
     void everyBitmapProviderNamesATextureThatExists() {
@@ -164,13 +170,19 @@ class ResourcePackTest {
                 if (HUD_KEY_PREFIXES.stream().noneMatch(String.valueOf(key)::startsWith)) {
                     return;
                 }
-                String.valueOf(value).codePoints().forEach(codePoint -> {
-                    if (!BOSSBAR_FONT.covers(codePoint)) {
-                        missing.computeIfAbsent(bundle + " " + key, ignored -> new TreeSet<>())
-                                .add(codePoint);
-                    }
-                });
+                notCovered(String.valueOf(value), bundle + " " + key, missing);
             });
+        }
+        for (final String document : HUD_DOCUMENTS) {
+            for (final Part part :
+                    Document.decode(RepositoryRoot.read(document)).parts()) {
+                for (final Line line : Objects.requireNonNull(part.lines())) {
+                    line.text()
+                            .languages()
+                            .forEach((language, texts) ->
+                                    texts.forEach(text -> notCovered(text, document + " " + language, missing)));
+                }
+            }
         }
         assertEquals(
                 Map.of(),
@@ -179,6 +191,14 @@ class ResourcePackTest {
                         + " the vanilla one - a character it does not carry reaches the player as a"
                         + " missing-glyph box in the middle of the HUD. What a placeholder is"
                         + " replaced with at runtime is not checkable from here.");
+    }
+
+    private static void notCovered(final String text, final String where, final Map<String, Set<Integer>> missing) {
+        text.codePoints().forEach(codePoint -> {
+            if (!BOSSBAR_FONT.covers(codePoint)) {
+                missing.computeIfAbsent(where, ignored -> new TreeSet<>()).add(codePoint);
+            }
+        });
     }
 
     @Test

@@ -1,12 +1,12 @@
 package eu.nordtal.season.hungergames.border;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -26,6 +26,13 @@ import org.jspecify.annotations.Nullable;
  * After {@code borderQuietPeriodSeconds} without a death, it shrinks slowly to the end diameter.
  */
 public final class BorderController {
+
+    record Shrink(long target, long seconds) {}
+
+    static final DocumentSpec<Shrink> SHRINK_STARTED =
+            DocumentSpec.game("hunger-games", "border-shrink-started", "Game", DocumentSpec.Shape.CHAT, Shrink.class);
+    static final DocumentSpec<DocumentSpec.None> PASSIVE_SHRINK_STARTED =
+            DocumentSpec.game("hunger-games", "border-passive-shrink-started", "Game", DocumentSpec.Shape.CHAT);
 
     private final Plugin plugin;
     private final World world;
@@ -130,16 +137,15 @@ public final class BorderController {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(renderer.format(
                     identities.languageOf(player.getUniqueId()),
-                    MESSAGES.hg().border().shrinkStarted(Math.round(target), seconds)));
+                    SHRINK_STARTED.with(new Shrink(Math.round(target), seconds))));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 
     private void announcePassive() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(renderer.format(
-                    identities.languageOf(player.getUniqueId()),
-                    MESSAGES.hg().border().passiveShrinkStarted()));
+            player.sendMessage(
+                    renderer.format(identities.languageOf(player.getUniqueId()), Sent.of(PASSIVE_SHRINK_STARTED)));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }

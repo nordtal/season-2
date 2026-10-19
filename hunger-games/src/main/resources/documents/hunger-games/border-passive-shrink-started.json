@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Nothing has happened for a while.</warn> <muted>The border starts to shrink slowly.</muted>",
+            "de": "<warn>Lange ist nichts passiert.</warn> <muted>Die Grenze schrumpft jetzt langsam.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

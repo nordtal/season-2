@@ -21,10 +21,8 @@ import org.junit.jupiter.api.Test;
  */
 class BundleContinuationTest {
 
-    private static final List<String> BUNDLE_ROOTS = List.of(
-            "smp/src/main/resources/messages",
-            "hunger-games/src/main/resources/messages",
-            "proxy/src/main/resources/messages");
+    private static final List<String> BUNDLE_ROOTS =
+            List.of("smp/src/main/resources/messages", "proxy/src/main/resources/messages");
 
     @Test
     void aContinuedLineEndsWithASpaceSoTheTwoWordsStayTwoWords() {

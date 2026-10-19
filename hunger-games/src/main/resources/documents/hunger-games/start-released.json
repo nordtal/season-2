@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Go!</good> <muted>Friendly fire is on. Other players cannot hurt you for <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</muted>",
+            "de": "<good>Los!</good> <muted>Friendly Fire ist an. Andere Spieler können dich <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} lang nicht verletzen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "pending",
+          "text": {
+            "en": "Next refill in {time, duration, clock}",
+            "de": "Nächste Auffüllung in {time, duration, clock}"
+          }
+        },
+        {
+          "when": "!pending",
+          "text": {
+            "en": "No more refills",
+            "de": "Keine Auffüllungen mehr"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,11 @@
 package eu.nordtal.season.hungergames.game;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import java.util.ArrayList;
@@ -25,6 +24,28 @@ import org.slf4j.LoggerFactory;
 public final class Ceremony {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
+
+    /** How the game ended. A tie between the last two is broken by kills. */
+    enum Ending {
+        WON,
+        TIE_BROKEN,
+        TIE,
+        NOBODY
+    }
+
+    /** {@code winner} is {@code null} after a tie without a winner and when nobody won. */
+    record Result(Ending outcome, @Nullable PlayerContext winner, int winnerKills, int loserKills) {}
+
+    record Kills(PlayerContext player, int kills) {}
+
+    static final DocumentSpec<Result> RESULT = line("ceremony-result", Result.class);
+    static final DocumentSpec<Kills> KILLS = line("ceremony-kills", Kills.class);
+    static final DocumentSpec<DocumentSpec.None> FOOTER =
+            DocumentSpec.game("hunger-games", "ceremony-footer", "Ceremony", DocumentSpec.Shape.CHAT);
+
+    private static <V extends Record> DocumentSpec<V> line(final String name, final Class<V> values) {
+        return DocumentSpec.game("hunger-games", name, "Ceremony", DocumentSpec.Shape.CHAT, values);
+    }
 
     private final MessageRenderer renderer;
     private final Identities identities;
@@ -67,7 +88,7 @@ public final class Ceremony {
     /** Sends the lines to the player. The winner gets {@code BIG_SUCCESS}, every other player {@code NETWORK_EVENT}. */
     private void announce(final Player player, final Decision decision) {
         final Locale locale = identities.languageOf(player.getUniqueId());
-        for (final MessageRef line : lines(decision)) {
+        for (final Sent<?> line : lines(decision)) {
             player.sendMessage(renderer.format(locale, line));
         }
         sounds.play(
@@ -76,32 +97,27 @@ public final class Ceremony {
     }
 
     /** Returns the lines of the announcement. */
-    static List<MessageRef> lines(final Decision decision) {
+    static List<Sent<?>> lines(final Decision decision) {
         final WinTracker.Outcome outcome = decision.outcome();
-        final List<MessageRef> lines = new ArrayList<>();
-        lines.add(MESSAGES.hg().ceremony().header());
-
-        if (outcome.winnerMemberId() != null && outcome.tie()) {
-            lines.add(MESSAGES.hg()
-                    .win()
-                    .tieBroken(
-                            player(decision, outcome.winnerMemberId()), outcome.winnerKills(), outcome.loserKills()));
-        } else if (outcome.winnerMemberId() != null) {
-            lines.add(MESSAGES.hg().win().player(player(decision, outcome.winnerMemberId())));
-        } else if (outcome.tie()) {
-            lines.add(MESSAGES.hg().win().noWinner(outcome.winnerKills()));
-        } else {
-            lines.add(MESSAGES.hg().ceremony().noWinner());
-        }
+        final UUID winner = outcome.winnerMemberId();
+        final Ending ending = winner != null
+                ? (outcome.tie() ? Ending.TIE_BROKEN : Ending.WON)
+                : (outcome.tie() ? Ending.TIE : Ending.NOBODY);
+        final List<Sent<?>> lines = new ArrayList<>();
+        lines.add(RESULT.with(new Result(
+                ending,
+                winner == null ? null : player(decision, winner),
+                outcome.winnerKills(),
+                outcome.loserKills())));
 
         decision.names().forEach((member, named) -> {
             final int kills = decision.kills().getOrDefault(member, 0);
             if (kills > 0) {
-                lines.add(MESSAGES.hg().ceremony().kills(named, kills));
+                lines.add(KILLS.with(new Kills(named, kills)));
             }
         });
 
-        lines.add(MESSAGES.hg().ceremony().footer());
+        lines.add(Sent.of(FOOTER));
         return lines;
     }
 

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>An admin switches the phase to <emphasis>SMP</emphasis> next.</muted>",
+            "de": "<muted>Ein Admin schaltet als Nächstes die Phase auf <emphasis>SMP</emphasis>.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

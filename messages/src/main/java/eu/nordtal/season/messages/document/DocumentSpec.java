@@ -37,11 +37,18 @@ public record DocumentSpec<V extends Record>(
         /** A screen that replaces the game, such as a kick: the lines of its text blocks. */
         KICK_SCREEN,
         /** A title over the screen: its first line is the title, every line after it the subtitle. */
-        TITLE;
+        TITLE,
+        /** A boss bar line's text, which the HUD paints in its own font: its shown lines as plain text on one line. */
+        BOSS_BAR;
 
         /** Returns whether the game draws it, with the game's renderer, rather than Discord. */
         public boolean game() {
-            return this == MENU || this == CHAT || this == TAB_LIST || this == KICK_SCREEN || this == TITLE;
+            return this == MENU
+                    || this == CHAT
+                    || this == TAB_LIST
+                    || this == KICK_SCREEN
+                    || this == TITLE
+                    || this == BOSS_BAR;
         }
     }
 

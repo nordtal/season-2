@@ -316,9 +316,13 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return roots;
     }
 
-    /** Returns paper-common's namespace and each bundle's, whose documents are in {@code documents/<namespace>}. */
+    /**
+     * Returns the namespaces whose documents are in {@code documents/<namespace>}.
+     * They are paper-common's, the plugin's own and each bundle's: a plugin's own documents do not depend on it
+     * keeping a bundle.
+     */
     private Set<String> namespaces() {
-        final Set<String> namespaces = new HashSet<>(Set.of("paper-common"));
+        final Set<String> namespaces = new HashSet<>(Set.of("paper-common", getName()));
         roots().forEach(root -> namespaces.add(root.substring(root.lastIndexOf('/') + 1)));
         return namespaces;
     }

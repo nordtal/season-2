@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Loot is restocked at all reachable points.</good>",
+            "de": "<good>Die Beute ist an allen erreichbaren Punkten aufgefüllt.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

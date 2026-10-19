@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "shrinking",
+          "text": {
+            "en": "{time, duration, clock} left, {distance}m to close",
+            "de": "Noch {time, duration, clock}, {distance}m bis zum Schließen"
+          }
+        },
+        {
+          "when": "!shrinking",
+          "text": {
+            "en": "Border stable",
+            "de": "Grenze stabil"
+          }
+        }
+      ]
+    }
+  ]
+}

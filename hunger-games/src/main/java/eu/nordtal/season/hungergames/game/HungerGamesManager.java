@@ -1,7 +1,5 @@
 package eu.nordtal.season.hungergames.game;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.time.CountdownPlan;
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
@@ -12,9 +10,10 @@ import eu.nordtal.season.hungergames.config.HungerGamesSpec;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.context.TeamContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -42,6 +41,18 @@ public final class HungerGamesManager {
     /** The announcements of the countdown. */
     private static final CountdownPlan COUNTDOWN =
             CountdownPlan.at(60, 30, 20, 10, 5, 4, 3, 2, 1).fromTheStart();
+
+    record Seconds(long seconds) {}
+
+    record Demoted(TeamContext team) {}
+
+    static final DocumentSpec<Seconds> COUNTDOWN_LINE = start("start-countdown", Seconds.class);
+    static final DocumentSpec<Seconds> RELEASED = start("start-released", Seconds.class);
+    static final DocumentSpec<Demoted> DEMOTED = start("team-demoted", Demoted.class);
+
+    private static <V extends Record> DocumentSpec<V> start(final String name, final Class<V> values) {
+        return DocumentSpec.game("hunger-games", name, "Start", DocumentSpec.Shape.CHAT, values);
+    }
 
     private final Plugin plugin;
     private final GameDao dao;
@@ -144,16 +155,18 @@ public final class HungerGamesManager {
             if (online != null) {
                 online.sendMessage(renderer.format(
                         identities.languageOf(participant.mcUuid()),
-                        MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
+                        DEMOTED.with(new Demoted(new TeamContext(participant.teamName())))));
             }
         }
     }
 
     /** Schedules one task for each countdown announcement. */
     private void scheduleCountdown(final List<Participant> participants) {
-        final List<CountdownPlan.Beat<MessageRef>> beats = COUNTDOWN.beats(
-                Duration.ofSeconds(config.countdownSeconds()), MESSAGES.hg().start()::countdown, null);
-        for (final CountdownPlan.Beat<MessageRef> beat : beats) {
+        final List<CountdownPlan.Beat<Sent<Seconds>>> beats = COUNTDOWN.beats(
+                Duration.ofSeconds(config.countdownSeconds()),
+                seconds -> COUNTDOWN_LINE.with(new Seconds(seconds)),
+                null);
+        for (final CountdownPlan.Beat<Sent<Seconds>> beat : beats) {
             PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> {
                 if (!frozen) {
                     return;
@@ -232,7 +245,7 @@ public final class HungerGamesManager {
                 online.setAllowFlight(false);
                 online.sendMessage(renderer.format(
                         identities.languageOf(participant.mcUuid()),
-                        MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
+                        RELEASED.with(new Seconds(config.pvpProtectionSeconds()))));
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }

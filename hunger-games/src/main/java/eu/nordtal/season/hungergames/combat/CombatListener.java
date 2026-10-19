@@ -1,7 +1,5 @@
 package eu.nordtal.season.hungergames.combat;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
@@ -14,6 +12,7 @@ import eu.nordtal.season.hungergames.game.WinTracker;
 import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -41,6 +40,12 @@ import org.jspecify.annotations.Nullable;
 
 /** Handles damage and deaths of players and of the armour stands of disconnected players. */
 public final class CombatListener implements Listener {
+
+    record BodyDeath(PlayerContext player, @Nullable PlayerContext killer, boolean killed) {}
+
+    /** A stand's death; a player's own death is paper-common's line. */
+    static final DocumentSpec<BodyDeath> BODY_DEATH =
+            DocumentSpec.game("hunger-games", "death-body", "Game", DocumentSpec.Shape.CHAT, BodyDeath.class);
 
     private final Plugin plugin;
     private final GameDao dao;
@@ -135,14 +140,10 @@ public final class CombatListener implements Listener {
     private void announceBodyDeath(final Entity marker, final UUID owner, final @Nullable UUID killerUuid) {
         final PlayerContext victim = PlayerContext.of(PlayerId.of(owner), marker.getName());
         final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
-        if (killer == null) {
-            systemLines.announce(MESSAGES.hg().death().body(victim));
-            return;
-        }
-        systemLines.announce(MESSAGES.hg()
-                .death()
-                .bodySection()
-                .by(victim, PlayerContext.of(PlayerId.of(killer.getUniqueId()), killer.getName())));
+        systemLines.announce(BODY_DEATH.with(new BodyDeath(
+                victim,
+                killer == null ? null : PlayerContext.of(PlayerId.of(killer.getUniqueId()), killer.getName()),
+                killer != null)));
     }
 
     private void handleDeath(final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {

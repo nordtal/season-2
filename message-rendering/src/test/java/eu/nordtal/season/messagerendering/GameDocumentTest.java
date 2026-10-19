@@ -122,4 +122,24 @@ class GameDocumentTest {
         assertEquals("full", plain(shown.title()));
         assertEquals("wait here", plain(shown.subtitle()));
     }
+
+    record Refill(Duration time, boolean pending) {}
+
+    @Test
+    void aBossBarIsItsShownLinesAsPlainTextOnOneLine() {
+        final DocumentSpec<Refill> bar =
+                DocumentSpec.game("test", "bar", "HUD", DocumentSpec.Shape.BOSS_BAR, Refill.class);
+        final MessageRenderer reading =
+                RENDER.reading(spec -> new Documents.Packaged(bar.declaration(), Document.decode("""
+                {"parts": [{"type": "TEXT", "lines": [
+                  {"when": "pending", "text": {"en": "Next refill in", "de": "Nächste Auffüllung in"}},
+                  {"when": "pending", "text": {"en": "{time, duration, clock}"}},
+                  {"when": "!pending", "text": {"en": "No more refills"}}]}]}
+                """)));
+
+        assertEquals(
+                "Nächste Auffüllung in 1:05",
+                reading.plainLine(Locale.GERMAN, bar.with(new Refill(Duration.ofSeconds(65), true))));
+        assertEquals("No more refills", reading.plainLine(Locale.ENGLISH, bar.with(new Refill(Duration.ZERO, false))));
+    }
 }

@@ -1052,6 +1052,7 @@ export type DocumentShape =
   | "TAB_LIST"
   | "KICK_SCREEN"
   | "TITLE"
+  | "BOSS_BAR"
 
 export type DocumentSlot = {
   id: string

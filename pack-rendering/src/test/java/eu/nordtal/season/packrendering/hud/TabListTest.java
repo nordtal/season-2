@@ -40,9 +40,8 @@ class TabListTest {
     private static final String LIMBO_FOOTER = "limbo/src/main/resources/documents/limbo/tab-footer.json";
 
     /** Each module's bundle directory, in the order a player meets them. */
-    private static final Map<String, String> BUNDLES = new LinkedHashMap<>(Map.of(
-            "hunger-games", "hunger-games/src/main/resources/messages/hunger-games",
-            "smp", "smp/src/main/resources/messages/smp"));
+    private static final Map<String, String> BUNDLES =
+            new LinkedHashMap<>(Map.of("smp", "smp/src/main/resources/messages/smp"));
 
     private static final List<String> LANGUAGES = List.of("en", "de");
 

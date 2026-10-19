@@ -3,7 +3,6 @@ package eu.nordtal.season.papercommon.chat;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
@@ -117,8 +116,8 @@ public final class SystemLines implements Listener {
     }
 
     /** Announces a system line from outside a Bukkit event, for example an offline Hunger Games kill. */
-    public void announce(final MessageRef message) {
-        broadcast(locale -> renderer.format(locale, message), viewer -> true);
+    public void announce(final Sent<?> line) {
+        broadcast(line, viewer -> true);
     }
 
     private static PlayerContext context(final Player player) {

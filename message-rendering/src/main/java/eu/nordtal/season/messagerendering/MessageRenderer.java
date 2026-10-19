@@ -140,6 +140,11 @@ public final class MessageRenderer {
         return document(Viewer.of(locale), sent).shownTitle(times);
     }
 
+    /** Renders a boss bar's document, an admin's in place of the packaged one, as {@link GameDocument#plainLine}. */
+    public String plainLine(final @Nullable Locale locale, final Sent<?> sent) {
+        return document(Viewer.of(locale), sent).plainLine();
+    }
+
     private GameDocument document(final Viewer viewer, final Sent<?> sent) {
         return new GameDocument(this, documents.applied(sent.document()), viewer, sent.values());
     }

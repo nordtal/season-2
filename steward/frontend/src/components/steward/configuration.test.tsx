@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { PhoneBarSlot } from "@/app/island"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingJump, takePendingJump } from "@/lib/settings-search"
 import type { ConfigEntry } from "@/lib/api"
@@ -567,6 +568,54 @@ describe("the arrow back to the top", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Back to the top" }))
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" })
+  })
+
+  it("sits in a phone's navigation bar, over none of the page, and still scrolls the page", async () => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        callback: (entries: Array<{ isIntersecting: boolean }>) => void
+        constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+          this.callback = callback
+        }
+        observe() {
+          this.callback([{ isIntersecting: false }])
+        }
+        disconnect() {}
+        unobserve() {}
+      },
+    )
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "steward/steward": {
+          ...location({ path: "steward/steward", name: "steward" }),
+          revision: "r1",
+          restartRequired: false,
+          entries: [entry({ path: "port", key: "port", value: "8080" })],
+        },
+      }),
+    )
+    const bar = document.body.appendChild(document.createElement("nav"))
+    draw(
+      <PhoneBarSlot value={bar}>
+        <div data-slot="scroll-area-viewport">
+          <Settings service="steward" />
+        </div>
+      </PhoneBarSlot>,
+    )
+    await open("Steward")
+    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')!
+    const scrollTo = vi.fn<(options?: ScrollToOptions) => void>()
+    Object.defineProperty(viewport, "scrollTo", { value: scrollTo })
+
+    const arrow = await screen.findByRole("button", { name: "Back to the top" })
+    expect(bar.contains(arrow)).toBe(true)
+    expect(screen.getAllByRole("button", { name: "Back to the top" })).toHaveLength(1)
+
+    fireEvent.click(arrow)
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" })
+    bar.remove()
   })
 })
 

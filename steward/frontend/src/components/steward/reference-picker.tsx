@@ -199,7 +199,7 @@ export function ReferenceMarks({
               <span className="truncate text-xs">{name}</span>
             </span>
           ) : (
-            <span key={`${value}-${index}`} title={name} className="shrink-0">
+            <span key={`${value}-${index}`} title={name} className="flex shrink-0">
               <GameIcon icons={icons} item={choice.icon} size={20} />
             </span>
           )

@@ -203,14 +203,13 @@ export function textsTree(
     }))
     .map((each) => ({ ...each, page: each.card.kind === "text" ? pageGroupOf(each.card.text.entry) : undefined }))
     .toSorted(
-      (a, b) =>
-        TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group) ||
-        PAGE_GROUPS.indexOf(a.page ?? "") - PAGE_GROUPS.indexOf(b.page ?? ""),
+      (a, b) => TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group) || pageRank(a.page) - pageRank(b.page),
     )
   for (const { card, group, page } of grouped) {
     const root = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
-    // A top topic is named by its label, so a document's area and the texts of the same topic share one branch.
-    const top = (label: string) => builder.branch(`${group}:@${label}`, label, root).id
+    // A top topic is named by its label, so a document's area and the texts of the same topic share one branch. A page is a branch of its own.
+    const top = (label: string) =>
+      builder.branch(page === undefined ? `${group}:@${label}` : `${group}:page:${page}`, label, root).id
     if (card.kind === "document") {
       const id = `document:${documentId(card.view.declaration)}`
       builder.add(top(card.view.declaration.area), { kind: "leaf", id, ids: [id], value: card, wide: true })
@@ -230,6 +229,11 @@ export function textsTree(
     builder.add(parent, { kind: "leaf", id, ids: [id], value: card, wide: true })
   }
   return builder.build()
+}
+
+/** Steward's pages in their order, then every text that is on none. */
+function pageRank(page: string | undefined): number {
+  return page === undefined ? PAGE_GROUPS.length : PAGE_GROUPS.indexOf(page)
 }
 
 /**

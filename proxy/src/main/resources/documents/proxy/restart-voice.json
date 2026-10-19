@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Voice chat stops for a moment and then starts again.</muted>",
+            "de": "<muted>Der Sprachchat setzt kurz aus und startet dann wieder.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

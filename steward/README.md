@@ -166,7 +166,7 @@ answers them newest first, each carried over to the jar's declaration, and the e
 what a save would be refused for. A Discord document is drawn with the bot's own renderer from
 `discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A
 menu is drawn with the game's `GameDocument` as its title, then each item's name and lore and each
-label, in MiniMessage. A chat text, a tab list, a kick screen, a title and a boss bar are drawn with
+label, in MiniMessage. A chat text, a tab list, a kick screen, a title, a boss bar and a server list are drawn with
 `GameDocument` as their lines in MiniMessage; a title's first line is the title and the lines after it
 its subtitle.
 `POST /api/document-preview` sends a draft of a message or a plain document to the admin alone: the bot

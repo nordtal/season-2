@@ -39,7 +39,9 @@ public record DocumentSpec<V extends Record>(
         /** A title over the screen: its first line is the title, every line after it the subtitle. */
         TITLE,
         /** A boss bar line's text, which the HUD paints in its own font: its shown lines as plain text on one line. */
-        BOSS_BAR;
+        BOSS_BAR,
+        /** The server list's description under the server's name: the lines of its text blocks. */
+        SERVER_LIST;
 
         /** Returns whether the game draws it, with the game's renderer, rather than Discord. */
         public boolean game() {
@@ -48,7 +50,8 @@ public record DocumentSpec<V extends Record>(
                     || this == TAB_LIST
                     || this == KICK_SCREEN
                     || this == TITLE
-                    || this == BOSS_BAR;
+                    || this == BOSS_BAR
+                    || this == SERVER_LIST;
         }
     }
 

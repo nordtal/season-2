@@ -19,37 +19,23 @@ import org.junit.jupiter.api.Test;
  * "No such command" and "you may not type that" are one sentence everywhere.
  *
  * Two sentences would let a player list the command tree. {@code :architecture} checks that both
- * refusers render only this key. This test checks the bundles that word it.
+ * refusers render only their document {@code command-unknown}. This test checks that the two say the same
+ * and that no bundle words the refusal a second time.
  */
 class OneRefusalLineTest {
 
     private static final String KEY = "command.unknown";
 
-    private static final String PROXY = "proxy/src/main/resources/messages/proxy/";
+    /** The two refusals are documents, read from the file system, as neither module is on this classpath. */
+    private static final String PROXY = "proxy/src/main/resources/documents/proxy/command-unknown.json";
 
-    /** Paper's refusal is a document. */
     private static final String PAPER = "paper-common/src/main/resources/documents/paper-common/command-unknown.json";
 
-    /** Reads both from the file system, as neither module is on a classpath a test here can load. */
     @Test
-    void theOneKeySaysTheSameInPaperAndInTheProxy() throws IOException {
+    void theRefusalSaysTheSameInPaperAndInTheProxy() throws IOException {
         final Document paper = Document.decode(Files.readString(RepositoryRoot.resolve(PAPER)));
-        for (final String language : List.of("en", "de")) {
-            final java.util.Properties read = new java.util.Properties();
-            try (java.io.Reader in =
-                    Files.newBufferedReader(RepositoryRoot.resolve(PROXY + language + ".properties"))) {
-                read.load(in);
-            }
-            final String proxy = read.getProperty(KEY);
-            assertTrue(
-                    proxy != null,
-                    KEY + " is missing from " + PROXY + language + ", so the refusal reaches a player as the"
-                            + " key itself - which does tell them something, in the worst way");
-            // The proxy paints its refusal itself; Paper's document carries the tone as a tag.
-            final String sentence =
-                    paper.texts().getFirst().versions(language).getFirst().replaceAll("<[^>]+>", "");
-            assertEquals(proxy, sentence, "the proxy and Paper word " + KEY + " differently in " + language);
-        }
+        final Document proxy = Document.decode(Files.readString(RepositoryRoot.resolve(PROXY)));
+        assertEquals(paper, proxy, "the proxy and Paper word the refusal differently");
     }
 
     @Test
@@ -79,7 +65,7 @@ class OneRefusalLineTest {
 
     private static List<Path> bundles() {
         final List<Path> found = new ArrayList<>();
-        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy", "discord-bot")) {
+        for (final String root : List.of("smp", "limbo", "hunger-games", "discord-bot")) {
             final Path directory = RepositoryRoot.resolve(root + "/src/main/resources/messages");
             if (!Files.isDirectory(directory)) {
                 continue;

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.proxy.PhaseServers;
 import eu.nordtal.season.proxy.ProxyRole;
 import java.lang.reflect.Proxy;
@@ -17,7 +16,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -93,11 +91,7 @@ class StandbyReturnProbeTest {
     private static Homecoming homecoming() {
         return new Homecoming(
                 LOG,
-                MessageRenderer.of(eu.nordtal.season.messages.Messages.load(
-                        StandbyReturnProbeTest.class.getClassLoader(),
-                        "messages/proxy",
-                        Locale.ENGLISH,
-                        Locale.GERMAN)),
+                eu.nordtal.season.proxy.ProxyRenderer.RENDERER,
                 new eu.nordtal.season.proxy.gate.LoginRoster(),
                 new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp"),
                 eu.nordtal.season.database.update.RunRecorder.NONE);

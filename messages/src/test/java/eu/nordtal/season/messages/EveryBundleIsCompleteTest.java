@@ -19,10 +19,8 @@ import org.junit.jupiter.api.Test;
  */
 class EveryBundleIsCompleteTest {
 
-    private static final Set<String> KNOWN = Set.of(
-            "database/src/main/resources/messages/database",
-            "proxy/src/main/resources/messages/proxy",
-            "smp/src/main/resources/messages/smp");
+    private static final Set<String> KNOWN =
+            Set.of("database/src/main/resources/messages/database", "smp/src/main/resources/messages/smp");
 
     /** Matches a counted noun after a number, past the tags that close around the number.
      * The parser reads a tag as text.

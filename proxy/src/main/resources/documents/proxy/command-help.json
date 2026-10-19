@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<neutral>Usage: {usage}</neutral>",
+            "de": "<neutral>Syntax: {usage}</neutral>"
+          }
+        },
+        {
+          "when": "command",
+          "text": {
+            "en": "<muted>{command, select, msg {This command sends a private message to a player on the network.} whisper {This command does the same as /msg.} other {This command answers the player who wrote to you last or whom you wrote to last.}}</muted>",
+            "de": "<muted>{command, select, msg {Dieser Befehl schickt einem Spieler im Netzwerk eine private Nachricht.} whisper {Dieser Befehl macht dasselbe wie /msg.} other {Dieser Befehl antwortet dem Spieler, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.}}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

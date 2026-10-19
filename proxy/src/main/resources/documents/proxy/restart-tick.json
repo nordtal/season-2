@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "",
+            "de": ""
+          }
+        },
+        {
+          "text": {
+            "en": "<accent>{seconds}</accent>",
+            "de": "<accent>{seconds}</accent>"
+          }
+        }
+      ]
+    }
+  ]
+}

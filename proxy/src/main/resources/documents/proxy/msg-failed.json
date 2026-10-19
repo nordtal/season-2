@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The message was not delivered.</bad>",
+            "de": "<bad>Die Nachricht wurde nicht zugestellt.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

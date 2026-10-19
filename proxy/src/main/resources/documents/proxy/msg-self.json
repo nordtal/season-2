@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>You cannot write to yourself.</warn>",
+            "de": "<warn>Du kannst dir nicht selbst schreiben.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

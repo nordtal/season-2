@@ -2,6 +2,7 @@ package eu.nordtal.season.proxy.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mojang.brigadier.tree.CommandNode;
@@ -13,11 +14,11 @@ import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messagerendering.ToneColours;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.LanguageFlags;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.settings.network.PlayersSpec;
 import java.lang.reflect.InvocationHandler;
@@ -25,9 +26,11 @@ import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -48,10 +51,8 @@ class PrivateMessagesTest {
     private static final UUID TWO = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
     private static final UUID THREE = UUID.fromString("00000000-0000-0000-0000-0000000000b3");
 
-    private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
     private final LoginRoster roster = new LoginRoster();
-    private final PrivateMessages commands =
-            new PrivateMessages(noProxy(), roster, MessageRenderer.of(messages), () -> ToneColours.DEFAULTS, LOGGER);
+    private final PrivateMessages commands = new PrivateMessages(noProxy(), roster, ProxyRenderer.RENDERER, LOGGER);
 
     // the tree
 
@@ -169,20 +170,31 @@ class PrivateMessagesTest {
     // the sentences
 
     @Test
-    void theMovedSentencesArrived() {
-        // Messages answers a missing key with the key itself, not a fallback.
-        for (final String key : List.of(
-                "chat.msg.sent",
-                "chat.msg.received",
-                "chat.no-partner",
-                "chat.msg.self",
-                "chat.failed",
-                "command.describe.msg",
-                "command.describe.whisper",
-                "command.describe.r")) {
-            assertTrue(messages.hasTranslation(Locale.ENGLISH, key), key + " is missing in en");
-            assertTrue(messages.hasTranslation(Locale.GERMAN, key), key + " is missing in de");
+    void everyReplyIsThereInBothLanguages() {
+        for (final DocumentSpec<DocumentSpec.None> reply :
+                List.of(Replies.SELF, Replies.NO_PARTNER, Replies.FAILED, Replies.PLAYER_OFFLINE)) {
+            final String english = rendered(Locale.ENGLISH, Sent.of(reply));
+            assertFalse(english.isBlank(), reply.name() + " is empty");
+            assertNotEquals(english, rendered(Locale.GERMAN, Sent.of(reply)), reply.name() + " has no German text");
         }
+    }
+
+    @Test
+    void theHelpDescribesEachCommandAndTheConsoleGetsTheUsageAlone() {
+        final Set<String> descriptions = new HashSet<>();
+        for (final Replies.Described command : Replies.Described.values()) {
+            final String help = rendered(Locale.ENGLISH, Replies.HELP.with(new Replies.Help("/r <message>", command)));
+            assertEquals(2, help.lines().count(), help);
+            descriptions.add(help.lines().toList().get(1));
+        }
+        assertEquals(Replies.Described.values().length, descriptions.size(), "two commands share a description");
+        assertEquals(
+                "Usage: /r <message>",
+                rendered(Locale.ENGLISH, Replies.HELP.with(new Replies.Help("/r <message>", null))));
+    }
+
+    private static String rendered(final Locale locale, final Sent<?> sent) {
+        return PlainTextComponentSerializer.plainText().serialize(ProxyRenderer.RENDERER.format(locale, sent));
     }
 
     // helpers

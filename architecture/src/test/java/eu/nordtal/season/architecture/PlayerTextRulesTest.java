@@ -13,14 +13,12 @@ import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaCodeUnit;
-import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -63,15 +61,12 @@ class PlayerTextRulesTest {
             Map.entry("eu.nordtal.season.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.season.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
             Map.entry("eu.nordtal.season.hungergames.player.ArenaComposition", "a flag glyph and a player name"),
-            Map.entry("eu.nordtal.season.proxy.command.VelocityUser", "replyLiteral, text that is already the answer"),
             Map.entry(
                     "eu.nordtal.season.papercommon.command.PaperUser",
                     "replyLiteral, text that is already the answer"));
 
-    /** The two users that offer a reply without a tone, which every other caller is measured against. */
-    private static final String[] UNTONED_REPLIES = {
-        "eu.nordtal.season.papercommon.command.PaperUser", "eu.nordtal.season.proxy.command.VelocityUser"
-    };
+    /** The user that offers a reply without a tone, which every other caller is measured against. */
+    private static final String[] UNTONED_REPLIES = {"eu.nordtal.season.papercommon.command.PaperUser"};
 
     /** The two classes that answer a command somebody may not, or cannot, run. */
     private static final String[] REFUSERS = {
@@ -283,15 +278,15 @@ class PlayerTextRulesTest {
                                 || access.getTarget().getName().equals("format")));
     }
 
-    /** Every message key a class renders is {@code command.unknown}: {@code unknown()} on the spec's command(). */
+    /** Every document a class renders is its own {@code UNKNOWN}. */
     private static ArchCondition<JavaClass> renderOnlyTheUnknownCommandLine() {
-        return new ArchCondition<>("render no message but command.unknown") {
+        return new ArchCondition<>("render no document but its own UNKNOWN") {
             @Override
             public void check(final JavaClass type, final ConditionEvents events) {
                 boolean rendersIt = false;
                 for (final JavaClass each : Wiring.withNested(type)) {
                     for (final JavaCodeUnit unit : each.getCodeUnits()) {
-                        // Paper's refusal is a document: the refuser reads its one spec, UNKNOWN, and no other.
+                        // The refuser reads its one spec, UNKNOWN, and no other.
                         for (final var access : unit.getFieldAccesses()) {
                             if (!access.getTarget().getRawType().getName().equals(DOCUMENT_SPEC)) {
                                 continue;
@@ -306,41 +301,13 @@ class PlayerTextRulesTest {
                                                 + access.getTarget().getFullName()));
                             }
                         }
-                        for (final var call : unit.getMethodCallsFromSelf()) {
-                            final Optional<JavaMethod> target = call.getTarget().resolveMember();
-                            if (target.isEmpty()
-                                    || !target.get()
-                                            .getRawReturnType()
-                                            .getName()
-                                            .equals(MESSAGE_REF)) {
-                                continue;
-                            }
-                            if (isUnknownCommand(target.get())) {
-                                rendersIt = true;
-                            } else {
-                                events.add(SimpleConditionEvent.violated(
-                                        type,
-                                        type.getName() + " renders "
-                                                + target.get().getFullName()));
-                            }
-                        }
                     }
                 }
                 if (!rendersIt) {
-                    events.add(SimpleConditionEvent.violated(type, type.getName() + " renders no command.unknown"));
+                    events.add(SimpleConditionEvent.violated(type, type.getName() + " renders no UNKNOWN"));
                 }
             }
         };
-    }
-
-    private static boolean isUnknownCommand(final JavaMethod message) {
-        final JavaClass section = message.getOwner();
-        return message.getName().equals("unknown")
-                && section.getEnclosingClass()
-                        .map(spec -> spec.getMethods().stream()
-                                .anyMatch(method -> method.getName().equals("command")
-                                        && method.getRawReturnType().equals(section)))
-                        .orElse(false);
     }
 
     /** A call of {@code Menu#frame}, the one place a window is made. */

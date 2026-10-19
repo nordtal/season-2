@@ -1,11 +1,12 @@
 package eu.nordtal.season.proxy.gate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import java.util.Locale;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -24,21 +25,20 @@ class MisconfiguredGateTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MisconfiguredGateTest.class);
 
-    private Messages messages;
     private MisconfiguredGate gate;
 
     @BeforeEach
     void freshGate() {
-        messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
-        gate = new MisconfiguredGate(LOGGER, MessageRenderer.of(messages));
+        gate = new MisconfiguredGate(LOGGER, ProxyRenderer.RENDERER);
     }
 
     @Test
-    void theBundleLoadsWithoutAnyConfigurationAtAll() {
+    void theDocumentLoadsWithoutAnyConfigurationAtAll() {
         // This screen must render when the configuration itself is broken.
-        assertNotNull(messages.get(Locale.ENGLISH, "gate.misconfigured"));
-        assertTrue(
-                messages.hasTranslation(Locale.GERMAN, "gate.misconfigured"),
+        assertFalse(screen(Locale.ENGLISH).isBlank());
+        assertNotEquals(
+                screen(Locale.ENGLISH),
+                screen(Locale.GERMAN),
                 "the screen is bilingual, so the German half has to exist");
     }
 
@@ -46,9 +46,8 @@ class MisconfiguredGateTest {
     void theScreenShowsBothLanguagesBecauseNobodyCanBeIdentified() {
         final String rendered = flatten(gate.refuse(UUID.randomUUID(), "someone"));
 
-        // Compared against the drawn text, since the raw value carries colour tags.
-        assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))), rendered);
-        assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))), rendered);
+        assertTrue(rendered.contains(screen(Locale.ENGLISH)), rendered);
+        assertTrue(rendered.contains(screen(Locale.GERMAN)), rendered);
     }
 
     @Test
@@ -92,9 +91,9 @@ class MisconfiguredGateTest {
         assertEquals(0, gate.refusedCount());
     }
 
-    /** A bundle value with its MiniMessage tags removed, as a player reads it. */
-    private static String drawn(final String raw) {
-        return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
+    /** The packaged screen in one language as a player reads it. */
+    private static String screen(final Locale locale) {
+        return flatten(ProxyRenderer.RENDERER.format(locale, Sent.of(MisconfiguredGate.SCREEN)));
     }
 
     /** The component's text and every child's, concatenated. */

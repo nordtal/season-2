@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The network is back.</good> <muted>You reconnect in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</muted>",
+            "de": "<good>Das Netzwerk ist wieder da.</good> <muted>Du verbindest dich in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} neu.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

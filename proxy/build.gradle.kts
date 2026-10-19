@@ -40,5 +40,14 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.season.proxy.ProxyMessages")
+    documentClasses.add("eu.nordtal.season.proxy.gate.GateMessages")
+    documentClasses.add("eu.nordtal.season.proxy.gate.MisconfiguredGate")
+    documentClasses.add("eu.nordtal.season.proxy.launch.LaunchCountdown")
+    documentClasses.add("eu.nordtal.season.proxy.pack.PackMessages")
+    documentClasses.add("eu.nordtal.season.proxy.ping.NetworkPing")
+    documentClasses.add("eu.nordtal.season.proxy.update.RestartWatch")
+    documentClasses.add("eu.nordtal.season.proxy.update.Homecoming")
+    documentClasses.add("eu.nordtal.season.proxy.command.CommandGate")
+    documentClasses.add("eu.nordtal.season.proxy.command.Replies")
+    documentClasses.add("eu.nordtal.season.proxy.command.InfoTexts")
 }

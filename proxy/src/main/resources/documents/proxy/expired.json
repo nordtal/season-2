@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Your access has ended.</bad> <muted>Buy a new period in the contribution channel on Discord.</muted>",
+            "de": "<bad>Dein Zugang ist abgelaufen.</bad> <muted>Kauf im Beitragskanal auf Discord einen neuen Zeitraum.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

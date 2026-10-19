@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> restarts.</accent> <muted>You wait in the waiting room and return on your own.</muted>",
+            "de": "<accent><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> startet neu.</accent> <muted>Du wartest im Warteraum und kommst von selbst zurück.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

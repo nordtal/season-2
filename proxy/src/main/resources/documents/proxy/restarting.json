@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <warn>is restarting.</warn> <muted>Try again in a moment.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>startet neu.</warn> <muted>Versuch es gleich noch einmal.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

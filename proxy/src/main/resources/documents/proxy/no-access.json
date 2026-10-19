@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>You have no access to</bad> <brand>Nordtal</brand> <bad>right now.</bad> <muted>Buy a period in the contribution channel on Discord.</muted>",
+            "de": "<bad>Du hast gerade keinen Zugang zu</bad> <brand>Nordtal</brand><bad>.</bad> <muted>Kauf einen Zeitraum im Beitragskanal auf Discord.</muted>"
+          }
+        },
+        {
+          "when": "invite",
+          "text": {
+            "en": "<newline><muted>Discord: <emphasis>{invite}</emphasis></muted>",
+            "de": "<newline><muted>Discord: <emphasis>{invite}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

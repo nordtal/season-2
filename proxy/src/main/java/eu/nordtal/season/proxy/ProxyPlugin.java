@@ -20,6 +20,8 @@ import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.command.CommandTreeWriter;
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
@@ -97,6 +99,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -138,6 +141,10 @@ public final class ProxyPlugin {
     private final Path dataDirectory;
 
     private @Nullable HikariDataSource pool;
+
+    /** The packaged documents with the admins' edits over them. */
+    private final AppliedDocuments documents = new AppliedDocuments(getClass().getClassLoader(), Set.of("proxy"));
+
     private @Nullable SignalHub signals;
     private @Nullable SignalHub numberSignals;
     private @Nullable PlaytimeWriter playtime;
@@ -150,7 +157,6 @@ public final class ProxyPlugin {
             GateSpec gate,
             PackSpec pack,
             NetworkSpec network,
-            ToneColours colours,
             Messages messages,
             DatabaseSettings settings,
             Setting<PlayersSpec> players,
@@ -232,23 +238,11 @@ public final class ProxyPlugin {
                 settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
         languages = NetworkSettings.languages(languageAndTime);
         final Messages loadedMessages = Messages.load(
-                        getClass().getClassLoader(),
-                        List.of("messages/database", "messages/proxy"),
-                        languages.locales())
+                        getClass().getClassLoader(), List.of("messages/database"), languages.locales())
                 .within(NetworkSettings.environment("proxy", season, languageAndTime, colours));
         this.messages = loadedMessages;
         return new Loaded(
-                opened,
-                database,
-                gate,
-                pack,
-                network,
-                colours,
-                loadedMessages,
-                settings,
-                players,
-                prestigeSetting,
-                queue);
+                opened, database, gate, pack, network, loadedMessages, settings, players, prestigeSetting, queue);
     }
 
     /** Creates every feature, registers the event handlers in order, then starts the signal hub and the heartbeat. */
@@ -295,8 +289,8 @@ public final class ProxyPlugin {
         final HikariDataSource pool = loaded.pool();
         final AccessDirectory access = AccessDirectory.using(pool, clock);
         final LoginRoster roster = new LoginRoster();
-        final MessageRenderer renderer =
-                MessageRenderer.of(loaded.messages(), Names.BARE, roster.cards(() -> prestige));
+        final MessageRenderer renderer = MessageRenderer.of(loaded.messages(), Names.BARE, roster.cards(() -> prestige))
+                .reading(documents);
         final PhaseServers phaseServers = PhaseServers.from(loaded.gate());
         final ProxyRole role = ProxyRole.of(loaded.network().standby());
         final InetSocketAddress publicAddress =
@@ -604,7 +598,6 @@ public final class ProxyPlugin {
     /** Registers the command gate, the commands of the players and the command tree. */
     private void wireCommands(final Shared shared) {
         final PlayersSpec players = shared.loaded().players().get();
-        final ToneColours colours = shared.loaded().colours();
         proxy.getEventManager()
                 .register(
                         this,
@@ -613,11 +606,9 @@ public final class ProxyPlugin {
                                 NetworkSettings.allowlist(players),
                                 shared.renderer(),
                                 logger,
-                                () -> colours,
                                 ProxySounds.defaults(logger::warn)));
         logger.info("Players who are not admins may use: {}", players.commandAllowlist());
-        final PrivateMessages privateMessages =
-                new PrivateMessages(proxy, shared.roster(), shared.renderer(), () -> colours, logger);
+        final PrivateMessages privateMessages = new PrivateMessages(proxy, shared.roster(), shared.renderer(), logger);
         proxy.getEventManager().register(this, privateMessages);
         final InfoTexts infoTexts =
                 new InfoTexts(shared.renderer(), shared.loaded().gate().discordInviteUrl(), shared.roster());
@@ -646,6 +637,7 @@ public final class ProxyPlugin {
         hub.on(Channel.PHASE, "the season phase", shared.phaseWatch()::refresh);
         loaded.settings().listen(hub, () -> reloadNetwork(loaded));
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
+        documents.follow(DocumentStore.using(loaded.pool()), hub, () -> {});
         hub.on(Channel.ADMIN, "the admin roster", () -> refreshAdmins(shared, router));
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
@@ -702,11 +694,10 @@ public final class ProxyPlugin {
             logger.info(
                     "The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",
-                    shared.loaded()
-                            .messages()
-                            .format(
+                    shared.renderer()
+                            .plainLine(
                                     Locale.ENGLISH,
-                                    LaunchCountdown.left(
+                                    LaunchCountdown.line(
                                             shared.phaseWatch().launch().orElse(null), clock.instant())));
         }
     }
@@ -753,8 +744,15 @@ public final class ProxyPlugin {
         try {
             final Messages shown = messages != null
                     ? messages
-                    : Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales());
-            proxy.getEventManager().register(this, new MisconfiguredGate(logger, MessageRenderer.of(shown)));
+                    : Messages.load(getClass().getClassLoader(), "messages/database", languages.locales());
+            proxy.getEventManager()
+                    .register(
+                            this,
+                            new MisconfiguredGate(
+                                    logger,
+                                    MessageRenderer.of(shown)
+                                            .reading(new AppliedDocuments(
+                                                    getClass().getClassLoader(), Set.of("proxy")))));
         } catch (final RuntimeException broken) {
             logger.error(
                     "proxy cannot even load its own packaged messages, so it cannot "

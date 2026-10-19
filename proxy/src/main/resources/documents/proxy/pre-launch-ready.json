@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Your account is linked and your access is paid. See you at the start.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Dein Account ist verknüpft und dein Zugang ist bezahlt. Bis zum Start.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

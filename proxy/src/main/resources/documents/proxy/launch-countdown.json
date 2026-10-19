@@ -1,0 +1,44 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "countdown=days",
+          "text": {
+            "en": "<muted>The network opens in <emphasis>{days, plural, one {# day} other {# days}} {hours, plural, one {# hour} other {# hours}}</emphasis>.</muted>",
+            "de": "<muted>Das Netzwerk öffnet in <emphasis>{days, plural, one {# Tag} other {# Tagen}} {hours, plural, one {# Stunde} other {# Stunden}}</emphasis>.</muted>"
+          }
+        },
+        {
+          "when": "countdown=hours",
+          "text": {
+            "en": "<muted>The network opens in <emphasis>{hours, plural, one {# hour} other {# hours}} {minutes, plural, one {# minute} other {# minutes}}</emphasis>.</muted>",
+            "de": "<muted>Das Netzwerk öffnet in <emphasis>{hours, plural, one {# Stunde} other {# Stunden}} {minutes, plural, one {# Minute} other {# Minuten}}</emphasis>.</muted>"
+          }
+        },
+        {
+          "when": "countdown=minutes",
+          "text": {
+            "en": "<muted>The network opens in <emphasis>{minutes, plural, one {# minute} other {# minutes}}</emphasis>.</muted>",
+            "de": "<muted>Das Netzwerk öffnet in <emphasis>{minutes, plural, one {# Minute} other {# Minuten}}</emphasis>.</muted>"
+          }
+        },
+        {
+          "when": "countdown=imminent",
+          "text": {
+            "en": "<muted>The network opens in <emphasis>any moment now</emphasis>.</muted>",
+            "de": "<muted>Das Netzwerk öffnet in <emphasis>jedem Moment</emphasis>.</muted>"
+          }
+        },
+        {
+          "when": "countdown=unknown",
+          "text": {
+            "en": "<muted>The opening date is not announced yet. Watch Discord.</muted>",
+            "de": "<muted>Der Eröffnungstermin steht noch nicht fest. Schau auf Discord.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

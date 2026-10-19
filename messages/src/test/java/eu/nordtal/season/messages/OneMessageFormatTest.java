@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
  */
 class OneMessageFormatTest {
 
-    private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
+    private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games");
 
     @Test
     void noBundleCarriesALegacySectionCode() {

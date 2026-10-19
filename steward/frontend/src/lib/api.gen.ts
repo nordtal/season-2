@@ -1060,6 +1060,7 @@ export type DocumentShape =
   | "KICK_SCREEN"
   | "TITLE"
   | "BOSS_BAR"
+  | "SERVER_LIST"
 
 export type DocumentSlot = {
   id: string

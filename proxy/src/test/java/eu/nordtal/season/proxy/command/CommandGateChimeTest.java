@@ -5,10 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.settings.network.CommandAllowlist;
 import java.lang.reflect.Proxy;
@@ -27,8 +25,6 @@ class CommandGateChimeTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000004");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/proxy", Locales.DEFAULT);
-
     private static final class SpyChime implements CommandGate.Chime {
 
         private final List<Feedback> played = new ArrayList<>();
@@ -43,7 +39,7 @@ class CommandGateChimeTest {
     void refusalPlaysRefused() {
         final SpyChime chime = new SpyChime();
         final CommandGate gate = new CommandGate(
-                new LoginRoster(), CommandAllowlist.NOTHING, MessageRenderer.of(messages), silentLogger(), chime);
+                new LoginRoster(), CommandAllowlist.NOTHING, ProxyRenderer.RENDERER, silentLogger(), chime);
 
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
@@ -60,8 +56,8 @@ class CommandGateChimeTest {
     @Test
     void theOldConstructorIsSilentByDefault() {
         // No SpyChime here: the four-argument constructor.
-        final CommandGate gate = new CommandGate(
-                new LoginRoster(), CommandAllowlist.NOTHING, MessageRenderer.of(messages), silentLogger());
+        final CommandGate gate =
+                new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, ProxyRenderer.RENDERER, silentLogger());
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
         assertTrue(event.getResult() == CommandExecuteEvent.CommandResult.denied());

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Link your Minecraft account first.</warn> <muted>Enter this code in the #link channel on Discord: <emphasis>{code}</emphasis></muted>",
+            "de": "<warn>Verknüpfe zuerst deinen Minecraft-Account.</warn> <muted>Gib diesen Code im #link-Kanal auf Discord ein: <emphasis>{code}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

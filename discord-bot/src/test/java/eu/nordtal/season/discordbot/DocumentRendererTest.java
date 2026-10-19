@@ -109,7 +109,7 @@ class DocumentRendererTest {
                 case MESSAGE, MODAL -> "components";
                 case PLAIN -> "content";
                 case CHANNEL_NAME -> "name";
-                case MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR ->
+                case MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR, SERVER_LIST ->
                     throw new AssertionError("the bot ships no game text");
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
@@ -136,7 +136,7 @@ class DocumentRendererTest {
                                     .getContent()
                                     .isBlank(),
                             each.declaration().id());
-                case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR ->
+                case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR, SERVER_LIST ->
                     assertThrows(
                             IllegalArgumentException.class,
                             () -> renderer.message(each, languages, Locale.GERMAN),

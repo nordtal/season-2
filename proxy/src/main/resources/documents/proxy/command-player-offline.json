@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>No player with that name is online on this server.</warn>",
+            "de": "<warn>Auf diesem Server ist kein Spieler mit diesem Namen online.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

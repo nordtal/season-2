@@ -132,7 +132,7 @@ replaced unless somebody has played in it.
 - **Players:** the network's `players` setting limits the players. An admin edits it in Steward. The
   server list shows it, and the proxy enforces it at login. A backend admits every player that the
   proxy sends. Admins can join a full network. A change applies without a restart. The MOTD is the
-  `motd` section of the proxy bundle. The messages page of Steward overrides it.
+  proxy's document `server-list`, which an admin edits on Steward's Translations page.
 - **Forwarding secret:** all four servers share `VELOCITY_FORWARDING_SECRET`. A mismatch shows as
   _"Unable to connect you to the backend server"_. To rotate the secret, set a new value
   (`openssl rand -hex 24`) and edit it in `config/paper-global.yml` of each backend too.

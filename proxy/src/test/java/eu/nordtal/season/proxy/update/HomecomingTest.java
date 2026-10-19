@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.CountdownPlan;
-import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.proxy.PhaseServers;
 import java.util.List;
 import java.util.UUID;
@@ -18,11 +17,7 @@ class HomecomingTest {
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
-            MessageRenderer.of(eu.nordtal.season.messages.Messages.load(
-                    HomecomingTest.class.getClassLoader(),
-                    "messages/proxy",
-                    java.util.Locale.ENGLISH,
-                    java.util.Locale.GERMAN)),
+            eu.nordtal.season.proxy.ProxyRenderer.RENDERER,
             new eu.nordtal.season.proxy.gate.LoginRoster(),
             SERVERS,
             eu.nordtal.season.database.update.RunRecorder.NONE);

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Your client did not answer the resource pack request.</bad> <muted>Join again.</muted>",
+            "de": "<bad>Dein Client hat die Anfrage für das Resource-Pack nicht beantwortet.</bad> <muted>Verbinde dich neu.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

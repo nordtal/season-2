@@ -1,7 +1,5 @@
 package eu.nordtal.season.smp;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -14,8 +12,10 @@ import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.displaytags.DisplayTags;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
 import eu.nordtal.season.messagerendering.Names;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
+import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.season.papercommon.sound.SoundsSpec;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -410,9 +410,7 @@ public final class SmpPlugin extends NordtalPlugin {
     private int changeAura(final CommandContext<CommandSourceStack> context) {
         final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
         if (player == null) {
-            tell(
-                    context.getSource().getSender(),
-                    Answer.failed(MESSAGES.smp().admin().playerOffline()));
+            tell(context.getSource().getSender(), Answer.failed(Sent.of(SmpAdmin.PLAYER_OFFLINE)));
             return Command.SINGLE_SUCCESS;
         }
         final int delta = IntegerArgumentType.getInteger(context, "delta");
@@ -421,7 +419,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     private int redrawNameTags(final CommandContext<CommandSourceStack> context) {
         nameTags.reload(nameTagSettings.get());
-        tell(context.getSource().getSender(), Answer.done(MESSAGES.smp().admin().nameTagsRedrawn()));
+        tell(context.getSource().getSender(), Answer.done(Sent.of(SmpAdmin.NAME_TAGS_REDRAWN)));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -429,9 +427,7 @@ public final class SmpPlugin extends NordtalPlugin {
     private int showAccess(final CommandContext<CommandSourceStack> context) {
         final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
         if (player == null) {
-            tell(
-                    context.getSource().getSender(),
-                    Answer.failed(MESSAGES.smp().admin().playerOffline()));
+            tell(context.getSource().getSender(), Answer.failed(Sent.of(SmpAdmin.PLAYER_OFFLINE)));
             return Command.SINGLE_SUCCESS;
         }
         final org.bukkit.command.CommandSender sender = context.getSource().getSender();
@@ -443,11 +439,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 admin.showAccess(console, id, name);
             } catch (final RuntimeException failure) {
                 getLogger().log(java.util.logging.Level.WARNING, "/smp access could not read " + name, failure);
-                tell(
-                        sender,
-                        Answer.failed(eu.nordtal.season.papercommon.PaperCommonMessages.MESSAGES
-                                .admin()
-                                .failed()));
+                tell(sender, Answer.failed(Sent.of(Replies.FAILED)));
             }
         });
         return Command.SINGLE_SUCCESS;

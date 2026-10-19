@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.smp.menu.PanelWalk;
@@ -20,7 +20,7 @@ class NavigatePageTest {
     private static final Messages MESSAGES =
             Messages.load(NavigatePageTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
 
-    private static final MenuDocument DOCUMENT =
+    private static final GameDocument DOCUMENT =
             PanelWalk.document(NavigateGui.DOCUMENT, Locale.ENGLISH, new NavigateGui.Window(1, 3));
 
     private static final String WORLD = "nordtal";

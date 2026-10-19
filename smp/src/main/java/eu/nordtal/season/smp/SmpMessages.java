@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp;
 
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.spec.Arg;
@@ -12,10 +11,8 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.value.GameContent;
-import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.smp.world.WorldRole;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
 
 @MessageSpec("smp")
@@ -77,70 +74,6 @@ public interface SmpMessages {
 
         Failure error();
 
-        Access access();
-
-        @Name("Access")
-        interface Access {
-
-            @Name("Active")
-            MessageRef active(@Arg("until") Instant until);
-
-            @Name("Expired")
-            MessageRef expired(@Arg("since") Instant since);
-
-            @Name("Linked")
-            MessageRef linked(@Arg("player") PlayerContext player, @Arg("discord") DiscordMemberContext discord);
-
-            @Name("Never")
-            MessageRef never();
-
-            @Name("No payment")
-            MessageRef noPayment();
-
-            @Name("Payment")
-            MessageRef payment(
-                    @Arg("reference") String reference,
-                    @Arg("days") long days,
-                    @Arg("amount") Money amount,
-                    @Arg("since") Instant since);
-
-            @Name("Payment unstarted")
-            MessageRef paymentUnstarted(
-                    @Arg("reference") String reference, @Arg("days") long days, @Arg("since") Instant since);
-
-            @Name("Unlinked")
-            MessageRef unlinked(@Arg("player") PlayerContext player);
-        }
-
-        Admin admin();
-
-        @Name("Admin")
-        interface Admin {
-
-            @Name("Aura changed")
-            MessageRef auraChanged(@Arg("player") PlayerContext player, @Arg("delta") long delta);
-
-            @Name("Aura unknown")
-            MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") long delta);
-
-            @Name("Milestone unlocked")
-            @Shown({Display.CHAT, Display.STEWARD})
-            MessageRef milestoneUnlocked(@Arg("key") String key);
-
-            @Name("Player offline")
-            MessageRef playerOffline();
-
-            @Name("Name tags redrawn")
-            MessageRef nameTagsRedrawn();
-
-            @Name("Target unlinked")
-            MessageRef targetUnlinked(@Arg("player") PlayerContext player);
-
-            @Name("Objective completed")
-            @Shown({Display.CHAT, Display.STEWARD})
-            MessageRef objectiveCompleted(@Arg("key") String key, @Arg("milestone") MilestoneContext milestone);
-        }
-
         @Name("Error")
         interface Failure {
 
@@ -173,10 +106,6 @@ public interface SmpMessages {
         @Shown(Display.GUI)
         interface Navigate {
 
-            @Name("Stopped")
-            @Shown(Display.CHAT)
-            MessageRef stopped();
-
             @Name("Started")
             @Shown(Display.CHAT)
             MessageRef started(@Arg("target") String target);
@@ -184,10 +113,6 @@ public interface SmpMessages {
             @Name("Arrived")
             @Shown(Display.CHAT)
             MessageRef arrived(@Arg("target") String target);
-
-            @Name("Nothing to cancel")
-            @Shown(Display.CHAT)
-            MessageRef nothingToCancel();
 
             @Name("World spawn")
             @Shown({Display.GUI, Display.CHAT, Display.BOSS_BAR})

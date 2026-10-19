@@ -28,22 +28,6 @@ public interface HungerGamesMessages {
 
         Start start();
 
-        Admin admin();
-
-        @Name("Admin")
-        interface Admin {
-
-            @Name("Started")
-            @Shown({Display.CHAT, Display.STEWARD})
-            MessageRef started(@Arg("count") int count);
-
-            @Name("Ready status header")
-            MessageRef readyHeader();
-
-            @Name("Ready status line")
-            MessageRef readyLine(@Arg("team") TeamContext team, @Arg("ready") boolean ready);
-        }
-
         @Name("Start")
         interface Start {
 
@@ -64,12 +48,6 @@ public interface HungerGamesMessages {
 
             @Name("Broadcast")
             MessageRef broadcast(@Arg("ready") long ready, @Arg("total") long total, @Arg("confirm") Action confirm);
-
-            @Name("Ready set")
-            MessageRef readySet();
-
-            @Name("Not registered")
-            MessageRef notRegistered();
         }
 
         Team team();

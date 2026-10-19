@@ -1,7 +1,5 @@
 package eu.nordtal.season.papercommon.chat;
 
-import static eu.nordtal.season.papercommon.PaperCommonMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -13,7 +11,9 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.command.Answer;
+import eu.nordtal.season.papercommon.command.Replies;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -57,7 +57,7 @@ public final class Previews {
             case ACTION_BAR -> reader.sendActionBar(Lines.joined(text));
             default -> reader.sendMessage(text);
         }
-        return Answer.done(MESSAGES.admin().previewShown());
+        return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
     /** Returns the tones as a palette. A missing or unreadable tone keeps its default. */

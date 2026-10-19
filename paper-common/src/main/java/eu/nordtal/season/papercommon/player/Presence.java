@@ -1,10 +1,10 @@
 package eu.nordtal.season.papercommon.player;
 
-import static eu.nordtal.season.papercommon.PaperCommonMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.access.AdminOperators;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Locale;
@@ -23,6 +23,10 @@ import org.slf4j.Logger;
 
 /** The beginning and end of a session: identity at pre-login, operator at join, everything dropped at quit. */
 public final class Presence implements Listener {
+
+    /** English only by necessity: without the identity there is no language to read. */
+    static final DocumentSpec<DocumentSpec.None> DATABASE_UNREACHABLE =
+            DocumentSpec.game("paper-common", "database-unreachable", "Login", DocumentSpec.Shape.KICK_SCREEN);
 
     private final Plugin plugin;
     private final Identities identities;
@@ -67,7 +71,7 @@ public final class Presence implements Listener {
             logger.error("refusing {}'s login because the database is unreachable", player, failure);
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                    renderer.format(Locale.ENGLISH, MESSAGES.login().databaseUnreachable()));
+                    renderer.format(Locale.ENGLISH, Sent.of(DATABASE_UNREACHABLE)));
         }
     }
 

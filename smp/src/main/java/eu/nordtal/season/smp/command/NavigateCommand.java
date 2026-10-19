@@ -12,10 +12,11 @@ import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
-import eu.nordtal.season.papercommon.PaperCommonMessages;
 import eu.nordtal.season.papercommon.command.PaperUser;
+import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpMessages;
@@ -44,6 +45,9 @@ import org.bukkit.plugin.Plugin;
 public final class NavigateCommand {
 
     private static final int MAX_POI_NAME = 32;
+
+    static final DocumentSpec<DocumentSpec.None> NOTHING_TO_CANCEL =
+            DocumentSpec.game("smp", "navigate-nothing-to-cancel", "Navigate", DocumentSpec.Shape.CHAT);
 
     private final Plugin plugin;
     private final PlaceDao dao;
@@ -123,19 +127,17 @@ public final class NavigateCommand {
 
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final PaperUser user = user(context);
-        user.reply(PaperCommonMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
+        user.reply(Replies.HELP_HEADER.with(new Replies.Typed("/poi")));
         for (final Sub sub : Sub.values()) {
-            user.reply(
-                    PaperCommonMessages.MESSAGES.command().help().line(sub.usage(), user.phrase(sub.describe())),
-                    Tone.MUTED);
+            user.reply(Replies.HELP_LINE.with(new Replies.Usage(sub.usage(), user.phrase(sub.describe()))));
         }
         return Command.SINGLE_SUCCESS;
     }
 
     private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
         final PaperUser user = user(context);
-        user.reply(PaperCommonMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply(PaperCommonMessages.MESSAGES.command().help().what(user.phrase(sub.describe())), Tone.MUTED);
+        user.reply(
+                Replies.HELP_USAGE.with(new Replies.Usage(sub.usage(), user.phrase(sub.describe()))), Feedback.REFUSED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -178,11 +180,11 @@ public final class NavigateCommand {
         final PaperUser user = user(context);
         final UUID uuid = ((Player) context.getSource().getSender()).getUniqueId();
         if (!navigation.isNavigating(uuid)) {
-            user.reply(MESSAGES.smp().navigate().nothingToCancel(), Feedback.REFUSED, Tone.NEUTRAL);
+            user.reply(Sent.of(NOTHING_TO_CANCEL), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
         navigation.clear(uuid);
-        user.reply(MESSAGES.smp().navigate().stopped(), Tone.NEUTRAL);
+        user.reply(Sent.of(NavigateGui.STOPPED));
         return Command.SINGLE_SUCCESS;
     }
 

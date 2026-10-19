@@ -36,6 +36,18 @@ public final class Documents {
         }
     }
 
+    /** Where a process's documents come from. */
+    @FunctionalInterface
+    public interface Source {
+
+        /**
+         * Returns the packaged declaration and the document shown for {@code spec}: an admin's, else the packaged one.
+         *
+         * @throws IllegalStateException if no such document is packaged
+         */
+        Packaged applied(DocumentSpec<?> spec);
+    }
+
     public static String resource(final String namespace, final String name) {
         return "documents/" + namespace + "/" + name + ".json";
     }

@@ -3,6 +3,7 @@ import { cn } from "cn"
 import type { ReactNode } from "react"
 
 import type { Document, DocumentDeclaration, MenuDrawing } from "@/lib/api"
+import { inGame } from "@/lib/documents"
 import { useDocumentDrawing, useGlyphs, useMessageSyntax } from "@/lib/queries"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { markdownRuns, parse, textRuns } from "@/lib/rich-text"
@@ -17,13 +18,14 @@ import {
   DiscordSelect,
   McTooltip,
   MinecraftText,
+  Preview,
 } from "@/components/steward/message-editor/preview"
 
 /** How long typing pauses before the server draws the draft again. */
 export const PAUSE_MS = 300
 
 /**
- * A Discord document as the bot draws it, or as its modal, or a menu as the game draws it. The server draws it with the
+ * A Discord document as the bot draws it, or as its modal, or a game text as the game draws it. The server draws it with the
  * bot's or the game's own renderer, every value at its declared example; this only draws what comes back.
  */
 export function DocumentPreview({
@@ -45,6 +47,19 @@ export function DocumentPreview({
       <QueryState query={drawing}>
         {(drawn) =>
           drawn?.menu ? <MenuPreview menu={drawn.menu} className={className} /> : <Skeleton className="h-32 w-full" />
+        }
+      </QueryState>
+    )
+  }
+  if (inGame(declaration)) {
+    return (
+      <QueryState query={drawing}>
+        {(drawn) =>
+          drawn?.game ? (
+            <GamePreview shape={declaration.shape} lines={drawn.game} className={className} />
+          ) : (
+            <Skeleton className="h-16 w-full" />
+          )
         }
       </QueryState>
     )
@@ -110,6 +125,24 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
         ))}
       </ul>
     </div>
+  )
+}
+
+/** A chat text, a tab list or a kick screen on the scene the game draws it in, as a text of a bundle is. */
+function GamePreview({ shape, lines, className }: { shape: string; lines: string[]; className?: string }) {
+  const tones = useMessageSyntax().data?.tones ?? {}
+  const glyphs = useGlyphs().data ?? []
+  const source = lines.join("\n")
+  return (
+    <Preview
+      runs={parse(source, "MINIMESSAGE", Object.keys(tones)) ?? textRuns(source, false)}
+      shown={shape}
+      surface="GAME"
+      fill={unfilled}
+      glyphs={glyphs}
+      tones={tones}
+      className={className}
+    />
   )
 }
 

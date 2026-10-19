@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent><glyph:advancement></accent> <muted>{player.name} earned <emphasis>{advancement}</emphasis>.</muted>",
+            "de": "<accent><glyph:advancement></accent> <muted>{player.name} hat <emphasis>{advancement}</emphasis> geschafft.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

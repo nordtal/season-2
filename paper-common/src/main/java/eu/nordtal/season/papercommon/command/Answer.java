@@ -1,14 +1,14 @@
 package eu.nordtal.season.papercommon.command;
 
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
+import eu.nordtal.season.messages.document.Sent;
 import java.util.Objects;
 
-/** The answer to an admin action, from the console or another process. */
+/** The answer to an admin action, from the console or another process. A done or failed answer is a game document. */
 public sealed interface Answer {
 
     /** The action was carried out. */
-    record Done(MessageRef message) implements Answer {
+    record Done(Sent<?> message) implements Answer {
 
         public Done {
             Objects.requireNonNull(message, "message");
@@ -24,14 +24,14 @@ public sealed interface Answer {
     }
 
     /** The action failed. The log says why. */
-    record Failed(MessageRef message) implements Answer {
+    record Failed(Sent<?> message) implements Answer {
 
         public Failed {
             Objects.requireNonNull(message, "message");
         }
     }
 
-    static Answer done(final MessageRef message) {
+    static Answer done(final Sent<?> message) {
         return new Done(message);
     }
 
@@ -39,7 +39,7 @@ public sealed interface Answer {
         return new Refused(refusal);
     }
 
-    static Answer failed(final MessageRef message) {
+    static Answer failed(final Sent<?> message) {
         return new Failed(message);
     }
 }

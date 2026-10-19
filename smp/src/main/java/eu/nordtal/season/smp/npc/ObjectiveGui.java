@@ -1,7 +1,7 @@
 package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.MilestoneContext;
@@ -80,7 +80,7 @@ public final class ObjectiveGui extends Menu {
     private final OwnShare.Summary share;
     private final BiConsumer<Player, HandInGui> confirm;
     private final int page;
-    private final MenuDocument document;
+    private final GameDocument document;
     private final Inventory inventory;
 
     private final List<Entry> entries = new ArrayList<>();
@@ -121,7 +121,7 @@ public final class ObjectiveGui extends Menu {
         this.share = share;
         this.confirm = confirm;
         this.page = Math.max(0, Math.min(page, pages() - 1));
-        this.document = new MenuDocument(
+        this.document = new GameDocument(
                 renderer,
                 documents.applied(DOCUMENT),
                 Viewer.of(locale),

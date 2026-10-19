@@ -7,6 +7,7 @@ import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messagerendering.Tones;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.util.Locale;
@@ -144,21 +145,18 @@ public final class PaperUser {
         return admin;
     }
 
-    public void reply(final MessageRef message) {
-        // null: reply(message, null) is ambiguous between the Feedback and Tone overloads.
-        send(render(message), null);
+    /** Sends a game document, whose text carries its tones. */
+    public void reply(final Sent<?> message) {
+        send(renderer.format(locale, message), null);
     }
 
-    public void reply(final MessageRef message, final Feedback feedback) {
-        send(render(message), feedback);
+    public void reply(final Sent<?> message, final Feedback feedback) {
+        send(renderer.format(locale, message), feedback);
     }
 
-    public void reply(final MessageRef message, final Tone tone) {
-        send(Tones.paint(render(message), tone, colours.get()), null);
-    }
-
-    public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
-        send(Tones.paint(render(message), tone, colours.get()), feedback);
+    /** Sends a refusal's line, which every refusal shows in the warning tone. */
+    public void refuse(final MessageRef refusal) {
+        send(Tones.paint(render(refusal), Tone.WARN, colours.get()), null);
     }
 
     public String phrase(final MessageRef message) {

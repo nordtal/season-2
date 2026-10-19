@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Holds a process's packaged documents and the ones admins wrote over them, each merged into this release. */
-public final class AppliedDocuments {
+public final class AppliedDocuments implements Documents.Source {
 
     private final Set<String> namespaces;
     /** By namespace, then name. */
@@ -49,11 +49,7 @@ public final class AppliedDocuments {
         written = Map.copyOf(byId);
     }
 
-    /**
-     * Returns the packaged declaration and the document shown for {@code spec}: an admin's, else the packaged one.
-     *
-     * @throws IllegalStateException if the jar packages no such document
-     */
+    @Override
     public Documents.Packaged applied(final DocumentSpec<?> spec) {
         final Documents.Packaged own =
                 packaged.getOrDefault(spec.namespace(), Map.of()).get(spec.name());

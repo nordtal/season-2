@@ -5,6 +5,8 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.text.Node;
 import eu.nordtal.season.messages.text.Piece;
@@ -58,9 +60,15 @@ public final class MessageRenderer {
         return Tag.selfClosingInserting(glyph);
     });
 
+    /** Packages no document, for a renderer that draws only keys and drafts. */
+    private static final Documents.Source NO_DOCUMENTS = spec -> {
+        throw new IllegalStateException("this renderer reads no documents, so it cannot draw " + spec.id());
+    };
+
     private final Messages messages;
     private final Names names;
     private final NameCards cards;
+    private final Documents.Source documents;
 
     public MessageRenderer(final Messages messages) {
         this(messages, Names.BARE, NameCards.NONE);
@@ -71,9 +79,15 @@ public final class MessageRenderer {
     }
 
     public MessageRenderer(final Messages messages, final Names names, final NameCards cards) {
+        this(messages, names, cards, NO_DOCUMENTS);
+    }
+
+    private MessageRenderer(
+            final Messages messages, final Names names, final NameCards cards, final Documents.Source documents) {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.names = Objects.requireNonNull(names, "names");
         this.cards = Objects.requireNonNull(cards, "cards");
+        this.documents = Objects.requireNonNull(documents, "documents");
     }
 
     /** Returns a renderer that shows a player's bare name. */
@@ -91,7 +105,12 @@ public final class MessageRenderer {
 
     /** Returns a renderer with bare names and no cards. */
     public MessageRenderer bare() {
-        return new MessageRenderer(messages);
+        return new MessageRenderer(messages, Names.BARE, NameCards.NONE, documents);
+    }
+
+    /** Returns this renderer drawing a sent document from {@code documents}. */
+    public MessageRenderer reading(final Documents.Source documents) {
+        return new MessageRenderer(messages, names, cards, documents);
     }
 
     public Messages raw() {
@@ -104,6 +123,15 @@ public final class MessageRenderer {
 
     public Component format(final Viewer viewer, final MessageRef message) {
         return format(viewer, message, true);
+    }
+
+    /** Renders a game text's document, an admin's in place of the packaged one, with the values it was sent with. */
+    public Component format(final @Nullable Locale locale, final Sent<?> sent) {
+        return format(Viewer.of(locale), sent);
+    }
+
+    public Component format(final Viewer viewer, final Sent<?> sent) {
+        return new GameDocument(this, documents.applied(sent.document()), viewer, sent.values()).text();
     }
 
     /**

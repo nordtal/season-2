@@ -10,6 +10,7 @@ import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Locale;
 import java.util.Objects;
@@ -54,16 +55,16 @@ public final class BookingReaction {
         roles.dm(
                 payer,
                 booked.downgraded()
-                        ? new DocumentRenderer.Reply<>(
+                        ? new Sent<>(
                                 Replies.DM_GRANTED_SHORT,
                                 new Replies.Paid(
                                         Money.euroCents(Objects.requireNonNull(
                                                 booked.receivedCents(), "a short payment has an amount")),
                                         booked.days(),
                                         booked.until()))
-                        : new DocumentRenderer.Reply<>(Replies.DM_GRANTED, new Replies.Until(booked.until())));
+                        : new Sent<>(Replies.DM_GRANTED, new Replies.Until(booked.until())));
         if (booked.donation()) {
-            roles.dm(payer, DocumentRenderer.Reply.of(Replies.DM_DONOR));
+            roles.dm(payer, Sent.of(Replies.DM_DONOR));
             announceDonation(payer, booked.donationCents(), locale);
         }
 
@@ -84,7 +85,7 @@ public final class BookingReaction {
         channel.sendMessage(documents
                         .reply(
                                 locale,
-                                new DocumentRenderer.Reply<>(
+                                new Sent<>(
                                         Replies.PUBLIC_DONATION,
                                         new Replies.Donated(
                                                 new DiscordMemberContext(discordId, discordId.value()),

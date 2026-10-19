@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<neutral>{command} takes one of these:</neutral>",
+            "de": "<neutral>{command} kennt diese:</neutral>"
+          }
+        }
+      ]
+    }
+  ]
+}

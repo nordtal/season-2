@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Item;
 import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.document.Text;
 import eu.nordtal.season.messages.document.Value;
@@ -185,23 +186,8 @@ public final class DocumentRenderer {
         }
     }
 
-    /** A document that the code fills with nothing but its values, such as a reply or a direct message. */
-    public record Reply<V extends Record>(DocumentSpec<V> document, V values) {
-
-        public static Reply<DocumentSpec.None> of(final DocumentSpec<DocumentSpec.None> document) {
-            return new Reply<>(document, new DocumentSpec.None());
-        }
-    }
-
     /** Where the documents and the stored images come from. */
-    public interface Source {
-
-        /**
-         * Returns the packaged declaration and the document shown for {@code spec}: an admin's, else the packaged one.
-         *
-         * @throws IllegalStateException if no such document is packaged
-         */
-        Documents.Packaged applied(DocumentSpec<?> spec);
+    public interface Source extends Documents.Source {
 
         /** Returns the attachment an {@code upload://} address shows, or nothing for another address. */
         Optional<FileUpload> upload(String address);
@@ -243,15 +229,15 @@ public final class DocumentRenderer {
         return messages;
     }
 
-    public Drawn reply(final Locale locale, final Reply<?> reply) {
+    public Drawn reply(final Locale locale, final Sent<?> reply) {
         return draw(reply, locale);
     }
 
     public Drawn reply(final Locale locale, final DocumentSpec<DocumentSpec.None> spec) {
-        return reply(locale, Reply.of(spec));
+        return reply(locale, Sent.of(spec));
     }
 
-    private <V extends Record> Drawn draw(final Reply<V> reply, final Locale locale) {
+    private <V extends Record> Drawn draw(final Sent<V> reply, final Locale locale) {
         return render(reply.document(), reply.values(), Map.of(), locale);
     }
 
@@ -352,14 +338,15 @@ public final class DocumentRenderer {
                 DataObject.empty().put("content", plain(draft, values, locale)).toString();
             case CHANNEL_NAME ->
                 DataObject.empty().put("name", plain(draft, values, locale)).toString();
-            case MENU -> throw new IllegalArgumentException("the game draws a menu, not Discord");
+            case MENU, CHAT, TAB_LIST, KICK_SCREEN ->
+                throw new IllegalArgumentException("the game draws " + declaration.id() + ", not Discord");
         };
     }
 
     /**
      * Draws a message or a plain draft as a member receives it, every value and slot at its example.
      *
-     * @throws IllegalArgumentException if the draft is a modal, a channel's name or a menu, which no message holds
+     * @throws IllegalArgumentException if the draft is a modal, a channel's name or a game text, which no message holds
      * @throws RuntimeException if the draft cannot be drawn
      */
     public MessageCreateData message(
@@ -371,7 +358,7 @@ public final class DocumentRenderer {
                 draw(draft, values, ExampleSlots.of(declaration, languages), locale)
                         .create();
             case PLAIN -> MessageCreateData.fromContent(plain(draft, values, locale));
-            case MODAL, CHANNEL_NAME, MENU ->
+            case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN ->
                 throw new IllegalArgumentException("a " + declaration.shape() + " is not sent as a message");
         };
     }

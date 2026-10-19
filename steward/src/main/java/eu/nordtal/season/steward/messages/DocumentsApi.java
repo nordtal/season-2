@@ -11,7 +11,7 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Viewer;
@@ -110,10 +110,11 @@ public final class DocumentsApi {
 
     /**
      * A draft as the bot sends it, in Discord's own JSON: a message's payload, a modal, a content or a name.
-     * A menu is drawn by the game's renderer instead.
+     * A game text is drawn by the game's renderer instead.
      *
-     * @param discord    the draft in Discord's JSON, or {@code null} for a menu
+     * @param discord    the draft in Discord's JSON, or {@code null} for a game text
      * @param menu       the menu as the game draws it, or {@code null} for a draft that is not a menu
+     * @param game       a chat text's, tab list's or kick screen's lines in MiniMessage, or {@code null} for any other
      * @param components how many components the draft draws at its largest
      * @param most       how many components Discord draws in one message
      * @param problems   what a save of the draft would be refused or warned for
@@ -121,6 +122,7 @@ public final class DocumentsApi {
     public record DocumentDrawing(
             @Nullable JsonObject discord,
             @Nullable MenuDrawing menu,
+            @Nullable List<String> game,
             int components,
             int most,
             List<DocumentCheck.Problem> problems) {}
@@ -147,6 +149,7 @@ public final class DocumentsApi {
                 MessagesApi.languages(settings).stream().map(Locales::parse).toList();
         final @Nullable String drawn;
         final @Nullable MenuDrawing menu;
+        final @Nullable List<String> game;
         final int components;
         final List<DocumentCheck.Problem> problems;
         try {
@@ -154,9 +157,10 @@ public final class DocumentsApi {
             problems = DocumentCheck.check(draft.declaration(), draft.document(), MessageCheck.Mode.OVERRIDE);
             final Documents.Packaged packaged = new Documents.Packaged(draft.declaration(), draft.document());
             final Locale language = Locales.parse(draft.language());
-            final boolean isMenu = draft.declaration().shape() == DocumentSpec.Shape.MENU;
-            drawn = isMenu ? null : renderer(languages).documents().preview(packaged, languages, language);
-            menu = isMenu ? menu(renderer(languages).game(), packaged, language) : null;
+            final DocumentSpec.Shape shape = draft.declaration().shape();
+            drawn = shape.game() ? null : renderer(languages).documents().preview(packaged, languages, language);
+            menu = shape == DocumentSpec.Shape.MENU ? menu(renderer(languages).game(), packaged, language) : null;
+            game = shape.game() && menu == null ? text(renderer(languages).game(), packaged, language) : null;
         } catch (final RuntimeException undrawable) {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(draft.declaration().id(), String.valueOf(undrawable.getMessage())));
@@ -164,6 +168,7 @@ public final class DocumentsApi {
         ctx.json(new DocumentDrawing(
                 drawn == null ? null : Json.tree(drawn).getAsJsonObject(),
                 menu,
+                game,
                 components,
                 DocumentCheck.COMPONENTS,
                 problems));
@@ -219,15 +224,14 @@ public final class DocumentsApi {
     private static MenuDrawing menu(
             final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
         final DocumentDeclaration declaration = packaged.declaration();
-        final MenuDocument document =
-                new MenuDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
+        final GameDocument document =
+                new GameDocument(renderer, packaged, Viewer.of(language), Value.examples(declaration.named()));
         final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
         for (final Slot slot : declaration.slots()) {
             if (slot.type() == Slot.Type.LIST) {
                 lists.put(slot.id(), List.of(Value.examples(slot.values())));
             }
         }
-        final MiniMessage mini = MiniMessage.miniMessage();
         final List<MenuPart> parts = new ArrayList<>();
         for (final Part part : packaged.document().parts()) {
             final String slot = part.slot();
@@ -239,16 +243,35 @@ public final class DocumentsApi {
                     .map(declared -> Value.examples(declared.values()))
                     .orElse(Map.of());
             if (part.type() == Part.Type.ITEM) {
-                final MenuDocument.Drawn drawn = document.itemOf(slot, entry, lists);
+                final GameDocument.Drawn drawn = document.itemOf(slot, entry, lists);
                 final List<String> lines = new ArrayList<>();
-                lines.add(mini.serialize(named(drawn.name())));
-                drawn.lore().forEach(line -> lines.add(mini.serialize(named(line))));
+                lines.add(markup(drawn.name()));
+                drawn.lore().forEach(line -> lines.add(markup(line)));
                 parts.add(new MenuPart(slot, part.type(), lines));
             } else if (part.type() == Part.Type.LABEL) {
                 parts.add(new MenuPart(slot, part.type(), List.of(document.labelOf(slot, entry))));
             }
         }
-        return new MenuDrawing(mini.serialize(named(document.title())), parts);
+        return new MenuDrawing(markup(document.title()), parts);
+    }
+
+    /** Draws a game text's lines with the game's renderer, every value at its declared example. */
+    private static List<String> text(
+            final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
+        final GameDocument document = new GameDocument(
+                renderer,
+                packaged,
+                Viewer.of(language),
+                Value.examples(packaged.declaration().named()));
+        return document.lines().stream().map(DocumentsApi::markup).toList();
+    }
+
+    /**
+     * Returns the component in MiniMessage, with each glyph tag as written.
+     * Steward has no glyph table, so the renderer leaves the tag as text, and the browser draws the glyph by its name.
+     */
+    private static String markup(final Component component) {
+        return MiniMessage.miniMessage().serialize(named(component)).replace("\\<glyph:", "<glyph:");
     }
 
     /** Puts each translated name's English fallback in its place: a browser has no client to translate it. */

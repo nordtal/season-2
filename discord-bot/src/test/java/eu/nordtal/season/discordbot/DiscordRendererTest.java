@@ -8,6 +8,7 @@ import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.TeamContext;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 import java.util.Locale;
@@ -55,8 +56,6 @@ class DiscordRendererTest {
 
     private static <V extends Record> String text(
             final Locale locale, final eu.nordtal.season.messages.document.DocumentSpec<V> document, final V values) {
-        return DOCUMENTS
-                .reply(locale, new DocumentRenderer.Reply<>(document, values))
-                .text();
+        return DOCUMENTS.reply(locale, new Sent<>(document, values)).text();
     }
 }

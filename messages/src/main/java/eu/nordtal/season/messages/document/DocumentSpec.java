@@ -29,7 +29,18 @@ public record DocumentSpec<V extends Record>(
         /** A channel's name, the lines of its text blocks on one line. */
         CHANNEL_NAME,
         /** A game menu: a text block with its window title, then its items and labels. */
-        MENU
+        MENU,
+        /** Game chat: the lines of its text blocks, one chat line each. */
+        CHAT,
+        /** A tab list's header or footer: the lines of its text blocks. */
+        TAB_LIST,
+        /** A screen that replaces the game, such as a kick: the lines of its text blocks. */
+        KICK_SCREEN;
+
+        /** Returns whether the game draws it, with the game's renderer, rather than Discord. */
+        public boolean game() {
+            return this == MENU || this == CHAT || this == TAB_LIST || this == KICK_SCREEN;
+        }
     }
 
     public DocumentSpec {
@@ -70,6 +81,25 @@ public record DocumentSpec<V extends Record>(
     public static <V extends Record> DocumentSpec<V> menu(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... slots) {
         return new DocumentSpec<>(namespace, name, area, Shape.MENU, values, List.of(slots));
+    }
+
+    /** Declares a game text of {@code shape} that holds only text blocks of lines. */
+    public static <V extends Record> DocumentSpec<V> game(
+            final String namespace, final String name, final String area, final Shape shape, final Class<V> values) {
+        if (!shape.game() || shape == Shape.MENU) {
+            throw new IllegalArgumentException(shape + " is no game text");
+        }
+        return new DocumentSpec<>(namespace, name, area, shape, values, List.of());
+    }
+
+    public static DocumentSpec<None> game(
+            final String namespace, final String name, final String area, final Shape shape) {
+        return game(namespace, name, area, shape, None.class);
+    }
+
+    /** Returns this document filled with {@code values}, as the code sends it. */
+    public Sent<V> with(final V values) {
+        return new Sent<>(this, values);
     }
 
     public String id() {

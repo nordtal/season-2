@@ -1,7 +1,7 @@
 package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.messagerendering.MenuDocument;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -67,8 +67,8 @@ public final class HandInGui extends Menu {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        final MenuDocument document =
-                new MenuDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
+        final GameDocument document =
+                new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
         this.inventory = frame(
                 HandInPanel.ROWS,
                 HandInPanel.title(document.title(), document.label("still-needed"), document.label("confirm-button")));

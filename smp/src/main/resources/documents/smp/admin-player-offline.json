@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>That player is not online.</bad>",
+            "de": "<bad>Dieser Spieler ist nicht online.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

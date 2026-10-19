@@ -1,5 +1,5 @@
 import type { ConfigEntry, DocumentView, MessageEntry, MessageText } from "@/lib/api"
-import { documentId, pageCards, type PageCard } from "@/lib/documents"
+import { documentId, inGame, pageCards, type PageCard } from "@/lib/documents"
 import { entryHaystack } from "@/lib/settings-search"
 import { groupOf, PAGE_GROUPS, pageGroupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
 import { choice, t } from "@/lib/texts"
@@ -197,7 +197,7 @@ export function textsTree(
       group:
         card.kind === "text"
           ? groupOf(card.text.entry, places)
-          : card.view.declaration.shape === "MENU"
+          : inGame(card.view.declaration)
             ? ("GAME" as const)
             : ("DISCORD" as const),
     }))

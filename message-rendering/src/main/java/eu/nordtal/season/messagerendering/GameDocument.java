@@ -18,10 +18,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import org.jspecify.annotations.Nullable;
 
-/** Draws a game menu's document for one viewer: its window title, each item's name and lore, and each label. */
-public final class MenuDocument {
+/**
+ * Draws a game document for one viewer.
+ * That is a text's lines, or a menu's window title, each item's name and lore, and each label.
+ */
+public final class GameDocument {
 
     /** An item as a menu shows it. */
     public record Drawn(Component name, List<Component> lore) {
@@ -38,7 +42,7 @@ public final class MenuDocument {
     /** The kind of every value a text of the document may name, an entry's and a data list's item's too. */
     private final Map<String, Kind> kinds;
 
-    public MenuDocument(
+    public GameDocument(
             final MessageRenderer renderer,
             final Documents.Packaged packaged,
             final Viewer viewer,
@@ -46,7 +50,7 @@ public final class MenuDocument {
         this(renderer, packaged, viewer, Value.read(values));
     }
 
-    public MenuDocument(
+    public GameDocument(
             final MessageRenderer renderer,
             final Documents.Packaged packaged,
             final Viewer viewer,
@@ -58,6 +62,22 @@ public final class MenuDocument {
         final Map<String, Value> own = new LinkedHashMap<>();
         packaged.declaration().slots().forEach(slot -> own.putAll(slot.values()));
         this.kinds = packaged.declaration().kinds(own);
+    }
+
+    /** Returns the lines of every text block that its values show, one under the other. */
+    public Component text() {
+        return Component.join(JoinConfiguration.newlines(), lines());
+    }
+
+    /** Returns the lines of every text block that its values show, in order. */
+    public List<Component> lines() {
+        final List<Component> lines = new ArrayList<>();
+        for (final Part part : packaged.document().parts()) {
+            for (final Line line : shown(part, Map.of())) {
+                lines.add(markup(line.text(), Map.of()));
+            }
+        }
+        return lines;
     }
 
     public Component title() {

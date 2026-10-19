@@ -12,7 +12,7 @@ import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
-import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.messages.document.Sent;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -42,9 +42,7 @@ public final class BotAccessEffects implements AccessChanges {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted.validFrom());
         roles.applyAccessRole(discordId, true);
-        roles.dm(
-                discordId,
-                new DocumentRenderer.Reply<>(Replies.DM_GRANTED_ADMIN, new Replies.Given(days, granted.validUntil())));
+        roles.dm(discordId, new Sent<>(Replies.DM_GRANTED_ADMIN, new Replies.Given(days, granted.validUntil())));
 
         admin.record(AuditLine.about(
                 JournalAction.GRANT_ACCESS,
@@ -59,7 +57,7 @@ public final class BotAccessEffects implements AccessChanges {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
-            roles.dm(discordId, DocumentRenderer.Reply.of(Replies.DM_REVOKED));
+            roles.dm(discordId, Sent.of(Replies.DM_REVOKED));
         }
 
         admin.record(

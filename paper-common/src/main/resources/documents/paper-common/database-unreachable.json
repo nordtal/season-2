@@ -1,0 +1,14 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The server cannot load your progress.</bad> <muted>Join again in a few minutes.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

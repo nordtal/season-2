@@ -1,18 +1,16 @@
 package eu.nordtal.season.smp.command;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.access.AccessReader;
 import eu.nordtal.season.database.access.AccessState;
-import eu.nordtal.season.database.access.OpenPayment;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
@@ -21,6 +19,7 @@ import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.TrackDao;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -31,6 +30,47 @@ import java.util.logging.Logger;
  * Every method reads the database, so none runs on the main thread.
  */
 public final class SmpAdmin {
+
+    public record Who(PlayerContext player) {}
+
+    public record AuraDelta(PlayerContext player, long delta) {}
+
+    public record Milestone(String key) {}
+
+    public record Objective(String key, MilestoneContext milestone) {}
+
+    public record Linked(PlayerContext player, DiscordMemberContext discord) {}
+
+    public record Until(Instant until) {}
+
+    public record Since(Instant since) {}
+
+    public record Payment(String reference, long days, Money amount, Instant since) {}
+
+    public record PaymentUnstarted(String reference, long days, Instant since) {}
+
+    public static final DocumentSpec<DocumentSpec.None> PLAYER_OFFLINE =
+            admin("player-offline", DocumentSpec.None.class);
+    public static final DocumentSpec<DocumentSpec.None> NAME_TAGS_REDRAWN =
+            admin("name-tags-redrawn", DocumentSpec.None.class);
+    static final DocumentSpec<Objective> OBJECTIVE_COMPLETED = admin("objective-completed", Objective.class);
+    static final DocumentSpec<Milestone> MILESTONE_UNLOCKED = admin("milestone-unlocked", Milestone.class);
+    static final DocumentSpec<Who> TARGET_UNLINKED = admin("target-unlinked", Who.class);
+    /** The transaction may have committed, so the answer says the result is unknown. */
+    static final DocumentSpec<AuraDelta> AURA_UNKNOWN = admin("aura-unknown", AuraDelta.class);
+
+    static final DocumentSpec<AuraDelta> AURA_CHANGED = admin("aura-changed", AuraDelta.class);
+
+    static final DocumentSpec<Who> UNLINKED = access("unlinked", Who.class);
+    static final DocumentSpec<Linked> LINKED = access("linked", Linked.class);
+    static final DocumentSpec<Until> ACTIVE = access("active", Until.class);
+    static final DocumentSpec<Since> EXPIRED = access("expired", Since.class);
+    static final DocumentSpec<DocumentSpec.None> NEVER = access("never", DocumentSpec.None.class);
+    static final DocumentSpec<Payment> PAYMENT = access("payment", Payment.class);
+    /** A request without a bunq tab belongs to a player who chose a number of days only. */
+    static final DocumentSpec<PaymentUnstarted> PAYMENT_UNSTARTED = access("payment-unstarted", PaymentUnstarted.class);
+
+    static final DocumentSpec<DocumentSpec.None> NO_PAYMENT = access("no-payment", DocumentSpec.None.class);
 
     public interface Track {
 
@@ -75,7 +115,7 @@ public final class SmpAdmin {
         }
         track.finishObjective(active.get(), row.get());
         logger.info("an admin completed objective " + active.get() + "/" + key);
-        return Answer.done(MESSAGES.smp().admin().objectiveCompleted(key, new MilestoneContext(active.get())));
+        return Answer.done(OBJECTIVE_COMPLETED.with(new Objective(key, new MilestoneContext(active.get()))));
     }
 
     public Answer unlockMilestone(final String key) {
@@ -88,63 +128,60 @@ public final class SmpAdmin {
         }
         track.unlockMilestone(key);
         logger.info("an admin unlocked milestone " + key);
-        return Answer.done(MESSAGES.smp().admin().milestoneUnlocked(key));
+        return Answer.done(MILESTONE_UNLOCKED.with(new Milestone(key)));
     }
 
     public Answer changeAura(final UUID player, final String name, final int delta) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player);
         if (discordId.isEmpty()) {
-            return Answer.failed(MESSAGES.smp().admin().targetUnlinked(PlayerContext.of(PlayerId.of(player), name)));
+            return Answer.failed(TARGET_UNLINKED.with(new Who(PlayerContext.of(PlayerId.of(player), name))));
         }
         try {
             aura.addAura(discordId.get(), delta, new AuraCause.Admin(Actor.HOST));
         } catch (final RuntimeException failure) {
             // The transaction may have committed, so the answer says the result is unknown.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);
-            return Answer.failed(
-                    MESSAGES.smp().admin().auraUnknown(PlayerContext.of(PlayerId.of(player), name), delta));
+            return Answer.failed(AURA_UNKNOWN.with(new AuraDelta(PlayerContext.of(PlayerId.of(player), name), delta)));
         }
         logger.info("the console changed " + name + "'s aura by " + delta);
-        return Answer.done(MESSAGES.smp().admin().auraChanged(PlayerContext.of(PlayerId.of(player), name), delta));
+        return Answer.done(AURA_CHANGED.with(new AuraDelta(PlayerContext.of(PlayerId.of(player), name), delta)));
     }
 
     public void showAccess(final PaperUser console, final UUID player, final String name) {
         final AccessState state = access.accessState(player);
         final DiscordId discordId = state.discordId();
+        final PlayerContext who = PlayerContext.of(PlayerId.of(player), name);
         if (discordId == null) {
-            console.reply(MESSAGES.smp().access().unlinked(PlayerContext.of(PlayerId.of(player), name)), Tone.BAD);
+            console.reply(UNLINKED.with(new Who(who)));
             return;
         }
-        console.reply(
-                MESSAGES.smp()
-                        .access()
-                        .linked(
-                                PlayerContext.of(PlayerId.of(player), name),
-                                new DiscordMemberContext(discordId, discordId.value())),
-                Tone.NEUTRAL);
+        console.reply(LINKED.with(new Linked(who, new DiscordMemberContext(discordId, discordId.value()))));
         if (state.accessActive() && state.accessValidUntil() != null) {
-            console.reply(MESSAGES.smp().access().active(state.accessValidUntil()), Tone.GOOD);
+            console.reply(ACTIVE.with(new Until(state.accessValidUntil())));
         } else if (state.accessValidUntil() != null) {
-            console.reply(MESSAGES.smp().access().expired(state.accessValidUntil()), Tone.WARN);
+            console.reply(EXPIRED.with(new Since(state.accessValidUntil())));
         } else {
-            console.reply(MESSAGES.smp().access().never(), Tone.WARN);
+            console.reply(Sent.of(NEVER));
         }
-        final Optional<OpenPayment> pending = access.openPayment(discordId);
-        pending.ifPresentOrElse(
-                payment -> console.reply(
-                        // A request without a bunq tab belongs to a player who chose a number of days only.
-                        payment.hasTab()
-                                ? MESSAGES.smp()
-                                        .access()
-                                        .payment(
+        access.openPayment(discordId)
+                .ifPresentOrElse(
+                        payment -> console.reply(
+                                payment.hasTab()
+                                        ? PAYMENT.with(new Payment(
                                                 payment.reference(),
                                                 payment.days(),
                                                 Money.euroCents(payment.amountCents()),
-                                                payment.created())
-                                : MESSAGES.smp()
-                                        .access()
-                                        .paymentUnstarted(payment.reference(), payment.days(), payment.created()),
-                        Tone.NEUTRAL),
-                () -> console.reply(MESSAGES.smp().access().noPayment(), Tone.MUTED));
+                                                payment.created()))
+                                        : PAYMENT_UNSTARTED.with(new PaymentUnstarted(
+                                                payment.reference(), payment.days(), payment.created()))),
+                        () -> console.reply(Sent.of(NO_PAYMENT)));
+    }
+
+    private static <V extends Record> DocumentSpec<V> admin(final String name, final Class<V> values) {
+        return DocumentSpec.game("smp", "admin-" + name, "Admin", DocumentSpec.Shape.CHAT, values);
+    }
+
+    private static <V extends Record> DocumentSpec<V> access(final String name, final Class<V> values) {
+        return DocumentSpec.game("smp", "access-" + name, "Access", DocumentSpec.Shape.CHAT, values);
     }
 }

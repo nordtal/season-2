@@ -17,6 +17,11 @@ export function documentId(declaration: DocumentDeclaration): string {
   return `${declaration.namespace}/${declaration.name}`
 }
 
+/** Returns whether the game draws the document, as DocumentSpec.Shape#game says, rather than Discord. */
+export function inGame(declaration: DocumentDeclaration): boolean {
+  return ["MENU", "CHAT", "TAB_LIST", "KICK_SCREEN"].includes(declaration.shape)
+}
+
 export function documentName(declaration: DocumentDeclaration): string {
   return sentenceOf(declaration.name.split("-")) || declaration.name
 }

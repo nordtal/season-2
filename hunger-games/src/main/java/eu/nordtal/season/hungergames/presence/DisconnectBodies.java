@@ -3,6 +3,7 @@ package eu.nordtal.season.hungergames.presence;
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.tab.TabList;
@@ -26,6 +27,8 @@ import org.slf4j.LoggerFactory;
 
 /** Spawns a stand for a player who quits during a game and returns the equipment when the player joins again. */
 public final class DisconnectBodies implements Listener {
+
+    static final DocumentSpec<TabList.Counted> TAB_FOOTER = TabList.countedFooter("hunger-games");
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DisconnectBodies.class);
 
@@ -61,7 +64,7 @@ public final class DisconnectBodies implements Listener {
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = identities.languageOf(online.getUniqueId());
-            tabList.drawCounted(online, locale, network);
+            tabList.drawCounted(online, locale, TAB_FOOTER, network);
         }
     }
 

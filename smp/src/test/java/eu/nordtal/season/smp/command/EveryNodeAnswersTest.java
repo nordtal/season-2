@@ -46,17 +46,12 @@ class EveryNodeAnswersTest {
     void theHelpSaysWordsAndNotKeys() {
         final Messages messages = Messages.load(
                 EveryNodeAnswersTest.class.getClassLoader(),
-                List.of("messages/database", "messages/paper-common", "messages/smp"),
+                List.of("messages/database", "messages/smp"),
                 null,
                 Locale.ENGLISH,
                 Locale.GERMAN);
-        final List<String> keys = List.of(
-                "command.help.header",
-                "command.help.line",
-                "command.help.usage",
-                "command.help.what",
-                "command.describe.poi.add",
-                "command.describe.poi.remove");
+        // The help's frame is paper-common's documents, which the build checks.
+        final List<String> keys = List.of("command.describe.poi.add", "command.describe.poi.remove");
         for (final String key : keys) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 assertTrue(

@@ -15,7 +15,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-class MenuDocumentTest {
+class GameDocumentTest {
 
     record Wheel(long spins) {}
 
@@ -44,10 +44,22 @@ class MenuDocumentTest {
                       {"type": "LABEL", "slot": "left", "lines": [{"text": {"en": "{spins} left", "de": "{spins} übrig"}}]}]}
                     """));
 
+    record Online(long online, boolean full) {}
+
+    private static final DocumentSpec<Online> FOOTER =
+            DocumentSpec.game("test", "footer", "Tab list", DocumentSpec.Shape.TAB_LIST, Online.class);
+
+    private static final Documents.Packaged FOOTER_TEXT =
+            new Documents.Packaged(FOOTER.declaration(), Document.decode("""
+            {"parts": [
+              {"type": "TEXT", "lines": [{"text": {"en": "{online} online"}}, {"when": "full", "text": {"en": "full"}}]},
+              {"type": "TEXT", "lines": [{"text": {"en": "<muted>nordtal.eu</muted>"}}]}]}
+            """));
+
     private static final MessageRenderer RENDER = new MessageRenderer(Messages.load("messages/render", Locale.ENGLISH));
 
-    private static MenuDocument menu(final Locale locale) {
-        return new MenuDocument(RENDER, MENU, Viewer.of(locale), new Wheel(3));
+    private static GameDocument menu(final Locale locale) {
+        return new GameDocument(RENDER, MENU, Viewer.of(locale), new Wheel(3));
     }
 
     private static String plain(final Component component) {
@@ -59,7 +71,7 @@ class MenuDocumentTest {
 
     @Test
     void anItemsFirstShownLineIsItsNameAndADataListGivesALinePerItem() {
-        final MenuDocument.Drawn drawn = menu(Locale.ENGLISH)
+        final GameDocument.Drawn drawn = menu(Locale.ENGLISH)
                 .item(
                         "target",
                         new Target("<b>Spawn", true),
@@ -68,7 +80,7 @@ class MenuDocumentTest {
         assertEquals("<b>Spawn now", plain(drawn.name()));
         assertEquals(
                 List.of("3 spins", "Iron for <b>Spawn", "Gold for <b>Spawn"),
-                drawn.lore().stream().map(MenuDocumentTest::plain).toList());
+                drawn.lore().stream().map(GameDocumentTest::plain).toList());
     }
 
     @Test
@@ -76,5 +88,14 @@ class MenuDocumentTest {
         assertEquals("3 übrig", menu(Locale.GERMAN).label("left"));
         assertEquals("Glücksrad", plain(menu(Locale.GERMAN).title()));
         assertEquals("Wheel", plain(menu(Locale.FRENCH).title()));
+    }
+
+    @Test
+    void aSentTextShowsTheLinesItsValuesHoldOneUnderTheOther() {
+        final MessageRenderer reading = RENDER.reading(spec -> FOOTER_TEXT);
+
+        assertEquals("2 online\nnordtal.eu", plain(reading.format(Locale.ENGLISH, FOOTER.with(new Online(2, false)))));
+        assertEquals(
+                "2 online\nfull\nnordtal.eu", plain(reading.format(Locale.ENGLISH, FOOTER.with(new Online(2, true)))));
     }
 }

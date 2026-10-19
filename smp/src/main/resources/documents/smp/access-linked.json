@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<neutral>{player.name} is linked to Discord account {discord.name}.</neutral>",
+            "de": "<neutral>{player.name} ist mit dem Discord-Konto {discord.name} verknüpft.</neutral>"
+          }
+        }
+      ]
+    }
+  ]
+}

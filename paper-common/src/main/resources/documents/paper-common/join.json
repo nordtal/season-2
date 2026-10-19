@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good><glyph:join></good> <muted>{player.name} joined.</muted>",
+            "de": "<good><glyph:join></good> <muted>{player.name} ist beigetreten.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

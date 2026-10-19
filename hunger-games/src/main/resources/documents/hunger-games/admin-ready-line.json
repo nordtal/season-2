@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>{team.name}: ready</good>",
+            "de": "<good>{team.name}: bereit</good>"
+          },
+          "when": "ready"
+        },
+        {
+          "text": {
+            "en": "<muted>{team.name}: not ready</muted>",
+            "de": "<muted>{team.name}: nicht bereit</muted>"
+          },
+          "when": "!ready"
+        }
+      ]
+    }
+  ]
+}

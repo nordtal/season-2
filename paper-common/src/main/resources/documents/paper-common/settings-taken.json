@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The server would start with this change.</good>",
+            "de": "<good>Der Server würde mit dieser Änderung starten.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

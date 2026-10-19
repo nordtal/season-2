@@ -24,7 +24,6 @@ class EveryBundleIsCompleteTest {
             "hunger-games/src/main/resources/messages/hunger-games",
             "limbo/src/main/resources/messages/limbo",
             "proxy/src/main/resources/messages/proxy",
-            "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
 
     /** Matches a counted noun after a number, past the tags that close around the number.

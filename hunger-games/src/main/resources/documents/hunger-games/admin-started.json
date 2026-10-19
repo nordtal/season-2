@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The Hunger Games start. {count, plural, one {# participant is teleported to their spawn tower} other {# participants are teleported to their spawn towers}}.</good>",
+            "de": "<good>Die Hunger Games starten. {count, plural, one {# Teilnehmer wird zu seinem Spawn-Turm} other {# Teilnehmer werden zu ihren Spawn-Türmen}} teleportiert.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

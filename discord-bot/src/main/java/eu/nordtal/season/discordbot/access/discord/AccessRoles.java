@@ -17,6 +17,7 @@ import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordbot.roles.Withholding;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Mention;
 import java.time.Clock;
 import java.time.Instant;
@@ -234,7 +235,7 @@ public final class AccessRoles {
             final Locale locale = localeOf(deadline.discordId());
             dm(
                     deadline.discordId(),
-                    new DocumentRenderer.Reply<>(
+                    new Sent<>(
                             Replies.DM_EXPIRING,
                             new Replies.Reminder(deadline.validUntil(), contributionChannel(locale))));
         }
@@ -245,7 +246,7 @@ public final class AccessRoles {
             }
             dm(
                     deadline.discordId(),
-                    new DocumentRenderer.Reply<>(
+                    new Sent<>(
                             Replies.DM_EXPIRED,
                             new Replies.Ended(contributionChannel(localeOf(deadline.discordId())))));
         }
@@ -266,7 +267,7 @@ public final class AccessRoles {
         return access.language(discordId);
     }
 
-    public void dm(final DiscordId discordId, final DocumentRenderer.Reply<?> message) {
+    public void dm(final DiscordId discordId, final Sent<?> message) {
         final DocumentRenderer.Drawn drawn = documents.reply(localeOf(discordId), message);
         jda.openPrivateChannelById(discordId.value())
                 .queue(

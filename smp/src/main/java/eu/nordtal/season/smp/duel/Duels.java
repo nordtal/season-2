@@ -15,7 +15,8 @@ import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.aura.DuelType;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
@@ -49,7 +50,8 @@ public final class Duels implements Arenas {
 
     private final Plugin plugin;
     private final AuraDao aura;
-    private final SmpSpec config;
+    private final DuelsSpec config;
+    private final BorderSpec border;
     private final Worlds worlds;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -85,7 +87,8 @@ public final class Duels implements Arenas {
     public Duels(
             final Plugin plugin,
             final AuraDao aura,
-            final SmpSpec config,
+            final DuelsSpec config,
+            final BorderSpec border,
             final Worlds worlds,
             final Identities identities,
             final MessageRenderer renderer,
@@ -96,12 +99,13 @@ public final class Duels implements Arenas {
         this.plugin = plugin;
         this.aura = aura;
         this.config = config;
+        this.border = border;
         this.worlds = worlds;
         this.identities = identities;
         this.renderer = renderer;
         this.sounds = sounds;
         this.effects = effects;
-        this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
+        this.slots = new ArenaSlots(config::concurrentDuelLimit, config::duelArenaBaseY, config::duelArenaSpacing);
     }
 
     private record Queued(UUID first, UUID second, DuelType type) {}
@@ -196,7 +200,7 @@ public final class Duels implements Arenas {
         }
 
         final Location centre =
-                new Location(world, config.borderCentreX() + 0.5, slots.yOf(slot.get()), config.borderCentreZ() + 0.5);
+                new Location(world, border.borderCentreX() + 0.5, slots.yOf(slot.get()), border.borderCentreZ() + 0.5);
         build(slot.get(), centre);
 
         final Map<UUID, SavedState> saved = new HashMap<>();

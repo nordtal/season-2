@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.duel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +10,7 @@ class ArenaSlotsTest {
 
     @Test
     void slotsAreHandedOutLowestFirst() {
-        final ArenaSlots slots = new ArenaSlots(3, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 3, () -> 200, () -> 16);
 
         assertEquals(0, slots.claim().orElseThrow());
         assertEquals(1, slots.claim().orElseThrow());
@@ -20,7 +19,7 @@ class ArenaSlotsTest {
 
     @Test
     void aFullGridHandsOutNothingAndTheNextDuelQueues() {
-        final ArenaSlots slots = new ArenaSlots(2, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 2, () -> 200, () -> 16);
         slots.claim();
         slots.claim();
 
@@ -30,7 +29,7 @@ class ArenaSlotsTest {
 
     @Test
     void aReleasedSlotIsReusedBeforeAHigherOne() {
-        final ArenaSlots slots = new ArenaSlots(3, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 3, () -> 200, () -> 16);
         slots.claim();
         final int second = slots.claim().orElseThrow();
         slots.release(second);
@@ -43,7 +42,7 @@ class ArenaSlotsTest {
 
     @Test
     void everySlotHasItsOwnHeightAndTheyDoNotOverlap() {
-        final ArenaSlots slots = new ArenaSlots(4, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 4, () -> 200, () -> 16);
 
         assertEquals(200, slots.yOf(0));
         assertEquals(216, slots.yOf(1));
@@ -53,7 +52,7 @@ class ArenaSlotsTest {
 
     @Test
     void aClaimedSlotIsNeverHandedOutTwice() {
-        final ArenaSlots slots = new ArenaSlots(3, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 3, () -> 200, () -> 16);
         final int first = slots.claim().orElseThrow();
         final int second = slots.claim().orElseThrow();
         final int third = slots.claim().orElseThrow();
@@ -63,14 +62,21 @@ class ArenaSlotsTest {
     }
 
     @Test
-    void nonsensicalConfigurationIsRefusedAtConstruction() {
-        assertThrows(IllegalArgumentException.class, () -> new ArenaSlots(0, 200, 16));
-        assertThrows(IllegalArgumentException.class, () -> new ArenaSlots(3, 200, 0));
+    void aLoweredLimitHoldsBackTheNextDuelAndKeepsTheRunningOnes() {
+        final int[] limit = {3};
+        final ArenaSlots slots = new ArenaSlots(() -> limit[0], () -> 200, () -> 16);
+        slots.claim();
+        slots.claim();
+        limit[0] = 1;
+
+        assertTrue(slots.isFull());
+        assertTrue(slots.claim().isEmpty());
+        assertEquals(2, slots.inUse());
     }
 
     @Test
     void releasingSomethingNeverClaimedChangesNothing() {
-        final ArenaSlots slots = new ArenaSlots(2, 200, 16);
+        final ArenaSlots slots = new ArenaSlots(() -> 2, () -> 200, () -> 16);
         slots.release(1);
 
         assertEquals(0, slots.inUse());

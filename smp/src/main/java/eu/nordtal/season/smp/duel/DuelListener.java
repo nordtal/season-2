@@ -3,11 +3,8 @@ package eu.nordtal.season.smp.duel;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.DuelType;
 import eu.nordtal.season.smp.config.DuelPlatformSpec;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.region.Box;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -21,23 +18,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 /** A disconnect counts as a defeat. */
 public final class DuelListener implements Listener {
 
-    private final List<Map.Entry<Box, DuelType>> platforms = new ArrayList<>();
+    private final DuelsSpec config;
 
     private final Duels duels;
     private final org.bukkit.plugin.Plugin plugin;
 
-    public DuelListener(final org.bukkit.plugin.Plugin plugin, final SmpSpec config, final Duels duels) {
+    public DuelListener(final org.bukkit.plugin.Plugin plugin, final DuelsSpec config, final Duels duels) {
         this.plugin = plugin;
+        this.config = config;
         this.duels = duels;
-        for (final DuelPlatformSpec spec : config.duelPlatforms()) {
-            final Optional<DuelType> type = DuelType.parse(spec.type());
-            if (type.isEmpty()) {
-                continue;
-            }
-            platforms.add(Map.entry(
-                    new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ()),
-                    type.get()));
-        }
     }
 
     /** {@code PlayerTeleportEvent} has its own handler list. */
@@ -105,9 +94,14 @@ public final class DuelListener implements Listener {
     }
 
     private Optional<DuelType> platformAt(final Location at) {
-        for (final Map.Entry<Box, DuelType> platform : platforms) {
-            if (platform.getKey().contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
-                return Optional.of(platform.getValue());
+        for (final DuelPlatformSpec spec : config.duelPlatforms()) {
+            final Box box =
+                    new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
+            if (box.contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
+                final Optional<DuelType> type = DuelType.parse(spec.type());
+                if (type.isPresent()) {
+                    return type;
+                }
             }
         }
         return Optional.empty();

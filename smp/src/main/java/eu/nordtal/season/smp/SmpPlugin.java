@@ -29,10 +29,18 @@ import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.board.Boards;
 import eu.nordtal.season.smp.command.NavigateCommand;
 import eu.nordtal.season.smp.command.SmpAdmin;
+import eu.nordtal.season.smp.config.AdvancementAwardsSpec;
+import eu.nordtal.season.smp.config.BoardsSpec;
+import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.DeathsSpec;
+import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.config.Milestones;
 import eu.nordtal.season.smp.config.MilestonesSpec;
+import eu.nordtal.season.smp.config.NpcSpec;
 import eu.nordtal.season.smp.config.SmpSettings;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.SpawnSpec;
+import eu.nordtal.season.smp.config.WheelSpec;
+import eu.nordtal.season.smp.config.WorldsSpec;
 import eu.nordtal.season.smp.duel.Duels;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.grave.Graves;
@@ -73,7 +81,21 @@ import org.jspecify.annotations.Nullable;
 /** A refusal at start stops the server. */
 public final class SmpPlugin extends NordtalPlugin {
 
-    private Setting<SmpSpec> config;
+    /** Applies at the next start: a running server keeps the worlds and datapacks it loaded. */
+    private Setting<WorldsSpec> worldsSettings;
+
+    Setting<BorderSpec> borderSettings;
+    Setting<WheelSpec> wheelSettings;
+    Setting<AdvancementAwardsSpec> awardSettings;
+    Setting<DuelsSpec> duelSettings;
+    Setting<BoardsSpec> boardSettings;
+    Setting<NpcSpec> npcSettings;
+    Setting<SpawnSpec> spawnSettings;
+    Setting<DeathsSpec> deathSettings;
+
+    /** The protected spawn regions, rebuilt when the spawn group changes. */
+    volatile Boxes spawnRegions;
+
     private Setting<MilestonesSpec> milestoneSettings;
 
     /** A group of its own, so a reload can read it again. */
@@ -185,7 +207,29 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        config = setting(Group.of("config", SmpSpec.class).checkedBy(SmpSettings::check));
+        worldsSettings = setting(Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds));
+        borderSettings = setting(Group.of("border", BorderSpec.class)
+                .checkedBy(SmpSettings::checkBorder)
+                .whileRunning());
+        wheelSettings = setting(Group.of("wheel", WheelSpec.class)
+                .checkedBy(SmpSettings::checkWheel)
+                .whileRunning());
+        awardSettings = setting(Group.of("advancement-awards", AdvancementAwardsSpec.class)
+                .checkedBy(SmpSettings::checkAdvancementAwards)
+                .whileRunning());
+        duelSettings = setting(Group.of("duels", DuelsSpec.class)
+                .checkedBy(SmpSettings::checkDuels)
+                .whileRunning());
+        boardSettings = setting(Group.of("boards", BoardsSpec.class)
+                .checkedBy(SmpSettings::checkBoards)
+                .whileRunning());
+        npcSettings = setting(Group.of("npc", NpcSpec.class).whileRunning());
+        spawnSettings = setting(Group.of("spawn", SpawnSpec.class)
+                .checkedBy(SmpSettings::checkSpawn)
+                .whileRunning());
+        deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class)
+                .checkedBy(SmpSettings::checkDeaths)
+                .whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());
@@ -195,7 +239,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 .whileRunning());
         loadMilestoneTrack();
         loadFeedbackPalettes();
-        worlds = bootstrapWorlds(config.get());
+        worlds = bootstrapWorlds(worldsSettings.get(), spawnSettings.get());
     }
 
     @Override
@@ -211,8 +255,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
-        final SmpSpec spec = config.get();
-        final Boxes regions = ConfigBoxes.spawnRegions(spec);
+        spawnRegions = ConfigBoxes.of(spawnSettings.get().spawnRegions());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
         PaperScheduler.of(this).execute(this::loadSeasonState);
@@ -220,28 +263,28 @@ public final class SmpPlugin extends NordtalPlugin {
         announcer = SmpStart.declareHudAndStartAnnouncer(this);
 
         nameTags = DisplayTags.start(this, nameTagSettings.get());
-        final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
+        final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this);
         // A name with an identity gets the chat prefix: flag, prestige colour and crest.
         composeNames((name, reader) -> identities()
                 .held(name.player())
                 .map(identity -> wired.composition().chatPrefix(name.name(), identity))
                 .orElseGet(() -> Names.BARE.draw(name, reader)));
         boards = wired.boards();
-        final SmpStart.Presence inputs = SmpStart.wirePresenceInputs(this, spec, wired);
+        final SmpStart.Presence inputs = SmpStart.wirePresenceInputs(this, wired);
         cinematics = inputs.cinematics();
-        presence = SmpStart.registerSurfaceListener(this, spec, wired, inputs);
+        presence = SmpStart.registerSurfaceListener(this, wired, inputs);
 
         final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, wired.effects());
         engine = progress.engine();
         poller = progress.poller();
         gates = progress.gates();
 
-        final SmpStart.Activities activities = SmpStart.wireActivities(this, spec, wired.effects());
+        final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
         duels = activities.duels();
-        SmpStart.registerActivityListeners(this, spec, activities);
-        npc = SmpStart.wireNpc(this, spec);
-        SmpStart.restoreGravesAndRegisterWorld(this, regions);
+        SmpStart.registerActivityListeners(this, activities);
+        npc = SmpStart.wireNpc(this);
+        SmpStart.restoreGravesAndRegisterWorld(this);
 
         admin = admin();
         registerCommands(sounds);
@@ -254,7 +297,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
         });
-        getLogger().info(track.size() + " milestones, " + regions.all().size() + " protected boxes");
+        getLogger().info(track.size() + " milestones, " + spawnRegions.all().size() + " protected boxes");
     }
 
     @Override
@@ -308,7 +351,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 getLogger()::warning);
     }
 
-    private Worlds bootstrapWorlds(final SmpSpec config) {
+    private Worlds bootstrapWorlds(final WorldsSpec config, final SpawnSpec spawn) {
         final Datapacks.Result packs = Datapacks.check(config.requiredDatapacks());
         if (!packs.ok()) {
             throw fatal("smp is not starting: " + packs.describe() + ". Datapacks are read once at server "
@@ -316,7 +359,7 @@ public final class SmpPlugin extends NordtalPlugin {
                     + "level-name world's datapacks/ folder and restart.");
         }
 
-        final Worlds candidate = new Worlds(config);
+        final Worlds candidate = new Worlds(config, borderSettings.get());
         final World nordtal = candidate.bootstrap().orElse(null);
         if (nordtal == null) {
             throw fatal("smp is not starting: the world '" + config.worldNordtal() + "' does not exist. "
@@ -325,10 +368,10 @@ public final class SmpPlugin extends NordtalPlugin {
         }
 
         // A missing first-join world is a warning, not a refusal.
-        if (Bukkit.getWorld(config.firstJoinSpawn().world()) == null) {
+        if (Bukkit.getWorld(spawn.firstJoinSpawn().world()) == null) {
             getLogger()
                     .warning("first-join-spawn names the world '"
-                            + config.firstJoinSpawn().world() + "', which does not exist on this server. "
+                            + spawn.firstJoinSpawn().world() + "', which does not exist on this server. "
                             + "First joins will not be moved anywhere. The build world is called '"
                             + config.worldNordtal() + "'.");
         }
@@ -502,22 +545,39 @@ public final class SmpPlugin extends NordtalPlugin {
     protected List<String> reloadOwn() {
         // Each group fails on its own.
         final List<String> problems = new ArrayList<>();
-        try {
-            soundSettings.reload();
-            sounds.reload(soundSettings.get());
-        } catch (final SettingsException | RuntimeException failure) {
-            problems.add("the sounds: " + failure.getMessage());
-        }
-        try {
-            nameTagSettings.reload();
-            nameTags.reload(nameTagSettings.get());
-        } catch (final SettingsException | RuntimeException failure) {
-            problems.add("the name tags: " + failure.getMessage());
-        }
+        reload(problems, "the sounds", soundSettings, () -> sounds.reload(soundSettings.get()));
+        reload(problems, "the name tags", nameTagSettings, () -> nameTags.reload(nameTagSettings.get()));
+        final PaperScheduler scheduler = PaperScheduler.of(this);
+        reload(problems, "the border", borderSettings, () -> scheduler.onMain(worlds::applyFixedBorders));
+        // The boards draw themselves again on the next refresh.
+        reload(problems, "the boards", boardSettings, () -> scheduler.onMain(Objects.requireNonNull(boards)::stop));
+        reload(problems, "the NPC", npcSettings, () -> scheduler.onMain(Objects.requireNonNull(npc)::spawn));
+        reload(
+                problems,
+                "the spawn",
+                spawnSettings,
+                () -> spawnRegions = ConfigBoxes.of(spawnSettings.get().spawnRegions()));
+        // These are read where they are used, so a reload alone applies them.
+        reload(problems, "the wheel", wheelSettings, () -> {});
+        reload(problems, "the advancement awards", awardSettings, () -> {});
+        reload(problems, "the duels", duelSettings, () -> {});
+        reload(problems, "the deaths and graves", deathSettings, () -> {});
         prestigeColours = prestigeColours();
         reloadMilestoneTrack();
         problems.addAll(trackProblems);
         return problems;
+    }
+
+    /** Reloads one group and runs {@code applied} if its values changed. A failure lands in {@code problems}. */
+    private static void reload(
+            final List<String> problems, final String label, final Setting<?> setting, final Runnable applied) {
+        try {
+            if (setting.reload()) {
+                applied.run();
+            }
+        } catch (final SettingsException | RuntimeException failure) {
+            problems.add(label + ": " + failure.getMessage());
+        }
     }
 
     private void reloadMilestoneTrack() {

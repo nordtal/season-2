@@ -6,6 +6,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
+/** The {@code npc} group places the spawn NPC, a Mannequin. A save spawns it again. */
 @ConfigSpec
 public interface NpcSpec {
 
@@ -22,7 +23,7 @@ public interface NpcSpec {
     @Key("x")
     @NoExplanationNeeded
     default double x() {
-        return 106.5;
+        return 3980.0;
     }
 
     @Order(3)
@@ -30,7 +31,7 @@ public interface NpcSpec {
     @Key("y")
     @NoExplanationNeeded
     default double y() {
-        return 68.0;
+        return 84.0;
     }
 
     @Order(4)
@@ -38,7 +39,7 @@ public interface NpcSpec {
     @Key("z")
     @NoExplanationNeeded
     default double z() {
-        return 92.5;
+        return 2194.0;
     }
 
     @Order(5)
@@ -46,7 +47,7 @@ public interface NpcSpec {
     @Key("yaw")
     @NoExplanationNeeded
     default float yaw() {
-        return 180.0f;
+        return -180.0f;
     }
 
     @Order(6)
@@ -54,6 +55,6 @@ public interface NpcSpec {
     @Key("skin-name")
     @NoExplanationNeeded
     default String skinName() {
-        return "";
+        return "ohEffi";
     }
 }

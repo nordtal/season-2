@@ -10,11 +10,9 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.AdvancementAwardSpec;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.AdvancementAwardsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -36,14 +34,14 @@ public final class AdvancementListener implements Listener {
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
-    private final Map<String, Integer> awards = new HashMap<>();
+    private final AdvancementAwardsSpec config;
 
     public AdvancementListener(
             final Plugin plugin,
             final AuraDao aura,
             final ObjectiveEngine engine,
             final Identities identities,
-            final SmpSpec config,
+            final AdvancementAwardsSpec config,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
@@ -52,9 +50,7 @@ public final class AdvancementListener implements Listener {
         this.identities = identities;
         this.renderer = renderer;
         this.sounds = sounds;
-        for (final AdvancementAwardSpec award : config.advancementAwards()) {
-            awards.put(award.advancement().toLowerCase(Locale.ROOT), award.aura());
-        }
+        this.config = config;
     }
 
     @EventHandler
@@ -71,7 +67,11 @@ public final class AdvancementListener implements Listener {
             return;
         }
 
-        final Integer award = awards.get(key);
+        final Integer award = config.advancementAwards().stream()
+                .filter(entry -> entry.advancement().toLowerCase(Locale.ROOT).equals(key))
+                .findFirst()
+                .map(AdvancementAwardSpec::aura)
+                .orElse(null);
         final NamespacedKey advancement = event.getAdvancement().getKey();
 
         PaperScheduler.of(plugin).execute(() -> {

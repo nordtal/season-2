@@ -11,7 +11,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraRow;
 import eu.nordtal.season.smp.config.BoardSpec;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.BoardsSpec;
 import eu.nordtal.season.smp.milestone.MilestoneNames;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.state.SeasonState;
@@ -49,7 +49,7 @@ public final class Boards {
     private static final int LEADERBOARD_SIZE = 10;
 
     private final Plugin plugin;
-    private final SmpSpec config;
+    private final BoardsSpec config;
     private final SeasonState season;
     private final MessageRenderer renderer;
     private final Identities identities;
@@ -61,7 +61,7 @@ public final class Boards {
 
     public Boards(
             final Plugin plugin,
-            final SmpSpec config,
+            final BoardsSpec config,
             final SeasonState season,
             final MessageRenderer renderer,
             final Identities identities) {

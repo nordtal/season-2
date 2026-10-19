@@ -38,7 +38,7 @@ public final class EnvironmentSettings implements Settings {
     private record Fixed<T>(T get) implements Setting<T> {
 
         @Override
-        public void reload() {
+        public boolean reload() {
             throw new IllegalStateException("a group from the environment is read once, at start");
         }
     }

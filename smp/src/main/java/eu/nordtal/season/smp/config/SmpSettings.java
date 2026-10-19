@@ -15,35 +15,38 @@ public final class SmpSettings {
         }
     }
 
-    public static void check(final SmpSpec config) {
+    public static void checkWorlds(final WorldsSpec config) {
         Checks.requireText("world-nordtal", config.worldNordtal());
-        Checks.requireText("first-join-spawn: world", config.firstJoinSpawn().world());
+    }
+
+    public static void checkBorder(final BorderSpec config) {
         Checks.requirePositive("nether-border-diameter", config.netherBorderDiameter());
         Checks.requirePositive("end-border-diameter", config.endBorderDiameter());
         Checks.requirePositive("border-expansion-blocks-per-second", config.borderExpansionBlocksPerSecond());
+    }
 
+    public static void checkDeaths(final DeathsSpec config) {
         if (config.deathPenalty() < 0 || config.deathPenaltyListed() < 0) {
             throw new IllegalArgumentException(
                     "death penalties are configured as positive numbers and subtracted at the point "
                             + "of use, so neither may be negative");
-        }
-        if (config.duelStake() < 0) {
-            throw new IllegalArgumentException("duel-stake must not be negative");
         }
         if (config.graveMaxAgeHours() < 0) {
             throw new IllegalArgumentException(
                     "grave-max-age-hours must not be negative. 0 is how decay is turned off; a "
                             + "negative number is not a shorter way of saying that");
         }
-        Checks.requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
-
-        validateAdvancementAwards(config);
-        validateWheelPrizes(config);
-        validateBoards(config);
-        validateSpawnRegions(config);
     }
 
-    private static void validateAdvancementAwards(final SmpSpec config) {
+    public static void checkDuels(final DuelsSpec config) {
+        if (config.duelStake() < 0) {
+            throw new IllegalArgumentException("duel-stake must not be negative");
+        }
+        Checks.requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
+        Checks.requirePositive("duel-arena-spacing", config.duelArenaSpacing());
+    }
+
+    public static void checkAdvancementAwards(final AdvancementAwardsSpec config) {
         for (final AdvancementAwardSpec award : config.advancementAwards()) {
             if (award.advancement() == null || award.advancement().isBlank()) {
                 throw new IllegalArgumentException("advancement-awards: every entry needs an advancement");
@@ -57,7 +60,7 @@ public final class SmpSettings {
         }
     }
 
-    private static void validateWheelPrizes(final SmpSpec config) {
+    public static void checkWheel(final WheelSpec config) {
         if (config.wheelPrizes() == null || config.wheelPrizes().isEmpty()) {
             throw new IllegalArgumentException(
                     "wheel-prizes must not be empty; the wheel has to have " + "something to land on");
@@ -69,7 +72,7 @@ public final class SmpSettings {
         }
     }
 
-    private static void validateBoards(final SmpSpec config) {
+    public static void checkBoards(final BoardsSpec config) {
         for (final BoardSpec board : config.boards()) {
             Checks.requireText("boards: world", board.world());
             if (board.width() < BoardFrame.MIN_WIDTH || board.width() > BoardFrame.MAX_WIDTH) {
@@ -82,7 +85,8 @@ public final class SmpSettings {
         }
     }
 
-    private static void validateSpawnRegions(final SmpSpec config) {
+    public static void checkSpawn(final SpawnSpec config) {
+        Checks.requireText("first-join-spawn: world", config.firstJoinSpawn().world());
         for (final SpawnRegionSpec region : config.spawnRegions()) {
             Checks.requireText("spawn-regions: world", region.world());
             if (region.maxX() < region.minX() || region.maxY() < region.minY() || region.maxZ() < region.minZ()) {

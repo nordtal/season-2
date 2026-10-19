@@ -9,6 +9,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.region.Boxes;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
@@ -36,13 +37,16 @@ import org.bukkit.event.player.PlayerInteractEvent;
  */
 public final class ProtectionListener implements Listener {
 
-    private final Boxes regions;
+    private final Supplier<Boxes> regions;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public ProtectionListener(
-            final Boxes regions, final Identities identities, final MessageRenderer renderer, final SmpSounds sounds) {
+            final Supplier<Boxes> regions,
+            final Identities identities,
+            final MessageRenderer renderer,
+            final SmpSounds sounds) {
         this.regions = regions;
         this.identities = identities;
         this.renderer = renderer;
@@ -147,8 +151,12 @@ public final class ProtectionListener implements Listener {
     }
 
     private boolean inside(final Location location) {
-        return regions.contains(
-                location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+        return regions.get()
+                .contains(
+                        location.getWorld().getName(),
+                        location.getBlockX(),
+                        location.getBlockY(),
+                        location.getBlockZ());
     }
 
     private boolean deny(final Player player, final Block block) {

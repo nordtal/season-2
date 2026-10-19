@@ -19,13 +19,13 @@ class ComposeWorldTest {
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
         final String composed = ComposeFile.get().service("smp").defaultedEnvironment("LEVEL_NAME");
         final String named = new MemorySettingStore()
-                .checked("smp", Group.of("config", SmpSpec.class).checkedBy(SmpSettings::check), Map.of())
+                .checked("smp", Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds), Map.of())
                 .worldNordtal();
 
         assertEquals(
                 named,
                 composed,
-                "compose.yml starts the SMP on level-name '" + composed + "' while config.yml's"
+                "compose.yml starts the SMP on level-name '" + composed + "' while the worlds group's"
                         + " world-nordtal defaults to '" + named + "'. Paper would generate one"
                         + " world, put the datapacks in it, and the plugin would look for another.");
     }

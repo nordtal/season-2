@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.world;
 
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.WorldsSpec;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -18,13 +19,13 @@ import org.bukkit.WorldCreator;
 public final class Worlds {
 
     private final Map<WorldRole, String> names = new EnumMap<>(WorldRole.class);
-    private final SmpSpec config;
+    private final BorderSpec config;
 
-    public Worlds(final SmpSpec config) {
-        this.config = config;
-        names.put(WorldRole.NORDTAL, config.worldNordtal());
-        names.put(WorldRole.NETHER, config.worldNether());
-        names.put(WorldRole.END, config.worldEnd());
+    public Worlds(final WorldsSpec worlds, final BorderSpec border) {
+        this.config = border;
+        names.put(WorldRole.NORDTAL, worlds.worldNordtal());
+        names.put(WorldRole.NETHER, worlds.worldNether());
+        names.put(WorldRole.END, worlds.worldEnd());
     }
 
     public String nameOf(final WorldRole role) {
@@ -76,6 +77,7 @@ public final class Worlds {
         Bukkit.createWorld(new WorldCreator(name).environment(environment));
     }
 
+    /** Centres every border and sizes the Nether's and the End's. Main thread only. */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();

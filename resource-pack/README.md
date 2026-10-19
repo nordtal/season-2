@@ -110,7 +110,7 @@ UTF-16: `Glyphs` writes `cp(0xFE004)`, and no message bundle holds one (`TabList
 a bundle as a `{parameter}` or as `<glyph:name>`.
 
 - **`nordtal:board`:** a row draws its left edge, advances by the configured width
-  (`boards[].width` in the `config` group of `smp`, 32 to 240 px), draws the right edge and goes back.
+  (`boards[].width` in the `boards` group of `smp`, 32 to 240 px), draws the right edge and goes back.
   Only the client knows the width of a text line.
 - **`nordtal:bossbar`:** its spaces are a `space` provider. The low digits of a code point are its
   advance in decimal, negative advances included, so a line can draw over itself. A HUD line is one

@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.FirstJoinSpawnSpec;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.SpawnSpec;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.stage.Cinematic;
 import eu.nordtal.season.smp.world.LandingSite;
@@ -40,7 +40,7 @@ public final class SeasonWelcome {
     private final WelcomeDao dao;
     private final Identities identities;
     private final BukkitCinematics cinematics;
-    private final SmpSpec config;
+    private final SpawnSpec config;
     private final Worlds worlds;
 
     public SeasonWelcome(
@@ -48,7 +48,7 @@ public final class SeasonWelcome {
             final WelcomeDao dao,
             final Identities identities,
             final BukkitCinematics cinematics,
-            final SmpSpec config,
+            final SpawnSpec config,
             final Worlds worlds) {
         this.plugin = plugin;
         this.dao = dao;

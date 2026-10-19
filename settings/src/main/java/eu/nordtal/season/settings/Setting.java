@@ -8,9 +8,10 @@ public interface Setting<T> {
     /**
      * Reads the group again. The values in use stay unchanged when this throws.
      *
+     * @return whether the values differ from those in use before
      * @throws SettingsException if the group cannot be read or its check refused it
      * @throws IllegalStateException if the group is not {@link Group#whileRunning() taken while the
      *     process runs}
      */
-    void reload() throws SettingsException;
+    boolean reload() throws SettingsException;
 }

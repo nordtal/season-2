@@ -196,20 +196,24 @@ public final class DatabaseSettings implements Settings {
         }
 
         @Override
-        public void reload() throws SettingsException {
+        public boolean reload() throws SettingsException {
             if (!group.live()) {
                 throw new IllegalStateException(group.name() + " applies at the next start, so nothing reloads it");
             }
+            final T before = Objects.requireNonNull(values.current());
+            final T after;
             try {
-                values.set(compose(read()));
+                after = compose(read());
             } catch (final SettingsException refusedStored) {
                 refuse(refusedStored);
                 throw refusedStored;
             }
+            values.set(after);
             if (refused) {
                 refused = false;
                 store.problem(owner, group.name(), null);
             }
+            return !SpecJson.GSON.toJsonTree(before).equals(SpecJson.GSON.toJsonTree(after));
         }
 
         private List<SettingStore.Value> read() {

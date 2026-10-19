@@ -3,22 +3,17 @@ package eu.nordtal.season.smp.duel;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.IntSupplier;
 
-/** Slots stack upwards from the configured base Y. */
+/** Slots stack upwards from the configured base Y. Each call reads the settings, and a taken slot keeps its arena. */
 public final class ArenaSlots {
 
-    private final int limit;
-    private final int baseY;
-    private final int spacing;
+    private final IntSupplier limit;
+    private final IntSupplier baseY;
+    private final IntSupplier spacing;
     private final Set<Integer> taken = new HashSet<>();
 
-    public ArenaSlots(final int limit, final int baseY, final int spacing) {
-        if (limit <= 0) {
-            throw new IllegalArgumentException("concurrent-duel-limit must be at least one, was " + limit);
-        }
-        if (spacing <= 0) {
-            throw new IllegalArgumentException("duel-arena-spacing must be positive, was " + spacing);
-        }
+    public ArenaSlots(final IntSupplier limit, final IntSupplier baseY, final IntSupplier spacing) {
         this.limit = limit;
         this.baseY = baseY;
         this.spacing = spacing;
@@ -26,7 +21,7 @@ public final class ArenaSlots {
 
     /** Returns empty when every slot is taken. */
     public Optional<Integer> claim() {
-        for (int slot = 0; slot < limit; slot++) {
+        for (int slot = 0; slot < limit.getAsInt(); slot++) {
             if (taken.add(slot)) {
                 return Optional.of(slot);
             }
@@ -39,7 +34,7 @@ public final class ArenaSlots {
     }
 
     public int yOf(final int slot) {
-        return baseY + slot * spacing;
+        return baseY.getAsInt() + slot * spacing.getAsInt();
     }
 
     public int inUse() {
@@ -47,10 +42,6 @@ public final class ArenaSlots {
     }
 
     public boolean isFull() {
-        return taken.size() >= limit;
-    }
-
-    public int limit() {
-        return limit;
+        return taken.size() >= limit.getAsInt();
     }
 }

@@ -134,6 +134,18 @@ describe("the frame on a desktop", () => {
     expect(within(island).getByRole("button", { name: /Account/ })).toBeTruthy()
   })
 
+  it("puts the path after search and account, so its unfolding moves neither", async () => {
+    drawAt("/services/smp", { open: false })
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
+    const search = within(island).getByRole("button", { name: "Search pages" })
+    assert.isTrue(
+      Boolean(search.compareDocumentPosition(island.querySelector("[data-trail]")!) & Node.DOCUMENT_POSITION_FOLLOWING),
+      "The path unfolds after the controls, which keep their offset from the island's left edge.",
+    )
+  })
+
   it("has the account within reach of the island, and opens the settings from it", async () => {
     drawAt("/")
 

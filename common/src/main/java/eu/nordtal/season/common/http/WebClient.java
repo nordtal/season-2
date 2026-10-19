@@ -239,7 +239,11 @@ public final class WebClient {
                     exchange(request(uri, timeout).GET(), HttpResponse.BodyHandlers.ofInputStream());
             try (InputStream body = response.body()) {
                 if (response.statusCode() / 100 != 2) {
-                    body.readAllBytes();
+                    try {
+                        body.readAllBytes();
+                    } catch (final IOException drained) {
+                        // the drain only frees the connection; the status is the answer and is not retried
+                    }
                     throw new HttpFailure(uri, response.statusCode(), "");
                 }
                 final Path parent = destination.getParent();

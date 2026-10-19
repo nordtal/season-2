@@ -210,6 +210,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 getServer()::getPlayer, renderer, PaperScheduler.of(this).mainThread());
         hud = new Hud(this, identities);
         listen(hud);
+        // Declared first, the drafted bar stands above the lines the plugin declares in enable().
+        hud.declare(previews::bossBar);
         menus = new Menus(chime());
         listen(menus);
 

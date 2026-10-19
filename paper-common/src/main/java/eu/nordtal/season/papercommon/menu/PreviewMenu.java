@@ -4,7 +4,6 @@ import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.document.Part;
 import java.util.List;
 import java.util.Objects;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -30,9 +29,8 @@ public final class PreviewMenu extends Menu {
         for (int index = 0; index < placed.size(); index++) {
             final Part part = placed.get(index);
             final String slot = Objects.requireNonNull(part.slot(), "slot");
-            final GameDocument.Drawn drawn = part.type() == Part.Type.ITEM
-                    ? document.exampleItem(slot)
-                    : new GameDocument.Drawn(Component.text(document.exampleLabel(slot)), List.of());
+            final GameDocument.Drawn drawn =
+                    part.type() == Part.Type.ITEM ? document.exampleItem(slot) : document.exampleLabelItem(slot);
             window.setItem(index, BlankItem.described(ItemStack.of(Material.PAPER), drawn));
         }
     }

@@ -62,7 +62,7 @@ warning.
   reads a key of a bundle that the plugin does not load as MiniMessage. A drafted game document is
   shown whole, every value at its example: a menu opens read-only (`PreviewMenu`, its items and labels
   in the document's order), a tab list half replaces the half the player sees, a boss bar stays ten
-  seconds, a title shows its subtitle, and a chat text, kick screen, server list or hologram arrives
-  as chat lines.
+  seconds as the first line of the plugin's `Hud`, a title shows its subtitle, and a chat text, kick
+  screen, server list or hologram arrives as chat lines.
 - `renderer()` draws names as the plugin passes them to `composeNames` in `enable()`. A text writes
   the tone around a name as `plain`. The console reads names bare.

@@ -92,6 +92,11 @@ public final class GameDocument {
         return labelOf(slot, exampleEntry(slot));
     }
 
+    /** Draws the label at its declared example as an item's name, for a preview that shows it on an item. */
+    public Drawn exampleLabelItem(final String slot) {
+        return new Drawn(Component.text(exampleLabel(slot)), List.of());
+    }
+
     private Map<String, Object> exampleEntry(final String slot) {
         return packaged.declaration()
                 .slot(slot)

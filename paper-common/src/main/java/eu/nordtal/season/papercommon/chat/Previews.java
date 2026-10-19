@@ -15,19 +15,21 @@ import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.packrendering.hud.BossBarLine;
+import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.Replies;
+import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.PreviewMenu;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.entity.Player;
@@ -47,7 +49,9 @@ public final class Previews {
     private final MessageRenderer renderer;
     private final Scheduler main;
 
-    /** @param main runs on the server's main thread, where a window opens and a boss bar is taken down */
+    private final Map<UUID, List<Pill>> bars = new ConcurrentHashMap<>();
+
+    /** @param main runs on the server's main thread, where a window opens and a drafted boss bar ends */
     public Previews(
             final Function<UUID, @Nullable Player> online, final MessageRenderer renderer, final Scheduler main) {
         this.online = Objects.requireNonNull(online, "online");
@@ -97,10 +101,10 @@ public final class Previews {
                 }
             }
             case BOSS_BAR -> {
-                final BossBar bar = BossBarLine.bar();
-                BossBarLine.show(bar, List.of(BossBarLine.Pill.of(drawn.plainLine())));
-                reader.showBossBar(bar);
-                main.after(BOSS_BAR, () -> reader.hideBossBar(bar));
+                final UUID id = reader.getUniqueId();
+                final List<Pill> pills = List.of(Pill.of(drawn.plainLine()));
+                bars.put(id, pills);
+                main.after(BOSS_BAR, () -> bars.remove(id, pills));
             }
             case TITLE -> reader.showTitle(drawn.shownTitle(Title.DEFAULT_TIMES));
             case ACTION_BAR -> reader.sendActionBar(Lines.joined(drawn.text()));
@@ -108,6 +112,11 @@ public final class Previews {
             case MESSAGE, MODAL, PLAIN, CHANNEL_NAME ->
                 throw new IllegalArgumentException(document.declaration().id() + " is a Discord document");
         }
+    }
+
+    /** The drafted boss bar the player is shown, as the line the plugin's {@link Hud} draws last. */
+    public List<Pill> bossBar(final Player player, final Locale locale) {
+        return bars.getOrDefault(player.getUniqueId(), List.of());
     }
 
     private static Component orEmpty(final @Nullable Component component) {

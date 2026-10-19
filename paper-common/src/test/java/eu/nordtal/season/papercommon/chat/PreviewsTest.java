@@ -16,6 +16,7 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
+import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.lang.reflect.Proxy;
@@ -26,7 +27,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -51,6 +51,9 @@ class PreviewsTest {
 
     private final Player alex = (Player) Proxy.newProxyInstance(
             Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
+                if (method.getName().equals("getUniqueId")) {
+                    return ALEX.value();
+                }
                 if (method.getName().equals("playerListFooter")) {
                     return Component.text("the footer now");
                 }
@@ -171,19 +174,15 @@ class PreviewsTest {
     }
 
     @Test
-    void aDraftedBossBarIsShownAndTakenDownAfterAWhile() {
+    void aDraftedBossBarIsTheHudsLineForAWhile() {
         previews.show(ALEX, drafted(DocumentSpec.Shape.BOSS_BAR, "b", """
                 {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "and below"}}]}"""));
 
-        assertEquals("showBossBar", calls.getFirst()[0]);
-        final BossBar bar = (BossBar) calls.getFirst()[1];
-        // The HUD pads a pill with its spacing glyphs around the text.
-        assertTrue(plain(bar.name()).contains("Drafted and below"), plain(bar.name()));
+        assertEquals(List.of(Pill.of("Drafted and below")), previews.bossBar(alex, Locale.ENGLISH));
         assertEquals(List.of(Previews.BOSS_BAR), delays);
 
         onMain.forEach(Runnable::run);
-        assertEquals("hideBossBar", calls.getLast()[0]);
-        assertEquals(bar, calls.getLast()[1]);
+        assertEquals(List.of(), previews.bossBar(alex, Locale.ENGLISH));
     }
 
     @Test

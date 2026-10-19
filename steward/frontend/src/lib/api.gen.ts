@@ -478,6 +478,13 @@ export type Uploaded = {
   address: string
 }
 
+export type DocumentVersion = {
+  id: number
+  document?: Document
+  actor: Actor
+  saved: string
+}
+
 export type MessageProblem = {
   error: boolean
   text: MessageRef

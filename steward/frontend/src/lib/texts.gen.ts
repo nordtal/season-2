@@ -1038,6 +1038,7 @@ export type TextArgs = {
   "steward.document-editor.label": Record<string, never>
   "steward.document-editor.language": Record<string, never>
   "steward.document-editor.link": Record<string, never>
+  "steward.document-editor.live": Record<string, never>
   "steward.document-editor.move-down": Record<string, never>
   "steward.document-editor.move-up": Record<string, never>
   "steward.document-editor.option": Record<string, never>
@@ -1048,6 +1049,7 @@ export type TextArgs = {
   "steward.document-editor.placeholder": Record<string, never>
   "steward.document-editor.remove": Record<string, never>
   "steward.document-editor.required": Record<string, never>
+  "steward.document-editor.restore": Record<string, never>
   "steward.document-editor.save": Record<string, never>
   "steward.document-editor.saved": {
     document: Arg["text"]
@@ -1062,6 +1064,7 @@ export type TextArgs = {
   "steward.document-editor.version": {
     version: Arg["choice"]
   }
+  "steward.document-editor.versions": Record<string, never>
   "steward.document-editor.when": Record<string, never>
   "steward.failure.agent-silent": Record<string, never>
   "steward.failure.bot-failed": Record<string, never>

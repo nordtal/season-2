@@ -51,6 +51,34 @@ class DocumentStoreIntegrationTest {
     }
 
     @Test
+    void everySaveAndEveryReturnToThePackagedDocumentIsKeptNewestFirst() {
+        final TestDatabase database = TestDatabase.fresh();
+        final DocumentStore store = DocumentStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final long image = store.upload("image/png", new byte[] {1}, ADMIN);
+        store.change(written(image, "Hi"), ADMIN);
+        store.change(written(image, "Hello"), Actor.STEWARD);
+        store.remove("discord", "contribution", ADMIN);
+
+        final List<DocumentStore.Version> versions = store.versions("discord", "contribution");
+        assertEquals(
+                java.util.Arrays.asList(null, written(image, "Hello"), written(image, "Hi")),
+                versions.stream().map(DocumentStore.Version::document).toList());
+        assertEquals(
+                List.of(ADMIN, Actor.STEWARD, ADMIN),
+                versions.stream().map(DocumentStore.Version::actor).toList());
+        assertEquals(List.of(), store.versions("discord", "other"));
+    }
+
+    @Test
+    void onlyStewardReadsTheVersions() {
+        final TestDatabase database = TestDatabase.fresh();
+        assertThrows(
+                UnableToExecuteStatementException.class,
+                () -> DocumentStore.using(database.dataSourceAs(DatabaseRole.DISCORD_BOT))
+                        .versions("discord", "contribution"));
+    }
+
+    @Test
     void theSameImageIsStoredOnceAndReadBackWithItsMediaType() {
         final DocumentStore store = DocumentStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD));
         final long first = store.upload("image/webp", new byte[] {9, 8}, ADMIN);
@@ -68,7 +96,7 @@ class DocumentStoreIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> store.change(written(41, "Hi"), ADMIN));
 
         store.change(written(store.upload("image/png", new byte[] {1}, ADMIN), "Hi"), ADMIN);
-        store.remove("discord", "contribution");
+        store.remove("discord", "contribution", ADMIN);
         assertEquals(List.of(), store.documents(Set.of("discord")));
     }
 
@@ -78,7 +106,7 @@ class DocumentStoreIntegrationTest {
         try (Connection listener = database.dataSource().getConnection();
                 Statement statement = listener.createStatement()) {
             statement.execute("LISTEN nordtal_messages");
-            DocumentStore.using(database.dataSourceAs(DatabaseRole.STEWARD)).remove("discord", "contribution");
+            DocumentStore.using(database.dataSourceAs(DatabaseRole.STEWARD)).remove("discord", "contribution", ADMIN);
             final org.postgresql.PGNotification[] notes =
                     listener.unwrap(org.postgresql.PGConnection.class).getNotifications(5000);
             assertEquals("discord", notes[0].getParameter());
@@ -89,6 +117,6 @@ class DocumentStoreIntegrationTest {
     void aServerCannotWriteADocumentOrAnImage() {
         final DocumentStore smp = DocumentStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.SMP));
         assertThrows(UnableToExecuteStatementException.class, () -> smp.upload("image/png", new byte[] {1}, ADMIN));
-        assertThrows(UnableToExecuteStatementException.class, () -> smp.remove("discord", "x"));
+        assertThrows(UnableToExecuteStatementException.class, () -> smp.remove("discord", "x", ADMIN));
     }
 }

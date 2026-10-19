@@ -210,6 +210,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V75__a_player_keeps_a_survival_and_a_creative_state_per_server.sql",
                 "b43a18e0bb61b9ad80f3b00ae3099807eba7e0663283cc14b0e6d4babb242c4d");
+        FROZEN.put(
+                "V76__every_save_of_a_document_is_kept_as_a_version.sql",
+                "c9010d38696bdb71c2918ad9db819ed80f58ca0f0b0fadb1ec3c42ef08b157a8");
     }
 
     @Test

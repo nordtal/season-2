@@ -3,6 +3,7 @@ package eu.nordtal.season.database.document;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.messages.document.Document;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -11,6 +12,7 @@ import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.jspecify.annotations.Nullable;
 
 final class JdbiDocumentStore implements DocumentStore {
 
@@ -63,8 +65,49 @@ final class JdbiDocumentStore implements DocumentStore {
                     .bind("kind", actor.kind().name())
                     .bind("id", actor.id())
                     .execute();
+            keep(handle, document.namespace(), document.name(), document, actor);
             signal(handle, document.namespace());
         });
+    }
+
+    // Keeps a save as a version in the transaction that wrote it; a removal keeps no document.
+    private static void keep(
+            final Handle handle,
+            final String namespace,
+            final String name,
+            final @Nullable StoredDocument document,
+            final Actor actor) {
+        handle.createUpdate("""
+                        INSERT INTO document_version (namespace, name, document, replaced, actor_kind, actor_id, saved)
+                        VALUES (:namespace, :name, CAST(:document AS jsonb), :replaced, :kind, :id, now())""")
+                .bind("namespace", namespace)
+                .bind("name", name)
+                .bind("document", document == null ? null : document.document().json())
+                .bind("replaced", document == null ? null : document.replaced())
+                .bind("kind", actor.kind().name())
+                .bind("id", actor.id())
+                .execute();
+    }
+
+    @Override
+    public List<Version> versions(final String namespace, final String name) {
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                        SELECT id, document::text AS document, replaced, actor_kind, actor_id, saved FROM document_version
+                        WHERE namespace = :namespace AND name = :name ORDER BY id DESC""")
+                .bind("namespace", namespace)
+                .bind("name", name)
+                .map((rows, context) -> {
+                    final @Nullable String document = rows.getString("document");
+                    return new Version(
+                            rows.getLong("id"),
+                            document == null
+                                    ? null
+                                    : new StoredDocument(
+                                            namespace, name, Document.decode(document), rows.getString("replaced")),
+                            Actor.of(rows.getString("actor_kind"), rows.getString("actor_id")),
+                            rows.getObject("saved", OffsetDateTime.class).toInstant());
+                })
+                .list());
     }
 
     private static Stream<String> uploads(final Document document) {
@@ -74,12 +117,13 @@ final class JdbiDocumentStore implements DocumentStore {
     }
 
     @Override
-    public void remove(final String namespace, final String name) {
+    public void remove(final String namespace, final String name, final Actor actor) {
         jdbi.useTransaction(handle -> {
             handle.createUpdate("DELETE FROM document_override WHERE namespace = :namespace AND name = :name")
                     .bind("namespace", namespace)
                     .bind("name", name)
                     .execute();
+            keep(handle, namespace, name, null, actor);
             signal(handle, namespace);
         });
     }

@@ -48,6 +48,7 @@ export const keys = {
   guildChannels: ["guild-channels"] as const,
   messageTexts: ["message-texts"] as const,
   documents: ["documents"] as const,
+  documentVersions: (id: string) => ["document-versions", id] as const,
   /** A draft as the bot draws it, by the draft itself, so an answer never stands for another draft. */
   documentDrawing: (id: string, language: string, draft: string) => ["document-drawing", id, language, draft] as const,
   descriptors: ["descriptors"] as const,

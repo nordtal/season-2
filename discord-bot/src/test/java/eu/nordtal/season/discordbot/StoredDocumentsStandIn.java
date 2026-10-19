@@ -47,8 +47,13 @@ public final class StoredDocumentsStandIn {
             }
 
             @Override
-            public void remove(final String namespace, final String name) {
+            public void remove(final String namespace, final String name, final Actor actor) {
                 throw new UnsupportedOperationException("the stand-in is read only");
+            }
+
+            @Override
+            public List<Version> versions(final String namespace, final String name) {
+                throw new UnsupportedOperationException("the stand-in keeps no versions");
             }
 
             @Override

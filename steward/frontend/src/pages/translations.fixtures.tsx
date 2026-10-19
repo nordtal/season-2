@@ -12,6 +12,7 @@ import type {
   DocumentDraft,
   DocumentList,
   DocumentProblem,
+  DocumentVersion,
   DocumentView,
   MessageEntry,
   MessageFallback,
@@ -113,6 +114,10 @@ export type Around = {
   problems?: (draft: DocumentDraft) => DocumentProblem[]
   /** Answers a document's save, at its path under `/api/documents/`, with the list it leaves. */
   saveDocument?: (path: string, document: Document) => DocumentList
+  /** Answers the return of a document to its packaged one, at its path under `/api/documents/`. */
+  resetDocument?: (path: string) => DocumentList
+  /** Answers a document's versions by its path under `/api/documents/`. */
+  versions?: (path: string) => DocumentVersion[]
   /** Answers the body of a text's or a document's preview with the request's name. */
   preview?: (body: unknown) => string
   /** What became of each request, by name. */
@@ -134,6 +139,13 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     if (url === "/api/documents/render" && around.render) {
       const draft: DocumentDraft = JSON.parse(init?.body ?? "")
       return json({ discord: around.render(draft), components: 7, most: 40, problems: around.problems?.(draft) ?? [] })
+    }
+    if (url.startsWith("/api/documents/") && url.endsWith("/versions") && around.versions) {
+      return json(around.versions(url.slice("/api/documents/".length, -"/versions".length)))
+    }
+    if (url.startsWith("/api/documents/") && init?.method === "DELETE") {
+      if (!around.resetDocument) throw new Error("the page reset a document, which this test did not expect")
+      return json(around.resetDocument(url.slice("/api/documents/".length)))
     }
     if (url.startsWith("/api/documents/") && init?.method === "PUT") {
       if (!around.saveDocument) throw new Error("the page saved a document, which this test did not expect")

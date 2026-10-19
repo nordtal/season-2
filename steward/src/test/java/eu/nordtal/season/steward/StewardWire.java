@@ -120,6 +120,7 @@ public final class StewardWire {
             DocumentsApi.DocumentDraft.class,
             DocumentsApi.DocumentDrawing.class,
             DocumentsApi.Uploaded.class,
+            DocumentsApi.DocumentVersion.class,
             MessageCheck.Problem.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,

@@ -340,6 +340,45 @@ describe("an open document", () => {
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
   })
 
+  it("lists every save and restores an older one or the packaged one in one click", async () => {
+    const older = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
+    const newer = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "New access" } }] }] }
+    const saved: Document[] = []
+    const reset: string[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written: newer }, modal]),
+        render: rendered,
+        versions: () => [
+          { id: 2, document: newer, actor: { kind: "STEWARD" }, saved: "2026-10-19T08:00:00Z" },
+          { id: 1, document: older, actor: { kind: "STEWARD" }, saved: "2026-10-18T08:00:00Z" },
+        ],
+        saveDocument: (_, document) => {
+          saved.push(document)
+          return documents([{ ...contribution, written: document }, modal])
+        },
+        resetDocument: (path) => {
+          reset.push(path)
+          return documents([contribution, modal])
+        },
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.click(within(editor).getByRole("button", { name: "Versions" }))
+    // The newest save is live; the older one and the packaged one are offered.
+    expect(await within(editor).findByText("Live")).toBeTruthy()
+    const restores = within(editor).getAllByRole("button", { name: "Restore" })
+    expect(restores).toHaveLength(2)
+
+    fireEvent.click(restores[0])
+    await waitFor(() => expect(saved).toEqual([older]))
+    fireEvent.click(within(editor).getAllByRole("button", { name: "Restore" })[1])
+    await waitFor(() => expect(reset).toEqual(["discord/contribution"]))
+  })
+
   it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {
     const written = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
     vi.stubGlobal(

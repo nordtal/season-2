@@ -38,6 +38,18 @@ describe("a game place's preview", () => {
     expect(lines[0].parentElement).toBe(lines[1].parentElement)
   })
 
+  it("wraps a chat text, a tab list, a menu tooltip and a kick screen within the preview, as the client wraps them", () => {
+    for (const shown of ["CHAT", "TAB_LIST", "GUI", "KICK_SCREEN"]) {
+      const [line] = draw("A line far longer than any preview is wide, which the client wraps onto the next", shown)
+      expect(line.style.whiteSpace).toBe("pre-wrap")
+      // A box as wide as its longest line would push the wrap past the preview's edge.
+      for (let box = line.parentElement; box; box = box.parentElement) {
+        expect(`${shown}: ${box.className}`).not.toMatch(/\bw-max\b/)
+      }
+      cleanup()
+    }
+  })
+
   it("does not wrap a title, an action bar or a boss bar, which the game draws on one line however long", () => {
     for (const shown of ["TITLE", "SUBTITLE", "ACTION_BAR", "BOSS_BAR"]) {
       const lines = draw("A line far longer than any preview is wide, which the game draws on one line", shown)

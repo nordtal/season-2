@@ -279,6 +279,42 @@ describe("the texts as a tree", () => {
     ])
   })
 
+  it("lists a document the servers share first in its area, then each server's own in the order of the filter", () => {
+    const footer = (service: string) =>
+      view(
+        { namespace: service, name: "tab-footer", area: "Tab list", shape: "TAB_LIST" },
+        { parts: [] },
+        {
+          ...GAME,
+          services: [service],
+        },
+      )
+    const tree = textsTree([], PLACES, [
+      view({ namespace: "smp", name: "wheel", area: "Menus", shape: "MENU" }, { parts: [] }, GAME),
+      footer("smp"),
+      footer("hunger-games"),
+      view(
+        { namespace: "paper-common", name: "tab-header", area: "Tab list", shape: "TAB_LIST" },
+        { parts: [] },
+        {
+          ...GAME,
+          services: ["smp", "hunger-games", "limbo"],
+        },
+      ),
+      footer("limbo"),
+    ])
+
+    expect(shape(tree)).toEqual([
+      "[Menus]",
+      "  document:smp/wheel",
+      "[Tab list]",
+      "  document:paper-common/tab-header",
+      "  document:hunger-games/tab-footer",
+      "  document:limbo/tab-footer",
+      "  document:smp/tab-footer",
+    ])
+  })
+
   it("lists only the documents of the service the page is filtered to", () => {
     const tree = textsTree([], PLACES, [view({ name: "contribution" }, { parts: [] })], "smp")
 

@@ -188,8 +188,8 @@ describe("the list of documents", () => {
     await open("Tab list")
     const cards = await screen.findAllByRole("article", { name: "Tab footer" })
     expect(cards.map((card) => within(card).getByRole("heading").parentElement?.textContent)).toEqual([
-      "Tab footerSMP",
       "Tab footerHunger Games",
+      "Tab footerSMP",
     ])
   })
 

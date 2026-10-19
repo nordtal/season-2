@@ -56,11 +56,26 @@ export function documentMatches(view: DocumentView, query: string): boolean {
     .includes(needle)
 }
 
-/** Returns the documents of `service`, or all of them, then each of `texts` as a card of its own. */
+/** The service a document's order follows: the first of its services in the filter's order. */
+function firstService(view: DocumentView): string {
+  return view.services.toSorted()[0] ?? ""
+}
+
+/**
+ * Returns the documents of `service`, or all of them, then each of `texts` as a card of its own. Within an area a
+ * document several servers share comes first, then each server's own in the order of the service filter.
+ */
 export function pageCards(texts: readonly MessageText[], views: readonly DocumentView[], service?: string): PageCard[] {
+  const shown = views.filter((view) => service === undefined || view.services.includes(service))
+  const areas = [...new Set(shown.map((view) => view.declaration.area))]
   return [
-    ...views
-      .filter((view) => service === undefined || view.services.includes(service))
+    ...shown
+      .toSorted(
+        (a, b) =>
+          areas.indexOf(a.declaration.area) - areas.indexOf(b.declaration.area) ||
+          Number(b.services.length > 1) - Number(a.services.length > 1) ||
+          firstService(a).localeCompare(firstService(b)),
+      )
       .map((view): PageCard => ({ kind: "document", view })),
     ...texts.map((text): PageCard => ({ kind: "text", text })),
   ]

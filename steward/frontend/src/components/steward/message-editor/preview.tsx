@@ -25,9 +25,10 @@ const HOLOGRAM_WRAP = 200
 const HOVER_WRAP = 200
 
 /**
- * A screen wraps 50 pixels short of its width. Here the width is a 1920 pixel window at GUI scale 2.
+ * A screen wraps 50 pixels short of its width. Here the width is a 1920 pixel window at GUI scale 2, and a preview
+ * narrower than that is the screen, so a wrapped line also wraps at its edge.
  */
-const SCREEN_WRAP = 960 - 50
+export const SCREEN_WRAP = 960 - 50
 
 export const MINECRAFT_FONT: CSSProperties = {
   fontFamily: "Monocraft, ui-monospace, monospace",
@@ -48,7 +49,8 @@ type McProps = {
 }
 
 /**
- * Each line is a block of its own that keeps its spaces. A place that draws one line however long never wraps.
+ * Each line is a block of its own that keeps its spaces. A place that draws one line however long never wraps; one
+ * that wraps does so at `wrap` or at its container's edge, whichever is nearer.
  */
 export function MinecraftText({
   runs,
@@ -392,27 +394,24 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = fa
       )
     case "TAB_LIST":
       return scene(
-        <div className="flex w-max min-w-full shrink-0 justify-center px-3 pt-3">
+        <div className="flex w-full justify-center-safe px-3 pt-3">
           <div
-            className="flex w-max min-w-full shrink-0 flex-col items-center gap-1 px-2 py-1 text-center sm:min-w-[520px]"
+            className="flex w-full flex-col items-center-safe gap-1 px-2 py-1 text-center"
             style={{ background: "rgba(0,0,0,0.5)" }}
           >
-            <div>{text()}</div>
+            <div className="max-w-full">{text({ wrap: SCREEN_WRAP })}</div>
           </div>
         </div>,
       )
     case "GUI":
       return scene(
-        <div
-          className="flex w-max min-w-full shrink-0 items-center justify-center p-3"
-          style={{ background: "rgba(16,16,16,0.75)" }}
-        >
-          <McTooltip>{text()}</McTooltip>
+        <div className="flex w-full items-center justify-center-safe p-3" style={{ background: "rgba(16,16,16,0.75)" }}>
+          <McTooltip className="max-w-full">{text({ wrap: SCREEN_WRAP })}</McTooltip>
         </div>,
       )
     case "HOLOGRAM":
       return scene(
-        <div className="flex w-max min-w-full shrink-0 items-center justify-center p-3 text-center">
+        <div className="flex w-full items-center justify-center-safe p-3 text-center">
           <span className="px-1" style={{ background: "rgba(0,0,0,0.25)" }}>
             {text({ wrap: HOLOGRAM_WRAP })}
           </span>
@@ -420,14 +419,14 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = fa
       )
     case "KICK_SCREEN":
       return scene(
-        <div className="flex w-max min-w-full shrink-0 items-center justify-center p-3 text-center">
-          <div>{text({ wrap: SCREEN_WRAP })}</div>
+        <div className="flex w-full items-center justify-center-safe p-3 text-center">
+          <div className="max-w-full">{text({ wrap: SCREEN_WRAP })}</div>
         </div>,
         "#1f1a14",
       )
     case "SERVER_LIST":
       return scene(
-        <div className="flex w-full items-center justify-center p-3">
+        <div className="flex w-full items-center justify-center-safe p-3">
           <div className="flex w-full max-w-[610px] gap-2 p-1" style={{ boxShadow: "inset 0 0 0 2px #808080" }}>
             <div className="size-16 shrink-0 rounded-[2px]" style={{ background: "var(--brand)" }} />
             <div className="min-w-0 flex-1 overflow-x-auto">{text({ base: "#AAAAAA" })}</div>
@@ -437,8 +436,8 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = fa
       )
     default:
       return scene(
-        <div className="mt-auto w-max min-w-full shrink-0 p-2 pb-6">
-          <div className="w-fit px-1 py-0.5" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="mt-auto w-full p-2 pb-6">
+          <div className="w-fit max-w-full px-1 py-0.5" style={{ background: "rgba(0,0,0,0.5)" }}>
             {text({ wrap: CHAT_WRAP })}
           </div>
         </div>,

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Handed in <emphasis>{amount}</emphasis>.</good>",
+            "de": "<good><emphasis>{amount}</emphasis> abgegeben.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

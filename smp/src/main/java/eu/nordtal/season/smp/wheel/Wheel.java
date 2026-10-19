@@ -1,16 +1,16 @@
 package eu.nordtal.season.smp.wheel;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.SmpTexts;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -32,6 +32,22 @@ import org.jspecify.annotations.Nullable;
 
 /** The SQL update that spends a spin runs off the main thread, so two clicks yield one prize. */
 public final class Wheel {
+
+    record Won(int amount, GameContent item) {}
+
+    record NoSpin(int extras) {}
+
+    record Available(int count) {}
+
+    static final DocumentSpec<Won> WON = chat("wheel-won", Won.class);
+    static final DocumentSpec<NoSpin> NONE = chat("wheel-none", NoSpin.class);
+    static final DocumentSpec<Available> AVAILABLE = chat("wheel-available", Available.class);
+    static final DocumentSpec<DocumentSpec.None> BROKEN_PRIZE =
+            DocumentSpec.game("smp", "wheel-broken-prize", "Wheel", DocumentSpec.Shape.CHAT);
+
+    private static <V extends Record> DocumentSpec<V> chat(final String name, final Class<V> values) {
+        return DocumentSpec.game("smp", name, "Wheel", DocumentSpec.Shape.CHAT, values);
+    }
 
     private final Plugin plugin;
     private final SpinDao dao;
@@ -68,7 +84,7 @@ public final class Wheel {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(renderer.format(locale, MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(renderer.format(locale, Sent.of(SmpTexts.NO_ACCOUNT_LINK)));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -84,13 +100,7 @@ public final class Wheel {
                     : dao.takeEarnedSpin(discordId.get()).isPresent();
 
             if (!took) {
-                final int extras = spins.extras();
-                final MessageRef none = extras == 0
-                        ? MESSAGES.smp().wheel().none()
-                        : extras == 1
-                                ? MESSAGES.smp().wheel().noneSection().one()
-                                : MESSAGES.smp().wheel().noneSection().many(extras);
-                tell(player, renderer.format(locale, none), Feedback.REFUSED);
+                tell(player, renderer.format(locale, NONE.with(new NoSpin(spins.extras()))), Feedback.REFUSED);
                 return;
             }
             final String id = discordId.get().value();
@@ -111,12 +121,7 @@ public final class Wheel {
         PaperScheduler.of(plugin).execute(() -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
             final int count = spins.available(LocalDate.now(clock));
-            final MessageRef available = count == 0
-                    ? MESSAGES.smp().wheel().available()
-                    : count == 1
-                            ? MESSAGES.smp().wheel().availableSection().one()
-                            : MESSAGES.smp().wheel().availableSection().many(count);
-            tell(player, renderer.format(locale, available));
+            tell(player, renderer.format(locale, AVAILABLE.with(new Available(count))));
         });
     }
 
@@ -133,7 +138,7 @@ public final class Wheel {
                     .warning("wheel-prizes names '" + prize.item()
                             + "', which is not a material - the spin is being put back and nothing was given");
             refund.run();
-            tell(player, renderer.format(locale, MESSAGES.smp().wheel().brokenPrize()), Feedback.LOSS);
+            tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
             return;
         }
 
@@ -182,7 +187,7 @@ public final class Wheel {
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
         player.sendMessage(
-                renderer.format(locale, MESSAGES.smp().wheel().won(count, GameContent.of(material.translationKey()))));
+                renderer.format(locale, WON.with(new Won(count, GameContent.of(material.translationKey())))));
     }
 
     /** A material that does not resolve gets a barrier. */

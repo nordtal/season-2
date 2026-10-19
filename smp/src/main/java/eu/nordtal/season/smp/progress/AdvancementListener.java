@@ -1,9 +1,8 @@
 package eu.nordtal.season.smp.progress;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -26,6 +25,11 @@ import org.bukkit.plugin.Plugin;
  * It ignores advancements whose key contains {@code /recipes/}.
  */
 public final class AdvancementListener implements Listener {
+
+    record Award(long aura) {}
+
+    static final DocumentSpec<Award> AWARDED =
+            DocumentSpec.game("smp", "aura-advancement", "Aura", DocumentSpec.Shape.CHAT, Award.class);
 
     private final Plugin plugin;
     private final AuraDao aura;
@@ -80,8 +84,7 @@ public final class AdvancementListener implements Listener {
                 final Locale locale = identities.languageOf(player.getUniqueId());
                 PaperScheduler.of(plugin).onMain(() -> {
                     if (player.isOnline()) {
-                        player.sendMessage(
-                                renderer.format(locale, MESSAGES.smp().aura().advancement(award)));
+                        player.sendMessage(renderer.format(locale, AWARDED.with(new Award(award))));
                         sounds.play(player, Feedback.SMALL_SUCCESS);
                     }
                 });

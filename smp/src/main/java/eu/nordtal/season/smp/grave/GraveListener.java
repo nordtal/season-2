@@ -1,9 +1,8 @@
 package eu.nordtal.season.smp.grave;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -30,6 +29,11 @@ import org.bukkit.plugin.Plugin;
 
 /** Turns the drops of a dead player into a grave, applies the death penalty and opens a grave on a click. */
 public final class GraveListener implements Listener {
+
+    record Cost(long aura) {}
+
+    static final DocumentSpec<Cost> DEATH_COST =
+            DocumentSpec.game("smp", "aura-death", "Aura", DocumentSpec.Shape.CHAT, Cost.class);
 
     private final Plugin plugin;
     private final AuraDao aura;
@@ -104,8 +108,7 @@ public final class GraveListener implements Listener {
             aura.addAura(discordId, delta, new AuraCause.Death(reason, cause));
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
-                    player.sendMessage(
-                            renderer.format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));
+                    player.sendMessage(renderer.format(locale, DEATH_COST.with(new Cost(Math.abs(delta)))));
                     sounds.play(player, Feedback.LOSS);
                 }
             });

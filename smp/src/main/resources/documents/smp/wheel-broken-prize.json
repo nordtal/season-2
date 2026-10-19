@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The wheel chose an unknown prize.</bad> <muted>Tell an admin.</muted>",
+            "de": "<bad>Das Rad hat einen unbekannten Preis gewählt.</bad> <muted>Sag einem Admin Bescheid.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>The arrow points to <emphasis>{target}</emphasis>.</muted> <click:run_command:'/navigate cancel'><hover:show_text:'/navigate cancel'><brand><underlined>Cancel</underlined></brand></hover></click>",
+            "de": "<muted>Der Pfeil zeigt auf <emphasis>{target}</emphasis>.</muted> <click:run_command:'/navigate cancel'><hover:show_text:'/navigate cancel'><brand><underlined>Abbrechen</underlined></brand></hover></click>"
+          }
+        }
+      ]
+    }
+  ]
+}

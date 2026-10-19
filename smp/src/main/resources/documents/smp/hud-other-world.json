@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "in another world",
+            "de": "in einer anderen Welt"
+          }
+        }
+      ]
+    }
+  ]
+}

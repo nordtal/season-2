@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Only its creator or an admin can remove it.</bad>",
+            "de": "<bad>Nur wer den Ort angelegt hat, und Admins können ihn entfernen.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

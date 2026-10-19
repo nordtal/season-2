@@ -1,13 +1,14 @@
 package eu.nordtal.season.smp.npc;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.SmpTexts;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
@@ -29,6 +30,19 @@ import org.bukkit.plugin.Plugin;
  * The credit runs off the main thread. Its result is applied on the main thread.
  */
 public final class NpcListener implements Listener {
+
+    record Accepted(long amount) {}
+
+    static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE =
+            DocumentSpec.game("smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<Accepted> ACCEPTED =
+            DocumentSpec.game("smp", "hand-in-accepted", "Spawn NPC", DocumentSpec.Shape.CHAT, Accepted.class);
+    /** Closing the window without confirming gives everything back, which is why nothing was taken here. */
+    static final DocumentSpec<DocumentSpec.None> NOTHING_WANTED =
+            DocumentSpec.game("smp", "hand-in-nothing-wanted", "Spawn NPC", DocumentSpec.Shape.CHAT);
+
+    static final DocumentSpec<DocumentSpec.None> NOTHING_CREDITED =
+            DocumentSpec.game("smp", "hand-in-nothing-credited", "Spawn NPC", DocumentSpec.Shape.CHAT);
 
     private final Plugin plugin;
     private final SpawnNpc npc;
@@ -79,8 +93,7 @@ public final class NpcListener implements Listener {
         final Milestone milestone =
                 activeKey == null ? null : track.get().milestone(activeKey).orElse(null);
         if (milestone == null) {
-            player.sendMessage(
-                    renderer.format(locale, MESSAGES.smp().objectives().none()));
+            player.sendMessage(renderer.format(locale, Sent.of(NO_OBJECTIVE)));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -109,14 +122,14 @@ public final class NpcListener implements Listener {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(renderer.format(locale, MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(renderer.format(locale, Sent.of(SmpTexts.NO_ACCOUNT_LINK)));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
 
         final HandIn.Result result = HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().nothingWanted()));
+            player.sendMessage(renderer.format(locale, Sent.of(NOTHING_WANTED)));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -161,7 +174,7 @@ public final class NpcListener implements Listener {
                 return;
             }
             gui.giveBack(player, taken);
-            player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().nothingCredited()));
+            player.sendMessage(renderer.format(locale, Sent.of(NOTHING_CREDITED)));
             sounds.play(player, Feedback.REFUSED);
             player.closeInventory();
             return;
@@ -169,7 +182,7 @@ public final class NpcListener implements Listener {
         if (!player.isOnline()) {
             return;
         }
-        player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().accepted(paid)));
+        player.sendMessage(renderer.format(locale, ACCEPTED.with(new Accepted(paid))));
         sounds.play(player, Feedback.SMALL_SUCCESS);
         player.closeInventory();
     }

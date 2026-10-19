@@ -1061,6 +1061,8 @@ export type DocumentShape =
   | "TITLE"
   | "BOSS_BAR"
   | "SERVER_LIST"
+  | "ACTION_BAR"
+  | "HOLOGRAM"
 
 export type DocumentSlot = {
   id: string

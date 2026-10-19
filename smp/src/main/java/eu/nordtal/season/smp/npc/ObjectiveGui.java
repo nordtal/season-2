@@ -217,7 +217,7 @@ public final class ObjectiveGui extends Menu {
     }
 
     private String milestoneName() {
-        return MilestoneNames.of(renderer.raw(), locale, milestone.key());
+        return MilestoneNames.of(renderer, locale, milestone.key());
     }
 
     private String name(final Objective definition) {

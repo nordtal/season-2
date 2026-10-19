@@ -1,7 +1,5 @@
 package eu.nordtal.season.smp.navigate;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -46,6 +44,11 @@ public final class NavigateGui extends Menu {
             Slot.item("previous-page"),
             Slot.label("page"),
             Slot.item("next-page"));
+
+    record Started(String target) {}
+
+    static final DocumentSpec<Started> STARTED =
+            DocumentSpec.game("smp", "navigate-started", "Navigate", DocumentSpec.Shape.CHAT, Started.class);
 
     public static final DocumentSpec<DocumentSpec.None> STOPPED =
             DocumentSpec.game("smp", "navigate-stopped", "Navigate", DocumentSpec.Shape.CHAT);
@@ -108,7 +111,7 @@ public final class NavigateGui extends Menu {
 
         final Optional<NavigationTarget> active = navigation.of(viewer.getUniqueId());
         final List<NavigatePanel.Entry> entries =
-                NavigatePage.entries(targets, this.page, world, x, y, z, active, document, renderer.raw(), locale);
+                NavigatePage.entries(targets, this.page, world, x, y, z, active, document, renderer, locale);
 
         this.inventory = frame(
                 NavigatePanel.ROWS,
@@ -165,7 +168,7 @@ public final class NavigateGui extends Menu {
         return BlankItem.of(document.item(
                 "target",
                 new Target(
-                        NavigatePage.label(target, renderer.raw(), locale),
+                        NavigatePage.label(target, renderer, locale),
                         target.world(),
                         target.x(),
                         target.y(),
@@ -194,8 +197,8 @@ public final class NavigateGui extends Menu {
         }
         final NavigationTarget target = shown.get(row);
         navigation.set(player.getUniqueId(), target);
-        player.sendMessage(renderer.format(
-                locale, MESSAGES.smp().navigate().started(NavigatePage.label(target, renderer.raw(), locale))));
+        player.sendMessage(
+                renderer.format(locale, STARTED.with(new Started(NavigatePage.label(target, renderer, locale)))));
         return MenuClick.closing();
     }
 }

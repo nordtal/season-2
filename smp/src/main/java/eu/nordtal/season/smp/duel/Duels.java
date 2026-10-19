@@ -1,17 +1,14 @@
 package eu.nordtal.season.smp.duel;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.CountdownPlan;
-import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.aura.DuelType;
@@ -43,6 +40,29 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 public final class Duels implements Arenas {
+
+    enum Outcome {
+        WON,
+        LOST,
+        INTERRUPTED
+    }
+
+    /** An interrupted duel moves no aura and shows no title. */
+    record Result(Outcome outcome, int aura) {}
+
+    /** The beat at zero seconds is the start of the fight. */
+    record Countdown(long seconds) {}
+
+    static final DocumentSpec<DocumentSpec.None> WAITING =
+            DocumentSpec.game("smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> QUEUED =
+            DocumentSpec.game("smp", "duel-queued", "Duels", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<Countdown> COUNTDOWN_LINE =
+            DocumentSpec.game("smp", "duel-countdown", "Duels", DocumentSpec.Shape.CHAT, Countdown.class);
+    static final DocumentSpec<Result> RESULT =
+            DocumentSpec.game("smp", "duel-result", "Duels", DocumentSpec.Shape.CHAT, Result.class);
+    static final DocumentSpec<Result> RESULT_TITLE =
+            DocumentSpec.game("smp", "duel-result-title", "Duels", DocumentSpec.Shape.TITLE, Result.class);
 
     private static final int COUNTDOWN_SECONDS = 3;
 
@@ -140,7 +160,7 @@ public final class Duels implements Arenas {
         }
         if (other == null) {
             waiting.put(type, player.getUniqueId());
-            tell(player, MESSAGES.smp().duel().waiting(), Feedback.SELECT);
+            tell(player, Sent.of(WAITING), Feedback.SELECT);
             return;
         }
         final Player opponent = Bukkit.getPlayer(other);
@@ -188,8 +208,8 @@ public final class Duels implements Arenas {
         final Optional<Integer> slot = slots.claim();
         if (slot.isEmpty()) {
             queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
-            tell(first, MESSAGES.smp().duel().queued());
-            tell(second, MESSAGES.smp().duel().queued());
+            tell(first, Sent.of(QUEUED));
+            tell(second, Sent.of(QUEUED));
             return;
         }
 
@@ -288,14 +308,15 @@ public final class Duels implements Arenas {
 
     /** The last beat is the start of the fight. */
     private void countdown(final ActiveDuel duel) {
-        final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
-        for (final CountdownPlan.Beat<MessageRef> beat :
-                COUNTDOWN.beats(Duration.ofSeconds(COUNTDOWN_SECONDS), lines::countdown, lines.go())) {
+        for (final CountdownPlan.Beat<Sent<Countdown>> beat : COUNTDOWN.beats(
+                Duration.ofSeconds(COUNTDOWN_SECONDS),
+                seconds -> COUNTDOWN_LINE.with(new Countdown(seconds)),
+                COUNTDOWN_LINE.with(new Countdown(0)))) {
             PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> say(duel, beat));
         }
     }
 
-    private void say(final ActiveDuel duel, final CountdownPlan.Beat<MessageRef> beat) {
+    private void say(final ActiveDuel duel, final CountdownPlan.Beat<Sent<Countdown>> beat) {
         if (!duel.equals(byPlayer.get(duel.first()))) {
             return;
         }
@@ -343,27 +364,12 @@ public final class Duels implements Arenas {
             state.restore(player, spawn());
         }
         final java.util.Locale locale = identities.languageOf(playerId);
-        final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
-        final int stake = config.duelStake();
-        player.sendMessage(renderer.format(
-                locale,
-                feedback == null
-                        ? lines.interrupted()
-                        : feedback == Feedback.BIG_SUCCESS ? lines.won(stake) : lines.lost(stake)));
+        final Result result = new Result(
+                feedback == null ? Outcome.INTERRUPTED : feedback == Feedback.BIG_SUCCESS ? Outcome.WON : Outcome.LOST,
+                config.duelStake());
+        player.sendMessage(renderer.format(locale, RESULT.with(result)));
         if (feedback != null) {
-            final boolean won = feedback == Feedback.BIG_SUCCESS;
-            player.showTitle(Title.title(
-                    Lines.joined(renderer.format(
-                            locale,
-                            won
-                                    ? lines.wonSection().title()
-                                    : lines.lostSection().title())),
-                    Lines.joined(renderer.format(
-                            locale,
-                            won
-                                    ? lines.wonSection().subtitle(stake)
-                                    : lines.lostSection().subtitle(stake))),
-                    OUTCOME));
+            player.showTitle(renderer.title(locale, RESULT_TITLE.with(result), OUTCOME));
         }
         if (feedback != null) {
             sounds.play(player, feedback);
@@ -464,11 +470,11 @@ public final class Duels implements Arenas {
         }
     }
 
-    private void tell(final Player player, final MessageRef message) {
+    private void tell(final Player player, final Sent<?> message) {
         tell(player, message, null);
     }
 
-    private void tell(final Player player, final MessageRef message, final @Nullable Feedback feedback) {
+    private void tell(final Player player, final Sent<?> message, final @Nullable Feedback feedback) {
         player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), message));
         if (feedback != null) {
             sounds.play(player, feedback);

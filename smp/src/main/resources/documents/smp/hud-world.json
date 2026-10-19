@@ -1,0 +1,30 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "world=nordtal",
+          "text": {
+            "en": "Nordtal",
+            "de": "Nordtal"
+          }
+        },
+        {
+          "when": "world=nether",
+          "text": {
+            "en": "The Nether",
+            "de": "Der Nether"
+          }
+        },
+        {
+          "when": "world=end",
+          "text": {
+            "en": "The End",
+            "de": "Das End"
+          }
+        }
+      ]
+    }
+  ]
+}

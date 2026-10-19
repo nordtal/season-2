@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "sub=add",
+          "text": {
+            "en": "Creates a point of interest at your position. Everybody can navigate to it.",
+            "de": "Legt an deiner Position einen Ort an. Alle können ihn ansteuern."
+          }
+        },
+        {
+          "when": "sub=remove",
+          "text": {
+            "en": "Removes your point of interest. Admins remove any.",
+            "de": "Entfernt deinen Ort. Admins entfernen jeden."
+          }
+        }
+      ]
+    }
+  ]
+}

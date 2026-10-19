@@ -1,12 +1,10 @@
 package eu.nordtal.season.smp.progress;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseMessages;
-import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -52,6 +50,17 @@ import org.jspecify.annotations.Nullable;
  * A credit, the completion it causes and the payout run in one transaction.
  */
 public final class ObjectiveEngine implements Contributions {
+
+    record Completed(String objective) {}
+
+    record Reached(MilestoneContext milestone) {}
+
+    static final DocumentSpec<Completed> OBJECTIVE_COMPLETED =
+            DocumentSpec.game("smp", "objective-completed", "Objectives", DocumentSpec.Shape.CHAT, Completed.class);
+    static final DocumentSpec<Reached> MILESTONE_COMPLETED =
+            DocumentSpec.game("smp", "milestone-completed", "Milestones", DocumentSpec.Shape.CHAT, Reached.class);
+    static final DocumentSpec<Reached> MILESTONE_CEREMONY =
+            DocumentSpec.game("smp", "milestone-ceremony", "Milestones", DocumentSpec.Shape.TITLE, Reached.class);
 
     private final Plugin plugin;
     private final Jdbi jdbi;
@@ -346,8 +355,7 @@ public final class ObjectiveEngine implements Contributions {
         PaperScheduler.of(plugin).onMain(() -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = identities.languageOf(player.getUniqueId());
-                player.sendMessage(
-                        renderer.format(locale, MESSAGES.smp().objective().completed(objectiveKey)));
+                player.sendMessage(renderer.format(locale, OBJECTIVE_COMPLETED.with(new Completed(objectiveKey))));
             }
         });
     }
@@ -358,8 +366,7 @@ public final class ObjectiveEngine implements Contributions {
      */
     private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
         announcer.announce(locale -> {
-            final MilestoneContext milestone =
-                    new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));
+            final MilestoneContext milestone = new MilestoneContext(MilestoneNames.of(renderer, locale, milestoneKey));
             final DatabaseMessages.Announcements announcement = DatabaseMessages.MESSAGES.announcement();
             return switch (unlock) {
                 case BORDER -> announcement.milestoneSection().border(milestone);
@@ -370,16 +377,11 @@ public final class ObjectiveEngine implements Contributions {
         });
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = identities.languageOf(player.getUniqueId());
-            final MilestoneContext name = new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));
+            final Reached reached =
+                    new Reached(new MilestoneContext(MilestoneNames.of(renderer, locale, milestoneKey)));
 
-            player.sendMessage(
-                    renderer.format(locale, MESSAGES.smp().milestone().completed(name)));
-            player.showTitle(Title.title(
-                    Lines.joined(
-                            renderer.format(locale, MESSAGES.smp().ceremony().title(name))),
-                    Lines.joined(
-                            renderer.format(locale, MESSAGES.smp().ceremony().subtitle())),
-                    CEREMONY));
+            player.sendMessage(renderer.format(locale, MILESTONE_COMPLETED.with(reached)));
+            player.showTitle(renderer.title(locale, MILESTONE_CEREMONY.with(reached), CEREMONY));
             sounds.play(
                     player, player.getUniqueId().equals(completedBy) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
             effects.celebrate(player);

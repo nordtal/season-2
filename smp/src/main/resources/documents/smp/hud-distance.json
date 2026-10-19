@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{blocks, plural, one {# block} other {# blocks}}",
+            "de": "{blocks, plural, one {# Block} other {# Blöcke}}"
+          }
+        }
+      ]
+    }
+  ]
+}

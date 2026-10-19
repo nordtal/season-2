@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>Current objective</accent>",
+            "de": "<accent>Aktuelles Ziel</accent>"
+          }
+        }
+      ]
+    }
+  ]
+}

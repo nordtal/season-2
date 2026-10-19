@@ -1,7 +1,5 @@
 package eu.nordtal.season.smp.grave;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.document.AppliedDocuments;
@@ -9,6 +7,7 @@ import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -52,6 +51,15 @@ import org.joml.Vector3f;
  * Any player may open a grave.
  */
 public final class Graves {
+
+    record Left(Duration left) {}
+
+    record Experience(int experience) {}
+
+    static final DocumentSpec<Left> HOLOGRAM =
+            DocumentSpec.game("smp", "grave-hologram", "Graves", DocumentSpec.Shape.HOLOGRAM, Left.class);
+    static final DocumentSpec<Experience> EXPERIENCE =
+            DocumentSpec.game("smp", "grave-experience", "Graves", DocumentSpec.Shape.CHAT, Experience.class);
 
     private final Plugin plugin;
     private final GraveDao dao;
@@ -251,7 +259,7 @@ public final class Graves {
         // Outside the final stretch the text shows whole minutes.
         final Duration shown =
                 timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
-        return renderer.format(locale, MESSAGES.smp().grave().hologram(shown));
+        return renderer.format(locale, HOLOGRAM.with(new Left(shown)));
     }
 
     private static long refreshInterval(final Duration timeLeft) {
@@ -541,8 +549,7 @@ public final class Graves {
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
                     player.sendMessage(renderer.format(
-                            identities.languageOf(player.getUniqueId()),
-                            MESSAGES.smp().grave().experience(experience)));
+                            identities.languageOf(player.getUniqueId()), EXPERIENCE.with(new Experience(experience))));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 }
             });

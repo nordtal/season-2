@@ -1,9 +1,7 @@
 package eu.nordtal.season.smp.travel;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -27,6 +25,12 @@ import org.bukkit.plugin.Plugin;
  * Refuses Nether portals until {@code Unlock.NETHER} is unlocked, and End portals until {@code Unlock.END} is.
  */
 public final class PortalGate implements Listener {
+
+    /** {@code world} is the one that is still closed. */
+    record Locked(WorldRole world) {}
+
+    static final DocumentSpec<Locked> LOCKED =
+            DocumentSpec.game("smp", "portal-locked", "Portals", DocumentSpec.Shape.CHAT, Locked.class);
 
     private static final int REFUSAL_COOLDOWN_TICKS = 100;
 
@@ -69,8 +73,7 @@ public final class PortalGate implements Listener {
         putOutTheFire(event);
         if (event.getEntity() instanceof Player player) {
             player.sendMessage(renderer.format(
-                    identities.languageOf(player.getUniqueId()),
-                    MESSAGES.smp().portal().netherLocked()));
+                    identities.languageOf(player.getUniqueId()), LOCKED.with(new Locked(WorldRole.NETHER))));
             sounds.play(player, Feedback.REFUSED);
         }
     }
@@ -95,18 +98,19 @@ public final class PortalGate implements Listener {
 
         final boolean endPortal = event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL;
         if (endPortal && from != WorldRole.END && !season.isUnlocked(Unlock.END)) {
-            refuse(event, MESSAGES.smp().portal().endLocked());
+            refuse(event, WorldRole.END);
         } else if (!endPortal && !season.isUnlocked(Unlock.NETHER) && from.hasVanillaPortalLinking()) {
-            refuse(event, MESSAGES.smp().portal().netherLocked());
+            refuse(event, WorldRole.NETHER);
         }
     }
 
-    private void refuse(final PlayerPortalEvent event, final MessageRef why) {
+    private void refuse(final PlayerPortalEvent event, final WorldRole closed) {
         event.setCancelled(true);
         final Player player = event.getPlayer();
         // A player standing in a refused portal tries it again every tick; the cooldown spaces the refusals.
         player.setPortalCooldown(REFUSAL_COOLDOWN_TICKS);
-        player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), why));
+        player.sendMessage(
+                renderer.format(identities.languageOf(player.getUniqueId()), LOCKED.with(new Locked(closed))));
         sounds.play(player, Feedback.REFUSED);
     }
 }

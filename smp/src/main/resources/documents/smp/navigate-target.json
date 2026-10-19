@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "kind=world-spawn",
+          "text": {
+            "en": "This world's spawn",
+            "de": "Der Spawn dieser Welt"
+          }
+        },
+        {
+          "when": "kind=last-death",
+          "text": {
+            "en": "Where you last died",
+            "de": "Wo du zuletzt gestorben bist"
+          }
+        }
+      ]
+    }
+  ]
+}

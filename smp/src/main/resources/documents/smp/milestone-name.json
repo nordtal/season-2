@@ -1,0 +1,65 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "milestone=waiting",
+          "text": {
+            "en": "Waiting",
+            "de": "Warten"
+          }
+        },
+        {
+          "when": "milestone=departure",
+          "text": {
+            "en": "Departure",
+            "de": "Aufbruch"
+          }
+        },
+        {
+          "when": "milestone=foothold",
+          "text": {
+            "en": "Foothold",
+            "de": "Fuß fassen"
+          }
+        },
+        {
+          "when": "milestone=settlement",
+          "text": {
+            "en": "Settlement",
+            "de": "Siedlung"
+          }
+        },
+        {
+          "when": "milestone=nether",
+          "text": {
+            "en": "Nether",
+            "de": "Nether"
+          }
+        },
+        {
+          "when": "milestone=end",
+          "text": {
+            "en": "End",
+            "de": "Ende"
+          }
+        },
+        {
+          "when": "milestone=expanse",
+          "text": {
+            "en": "Expanse",
+            "de": "Weite"
+          }
+        },
+        {
+          "when": "milestone=frontier",
+          "text": {
+            "en": "Frontier",
+            "de": "Grenzland"
+          }
+        }
+      ]
+    }
+  ]
+}

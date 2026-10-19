@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Waiting for somebody to step on the other side.</muted>",
+            "de": "<muted>Warte, bis jemand auf der anderen Seite steht.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

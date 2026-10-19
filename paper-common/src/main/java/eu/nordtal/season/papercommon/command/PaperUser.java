@@ -15,7 +15,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -159,9 +158,9 @@ public final class PaperUser {
         send(Tones.paint(render(refusal), Tone.WARN, colours.get()), null);
     }
 
-    public String phrase(final MessageRef message) {
-        // The result is inserted into a message that is parsed as MiniMessage again.
-        return PlainTextComponentSerializer.plainText().serialize(render(message));
+    /** Returns the document as plain text, to be inserted as a value of another one. */
+    public String phrase(final Sent<?> message) {
+        return renderer.plainLine(locale, message);
     }
 
     public void replyLiteral(final String text) {

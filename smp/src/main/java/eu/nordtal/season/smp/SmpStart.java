@@ -48,12 +48,7 @@ final class SmpStart {
     private SmpStart() {}
 
     static Announcer declareHudAndStartAnnouncer(final SmpPlugin plugin) {
-        new SmpHud(
-                        plugin.worlds,
-                        plugin.season,
-                        plugin.navigation,
-                        plugin.renderer().raw())
-                .declareOn(plugin.hud());
+        new SmpHud(plugin.worlds, plugin.season, plugin.navigation, plugin.renderer()).declareOn(plugin.hud());
 
         // Sends one request with every language to the bot's inbox and does not wait.
         final Announcer announcer = new Announcer(

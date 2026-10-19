@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>There is no current objective.</muted>",
+            "de": "<muted>Es gibt gerade kein Ziel.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

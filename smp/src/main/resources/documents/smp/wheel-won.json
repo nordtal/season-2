@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The wheel gives you</good> <emphasis>{amount}x {item}</emphasis><muted>.</muted>",
+            "de": "<good>Das Rad gibt dir</good> <emphasis>{amount}x {item}</emphasis><muted>.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

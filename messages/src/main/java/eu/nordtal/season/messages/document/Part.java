@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
  *     address
  * @param items a row's buttons, or its one select or field
  * @param slot the slot of a block per language, a menu's item or a menu's label
+ * @param shared the name of the shared part this part is a copy of, else {@code null}
  */
 public record Part(
         Type type,
@@ -26,7 +27,8 @@ public record Part(
         @Nullable String thumbnail,
         @Nullable List<String> media,
         @Nullable List<Item> items,
-        @Nullable String slot) {
+        @Nullable String slot,
+        @Nullable String shared) {
 
     public enum Type {
         /** A box with an accent colour along its edge, as an embed is drawn. */
@@ -74,11 +76,55 @@ public record Part(
     }
 
     public static Part row(final List<Item> items) {
-        return new Part(Type.ROW, null, null, null, null, null, null, null, items, null);
+        return new Part(Type.ROW, null, null, null, null, null, null, null, items, null, null);
     }
 
     public static Part text(final List<Line> lines) {
-        return new Part(Type.TEXT, null, null, null, lines, null, null, null, null, null);
+        return new Part(Type.TEXT, null, null, null, lines, null, null, null, null, null, null);
+    }
+
+    /**
+     * Returns this part with every copy of shared part {@code name} replaced by {@code saved}.
+     * Where {@code saved} is {@code null}, each copy stays as it is, unmarked.
+     */
+    public Part withSharedPart(final String name, final @Nullable Part saved) {
+        if (name.equals(shared)) {
+            return (saved == null ? this : saved).marked(saved == null ? null : name);
+        }
+        return parts == null
+                ? this
+                : new Part(
+                        type,
+                        when,
+                        accent,
+                        parts.stream()
+                                .map(part -> part.withSharedPart(name, saved))
+                                .toList(),
+                        lines,
+                        button,
+                        thumbnail,
+                        media,
+                        items,
+                        slot,
+                        shared);
+    }
+
+    /** Returns this part as a copy of shared part {@code name}, or of none; it holds no other shared part. */
+    public Part marked(final @Nullable String name) {
+        return new Part(
+                type,
+                when,
+                accent,
+                parts == null
+                        ? null
+                        : parts.stream().map(part -> part.marked(null)).toList(),
+                lines,
+                button,
+                thumbnail,
+                media,
+                items,
+                slot,
+                name);
     }
 
     void collect(final List<Part> into) {

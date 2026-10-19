@@ -164,6 +164,11 @@ refuses one that `DocumentCheck` refuses; the bot follows the change and edits i
 at once. Each save is kept as a version with its admin and time: `GET /api/documents/{namespace}/{name}/versions`
 answers them newest first, each carried over to the jar's declaration, and the editor restores one by saving it again.
 `DELETE /api/documents/{namespace}/{name}` makes the packaged document live again and is kept as a version too.
+A shared part is a part an admin saved under a name (`shared_part`); a document holds a copy of it, marked
+with its name. `POST /api/shared-parts/{name}/changes` answers each saved document that holds a copy,
+before and after, with what the check refuses. `PUT /api/shared-parts/{name}` stores the part and
+rewrites every copy in one transaction, each rewrite kept as a version, and refuses all of it if the
+check refuses one document. `DELETE` removes the shared part and leaves its copies as plain parts.
 `POST /api/documents/render` draws a draft, every value at its declared example, and answers
 what a save would be refused for. A Discord document is drawn with the bot's own renderer from
 `discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A

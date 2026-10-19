@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /** One output of a module as a reader sees it: a tree of parts with every text in every language. */
 public record Document(List<Part> parts) {
@@ -52,6 +53,23 @@ public record Document(List<Part> parts) {
         final Set<String> languages = new TreeSet<>();
         texts().forEach(text -> languages.addAll(text.languages().keySet()));
         return languages;
+    }
+
+    /** Returns the names of the shared parts the document holds a copy of. */
+    public Set<String> sharedParts() {
+        final Set<String> names = new TreeSet<>();
+        allParts().forEach(part -> {
+            if (part.shared() != null) {
+                names.add(part.shared());
+            }
+        });
+        return names;
+    }
+
+    /** Returns the document with every copy of shared part {@code name} replaced; see {@link Part#withSharedPart}. */
+    public Document withSharedPart(final String name, final @Nullable Part saved) {
+        return new Document(
+                parts.stream().map(part -> part.withSharedPart(name, saved)).toList());
     }
 
     public static Document decode(final String json) {

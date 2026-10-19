@@ -213,6 +213,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V76__every_save_of_a_document_is_kept_as_a_version.sql",
                 "c9010d38696bdb71c2918ad9db819ed80f58ca0f0b0fadb1ec3c42ef08b157a8");
+        FROZEN.put(
+                "V77__a_shared_part_is_a_part_documents_copy.sql",
+                "2a5edf98cc3c8182ca5230ff358dd99b37604701a82a74f80ac996d9cc76805d");
     }
 
     @Test

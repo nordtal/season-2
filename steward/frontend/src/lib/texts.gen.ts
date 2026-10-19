@@ -944,6 +944,9 @@ export type TextArgs = {
   "steward.answer.settings-refused": {
     refusal: Arg["text"]
   }
+  "steward.answer.shared-part-name": {
+    name: Arg["text"]
+  }
   "steward.answer.sign-in-elsewhere": Record<string, never>
   "steward.answer.sign-in-refused": {
     status: Arg["number"]
@@ -1019,6 +1022,9 @@ export type TextArgs = {
   "steward.document-editor.add-line": Record<string, never>
   "steward.document-editor.add-link": Record<string, never>
   "steward.document-editor.add-text": Record<string, never>
+  "steward.document-editor.before-after": {
+    state: Arg["choice"]
+  }
   "steward.document-editor.beside": {
     part: Arg["choice"]
   }
@@ -1033,8 +1039,13 @@ export type TextArgs = {
     condition: Arg["choice"]
   }
   "steward.document-editor.constant": Record<string, never>
+  "steward.document-editor.delete-shared-part": Record<string, never>
+  "steward.document-editor.detach-shared-part": Record<string, never>
   "steward.document-editor.discard": Record<string, never>
   "steward.document-editor.image": Record<string, never>
+  "steward.document-editor.insert-shared-part": {
+    name: Arg["text"]
+  }
   "steward.document-editor.label": Record<string, never>
   "steward.document-editor.language": Record<string, never>
   "steward.document-editor.link": Record<string, never>
@@ -1051,14 +1062,36 @@ export type TextArgs = {
   "steward.document-editor.required": Record<string, never>
   "steward.document-editor.restore": Record<string, never>
   "steward.document-editor.save": Record<string, never>
+  "steward.document-editor.save-shared-part": Record<string, never>
   "steward.document-editor.saved": {
     document: Arg["text"]
   }
+  "steward.document-editor.shared-part": {
+    name: Arg["text"]
+  }
+  "steward.document-editor.shared-part-differs": {
+    name: Arg["text"]
+  }
+  "steward.document-editor.shared-part-exists": {
+    name: Arg["text"]
+  }
+  "steward.document-editor.shared-part-explained": Record<string, never>
+  "steward.document-editor.shared-part-menu": Record<string, never>
+  "steward.document-editor.shared-part-name": Record<string, never>
+  "steward.document-editor.shared-part-name-rule": Record<string, never>
+  "steward.document-editor.shared-part-saved": {
+    name: Arg["text"]
+    deleted: Arg["choice"]
+  }
+  "steward.document-editor.shared-part-unused": Record<string, never>
   "steward.document-editor.slot": {
     slot: Arg["text"]
   }
   "steward.document-editor.style": {
     style: Arg["choice"]
+  }
+  "steward.document-editor.update-shared-part": {
+    name: Arg["text"]
   }
   "steward.document-editor.upload": Record<string, never>
   "steward.document-editor.version": {

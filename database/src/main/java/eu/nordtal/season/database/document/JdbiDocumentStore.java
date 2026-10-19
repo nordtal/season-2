@@ -1,8 +1,10 @@
 package eu.nordtal.season.database.document;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.Part;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -42,31 +44,73 @@ final class JdbiDocumentStore implements DocumentStore {
     @Override
     public void change(final StoredDocument document, final Actor actor) {
         jdbi.useTransaction(handle -> {
-            for (final String address : uploads(document.document()).toList()) {
-                final long id = Image.idOf(address).orElseThrow();
-                if (handle.createQuery("SELECT count(*) FROM layout_image WHERE id = :id")
-                                .bind("id", id)
-                                .mapTo(Integer.class)
-                                .one()
-                        == 0) {
-                    throw new IllegalArgumentException("no image is stored as " + address);
-                }
-            }
-            handle.createUpdate("""
-                            INSERT INTO document_override (namespace, name, document, replaced, actor_kind, actor_id, changed)
-                            VALUES (:namespace, :name, CAST(:document AS jsonb), :replaced, :kind, :id, now())
-                            ON CONFLICT (namespace, name) DO UPDATE SET document = excluded.document,
-                                replaced = excluded.replaced, actor_kind = excluded.actor_kind,
-                                actor_id = excluded.actor_id, changed = excluded.changed""")
-                    .bind("namespace", document.namespace())
-                    .bind("name", document.name())
-                    .bind("document", document.document().json())
-                    .bind("replaced", document.replaced())
-                    .bind("kind", actor.kind().name())
-                    .bind("id", actor.id())
-                    .execute();
-            keep(handle, document.namespace(), document.name(), document, actor);
+            write(handle, document, actor);
             signal(handle, document.namespace());
+        });
+    }
+
+    // Writes an admin's document and keeps it as a version.
+    private static void write(final Handle handle, final StoredDocument document, final Actor actor) {
+        for (final String address : uploads(document.document()).toList()) {
+            final long id = Image.idOf(address).orElseThrow();
+            if (handle.createQuery("SELECT count(*) FROM layout_image WHERE id = :id")
+                            .bind("id", id)
+                            .mapTo(Integer.class)
+                            .one()
+                    == 0) {
+                throw new IllegalArgumentException("no image is stored as " + address);
+            }
+        }
+        handle.createUpdate("""
+                        INSERT INTO document_override (namespace, name, document, replaced, actor_kind, actor_id, changed)
+                        VALUES (:namespace, :name, CAST(:document AS jsonb), :replaced, :kind, :id, now())
+                        ON CONFLICT (namespace, name) DO UPDATE SET document = excluded.document,
+                            replaced = excluded.replaced, actor_kind = excluded.actor_kind,
+                            actor_id = excluded.actor_id, changed = excluded.changed""")
+                .bind("namespace", document.namespace())
+                .bind("name", document.name())
+                .bind("document", document.document().json())
+                .bind("replaced", document.replaced())
+                .bind("kind", actor.kind().name())
+                .bind("id", actor.id())
+                .execute();
+        keep(handle, document.namespace(), document.name(), document, actor);
+    }
+
+    @Override
+    public List<SharedPart> sharedParts() {
+        return jdbi.withHandle(handle -> handle.createQuery(
+                        "SELECT name, part::text AS part FROM shared_part ORDER BY name")
+                .map((rows, context) ->
+                        new SharedPart(rows.getString("name"), Json.decode(rows.getString("part"), Part.class)))
+                .list());
+    }
+
+    @Override
+    public void changeSharedPart(
+            final String name, final @Nullable Part part, final List<StoredDocument> rewritten, final Actor actor) {
+        jdbi.useTransaction(handle -> {
+            if (part == null) {
+                handle.createUpdate("DELETE FROM shared_part WHERE name = :name")
+                        .bind("name", name)
+                        .execute();
+            } else {
+                handle.createUpdate("""
+                                INSERT INTO shared_part (name, part, actor_kind, actor_id, changed)
+                                VALUES (:name, CAST(:part AS jsonb), :kind, :id, now())
+                                ON CONFLICT (name) DO UPDATE SET part = excluded.part, actor_kind = excluded.actor_kind,
+                                    actor_id = excluded.actor_id, changed = excluded.changed""")
+                        .bind("name", name)
+                        .bind("part", Json.encode(part))
+                        .bind("kind", actor.kind().name())
+                        .bind("id", actor.id())
+                        .execute();
+            }
+            rewritten.forEach(document -> write(handle, document, actor));
+            rewritten.stream()
+                    .map(StoredDocument::namespace)
+                    .distinct()
+                    .forEach(namespace -> signal(handle, namespace));
         });
     }
 

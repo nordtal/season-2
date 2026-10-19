@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -58,6 +59,14 @@ public final class DocumentsApi {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
+
+    /** A shared part's name, as a document's name is written. */
+    private static final Pattern SHARED_PART_NAME = Pattern.compile("^[a-z][a-z0-9]*(-[a-z0-9]+)*$");
+
+    private static final Document NONE = new Document(List.of());
+
+    /** The prefix of a shared part's name in the journal. */
+    private static final String SHARED_PARTS = "shared-parts/";
 
     private final AgentClient agent;
     private final @Nullable DocumentStore store;
@@ -80,8 +89,25 @@ public final class DocumentsApi {
      *
      * @param writable  whether Steward has a database for an admin's documents
      * @param languages the network's languages, the default first
+     * @param sharedParts every shared part, by name
      */
-    public record DocumentList(boolean writable, List<DocumentView> documents, List<String> languages) {}
+    public record DocumentList(
+            boolean writable, List<DocumentView> documents, List<String> languages, List<SharedPartView> sharedParts) {}
+
+    /**
+     * A part an admin saved for reuse.
+     *
+     * @param documents every admin's document that holds a copy of it, as {@code namespace/name}
+     */
+    public record SharedPartView(String name, Part part, List<String> documents) {}
+
+    /**
+     * An admin's document that a change of a shared part rewrites.
+     *
+     * @param problems what a save of {@code after} would be refused for
+     */
+    public record SharedPartChange(
+            DocumentDeclaration declaration, boolean game, Document before, Document after, List<String> problems) {}
 
     /**
      * @param services the services whose jars ship it
@@ -376,6 +402,122 @@ public final class DocumentsApi {
     }
 
     /**
+     * {@code POST /api/shared-parts/{name}/changes} answers each document that holds the shared part.
+     * Each one is answered before and after the part in the body replaces every copy. It changes nothing.
+     */
+    public void sharedPartChanges(final Context ctx) {
+        ctx.json(changes(sharedPartName(ctx), partOf(ctx)).stream()
+                .map(Rewrite::change)
+                .toList());
+    }
+
+    /**
+     * {@code PUT /api/shared-parts/{name}} stores the part in the body as the shared part.
+     * It replaces every copy in the same transaction, and writes nothing if the check refuses one changed document.
+     *
+     * @return the shared part's {@code shared-parts/name} and every document it rewrote
+     */
+    public List<String> saveSharedPart(final Context ctx, final Actor actor) {
+        final String name = sharedPartName(ctx);
+        final Part part = partOf(ctx).marked(null);
+        final List<Rewrite> changes = changes(name, part);
+        for (final Rewrite each : changes) {
+            if (!each.change().problems().isEmpty()) {
+                throw new RequestRefused(
+                        400,
+                        ANSWER.documentRefused(
+                                each.change().declaration().id(),
+                                each.change().problems().getFirst()));
+            }
+        }
+        return writeSharedPart(ctx, name, part, changes, actor);
+    }
+
+    /**
+     * {@code DELETE /api/shared-parts/{name}} removes the shared part; each copy stays as a plain part.
+     *
+     * @return the shared part's {@code shared-parts/name} and every document it rewrote
+     */
+    public List<String> removeSharedPart(final Context ctx, final Actor actor) {
+        final String name = sharedPartName(ctx);
+        return writeSharedPart(ctx, name, null, changes(name, null), actor);
+    }
+
+    private List<String> writeSharedPart(
+            final Context ctx,
+            final String name,
+            final @Nullable Part part,
+            final List<Rewrite> changes,
+            final Actor actor) {
+        final DocumentStore stored = writable();
+        try {
+            stored.changeSharedPart(
+                    name,
+                    part,
+                    changes.stream()
+                            .map(each -> new DocumentStore.StoredDocument(
+                                    each.change().declaration().namespace(),
+                                    each.change().declaration().name(),
+                                    each.change().after(),
+                                    each.hash()))
+                            .toList(),
+                    actor);
+        } catch (final IllegalArgumentException missing) {
+            throw new RequestRefused(
+                    400, ANSWER.documentRefused(SHARED_PARTS + name, String.valueOf(missing.getMessage())));
+        }
+        ctx.json(documents());
+        final List<String> written = new ArrayList<>();
+        written.add(SHARED_PARTS + name);
+        changes.forEach(each -> written.add(each.change().declaration().id()));
+        return written;
+    }
+
+    /** A document a shared part's change rewrites, with the hash of the packaged one it is written over. */
+    private record Rewrite(SharedPartChange change, String hash) {}
+
+    private List<Rewrite> changes(final String name, final @Nullable Part part) {
+        final List<Rewrite> changes = new ArrayList<>();
+        for (final DocumentView view : documents().documents()) {
+            final Document before = view.written();
+            if (before == null || !before.sharedParts().contains(name)) {
+                continue;
+            }
+            final Document after = before.withSharedPart(name, part);
+            List<String> problems;
+            try {
+                problems = DocumentCheck.errors(view.declaration(), after, MessageCheck.Mode.OVERRIDE);
+            } catch (final RuntimeException unreadable) {
+                problems = List.of(String.valueOf(unreadable.getMessage()));
+            }
+            changes.add(new Rewrite(
+                    new SharedPartChange(view.declaration(), view.game(), before, after, problems), view.hash()));
+        }
+        return changes;
+    }
+
+    private static String sharedPartName(final Context ctx) {
+        final String name = ctx.pathParam("name");
+        if (name.length() > 64 || !SHARED_PART_NAME.matcher(name).matches()) {
+            throw new RequestRefused(400, ANSWER.sharedPartName(name));
+        }
+        return name;
+    }
+
+    private static Part partOf(final Context ctx) {
+        final @Nullable Part part;
+        try {
+            part = Json.decode(ctx.body(), Part.class);
+        } catch (final RuntimeException malformed) {
+            throw new RequestRefused(400, ANSWER.notJson());
+        }
+        if (part == null) {
+            throw new RequestRefused(400, ANSWER.empty());
+        }
+        return part;
+    }
+
+    /**
      * {@code POST /api/document-images} stores the PNG, JPEG, GIF or WebP image in the body.
      * It reads the type from the first bytes, not from the request header.
      */
@@ -517,6 +659,19 @@ public final class DocumentsApi {
                     admin != null && !admin.replaced().equals(own.hash()),
                     merged.adaptations()));
         });
-        return new DocumentList(store != null, views, MessagesApi.languages(settings));
+        final List<SharedPartView> sharedParts = stored == null
+                ? List.of()
+                : stored.sharedParts().stream()
+                        .map(shared -> new SharedPartView(
+                                shared.name(),
+                                shared.part(),
+                                views.stream()
+                                        .filter(view -> Objects.requireNonNullElse(view.written(), NONE)
+                                                .sharedParts()
+                                                .contains(shared.name()))
+                                        .map(view -> view.declaration().id())
+                                        .toList()))
+                        .toList();
+        return new DocumentList(store != null, views, MessagesApi.languages(settings), sharedParts);
     }
 }

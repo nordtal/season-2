@@ -11,6 +11,7 @@ import type {
   DocumentDeclaration,
   DocumentDraft,
   DocumentList,
+  DocumentPart,
   DocumentProblem,
   DocumentVersion,
   DocumentView,
@@ -21,6 +22,7 @@ import type {
   MessageSurface,
   MessageText,
   MessageTexts,
+  SharedPartChange,
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
 
@@ -100,7 +102,7 @@ export function view(
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { writable: true, documents: views, languages: ["en"], ...over }
+  return { writable: true, documents: views, languages: ["en"], sharedParts: [], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
@@ -116,6 +118,10 @@ export type Around = {
   saveDocument?: (path: string, document: Document) => DocumentList
   /** Answers the return of a document to its packaged one, at its path under `/api/documents/`. */
   resetDocument?: (path: string) => DocumentList
+  /** Answers what saving `part` as shared part `name` would change. */
+  sharedPartChanges?: (name: string, part: DocumentPart) => SharedPartChange[]
+  /** Answers the save of shared part `name`, or its removal for `null`, with the list it leaves. */
+  saveSharedPart?: (name: string, part: DocumentPart | null) => DocumentList
   /** Answers a document's versions by its path under `/api/documents/`. */
   versions?: (path: string) => DocumentVersion[]
   /** Answers the body of a text's or a document's preview with the request's name. */
@@ -150,6 +156,13 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     if (url.startsWith("/api/documents/") && init?.method === "PUT") {
       if (!around.saveDocument) throw new Error("the page saved a document, which this test did not expect")
       return json(around.saveDocument(url.slice("/api/documents/".length), JSON.parse(init.body ?? "")))
+    }
+    if (url.startsWith("/api/shared-parts/") && url.endsWith("/changes") && around.sharedPartChanges) {
+      return json(around.sharedPartChanges(url.split("/")[3], JSON.parse(init?.body ?? "")))
+    }
+    if (url.startsWith("/api/shared-parts/") && (init?.method === "PUT" || init?.method === "DELETE")) {
+      if (!around.saveSharedPart) throw new Error("the page saved a shared part, which this test did not expect")
+      return json(around.saveSharedPart(url.split("/")[3], init.method === "PUT" ? JSON.parse(init.body ?? "") : null))
     }
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})

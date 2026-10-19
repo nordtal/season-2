@@ -456,6 +456,7 @@ export type DocumentList = {
   writable: boolean
   documents: DocumentView[]
   languages: string[]
+  sharedParts: SharedPartView[]
 }
 
 export type DocumentDraft = {
@@ -483,6 +484,14 @@ export type DocumentVersion = {
   document?: Document
   actor: Actor
   saved: string
+}
+
+export type SharedPartChange = {
+  declaration: DocumentDeclaration
+  game: boolean
+  before: Document
+  after: Document
+  problems: string[]
 }
 
 export type MessageProblem = {
@@ -879,6 +888,12 @@ export type DocumentView = {
   adapted: DocumentAdaptation[]
 }
 
+export type SharedPartView = {
+  name: string
+  part: DocumentPart
+  documents: string[]
+}
+
 export type DocumentDeclaration = {
   namespace: string
   name: string
@@ -1049,6 +1064,20 @@ export type DocumentAdaptation = {
   subject: string
 }
 
+export type DocumentPart = {
+  type: DocumentPartType
+  when?: string
+  accent?: string
+  parts?: DocumentPart[]
+  lines?: DocumentLine[]
+  button?: DocumentItem
+  thumbnail?: string
+  media?: string[]
+  items?: DocumentItem[]
+  slot?: string
+  shared?: string
+}
+
 export type DocumentShape =
   | "MESSAGE"
   | "MODAL"
@@ -1069,19 +1098,6 @@ export type DocumentSlot = {
   type: DocumentSlotType
   required: boolean
   values: Record<string, DocumentValue>
-}
-
-export type DocumentPart = {
-  type: DocumentPartType
-  when?: string
-  accent?: string
-  parts?: DocumentPart[]
-  lines?: DocumentLine[]
-  button?: DocumentItem
-  thumbnail?: string
-  media?: string[]
-  items?: DocumentItem[]
-  slot?: string
 }
 
 export type MenuPart = {
@@ -1161,8 +1177,6 @@ export type MessageArg = {
 
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
 
-export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "ITEM" | "LABEL"
-
 export type DocumentPartType =
   | "CONTAINER"
   | "TEXT"
@@ -1190,6 +1204,8 @@ export type DocumentItem = {
   option?: Record<string, string | string[]>
   when?: string
 }
+
+export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "ITEM" | "LABEL"
 
 export type ChangeState = "MOVING" | "UNSUPPORTED"
 

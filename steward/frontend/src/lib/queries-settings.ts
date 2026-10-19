@@ -11,7 +11,9 @@ import {
   type Document,
   type DocumentDeclaration,
   type DocumentDrawing,
+  type SharedPartChange,
   type DocumentList,
+  type DocumentPart,
   type DocumentVersion,
   type Uploaded,
   type MessageChanges,
@@ -194,6 +196,37 @@ export function useSaveDocument() {
     onSuccess: (list, { declaration }) => {
       client.setQueryData(keys.documents, list)
       void client.invalidateQueries({ queryKey: keys.documentVersions(documentPath(declaration)) })
+    },
+  })
+}
+
+/** Each admin's document that holds the shared part, before and after `part` replaces every copy. */
+export function useSharedPartChanges(name: string, part: DocumentPart, enabled: boolean) {
+  const body = JSON.stringify(part)
+  return useQuery({
+    queryKey: keys.sharedPartChanges(name, body),
+    queryFn: () =>
+      api<SharedPartChange[]>(`/api/shared-parts/${encodeURIComponent(name)}/changes`, { method: "POST", body: part }),
+    enabled,
+  })
+}
+
+/**
+ * Saves `part` as the shared part, or with `null` removes it, and rewrites every document that holds it. The answer
+ * replaces the list, and each rewritten document has a new version.
+ */
+export function useSaveSharedPart() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, part }: { name: string; part: DocumentPart | null }) =>
+      api<DocumentList>(
+        `/api/shared-parts/${encodeURIComponent(name)}`,
+        part ? { method: "PUT", body: part } : { method: "DELETE" },
+      ),
+    onSuccess: (list) => {
+      client.setQueryData(keys.documents, list)
+      void client.invalidateQueries({ queryKey: ["document-versions"] })
+      void client.invalidateQueries({ queryKey: ["shared-part-changes"] })
     },
   })
 }

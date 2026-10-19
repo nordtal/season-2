@@ -10,6 +10,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.Part;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -67,6 +68,28 @@ class DocumentStoreIntegrationTest {
                 List.of(ADMIN, Actor.STEWARD, ADMIN),
                 versions.stream().map(DocumentStore.Version::actor).toList());
         assertEquals(List.of(), store.versions("discord", "other"));
+    }
+
+    @Test
+    void aSharedPartAndEveryDocumentThatHoldsItAreWrittenTogetherAndARefusedDocumentWritesNeither() {
+        final TestDatabase database = TestDatabase.fresh();
+        final DocumentStore store = DocumentStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final long image = store.upload("image/png", new byte[] {1}, ADMIN);
+        final Part part = written(image, "Hi").document().parts().getFirst();
+        store.changeSharedPart("header", part, List.of(written(image, "Hi")), ADMIN);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> store.changeSharedPart(
+                        "header",
+                        written(image, "Other").document().parts().getFirst(),
+                        List.of(written(image + 1, "Hi")),
+                        ADMIN));
+        assertEquals(List.of(new DocumentStore.SharedPart("header", part)), store.sharedParts());
+        assertEquals(1, store.versions("discord", "contribution").size());
+
+        store.changeSharedPart("header", null, List.of(), ADMIN);
+        assertEquals(List.of(), store.sharedParts());
     }
 
     @Test

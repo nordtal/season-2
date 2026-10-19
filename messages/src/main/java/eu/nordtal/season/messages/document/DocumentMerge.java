@@ -196,7 +196,8 @@ public final class DocumentMerge {
                     part.thumbnail(),
                     part.media(),
                     items,
-                    part.slot());
+                    part.slot(),
+                    part.shared());
         }
     }
 }

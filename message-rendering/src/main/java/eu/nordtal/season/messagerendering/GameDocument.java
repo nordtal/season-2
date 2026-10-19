@@ -92,6 +92,17 @@ public final class GameDocument {
                         times);
     }
 
+    /** Returns a boss bar document's shown lines as plain text on one line, which the HUD paints in its own font. */
+    public String plainLine() {
+        final List<String> shown = new ArrayList<>();
+        for (final Part part : packaged.document().parts()) {
+            for (final Line line : shown(part, Map.of())) {
+                shown.add(plain(line.text(), Map.of()));
+            }
+        }
+        return String.join(" ", shown);
+    }
+
     public Component title() {
         return markup(
                 packaged.document().parts().getFirst().allLines().getFirst().text(), Map.of());
@@ -149,11 +160,12 @@ public final class GameDocument {
     /** Paints the label with its entry's values by name, as a preview fills them. */
     public String labelOf(final String slot, final Map<String, Object> own) {
         final List<Line> lines = shown(part(slot, Part.Type.LABEL), own);
-        if (lines.isEmpty()) {
-            return "";
-        }
-        final Messages.Prepared prepared = renderer.raw()
-                .prepare(viewer, pick(lines.getFirst().text()), all(own), kinds, TextFormat.PLAIN, source());
+        return lines.isEmpty() ? "" : plain(lines.getFirst().text(), own);
+    }
+
+    private String plain(final Text text, final Map<String, Object> own) {
+        final Messages.Prepared prepared =
+                renderer.raw().prepare(viewer, pick(text), all(own), kinds, TextFormat.PLAIN, source());
         return PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words());
     }
 

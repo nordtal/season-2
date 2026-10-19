@@ -338,7 +338,7 @@ public final class DocumentRenderer {
                 DataObject.empty().put("content", plain(draft, values, locale)).toString();
             case CHANNEL_NAME ->
                 DataObject.empty().put("name", plain(draft, values, locale)).toString();
-            case MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE ->
+            case MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR ->
                 throw new IllegalArgumentException("the game draws " + declaration.id() + ", not Discord");
         };
     }
@@ -358,7 +358,7 @@ public final class DocumentRenderer {
                 draw(draft, values, ExampleSlots.of(declaration, languages), locale)
                         .create();
             case PLAIN -> MessageCreateData.fromContent(plain(draft, values, locale));
-            case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE ->
+            case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE, BOSS_BAR ->
                 throw new IllegalArgumentException("a " + declaration.shape() + " is not sent as a message");
         };
     }

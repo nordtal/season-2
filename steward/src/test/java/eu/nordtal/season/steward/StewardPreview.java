@@ -205,8 +205,12 @@ public final class StewardPreview {
 
     /** The third-party plugins on smp whose files the settings tab lists: a single file, a tree, no icon, no jar. */
     private static final List<AgentWire.Plugin> PLUGINS = List.of(
-            plugin("CoreProtect", "https://cdn.modrinth.com/data/Lu3KuzdV/b2c4b7b0033ab09cc166f2848003ef3a02c70a83.png"),
-            plugin("LuckPerms", "https://cdn.modrinth.com/data/Vebnzrzj/90943902cc650e95b167265b8f2d7c893f82c8f4_96.webp"),
+            plugin(
+                    "CoreProtect",
+                    "https://cdn.modrinth.com/data/Lu3KuzdV/b2c4b7b0033ab09cc166f2848003ef3a02c70a83.png"),
+            plugin(
+                    "LuckPerms",
+                    "https://cdn.modrinth.com/data/Vebnzrzj/90943902cc650e95b167265b8f2d7c893f82c8f4_96.webp"),
             plugin("Chunky", null));
 
     private static AgentWire.Plugin plugin(final String name, final @org.jspecify.annotations.Nullable String icon) {

@@ -10,6 +10,7 @@ import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.settings.Reloading;
 import eu.nordtal.season.steward.settings.SettingsDocument;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -25,6 +26,8 @@ public final class PluginsForward {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
+    private static final StewardTexts.Steward.Said ANSWERED =
+            StewardTexts.TEXTS.steward().said();
 
     private final AgentClient agent;
     private final UpdateDirectory updates;
@@ -98,13 +101,16 @@ public final class PluginsForward {
             String revision,
             @Nullable JsonObject changes) {}
 
+    /** A saved plugin file, which its server reads at its next start. */
+    public record PluginFileSaved(AgentWire.PluginFile file, String revision, Reloading reload) {}
+
     /**
      * {@code PUT /api/services/{name}/plugin-file} writes the file and nothing else.
      *
      * The server reads it when it next starts. A file that changed on disk since {@code revision} is a 409. The form's
      * changes are written into the text as it is now, which keeps every other byte of it.
      */
-    AgentWire.PluginFileSaved save(final Context ctx, final Actor by) {
+    PluginFileSaved save(final Context ctx, final Actor by) {
         final PluginFileEdit edit = ctx.bodyAsClass(PluginFileEdit.class);
         // Gson leaves a missing field null whatever the record declares.
         if (edit == null || edit.revision() == null || (edit.text() == null) == (edit.changes() == null)) {
@@ -121,8 +127,12 @@ public final class PluginsForward {
             }
             text = PluginYaml.apply(now.file().path(), now.text(), edit.changes());
         }
-        final AgentWire.PluginFileSaved saved = agent.savePluginFile(
+        final AgentWire.PluginFileSaved written = agent.savePluginFile(
                 service(ctx), plugin(ctx), path(ctx), new AgentWire.PluginFileSave(text, edit.revision(), by));
+        final PluginFileSaved saved = new PluginFileSaved(
+                written.file(),
+                written.revision(),
+                Reloading.restartRequired(ANSWERED.setting(false, service(ctx), false)));
         ctx.json(saved);
         return saved;
     }

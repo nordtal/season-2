@@ -381,7 +381,7 @@ export type PluginFileView = {
 export type PluginFileSaved = {
   file: PluginFile
   revision: string
-  restartRequired: boolean
+  reload: ReloadOutcome
 }
 
 export type PluginFileEdit = {

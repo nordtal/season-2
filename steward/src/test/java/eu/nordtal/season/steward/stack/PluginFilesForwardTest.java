@@ -211,10 +211,13 @@ class PluginFilesForwardTest {
         final HttpResponse<String> saved = send("PUT", FILE, body);
 
         assertEquals(200, saved.statusCode(), saved.body());
-        assertTrue(JsonParser.parseString(saved.body())
-                .getAsJsonObject()
-                .get("restartRequired")
-                .getAsBoolean());
+        assertEquals(
+                "RESTART_REQUIRED",
+                JsonParser.parseString(saved.body())
+                        .getAsJsonObject()
+                        .getAsJsonObject("reload")
+                        .get("status")
+                        .getAsString());
         assertEquals("use-mysql: true\n", Files.readString(config));
         assertEquals(1, journal.size());
         assertEquals(JournalAction.SAVE_SETTINGS, journal.getFirst().action());

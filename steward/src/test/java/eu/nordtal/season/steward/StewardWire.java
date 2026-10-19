@@ -107,7 +107,7 @@ public final class StewardWire {
             PluginsForward.RemovalAsked.class,
             AgentWire.PluginFiles.class,
             PluginsForward.PluginFileView.class,
-            AgentWire.PluginFileSaved.class,
+            PluginsForward.PluginFileSaved.class,
             PluginsForward.PluginFileEdit.class,
             SettingsDocument.Location.class,
             SettingsDocument.Document.class,

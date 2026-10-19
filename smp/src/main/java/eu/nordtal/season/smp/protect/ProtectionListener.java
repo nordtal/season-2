@@ -10,6 +10,7 @@ import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.region.Boxes;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
@@ -33,7 +34,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 /**
  * Protects the four spawn regions with event handlers over a list of boxes.
  *
- * It blocks building, fire, fluids and every {@link Container}. Doors and switches stay usable, and admins are exempt.
+ * It blocks building, fire, fluids and every {@link Container}, not doors or switches. Only admins in Creative build.
  */
 public final class ProtectionListener implements Listener {
 
@@ -105,8 +106,7 @@ public final class ProtectionListener implements Listener {
         if (!inside(at)) {
             return;
         }
-        if (event.getRemover() instanceof Player player
-                && identities.of(player.getUniqueId()).admin()) {
+        if (event.getRemover() instanceof Player player && builds(player)) {
             return;
         }
         event.setCancelled(true);
@@ -125,7 +125,7 @@ public final class ProtectionListener implements Listener {
             return;
         }
         final Player player = event.getPlayer();
-        if (player != null && identities.of(player.getUniqueId()).admin()) {
+        if (player != null && builds(player)) {
             return;
         }
         event.setCancelled(true);
@@ -159,9 +159,13 @@ public final class ProtectionListener implements Listener {
                         location.getBlockZ());
     }
 
+    private boolean builds(final Player player) {
+        return player.getGameMode() == GameMode.CREATIVE
+                && identities.of(player.getUniqueId()).admin();
+    }
+
     private boolean deny(final Player player, final Block block) {
-        if (!inside(Objects.requireNonNull(block.getLocation()))
-                || identities.of(player.getUniqueId()).admin()) {
+        if (!inside(Objects.requireNonNull(block.getLocation())) || builds(player)) {
             return false;
         }
         player.sendActionBar(Lines.joined(renderer.format(

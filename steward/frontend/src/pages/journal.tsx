@@ -5,15 +5,13 @@ import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
-import { FilterBar, FilterSelect, SearchField } from "@/components/steward/filter-bar"
+import { DataTable, type Column } from "@/components/steward/data-table"
+import { FilterBar, FilterChoice, FilterField, FilterMenu, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const JOURNAL_LIMIT = 200
-
-const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 /**
  * The audit log. Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
@@ -35,103 +33,78 @@ function concernsAnother(entry: JournalEntry): boolean {
   return entry.mcUuid !== undefined
 }
 
-/** Journal entries as rows, with ten waiting ones while `entries` is undefined. */
+/** A long name truncates within it, so Detail keeps the room. */
+const NAME_WIDTH = "max-w-40"
+
+const WAITING_ENTITY = (
+  <div className="flex items-center gap-2">
+    <Skeleton className="size-6 shrink-0 rounded-full" />
+    <SkeletonText width="long" className="max-w-[8rem]" />
+  </div>
+)
+
+/** Journal entries as rows, with ten waiting ones while `entries` is undefined. Detail takes the room left. */
 export function JournalTable({
   entries,
   concerns = true,
 }: {
   entries: JournalEntry[] | undefined
-  /** `false` on a person's page, where Detail needs the room. */
+  /** `false` on a person's page, where it is always that person. */
   concerns?: boolean
 }) {
-  const columns = {
-    when: t("steward.journal.when"),
-    action: t("steward.journal.action"),
-    actor: t("steward.journal.actor"),
-    concerns: t("steward.journal.concerns"),
-    detail: t("steward.journal.detail"),
-  }
-  return (
-    <Table className="steward-table table-fixed">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[10.5rem]">{columns.when}</TableHead>
-          <TableHead className="w-[11rem]">{columns.action}</TableHead>
-          <TableHead className="w-[12rem]">{columns.actor}</TableHead>
-          {concerns ? <TableHead className="w-[12rem]">{columns.concerns}</TableHead> : null}
-          <TableHead>{columns.detail}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {entries === undefined
-          ? WAITING_ENTRIES.map((index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <SkeletonText width="long" />
-                </TableCell>
-                <TableCell data-phone="off">
-                  <SkeletonText width="medium" />
-                </TableCell>
-                <TableCell data-label={columns.actor}>
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="size-6 shrink-0 rounded-full" />
-                    <SkeletonText width="long" className="max-w-[8rem]" />
-                  </div>
-                </TableCell>
-                {concerns ? (
-                  <TableCell data-label={columns.concerns}>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="size-6 shrink-0 rounded-full" />
-                      <SkeletonText width="long" className="max-w-[7rem]" />
-                    </div>
-                  </TableCell>
-                ) : null}
-                <TableCell data-label={columns.detail}>
-                  <SkeletonText width="full" />
-                </TableCell>
-              </TableRow>
-            ))
-          : entries.map((entry) => (
-              <TableRow key={entry.id}>
-                {/* No `data-label`: on a phone the time and action head the card. */}
-                <TableCell title={entry.occurred}>
-                  <span className="flex flex-wrap items-baseline gap-x-3">
-                    <span className="text-muted-foreground tnum">{dateTime(entry.occurred)}</span>
-                    <span className="font-medium @rows:hidden">{actionLabel(entry.action)}</span>
-                  </span>
-                </TableCell>
-                <TableCell data-phone="off" className="font-medium" title={entry.action}>
-                  {actionLabel(entry.action)}
-                </TableCell>
-                {/* A profile and never an id. No admin is Steward's own mark. */}
-                <TableCell data-label={columns.actor} className="text-muted-foreground">
-                  <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
-                </TableCell>
-                {concerns ? (
-                  <TableCell
-                    data-label={columns.concerns}
-                    data-phone={concernsAnother(entry) ? undefined : "off"}
-                    className="text-muted-foreground"
-                  >
-                    {entry.subject ? (
-                      <Entity id={entry.subject} />
-                    ) : entry.mcUuid ? (
-                      <Entity id={entry.mcUuid} kind="minecraft" />
-                    ) : null}
-                  </TableCell>
-                ) : null}
-                <TableCell
-                  data-label={columns.detail}
-                  data-phone={restatesAction(entry) ? "off" : undefined}
-                  className="text-muted-foreground whitespace-normal"
-                >
-                  {message(entry.line)}
-                </TableCell>
-              </TableRow>
-            ))}
-      </TableBody>
-    </Table>
-  )
+  const columns: Column<JournalEntry>[] = [
+    {
+      head: t("steward.journal.when"),
+      phone: { line: 1, side: "end" },
+      className: "text-muted-foreground tnum",
+      title: (entry) => entry.occurred,
+      render: (entry) => dateTime(entry.occurred),
+    },
+    {
+      head: t("steward.journal.action"),
+      phone: { line: 1, side: "start" },
+      className: "font-medium",
+      title: (entry) => entry.action,
+      render: (entry) => actionLabel(entry.action),
+    },
+    {
+      // A profile and never an id. No admin is Steward's own mark.
+      head: t("steward.journal.actor"),
+      phone: { line: 2, side: "start" },
+      className: "text-muted-foreground",
+      waiting: WAITING_ENTITY,
+      render: (entry) => (
+        <div className={NAME_WIDTH}>
+          <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
+        </div>
+      ),
+    },
+    ...(concerns
+      ? [
+          {
+            head: t("steward.journal.concerns"),
+            phone: (entry: JournalEntry) => (concernsAnother(entry) ? { line: 2, side: "end" } : null),
+            className: "text-muted-foreground",
+            waiting: WAITING_ENTITY,
+            render: (entry: JournalEntry) =>
+              entry.subject || entry.mcUuid ? (
+                <div className={NAME_WIDTH}>
+                  {entry.subject ? <Entity id={entry.subject} /> : <Entity id={entry.mcUuid} kind="minecraft" />}
+                </div>
+              ) : null,
+          } satisfies Column<JournalEntry>,
+        ]
+      : []),
+    {
+      head: t("steward.journal.detail"),
+      grow: true,
+      phone: (entry) => (restatesAction(entry) ? null : { line: 3, side: "wide" }),
+      className: "text-muted-foreground",
+      waiting: <SkeletonText width="full" />,
+      render: (entry) => message(entry.line),
+    },
+  ]
+  return <DataTable columns={columns} rows={entries} rowKey={(entry) => entry.id} waiting={10} />
 }
 
 /** Every part of the filter, empty, so the unfiltered query's key is the filtered one's. */
@@ -143,9 +116,7 @@ export function JournalPage() {
   const [subject, setSubject] = useState("")
   const [typed, setTyped] = useState("")
   const [reference, setReference] = useState("")
-  const [typedReference, setTypedReference] = useState("")
   const [minDays, setMinDays] = useState("")
-  const [typedDays, setTypedDays] = useState("")
   const entries = useJournal({ action, subject, reference, minDays })
   const actions = [...new Set((all.data ?? []).map((entry) => entry.action))].toSorted()
 
@@ -155,39 +126,29 @@ export function JournalPage() {
 
       <Panel title={t("steward.journal.entries")}>
         <FilterBar>
-          {/* An exact id, so it filters on Enter. */}
+          {/* Every filter is an exact match, so the fields apply on Enter. */}
           <SearchField
             value={typed}
             onValueChange={setTyped}
             onSubmit={setSubject}
             label={t("steward.journal.subject")}
             placeholder={t("steward.journal.exact-id")}
-            inputClassName="font-mono"
           />
-          {/* A reference and a number of days are exact too. */}
-          <SearchField
-            value={typedReference}
-            onValueChange={setTypedReference}
-            onSubmit={setReference}
-            label={t("steward.journal.reference")}
-            placeholder={t("steward.journal.exact-reference")}
-            inputClassName="font-mono"
-          />
-          <SearchField
-            value={typedDays}
-            onValueChange={setTypedDays}
-            onSubmit={(days) => setMinDays(/^\d+$/.test(days) ? days : "")}
-            label={t("steward.journal.min-days")}
-            placeholder={t("steward.journal.days-at-least")}
-            inputMode="numeric"
-          />
-          <FilterSelect
-            value={action}
-            onValueChange={setAction}
-            label={t("steward.journal.action")}
-            every={t("steward.journal.all")}
-            options={actions.map((value) => ({ value, label: actionLabel(value) }))}
-          />
+          <FilterMenu active={[action, reference, minDays].filter((value) => value !== "").length}>
+            <FilterField label={t("steward.journal.reference")} value={reference} onSubmit={setReference} />
+            <FilterField
+              label={t("steward.journal.min-days")}
+              value={minDays}
+              onSubmit={(days) => setMinDays(/^\d+$/.test(days) ? days : "")}
+              inputMode="numeric"
+            />
+            <FilterChoice
+              label={t("steward.journal.action")}
+              value={action}
+              onValueChange={setAction}
+              options={actions.map((value) => ({ value, label: actionLabel(value) }))}
+            />
+          </FilterMenu>
         </FilterBar>
 
         <QueryState

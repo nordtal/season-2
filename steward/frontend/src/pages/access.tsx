@@ -1,6 +1,5 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
-import type { ReactNode } from "react"
 import { useState } from "react"
 
 import type { Person } from "@/lib/api"
@@ -8,11 +7,11 @@ import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
-import { FilterBar, FilterToggle, SearchField } from "@/components/steward/filter-bar"
+import { DataTable, type Column } from "@/components/steward/data-table"
+import { FilterBar, FilterChoice, FilterMenu, FilterOption, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   AccessBadge,
   GrantDialog,
@@ -27,56 +26,110 @@ import {
 
 const PEOPLE_PAGE_SIZE = 20
 
-/** The roster's header row, shared by the real rows and the waiting ones. */
-function PeopleTable({ children }: { children: ReactNode }) {
-  return (
-    <Table className="steward-table">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[16rem]">{t("steward.people.person")}</TableHead>
-          <TableHead className="w-[20rem]">{t("steward.people.access")}</TableHead>
-          <TableHead className="w-[9rem]">{t("steward.people.minecraft")}</TableHead>
-          <TableHead className="w-[9rem]">{t("steward.people.roles")}</TableHead>
-          {/* The prestige tier derives from this number, so it is the one lever an admin has. */}
-          <TableHead className="w-[7rem]">{t("steward.people.playtime")}</TableHead>
-          <TableHead className="w-[15rem]" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>{children}</TableBody>
-    </Table>
-  )
-}
+type LinkFilter = "" | "linked" | "unlinked"
 
-const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
-
-/** One person before there is one. The row action stays empty. */
-function WaitingPersonRow() {
-  return (
-    <TableRow>
-      <TableCell className="font-medium">
+/** The roster's columns. On a phone the person and the roles head the card, access and playtime follow. */
+function peopleColumns(list: Person[], now: number): Column<Person>[] {
+  return [
+    {
+      head: t("steward.people.person"),
+      grow: true,
+      phone: { line: 1, side: "start" },
+      className: "font-medium",
+      waiting: (
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
           <SkeletonText width="full" className="max-w-[13rem]" />
         </div>
-      </TableCell>
-      <TableCell data-label={t("steward.people.access")} data-phone="inline">
-        <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />
-      </TableCell>
-      <TableCell data-label={t("steward.people.minecraft")} data-phone="inline">
+      ),
+      render: (person) => (
+        <>
+          <div className="hidden flex-wrap items-center gap-2 @rows:flex">
+            <Link
+              to="/access/$id"
+              params={{ id: person.discordId }}
+              className="min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
+            >
+              <Entity id={person.discordId} kind="discord" interactive={false} />
+            </Link>
+            {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
+            {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
+          </div>
+          <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
+        </>
+      ),
+    },
+    {
+      head: t("steward.people.access"),
+      phone: { line: 2, side: "start" },
+      waiting: <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />,
+      render: (person) => <AccessBadge person={person} now={now} />,
+    },
+    {
+      head: t("steward.people.minecraft"),
+      // On a phone a missing link is a badge beside the roles.
+      phone: null,
+      waiting: (
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 shrink-0 rounded-sm" />
           <SkeletonText width="full" className="max-w-[6.5rem]" />
         </div>
-      </TableCell>
-      <TableCell data-label={t("steward.people.roles")} data-phone="inline">
-        <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />
-      </TableCell>
-      <TableCell data-label={t("steward.people.playtime")} data-phone="inline">
-        <SkeletonText width="medium" className="min-w-[3rem]" />
-      </TableCell>
-      <TableCell />
-    </TableRow>
-  )
+      ),
+      render: (person) =>
+        person.minecraftUuid ? <Entity id={person.minecraftUuid} kind="minecraft" /> : <LinkBadge person={person} />,
+    },
+    {
+      head: t("steward.people.roles"),
+      phone: { line: 1, side: "end" },
+      waiting: <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />,
+      render: (person) => (
+        <>
+          <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
+            {person.memberState !== "MEMBER" ? (
+              <span className="contents @rows:hidden">
+                <MemberBadge state={person.memberState} />
+              </span>
+            ) : null}
+            {/* "Not linked" matters on a phone only while it keeps a paying person out. */}
+            {!person.minecraftUuid && person.accessActive ? (
+              <span className="contents @rows:hidden">
+                <LinkBadge person={person} />
+              </span>
+            ) : null}
+            {hasRole(person) ? (
+              <RoleBadges person={person} people={list} className="justify-end @rows:justify-start" />
+            ) : null}
+          </div>
+          {hasRole(person) ? null : (
+            <span className="hidden text-xs text-muted-foreground @rows:inline">{"\u2013"}</span>
+          )}
+        </>
+      ),
+    },
+    {
+      // The prestige tier derives from this number, so it is the one lever an admin has.
+      head: t("steward.people.playtime"),
+      phone: { line: 2, side: "end" },
+      waiting: <SkeletonText width="medium" className="min-w-[3rem]" />,
+      render: (person) => (
+        // `playtime` draws the dash for somebody never online.
+        <span
+          className={
+            "flex items-center gap-1 text-sm tabular-nums" + (person.playtimeSeconds ? "" : " @max-rows:hidden")
+          }
+        >
+          {/* The card's stand-in for the heading a phone does not draw. */}
+          <TERM_ICON.playtime
+            className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
+            role="img"
+            aria-label={t("steward.people.playtime")}
+          />
+          {span(person.playtimeSeconds, "minutes")}
+        </span>
+      ),
+    },
+    { head: "", phone: "action", render: (person) => <PersonActions person={person} menu /> },
+  ]
 }
 
 /**
@@ -86,6 +139,9 @@ export function AccessPage() {
   const people = usePeople()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
+  const [onlyAdmins, setOnlyAdmins] = useState(false)
+  const [onlySupporters, setOnlySupporters] = useState(false)
+  const [link, setLink] = useState<LinkFilter>("")
   const [page, setPage] = useState(0)
   // One clock for the whole render, so two badges in a row cannot disagree about "now".
   const now = useNow()
@@ -94,10 +150,14 @@ export function AccessPage() {
     setNeedle(value)
     setPage(0)
   }
-  function changeOnlyWithAccess(value: boolean) {
-    setOnlyWithAccess(value)
-    setPage(0)
+  /** Every filter starts the roster again from its first page. */
+  function refilter<V>(set: (value: V) => void): (value: V) => void {
+    return (value) => {
+      set(value)
+      setPage(0)
+    }
   }
+  const active = [onlyWithAccess, onlyAdmins, onlySupporters, link !== ""].filter(Boolean).length
 
   return (
     <div className="flex flex-col gap-6">
@@ -111,9 +171,30 @@ export function AccessPage() {
             placeholder={t("steward.people.filter")}
             label={t("steward.people.filter-name")}
           />
-          <FilterToggle pressed={onlyWithAccess} onPressedChange={changeOnlyWithAccess}>
-            {t("steward.people.with-access")}
-          </FilterToggle>
+          <FilterMenu active={active}>
+            <div className="flex flex-col">
+              <FilterOption pressed={onlyWithAccess} onPressedChange={refilter(setOnlyWithAccess)}>
+                {t("steward.people.with-access")}
+              </FilterOption>
+              <FilterOption pressed={onlyAdmins} onPressedChange={refilter(setOnlyAdmins)}>
+                {t("steward.people.admins")}
+              </FilterOption>
+              <FilterOption pressed={onlySupporters} onPressedChange={refilter(setOnlySupporters)}>
+                {t("steward.people.supporters")}
+              </FilterOption>
+            </div>
+            <FilterChoice
+              label={t("steward.people.minecraft")}
+              value={link}
+              onValueChange={refilter((value: string) =>
+                setLink(value === "linked" || value === "unlinked" ? value : ""),
+              )}
+              options={[
+                { value: "linked", label: t("steward.people.only-linked") },
+                { value: "unlinked", label: t("steward.people.only-unlinked") },
+              ]}
+            />
+          </FilterMenu>
         </FilterBar>
 
         <QueryState
@@ -125,11 +206,7 @@ export function AccessPage() {
             if (list === undefined) {
               return (
                 <>
-                  <PeopleTable>
-                    {WAITING_PEOPLE.map((index) => (
-                      <WaitingPersonRow key={index} />
-                    ))}
-                  </PeopleTable>
+                  <DataTable columns={peopleColumns([], now)} rows={undefined} rowKey={() => ""} />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <SkeletonText className="w-44 text-xs" />
                   </div>
@@ -141,6 +218,9 @@ export function AccessPage() {
             const rows = list.filter(
               (person) =>
                 (!onlyWithAccess || person.accessActive) &&
+                (!onlyAdmins || person.admin) &&
+                (!onlySupporters || person.donor) &&
+                (link === "" || (link === "linked") === Boolean(person.minecraftUuid)) &&
                 (trimmed === "" ||
                   person.discordId.toLowerCase().includes(trimmed) ||
                   (person.discordUsername ?? "").toLowerCase().includes(trimmed) ||
@@ -156,79 +236,7 @@ export function AccessPage() {
             const paged = rows.slice(clampedPage * PEOPLE_PAGE_SIZE, clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE)
             return (
               <>
-                <PeopleTable>
-                  {paged.map((person) => (
-                    <TableRow key={person.discordId}>
-                      {/* No `data-label`, so on a phone the person heads the card. */}
-                      <TableCell className="font-medium" data-phone="top-start">
-                        <div className="hidden flex-wrap items-center gap-2 @rows:flex">
-                          <Link
-                            to="/access/$id"
-                            params={{ id: person.discordId }}
-                            className="min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
-                          >
-                            <Entity id={person.discordId} kind="discord" interactive={false} />
-                          </Link>
-                          {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
-                          {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
-                        </div>
-                        <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.access")} data-phone="bottom-start">
-                        <AccessBadge person={person} now={now} />
-                      </TableCell>
-                      {/* On a phone a missing link is a badge beside the person. */}
-                      <TableCell data-label={t("steward.people.minecraft")} data-phone="off">
-                        {person.minecraftUuid ? (
-                          <Entity id={person.minecraftUuid} kind="minecraft" />
-                        ) : (
-                          <LinkBadge person={person} />
-                        )}
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.roles")} data-phone="top-end">
-                        <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
-                          {person.memberState !== "MEMBER" ? (
-                            <span className="contents @rows:hidden">
-                              <MemberBadge state={person.memberState} />
-                            </span>
-                          ) : null}
-                          {/* "Not linked" matters on a phone only while it keeps a paying person out. */}
-                          {!person.minecraftUuid && person.accessActive ? (
-                            <span className="contents @rows:hidden">
-                              <LinkBadge person={person} />
-                            </span>
-                          ) : null}
-                          {hasRole(person) ? (
-                            <RoleBadges person={person} people={list} className="justify-end @rows:justify-start" />
-                          ) : null}
-                        </div>
-                        {hasRole(person) ? null : (
-                          <span className="hidden text-xs text-muted-foreground @rows:inline">{"\u2013"}</span>
-                        )}
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.playtime")} data-phone="bottom-end">
-                        {/* `playtime` draws the dash for somebody never online. */}
-                        <span
-                          className={
-                            "flex items-center gap-1 text-sm tabular-nums" +
-                            (person.playtimeSeconds ? "" : " @max-rows:hidden")
-                          }
-                        >
-                          {/* The card's stand-in for the heading a phone does not draw. */}
-                          <TERM_ICON.playtime
-                            className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
-                            role="img"
-                            aria-label={t("steward.people.playtime")}
-                          />
-                          {span(person.playtimeSeconds, "minutes")}
-                        </span>
-                      </TableCell>
-                      <TableCell data-phone="action">
-                        <PersonActions person={person} menu />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </PeopleTable>
+                <DataTable columns={peopleColumns(list, now)} rows={paged} rowKey={(person) => person.discordId} />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground tnum">
                     {pageCount > 1

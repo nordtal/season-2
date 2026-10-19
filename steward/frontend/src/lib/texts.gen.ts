@@ -979,7 +979,6 @@ export type TextArgs = {
   "steward.backups.choose-archive": Record<string, never>
   "steward.backups.database": Record<string, never>
   "steward.backups.database-replaced": Record<string, never>
-  "steward.backups.download": Record<string, never>
   "steward.backups.download-file": {
     file: Arg["text"]
   }
@@ -1182,17 +1181,14 @@ export type TextArgs = {
   "steward.image.unchecked-tip": Record<string, never>
   "steward.journal.action": Record<string, never>
   "steward.journal.actor": Record<string, never>
-  "steward.journal.all": Record<string, never>
   "steward.journal.concerns": Record<string, never>
   "steward.journal.count": {
     count: Arg["number"]
     limit: Arg["number"]
   }
-  "steward.journal.days-at-least": Record<string, never>
   "steward.journal.detail": Record<string, never>
   "steward.journal.entries": Record<string, never>
   "steward.journal.exact-id": Record<string, never>
-  "steward.journal.exact-reference": Record<string, never>
   "steward.journal.min-days": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
   "steward.journal.reference": Record<string, never>
@@ -1527,7 +1523,6 @@ export type TextArgs = {
     total: Arg["text"]
   }
   "steward.overview.whole-journal": Record<string, never>
-  "steward.payments.all": Record<string, never>
   "steward.payments.amount": Record<string, never>
   "steward.payments.created": {
     at: Arg["instant"]
@@ -1535,12 +1530,13 @@ export type TextArgs = {
   "steward.payments.days": Record<string, never>
   "steward.payments.deadline": Record<string, never>
   "steward.payments.donation": Record<string, never>
+  "steward.payments.filter": Record<string, never>
+  "steward.payments.no-match": Record<string, never>
   "steward.payments.no-payment": {
     reference: Arg["text"]
   }
   "steward.payments.no-request": Record<string, never>
   "steward.payments.no-tab": Record<string, never>
-  "steward.payments.none-with-status": Record<string, never>
   "steward.payments.not-open": {
     reference: Arg["text"]
   }
@@ -1549,6 +1545,7 @@ export type TextArgs = {
   }
   "steward.payments.nothing-booked": Record<string, never>
   "steward.payments.nothing-settled": Record<string, never>
+  "steward.payments.only-overdue": Record<string, never>
   "steward.payments.open": Record<string, never>
   "steward.payments.overdue": Record<string, never>
   "steward.payments.paid": Record<string, never>
@@ -1585,6 +1582,7 @@ export type TextArgs = {
     until: Arg["instant"]
   }
   "steward.people.admin": Record<string, never>
+  "steward.people.admins": Record<string, never>
   "steward.people.begins": {
     at: Arg["instant"]
   }
@@ -1667,6 +1665,8 @@ export type TextArgs = {
   "steward.people.nothing-changed": Record<string, never>
   "steward.people.nothing-to-revoke": Record<string, never>
   "steward.people.nothing-to-unlink": Record<string, never>
+  "steward.people.only-linked": Record<string, never>
+  "steward.people.only-unlinked": Record<string, never>
   "steward.people.over": Record<string, never>
   "steward.people.pack": {
     exempted: Arg["choice"]
@@ -1725,6 +1725,7 @@ export type TextArgs = {
   "steward.people.source-column": Record<string, never>
   "steward.people.state": Record<string, never>
   "steward.people.supporter": Record<string, never>
+  "steward.people.supporters": Record<string, never>
   "steward.people.thrown-out": Record<string, never>
   "steward.people.title": Record<string, never>
   "steward.people.unknown-person": Record<string, never>
@@ -1944,6 +1945,7 @@ export type TextArgs = {
   "steward.settings.env-override-tip": Record<string, never>
   "steward.settings.every-tag": Record<string, never>
   "steward.settings.files": Record<string, never>
+  "steward.settings.filters": Record<string, never>
   "steward.settings.free-text": Record<string, never>
   "steward.settings.incomplete": {
     missing: Arg["text"]

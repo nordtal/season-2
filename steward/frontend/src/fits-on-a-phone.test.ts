@@ -239,8 +239,8 @@ describe("the rules that make it fit on a phone", () => {
     const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(
       mobile,
-      /td\[data-label\]\s*>\s*\*\s*\{[^}]*grid-column:\s*2/,
-      "`.steward-table td[data-label] > *` must set `grid-column: 2`, so every child of a labelled" +
+      /td\[data-labelled\]\s*>\s*\*\s*\{[^}]*grid-column:\s*2/,
+      "`.steward-table td[data-labelled] > *` must set `grid-column: 2`, so every child of a labelled" +
         " cell sits beside the label rather than the first under it and the rest defaulting into" +
         " the label's own column.",
     )

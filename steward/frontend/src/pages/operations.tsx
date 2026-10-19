@@ -17,7 +17,7 @@ import { RunNotes } from "@/components/steward/run-notes"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/steward/data-table"
 
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
@@ -511,50 +511,48 @@ function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string
     return <Empty title={t("steward.operations.no-line-title")} />
   }
   return (
-    <Table className="steward-table">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[14rem]">{t("steward.operations.service")}</TableHead>
-          <TableHead className="w-[10rem]">{t("steward.operations.state")}</TableHead>
-          <TableHead>{t("steward.operations.changes")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {lines.map((line) => {
-          const words = said[line.service]
-          return (
-            <TableRow key={line.service} className="align-top">
-              <TableCell data-label={t("steward.operations.service")} className="font-medium">
-                {line.service}
-              </TableCell>
-              <TableCell data-label={t("steward.operations.state")}>
-                <LineState state={line.state} />
-              </TableCell>
-              {/* `whitespace-normal`, so a long list of changes wraps and does not widen the table. */}
-              <TableCell data-label={t("steward.operations.changes")} className="whitespace-normal">
-                {line.changes.length === 0 && !words ? (
-                  <span className="text-muted-foreground">{"\u2013"}</span>
-                ) : (
-                  <div className="flex flex-col gap-1 py-1.5">
-                    {line.changes.map((change) => (
-                      <Change key={`${line.service}-${change.artefact}`} change={change} />
-                    ))}
-                    {words ? (
-                      <span
-                        className={
-                          line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
-                        }
-                      >
-                        {message(words)}
-                      </span>
-                    ) : null}
-                  </div>
-                )}
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+    <DataTable
+      rows={lines}
+      rowKey={(line) => line.service}
+      columns={[
+        {
+          head: t("steward.operations.service"),
+          phone: { line: 1, side: "start" },
+          className: "align-top font-medium",
+          render: (line) => line.service,
+        },
+        {
+          head: t("steward.operations.state"),
+          phone: { line: 1, side: "end" },
+          className: "align-top",
+          render: (line) => <LineState state={line.state} />,
+        },
+        {
+          head: t("steward.operations.changes"),
+          grow: true,
+          phone: { line: 2, side: "wide" },
+          className: "align-top",
+          render: (line) => {
+            const words = said[line.service]
+            return line.changes.length === 0 && !words ? (
+              <span className="text-muted-foreground">{"\u2013"}</span>
+            ) : (
+              <div className="flex flex-col gap-1 py-1.5">
+                {line.changes.map((change) => (
+                  <Change key={`${line.service}-${change.artefact}`} change={change} />
+                ))}
+                {words ? (
+                  <span
+                    className={line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+                  >
+                    {message(words)}
+                  </span>
+                ) : null}
+              </div>
+            )
+          },
+        },
+      ]}
+    />
   )
 }

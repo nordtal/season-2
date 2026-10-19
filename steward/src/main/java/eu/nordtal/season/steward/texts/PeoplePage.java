@@ -63,6 +63,18 @@ public interface PeoplePage {
     @Name("With access only")
     MessageRef withAccess();
 
+    @Name("Admins")
+    MessageRef admins();
+
+    @Name("Supporters")
+    MessageRef supporters();
+
+    @Name("Linked only")
+    MessageRef onlyLinked();
+
+    @Name("Not linked only")
+    MessageRef onlyUnlinked();
+
     @Name("Nobody")
     MessageRef nobody();
 

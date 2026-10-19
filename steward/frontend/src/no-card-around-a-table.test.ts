@@ -10,7 +10,7 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  * A `steward-table` row is a bordered card on a phone, so a table never sits in a `Card`. A `Panel` holds it.
  */
 const CARD = /from "@\/components\/ui\/card"/
-const TABLE = /steward-table/
+const TABLE = /steward-table|<DataTable\b/
 
 function sourceFiles(directory: string): string[] {
   const found: string[] = []

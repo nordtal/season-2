@@ -28,7 +28,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/steward/data-table"
 import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable, summaryOf } from "@/pages/operations"
 import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from "@/components/steward/group-form"
 
@@ -121,8 +121,6 @@ const AVAILABLE_RANK: Record<string, number> = {
   UP_TO_DATE: 5,
 }
 
-const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
-
 /**
  * Returns the rows this card draws: work, failures, and artefacts with no build for this platform, failures first.
  */
@@ -182,7 +180,7 @@ function Available() {
         isEmpty={(plan) => worthShowing(plan.changes).length === 0}
       >
         {(plan) => {
-          const rows = plan ? worthShowing(plan.changes) : WAITING_CHANGES
+          const rows = plan ? worthShowing(plan.changes) : undefined
           return (
             <>
               {plan?.hasFailures ? (
@@ -192,50 +190,49 @@ function Available() {
                 </p>
               ) : null}
 
-              <Table className="steward-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[10rem]">{t("steward.updates.service")}</TableHead>
-                    <TableHead>{t("steward.updates.plugin")}</TableHead>
-                    <TableHead className="w-[16rem]">{t("steward.updates.change")}</TableHead>
-                    <TableHead className="w-[9rem] text-right">{t("steward.updates.state")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((change, index) => (
-                    <TableRow key={change ? `${change.service ?? "-"}/${change.artifact}` : index}>
-                      <TableCell data-label={t("steward.updates.service")} className="font-medium">
-                        {!change ? (
-                          <SkeletonText width="medium" />
-                        ) : change.service ? (
-                          <Link
-                            to="/services/$name"
-                            params={{ name: change.service }}
-                            className="underline-offset-4 tap-target hover:text-primary hover:underline"
-                          >
-                            {change.service}
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">{t("steward.updates.resource-pack")}</span>
-                        )}
-                      </TableCell>
-                      <TableCell data-label={t("steward.updates.plugin")}>
-                        {change ? change.artifact : <SkeletonText width="long" />}
-                      </TableCell>
-                      <TableCell data-label={t("steward.updates.change")} className="text-muted-foreground">
-                        {change ? <Jump change={change} /> : <SkeletonText width="long" />}
-                      </TableCell>
-                      <TableCell data-label={t("steward.updates.state")} className="text-right">
-                        {change ? (
-                          <AvailableBadge status={change.status} />
-                        ) : (
-                          <Skeleton className="ml-auto h-5 w-20 rounded-full" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                rows={rows}
+                waiting={6}
+                rowKey={(change) => `${change.service ?? "-"}/${change.artifact}`}
+                columns={[
+                  {
+                    head: t("steward.updates.service"),
+                    phone: { line: 1, side: "start" },
+                    className: "font-medium",
+                    render: (change) =>
+                      change.service ? (
+                        <Link
+                          to="/services/$name"
+                          params={{ name: change.service }}
+                          className="underline-offset-4 tap-target hover:text-primary hover:underline"
+                        >
+                          {change.service}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">{t("steward.updates.resource-pack")}</span>
+                      ),
+                  },
+                  {
+                    head: t("steward.updates.plugin"),
+                    grow: true,
+                    phone: { line: 2, side: "start" },
+                    render: (change) => change.artifact,
+                  },
+                  {
+                    head: t("steward.updates.change"),
+                    phone: { line: 2, side: "end" },
+                    className: "text-muted-foreground",
+                    render: (change) => <Jump change={change} />,
+                  },
+                  {
+                    head: t("steward.updates.state"),
+                    end: true,
+                    phone: { line: 1, side: "end" },
+                    waiting: <Skeleton className="ml-auto h-5 w-20 rounded-full" />,
+                    render: (change) => <AvailableBadge status={change.status} />,
+                  },
+                ]}
+              />
             </>
           )
         }}
@@ -255,8 +252,6 @@ export function updateRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART" || run.kind === "INSTALL")
 }
 
-const WAITING_UPDATE_RUNS = Array.from({ length: 4 }, () => undefined)
-
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
@@ -266,80 +261,76 @@ function Runs() {
     <Panel title={t("steward.updates.runs")}>
       <QueryState query={runs} isEmpty={() => rows.length === 0} empty={{ title: t("steward.updates.no-run") }}>
         {(answer) => (
-          <Table className="steward-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[5rem]">{t("steward.updates.run")}</TableHead>
-                <TableHead className="w-[12rem]">{t("steward.updates.when")}</TableHead>
-                <TableHead className="w-[7rem]">{t("steward.updates.kind")}</TableHead>
-                <TableHead className="w-[12rem]">{t("steward.updates.status")}</TableHead>
-                <TableHead>{t("steward.updates.result")}</TableHead>
-                <TableHead className="w-[12rem]">{t("steward.updates.initiated-by")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(answer ? rows : WAITING_UPDATE_RUNS).map((run, index) => (
-                <TableRow
-                  key={run?.id ?? index}
-                  className={run ? "cursor-pointer" : undefined}
-                  onClick={() => run && navigate({ to: "/operations/updates/$id", params: { id: String(run.id) } })}
-                >
-                  <TableCell data-label={t("steward.updates.run")} className="font-medium tnum">
-                    {run ? (
-                      <Link
-                        to="/operations/updates/$id"
-                        params={{ id: String(run.id) }}
-                        className="underline-offset-4 tap-target hover:text-primary hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        #{run.id}
-                      </Link>
-                    ) : (
-                      <SkeletonText width="short" />
-                    )}
-                  </TableCell>
-                  <TableCell data-label={t("steward.updates.when")}>
-                    {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
-                  </TableCell>
-                  <TableCell data-label={t("steward.updates.kind")}>
-                    {run ? runKind(run.kind) : <SkeletonText width="medium" />}
-                  </TableCell>
-                  <TableCell data-label={t("steward.updates.status")}>
-                    {run ? (
-                      <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
-                        <RunStatus status={run.status} />
-                        {run.report && !ENDINGS.has(run.report.stage) ? <StageBadge stage={run.report.stage} /> : null}
-                        {cancellable(run) ? <CancelButton run={run} /> : null}
-                      </div>
-                    ) : (
-                      <Skeleton className="h-5 w-20 rounded-full" />
-                    )}
-                  </TableCell>
-                  <TableCell data-label={t("steward.updates.result")}>
-                    {!run ? (
-                      <SkeletonText width="long" />
-                    ) : run.report?.stage === "NOTHING_TO_DO" ? (
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <TERM_ICON.nothingToDo className="size-3.5 shrink-0" aria-hidden />
-                        {t("steward.operations.nothing-to-do")}
-                      </span>
-                    ) : (
-                      <div className="flex flex-col gap-0.5">
-                        {summaryOf(run).map((part, partIndex) => (
-                          <span key={partIndex} className="truncate">
-                            {part}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell data-label={t("steward.updates.initiated-by")} className="text-muted-foreground">
-                    {run ? <Actor kind={run.actorKind} id={run.actorId} /> : <SkeletonText width="medium" />}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            rows={answer ? rows : undefined}
+            waiting={4}
+            rowKey={(run) => run.id}
+            onRowClick={(run) => navigate({ to: "/operations/updates/$id", params: { id: String(run.id) } })}
+            columns={[
+              {
+                head: t("steward.updates.run"),
+                phone: { line: 1, side: "start" },
+                className: "font-medium tnum",
+                waiting: <SkeletonText width="short" />,
+                render: (run) => (
+                  <Link
+                    to="/operations/updates/$id"
+                    params={{ id: String(run.id) }}
+                    className="underline-offset-4 tap-target hover:text-primary hover:underline"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    #{run.id}
+                  </Link>
+                ),
+              },
+              {
+                head: t("steward.updates.when"),
+                phone: { line: 2, side: "start" },
+                render: (run) => dateTime(run.started || run.requested),
+              },
+              {
+                head: t("steward.updates.kind"),
+                phone: { line: 2, side: "end" },
+                render: (run) => runKind(run.kind),
+              },
+              {
+                head: t("steward.updates.status"),
+                phone: { line: 1, side: "end" },
+                waiting: <Skeleton className="h-5 w-20 rounded-full" />,
+                render: (run) => (
+                  <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+                    <RunStatus status={run.status} />
+                    {run.report && !ENDINGS.has(run.report.stage) ? <StageBadge stage={run.report.stage} /> : null}
+                    {cancellable(run) ? <CancelButton run={run} /> : null}
+                  </div>
+                ),
+              },
+              {
+                head: t("steward.updates.result"),
+                grow: true,
+                phone: { line: 3, side: "start" },
+                render: (run) =>
+                  run.report?.stage === "NOTHING_TO_DO" ? (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <TERM_ICON.nothingToDo className="size-3.5 shrink-0" aria-hidden />
+                      {t("steward.operations.nothing-to-do")}
+                    </span>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      {summaryOf(run).map((part, partIndex) => (
+                        <span key={partIndex}>{part}</span>
+                      ))}
+                    </div>
+                  ),
+              },
+              {
+                head: t("steward.updates.initiated-by"),
+                phone: { line: 3, side: "end" },
+                className: "text-muted-foreground",
+                render: (run) => <Actor kind={run.actorKind} id={run.actorId} />,
+              },
+            ]}
+          />
         )}
       </QueryState>
     </Panel>

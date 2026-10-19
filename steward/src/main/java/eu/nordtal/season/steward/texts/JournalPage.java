@@ -14,9 +14,6 @@ public interface JournalPage {
     @Name("Entries")
     MessageRef entries();
 
-    @Name("Every action")
-    MessageRef all();
-
     @Name("Subject field")
     MessageRef subject();
 
@@ -26,14 +23,8 @@ public interface JournalPage {
     @Name("Payment reference field")
     MessageRef reference();
 
-    @Name("Payment reference placeholder")
-    MessageRef exactReference();
-
     @Name("Least days field")
     MessageRef minDays();
-
-    @Name("Least days placeholder")
-    MessageRef daysAtLeast();
 
     @Name("Nothing matches")
     MessageRef noEntry();

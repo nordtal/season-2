@@ -318,11 +318,13 @@ describe("AccessPage - unlink as a row action", () => {
 })
 
 function badges(row: HTMLElement): HTMLElement {
-  return assertElement(row.querySelector('td[data-phone="top-end"]'), "the badges")
+  return assertElement(row.querySelector(":scope > td:nth-child(4)"), "the badges")
 }
 
-function slots(row: HTMLElement): (string | null)[] {
-  return [...row.querySelectorAll(":scope > td")].map((cell) => cell.getAttribute("data-phone"))
+function slots(row: HTMLElement): string[] {
+  return [...row.querySelectorAll<HTMLElement>(":scope > td")].map((cell) =>
+    [cell.getAttribute("data-phone"), cell.style.getPropertyValue("--phone-line")].filter(Boolean).join(" "),
+  )
 }
 
 describe("AccessPage - the actions of a row depend on that row", () => {
@@ -392,7 +394,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     /**
      * The person and their roles come first, then access and play time, with the actions beside both.
      */
-    const card = ["top-start", "bottom-start", "off", "top-end", "bottom-end", "action"]
+    const card = ["start 1", "start 2", "off", "end 1", "end 2", "action"]
     expect(slots(await rowFor("quiet"))).toEqual(card)
     expect(slots(await rowFor("player"))).toEqual(card)
   })
@@ -412,7 +414,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     )
     draw(<AccessPage />)
 
-    const title = assertElement((await rowFor("player")).querySelector('td[data-phone="top-start"]'), "the title")
+    const title = assertElement((await rowFor("player")).querySelector(":scope > td:first-child"), "the title")
     const [face, ...more] = within(title).getAllByRole("button")
     expect(more).toEqual([])
     expect(face?.textContent).toContain("player")
@@ -659,5 +661,38 @@ describe("AccessPage - playing without the resource pack", () => {
     })
     const call = fetched.mock.calls.find(([url]) => url === "/api/pack-exemptions/exempt")!
     expect(requestBody(call[1])).toEqual({ discordId: "520000000000000001" })
+  })
+})
+
+describe("AccessPage - the filters", () => {
+  it("narrows the roster to admins and to people without a Minecraft link, and counts both on its button", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({ discordId: "1", discordUsername: "quiet" }),
+          person({ discordId: "2", discordUsername: "boss", admin: true }),
+          person({
+            discordId: "3",
+            discordUsername: "linkedboss",
+            admin: true,
+            minecraftUuid: "11111111-2222-3333-4444-555555555555",
+            mcName: "BossMC",
+          }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+    await rowFor("quiet")
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }))
+    fireEvent.click(screen.getByRole("button", { name: "Admins" }))
+    await waitFor(() => expect(screen.queryByText("quiet")).toBeNull())
+    await rowFor("linkedboss")
+
+    fireEvent.click(screen.getByRole("button", { name: "Not linked" }))
+    await waitFor(() => expect(screen.queryByText("linkedboss")).toBeNull())
+    await rowFor("boss")
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeTruthy()
   })
 })

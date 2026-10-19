@@ -8,10 +8,10 @@ import { useGrants, useJournal, usePeople, usePersonPayments } from "@/lib/queri
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
-import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { QueryState, Skeleton } from "@/components/steward/query-state"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/steward/data-table"
 import { AccessBadge, LinkBadge, MemberBadge, PersonActions, RoleBadges, personName } from "@/pages/access-person"
 import { JournalTable } from "@/pages/journal"
 import { PaymentsTable } from "@/pages/payments"
@@ -124,8 +124,6 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
   )
 }
 
-const WAITING_GRANTS = [0, 1, 2]
-
 /** Returns where a period stands now, judged from the row and not from the roster. */
 function grantTone(grant: Grant, now: number): { label: string; tone: Tone } {
   if (grant.revoked) return { label: t("steward.people.revoked", { at: grant.revoked }), tone: "down" }
@@ -152,67 +150,57 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
         isEmpty={(list: Grant[]) => list.length === 0}
       >
         {(list) => (
-          <Table className="steward-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[7rem]">{t("steward.people.source-column")}</TableHead>
-                <TableHead>{t("steward.people.window")}</TableHead>
-                <TableHead className="w-[13rem]">{t("steward.people.state")}</TableHead>
-                <TableHead className="w-[8rem]">{t("steward.people.request")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list === undefined
-                ? WAITING_GRANTS.map((index) => (
-                    <TableRow key={index}>
-                      <TableCell data-label={t("steward.people.source-column")}>
-                        <SkeletonText width="medium" />
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.window")}>
-                        <SkeletonText width="long" />
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.state")}>
-                        <Skeleton className="h-5 w-24 rounded-full" />
-                      </TableCell>
-                      <TableCell data-label={t("steward.people.request")}>
-                        <SkeletonText width="short" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : list.map((row) => {
-                    const state = grantTone(row, now)
-                    return (
-                      <TableRow key={row.id}>
-                        <TableCell data-label={t("steward.people.source-column")}>
-                          {t("steward.people.source", { source: choice(row.source) }) || row.source}
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.window")} className="text-muted-foreground tnum">
-                          {dateTime(row.validFrom)}
-                          {" \u2013 "}
-                          {dateTime(row.validUntil)}
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.state")}>
-                          <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.request")}>
-                          {row.paymentRequestId ? (
-                            <span className="font-mono text-xs" title={row.paymentRequestId}>
-                              {shortId(row.paymentRequestId)}
-                            </span>
-                          ) : (
-                            <span
-                              className="text-xs text-muted-foreground"
-                              title={t("steward.people.request-gone", { source: choice(row.source) })}
-                            >
-                              {"\u2013"}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-            </TableBody>
-          </Table>
+          <DataTable
+            rows={list}
+            waiting={3}
+            rowKey={(row) => row.id}
+            columns={[
+              {
+                head: t("steward.people.source-column"),
+                phone: { line: 1, side: "start" },
+                render: (row) => t("steward.people.source", { source: choice(row.source) }) || row.source,
+              },
+              {
+                head: t("steward.people.window"),
+                grow: true,
+                phone: { line: 2, side: "wide" },
+                className: "text-muted-foreground tnum",
+                render: (row) => (
+                  <>
+                    {dateTime(row.validFrom)}
+                    {" \u2013 "}
+                    {dateTime(row.validUntil)}
+                  </>
+                ),
+              },
+              {
+                head: t("steward.people.state"),
+                phone: { line: 1, side: "end" },
+                waiting: <Skeleton className="h-5 w-24 rounded-full" />,
+                render: (row) => {
+                  const state = grantTone(row, now)
+                  return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+                },
+              },
+              {
+                head: t("steward.people.request"),
+                phone: { line: 3, side: "start", labelled: true },
+                render: (row) =>
+                  row.paymentRequestId ? (
+                    <span className="font-mono text-xs" title={row.paymentRequestId}>
+                      {shortId(row.paymentRequestId)}
+                    </span>
+                  ) : (
+                    <span
+                      className="text-xs text-muted-foreground"
+                      title={t("steward.people.request-gone", { source: choice(row.source) })}
+                    >
+                      {"\u2013"}
+                    </span>
+                  ),
+              },
+            ]}
+          />
         )}
       </QueryState>
     </>

@@ -5,7 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The server cannot load your progress.</bad> <muted>Join again in a few minutes.</muted>"
+            "en": "<bad>The server cannot load your progress.</bad> <muted>Join again in a few minutes.</muted>",
+            "de": "<bad>Der Server kann deinen Fortschritt nicht laden.</bad> <muted>Komm in ein paar Minuten wieder.</muted>"
           }
         }
       ]

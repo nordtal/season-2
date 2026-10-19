@@ -3,7 +3,6 @@ import { cn } from "cn"
 import type { ReactNode } from "react"
 
 import type { Document, DocumentDeclaration, MenuDrawing } from "@/lib/api"
-import { inGame } from "@/lib/documents"
 import { useDocumentDrawing, useGlyphs, useMessageSyntax } from "@/lib/queries"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { markdownRuns, parse, textRuns } from "@/lib/rich-text"
@@ -30,11 +29,14 @@ export const PAUSE_MS = 300
  */
 export function DocumentPreview({
   declaration,
+  game,
   document,
   language = ENGLISH,
   className,
 }: {
   declaration: DocumentDeclaration
+  /** Whether the game draws it, as its view says. */
+  game: boolean
   document: Document
   language?: Language
   className?: string
@@ -51,7 +53,7 @@ export function DocumentPreview({
       </QueryState>
     )
   }
-  if (inGame(declaration)) {
+  if (game) {
     return (
       <QueryState query={drawing}>
         {(drawn) =>

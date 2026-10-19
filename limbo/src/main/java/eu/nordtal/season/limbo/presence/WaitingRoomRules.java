@@ -1,11 +1,12 @@
 package eu.nordtal.season.limbo.presence;
 
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.limbo.LimboMessages;
 import eu.nordtal.season.limbo.net.LimboChannel;
 import eu.nordtal.season.limbo.waiting.WaitingRoom;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.tab.TabList;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -29,6 +30,8 @@ import org.bukkit.plugin.Plugin;
 
 /** The event handlers that hide, mute and protect the players in the waiting room. */
 public final class WaitingRoomRules implements Listener {
+
+    static final DocumentSpec<DocumentSpec.None> TAB_FOOTER = TabList.footer("limbo");
 
     private final Plugin plugin;
     private final WaitingWorld world;
@@ -58,10 +61,7 @@ public final class WaitingRoomRules implements Listener {
     /** Sends the tab list to the player. */
     public void sendTabList(final Player player) {
         final java.util.Locale locale = identities.languageOf(player.getUniqueId());
-        tabList.draw(
-                player,
-                locale,
-                renderer.format(locale, LimboMessages.MESSAGES.tab().footer()));
+        tabList.draw(player, locale, renderer.format(locale, Sent.of(TAB_FOOTER)));
     }
 
     /** Sets the spawn location of the player to the waiting world. */

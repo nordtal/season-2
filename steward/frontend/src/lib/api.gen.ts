@@ -864,6 +864,7 @@ export type DocumentView = {
   declaration: DocumentDeclaration
   named: Record<string, DocumentValue>
   services: string[]
+  game: boolean
   packaged: Document
   hash: string
   written?: Document

@@ -79,16 +79,22 @@ export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}):
   return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
-/** A Discord document of the bot, a message of the area Contribution unless `over` says otherwise. */
-export function view(over: Partial<DocumentDeclaration> & { name: string }, document: Document): DocumentView {
+/** A Discord document of the bot, a message of the area Contribution unless `over` and `around` say otherwise. */
+export function view(
+  over: Partial<DocumentDeclaration> & { name: string },
+  document: Document,
+  around: Partial<Omit<DocumentView, "declaration">> = {},
+): DocumentView {
   return {
     declaration: { namespace: "discord", area: "Contribution", shape: "MESSAGE", values: {}, slots: [], ...over },
     services: ["discord-bot"],
+    game: false,
     packaged: document,
     hash: "packaged",
     named: {},
     outdated: false,
     adapted: [],
+    ...around,
   }
 }
 

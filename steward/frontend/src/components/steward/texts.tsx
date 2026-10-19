@@ -393,7 +393,13 @@ function Card({
       >
         <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]">
           {[ENGLISH, ...(editing.beside ? [editing.beside] : [])].map((language) => (
-            <DocumentPreview key={language} declaration={card.view.declaration} document={draft} language={language} />
+            <DocumentPreview
+              key={language}
+              declaration={card.view.declaration}
+              game={card.view.game}
+              document={draft}
+              language={language}
+            />
           ))}
         </div>
         <DocumentEditor
@@ -415,7 +421,7 @@ function Card({
   return (
     <article aria-label={name} className="flex min-w-0 flex-col gap-2 rounded-lg border p-3">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
+        <h3 className="min-w-0 grow basis-28 truncate text-sm font-medium">{name}</h3>
         {card.kind === "text" ? (
           <Pills entry={card.text.entry} places={shared.places} />
         ) : (
@@ -441,7 +447,9 @@ function Card({
 }
 
 function ShippedPreview({ view, language }: { view: DocumentView; language?: Language }) {
-  return <DocumentPreview declaration={view.declaration} document={documentOf(view)} language={language} />
+  return (
+    <DocumentPreview declaration={view.declaration} game={view.game} document={documentOf(view)} language={language} />
+  )
 }
 
 /** A text of a bundle: its text in the first place it appears, as the editor's preview draws it. */

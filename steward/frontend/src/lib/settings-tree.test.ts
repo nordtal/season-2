@@ -46,6 +46,9 @@ function message(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   }
 }
 
+/** What a view of one of smp's game documents says beyond its declaration. */
+const GAME = { game: true, services: ["smp"] }
+
 const PLACES: Record<string, MessageSurface> = {
   CHAT: "GAME",
   GUI: "GAME",
@@ -259,8 +262,8 @@ describe("the texts as a tree", () => {
       [text({ key: "welcome", shown: ["CHAT"] }), text({ key: "hello", shown: ["DISCORD_MESSAGE"] })],
       PLACES,
       [
-        view({ namespace: "smp", name: "wheel", area: "Menus", shape: "MENU" }, { parts: [] }),
-        view({ namespace: "smp", name: "tab-footer", area: "Tab list", shape: "TAB_LIST" }, { parts: [] }),
+        view({ namespace: "smp", name: "wheel", area: "Menus", shape: "MENU" }, { parts: [] }, GAME),
+        view({ namespace: "smp", name: "tab-footer", area: "Tab list", shape: "TAB_LIST" }, { parts: [] }, GAME),
       ],
     )
 

@@ -1,7 +1,6 @@
 package eu.nordtal.season.packrendering.hud;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,9 +24,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Keeps the three servers' tab list frames alike, since the client carries one across servers.
  *
- * The header is paper-common's document, which every server shows. The SMP and the Hunger Games each have a counting
- * footer document, and the two say the same. Only limbo's footer differs: everybody there is hidden, so a player count
- * would contradict the list.
+ * The header is paper-common's document, which every server shows. Each server has a footer document. The SMP's and
+ * the Hunger Games' count the players and say the same. Only limbo's differs: everybody there is hidden, so a player
+ * count would contradict the list.
  */
 class TabListTest {
 
@@ -37,6 +36,8 @@ class TabListTest {
     private static final List<String> COUNTED = List.of(
             "smp/src/main/resources/documents/smp/tab-footer.json",
             "hunger-games/src/main/resources/documents/hunger-games/tab-footer.json");
+
+    private static final String LIMBO_FOOTER = "limbo/src/main/resources/documents/limbo/tab-footer.json";
 
     /** Each module's bundle directory, in the order a player meets them. */
     private static final Map<String, String> BUNDLES = new LinkedHashMap<>(Map.of(
@@ -75,7 +76,7 @@ class TabListTest {
     @Test
     void limbosFooterDeliberatelyCarriesNoPlayerCount() {
         for (final String language : LANGUAGES) {
-            final String footer = required(BUNDLES.get("limbo"), language, "tab.footer");
+            final String footer = text(LIMBO_FOOTER, language);
             assertTrue(
                     !footer.contains("{online}") && !footer.contains("{max}"),
                     "limbo hides every player from every other, so its list holds exactly one name."
@@ -117,12 +118,6 @@ class TabListTest {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + document, e);
         }
-    }
-
-    private static String required(final String directory, final String language, final String key) {
-        final String value = value(directory, language, key);
-        assertNotNull(value, directory + "/" + language + ".properties has no " + key);
-        return value;
     }
 
     private static @Nullable String value(final String directory, final String language, final String key) {

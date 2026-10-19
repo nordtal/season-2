@@ -44,14 +44,14 @@ it("asks for a drawing once typing pauses, and an older draft's late answer neve
     )
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const { rerender } = render(<DocumentPreview declaration={declaration} document={saying("first")} />, {
+  const { rerender } = render(<DocumentPreview declaration={declaration} game={false} document={saying("first")} />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     ),
   })
   await vi.waitFor(() => expect(asked).toEqual(["first"]))
-  rerender(<DocumentPreview declaration={declaration} document={saying("second")} />)
-  rerender(<DocumentPreview declaration={declaration} document={saying("third")} />)
+  rerender(<DocumentPreview declaration={declaration} game={false} document={saying("second")} />)
+  rerender(<DocumentPreview declaration={declaration} game={false} document={saying("third")} />)
   await vi.waitFor(() => expect(asked).toEqual(["first", "third"]))
 
   answer("third")

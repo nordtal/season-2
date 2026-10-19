@@ -237,7 +237,7 @@ class UpdateFeedTest {
     private static final Actor OWNER = Actor.person(eu.nordtal.season.common.id.DiscordId.of("300000000000000077"));
 
     private static UpdateRequest row(
-            final long id, final UpdateStatus status, final String result, final Instant finished) {
+            final long id, final UpdateStatus status, final @Nullable String result, final @Nullable Instant finished) {
         return new UpdateRequest(
                 id, UpdateKind.UPDATE, status, OWNER, NOW, NOW, null, List.of(), NOW, finished, result);
     }
@@ -248,7 +248,7 @@ class UpdateFeedTest {
 
     @Test
     void aRunStartedInGameIsPostedAndEditedAsItMoves() {
-        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.PLANNED), null));
         feed.tick();
 
         assertEquals(1, board.posted.size());
@@ -649,6 +649,63 @@ class UpdateFeedTest {
         feed.start();
 
         assertEquals(1, board.posted.size(), "only the failed one is caught up");
+    }
+
+    @Test
+    void anUpdateThatFoundNothingToDoIsNotPosted() {
+        feed.start();
+        rows.put(row(1L, UpdateStatus.PENDING, null, null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.NOTHING_TO_DO), NOW));
+        feed.tick();
+        feed.tick();
+
+        assertEquals(List.of(), board.posted, "the check after a real update says nothing new");
+    }
+
+    @Test
+    void anUpdateThatFoundNothingToDoWhileTheBotWasDownIsNotCaughtUp() {
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.NOTHING_TO_DO), NOW));
+        feed.start();
+
+        assertEquals(List.of(), board.posted);
+    }
+
+    @Test
+    void anUpdateIsPostedOnceItHasAPlanAndFollowedFromThere() {
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
+        feed.tick();
+        assertEquals(List.of(), board.posted, "while it resolves, it may still find nothing to do");
+
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.COUNTDOWN), null));
+        feed.tick();
+        assertEquals(1, board.posted.size());
+
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        feed.tick();
+        assertEquals(1, board.posted.size(), "the same run, not a second message");
+        assertEquals(1, board.edited.size());
+    }
+
+    @Test
+    void aRestartThatFoundNothingToDoKeepsItsCardBecauseSomeoneAskedForIt() {
+        rows.put(new UpdateRequest(
+                1L,
+                UpdateKind.RESTART,
+                UpdateStatus.DONE,
+                OWNER,
+                NOW,
+                NOW,
+                null,
+                List.of(),
+                NOW,
+                NOW,
+                reportAt(UpdateReport.Stage.NOTHING_TO_DO)));
+        feed.tick();
+
+        assertEquals(1, board.posted.size());
     }
 
     private static UpdateRequest install(final long id, final UpdateStatus status, final UpdateReport.Stage stage) {

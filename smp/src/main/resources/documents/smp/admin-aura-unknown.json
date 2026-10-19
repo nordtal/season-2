@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The aura change of {delta} for {player.name} failed. It may be saved or not. Check the aura before you run it again.</bad>",
+            "de": "<bad>Die Aura-Änderung ({delta}) für {player.name} ist fehlgeschlagen. Sie kann gespeichert sein oder nicht. Prüfe die Aura, bevor du es erneut ausführst.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

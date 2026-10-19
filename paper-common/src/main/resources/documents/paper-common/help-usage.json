@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<neutral>Usage: {usage}</neutral>",
+            "de": "<neutral>Syntax: {usage}</neutral>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>{what}</muted>",
+            "de": "<muted>{what}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

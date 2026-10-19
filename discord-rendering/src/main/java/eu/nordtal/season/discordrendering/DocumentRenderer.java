@@ -346,7 +346,7 @@ public final class DocumentRenderer {
     /**
      * Draws a message or a plain draft as a member receives it, every value and slot at its example.
      *
-     * @throws IllegalArgumentException if the draft is a modal, a channel's name or a menu, which no message holds
+     * @throws IllegalArgumentException if the draft is a modal, a channel's name or a game text, which no message holds
      * @throws RuntimeException if the draft cannot be drawn
      */
     public MessageCreateData message(
@@ -358,7 +358,7 @@ public final class DocumentRenderer {
                 draw(draft, values, ExampleSlots.of(declaration, languages), locale)
                         .create();
             case PLAIN -> MessageCreateData.fromContent(plain(draft, values, locale));
-            case MODAL, CHANNEL_NAME, MENU ->
+            case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN ->
                 throw new IllegalArgumentException("a " + declaration.shape() + " is not sent as a message");
         };
     }

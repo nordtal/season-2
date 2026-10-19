@@ -49,4 +49,6 @@ dependencies {
 
 messageSpec {
     specClasses.add("eu.nordtal.season.hungergames.HungerGamesMessages")
+    documentClasses.add("eu.nordtal.season.hungergames.HungerGamesPlugin")
+    documentClasses.add("eu.nordtal.season.hungergames.presence.DisconnectBodies")
 }

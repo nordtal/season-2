@@ -40,6 +40,7 @@ class PlayerTextRulesTest {
     private static final String MESSAGES = "eu.nordtal.season.messages.Messages";
     private static final String MESSAGE_REF = "eu.nordtal.season.messages.MessageRef";
     private static final String TONE = "eu.nordtal.season.messages.Tone";
+    private static final String DOCUMENT_SPEC = "eu.nordtal.season.messages.document.DocumentSpec";
     private static final String PLUGIN_BASE = "eu.nordtal.season.papercommon.plugin.NordtalPlugin";
     private static final String SYSTEM_LINES = "eu.nordtal.season.papercommon.chat.SystemLines";
     private static final String BOSS_BAR = "net.kyori.adventure.bossbar.BossBar";
@@ -290,6 +291,21 @@ class PlayerTextRulesTest {
                 boolean rendersIt = false;
                 for (final JavaClass each : Wiring.withNested(type)) {
                     for (final JavaCodeUnit unit : each.getCodeUnits()) {
+                        // Paper's refusal is a document: the refuser reads its one spec, UNKNOWN, and no other.
+                        for (final var access : unit.getFieldAccesses()) {
+                            if (!access.getTarget().getRawType().getName().equals(DOCUMENT_SPEC)) {
+                                continue;
+                            }
+                            if (access.getTarget().getName().equals("UNKNOWN")
+                                    && access.getTargetOwner().equals(type)) {
+                                rendersIt = true;
+                            } else {
+                                events.add(SimpleConditionEvent.violated(
+                                        type,
+                                        type.getName() + " renders "
+                                                + access.getTarget().getFullName()));
+                            }
+                        }
                         for (final var call : unit.getMethodCallsFromSelf()) {
                             final Optional<JavaMethod> target = call.getTarget().resolveMember();
                             if (target.isEmpty()

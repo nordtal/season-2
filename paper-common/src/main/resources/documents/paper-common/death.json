@@ -1,0 +1,14 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad><glyph:death></bad> <muted>{death}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

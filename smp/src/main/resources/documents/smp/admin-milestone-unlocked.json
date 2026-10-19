@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Milestone {key} is unlocked. Everybody who qualified is paid.</good>",
+            "de": "<good>Meilenstein {key} ist freigeschaltet. Alle, die dafür in Frage kamen, sind ausgezahlt.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

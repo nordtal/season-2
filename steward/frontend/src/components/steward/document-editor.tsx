@@ -33,7 +33,7 @@ import {
   withLine,
   type PartPath,
 } from "@/lib/document-edit"
-import { documentName } from "@/lib/documents"
+import { documentName, inGame } from "@/lib/documents"
 import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useCommandRun, useDocumentDrawing, useGameAction, useSaveDocument } from "@/lib/queries"
@@ -114,7 +114,7 @@ export function DocumentEditor({
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
   const name = documentName(view.declaration)
-  // A member receives only a message or a plain text; a modal, a channel's name and a menu are no direct message.
+  // A member receives only a message or a plain text; a modal, a channel's name and a game text are no direct message.
   const sendable = view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
   const send = useSendDraft(view)
 
@@ -135,7 +135,7 @@ export function DocumentEditor({
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
         <DocumentMarks view={view} />
-        {drawing.data && view.declaration.shape !== "MENU" ? (
+        {drawing.data && !inGame(view.declaration) ? (
           <Badge
             variant="outline"
             className={cn("shrink-0 tabular-nums", drawing.data.components > drawing.data.most && "text-destructive")}

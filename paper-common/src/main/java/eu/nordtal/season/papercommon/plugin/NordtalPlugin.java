@@ -1,7 +1,5 @@
 package eu.nordtal.season.papercommon.plugin;
 
-import static eu.nordtal.season.papercommon.PaperCommonMessages.MESSAGES;
-
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -33,9 +31,8 @@ import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.Names;
 import eu.nordtal.season.messagerendering.ToneColours;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
-import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.access.AdminWatch;
 import eu.nordtal.season.papercommon.access.BukkitOps;
 import eu.nordtal.season.papercommon.chat.Previews;
@@ -44,6 +41,7 @@ import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.CommandFilter;
 import eu.nordtal.season.papercommon.command.CommandTrees;
 import eu.nordtal.season.papercommon.command.PaperUser;
+import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.game.GameDataExport;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.Menus;
@@ -204,7 +202,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         access = AccessReader.using(pool, clock);
         identities = new Identities(access::identities);
         renderer = MessageRenderer.of(
-                messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige));
+                        messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige))
+                .reading(documents);
         previews = new Previews(getServer()::getPlayer, renderer);
         hud = new Hud(this, identities);
         listen(hud);
@@ -309,14 +308,14 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     private List<String> roots() {
-        final List<String> roots = new ArrayList<>(List.of("messages/database", "messages/paper-common"));
+        final List<String> roots = new ArrayList<>(List.of("messages/database"));
         roots.addAll(bundles());
         return roots;
     }
 
-    /** A bundle {@code messages/<namespace>} has its documents in {@code documents/<namespace>}. */
+    /** Returns paper-common's namespace and each bundle's, whose documents are in {@code documents/<namespace>}. */
     private Set<String> namespaces() {
-        final Set<String> namespaces = new HashSet<>();
+        final Set<String> namespaces = new HashSet<>(Set.of("paper-common"));
         roots().forEach(root -> namespaces.add(root.substring(root.lastIndexOf('/') + 1)));
         return namespaces;
     }
@@ -334,12 +333,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Hides the commands that a non-admin may not type. */
     private void filterCommands(final AdminWatch admins) {
         listen(new CommandFilter(
-                NetworkSettings.allowlist(players.get()),
-                admins::isAdmin,
-                identities,
-                renderer,
-                this::colours,
-                chime()));
+                NetworkSettings.allowlist(players.get()), admins::isAdmin, identities, renderer, chime()));
     }
 
     public final PlayersSpec players() {
@@ -441,19 +435,17 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     /** Asks the sender of an irreversible action to type it again with {@code confirm}. */
     protected final int confirmFirst(final CommandContext<CommandSourceStack> context) {
-        tell(
-                context.getSource().getSender(),
-                Answer.refused(new eu.nordtal.season.messages.Refusal(
-                        Confirmation.NEEDED, MESSAGES.admin().confirm("/" + context.getInput()))));
+        PaperUser.console(this, context.getSource().getSender(), renderer, this::colours)
+                .reply(Replies.CONFIRM.with(new Replies.Typed("/" + context.getInput())));
         return Command.SINGLE_SUCCESS;
     }
 
     protected final void tell(final CommandSender sender, final Answer answer) {
         final PaperUser user = PaperUser.console(this, sender, renderer, this::colours);
         switch (answer) {
-            case Answer.Done done -> user.reply(done.message(), Tone.GOOD);
-            case Answer.Refused refused -> user.reply(refused.refusal().message(), Tone.WARN);
-            case Answer.Failed failed -> user.reply(failed.message(), Tone.BAD);
+            case Answer.Done done -> user.reply(done.message());
+            case Answer.Refused refused -> user.refuse(refused.refusal().message());
+            case Answer.Failed failed -> user.reply(failed.message());
         }
     }
 
@@ -471,17 +463,13 @@ public abstract class NordtalPlugin extends JavaPlugin {
             return action.get();
         } catch (final RuntimeException failure) {
             getLogger().log(Level.WARNING, "an admin action failed", failure);
-            return Answer.failed(MESSAGES.admin().failed());
+            return Answer.failed(Sent.of(Replies.FAILED));
         }
     }
 
-    private String english(final MessageRef message) {
+    private String english(final Sent<?> message) {
         return PlainTextComponentSerializer.plainText()
                 .serialize(renderer.bare().format(Locale.ENGLISH, message));
-    }
-
-    private enum Confirmation implements eu.nordtal.season.messages.RefusalReason {
-        NEEDED
     }
 
     /**
@@ -496,7 +484,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         } catch (final SettingsException refused) {
             return refusedSettings(String.valueOf(refused.getMessage()));
         }
-        return refusal == null ? Answer.done(MESSAGES.admin().settingsTaken()) : refusedSettings(refusal);
+        return refusal == null ? Answer.done(Sent.of(Replies.SETTINGS_TAKEN)) : refusedSettings(refusal);
     }
 
     private <T> @Nullable String trial(final Group<T> group, final SettingsChange change) throws SettingsException {

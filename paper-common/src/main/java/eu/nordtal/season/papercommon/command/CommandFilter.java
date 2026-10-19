@@ -1,11 +1,8 @@
 package eu.nordtal.season.papercommon.command;
 
-import static eu.nordtal.season.papercommon.PaperCommonMessages.MESSAGES;
-
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messagerendering.ToneColours;
-import eu.nordtal.season.messagerendering.Tones;
-import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.settings.network.CommandAllowlist;
@@ -26,25 +23,25 @@ import org.bukkit.event.player.PlayerCommandSendEvent;
  */
 public final class CommandFilter implements Listener {
 
+    static final DocumentSpec<DocumentSpec.None> UNKNOWN =
+            DocumentSpec.game("paper-common", "command-unknown", "Command", DocumentSpec.Shape.CHAT);
+
     private final Supplier<CommandAllowlist> allowlist;
     private final Predicate<UUID> admin;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final PaperUser.Chime chime;
-    private final Supplier<ToneColours> colours;
 
     public CommandFilter(
             final Supplier<CommandAllowlist> allowlist,
             final Predicate<UUID> admin,
             final Identities identities,
             final MessageRenderer renderer,
-            final Supplier<ToneColours> colours,
             final PaperUser.Chime chime) {
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.admin = Objects.requireNonNull(admin, "admin");
         this.identities = Objects.requireNonNull(identities, "identities");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
-        this.colours = Objects.requireNonNull(colours, "colours");
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
@@ -70,11 +67,7 @@ public final class CommandFilter implements Listener {
     }
 
     private net.kyori.adventure.text.Component refusal(final UUID player) {
-        return Tones.paint(
-                renderer.format(
-                        identities.languageOf(player), MESSAGES.command().unknown()),
-                Tone.BAD,
-                colours.get());
+        return renderer.format(identities.languageOf(player), Sent.of(UNKNOWN));
     }
 
     /**

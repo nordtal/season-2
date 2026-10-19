@@ -22,8 +22,8 @@ import net.kyori.adventure.text.JoinConfiguration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws a game document for one viewer: a text's lines, or a menu's window title, each item's name and lore,
- * and each label.
+ * Draws a game document for one viewer.
+ * That is a text's lines, or a menu's window title, each item's name and lore, and each label.
  */
 public final class GameDocument {
 
@@ -66,13 +66,18 @@ public final class GameDocument {
 
     /** Returns the lines of every text block that its values show, one under the other. */
     public Component text() {
+        return Component.join(JoinConfiguration.newlines(), lines());
+    }
+
+    /** Returns the lines of every text block that its values show, in order. */
+    public List<Component> lines() {
         final List<Component> lines = new ArrayList<>();
         for (final Part part : packaged.document().parts()) {
             for (final Line line : shown(part, Map.of())) {
                 lines.add(markup(line.text(), Map.of()));
             }
         }
-        return Component.join(JoinConfiguration.newlines(), lines);
+        return lines;
     }
 
     public Component title() {

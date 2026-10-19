@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>You are not registered for the Hunger Games.</bad> <muted>Register in Discord first.</muted>",
+            "de": "<bad>Du bist nicht für die Hunger Games registriert.</bad> <muted>Registriere dich zuerst in Discord.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

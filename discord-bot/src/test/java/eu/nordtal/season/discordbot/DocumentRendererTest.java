@@ -125,7 +125,7 @@ class DocumentRendererTest {
                                     .getContent()
                                     .isBlank(),
                             each.declaration().id());
-                case MODAL, CHANNEL_NAME, MENU ->
+                case MODAL, CHANNEL_NAME, MENU, CHAT, TAB_LIST, KICK_SCREEN ->
                     assertThrows(
                             IllegalArgumentException.class,
                             () -> renderer.message(each, languages, Locale.GERMAN),

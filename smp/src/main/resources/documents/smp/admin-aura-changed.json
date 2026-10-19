@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The aura of {player.name} changed by {delta}. The reason is recorded.</good>",
+            "de": "<good>Die Aura von {player.name} hat sich um {delta} geändert. Der Grund ist gespeichert.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

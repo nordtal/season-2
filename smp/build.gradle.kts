@@ -56,4 +56,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.grave.GraveWindow")
     documentClasses.add("eu.nordtal.season.smp.npc.HandInGui")
     documentClasses.add("eu.nordtal.season.smp.npc.ObjectiveGui")
+    documentClasses.add("eu.nordtal.season.smp.command.SmpAdmin")
+    documentClasses.add("eu.nordtal.season.smp.command.NavigateCommand")
+    documentClasses.add("eu.nordtal.season.smp.player.PlayerSurfaces")
 }

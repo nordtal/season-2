@@ -29,7 +29,9 @@ player in `languageKnown`, one tick after the join.
 
 The base registers the plugin's root command (`/smp`, `/hg`) only if the plugin adds subcommands.
 Admin subcommands answer the console only. The inbox runs the same actions. Both report through one
-`Answer`: done, refused or failed.
+`Answer`: done, refused or failed. A done or failed answer, the help and the tab list's header are
+documents (`DocumentSpec.game`), sent with `reply`. A refusal stays a key, which `refuse` paints as a
+warning.
 
 ## Facilities
 

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>Season {season.number}</emphasis><newline>",
+            "de": "<newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>Saison {season.number}</emphasis><newline>"
+          }
+        }
+      ]
+    }
+  ]
+}

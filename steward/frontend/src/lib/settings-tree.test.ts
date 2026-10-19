@@ -235,11 +235,14 @@ describe("the texts as a tree", () => {
     expect(ancestorsOf(tree, "document:discord/contribution")).toEqual(["DISCORD:@Contribution"])
   })
 
-  it("lists a menu under the game", () => {
+  it("lists a menu and a game text under the game", () => {
     const tree = textsTree(
       [text({ key: "welcome", shown: ["CHAT"] }), text({ key: "hello", shown: ["DISCORD_MESSAGE"] })],
       PLACES,
-      [view({ namespace: "smp", name: "wheel", area: "Menus", shape: "MENU" }, { parts: [] })],
+      [
+        view({ namespace: "smp", name: "wheel", area: "Menus", shape: "MENU" }, { parts: [] }),
+        view({ namespace: "smp", name: "tab-footer", area: "Tab list", shape: "TAB_LIST" }, { parts: [] }),
+      ],
     )
 
     expect(shape(tree)).toEqual([
@@ -248,6 +251,8 @@ describe("the texts as a tree", () => {
       "[In game]",
       "  [Menus]",
       "    document:smp/wheel",
+      "  [Tab list]",
+      "    document:smp/tab-footer",
       "  smp/welcome",
     ])
   })

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Access runs until {until}.</good>",
+            "de": "<good>Zugang läuft bis {until}.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

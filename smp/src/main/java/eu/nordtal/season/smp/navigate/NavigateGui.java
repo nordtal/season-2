@@ -7,6 +7,7 @@ import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
@@ -45,6 +46,9 @@ public final class NavigateGui extends Menu {
             Slot.item("previous-page"),
             Slot.label("page"),
             Slot.item("next-page"));
+
+    public static final DocumentSpec<DocumentSpec.None> STOPPED =
+            DocumentSpec.game("smp", "navigate-stopped", "Navigate", DocumentSpec.Shape.CHAT);
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
@@ -172,7 +176,7 @@ public final class NavigateGui extends Menu {
     protected MenuClick click(final Player player, final int slot) {
         if (NavigatePanel.STOP_SLOTS.contains(slot)) {
             navigation.clear(player.getUniqueId());
-            player.sendMessage(renderer.format(locale, MESSAGES.smp().navigate().stopped()));
+            player.sendMessage(renderer.format(locale, Sent.of(STOPPED)));
             return MenuClick.closing();
         }
         if (slot == NavigatePanel.PREV_SLOT || slot == NavigatePanel.NEXT_SLOT) {

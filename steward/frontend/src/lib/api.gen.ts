@@ -465,6 +465,7 @@ export type DocumentDraft = {
 export type DocumentDrawing = {
   discord?: Record<string, unknown>
   menu?: MenuDrawing
+  game?: string[]
   components: number
   most: number
   problems: DocumentProblem[]
@@ -1038,7 +1039,15 @@ export type DocumentAdaptation = {
   subject: string
 }
 
-export type DocumentShape = "MESSAGE" | "MODAL" | "PLAIN" | "CHANNEL_NAME" | "MENU"
+export type DocumentShape =
+  | "MESSAGE"
+  | "MODAL"
+  | "PLAIN"
+  | "CHANNEL_NAME"
+  | "MENU"
+  | "CHAT"
+  | "TAB_LIST"
+  | "KICK_SCREEN"
 
 export type DocumentSlot = {
   id: string

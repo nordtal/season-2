@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<neutral>Open purchase {reference}: {days, plural, one {# day} other {# days}}, {amount}, started {since}. The payment link exists. The player has not paid.</neutral>",
+            "de": "<neutral>Offener Kauf {reference}: {days, plural, one {# Tag} other {# Tage}}, {amount}, begonnen am {since}. Der Zahlungslink existiert. Der Spieler hat nicht bezahlt.</neutral>"
+          }
+        }
+      ]
+    }
+  ]
+}

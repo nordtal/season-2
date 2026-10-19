@@ -1,7 +1,5 @@
 package eu.nordtal.season.hungergames;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -35,9 +33,10 @@ import eu.nordtal.season.hungergames.presence.DisconnectBodies;
 import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messages.Refusal;
-import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.context.TeamContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.command.Answer;
@@ -65,6 +64,23 @@ import org.jspecify.annotations.Nullable;
 
 /** The plugin of the Hunger Games. */
 public final class HungerGamesPlugin extends NordtalPlugin {
+
+    record Count(long count) {}
+
+    record Readiness(TeamContext team, boolean ready) {}
+
+    static final DocumentSpec<Count> STARTED = reply("admin-started", "Admin", Count.class);
+    static final DocumentSpec<DocumentSpec.None> READY_HEADER =
+            reply("admin-ready-header", "Admin", DocumentSpec.None.class);
+    static final DocumentSpec<Readiness> READY_LINE = reply("admin-ready-line", "Admin", Readiness.class);
+    static final DocumentSpec<DocumentSpec.None> READY_SET = reply("lobby-ready-set", "Lobby", DocumentSpec.None.class);
+    static final DocumentSpec<DocumentSpec.None> NOT_REGISTERED =
+            reply("lobby-not-registered", "Lobby", DocumentSpec.None.class);
+
+    private static <V extends Record> DocumentSpec<V> reply(
+            final String name, final String area, final Class<V> values) {
+        return DocumentSpec.game("hunger-games", name, area, DocumentSpec.Shape.CHAT, values);
+    }
 
     private Setting<HungerGamesSpec> config;
 
@@ -259,7 +275,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 .info("game " + started.get() + " started with " + playing.size() + " resolvable participants"
                         + (playing.size() < recommended ? " (confirmed below the recommended minimum)" : ""));
         startGame(started.get(), playing);
-        return Answer.done(MESSAGES.hg().admin().started(playing.size()));
+        return Answer.done(STARTED.with(new Count(playing.size())));
     }
 
     /** Handles {@code /hg ready-status}. It lists every registered team and whether it is ready. */
@@ -269,16 +285,16 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         PaperScheduler.of(this).execute(() -> {
             final Optional<List<RosterEntry>> roster = waiting.readyStatus();
             if (roster.isEmpty()) {
-                console.reply(ServerRefusal.NO_GAME.with().message(), Tone.WARN);
+                console.refuse(ServerRefusal.NO_GAME.with().message());
                 return;
             }
             final Map<String, Boolean> byTeam = new LinkedHashMap<>();
             for (final RosterEntry entry : roster.get()) {
                 byTeam.merge(entry.teamName(), entry.ready(), (one, two) -> one && two);
             }
-            console.reply(MESSAGES.hg().admin().readyHeader(), Tone.NEUTRAL);
-            byTeam.forEach((team, ready) -> console.reply(
-                    MESSAGES.hg().admin().readyLine(new TeamContext(team), ready), ready ? Tone.GOOD : Tone.MUTED));
+            console.reply(Sent.of(READY_HEADER));
+            byTeam.forEach(
+                    (team, ready) -> console.reply(READY_LINE.with(new Readiness(new TeamContext(team), ready))));
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -300,11 +316,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
             final var discordId = identities().discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && waiting.markReady(discordId.get());
             user.reply(
-                    marked
-                            ? MESSAGES.hg().lobby().readySet()
-                            : MESSAGES.hg().lobby().notRegistered(),
-                    marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
-                    marked ? Tone.GOOD : Tone.BAD);
+                    Sent.of(marked ? READY_SET : NOT_REGISTERED), marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
         });
         return Command.SINGLE_SUCCESS;
     }

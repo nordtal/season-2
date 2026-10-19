@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>No access has ever been bought for this account.</warn>",
+            "de": "<warn>Für dieses Konto wurde noch nie Zugang gekauft.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

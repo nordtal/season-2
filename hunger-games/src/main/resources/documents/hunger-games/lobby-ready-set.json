@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>You are ready.</good>",
+            "de": "<good>Du bist bereit.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

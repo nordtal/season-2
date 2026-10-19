@@ -32,7 +32,7 @@ class PreviewsTest {
     private static final PlayerId ALEX = PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a"));
 
     private static final MessageRenderer RENDERER =
-            MessageRenderer.of(Messages.load("messages/paper-common", Locale.ENGLISH, Locale.GERMAN));
+            MessageRenderer.of(Messages.load("messages/database", Locale.ENGLISH, Locale.GERMAN));
 
     private static final MessageRef CONFIRM = new MessageRef("admin.confirm", Map.of("command", "/smp unlock"));
 

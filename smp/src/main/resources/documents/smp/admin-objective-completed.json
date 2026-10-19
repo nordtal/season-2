@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Objective {key} of milestone {milestone.name} is closed by hand. It pays out what was collected, not the whole budget.</good>",
+            "de": "<good>Ziel {key} von Meilenstein {milestone.name} ist von Hand abgeschlossen. Es zahlt aus, was gesammelt wurde, nicht das ganze Budget.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

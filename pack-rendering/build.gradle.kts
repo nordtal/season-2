@@ -32,7 +32,9 @@ repositoryRootTestInputs {
     readsTree("smp/src/main/resources/messages")
     readsTree("hunger-games/src/main/resources/messages")
     readsTree("limbo/src/main/resources/messages")
-    readsTree("paper-common/src/main/resources/messages")
+    readsTree("smp/src/main/resources/documents")
+    readsTree("hunger-games/src/main/resources/documents")
+    readsTree("paper-common/src/main/resources/documents")
 }
 
 dependencies {

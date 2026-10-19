@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Every name tag was drawn again from the nametags settings.</good>",
+            "de": "<good>Alle Namensschilder wurden aus den nametags-Einstellungen neu gezeichnet.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

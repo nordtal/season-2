@@ -297,6 +297,27 @@ class DocumentsApiIntegrationTest {
     }
 
     @Test
+    void aGameTextIsDrawnByTheGamesRendererLineByLine() throws Exception {
+        final JsonObject draft = new JsonObject();
+        draft.add("declaration", Json.tree("""
+                {"namespace":"smp","name":"tab-footer","area":"Tab list","shape":"TAB_LIST",
+                  "values":{"online":{"kind":"text","example":"3"}},"slots":[]}"""));
+        draft.add("document", Json.tree("""
+                {"parts":[{"type":"TEXT","lines":[
+                  {"text":{"en":"Online","de":"<glyph:logo-large>online-de"}},{"text":{"en":"{online} here","de":"{online} here-de"}}]}]}"""));
+        draft.addProperty("language", "de");
+
+        final JsonObject drawing = GSON.fromJson(
+                send("POST", "/api/documents/render", draft.toString().getBytes(UTF_8), 200), JsonObject.class);
+
+        assertEquals(0, drawing.getAsJsonArray("problems").size(), drawing.toString());
+        assertFalse(drawing.has("discord"), drawing.toString());
+        assertEquals(
+                "[\"<glyph:logo-large>online-de\",\"3 here-de\"]",
+                drawing.getAsJsonArray("game").toString());
+    }
+
+    @Test
     void aDraftTheRendererCannotDrawIsRefused() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));

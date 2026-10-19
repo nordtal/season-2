@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad><glyph:leave></bad> <muted>{player.name} left.</muted>",
+            "de": "<bad><glyph:leave></bad> <muted>{player.name} ist gegangen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

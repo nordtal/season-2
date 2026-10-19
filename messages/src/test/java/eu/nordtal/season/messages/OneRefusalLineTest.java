@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.RepositoryRoot;
+import eu.nordtal.season.messages.document.Document;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -25,28 +25,30 @@ class OneRefusalLineTest {
 
     private static final String KEY = "command.unknown";
 
-    private static final List<String> BUNDLES = List.of(
-            "paper-common/src/main/resources/messages/paper-common/", "proxy/src/main/resources/messages/proxy/");
+    private static final String PROXY = "proxy/src/main/resources/messages/proxy/";
 
-    /** Reads both bundles from the file system, as neither module is on a classpath a test here can load. */
+    /** Paper's refusal is a document. */
+    private static final String PAPER = "paper-common/src/main/resources/documents/paper-common/command-unknown.json";
+
+    /** Reads both from the file system, as neither module is on a classpath a test here can load. */
     @Test
-    void theOneKeySaysTheSameInPaperAndInTheProxy() throws java.io.IOException {
+    void theOneKeySaysTheSameInPaperAndInTheProxy() throws IOException {
+        final Document paper = Document.decode(Files.readString(RepositoryRoot.resolve(PAPER)));
         for (final String language : List.of("en", "de")) {
-            final java.util.Set<String> sentences = new TreeSet<>();
-            for (final String bundle : BUNDLES) {
-                final java.util.Properties read = new java.util.Properties();
-                try (java.io.Reader in = java.nio.file.Files.newBufferedReader(
-                        RepositoryRoot.resolve(bundle + language + ".properties"))) {
-                    read.load(in);
-                }
-                final String sentence = read.getProperty(KEY);
-                assertTrue(
-                        sentence != null,
-                        KEY + " is missing from " + bundle + language + ", so the refusal reaches a player as the"
-                                + " key itself - which does tell them something, in the worst way");
-                sentences.add(sentence);
+            final java.util.Properties read = new java.util.Properties();
+            try (java.io.Reader in =
+                    Files.newBufferedReader(RepositoryRoot.resolve(PROXY + language + ".properties"))) {
+                read.load(in);
             }
-            assertEquals(1, sentences.size(), "the proxy and Paper word " + KEY + " differently: " + sentences);
+            final String proxy = read.getProperty(KEY);
+            assertTrue(
+                    proxy != null,
+                    KEY + " is missing from " + PROXY + language + ", so the refusal reaches a player as the"
+                            + " key itself - which does tell them something, in the worst way");
+            // The proxy paints its refusal itself; Paper's document carries the tone as a tag.
+            final String sentence =
+                    paper.texts().getFirst().versions(language).getFirst().replaceAll("<[^>]+>", "");
+            assertEquals(proxy, sentence, "the proxy and Paper word " + KEY + " differently in " + language);
         }
     }
 
@@ -77,7 +79,7 @@ class OneRefusalLineTest {
 
     private static List<Path> bundles() {
         final List<Path> found = new ArrayList<>();
-        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy", "paper-common", "discord-bot")) {
+        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy", "discord-bot")) {
             final Path directory = RepositoryRoot.resolve(root + "/src/main/resources/messages");
             if (!Files.isDirectory(directory)) {
                 continue;

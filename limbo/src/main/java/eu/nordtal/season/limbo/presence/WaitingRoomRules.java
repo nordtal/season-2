@@ -34,6 +34,7 @@ public final class WaitingRoomRules implements Listener {
     private final WaitingWorld world;
     private final WaitingRoom room;
     private final LimboChannel channel;
+    private final MessageRenderer renderer;
     private final TabList tabList;
 
     private final Identities identities;
@@ -50,13 +51,17 @@ public final class WaitingRoomRules implements Listener {
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
         this.identities = Objects.requireNonNull(identities, "identities");
+        this.renderer = renderer;
         this.tabList = new TabList(renderer);
     }
 
     /** Sends the tab list to the player. */
     public void sendTabList(final Player player) {
         final java.util.Locale locale = identities.languageOf(player.getUniqueId());
-        tabList.draw(player, locale, LimboMessages.MESSAGES.tab().footer());
+        tabList.draw(
+                player,
+                locale,
+                renderer.format(locale, LimboMessages.MESSAGES.tab().footer()));
     }
 
     /** Sets the spawn location of the player to the waiting world. */

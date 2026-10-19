@@ -4,6 +4,7 @@ import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.displaytags.nametag.PlayerNameTag;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.tab.TabList;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -21,6 +22,8 @@ import org.bukkit.plugin.Plugin;
  * A nametag shows the player looked at, so one content serves every viewer.
  */
 public final class PlayerSurfaces {
+
+    static final DocumentSpec<TabList.Counted> TAB_FOOTER = TabList.countedFooter("smp");
 
     private final Plugin plugin;
     private final Identities identities;
@@ -106,6 +109,6 @@ public final class PlayerSurfaces {
      * The logo is a placeholder from {@link Glyphs}, not a private-use character in a properties file.
      */
     private void sendTabListFrame(final Player player, final PlayerIdentity identity) {
-        tabList.drawCounted(player, identity.language(), network);
+        tabList.drawCounted(player, identity.language(), TAB_FOOTER, network);
     }
 }

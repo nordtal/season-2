@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -25,13 +25,12 @@ import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.junit.jupiter.api.Test;
 
-/** A refused command plays {@link Feedback#REFUSED} as well as its {@code Tone.BAD} colour. */
+/** A refused command plays {@link Feedback#REFUSED} as well as its document's colour. */
 class CommandFilterTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000003");
 
-    private final Messages messages =
-            Messages.load(getClass().getClassLoader(), "messages/paper-common", Locales.DEFAULT);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/database", Locales.DEFAULT);
     private final Identities identities = new Identities(players -> List.of());
 
     /** Records every play() call rather than making a sound. */
@@ -47,7 +46,12 @@ class CommandFilterTest {
 
     private CommandFilter filter(final Supplier<CommandAllowlist> allowlist, final SpyChime chime) {
         return new CommandFilter(
-                allowlist, uuid -> false, identities, MessageRenderer.of(messages), () -> ToneColours.DEFAULTS, chime);
+                allowlist,
+                uuid -> false,
+                identities,
+                MessageRenderer.of(messages)
+                        .reading(new AppliedDocuments(getClass().getClassLoader(), Set.of("paper-common"))),
+                chime);
     }
 
     @Test

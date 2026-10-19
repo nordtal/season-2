@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>No active access. The last period ended {since}.</warn>",
+            "de": "<warn>Kein aktiver Zugang. Der letzte Zeitraum endete am {since}.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

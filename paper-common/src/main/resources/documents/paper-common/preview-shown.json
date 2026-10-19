@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Your player sees it in game.</good>",
+            "de": "<good>Dein Spieler sieht es im Spiel.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

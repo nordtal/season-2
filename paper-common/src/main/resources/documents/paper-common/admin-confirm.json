@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>This cannot be undone. Run {command} confirm to continue.</warn>",
+            "de": "<warn>Das lässt sich nicht rückgängig machen. Führe {command} confirm aus, um fortzufahren.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

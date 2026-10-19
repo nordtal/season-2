@@ -4,8 +4,8 @@ import java.util.Locale;
 
 /**
  * The names of the palette. A packaged text names a colour only by its tone, as {@code <good>}.
- * A command's reply names one tone for the whole reply. Each adapter paints the tones and Discord
- * ignores them. The enum names no Adventure type, because the bot loads it.
+ * A proxy command's reply names one tone for the whole reply, and a game document names its tones in its text.
+ * Each adapter paints the tones and Discord ignores them. The enum names no Adventure type, because the bot loads it.
  */
 public enum Tone {
 

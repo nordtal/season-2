@@ -1,7 +1,7 @@
 package eu.nordtal.season.papercommon.menu;
 
-import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.GameDocument;
+import eu.nordtal.season.messagerendering.Lines;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import java.util.List;

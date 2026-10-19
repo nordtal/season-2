@@ -1,0 +1,14 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>{usage}: {what}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

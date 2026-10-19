@@ -1,0 +1,14 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<newline><muted>{online}<faint>/</faint>{max} online</muted><newline><brand>nordtal.eu</brand>"
+          }
+        }
+      ]
+    }
+  ]
+}

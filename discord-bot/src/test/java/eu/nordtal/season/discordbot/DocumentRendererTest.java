@@ -86,6 +86,16 @@ class DocumentRendererTest {
         assertTrue(drawn.contains("+€3.00 →"), drawn);
     }
 
+    /** The preview once drew a message's example as its key, admin/run.no-build. */
+    @Test
+    void aPreviewDrawsAMessageExampleAsTheTextItsKeyNames() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-alert"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("no build yet"), drawn);
+        assertFalse(drawn.contains("admin/run.no-build"), drawn);
+    }
+
     @Test
     void everyPackagedDocumentHasAPreviewInItsShape() {
         final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();

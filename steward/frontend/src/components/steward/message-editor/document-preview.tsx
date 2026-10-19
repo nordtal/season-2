@@ -18,6 +18,7 @@ import {
   McTooltip,
   MinecraftText,
   Preview,
+  SCREEN_WRAP,
 } from "@/components/steward/message-editor/preview"
 
 /** How long typing pauses before the server draws the draft again. */
@@ -110,12 +111,19 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
       </div>
       <ul className="flex flex-wrap items-start gap-3">
         {menu.parts.map((part, index) => (
-          <li key={index} className="flex shrink-0 flex-col gap-1">
+          <li key={index} className="flex max-w-full flex-col gap-1">
             <span className="font-mono text-[11px] text-[#404040]">{part.slot}</span>
             {part.type === "ITEM" ? (
               <McTooltip>
                 {part.lines.map((line, at) => (
-                  <MinecraftText key={at} runs={runs(line)} fill={unfilled} glyphs={glyphs} tones={tones} />
+                  <MinecraftText
+                    key={at}
+                    runs={runs(line)}
+                    fill={unfilled}
+                    glyphs={glyphs}
+                    tones={tones}
+                    wrap={SCREEN_WRAP}
+                  />
                 ))}
               </McTooltip>
             ) : (

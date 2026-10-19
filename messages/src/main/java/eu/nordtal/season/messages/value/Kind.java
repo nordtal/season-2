@@ -58,7 +58,7 @@ public enum Kind {
     CHOICE("choice", "true"),
 
     /** Another message, rendered for the same reader in the same target.
-     * An editor writes it as the key of a message without values.
+     * An editor writes it as the key of a message without values, as {@code bundle/key} or as the key alone.
      */
     MESSAGE("message", "values.missing.text");
 
@@ -146,7 +146,8 @@ public enum Kind {
             case ITEM -> GameContent.of(text);
             case GLYPH -> new Glyph(text);
             case CHOICE -> "true".equals(text) || "false".equals(text) ? Boolean.valueOf(text) : text;
-            case MESSAGE -> MessageRef.of(text.strip());
+            // The bundles load as one and name their keys without the bundle, as a message the code sends does.
+            case MESSAGE -> MessageRef.of(text.strip().substring(text.strip().indexOf('/') + 1));
         };
     }
 

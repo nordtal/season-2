@@ -25,6 +25,7 @@ import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
+import eu.nordtal.season.database.mode.ModeStateStore;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -46,6 +47,7 @@ import eu.nordtal.season.papercommon.game.GameDataExport;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.Menus;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.papercommon.player.ModeStates;
 import eu.nordtal.season.papercommon.player.Presence;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.papercommon.world.Distances;
@@ -217,6 +219,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 this, identities, operators, renderer, refusesWithoutIdentity(), this::languageKnown, logger()));
         adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
+        listen(new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger()));
         // Only the proxy enforces the network's limit.
         listen(new Unbounded());
 

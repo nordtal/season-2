@@ -207,6 +207,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V74__the_rebuilt_layout_tables_are_gone.sql",
                 "f89028916eff562514fe77a7d476bb5210739361b7603dbfad8c99fa8fe9a002");
+        FROZEN.put(
+                "V75__a_player_keeps_a_survival_and_a_creative_state_per_server.sql",
+                "b43a18e0bb61b9ad80f3b00ae3099807eba7e0663283cc14b0e6d4babb242c4d");
     }
 
     @Test

@@ -37,11 +37,9 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 /**
- * Derives a form from a plugin's YAML or JSON file and writes a form's changes back into its text.
+ * A form for a plugin's YAML or JSON file, whose save keeps every byte but the changed values.
  *
- * A save replaces only the characters of the changed values, so every other byte of the file stays as it was. A file
- * where that cannot hold for every value (block scalars, anchors, lists of maps, a comment inside a list) has no form
- * and opens as text.
+ * A file where that cannot hold for every value (block scalars, anchors, lists of maps) opens as text.
  */
 final class PluginYaml {
 

@@ -1,4 +1,5 @@
 import type { ConfigDocument } from "@/lib/api"
+import { useSaveConfig } from "@/lib/queries"
 import { Failure } from "@/components/steward/query-state"
 import { noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
@@ -17,7 +18,7 @@ export function readsTrack(document: ConfigDocument): boolean {
 
 export function MilestonesEditor({ file, document }: CustomEditorProps) {
   const schema = trackSchema(document.entries)
-  const { draft, count, set, submit, discard, save } = useGroupDraft(file, document)
+  const { draft, count, set, submit, discard, save } = useGroupDraft(file, document, useSaveConfig(document.path))
   if (schema === null) return null
   const track = sectionsIn(draft[schema.entry.path]) ?? sectionsFromEntry(schema.entry)
   const notice = noticeOf(document)

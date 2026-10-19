@@ -5,10 +5,10 @@ import { cn } from "cn"
 
 import type { CSSVars } from "@/lib/utils"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
-import { useConfig } from "@/lib/queries"
+import { useConfig, useSaveConfig } from "@/lib/queries"
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"
 import { Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
-import { type DraftValue, noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
+import { type DraftValue, type GroupSave, noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { explanationOf } from "@/components/steward/config-controls"
 import { customEditor } from "@/components/steward/config-editors"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
@@ -47,7 +47,22 @@ export function ConfigFile({ item, target }: { item: FileItem; target: Target | 
 }
 
 function ConfigForm({ file, document, target }: { file: string; document: ConfigDocument; target: Target | null }) {
-  const { draft, changes, count, set, submit, discard, save } = useGroupDraft(file, document)
+  return <DraftForm file={file} document={document} target={target} save={useSaveConfig(document.path)} />
+}
+
+/** A file's settings as a tree of fields. `save` writes them to wherever the file lives. */
+export function DraftForm({
+  file,
+  document,
+  target,
+  save: mutation,
+}: {
+  file: string
+  document: ConfigDocument
+  target: Target | null
+  save: GroupSave
+}) {
+  const { draft, changes, count, set, submit, discard, save } = useGroupDraft(file, document, mutation)
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
   const writable = document.writable

@@ -50,10 +50,6 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "The tones and glyphs only colour a line of text drawn from the start; until they arrive it is drawn plain.",
   ],
   [
-    "components/steward/group-draft.tsx",
-    "useSaveConfig is a mutation. The group it drafts was read by the editor that calls it, which draws the wait.",
-  ],
-  [
     "components/steward/config-controls.tsx",
     "The catalogue only adds a choice's icon beside its name, which is drawn from the start.",
   ],

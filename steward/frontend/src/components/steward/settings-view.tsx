@@ -101,15 +101,6 @@ export function TreeView<L>({
    * The branches that the last jump opens. They are kept as state, because the render that finds them is redone before it commits.
    */
   const [jumpChain, setJumpChain] = useState<string[] | null>(null)
-  const [scrolledAway, setScrolledAway] = useState(false)
-  const phoneBar = use(PhoneBarSlot)
-  useEffect(() => {
-    const node = search.current
-    if (!node || typeof IntersectionObserver === "undefined") return undefined
-    const observer = new IntersectionObserver(([entry]) => setScrolledAway(!entry.isIntersecting))
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [search])
   const closedByDefault = useMemo(() => collapsed === true || leafCount(nodes) > 12, [nodes, collapsed])
 
   const shown = useMemo(
@@ -170,34 +161,48 @@ export function TreeView<L>({
         />
       )}
       <PinnedRow>
-        {scrolledAway && !phoneBar ? (
-          <Button
-            type="button"
-            size="icon"
-            aria-label={t("steward.settings.back-to-top")}
-            className="pointer-events-auto rounded-full shadow-sm"
-            onClick={() => scrollPageToTop(search.current)}
-          >
-            <ArrowUpIcon aria-hidden />
-          </Button>
-        ) : null}
+        <BackToTop at={search} />
         {save}
       </PinnedRow>
-      {/* On a phone the button sits in the navigation bar, where it covers nothing of the page. */}
-      {scrolledAway && phoneBar
-        ? createPortal(
-            <button
-              type="button"
-              aria-label={t("steward.settings.back-to-top")}
-              className={CONTROL}
-              onClick={() => scrollPageToTop(search.current)}
-            >
-              <ArrowUpIcon className="size-4" aria-hidden />
-            </button>,
-            phoneBar,
-          )
-        : null}
     </div>
+  )
+}
+
+/** Shows once `at` has scrolled out of view. On a phone it sits in the navigation bar, where it covers nothing of the page. */
+export function BackToTop({ at }: { at: RefObject<HTMLElement | null> }) {
+  const [scrolledAway, setScrolledAway] = useState(false)
+  const phoneBar = use(PhoneBarSlot)
+  useEffect(() => {
+    const node = at.current
+    if (!node || typeof IntersectionObserver === "undefined") return undefined
+    const observer = new IntersectionObserver(([entry]) => setScrolledAway(!entry.isIntersecting))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [at])
+  if (!scrolledAway) return null
+  if (phoneBar) {
+    return createPortal(
+      <button
+        type="button"
+        aria-label={t("steward.settings.back-to-top")}
+        className={CONTROL}
+        onClick={() => scrollPageToTop(at.current)}
+      >
+        <ArrowUpIcon className="size-4" aria-hidden />
+      </button>,
+      phoneBar,
+    )
+  }
+  return (
+    <Button
+      type="button"
+      size="icon"
+      aria-label={t("steward.settings.back-to-top")}
+      className="pointer-events-auto rounded-full shadow-sm"
+      onClick={() => scrollPageToTop(at.current)}
+    >
+      <ArrowUpIcon aria-hidden />
+    </Button>
   )
 }
 
@@ -215,13 +220,14 @@ export function PinnedRow({ children }: { children: ReactNode }) {
   )
 }
 
-function NodeList<L>({
+export function NodeList<L>({
   nodes,
   isOpen,
   onToggle,
   draftIds,
   highlight,
   renderLeaf,
+  branchIcon,
   list,
   cards,
   nested,
@@ -232,6 +238,8 @@ function NodeList<L>({
   draftIds: Set<string>
   highlight: Highlight | null
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
+  /** Drawn after the caret, for a list whose branches are things of their own. */
+  branchIcon?: (branch: TreeBranch<L>) => ReactNode
   list?: boolean
   cards?: boolean
   nested?: boolean
@@ -294,6 +302,7 @@ function NodeList<L>({
                 aria-hidden
                 className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
               />
+              {branchIcon?.(group)}
               <span className="flex min-w-0 items-center gap-1 truncate">
                 {group.labels.map((label, index) => (
                   <Fragment key={index}>
@@ -320,6 +329,7 @@ function NodeList<L>({
                   draftIds={draftIds}
                   highlight={highlight}
                   renderLeaf={renderLeaf}
+                  branchIcon={branchIcon}
                   list={list}
                   cards={cards}
                   nested

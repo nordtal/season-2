@@ -47,6 +47,9 @@ public interface SettingsEditor {
     @Name("Settings saved")
     MessageRef settingsSaved(@Arg("count") int count);
 
+    @Name("File saved")
+    MessageRef fileSaved(@Arg("file") String file);
+
     @Name("Not in bundle")
     MessageRef notInBundle();
 

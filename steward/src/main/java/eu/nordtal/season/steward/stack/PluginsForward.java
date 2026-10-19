@@ -105,10 +105,9 @@ public final class PluginsForward {
     public record PluginFileSaved(AgentWire.PluginFile file, String revision, Reloading reload) {}
 
     /**
-     * {@code PUT /api/services/{name}/plugin-file} writes the file and nothing else.
+     * {@code PUT /api/services/{name}/plugin-file} writes the file, which the server reads at its next start.
      *
-     * The server reads it when it next starts. A file that changed on disk since {@code revision} is a 409. The form's
-     * changes are written into the text as it is now, which keeps every other byte of it.
+     * A file changed on disk since {@code revision} is a 409. The form's changes go into the text as it is now.
      */
     PluginFileSaved save(final Context ctx, final Actor by) {
         final PluginFileEdit edit = ctx.bodyAsClass(PluginFileEdit.class);

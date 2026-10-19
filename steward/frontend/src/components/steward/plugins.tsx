@@ -436,7 +436,7 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
 }
 
 /** A Content-Security-Policy in front of Steward must allow that host. Steward stores no other. */
-function Thumbnail({
+export function Thumbnail({
   url,
   alt,
   waiting,

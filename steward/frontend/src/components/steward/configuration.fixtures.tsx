@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { ServiceSettings } from "@/components/steward/settings"
-import type { ConfigEntry, ConfigLocation, PluginDescriptor } from "@/lib/api"
+import type { ConfigEntry, ConfigLocation, PluginDescriptor, PluginFile, PluginFileView } from "@/lib/api"
 import { words } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -105,6 +105,8 @@ export const GUILD_UNAVAILABLE = { available: false, reason: words("no bot token
 export function backend(
   documents: Record<string, ConfigLocation & Record<string, unknown>>,
   descriptors: PluginDescriptor[] = [],
+  /** Third-party plugin files, by `<plugin>/<path>`; a service with none has no plugins folder. */
+  plugins: Record<string, PluginFileView> = {},
 ) {
   const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
     service,
@@ -117,6 +119,17 @@ export function backend(
     if (url === "/api/setting-groups") return json(listing)
     if (url === "/api/descriptors") return json(descriptors)
     if (url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
+    const service = /^\/api\/services\/([^/?]+)(\/.*)?$/.exec(url)
+    if (service) {
+      const files: PluginFile[] = Object.values(plugins)
+        .map((view) => view.file)
+        .filter((file) => file.service === service[1])
+      if (service[2] === undefined) return json({ service: service[1], hasPlugins: files.length > 0 })
+      if (service[2] === "/plugin-files") return json({ service: service[1], mounted: true, files })
+      const query = new URLSearchParams(url.slice(url.indexOf("?")))
+      const view = plugins[`${query.get("plugin")}/${query.get("path")}`]
+      if (view) return json(view)
+    }
     const found = Object.entries(documents).find(([path]) => url === `/api/setting-groups/${path}`)
     if (found) return json(found[1])
     throw new Error(`the form asked for ${url}, which this test did not expect`)

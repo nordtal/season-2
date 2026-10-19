@@ -1,4 +1,4 @@
-import type { ConfigEntry, DocumentView, MessageEntry, MessageText } from "@/lib/api"
+import type { ConfigEntry, DocumentView, MessageEntry, MessageText, PluginFile } from "@/lib/api"
 import { documentId, inGame, pageCards, type PageCard } from "@/lib/documents"
 import { entryHaystack } from "@/lib/settings-search"
 import { groupOf, PAGE_GROUPS, pageGroupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
@@ -172,6 +172,53 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
         ? value.entries
         : [value.pair.left, value.pair.right, ...value.pair.rows.flatMap((row) => [row.left, row.right])]
   return entries.some((entry) => entryHaystack(entry).includes(needle))
+}
+
+/** A plugin file in the settings list: `alone` when it is the plugin's only file, which the row names by the plugin. */
+export type PluginFileLeaf = { file: PluginFile; label: string; alone: boolean }
+
+/** Returns what a plugin is listed by: its name, else its data folder made readable. */
+export function pluginLabel(file: PluginFile): string {
+  return file.name ?? humanise(file.plugin)
+}
+
+/** Returns the id a plugin file is selected, drafted and named in `?file=` by. */
+export function pluginFileId(file: PluginFile): string {
+  return `plugin:${file.plugin}/${file.path}`
+}
+
+/**
+ * Returns the plugins' files by plugin name. A plugin with one file is one row; one with several is a branch whose children mirror its folders, a folder with one folder in it folded into one row.
+ */
+export function pluginFileTree(files: PluginFile[]): TreeNode<PluginFileLeaf>[] {
+  const byPlugin = new Map<string, PluginFile[]>()
+  for (const file of files) byPlugin.set(file.plugin, [...(byPlugin.get(file.plugin) ?? []), file])
+  const plugins = [...byPlugin.values()].toSorted((a, b) => pluginLabel(a[0]).localeCompare(pluginLabel(b[0])))
+  const builder = new Builder<PluginFileLeaf>()
+  for (const own of plugins) {
+    const label = pluginLabel(own[0])
+    if (own.length === 1) {
+      const id = pluginFileId(own[0])
+      builder.add(null, { kind: "leaf", id, ids: [id], value: { file: own[0], label, alone: true }, wide: false })
+      continue
+    }
+    const root = builder.branch(`plugin:${own[0].plugin}`, label, null).id
+    for (const file of own.toSorted((a, b) => a.path.localeCompare(b.path))) {
+      const segments = file.path.split("/")
+      let parent = root
+      for (const folder of segments.slice(0, -1)) parent = builder.branch(`${parent}/${folder}`, folder, parent).id
+      const id = pluginFileId(file)
+      builder.add(parent, {
+        kind: "leaf",
+        id,
+        ids: [id],
+        value: { file, label: segments.at(-1) ?? file.path, alone: false },
+        wide: false,
+      })
+    }
+  }
+  // The plugin's own row is never folded into a folder, so only its children are.
+  return builder.root.map((node) => (node.kind === "leaf" ? node : { ...node, children: node.children.map(fold) }))
 }
 
 /**

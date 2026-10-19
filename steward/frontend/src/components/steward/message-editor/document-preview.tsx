@@ -261,14 +261,21 @@ function ComponentView({ component, language }: { component: Component; language
       )
     case THUMBNAIL:
       return <Media url={component.media?.url} className="size-20 shrink-0" />
-    case GALLERY:
+    case GALLERY: {
+      const items = component.items ?? []
+      // One image keeps its own shape, uncropped; more are cropped into Discord's mosaic.
+      if (items.length === 1) {
+        return <Media url={items[0].media.url} className="h-auto max-h-[400px] min-h-20 w-auto max-w-full self-start" />
+      }
+      const cells = galleryCells(items.length)
       return (
-        <div className={cn("grid grid-cols-1 gap-1", (component.items?.length ?? 0) > 1 && "grid-cols-2")}>
-          {(component.items ?? []).map((item, index) => (
-            <Media key={index} url={item.media.url} className="h-28 w-full" />
+        <div className="grid grid-cols-6 gap-1">
+          {items.map((item, index) => (
+            <Media key={index} url={item.media.url} className={cn("w-full", cells[index])} />
           ))}
         </div>
       )
+    }
     case FILE:
       return <Media url={component.file?.url} className="h-12 w-full max-w-xs" />
     case SEPARATOR:
@@ -305,6 +312,25 @@ function ComponentView({ component, language }: { component: Component; language
     default:
       return null
   }
+}
+
+/**
+ * Each image's cell in a gallery of two to ten on a grid of six columns, as Discord lays it out: two side by side, three as
+ * one large beside two stacked, four as two rows of two, and from five rows of three under a first row that holds the
+ * rest, one wide image or two.
+ */
+export function galleryCells(count: number): string[] {
+  if (count === 2) return ["col-span-3 aspect-square", "col-span-3 aspect-square"]
+  if (count === 3)
+    return ["col-span-4 row-span-2 aspect-square", "col-span-2 aspect-square", "col-span-2 aspect-square"]
+  if (count === 4) return Array<string>(4).fill("col-span-3 aspect-[4/3]")
+  const first =
+    count % 3 === 1
+      ? ["col-span-6 aspect-video"]
+      : count % 3 === 2
+        ? Array<string>(2).fill("col-span-3 aspect-[4/3]")
+        : []
+  return [...first, ...Array<string>(count - first.length).fill("col-span-2 aspect-square")]
 }
 
 /** A heading's size by its number of `#`, and `-#` for Discord's small grey line. */

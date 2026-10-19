@@ -1,12 +1,4 @@
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  LockSimpleIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  TrashIcon,
-  XIcon,
-} from "@phosphor-icons/react"
+import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type {
@@ -29,12 +21,12 @@ import {
   slotPart,
   slotsOf,
   unplacedSlots,
+  versionsOf,
   withItem,
   withLine,
   type PartPath,
 } from "@/lib/document-edit"
 import { documentName } from "@/lib/documents"
-import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useCommandRun, useDocumentDrawing, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
@@ -43,6 +35,7 @@ import { serviceTitle } from "@/lib/words"
 import { cn } from "cn"
 import { toast } from "sonner"
 import { RequestOutcome } from "@/components/steward/game-actions"
+import { PinnedRow } from "@/components/steward/settings-view"
 import { Failure } from "@/components/steward/query-state"
 import {
   AccentField,
@@ -50,7 +43,11 @@ import {
   CodeMark,
   IconButton,
   ImageField,
+  Images,
   Labelled,
+  LanguageToggle,
+  Move,
+  Required,
   TextField,
   WhenField,
   type Context,
@@ -76,7 +73,7 @@ const ADDED: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">[] = [
 const STYLES: DocumentLineStyle[] = ["TITLE", "HEADING"]
 
 /**
- * A document's editor: every part of its structure with its texts in English and one more language, a Discord
+ * A document's editor: every part of its structure folded to a line, its texts in the one language picked, a Discord
  * document's count of components and what a save would be refused for. A save is live at once.
  */
 export function DocumentEditor({
@@ -84,8 +81,8 @@ export function DocumentEditor({
   draft,
   onDraft,
   languages,
-  beside,
-  onBeside,
+  language,
+  onLanguage,
   writable,
   onClose,
 }: {
@@ -94,22 +91,22 @@ export function DocumentEditor({
   onDraft: (draft: Document | undefined) => void
   /** The network's languages, the default first. */
   languages: string[]
-  beside: Language | undefined
-  onBeside: (language: Language | undefined) => void
+  /** The language edited and previewed. */
+  language: Language
+  onLanguage: (language: Language) => void
   writable: boolean
   onClose: () => void
 }) {
   const save = useSaveDocument()
   // The same debounced draft the preview draws, so both share one drawing.
-  const drawing = useDocumentDrawing(view.declaration, useDebounced(draft, PAUSE_MS), beside ?? ENGLISH)
+  const drawing = useDocumentDrawing(view.declaration, useDebounced(draft, PAUSE_MS), language)
   const shown = view.written ?? view.packaged
   const changed = JSON.stringify(draft) !== JSON.stringify(shown)
   const problems = drawing.data?.problems ?? []
   const refused = problems.some((problem) => problem.error)
-  const others = languages.filter((language) => language !== ENGLISH)
   const context: Context = {
     view,
-    beside,
+    language,
     writable,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
@@ -154,25 +151,7 @@ export function DocumentEditor({
           <XIcon aria-hidden />
         </Button>
       </div>
-      {others.length > 0 ? (
-        <Select
-          value={beside ?? ENGLISH}
-          onValueChange={(language) => onBeside(language === ENGLISH ? undefined : language)}
-        >
-          <SelectTrigger aria-label={t("steward.document-editor.language")} className="w-full sm:w-52">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ENGLISH}>{languageName(ENGLISH)}</SelectItem>
-            {others.map((language) => (
-              <SelectItem key={language} value={language}>
-                {languageName(language)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : null}
-      {view.outdated ? <Outdated view={view} language={beside ?? ENGLISH} /> : null}
+      {view.outdated ? <Outdated view={view} language={language} /> : null}
       {problems.length > 0 ? (
         <ul className="flex flex-col gap-1 text-xs">
           {problems.map((problem, index) => (
@@ -192,26 +171,37 @@ export function DocumentEditor({
       {save.error ? <Failure error={save.error} /> : null}
       {send.error ? <Failure error={send.error} /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        {sendable ? (
+      {/* The language and the save stay in reach while a long document scrolls. */}
+      <PinnedRow>
+        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 rounded-md border bg-card/95 p-2 backdrop-blur">
+          <LanguageToggle languages={languages} language={language} onLanguage={onLanguage} />
+          {sendable ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={t("steward.message-editor.send-in-discord")}
+              title={t("steward.message-editor.send-in-discord")}
+              disabled={refused || send.busy}
+              onClick={() => send.send(draft, language)}
+            >
+              <PaperPlaneTiltIcon aria-hidden />
+            </Button>
+          ) : null}
+          <span className="flex-1" />
           <Button
             type="button"
-            variant="outline"
-            className="mr-auto"
-            disabled={refused || send.busy}
-            onClick={() => send.send(draft, beside ?? ENGLISH)}
+            variant="ghost"
+            disabled={!changed || save.isPending}
+            onClick={() => onDraft(undefined)}
           >
-            <PaperPlaneTiltIcon aria-hidden />
-            {t("steward.message-editor.send-in-discord")}
+            {t("steward.document-editor.discard")}
           </Button>
-        ) : null}
-        <Button type="button" variant="ghost" disabled={!changed || save.isPending} onClick={() => onDraft(undefined)}>
-          {t("steward.document-editor.discard")}
-        </Button>
-        <Button type="button" disabled={!writable || !changed || refused || save.isPending} onClick={submit}>
-          {t("steward.document-editor.save")}
-        </Button>
-      </div>
+          <Button type="button" disabled={!writable || !changed || refused || save.isPending} onClick={submit}>
+            {t("steward.document-editor.save")}
+          </Button>
+        </div>
+      </PinnedRow>
     </section>
   )
 }
@@ -269,7 +259,10 @@ function Parts({ parts, path, context }: { parts: DocumentPart[]; path: PartPath
   )
 }
 
-/** One part: its kind, its condition and the buttons that move or remove it, then what it holds. */
+/**
+ * One part folded to a line: on its left the buttons that move it and lock or remove it, then its kind and its first
+ * words in the language picked. A click opens what it holds; only the document's first part starts open.
+ */
 function PartEditor({
   part,
   path,
@@ -283,35 +276,82 @@ function PartEditor({
 }) {
   const { view, writable, onPart } = context
   const set = (change: (part: DocumentPart) => DocumentPart | undefined) => onPart(path, change)
-  const locked = holdsRequired(view.declaration, slotsOf(part))
   const at = path[path.length - 1]
+  const [open, setOpen] = useState(path.length === 1 && at === 0)
+  // A separator holds nothing to open.
+  const empty = part.type === "SEPARATOR"
+  const words = firstWords(part, context.language)
   return (
-    <div className="flex min-w-0 flex-col gap-2 border-l-2 pl-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">
-          {t("steward.document-editor.part", { part: choice(part.type) })}
+    <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
+      <div className="flex min-w-0 flex-wrap items-center gap-1 p-1">
+        <span className="flex shrink-0 items-center">
+          <Move disabled={!writable} first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
+          {holdsRequired(view.declaration, slotsOf(part)) ? (
+            <Required />
+          ) : (
+            <IconButton
+              label={t("steward.document-editor.remove")}
+              disabled={!writable}
+              onPress={() => set(() => undefined)}
+            >
+              <TrashIcon aria-hidden />
+            </IconButton>
+          )}
         </span>
-        {part.slot ? <CodeMark slot={part.slot} /> : null}
-        <Move disabled={!writable} first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
-        {locked ? (
-          <LockSimpleIcon
-            aria-label={t("steward.document-editor.required")}
-            className="size-4 shrink-0 text-muted-foreground"
-          />
-        ) : (
-          <IconButton
-            label={t("steward.document-editor.remove")}
+        <button
+          type="button"
+          aria-expanded={empty ? undefined : open}
+          disabled={empty}
+          onClick={() => setOpen(!open)}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {empty ? null : (
+            <CaretRightIcon
+              aria-hidden
+              className={cn(
+                "size-3.5 shrink-0 transition-transform motion-reduce:transition-none",
+                open && "rotate-90",
+              )}
+            />
+          )}
+          <span className="min-w-0 truncate text-xs font-medium">
+            {t("steward.document-editor.part", { part: choice(part.type) })}
+          </span>
+          {part.slot ? <CodeMark slot={part.slot} /> : null}
+          {open || !words ? null : (
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{words}</span>
+          )}
+        </button>
+        {open ? (
+          <WhenField
+            view={view}
+            when={part.when}
             disabled={!writable}
-            onPress={() => set(() => undefined)}
-          >
-            <TrashIcon aria-hidden />
-          </IconButton>
-        )}
+            onWhen={(when) => set((it) => ({ ...it, when }))}
+          />
+        ) : null}
       </div>
-      <WhenField view={view} when={part.when} disabled={!writable} onWhen={(when) => set((it) => ({ ...it, when }))} />
-      <PartBody part={part} path={path} context={context} set={set} />
+      {open && !empty ? (
+        <div className="flex min-w-0 flex-col gap-2 border-t p-2">
+          <PartBody part={part} path={path} context={context} set={set} />
+        </div>
+      ) : null}
     </div>
   )
+}
+
+/** The first written words of a part in `language`, or in English where it has none, for its folded line. */
+function firstWords(part: DocumentPart, language: Language): string | undefined {
+  const texts = [...(part.lines ?? []).map((line) => line.text), ...(part.items ?? []).map((item) => item.label)]
+  for (const text of texts) {
+    const words = versionsOf(text, language)[0] || versionsOf(text, ENGLISH)[0]
+    if (words) return words
+  }
+  for (const inner of part.parts ?? []) {
+    const words = firstWords(inner, language)
+    if (words) return words
+  }
+  return undefined
 }
 
 function PartBody({
@@ -533,10 +573,7 @@ function ItemEditor({
         <span className="flex-1" />
         <WhenField view={view} when={item.when} disabled={!writable} onWhen={(when) => onItem({ ...item, when })} />
         {locked ? (
-          <LockSimpleIcon
-            aria-label={t("steward.document-editor.required")}
-            className="size-4 shrink-0 text-muted-foreground"
-          />
+          <Required />
         ) : (
           <IconButton
             label={t("steward.document-editor.remove")}
@@ -641,49 +678,6 @@ function SectionBeside({
   )
 }
 
-function Images({
-  part,
-  most,
-  disabled,
-  set,
-}: {
-  part: DocumentPart
-  most: number
-  disabled: boolean
-  set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
-}) {
-  const media = part.media ?? []
-  return (
-    <>
-      {media.map((address, index) => (
-        <div key={index} className="flex min-w-0 items-start gap-1">
-          <ImageField
-            address={address}
-            disabled={disabled}
-            onAddress={(next) => set((it) => ({ ...it, media: media.map((each, at) => (at === index ? next : each)) }))}
-          />
-          {media.length > 1 ? (
-            <IconButton
-              label={t("steward.document-editor.remove")}
-              disabled={disabled}
-              onPress={() => set((it) => ({ ...it, media: media.filter((_, at) => at !== index) }))}
-            >
-              <TrashIcon aria-hidden />
-            </IconButton>
-          ) : null}
-        </div>
-      ))}
-      {media.length < most ? (
-        <AddButton
-          label={t("steward.document-editor.add-image")}
-          disabled={disabled}
-          onPress={() => set((it) => ({ ...it, media: [...media, ""] }))}
-        />
-      ) : null}
-    </>
-  )
-}
-
 /** The menu that adds a part, or a slot the code fills that no part places yet. */
 function AddPart({
   view,
@@ -723,29 +717,6 @@ function AddPart({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-function Move({
-  disabled,
-  first,
-  last,
-  onMove,
-}: {
-  disabled: boolean
-  first: boolean
-  last: boolean
-  onMove: (by: -1 | 1) => void
-}) {
-  return (
-    <>
-      <IconButton label={t("steward.document-editor.move-up")} disabled={disabled || first} onPress={() => onMove(-1)}>
-        <ArrowUpIcon aria-hidden />
-      </IconButton>
-      <IconButton label={t("steward.document-editor.move-down")} disabled={disabled || last} onPress={() => onMove(1)}>
-        <ArrowDownIcon aria-hidden />
-      </IconButton>
-    </>
   )
 }
 

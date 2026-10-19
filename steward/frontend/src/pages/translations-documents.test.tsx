@@ -213,6 +213,12 @@ async function openContribution(): Promise<HTMLElement> {
   return screen.findByRole("region", { name: "Contribution" })
 }
 
+/** Opens the folded text block that holds the title and returns the title's field. */
+function unfold(editor: HTMLElement): HTMLElement {
+  fireEvent.click(within(editor).getByRole("button", { name: /^Text block\s*Access$/ }))
+  return within(editor).getByDisplayValue("Access")
+}
+
 describe("an open document", () => {
   it("opens its editor in its card, with the component count and a lock on what the code requires", async () => {
     serve()
@@ -222,12 +228,44 @@ describe("an open document", () => {
     const card = screen.getByRole("article", { name: "Contribution" })
     expect(card.hasAttribute("data-open")).toBe(true)
     expect(await within(editor).findByText("7 of 40 components")).toBeTruthy()
-    expect(within(editor).getByDisplayValue("Access")).toBeTruthy()
+    // Each part folds to a line naming its kind and first words; only the first one starts open.
+    expect(within(editor).getByRole("button", { name: "Embed" }).getAttribute("aria-expanded")).toBe("true")
+    expect(
+      within(editor)
+        .getByRole("button", { name: /^Buttons\s*Buy access$/ })
+        .getAttribute("aria-expanded"),
+    ).toBe("false")
+    expect(unfold(editor)).toBeTruthy()
     expect(within(editor).getAllByLabelText("Required by the code").length).toBeGreaterThan(0)
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
 
     fireEvent.click(within(editor).getByRole("button", { name: "Close" }))
     await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
+  })
+
+  it("edits and previews one language at a time, picked with the language toggle", async () => {
+    serve()
+    draw(<Page />)
+
+    const editor = await openContribution()
+    const card = screen.getByRole("article", { name: "Contribution" })
+    // What the card draws outside the editor: the preview.
+    const previewed = (shown: string) =>
+      within(card)
+        .queryAllByText(shown)
+        .filter((each) => !editor.contains(each))
+    unfold(editor)
+    expect(within(editor).queryByRole("combobox", { name: "Language" })).toBeNull()
+
+    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "DE" }))
+    expect(await within(editor).findByDisplayValue("access-de")).toBeTruthy()
+    expect(within(editor).queryByDisplayValue("Access")).toBeNull()
+    await waitFor(() => expect(previewed("access-de")).toHaveLength(1))
+    expect(previewed("Access")).toHaveLength(0)
+
+    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "EN" }))
+    await waitFor(() => expect(previewed("Access")).toHaveLength(1))
+    expect(previewed("access-de")).toHaveLength(0)
   })
 
   it("saves the edited document at once and marks it changed in the list", async () => {
@@ -246,7 +284,7 @@ describe("an open document", () => {
     draw(<Page />)
 
     const editor = await openContribution()
-    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+    fireEvent.change(unfold(editor), { target: { value: "Support" } })
     fireEvent.click(within(editor).getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(saved).toHaveLength(1))
@@ -272,7 +310,7 @@ describe("an open document", () => {
     draw(<Page />)
 
     const editor = await openContribution()
-    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+    fireEvent.change(unfold(editor), { target: { value: "Support" } })
     fireEvent.click(within(editor).getByRole("button", { name: "Send it to me in Discord" }))
 
     expect(await within(editor).findByText("Sent to you in Discord.")).toBeTruthy()
@@ -296,7 +334,7 @@ describe("an open document", () => {
     draw(<Page />)
 
     const editor = await openContribution()
-    fireEvent.change(within(editor).getByDisplayValue("Access"), { target: { value: "Support" } })
+    fireEvent.change(unfold(editor), { target: { value: "Support" } })
 
     expect(await within(editor).findByText("it draws 41 components, Discord draws 40")).toBeTruthy()
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)

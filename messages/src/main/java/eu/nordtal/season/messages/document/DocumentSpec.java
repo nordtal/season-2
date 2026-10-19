@@ -35,11 +35,13 @@ public record DocumentSpec<V extends Record>(
         /** A tab list's header or footer: the lines of its text blocks. */
         TAB_LIST,
         /** A screen that replaces the game, such as a kick: the lines of its text blocks. */
-        KICK_SCREEN;
+        KICK_SCREEN,
+        /** A title over the screen: its first line is the title, every line after it the subtitle. */
+        TITLE;
 
         /** Returns whether the game draws it, with the game's renderer, rather than Discord. */
         public boolean game() {
-            return this == MENU || this == CHAT || this == TAB_LIST || this == KICK_SCREEN;
+            return this == MENU || this == CHAT || this == TAB_LIST || this == KICK_SCREEN || this == TITLE;
         }
     }
 

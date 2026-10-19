@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>You are next in line</accent>",
+            "de": "<accent>Du bist gleich dran</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>The server lets in one player at a time.</muted>",
+            "de": "<muted>Der Server lässt einen Spieler nach dem anderen herein.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

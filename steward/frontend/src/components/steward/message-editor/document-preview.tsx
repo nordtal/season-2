@@ -138,14 +138,19 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
   )
 }
 
-/** A chat text, a tab list or a kick screen on the scene the game draws it in, as a text of a bundle is. */
+/**
+ * A chat text, a tab list, a kick screen or a title on the scene the game draws it in, as a text of a bundle is.
+ * A title's first line is the title and the lines after it are its subtitle.
+ */
 function GamePreview({ shape, lines, className }: { shape: string; lines: string[]; className?: string }) {
   const tones = useMessageSyntax().data?.tones ?? {}
   const glyphs = useGlyphs().data ?? []
-  const source = lines.join("\n")
+  const runs = (source: string) => parse(source, "MINIMESSAGE", Object.keys(tones)) ?? textRuns(source, false)
+  const title = shape === "TITLE"
   return (
     <Preview
-      runs={parse(source, "MINIMESSAGE", Object.keys(tones)) ?? textRuns(source, false)}
+      runs={runs(title ? (lines[0] ?? "") : lines.join("\n"))}
+      subtitle={title && lines.length > 1 ? runs(lines.slice(1).join(" ")) : undefined}
       shown={shape}
       surface="GAME"
       fill={unfilled}

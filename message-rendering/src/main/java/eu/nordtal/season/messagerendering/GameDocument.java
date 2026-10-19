@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.title.Title;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -78,6 +79,17 @@ public final class GameDocument {
             }
         }
         return lines;
+    }
+
+    /** Returns a title document's first shown line as the title and the lines after it, on one line, as subtitle. */
+    public Title shownTitle(final Title.Times times) {
+        final List<Component> lines = lines();
+        return lines.isEmpty()
+                ? Title.title(Component.empty(), Component.empty(), times)
+                : Title.title(
+                        lines.getFirst(),
+                        Component.join(JoinConfiguration.spaces(), lines.subList(1, lines.size())),
+                        times);
     }
 
     public Component title() {

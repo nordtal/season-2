@@ -123,7 +123,7 @@ public final class DocumentCheck {
                     error("a menu holds something other than its title, then items and labels");
                 }
             }
-            case PLAIN, CHANNEL_NAME, CHAT, TAB_LIST, KICK_SCREEN -> {
+            case PLAIN, CHANNEL_NAME, CHAT, TAB_LIST, KICK_SCREEN, TITLE -> {
                 if (parts.stream()
                         .anyMatch(part -> part.type() != Part.Type.TEXT
                                 || part.allLines().stream().anyMatch(line -> line.list() != null))) {
@@ -211,6 +211,7 @@ public final class DocumentCheck {
                     case MENU -> text(line.text(), "a menu's title", 0, true, true, Map.of());
                     case CHAT, TAB_LIST, KICK_SCREEN ->
                         text(line.text(), "a " + noun(declaration.shape()) + "'s line", 0, false, true, Map.of());
+                    case TITLE -> text(line.text(), "a title's line", 0, true, true, Map.of());
                 }
             }
         }
@@ -490,7 +491,7 @@ public final class DocumentCheck {
             // Each line of a name is checked against the limit by itself, and the renderer cuts the name it joins.
             case CHANNEL_NAME, MODAL -> {}
             // The game draws a menu and a game text whole, or cuts what does not fit its window.
-            case MENU, CHAT, TAB_LIST, KICK_SCREEN -> {}
+            case MENU, CHAT, TAB_LIST, KICK_SCREEN, TITLE -> {}
         }
     }
 
@@ -525,6 +526,7 @@ public final class DocumentCheck {
             case CHAT -> "chat text";
             case TAB_LIST -> "tab list";
             case KICK_SCREEN -> "kick screen";
+            case TITLE -> "title";
         };
     }
 

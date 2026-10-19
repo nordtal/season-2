@@ -38,7 +38,7 @@ public final class LimboPlugin extends NordtalPlugin {
 
     @Override
     protected List<String> bundles() {
-        return List.of("messages/limbo");
+        return List.of();
     }
 
     @Override

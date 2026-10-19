@@ -41,7 +41,6 @@ class TabListTest {
 
     /** Each module's bundle directory, in the order a player meets them. */
     private static final Map<String, String> BUNDLES = new LinkedHashMap<>(Map.of(
-            "limbo", "limbo/src/main/resources/messages/limbo",
             "hunger-games", "hunger-games/src/main/resources/messages/hunger-games",
             "smp", "smp/src/main/resources/messages/smp"));
 

@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <accent>is in maintenance</accent>",
+            "de": "<brand>Nordtal</brand> <accent>ist in Wartung</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Stay here. Discord says when it ends.</muted>",
+            "de": "<muted>Bleib hier. Auf Discord steht, wann sie endet.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,7 @@ import net.kyori.adventure.text.minimessage.ParsingException;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.ArgumentQueue;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.title.Title;
 import org.jspecify.annotations.Nullable;
 
 /** Renders a message as an Adventure component.
@@ -131,7 +132,16 @@ public final class MessageRenderer {
     }
 
     public Component format(final Viewer viewer, final Sent<?> sent) {
-        return new GameDocument(this, documents.applied(sent.document()), viewer, sent.values()).text();
+        return document(viewer, sent).text();
+    }
+
+    /** Renders a title's document, an admin's in place of the packaged one, as {@link GameDocument#shownTitle} does. */
+    public Title title(final @Nullable Locale locale, final Sent<?> sent, final Title.Times times) {
+        return document(Viewer.of(locale), sent).shownTitle(times);
+    }
+
+    private GameDocument document(final Viewer viewer, final Sent<?> sent) {
+        return new GameDocument(this, documents.applied(sent.document()), viewer, sent.values());
     }
 
     /**

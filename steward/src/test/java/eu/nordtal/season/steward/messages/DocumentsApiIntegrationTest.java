@@ -95,6 +95,10 @@ class DocumentsApiIntegrationTest {
                     config.routes.get("/api/document-images/{id}", documents::image);
                     config.routes.post("/api/documents/render", documents::render);
                     config.routes.post("/api/document-preview", ctx -> previewed = documents.preview(ctx));
+                    config.routes.put("/api/shared-parts/{name}", ctx -> documents.saveSharedPart(ctx, Actor.STEWARD));
+                    config.routes.delete(
+                            "/api/shared-parts/{name}", ctx -> documents.removeSharedPart(ctx, Actor.STEWARD));
+                    config.routes.post("/api/shared-parts/{name}/changes", documents::sharedPartChanges);
                 })
                 .start(0);
         port = app.port();
@@ -228,6 +232,61 @@ class DocumentsApiIntegrationTest {
                 {"parts":[{"type":"GALLERY","media":["upload://99"]},
                   {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}""".getBytes(UTF_8), 400);
         assertEquals(List.of(), store.documents(List.of("smp")));
+    }
+
+    @Test
+    void aSharedPartChangeShowsAndThenRewritesEveryDocumentThatHoldsACopy() throws Exception {
+        final String marked = WELCOME.replace("{\"type\":\"TEXT\",", "{\"type\":\"TEXT\",\"shared\":\"greeting\",");
+        send("PUT", "/api/documents/smp/welcome", marked.getBytes(UTF_8), 200);
+        final byte[] greeting = """
+                {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"hi-de {player}"}}]}""".getBytes(UTF_8);
+
+        final JsonObject change = GSON.fromJson(
+                        send("POST", "/api/shared-parts/greeting/changes", greeting, 200),
+                        com.google.gson.JsonArray.class)
+                .get(0)
+                .getAsJsonObject();
+        assertEquals(
+                Document.decode(marked), Document.decode(change.get("before").toString()));
+        final Document after = Document.decode(marked.replace(
+                "{\"text\":{\"en\":\"Welcome {player}\",\"de\":\"welcome-de {player}\"},\"style\":\"TITLE\"}",
+                "{\"text\":{\"en\":\"Hi {player}\",\"de\":\"hi-de {player}\"}}"));
+        assertEquals(after, Document.decode(change.get("after").toString()));
+        assertEquals(List.of(), List.of(GSON.fromJson(change.get("problems"), String[].class)));
+
+        final JsonObject list =
+                GSON.fromJson(send("PUT", "/api/shared-parts/greeting", greeting, 200), JsonObject.class);
+        assertEquals(after, store.documents(List.of("smp")).getFirst().document());
+        assertEquals(
+                "smp/welcome",
+                list.getAsJsonArray("sharedParts")
+                        .get(0)
+                        .getAsJsonObject()
+                        .getAsJsonArray("documents")
+                        .get(0)
+                        .getAsString());
+
+        send("DELETE", "/api/shared-parts/greeting", new byte[0], 200);
+        assertEquals(
+                Document.decode(after.json().replace(",\"shared\":\"greeting\"", "")),
+                store.documents(List.of("smp")).getFirst().document());
+        assertEquals(List.of(), store.sharedParts());
+    }
+
+    @Test
+    void aSharedPartChangeTheCheckRefusesInOneDocumentWritesNothing() throws Exception {
+        final String marked = WELCOME.replace("{\"type\":\"ROW\",", "{\"type\":\"ROW\",\"shared\":\"buttons\",");
+        send("PUT", "/api/documents/smp/welcome", marked.getBytes(UTF_8), 200);
+
+        final String refused = send("PUT", "/api/shared-parts/buttons", """
+                {"type":"SEPARATOR"}""".getBytes(UTF_8), 400);
+
+        assertTrue(refused.contains("it does not place the button join"), refused);
+        assertEquals(
+                Document.decode(marked),
+                store.documents(List.of("smp")).getFirst().document());
+        assertEquals(List.of(), store.sharedParts());
+        send("PUT", "/api/shared-parts/Not-A-Name", "{\"type\":\"SEPARATOR\"}".getBytes(UTF_8), 400);
     }
 
     @Test

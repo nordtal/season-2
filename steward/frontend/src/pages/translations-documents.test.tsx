@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { Document, DocumentDraft, DocumentView } from "@/lib/api"
+import type { Document, DocumentDraft, DocumentPart, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
 import { words } from "@/lib/query-fixtures"
 import { setPendingTextJump } from "@/lib/settings-search"
@@ -409,6 +409,95 @@ describe("an open document", () => {
 
     fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add a part" }), { button: 0, ctrlKey: false })
     expect((await screen.findAllByRole("menuitem")).map((item) => item.textContent)).toEqual(["Text block"])
+  })
+
+  it("saves a part as a shared part after showing each document it changes before and after", async () => {
+    const saved: [string, DocumentPart | null][] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        sharedPartChanges: () => [
+          {
+            declaration: modal.declaration,
+            game: false,
+            before: modal.packaged,
+            after: modal.packaged,
+            problems: ["it does not place the input code"],
+          },
+        ],
+        saveSharedPart: (name, part) => {
+          saved.push([name, part])
+          return documents([contribution, modal], { sharedParts: part ? [{ name, part, documents: [] }] : [] })
+        },
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    // The last part is the row of buttons.
+    fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as a shared part" }))
+    const dialog = await screen.findByRole("dialog", { name: "Save as a shared part" })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "buttons" } })
+
+    expect(await within(dialog).findByText("it does not place the input code")).toBeTruthy()
+    expect(within(dialog).getByText("Before")).toBeTruthy()
+    expect(within(dialog).getByText("After")).toBeTruthy()
+    // A change the check refuses in any document saves nothing.
+    expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
+    expect(saved).toEqual([])
+  })
+
+  it("saves a shared part that no document refuses and marks the part as its copy", async () => {
+    const saved: [string, DocumentPart | null][] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        sharedPartChanges: () => [],
+        saveSharedPart: (name, part) => {
+          saved.push([name, part])
+          return documents([contribution, modal], { sharedParts: part ? [{ name, part, documents: [] }] : [] })
+        },
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as a shared part" }))
+    const dialog = await screen.findByRole("dialog", { name: "Save as a shared part" })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "buttons" } })
+    expect(await within(dialog).findByText("No saved document holds a copy of this shared part.")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(saved).toEqual([["buttons", contribution.packaged.parts[1]]]))
+    expect(await within(editor).findByText("Shared part buttons")).toBeTruthy()
+  })
+
+  it("inserts a copy of a shared part from the menu that adds a part", async () => {
+    const links: DocumentPart = { type: "ROW", items: [{ link: "https://nordtal.eu/rules", label: { en: "Rules" } }] }
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal], {
+          sharedParts: [{ name: "rule-links", part: links, documents: [] }],
+        }),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    const adds = within(editor).getAllByRole("button", { name: "Add a part" })
+    fireEvent.pointerDown(adds.at(-1)!, { button: 0 })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Shared part rule-links" }))
+
+    expect(await within(editor).findByText("Shared part rule-links")).toBeTruthy()
+    expect(within(editor).getByRole("button", { name: /^Buttons\s*Rules$/ })).toBeTruthy()
   })
 
   it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {

@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.Part;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -42,6 +43,17 @@ public interface DocumentStore {
     /** Removes an admin's document, so the packaged one applies again, keeps that as a version, and signals. */
     void remove(String namespace, String name, Actor actor);
 
+    /** Returns every shared part, by name. */
+    List<SharedPart> sharedParts();
+
+    /**
+     * Replaces a shared part, or removes it where {@code part} is {@code null}, with the documents that hold it.
+     * Each document is written and kept as a version in the same transaction, and each namespace written is signalled.
+     *
+     * @throws IllegalArgumentException if a document shows an {@code upload://} image that is not stored
+     */
+    void changeSharedPart(String name, @Nullable Part part, List<StoredDocument> rewritten, Actor actor);
+
     /** Returns every version of a document, the newest first. */
     List<Version> versions(String namespace, String name);
 
@@ -57,6 +69,9 @@ public interface DocumentStore {
             Objects.requireNonNull(document, "document");
         }
     }
+
+    /** A part an admin saved for reuse; a document holds a copy marked with its name. */
+    record SharedPart(String name, Part part) {}
 
     /**
      * One save of a document.

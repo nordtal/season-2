@@ -129,6 +129,26 @@ public final class Routes {
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_ONCE_SAVED);
         config.routes.get("/api/document-images/{id}", api.documents::image, Gate.KEY_HELD);
+        config.routes.put(
+                "/api/shared-parts/{name}",
+                ctx -> api.documents
+                        .saveSharedPart(ctx, caller.actor(ctx))
+                        .forEach(id -> Journaling.line(ctx, new JournalDetail.MessagesSaved(id))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.delete(
+                "/api/shared-parts/{name}",
+                ctx -> api.documents
+                        .removeSharedPart(ctx, caller.actor(ctx))
+                        .forEach(id -> Journaling.line(ctx, new JournalDetail.MessagesSaved(id))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        // Draws a shared part's change for the admin alone and changes nothing.
+        config.routes.post(
+                "/api/shared-parts/{name}/changes",
+                api.documents::sharedPartChanges,
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_TO_ONESELF);
         // Draws a draft for the admin alone and changes nothing.
         config.routes.post("/api/documents/render", api.documents::render, Gate.KEY_HELD, Unjournaled.SHOWN_TO_ONESELF);
     }

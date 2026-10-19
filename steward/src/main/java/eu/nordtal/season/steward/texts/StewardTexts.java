@@ -319,6 +319,9 @@ public interface StewardTexts {
             @Name("Document refused")
             MessageRef documentRefused(@Arg("document") String document, @Arg("problem") String problem);
 
+            @Name("Shared part name refused")
+            MessageRef sharedPartName(@Arg("name") String name);
+
             @Name("Draft not sent")
             MessageRef draftRefused(@Arg("document") String document, @Arg("problem") String problem);
 

@@ -5,10 +5,12 @@ import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.Part;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 public final class StoredDocumentsStandIn {
 
@@ -54,6 +56,20 @@ public final class StoredDocumentsStandIn {
             @Override
             public List<Version> versions(final String namespace, final String name) {
                 throw new UnsupportedOperationException("the stand-in keeps no versions");
+            }
+
+            @Override
+            public List<SharedPart> sharedParts() {
+                throw new UnsupportedOperationException("the stand-in keeps no shared parts");
+            }
+
+            @Override
+            public void changeSharedPart(
+                    final String name,
+                    final @Nullable Part part,
+                    final List<StoredDocument> rewritten,
+                    final Actor actor) {
+                throw new UnsupportedOperationException("the stand-in is read only");
             }
 
             @Override

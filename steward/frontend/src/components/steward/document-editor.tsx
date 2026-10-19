@@ -2,6 +2,7 @@ import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon, XIcon } from "
 import { useState } from "react"
 
 import type {
+  SharedPartView,
   Document,
   DocumentItem,
   DocumentLine,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/document-edit"
 import { documentName } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { useCommandRun, useDocumentDrawing, useGameAction, useSaveDocument } from "@/lib/queries"
+import { useCommandRun, useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { serviceTitle } from "@/lib/words"
@@ -52,11 +53,18 @@ import {
   WhenField,
   type Context,
 } from "@/components/steward/document-fields"
+import { SharedPartMenu } from "@/components/steward/shared-parts"
 import { DocumentVersions } from "@/components/steward/document-versions"
 import { DocumentPreview, PAUSE_MS } from "@/components/steward/message-editor/document-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -105,10 +113,12 @@ export function DocumentEditor({
   const changed = JSON.stringify(draft) !== JSON.stringify(shown)
   const problems = drawing.data?.problems ?? []
   const refused = problems.some((problem) => problem.error)
+  const sharedParts = useDocuments().data?.sharedParts ?? []
   const context: Context = {
     view,
     language,
     writable,
+    sharedParts,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
@@ -167,6 +177,7 @@ export function DocumentEditor({
       <AddPart
         view={view}
         parts={draft.parts}
+        sharedParts={sharedParts}
         disabled={!writable}
         onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
       />
@@ -325,6 +336,7 @@ function PartEditor({
             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{words}</span>
           )}
         </button>
+        <SharedPartMenu part={part} context={context} set={set} />
         {open ? (
           <WhenField
             view={view}
@@ -382,6 +394,7 @@ function PartBody({
           <AddPart
             view={view}
             parts={part.parts ?? []}
+            sharedParts={context.sharedParts}
             inside
             disabled={!writable}
             onAdd={(added) => set((it) => ({ ...it, parts: [...(it.parts ?? []), added] }))}
@@ -681,16 +694,18 @@ function SectionBeside({
   )
 }
 
-/** The menu that adds a part, or a slot the code fills that no part places yet. */
+/** The menu that adds a part, a copy of a shared part, or a slot the code fills that no part places yet. */
 function AddPart({
   view,
   parts,
+  sharedParts,
   inside,
   disabled,
   onAdd,
 }: {
   view: DocumentView
   parts: DocumentPart[]
+  sharedParts: readonly SharedPartView[]
   inside?: boolean
   disabled: boolean
   onAdd: (part: DocumentPart) => void
@@ -706,6 +721,7 @@ function AddPart({
         : inside
           ? ADDED.filter((type) => type !== "CONTAINER")
           : ADDED
+  const insertable = sharedParts.filter((shared) => (kinds as readonly string[]).includes(shared.part.type))
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
@@ -718,6 +734,12 @@ function AddPart({
         {kinds.map((type) => (
           <DropdownMenuItem key={type} onSelect={() => onAdd(newPart(type))}>
             {t("steward.document-editor.part", { part: choice(type) })}
+          </DropdownMenuItem>
+        ))}
+        {insertable.length > 0 ? <DropdownMenuSeparator /> : null}
+        {insertable.map((shared) => (
+          <DropdownMenuItem key={shared.name} onSelect={() => onAdd({ ...shared.part, shared: shared.name })}>
+            {t("steward.document-editor.insert-shared-part", { name: shared.name })}
           </DropdownMenuItem>
         ))}
         {missing.map((slot) => (

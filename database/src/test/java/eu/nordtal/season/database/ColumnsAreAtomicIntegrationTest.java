@@ -42,7 +42,8 @@ class ColumnsAreAtomicIntegrationTest {
             "steward_inbox.payload");
 
     /** The composite columns that hold a value read and written whole, never queried by part. */
-    private static final Set<String> WHOLE = Set.of("document_override.document", "document_version.document");
+    private static final Set<String> WHOLE =
+            Set.of("shared_part.part", "document_override.document", "document_version.document");
 
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesStillToNormalize() throws SQLException {

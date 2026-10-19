@@ -46,6 +46,7 @@ class JournaledRoutesTest {
             Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/document-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/documents/render", Unjournaled.SHOWN_TO_ONESELF),
+            Map.entry("POST /api/shared-parts/{name}/changes", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/document-images", Unjournaled.SHOWN_ONCE_SAVED));
 
     private static Javalin app;

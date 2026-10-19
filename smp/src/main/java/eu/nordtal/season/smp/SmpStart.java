@@ -7,7 +7,7 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.board.Boards;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
 import eu.nordtal.season.smp.duel.Duels;
 import eu.nordtal.season.smp.feedback.WorldEffects;
@@ -28,8 +28,6 @@ import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
 import eu.nordtal.season.smp.protect.ProtectionListener;
-import eu.nordtal.season.smp.region.Boxes;
-import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.travel.PortalGate;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
@@ -39,6 +37,7 @@ import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
 import java.time.Duration;
+import java.util.function.Supplier;
 
 /**
  * Creates the parts that {@link SmpPlugin#start()} wires after its refusals have passed.
@@ -67,7 +66,7 @@ final class SmpStart {
 
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
 
-    static Surfaces wireEffectsAndSurfaces(final SmpPlugin plugin, final SmpSpec config) {
+    static Surfaces wireEffectsAndSurfaces(final SmpPlugin plugin) {
         // All users share one instance. {@code WorldEffects#onDamage} must ask the object that marked the rocket.
         final WorldEffects effects = new WorldEffects(plugin);
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
@@ -82,14 +81,15 @@ final class SmpStart {
                 plugin.nameTags.getNameTagManager());
         plugin.identities().whenChanged(surfaces::changed);
 
-        final Boards boards = new Boards(plugin, config, plugin.season, plugin.renderer(), plugin.identities());
+        final Boards boards =
+                new Boards(plugin, plugin.boardSettings.get(), plugin.season, plugin.renderer(), plugin.identities());
         plugin.hud().every(Boards.REFRESH, boards::renderAll);
         return new Surfaces(effects, composition, surfaces, boards);
     }
 
     record Presence(SystemLines systemLines, BukkitCinematics cinematics, SeasonWelcome welcome) {}
 
-    static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
+    static Presence wirePresenceInputs(final SmpPlugin plugin, final Surfaces surfaces) {
         final SystemLines systemLines = plugin.systemLines();
 
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
@@ -99,13 +99,13 @@ final class SmpStart {
                 plugin.jdbi().onDemand(WelcomeDao.class),
                 plugin.identities(),
                 cinematics,
-                config,
+                plugin.spawnSettings.get(),
                 plugin.worlds);
         return new Presence(systemLines, cinematics, welcome);
     }
 
     static PlayerSurfacesListener registerSurfaceListener(
-            final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces, final Presence presence) {
+            final SmpPlugin plugin, final Surfaces surfaces, final Presence presence) {
         final PlayerSurfacesListener listener = new PlayerSurfacesListener(
                 plugin, surfaces.surfaces(), presence.systemLines(), presence.welcome()::onLanguageReady);
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
@@ -151,9 +151,10 @@ final class SmpStart {
         return new Progress(engine, poller, gates);
     }
 
-    record Activities(DeathPenalty penalty, Wheel wheel, Graves graves, Duels duels) {}
+    record Activities(Supplier<DeathPenalty> penalty, Wheel wheel, Graves graves, Duels duels) {}
 
-    static Activities wireActivities(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
+    static Activities wireActivities(final SmpPlugin plugin, final WorldEffects effects) {
+        final DeathsSpec deaths = plugin.deathSettings.get();
         final Graves graves = new Graves(
                 plugin,
                 plugin.jdbi().onDemand(GraveDao.class),
@@ -162,16 +163,17 @@ final class SmpStart {
                 plugin.documents(),
                 plugin.sounds,
                 effects,
-                config,
+                deaths,
                 plugin.clock());
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
-        scheduler.every(Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(config.graveMaxAgeHours()));
+        scheduler.every(Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(deaths.graveMaxAgeHours()));
         // Runs every second on the main thread. It writes only near expiry.
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
         final Duels duels = new Duels(
                 plugin,
                 plugin.aura,
-                config,
+                plugin.duelSettings.get(),
+                plugin.borderSettings.get(),
                 plugin.worlds,
                 plugin.identities(),
                 plugin.renderer(),
@@ -179,12 +181,13 @@ final class SmpStart {
                 effects,
                 plugin.clock());
 
-        final DeathPenalty penalty = new DeathPenalty(
-                config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
+        // Built per death, so a saved penalty applies to the next one.
+        final Supplier<DeathPenalty> penalty = () -> new DeathPenalty(
+                deaths.deathPenalty(), deaths.deathPenaltyListed(), java.util.Set.copyOf(deaths.deathCausesListed()));
         final Wheel wheel = new Wheel(
                 plugin,
                 plugin.jdbi().onDemand(SpinDao.class),
-                config,
+                plugin.wheelSettings.get(),
                 plugin.identities(),
                 plugin.renderer(),
                 plugin.documents(),
@@ -193,7 +196,7 @@ final class SmpStart {
         return new Activities(penalty, wheel, graves, duels);
     }
 
-    static void registerActivityListeners(final SmpPlugin plugin, final SmpSpec config, final Activities activities) {
+    static void registerActivityListeners(final SmpPlugin plugin, final Activities activities) {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -202,7 +205,7 @@ final class SmpStart {
                                 plugin.aura,
                                 plugin.engine,
                                 plugin.identities(),
-                                config,
+                                plugin.awardSettings.get(),
                                 plugin.renderer(),
                                 plugin.sounds),
                         plugin);
@@ -221,16 +224,20 @@ final class SmpStart {
                         plugin);
         plugin.getServer()
                 .getPluginManager()
-                .registerEvents(new DuelListener(plugin, config, activities.duels()), plugin);
+                .registerEvents(new DuelListener(plugin, plugin.duelSettings.get(), activities.duels()), plugin);
         plugin.getServer()
                 .getPluginManager()
-                .registerEvents(new WheelListener(ConfigBoxes.wheelRegions(config), activities.wheel()), plugin);
+                .registerEvents(new WheelListener(plugin.wheelSettings.get(), activities.wheel()), plugin);
     }
 
-    static SpawnNpc wireNpc(final SmpPlugin plugin, final SmpSpec config) {
+    static SpawnNpc wireNpc(final SmpPlugin plugin) {
         // A {@code HAND_IN} objective is fulfilled only through this NPC.
         final SpawnNpc npc = new SpawnNpc(
-                plugin, config, plugin.nameTags.getNameTagManager(), plugin.identities(), plugin.renderer());
+                plugin,
+                plugin.npcSettings.get(),
+                plugin.nameTags.getNameTagManager(),
+                plugin.identities(),
+                plugin.renderer());
         npc.spawn();
         plugin.getServer()
                 .getPluginManager()
@@ -250,12 +257,14 @@ final class SmpStart {
         return npc;
     }
 
-    static void restoreGravesAndRegisterWorld(final SmpPlugin plugin, final Boxes regions) {
+    static void restoreGravesAndRegisterWorld(final SmpPlugin plugin) {
         plugin.graves.restore();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new ProtectionListener(regions, plugin.identities(), plugin.renderer(), plugin.sounds), plugin);
+                        new ProtectionListener(
+                                () -> plugin.spawnRegions, plugin.identities(), plugin.renderer(), plugin.sounds),
+                        plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(

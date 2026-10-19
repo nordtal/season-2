@@ -5,12 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** The default lists of the {@code config} group. Every spec built here sets every key. */
+/** The default lists of the smp groups. Every spec built here sets every key. */
 final class DefaultSmp {
 
-    static final List<SpawnRegionSpec> SPAWN_REGIONS = List.of(
-            region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
-            region("nordtal_nether", -32, 20, -32, 32, 120, 32));
+    static final List<SpawnRegionSpec> SPAWN_REGIONS =
+            List.of(region("nordtal", 7, 40, 56, 138, 140, 120), region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
@@ -19,10 +18,8 @@ final class DefaultSmp {
             platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
             platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
 
-    static final List<SpawnRegionSpec> WHEEL_REGIONS =
-            List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
-
-    static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "");
+    static final List<SpawnRegionSpec> WHEEL_REGIONS = List.of(
+            region("nordtal", 3978, 75, 2171, 3978, 75, 2171), region("nordtal", 3978, 74, 2172, 3978, 74, 2172));
 
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
@@ -143,23 +140,6 @@ final class DefaultSmp {
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
         return Specs.createUnsafe(DuelPlatformSpec.class, values);
-    }
-
-    private static NpcSpec npc(
-            final String world,
-            final double x,
-            final double y,
-            final double z,
-            final float yaw,
-            final String skinName) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("world", world);
-        values.put("x", x);
-        values.put("y", y);
-        values.put("z", z);
-        values.put("yaw", yaw);
-        values.put("skin-name", skinName);
-        return Specs.createUnsafe(NpcSpec.class, values);
     }
 
     private static FirstJoinSpawnSpec firstJoinSpawn(

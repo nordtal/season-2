@@ -130,6 +130,16 @@ class DatabaseSettingsTest {
     }
 
     @Test
+    void aReloadSaysWhetherTheValuesChanged() throws Exception {
+        final Setting<ExampleSpec> example = store.settings("smp").load(EXAMPLE);
+
+        assertFalse(example.reload(), "nothing stored changed");
+        store.set("smp", "example", "view-distance", 12);
+        assertTrue(example.reload());
+        assertFalse(example.reload(), "the same row again is no change");
+    }
+
+    @Test
     void aStoredSecretOrAPathTheSpecLacksIsIgnored() throws Exception {
         store.set("smp", "example", "token", "leaked").set("smp", "example", "retired", 5);
 

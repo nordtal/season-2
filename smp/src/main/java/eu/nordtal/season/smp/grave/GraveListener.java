@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,7 +35,7 @@ public final class GraveListener implements Listener {
     private final AuraDao aura;
     private final Graves graves;
     private final Identities identities;
-    private final DeathPenalty penalty;
+    private final Supplier<DeathPenalty> penalty;
     private final Arenas arenas;
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
@@ -44,7 +45,7 @@ public final class GraveListener implements Listener {
             final AuraDao aura,
             final Graves graves,
             final Identities identities,
-            final DeathPenalty penalty,
+            final Supplier<DeathPenalty> penalty,
             final Arenas arenas,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
@@ -91,11 +92,12 @@ public final class GraveListener implements Listener {
         final String cause = event.getDamageSource() == null
                 ? null
                 : event.getDamageSource().getDamageType().key().asString();
-        final int delta = penalty.deltaFor(cause, false);
+        final DeathPenalty current = penalty.get();
+        final int delta = current.deltaFor(cause, false);
         if (delta == 0) {
             return;
         }
-        final AuraReason reason = penalty.reasonFor(cause);
+        final AuraReason reason = current.reasonFor(cause);
         final Locale locale = identities.languageOf(player.getUniqueId());
 
         PaperScheduler.of(plugin).execute(() -> {

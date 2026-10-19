@@ -27,60 +27,67 @@ import org.junit.jupiter.api.Test;
 
 class SmpSettingsTest {
 
-    private static final Group<SmpSpec> CONFIG =
-            Group.of("config", SmpSpec.class).checkedBy(SmpSettings::check);
+    private static final Group<WorldsSpec> WORLDS =
+            Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds);
+    private static final Group<SpawnSpec> SPAWN =
+            Group.of("spawn", SpawnSpec.class).checkedBy(SmpSettings::checkSpawn);
+    private static final Group<BoardsSpec> BOARDS =
+            Group.of("boards", BoardsSpec.class).checkedBy(SmpSettings::checkBoards);
+    private static final Group<DuelsSpec> DUELS =
+            Group.of("duels", DuelsSpec.class).checkedBy(SmpSettings::checkDuels);
+
+    /** Every smp group but the milestones, whose own tests cover them. */
+    private static final List<Group<?>> GROUPS = List.of(
+            WORLDS,
+            Group.of("border", BorderSpec.class).checkedBy(SmpSettings::checkBorder),
+            Group.of("wheel", WheelSpec.class).checkedBy(SmpSettings::checkWheel),
+            Group.of("advancement-awards", AdvancementAwardsSpec.class).checkedBy(SmpSettings::checkAdvancementAwards),
+            DUELS,
+            BOARDS,
+            Group.of("npc", NpcSpec.class),
+            SPAWN,
+            Group.of("deaths-and-graves", DeathsSpec.class).checkedBy(SmpSettings::checkDeaths),
+            Group.of("sounds", SoundsSpec.class));
 
     private final MemorySettingStore store = new MemorySettingStore();
 
     /**
-     * Loads every group with nothing stored, so a missing {@code @ConfigSpec} fails here and not in {@code onEnable}.
+     * Loads every group with nothing stored.
+     * A missing {@code @ConfigSpec} or a default its check refuses fails here and not in {@code onEnable}.
      */
     @Test
     void everyGroupLoadsFromItsDefaults() throws Exception {
-        final SmpSpec config = store.checked("smp", CONFIG, Map.of());
+        for (final Group<?> group : GROUPS) {
+            store.checked("smp", group, Map.of());
+        }
         final MilestonesSpec milestones = store.checked(
                 "smp", Group.of("milestones", MilestonesSpec.class).checkedBy(SmpSettings::checkMilestones), Map.of());
-        final SoundsSpec sounds = store.checked("smp", Group.of("sounds", SoundsSpec.class), Map.of());
 
-        assertEquals("nordtal", config.worldNordtal());
         assertFalse(milestones.milestones().isEmpty());
-        assertEquals("minecraft:ui.button.click", sounds.select().key());
     }
 
-    /** An installation keeps the row of the removed {@code balloons} setting. */
     @Test
-    void aStoredRowForTheRemovedBalloonsStillLoads() throws Exception {
-        final SmpSpec config = store.checked(
-                "smp",
-                CONFIG,
-                Map.of(
-                        "balloons",
-                        "[{\"world\":\"nordtal\",\"min-x\":3994,\"min-y\":84,\"min-z\":2187,"
-                                + "\"max-x\":3996,\"max-y\":86,\"max-z\":2189}]"));
+    void aDuelLimitBelowOneIsRefused() {
+        final Exception refused =
+                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("concurrent-duel-limit", 0)));
 
-        assertEquals("nordtal", config.worldNordtal());
-    }
-
-    /** The NPC's name is a translation, so the row of the removed {@code npc.name} setting is ignored. */
-    @Test
-    void theNpcHasNoNameSettingAndAStoredOneStillLoads() throws Exception {
-        final SmpSpec config = store.checked("smp", CONFIG, Map.of("npc.name", "<red>Nordtal"));
-
-        assertEquals("nordtal", config.npc().world());
-        assertThrows(NoSuchMethodException.class, () -> NpcSpec.class.getMethod("name"));
+        assertTrue(refused.getMessage().contains("concurrent-duel-limit"), refused.getMessage());
     }
 
     @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
-        final SmpSpec written = Specs.createDefault(SmpSpec.class);
-        final Map<String, Object> values = new LinkedHashMap<>();
-        storeLeaves(Specs.gsonBuilder().create().toJsonTree(written), "", values);
-        final SmpSpec reread = new MemorySettingStore().checked("smp", CONFIG, values);
+        final BoardsSpec boards = reread(BOARDS);
+        final DuelsSpec duels = reread(DUELS);
+        final SpawnSpec reread = reread(SPAWN);
 
-        assertEquals(written.boards().size(), reread.boards().size());
-        assertEquals(written.duelPlatforms().size(), reread.duelPlatforms().size());
+        assertEquals(
+                Specs.createDefault(BoardsSpec.class).boards().size(),
+                boards.boards().size());
+        assertEquals(
+                Specs.createDefault(DuelsSpec.class).duelPlatforms().size(),
+                duels.duelPlatforms().size());
+        final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
-        assertEquals(written.npc().world(), reread.npc().world());
 
         final FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
         assertAll(
@@ -92,10 +99,17 @@ class SmpSettingsTest {
                 () -> assertEquals(written.firstJoinSpawn().pitch(), spawn.pitch()),
                 // The world must resolve on a real server, and a different default would move no first join anywhere.
                 () -> assertEquals(
-                        reread.worldNordtal(),
+                        Specs.createDefault(WorldsSpec.class).worldNordtal(),
                         spawn.world(),
                         "first-join-spawn's default world has to be the build world's default name,"
                                 + " or a fresh deployment ships a first join that goes nowhere"));
+    }
+
+    /** Stores every leaf of the group's defaults as its own row and loads the group from those rows. */
+    private static <T> T reread(final Group<T> group) throws Exception {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        storeLeaves(Specs.gsonBuilder().create().toJsonTree(Specs.createDefault(group.spec())), "", values);
+        return new MemorySettingStore().checked("smp", group, values);
     }
 
     private static void storeLeaves(final JsonElement tree, final String path, final Map<String, Object> values) {
@@ -121,7 +135,9 @@ class SmpSettingsTest {
     void everyNestedSpecInterfaceCarriesTheAnnotation() {
         final List<String> missing = new ArrayList<>();
         final Set<Class<?>> seen = new LinkedHashSet<>();
-        for (final Class<?> root : List.of(SmpSpec.class, DatabaseSpec.class, MilestonesSpec.class, SoundsSpec.class)) {
+        final List<Class<?>> roots = new ArrayList<>(List.of(DatabaseSpec.class, MilestonesSpec.class));
+        GROUPS.forEach(group -> roots.add(group.spec()));
+        for (final Class<?> root : roots) {
             collectMissing(root, seen, missing);
         }
         assertTrue(

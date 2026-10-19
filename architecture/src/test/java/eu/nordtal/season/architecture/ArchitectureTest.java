@@ -57,7 +57,7 @@ class ArchitectureTest {
             "eu.nordtal.season.proxy.config.NetworkSpec",
             "eu.nordtal.season.proxy.config.PackSpec",
             "eu.nordtal.season.smp.config.MilestonesSpec",
-            "eu.nordtal.season.smp.config.SmpSpec",
+            "eu.nordtal.season.smp.config.WorldsSpec",
             "eu.nordtal.season.settings.ColoursSpec",
             "eu.nordtal.season.settings.DatabaseSpec",
             "eu.nordtal.season.settings.network.PlayersSpec",

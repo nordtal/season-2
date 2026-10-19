@@ -11,8 +11,8 @@ import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
+import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -35,7 +35,7 @@ public final class Wheel {
 
     private final Plugin plugin;
     private final SpinDao dao;
-    private final SmpSpec config;
+    private final WheelSpec config;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
@@ -47,7 +47,7 @@ public final class Wheel {
     public Wheel(
             final Plugin plugin,
             final SpinDao dao,
-            final SmpSpec config,
+            final WheelSpec config,
             final Identities identities,
             final MessageRenderer renderer,
             final AppliedDocuments documents,

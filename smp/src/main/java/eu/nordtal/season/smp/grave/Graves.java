@@ -13,7 +13,7 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.config.SmpSpec;
+import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import java.time.Clock;
@@ -60,7 +60,7 @@ public final class Graves {
     private final AppliedDocuments documents;
     private final SmpSounds sounds;
     private final WorldEffects effects;
-    private final SmpSpec config;
+    private final DeathsSpec config;
 
     private final Map<UUID, List<org.bukkit.entity.Entity>> parts = new HashMap<>();
 
@@ -87,7 +87,7 @@ public final class Graves {
             final AppliedDocuments documents,
             final SmpSounds sounds,
             final WorldEffects effects,
-            final SmpSpec config,
+            final DeathsSpec config,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;

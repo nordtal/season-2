@@ -6,7 +6,6 @@ import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.config.NpcSpec;
-import eu.nordtal.season.smp.config.SmpSpec;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import java.util.Locale;
 import java.util.Optional;
@@ -24,14 +23,14 @@ import org.jspecify.annotations.Nullable;
 public final class SpawnNpc {
 
     private final Plugin plugin;
-    private final SmpSpec config;
+    private final NpcSpec config;
     private final NameTagManager nameTags;
     private final Function<UUID, Component> name;
     private @Nullable UUID spawned;
 
     public SpawnNpc(
             final Plugin plugin,
-            final SmpSpec config,
+            final NpcSpec config,
             final NameTagManager nameTags,
             final Identities identities,
             final MessageRenderer renderer) {
@@ -43,15 +42,14 @@ public final class SpawnNpc {
 
     /** Removes the old NPC and spawns a new one at the configured spot. Main thread only. */
     public void spawn() {
-        final NpcSpec spec = config.npc();
-        final World world = Bukkit.getWorld(spec.world());
+        final World world = Bukkit.getWorld(config.world());
         if (world == null) {
             plugin.getLogger()
-                    .warning("the spawn NPC's world '" + spec.world() + "' does not exist - no figure was placed");
+                    .warning("the spawn NPC's world '" + config.world() + "' does not exist - no figure was placed");
             return;
         }
         remove();
-        final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
+        final Location at = new Location(world, config.x(), config.y(), config.z(), config.yaw(), 0f);
         // getNearbyEntitiesByType searches loaded chunks only.
         at.getChunk().load();
         sweep(world);
@@ -64,7 +62,7 @@ public final class SpawnNpc {
             mannequin.setPersistent(true);
             // Removes the default description, the text "NPC".
             mannequin.setDescription(null);
-            applySkin(mannequin, spec.skinName());
+            applySkin(mannequin, config.skinName());
         });
         spawned = figure.getUniqueId();
         // A mannequin's own name is the same for every viewer, so the name tag draws it in each viewer's language.
@@ -89,8 +87,7 @@ public final class SpawnNpc {
 
     /** Removes every {@link Mannequin} within 4 blocks of the configured spot. */
     private void sweep(final World world) {
-        final NpcSpec spec = config.npc();
-        final Location at = new Location(world, spec.x(), spec.y(), spec.z());
+        final Location at = new Location(world, config.x(), config.y(), config.z());
         world.getNearbyEntitiesByType(Mannequin.class, at, 4.0).forEach(org.bukkit.entity.Entity::remove);
     }
 

@@ -1,14 +1,18 @@
 package eu.nordtal.season.smp.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,21 +47,18 @@ class EveryNodeAnswersTest {
     }
 
     @Test
-    void theHelpSaysWordsAndNotKeys() {
-        final Messages messages = Messages.load(
-                EveryNodeAnswersTest.class.getClassLoader(),
-                List.of("messages/database", "messages/smp"),
-                null,
-                Locale.ENGLISH,
-                Locale.GERMAN);
+    void theHelpSaysWordsForEverySubcommand() {
+        final MessageRenderer renderer = MessageRenderer.of(
+                        Messages.load("messages/database", Locale.ENGLISH, Locale.GERMAN))
+                .reading(new AppliedDocuments(EveryNodeAnswersTest.class.getClassLoader(), Set.of("smp")));
         // The help's frame is paper-common's documents, which the build checks.
-        final List<String> keys = List.of("command.describe.poi.add", "command.describe.poi.remove");
-        for (final String key : keys) {
+        for (final NavigateCommand.Sub sub : NavigateCommand.Sub.values()) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(
-                        messages.hasTranslation(locale, key),
-                        key + " is missing in " + locale.getLanguage() + ", so /poi's help would"
-                                + " print that key at somebody who has just mistyped the command");
+                assertFalse(
+                        renderer.plainLine(locale, sub.describe()).isBlank(),
+                        "poi-describe has no line for " + sub + " in " + locale.getLanguage()
+                                + ", so /poi's help would show an empty line to somebody who has just"
+                                + " mistyped the command");
             }
         }
     }

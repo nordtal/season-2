@@ -1,7 +1,8 @@
 package eu.nordtal.season.smp.navigate;
 
 import eu.nordtal.season.messagerendering.GameDocument;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -10,6 +11,12 @@ import java.util.Optional;
 
 /** The strings pass through {@code MenuFont} and contain no MiniMessage. */
 public final class NavigatePage {
+
+    record Named(NavigationTarget.Kind kind) {}
+
+    /** The names of the built-in kinds. They show in the menu and on the HUD, so they are plain. */
+    static final DocumentSpec<Named> NAME =
+            DocumentSpec.game("smp", "navigate-target", "Navigate", DocumentSpec.Shape.BOSS_BAR, Named.class);
 
     private NavigatePage() {}
 
@@ -28,12 +35,12 @@ public final class NavigatePage {
         return List.copyOf(targets.subList(from, to));
     }
 
-    public static String label(final NavigationTarget target, final Messages messages, final Locale locale) {
+    public static String label(final NavigationTarget target, final MessageRenderer renderer, final Locale locale) {
         if (target.kind() == NavigationTarget.Kind.POI) {
             // {@code label()} is set only by {@code NavigationTarget.poi()}, so it is non-null for a POI.
             return Objects.requireNonNull(target.label());
         }
-        return messages.format(locale, target.name());
+        return renderer.plainLine(locale, NAME.with(new Named(target.kind())));
     }
 
     /**
@@ -65,13 +72,13 @@ public final class NavigatePage {
             final double z,
             final Optional<NavigationTarget> active,
             final GameDocument document,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale) {
         final List<NavigatePanel.Entry> out = new ArrayList<>();
         for (final NavigationTarget target : slice(targets, page)) {
             out.add(new NavigatePanel.Entry(
                     NavigatePanel.icon(target.kind()),
-                    label(target, messages, locale),
+                    label(target, renderer, locale),
                     distance(target, world, x, y, z, document),
                     active.filter(target::equals).isPresent()));
         }

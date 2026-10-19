@@ -1,0 +1,37 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "outcome=won",
+          "text": {
+            "en": "<good>Won</good>",
+            "de": "<good>Gewonnen</good>"
+          }
+        },
+        {
+          "when": "outcome=won",
+          "text": {
+            "en": "<muted>+{aura} aura</muted>",
+            "de": "<muted>+{aura} Aura</muted>"
+          }
+        },
+        {
+          "when": "outcome=lost",
+          "text": {
+            "en": "<bad>Lost</bad>",
+            "de": "<bad>Verloren</bad>"
+          }
+        },
+        {
+          "when": "outcome=lost",
+          "text": {
+            "en": "<muted>-{aura} aura</muted>",
+            "de": "<muted>-{aura} Aura</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

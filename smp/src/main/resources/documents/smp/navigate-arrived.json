@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>You have reached <emphasis>{target}</emphasis>.</good>",
+            "de": "<good>Du hast <emphasis>{target}</emphasis> erreicht.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

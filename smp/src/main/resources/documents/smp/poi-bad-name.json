@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>A point of interest needs a name of at most <emphasis>{max}</emphasis> characters.</bad>",
+            "de": "<bad>Ein Ort braucht einen Namen mit höchstens <emphasis>{max}</emphasis> Zeichen.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

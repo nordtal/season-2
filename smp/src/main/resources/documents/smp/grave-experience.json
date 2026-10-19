@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>You get <emphasis>{experience}</emphasis> experience.</muted>",
+            "de": "<muted>Du bekommst <emphasis>{experience}</emphasis> Erfahrung.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,44 +1,38 @@
 package eu.nordtal.season.smp.milestone;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
-import eu.nordtal.season.messages.spec.MessageSchema;
-import eu.nordtal.season.smp.SmpMessages;
 import java.util.Locale;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class MilestoneNamesTest {
 
-    private static final Messages BUNDLE =
-            Messages.load(MilestoneNamesTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN);
+    private static final MessageRenderer RENDERER = MessageRenderer.of(
+                    Messages.load("messages/database", Locale.ENGLISH, Locale.GERMAN))
+            .reading(new AppliedDocuments(MilestoneNamesTest.class.getClassLoader(), Set.of("smp")));
 
     @Test
     void aShippedMilestoneIsNamed() {
-        assertEquals("Aufbruch", MilestoneNames.of(BUNDLE, Locale.GERMAN, "departure"));
-        assertEquals("Departure", MilestoneNames.of(BUNDLE, Locale.ENGLISH, "departure"));
+        assertEquals("Aufbruch", MilestoneNames.of(RENDERER, Locale.GERMAN, "departure"));
+        assertEquals("Departure", MilestoneNames.of(RENDERER, Locale.ENGLISH, "departure"));
     }
 
     @Test
     void anUnknownMilestoneShowsItsKey() {
-        assertEquals("harbour", MilestoneNames.of(BUNDLE, Locale.GERMAN, "harbour"));
+        assertEquals("harbour", MilestoneNames.of(RENDERER, Locale.GERMAN, "harbour"));
     }
 
     @Test
-    void everyShippedNameIsMapped() {
-        // A name without a switch case is never shown, and the milestone then shows its config key without explanation.
-        final String prefix = "smp.milestone.";
-        MessageSchema.entries(SmpMessages.class).stream()
-                .map(MessageSchema.Entry::key)
-                .filter(key -> key.startsWith(prefix) && key.indexOf('.', prefix.length()) < 0)
-                .filter(key -> !key.equals(prefix + "completed"))
-                .forEach(key -> assertTrue(
-                        MESSAGES.smp()
-                                .milestoneName(key.substring(prefix.length()))
-                                .filter(name -> name.key().equals(key))
-                                .isPresent(),
-                        key + " has no case"));
+    void everyShippedMilestoneHasAName() {
+        // A milestone without a line would show an empty name instead of its key.
+        for (final MilestoneNames.Named named : MilestoneNames.Named.values()) {
+            final String key = named.name().toLowerCase(Locale.ROOT);
+            assertFalse(MilestoneNames.of(RENDERER, Locale.ENGLISH, key).isBlank(), key);
+        }
     }
 }

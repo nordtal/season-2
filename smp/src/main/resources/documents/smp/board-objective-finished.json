@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Every milestone is finished.</muted>",
+            "de": "<muted>Alle Meilensteine sind geschafft.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

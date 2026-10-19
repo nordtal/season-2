@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Nobody has earned any aura yet.</muted>",
+            "de": "<muted>Noch hat niemand Aura verdient.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Disappears in <emphasis>{left, duration, short}</emphasis></muted>",
+            "de": "<muted>Verschwindet in <emphasis>{left, duration, short}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

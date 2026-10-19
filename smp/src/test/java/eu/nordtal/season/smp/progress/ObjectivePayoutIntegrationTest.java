@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -29,6 +30,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
@@ -138,7 +140,9 @@ class ObjectivePayoutIntegrationTest {
                 null,
                 null,
                 null,
-                MessageRenderer.of(messages),
+                MessageRenderer.of(messages)
+                        .reading(new AppliedDocuments(
+                                ObjectivePayoutIntegrationTest.class.getClassLoader(), Set.of("smp"))),
                 wheel(),
                 null,
                 null,

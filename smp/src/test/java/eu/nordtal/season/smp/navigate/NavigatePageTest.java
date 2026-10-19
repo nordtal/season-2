@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.GameDocument;
+import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.smp.menu.PanelWalk;
@@ -12,13 +14,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class NavigatePageTest {
 
-    private static final Messages MESSAGES =
-            Messages.load(NavigatePageTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
+    private static final MessageRenderer RENDERER = MessageRenderer.of(
+                    Messages.load("messages/database", Locale.GERMAN, Locale.ENGLISH))
+            .reading(new AppliedDocuments(NavigatePageTest.class.getClassLoader(), Set.of("smp")));
 
     private static final GameDocument DOCUMENT =
             PanelWalk.document(NavigateGui.DOCUMENT, Locale.ENGLISH, new NavigateGui.Window(1, 3));
@@ -110,16 +114,16 @@ class NavigatePageTest {
         assertEquals(Glyphs.GUI_ROW_ICON_DEATH, NavigatePanel.icon(NavigationTarget.Kind.LAST_DEATH));
         assertEquals(Glyphs.GUI_ROW_ICON_POI, NavigatePanel.icon(NavigationTarget.Kind.POI));
 
-        // The label of a point is its name. The two built-in kinds have a message key.
+        // The label of a point is its name. The two built-in kinds have a line of their own.
         assertEquals(
                 "Baeckerei",
                 NavigatePage.label(
                         NavigationTarget.poi(UUID.randomUUID(), "Baeckerei", WORLD, 0, 0, 0),
-                        MESSAGES,
+                        RENDERER,
                         Locale.ENGLISH));
         assertEquals(
-                MESSAGES.get(Locale.GERMAN, "smp.navigate.world-spawn"),
-                NavigatePage.label(NavigationTarget.worldSpawn(WORLD, 0, 0, 0), MESSAGES, Locale.GERMAN));
+                "Der Spawn dieser Welt",
+                NavigatePage.label(NavigationTarget.worldSpawn(WORLD, 0, 0, 0), RENDERER, Locale.GERMAN));
     }
 
     @Test
@@ -133,7 +137,7 @@ class NavigatePageTest {
 
     private static List<NavigatePanel.Entry> entries(
             final List<NavigationTarget> targets, final int page, final Optional<NavigationTarget> active) {
-        return NavigatePage.entries(targets, page, WORLD, 0, 64, 0, active, DOCUMENT, MESSAGES, Locale.ENGLISH);
+        return NavigatePage.entries(targets, page, WORLD, 0, 64, 0, active, DOCUMENT, RENDERER, Locale.ENGLISH);
     }
 
     private static List<NavigationTarget> targets(final int count) {

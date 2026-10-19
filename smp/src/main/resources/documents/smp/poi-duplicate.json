@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>There is already a point of interest called <emphasis>\"{name}\"</emphasis>.</bad>",
+            "de": "<bad>Es gibt bereits einen Ort namens <emphasis>\"{name}\"</emphasis>.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

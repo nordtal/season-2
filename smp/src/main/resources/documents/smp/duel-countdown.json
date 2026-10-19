@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "seconds",
+          "text": {
+            "en": "<accent>{seconds}...</accent>",
+            "de": "<accent>{seconds}...</accent>"
+          }
+        },
+        {
+          "when": "!seconds",
+          "text": {
+            "en": "<good>Go.</good>",
+            "de": "<good>Los.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

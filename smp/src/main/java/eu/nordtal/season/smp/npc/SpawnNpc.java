@@ -1,9 +1,9 @@
 package eu.nordtal.season.smp.npc;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.config.NpcSpec;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
@@ -21,6 +21,9 @@ import org.jspecify.annotations.Nullable;
 
 /** The spawn NPC, a {@link Mannequin} that a player clicks to open the objective menu. */
 public final class SpawnNpc {
+
+    static final DocumentSpec<DocumentSpec.None> NAME =
+            DocumentSpec.game("smp", "npc-name", "Spawn NPC", DocumentSpec.Shape.HOLOGRAM);
 
     private final Plugin plugin;
     private final NpcSpec config;
@@ -93,8 +96,7 @@ public final class SpawnNpc {
 
     /** Renders the NPC's name in the language of each viewer. */
     static Function<UUID, Component> name(final Function<UUID, Locale> languageOf, final MessageRenderer renderer) {
-        return viewer -> renderer.format(
-                languageOf.apply(viewer), MESSAGES.smp().objectives().npcName());
+        return viewer -> renderer.format(languageOf.apply(viewer), Sent.of(NAME));
     }
 
     public void remove() {

@@ -1,0 +1,30 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "outcome=won",
+          "text": {
+            "en": "<good>You won.</good> <muted>+<emphasis>{aura}</emphasis> aura.</muted>",
+            "de": "<good>Du hast gewonnen.</good> <muted>+<emphasis>{aura}</emphasis> Aura.</muted>"
+          }
+        },
+        {
+          "when": "outcome=lost",
+          "text": {
+            "en": "<bad>You lost.</bad> <muted>-<emphasis>{aura}</emphasis> aura.</muted>",
+            "de": "<bad>Du hast verloren.</bad> <muted>-<emphasis>{aura}</emphasis> Aura.</muted>"
+          }
+        },
+        {
+          "when": "outcome=interrupted",
+          "text": {
+            "en": "<muted>The duel was interrupted. No aura changes.</muted>",
+            "de": "<muted>Das Duell wurde unterbrochen. Es ändert sich keine Aura.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

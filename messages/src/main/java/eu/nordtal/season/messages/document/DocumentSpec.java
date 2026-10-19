@@ -41,7 +41,11 @@ public record DocumentSpec<V extends Record>(
         /** A boss bar line's text, which the HUD paints in its own font: its shown lines as plain text on one line. */
         BOSS_BAR,
         /** The server list's description under the server's name: the lines of its text blocks. */
-        SERVER_LIST;
+        SERVER_LIST,
+        /** The line over the hotbar: its shown lines on one line. */
+        ACTION_BAR,
+        /** A text floating in the world, a text display's or an entity's name: the lines of its text blocks. */
+        HOLOGRAM;
 
         /** Returns whether the game draws it, with the game's renderer, rather than Discord. */
         public boolean game() {
@@ -51,7 +55,9 @@ public record DocumentSpec<V extends Record>(
                     || this == KICK_SCREEN
                     || this == TITLE
                     || this == BOSS_BAR
-                    || this == SERVER_LIST;
+                    || this == SERVER_LIST
+                    || this == ACTION_BAR
+                    || this == HOLOGRAM;
         }
     }
 

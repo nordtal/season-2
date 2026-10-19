@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>The point of interest <emphasis>\"{name}\"</emphasis> is on the map for everybody.</muted>",
+            "de": "<muted>Der Ort <emphasis>\"{name}\"</emphasis> ist für alle auf der Karte.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

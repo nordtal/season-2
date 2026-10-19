@@ -1,14 +1,12 @@
 package eu.nordtal.season.smp.board;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.PlayerContext;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.player.Identities;
-import eu.nordtal.season.smp.SmpMessages;
 import eu.nordtal.season.smp.aura.AuraRow;
 import eu.nordtal.season.smp.config.BoardSpec;
 import eu.nordtal.season.smp.config.BoardsSpec;
@@ -47,6 +45,30 @@ public final class Boards {
     private static final int NO_WRAPPING = 10_000;
 
     private static final int LEADERBOARD_SIZE = 10;
+
+    record Milestone(MilestoneContext milestone) {}
+
+    /** {@code bar} is the progress bar's text; a {@code done} row reads as finished. */
+    record Row(String objective, String bar, long amount, long target, boolean done) {}
+
+    /** A player without aura, or below zero, is shown fainter. */
+    record AuraLine(long place, PlayerContext player, long aura) {}
+
+    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_TITLE = board("board-objective-title");
+    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_FINISHED = board("board-objective-finished");
+    static final DocumentSpec<Milestone> OBJECTIVE_MILESTONE = board("board-objective-milestone", Milestone.class);
+    static final DocumentSpec<Row> OBJECTIVE_ROW = board("board-objective-row", Row.class);
+    static final DocumentSpec<DocumentSpec.None> AURA_TITLE = board("board-aura-title");
+    static final DocumentSpec<DocumentSpec.None> AURA_EMPTY = board("board-aura-empty");
+    static final DocumentSpec<AuraLine> AURA_ROW = board("board-aura-row", AuraLine.class);
+
+    private static DocumentSpec<DocumentSpec.None> board(final String name) {
+        return DocumentSpec.game("smp", name, "Boards", DocumentSpec.Shape.HOLOGRAM);
+    }
+
+    private static <V extends Record> DocumentSpec<V> board(final String name, final Class<V> values) {
+        return DocumentSpec.game("smp", name, "Boards", DocumentSpec.Shape.HOLOGRAM, values);
+    }
 
     private final Plugin plugin;
     private final BoardsSpec config;
@@ -146,8 +168,7 @@ public final class Boards {
 
     // Names are message parameters, so MessageRenderer escapes them.
     private Component objectiveText(final Locale locale, final int width) {
-        final Component title =
-                renderer.format(locale, MESSAGES.smp().board().objective().title());
+        final Component title = renderer.format(locale, Sent.of(OBJECTIVE_TITLE));
         final List<Component> lines = new ArrayList<>();
 
         // A single read keeps the name and the rows of one milestone together.
@@ -156,16 +177,14 @@ public final class Boards {
             return BoardFrame.render(width, title, lines);
         }
         if (active.key() == null) {
-            lines.add(renderer.format(locale, MESSAGES.smp().board().objective().finished()));
+            lines.add(renderer.format(locale, Sent.of(OBJECTIVE_FINISHED)));
             return BoardFrame.render(width, title, lines);
         }
 
         lines.add(renderer.format(
                 locale,
-                MESSAGES.smp()
-                        .board()
-                        .objective()
-                        .milestone(new MilestoneContext(milestoneName(active.key(), locale)))));
+                OBJECTIVE_MILESTONE.with(
+                        new Milestone(new MilestoneContext(MilestoneNames.of(renderer, locale, active.key()))))));
         for (final ObjectiveRow objective : active.objectives()) {
             lines.add(renderer.format(locale, row(objective.key(), objective)));
         }
@@ -173,13 +192,12 @@ public final class Boards {
     }
 
     private Component auraText(final Locale locale, final int width) {
-        final Component title =
-                renderer.format(locale, MESSAGES.smp().board().aura().title());
+        final Component title = renderer.format(locale, Sent.of(AURA_TITLE));
         final List<Component> lines = new ArrayList<>();
 
         final List<AuraRow> rows = leaderboard;
         if (rows.isEmpty()) {
-            lines.add(renderer.format(locale, MESSAGES.smp().board().aura().empty()));
+            lines.add(renderer.format(locale, Sent.of(AURA_EMPTY)));
             return BoardFrame.render(width, title, lines);
         }
 
@@ -187,21 +205,8 @@ public final class Boards {
         for (final AuraRow row : rows.subList(0, Math.min(LEADERBOARD_SIZE, rows.size()))) {
             lines.add(renderer.format(
                     locale,
-                    row.aura() > 0
-                            ? MESSAGES.smp()
-                                    .board()
-                                    .aura()
-                                    .row(
-                                            place,
-                                            PlayerContext.of(PlayerId.of(row.mcUuid()), nameOf(row.mcUuid())),
-                                            row.aura())
-                            : MESSAGES.smp()
-                                    .board()
-                                    .aura()
-                                    .rowZero(
-                                            place,
-                                            PlayerContext.of(PlayerId.of(row.mcUuid()), nameOf(row.mcUuid())),
-                                            row.aura())));
+                    AURA_ROW.with(new AuraLine(
+                            place, PlayerContext.of(PlayerId.of(row.mcUuid()), nameOf(row.mcUuid())), row.aura()))));
             place++;
         }
         return BoardFrame.render(width, title, lines);
@@ -214,15 +219,8 @@ public final class Boards {
         });
     }
 
-    private String milestoneName(final String key, final Locale locale) {
-        return MilestoneNames.of(renderer.raw(), locale, key);
-    }
-
-    private static MessageRef row(final String name, final ObjectiveRow objective) {
+    private static Sent<Row> row(final String name, final ObjectiveRow objective) {
         final String bar = ProgressBar.of(objective.ratio(), BAR_WIDTH);
-        final SmpMessages.Smp.Board.Objective lines = MESSAGES.smp().board().objective();
-        return objective.completed()
-                ? lines.rowDone(name, bar, objective.amount(), objective.target())
-                : lines.row(name, bar, objective.amount(), objective.target());
+        return OBJECTIVE_ROW.with(new Row(name, bar, objective.amount(), objective.target(), objective.completed()));
     }
 }

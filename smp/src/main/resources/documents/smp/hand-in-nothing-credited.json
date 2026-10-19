@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The objective is already finished.</bad> <muted>You got your items back.</muted>",
+            "de": "<bad>Das Ziel ist schon geschafft.</bad> <muted>Du hast deine Items zurück.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>The point of interest <emphasis>\"{name}\"</emphasis> is removed.</muted>",
+            "de": "<muted>Der Ort <emphasis>\"{name}\"</emphasis> ist entfernt.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

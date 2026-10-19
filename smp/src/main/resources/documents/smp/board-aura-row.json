@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "aura",
+          "text": {
+            "en": "<emphasis>{place}. {player.name, name, plain} {aura}</emphasis>",
+            "de": "<emphasis>{place}. {player.name, name, plain} {aura}</emphasis>"
+          }
+        },
+        {
+          "when": "!aura",
+          "text": {
+            "en": "<faint>{place}. {player.name, name, plain} {aura}</faint>",
+            "de": "<faint>{place}. {player.name, name, plain} {aura}</faint>"
+          }
+        }
+      ]
+    }
+  ]
+}

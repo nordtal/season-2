@@ -28,34 +28,6 @@ class MessageBundlesTest {
             Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     @Test
-    void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
-        for (final Locale locale : java.util.List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final net.kyori.adventure.text.Component rendered = eu.nordtal.season.messagerendering.MessageRenderer.of(
-                            messages)
-                    .format(
-                            locale,
-                            SmpMessages.MESSAGES
-                                    .smp()
-                                    .wheel()
-                                    .won(3, eu.nordtal.season.messages.value.GameContent.of("block.minecraft.stone")));
-            final java.util.List<net.kyori.adventure.text.Component> parts = new java.util.ArrayList<>();
-            flatten(rendered, parts);
-            assertTrue(
-                    parts.stream()
-                            .anyMatch(part -> part instanceof net.kyori.adventure.text.TranslatableComponent tr
-                                    && "block.minecraft.stone".equals(tr.key())),
-                    locale + ": the item has to arrive as a translatable component. It came out as " + rendered);
-        }
-    }
-
-    private static void flatten(
-            final net.kyori.adventure.text.Component component,
-            final java.util.List<net.kyori.adventure.text.Component> out) {
-        out.add(component);
-        component.children().forEach(child -> flatten(child, out));
-    }
-
-    @Test
     void bothBundlesAreLoaded() {
         assertTrue(messages.languages().contains("en"));
         assertTrue(

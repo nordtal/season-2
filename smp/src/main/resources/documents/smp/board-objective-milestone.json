@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>{milestone.name}</emphasis>",
+            "de": "<emphasis>{milestone.name}</emphasis>"
+          }
+        }
+      ]
+    }
+  ]
+}

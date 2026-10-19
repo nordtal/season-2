@@ -1,9 +1,9 @@
 package eu.nordtal.season.smp.protect;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -37,6 +37,10 @@ import org.bukkit.event.player.PlayerInteractEvent;
  * It blocks building, fire, fluids and every {@link Container}, not doors or switches. Only admins in Creative build.
  */
 public final class ProtectionListener implements Listener {
+
+    /** On the action bar rather than in chat: it fires on a misclick as often as on an attempt. */
+    static final DocumentSpec<DocumentSpec.None> DENIED =
+            DocumentSpec.game("smp", "protect-denied", "Spawn", DocumentSpec.Shape.ACTION_BAR);
 
     private final Supplier<Boxes> regions;
     private final Identities identities;
@@ -168,9 +172,8 @@ public final class ProtectionListener implements Listener {
         if (!inside(Objects.requireNonNull(block.getLocation())) || builds(player)) {
             return false;
         }
-        player.sendActionBar(Lines.joined(renderer.format(
-                identities.languageOf(player.getUniqueId()),
-                MESSAGES.smp().protect().denied())));
+        player.sendActionBar(
+                Lines.joined(renderer.format(identities.languageOf(player.getUniqueId()), Sent.of(DENIED))));
         sounds.play(player, Feedback.REFUSED);
         return true;
     }

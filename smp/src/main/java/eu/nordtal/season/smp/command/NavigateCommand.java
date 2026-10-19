@@ -1,7 +1,5 @@
 package eu.nordtal.season.smp.command;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -11,7 +9,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.ToneColours;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
@@ -19,7 +16,7 @@ import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.SmpMessages;
+import eu.nordtal.season.smp.SmpTexts;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.navigate.NavigateGui;
 import eu.nordtal.season.smp.navigate.Navigation;
@@ -48,6 +45,28 @@ public final class NavigateCommand {
 
     static final DocumentSpec<DocumentSpec.None> NOTHING_TO_CANCEL =
             DocumentSpec.game("smp", "navigate-nothing-to-cancel", "Navigate", DocumentSpec.Shape.CHAT);
+
+    record Named(String name) {}
+
+    record MaxLength(int max) {}
+
+    /** The plain help line of a subcommand, which the command help's line takes in. */
+    record Described(Sub sub) {}
+
+    static final DocumentSpec<Named> ADDED = poi("poi-added", Named.class);
+    static final DocumentSpec<Named> REMOVED = poi("poi-removed", Named.class);
+    static final DocumentSpec<Named> DUPLICATE = poi("poi-duplicate", Named.class);
+    static final DocumentSpec<Named> NOT_FOUND = poi("poi-not-found", Named.class);
+    /** Points of interest are public to see and to use; removing is the one asymmetry. */
+    static final DocumentSpec<DocumentSpec.None> NOT_YOURS =
+            DocumentSpec.game("smp", "poi-not-yours", "Points of interest", DocumentSpec.Shape.CHAT);
+
+    static final DocumentSpec<MaxLength> BAD_NAME = poi("poi-bad-name", MaxLength.class);
+    static final DocumentSpec<Described> DESCRIBE = poi("poi-describe", Described.class);
+
+    private static <V extends Record> DocumentSpec<V> poi(final String name, final Class<V> values) {
+        return DocumentSpec.game("smp", name, "Points of interest", DocumentSpec.Shape.CHAT, values);
+    }
 
     private final Plugin plugin;
     private final PlaceDao dao;
@@ -103,7 +122,7 @@ public final class NavigateCommand {
     }
 
     /** The {@code /poi} subcommands. The command tree and the help text both read it. */
-    private enum Sub {
+    enum Sub {
         ADD("add"),
         REMOVE("remove");
 
@@ -117,11 +136,8 @@ public final class NavigateCommand {
             return "/poi " + literal + " <name>";
         }
 
-        MessageRef describe() {
-            return switch (this) {
-                case ADD -> SmpMessages.MESSAGES.command().describe().poi().add();
-                case REMOVE -> SmpMessages.MESSAGES.command().describe().poi().remove();
-            };
+        Sent<Described> describe() {
+            return DESCRIBE.with(new Described(this));
         }
     }
 
@@ -194,20 +210,20 @@ public final class NavigateCommand {
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
-            tell(player, renderer.format(locale, MESSAGES.smp().poi().badName(MAX_POI_NAME)), Feedback.REFUSED);
+            tell(player, renderer.format(locale, BAD_NAME.with(new MaxLength(MAX_POI_NAME))), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            tell(player, renderer.format(locale, MESSAGES.smp().error().noAccountLink()), Feedback.REFUSED);
+            tell(player, renderer.format(locale, Sent.of(SmpTexts.NO_ACCOUNT_LINK)), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Location at = java.util.Objects.requireNonNull(player.getLocation());
         PaperScheduler.of(plugin).execute(() -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
-                tell(player, renderer.format(locale, MESSAGES.smp().poi().duplicate(name)), Feedback.REFUSED);
+                tell(player, renderer.format(locale, DUPLICATE.with(new Named(name))), Feedback.REFUSED);
                 return;
             }
             dao.createPoi(
@@ -217,7 +233,7 @@ public final class NavigateCommand {
                     at.getBlockY(),
                     at.getBlockZ(),
                     discordId.get().value());
-            tell(player, renderer.format(locale, MESSAGES.smp().poi().added(name)), Feedback.SMALL_SUCCESS);
+            tell(player, renderer.format(locale, ADDED.with(new Named(name))), Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -234,18 +250,18 @@ public final class NavigateCommand {
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
             if (found.isEmpty()) {
-                tell(player, renderer.format(locale, MESSAGES.smp().poi().notFound(name)), Feedback.REFUSED);
+                tell(player, renderer.format(locale, NOT_FOUND.with(new Named(name))), Feedback.REFUSED);
                 return;
             }
             final PoiRow poi = found.get();
             if (!admin
                     && !poi.createdBy().equals(discordId.map(DiscordId::value).orElse(""))) {
-                tell(player, renderer.format(locale, MESSAGES.smp().poi().notYours()), Feedback.REFUSED);
+                tell(player, renderer.format(locale, Sent.of(NOT_YOURS)), Feedback.REFUSED);
                 return;
             }
             dao.deletePoi(poi.id());
             PaperScheduler.of(plugin).onMain(() -> navigation.clearWorld(poi.world()));
-            tell(player, renderer.format(locale, MESSAGES.smp().poi().removed(name)), Feedback.SMALL_SUCCESS);
+            tell(player, renderer.format(locale, REMOVED.with(new Named(name))), Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }

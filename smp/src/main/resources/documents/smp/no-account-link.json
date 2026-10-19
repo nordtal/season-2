@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Your Minecraft account is not linked to Discord.</bad> <muted>Link it in Discord first.</muted>",
+            "de": "<bad>Dein Minecraft-Konto ist nicht mit Discord verknüpft.</bad> <muted>Verknüpfe es zuerst in Discord.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

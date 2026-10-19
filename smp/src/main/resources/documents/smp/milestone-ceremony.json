@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>{milestone.name}</accent>",
+            "de": "<accent>{milestone.name}</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>A milestone is finished.</muted>",
+            "de": "<muted>Ein Meilenstein ist geschafft.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent><glyph:announce></accent> <muted><emphasis>{milestone.name}</emphasis> is complete. Look up.</muted>",
+            "de": "<accent><glyph:announce></accent> <muted><emphasis>{milestone.name}</emphasis> ist abgeschlossen. Schau nach oben.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

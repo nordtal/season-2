@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -79,7 +80,19 @@ class AdvancementCreditIntegrationTest {
         final Announcer announcer = new Announcer(
                 Inbox.over(dataSource, BotRequest.TABLE), messages.locales(), Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
-                null, jdbi, () -> track, null, null, null, MessageRenderer.of(messages), null, null, null, announcer);
+                null,
+                jdbi,
+                () -> track,
+                null,
+                null,
+                null,
+                MessageRenderer.of(messages)
+                        .reading(new AppliedDocuments(
+                                AdvancementCreditIntegrationTest.class.getClassLoader(), Set.of("smp"))),
+                null,
+                null,
+                null,
+                announcer);
 
         online.clear();
         held.clear();

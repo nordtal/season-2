@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>+{aura} aura</good> <muted>for that advancement.</muted>",
+            "de": "<good>+{aura} Aura</good> <muted>für diesen Fortschritt.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,9 +1,8 @@
 package eu.nordtal.season.smp.navigate;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -19,6 +18,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
 public final class NavigateListener implements Listener {
+
+    record Arrived(String target) {}
+
+    static final DocumentSpec<Arrived> ARRIVED =
+            DocumentSpec.game("smp", "navigate-arrived", "Navigate", DocumentSpec.Shape.CHAT, Arrived.class);
 
     private final Plugin plugin;
     private final PlaceDao dao;
@@ -52,8 +56,7 @@ public final class NavigateListener implements Listener {
                 .ifPresent(target -> {
                     final java.util.Locale locale = identities.languageOf(player.getUniqueId());
                     player.sendMessage(renderer.format(
-                            locale,
-                            MESSAGES.smp().navigate().arrived(NavigatePage.label(target, renderer.raw(), locale))));
+                            locale, ARRIVED.with(new Arrived(NavigatePage.label(target, renderer, locale)))));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 });
     }

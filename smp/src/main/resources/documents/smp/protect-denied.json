@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>This is the spawn area.</bad> <muted>You cannot build, break or open anything here.</muted>",
+            "de": "<bad>Das ist der Spawn-Bereich.</bad> <muted>Hier kannst du nichts bauen, abbauen oder öffnen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

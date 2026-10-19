@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>This objective needs none of these items.</bad> <muted>Nothing was taken.</muted>",
+            "de": "<bad>Dieses Ziel braucht keins dieser Items.</bad> <muted>Es wurde nichts genommen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

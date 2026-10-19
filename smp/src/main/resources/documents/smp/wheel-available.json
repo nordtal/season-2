@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>{count, plural, =0 {You have no spins right now.} one {You have one spin.} other {You have <emphasis>#</emphasis> spins.}}</muted>",
+            "de": "<muted>{count, plural, =0 {Du hast gerade keinen Spin.} one {Du hast einen Spin.} other {Du hast <emphasis>#</emphasis> Spins.}}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "done",
+          "text": {
+            "en": "<good>{objective} {bar} {amount}/{target}</good>",
+            "de": "<good>{objective} {bar} {amount}/{target}</good>"
+          }
+        },
+        {
+          "when": "!done",
+          "text": {
+            "en": "<muted>{objective} {bar} {amount}/{target}</muted>",
+            "de": "<muted>{objective} {bar} {amount}/{target}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

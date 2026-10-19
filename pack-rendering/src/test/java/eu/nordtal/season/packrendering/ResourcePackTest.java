@@ -9,8 +9,6 @@ import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,7 +19,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -54,20 +51,19 @@ class ResourcePackTest {
                     Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT), GUI_ROW_FONTS.stream())
             .toList();
 
-    /**
-     * The message keys whose text is drawn inside a boss bar, as {@code SmpHud} and {@code HudRenderer} use them.
-     *
-     * {@code smp.milestone.} also covers a chat line, which is the safe direction.
-     */
-    private static final List<String> HUD_KEY_PREFIXES =
-            List.of("smp.hud.", "smp.world.", "smp.milestone.", "smp.navigate.");
-
-    private static final List<String> HUD_BUNDLES = List.of(
-            "smp/src/main/resources/messages/smp/en.properties", "smp/src/main/resources/messages/smp/de.properties");
-
-    /** The documents whose text is drawn inside a boss bar, as {@code GameHud} uses them. */
-    private static final List<String> HUD_DOCUMENTS = Stream.of("alive", "dead", "loot", "border")
-            .map(name -> "hunger-games/src/main/resources/documents/hunger-games/hud-" + name + ".json")
+    /** The documents whose text is drawn inside a boss bar, as {@code GameHud} and {@code SmpHud} use them. */
+    private static final List<String> HUD_DOCUMENTS = Stream.concat(
+                    Stream.of("alive", "dead", "loot", "border")
+                            .map(name ->
+                                    "hunger-games/src/main/resources/documents/hunger-games/hud-" + name + ".json"),
+                    Stream.of(
+                                    "hud-world",
+                                    "hud-progress",
+                                    "hud-distance",
+                                    "hud-other-world",
+                                    "milestone-name",
+                                    "navigate-target")
+                            .map(name -> "smp/src/main/resources/documents/smp/" + name + ".json"))
             .toList();
 
     @Test
@@ -165,14 +161,6 @@ class ResourcePackTest {
     @Test
     void everyCharacterABossBarLineCanContainIsInTheBossbarFont() {
         final Map<String, Set<Integer>> missing = new LinkedHashMap<>();
-        for (final String bundle : HUD_BUNDLES) {
-            properties(bundle).forEach((key, value) -> {
-                if (HUD_KEY_PREFIXES.stream().noneMatch(String.valueOf(key)::startsWith)) {
-                    return;
-                }
-                notCovered(String.valueOf(value), bundle + " " + key, missing);
-            });
-        }
         for (final String document : HUD_DOCUMENTS) {
             for (final Part part :
                     Document.decode(RepositoryRoot.read(document)).parts()) {
@@ -369,17 +357,5 @@ class ResourcePackTest {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + path, e);
         }
-    }
-
-    /** Reads a bundle the way {@code Messages} does, as UTF-8. */
-    private static Properties properties(final String relative) {
-        final Properties properties = new Properties();
-        try (Reader reader =
-                new InputStreamReader(Files.newInputStream(RepositoryRoot.resolve(relative)), StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + relative, e);
-        }
-        return properties;
     }
 }

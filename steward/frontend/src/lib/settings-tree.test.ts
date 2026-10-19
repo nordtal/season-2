@@ -178,6 +178,25 @@ describe("the texts as a tree", () => {
     ])
   })
 
+  it("lists other bundles' texts shown in Steward after Steward's pages, apart from a page of the same name", () => {
+    const tree = textsTree(
+      [
+        text({ key: "alerts.disk", bundle: "admin", section: ["Alerts"], shown: ["STEWARD"] }),
+        steward("steward.alerts.all-clear", ["Alerts page"]),
+        steward("steward.shell.pages", ["Shell"]),
+      ],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual([
+      "[Every page > Shell]",
+      "  steward/steward.shell.pages",
+      "[Alerts > Alerts page]",
+      "  steward/steward.alerts.all-clear",
+      "[Alerts]",
+      "  admin/alerts.disk",
+    ])
+  })
+
   it("keeps the values apart as building blocks, wherever they are shown", () => {
     const tree = textsTree(
       [

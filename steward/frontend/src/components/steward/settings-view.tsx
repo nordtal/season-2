@@ -1,5 +1,6 @@
 import { ArrowUpIcon, CaretRightIcon } from "@phosphor-icons/react"
-import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, use, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import type { ReactNode, RefObject } from "react"
 import { cn } from "cn"
 
@@ -15,6 +16,7 @@ import {
   type TreeLeaf,
   type TreeNode,
 } from "@/lib/settings-tree"
+import { CONTROL, PhoneBarSlot } from "@/app/island"
 import { Button } from "@/components/ui/button"
 import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { t } from "@/lib/texts"
@@ -100,6 +102,7 @@ export function TreeView<L>({
    */
   const [jumpChain, setJumpChain] = useState<string[] | null>(null)
   const [scrolledAway, setScrolledAway] = useState(false)
+  const phoneBar = use(PhoneBarSlot)
   useEffect(() => {
     const node = search.current
     if (!node || typeof IntersectionObserver === "undefined") return undefined
@@ -167,26 +170,40 @@ export function TreeView<L>({
         />
       )}
       <PinnedRow>
-        {scrolledAway ? (
+        {scrolledAway && !phoneBar ? (
           <Button
             type="button"
             size="icon"
             aria-label={t("steward.settings.back-to-top")}
             className="pointer-events-auto rounded-full shadow-sm"
-            onClick={(event) => scrollPageToTop(event.currentTarget)}
+            onClick={() => scrollPageToTop(search.current)}
           >
             <ArrowUpIcon aria-hidden />
           </Button>
         ) : null}
         {save}
       </PinnedRow>
+      {/* On a phone the button sits in the navigation bar, where it covers nothing of the page. */}
+      {scrolledAway && phoneBar
+        ? createPortal(
+            <button
+              type="button"
+              aria-label={t("steward.settings.back-to-top")}
+              className={CONTROL}
+              onClick={() => scrollPageToTop(search.current)}
+            >
+              <ArrowUpIcon className="size-4" aria-hidden />
+            </button>,
+            phoneBar,
+          )
+        : null}
     </div>
   )
 }
 
 /** The page scrolls inside the shell's scroll area; without one, the window scrolls. */
-function scrollPageToTop(from: Element) {
-  const page = from.closest('[data-slot="scroll-area-viewport"]') ?? window
+function scrollPageToTop(from: Element | null) {
+  const page = from?.closest('[data-slot="scroll-area-viewport"]') ?? window
   page.scrollTo({ top: 0, behavior: "smooth" })
 }
 

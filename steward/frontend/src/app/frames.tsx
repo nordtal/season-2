@@ -1,9 +1,10 @@
 import { Outlet } from "@tanstack/react-router"
+import { useState } from "react"
 import type { CSSProperties } from "react"
 
 import { NavList } from "@/app/app-sidebar"
 import { useCrumbs } from "@/app/breadcrumbs"
-import { Brand, BrandFace, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
+import { Brand, BrandFace, MOTION, NavToggle, PhoneBarSlot, SearchButton, Trail } from "@/app/island"
 import { UserMenu } from "@/app/user-menu"
 import type { Me } from "@/lib/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -102,6 +103,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
 
 function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle, follow, close } = nav
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
 
   return (
     <>
@@ -135,13 +137,16 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
           >
             <BrandFace version={shown} />
           </button>
+          <span ref={setSlot} className="contents" />
           <SearchButton />
           <UserMenu me={me} plain />
         </div>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.75rem)]" />
+        <PhoneBarSlot value={slot}>
+          <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.75rem)]" />
+        </PhoneBarSlot>
       </div>
     </>
   )

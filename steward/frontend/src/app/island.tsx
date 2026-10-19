@@ -1,10 +1,13 @@
 import { Link } from "@tanstack/react-router"
 import { CaretRightIcon, ListIcon, MagnifyingGlassIcon, SidebarIcon, XIcon } from "@phosphor-icons/react"
-import { Fragment } from "react"
+import { createContext, Fragment } from "react"
 
 import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
 import { t } from "@/lib/texts"
+
+/** The phone's navigation bar, where a page puts a control that would otherwise float over its content. Empty off a phone. */
+export const PhoneBarSlot = createContext<HTMLElement | null>(null)
 
 export const CONTROL =
   "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"

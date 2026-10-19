@@ -116,9 +116,6 @@ public interface BackupsPage {
     @Name("Size")
     MessageRef size();
 
-    @Name("Download")
-    MessageRef download();
-
     @Name("Download a file")
     MessageRef downloadFile(@Arg("file") String file);
 }

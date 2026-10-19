@@ -1,6 +1,7 @@
 import { DotsThreeIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
+import { cn } from "cn"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
 import { bytes, dateTime, percent, relative } from "@/lib/format"
@@ -306,19 +307,12 @@ export function ServiceHead({
   if (service && resting(service)) return <RestingHead service={service} />
   return (
     /*
-     * On a phone the state is one compact row, with the stats under it and the curves side by side. From `lg` it is one flat row.
+     * One band of three fixed lines: names, values, then what draws them. On a phone the state is one compact row above it.
      */
-    <section className="flex flex-col gap-y-3 sm:gap-y-5 lg:flex-row lg:items-start lg:gap-x-10">
-      <div className="flex flex-col gap-2 max-sm:flex-row max-sm:flex-wrap max-sm:items-center">
-        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
-          {t("steward.operations.state")}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* The hold is part of the state badge, as in the sidebar and the network view. */}
-          {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
-          {service ? <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} /> : null}
-        </div>
-        <span className="text-2xl font-semibold tabular-nums max-sm:text-sm">
+    <section className="flex flex-col gap-y-3 sm:gap-y-4 lg:flex-row lg:gap-x-10">
+      <div className="flex shrink-0 flex-col max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:gap-2">
+        <span className={cn(NAME_LINE, "max-sm:sr-only")}>{t("steward.operations.state")}</span>
+        <span className={cn(VALUE_LINE, "font-semibold max-sm:order-last max-sm:h-auto")}>
           {service ? (
             service.startedAt ? (
               since(service.startedAt)
@@ -329,23 +323,22 @@ export function ServiceHead({
             <SkeletonText width="short" className="h-[1lh]" />
           )}
         </span>
+        <StateBadges service={service} />
       </div>
-      <div className="flex min-w-0 flex-col gap-2">
-        {/* The range belongs to the stats. It is as tall as the State label, so both start on one line. */}
-        <div className="flex h-4 items-center gap-3">
-          <span className="text-xs font-medium font-heading text-muted-foreground">
-            {t("steward.service-page.stats")}
-          </span>
+      <div className="flex min-w-0 flex-col">
+        {/* The range belongs to the stats, so it sits on their name line. */}
+        <div className={cn(NAME_LINE, "gap-3")}>
+          {t("steward.service-page.stats")}
           <RangeSelect minutes={minutes} onChange={setMinutes} />
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 lg:flex lg:items-start lg:gap-x-10">
+        <div className="grid grid-cols-3 gap-x-4 lg:grid-cols-[repeat(3,11rem)] lg:gap-x-10">
           <MetricChart
             label={t("steward.service-page.cpu")}
             value={service ? percent(service.cpuPercent) : undefined}
             points={cpu.data?.points}
             format={percent}
             colour="var(--chart-1)"
-            className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+            className="flex min-w-0 flex-col"
             statClassName={INLINE.className}
             valueClassName={INLINE.valueClassName}
           />
@@ -355,18 +348,16 @@ export function ServiceHead({
             points={memory.data?.points}
             format={bytes}
             colour="var(--chart-2)"
-            className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+            className="flex min-w-0 flex-col"
             statClassName={INLINE.className}
             valueClassName={INLINE.valueClassName}
           />
           {/* Only services with a volume have a number, because 0 bytes would be a claim. */}
           {service?.diskBytes === undefined ? null : (
-            <Stat
-              label={t("steward.service-page.disk")}
-              value={bytes(service.diskBytes)}
-              hint={diskAge(service.diskMeasuredAt)}
-              {...INLINE}
-            />
+            <div className="flex min-w-0 flex-col">
+              <Stat label={t("steward.service-page.disk")} value={bytes(service.diskBytes)} {...INLINE} />
+              <span className="h-10 text-xs text-muted-foreground">{diskAge(service.diskMeasuredAt)}</span>
+            </div>
           )}
         </div>
       </div>
@@ -374,38 +365,57 @@ export function ServiceHead({
   )
 }
 
-/** The head of a one-shot or a standby: its state and, for a one-shot, how its last run ended. */
+/** The state badges, on the line where the curves start. The hold is part of the state badge, as in the sidebar. */
+function StateBadges({
+  service,
+  className = "items-start lg:min-h-10",
+}: {
+  service?: NonNullable<ReturnType<typeof useService>["data"]>
+  className?: string
+}) {
+  return (
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
+      {service ? <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} /> : null}
+    </div>
+  )
+}
+
+/** The head of a one-shot or a standby: its state and, for a one-shot, when its last run ended and how. */
 function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
   const { lastRun } = service
   return (
-    <section className="flex flex-wrap items-start gap-x-10 gap-y-3">
-      <div className="flex flex-col gap-2 max-sm:w-full max-sm:flex-row max-sm:items-center">
-        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
-          {t("steward.operations.state")}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <ServiceState service={service} />
-          <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} />
-        </div>
+    <section className="flex flex-col gap-y-3 sm:flex-row sm:gap-x-10">
+      <div className="flex shrink-0 flex-col">
+        <span className={cn(NAME_LINE, "max-sm:sr-only")}>{t("steward.operations.state")}</span>
+        {/* Nothing is drawn under a resting service, so its badges take the value line. */}
+        <StateBadges service={service} className="items-center sm:h-8" />
       </div>
       {lastRun ? (
-        <>
-          <Stat
-            label={t("steward.service-page.last-run")}
-            value={relative(lastRun.finishedAt)}
-            hint={dateTime(lastRun.finishedAt)}
-            {...INLINE}
-          />
-          <Stat label={t("steward.service-page.exit-code")} value={String(lastRun.exitCode)} {...INLINE} />
-        </>
+        <div className="flex min-w-0 flex-col">
+          <span className={NAME_LINE}>{t("steward.service-page.last-run")}</span>
+          <div className="grid grid-cols-3 gap-x-4 sm:flex sm:gap-x-10">
+            <div className="flex min-w-0 flex-col">
+              <span className={cn(VALUE_LINE, "font-semibold")}>{relative(lastRun.finishedAt)}</span>
+              <span className="text-xs text-muted-foreground">{dateTime(lastRun.finishedAt)}</span>
+            </div>
+            <Stat label={t("steward.service-page.exit-code")} value={String(lastRun.exitCode)} {...INLINE} />
+          </div>
+        </div>
       ) : null}
     </section>
   )
 }
 
-/** A `Stat` on a service page, with the value no larger than the text on a phone. */
+/** The name line of the head, as tall as the range select that shares it. */
+const NAME_LINE = "flex h-6 items-center text-xs font-medium font-heading text-muted-foreground"
+
+/** The value line of the head. Every value on it has one size, so all of them share a baseline. */
+const VALUE_LINE = "flex h-8 items-baseline text-xl whitespace-nowrap tnum max-sm:text-sm"
+
+/** A `Stat` on the value line, its name before its value. */
 const INLINE = {
-  className: "flex-row items-baseline gap-1.5",
+  className: "h-8 flex-row items-baseline gap-1.5 whitespace-nowrap",
   valueClassName: "max-sm:text-sm",
 }
 

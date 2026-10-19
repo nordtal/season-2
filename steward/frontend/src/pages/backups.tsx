@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AskButton } from "@/pages/operations"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/steward/data-table"
 import { entryAt, useStewardConfig } from "@/components/steward/group-form"
 import { ScheduleDialog } from "@/pages/backup-dialogs"
 
@@ -103,8 +103,6 @@ function ran(run: Run): string {
   return span((finished.getTime() - started.getTime()) / 1000)
 }
 
-const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
-
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
@@ -114,68 +112,65 @@ function Runs() {
     <Panel title={t("steward.backups.runs")}>
       <QueryState query={runs} isEmpty={() => rows.length === 0} empty={{ title: t("steward.backups.no-run") }}>
         {(answer) => (
-          <Table className="steward-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[5rem]">{t("steward.backups.run")}</TableHead>
-                <TableHead className="w-[12rem]">{t("steward.backups.when")}</TableHead>
-                <TableHead className="w-[9rem]">{t("steward.backups.status")}</TableHead>
-                <TableHead className="w-[7rem] text-right">{t("steward.backups.archives")}</TableHead>
-                <TableHead className="w-[7rem] text-right">{t("steward.backups.took")}</TableHead>
-                <TableHead>{t("steward.backups.initiated-by")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(answer ? rows : WAITING_BACKUP_RUNS).map((run, index) => {
-                const archives = run ? saved(run) : undefined
-                return (
-                  <TableRow
-                    key={run?.id ?? index}
-                    className={run ? "cursor-pointer" : undefined}
-                    onClick={() => run && navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })}
+          <DataTable
+            rows={answer ? rows : undefined}
+            waiting={4}
+            rowKey={(run) => run.id}
+            onRowClick={(run) => navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })}
+            columns={[
+              {
+                head: t("steward.backups.run"),
+                phone: { line: 1, side: "start" },
+                className: "font-medium tnum",
+                waiting: <SkeletonText width="short" />,
+                render: (run) => (
+                  <Link
+                    to="/operations/backups/$id"
+                    params={{ id: String(run.id) }}
+                    className="underline-offset-4 tap-target hover:text-primary hover:underline"
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    <TableCell data-label={t("steward.backups.run")} className="font-medium tnum">
-                      {run ? (
-                        <Link
-                          to="/operations/backups/$id"
-                          params={{ id: String(run.id) }}
-                          className="underline-offset-4 tap-target hover:text-primary hover:underline"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          #{run.id}
-                        </Link>
-                      ) : (
-                        <SkeletonText width="short" />
-                      )}
-                    </TableCell>
-                    <TableCell data-label={t("steward.backups.when")}>
-                      {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
-                    </TableCell>
-                    <TableCell data-label={t("steward.backups.status")}>
-                      {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
-                    </TableCell>
-                    <TableCell data-label={t("steward.backups.archives")} className="text-right tnum">
-                      {archives ? (
-                        archives.total === 0 ? (
-                          "\u2013"
-                        ) : (
-                          count(archives.saved)
-                        )
-                      ) : (
-                        <SkeletonText width="short" className="ml-auto" />
-                      )}
-                    </TableCell>
-                    <TableCell data-label={t("steward.backups.took")} className="text-right tnum">
-                      {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
-                    </TableCell>
-                    <TableCell data-label={t("steward.backups.initiated-by")} className="text-muted-foreground">
-                      {!run ? <SkeletonText width="medium" /> : <Actor kind={run.actorKind} id={run.actorId} />}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                    #{run.id}
+                  </Link>
+                ),
+              },
+              {
+                head: t("steward.backups.when"),
+                phone: { line: 2, side: "start" },
+                render: (run) => dateTime(run.started || run.requested),
+              },
+              {
+                head: t("steward.backups.status"),
+                phone: { line: 1, side: "end" },
+                waiting: <Skeleton className="h-5 w-20 rounded-full" />,
+                render: (run) => <RunStatus status={run.status} />,
+              },
+              {
+                head: t("steward.backups.archives"),
+                end: true,
+                phone: { line: 3, side: "end", labelled: true },
+                className: "tnum",
+                render: (run) => {
+                  const archives = saved(run)
+                  return archives.total === 0 ? "\u2013" : count(archives.saved)
+                },
+              },
+              {
+                head: t("steward.backups.took"),
+                end: true,
+                phone: { line: 2, side: "end", labelled: true },
+                className: "tnum",
+                render: ran,
+              },
+              {
+                head: t("steward.backups.initiated-by"),
+                grow: true,
+                phone: { line: 3, side: "start" },
+                className: "text-muted-foreground",
+                render: (run) => <Actor kind={run.actorKind} id={run.actorId} />,
+              },
+            ]}
+          />
         )}
       </QueryState>
     </Panel>
@@ -305,8 +300,6 @@ function holds(backup: Backup): string {
   return t("steward.backups.holds", { subject, partial: backup.partial })
 }
 
-const WAITING_ARCHIVES = Array.from({ length: 3 }, () => undefined)
-
 export function BackupRunDetailPage() {
   const { id } = useParams({ from: "/operations/backups/$id" })
   const runs = useRuns(80)
@@ -338,51 +331,53 @@ export function BackupRunDetailPage() {
               {answer && backups.data && files.length === 0 ? (
                 <Empty title={t("steward.backups.no-archive")} />
               ) : (
-                <Table className="steward-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("steward.backups.archive")}</TableHead>
-                      <TableHead className="w-[9rem]">{t("steward.backups.holds-column")}</TableHead>
-                      <TableHead className="w-[12rem]">{t("steward.backups.written")}</TableHead>
-                      <TableHead className="w-[8rem] text-right">{t("steward.backups.size")}</TableHead>
-                      <TableHead className="w-[3rem]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(answer && backups.data ? files : WAITING_ARCHIVES).map((backup, index) => (
-                      <TableRow key={backup?.name ?? index}>
-                        <TableCell data-label={t("steward.backups.archive")}>
-                          {backup ? (
-                            <code className="text-xs">{backup.name}</code>
-                          ) : (
-                            <SkeletonText className="text-xs" width="long" />
-                          )}
-                        </TableCell>
-                        <TableCell data-label={t("steward.backups.holds-column")}>
-                          {backup ? holds(backup) : <SkeletonText width="medium" />}
-                        </TableCell>
-                        <TableCell data-label={t("steward.backups.written")}>
-                          {backup ? dateTime(backup.modified) : <SkeletonText width="long" />}
-                        </TableCell>
-                        <TableCell data-label={t("steward.backups.size")} className="text-right tnum">
-                          {backup ? bytes(backup.bytes) : <SkeletonText width="short" className="ml-auto" />}
-                        </TableCell>
-                        <TableCell data-label={t("steward.backups.download")}>
-                          {!backup || backup.partial ? null : (
-                            <a
-                              href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
-                              download={backup.name}
-                              aria-label={t("steward.backups.download-file", { file: backup.name })}
-                              className="inline-flex text-muted-foreground tap-target hover:text-foreground"
-                            >
-                              <DownloadIcon className="size-4" />
-                            </a>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataTable
+                  rows={answer && backups.data ? files : undefined}
+                  waiting={3}
+                  rowKey={(backup) => backup.name}
+                  columns={[
+                    {
+                      head: t("steward.backups.archive"),
+                      grow: true,
+                      phone: { line: 1, side: "wide" },
+                      waiting: <SkeletonText className="text-xs" width="long" />,
+                      render: (backup) => <code className="text-xs break-all">{backup.name}</code>,
+                    },
+                    {
+                      head: t("steward.backups.holds-column"),
+                      phone: { line: 2, side: "start" },
+                      render: holds,
+                    },
+                    {
+                      head: t("steward.backups.written"),
+                      phone: { line: 3, side: "start" },
+                      className: "text-muted-foreground",
+                      render: (backup) => dateTime(backup.modified),
+                    },
+                    {
+                      head: t("steward.backups.size"),
+                      end: true,
+                      phone: { line: 2, side: "end" },
+                      className: "tnum",
+                      render: (backup) => bytes(backup.bytes),
+                    },
+                    {
+                      head: "",
+                      phone: "action",
+                      render: (backup) =>
+                        backup.partial ? null : (
+                          <a
+                            href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
+                            download={backup.name}
+                            aria-label={t("steward.backups.download-file", { file: backup.name })}
+                            className="inline-flex text-muted-foreground tap-target hover:text-foreground"
+                          >
+                            <DownloadIcon className="size-4" />
+                          </a>
+                        ),
+                    },
+                  ]}
+                />
               )}
             </Panel>
           </>

@@ -180,9 +180,9 @@ describe("JournalPage - the phone card says each thing once", () => {
     )
     draw(<JournalPage />)
 
-    expect(await off("Started the Hunger Games.")).toEqual(["action", "Concerns", "Detail"])
-    expect(await off("Push alerts off for this browser.")).toEqual(["action", "Concerns", "Detail"])
-    expect(await off(/^Granted 30 days of access until /)).toEqual(["action"])
+    expect(await off("Started the Hunger Games.")).toEqual(["Concerns", "Detail"])
+    expect(await off("Push alerts off for this browser.")).toEqual(["Concerns", "Detail"])
+    expect(await off(/^Granted 30 days of access until /)).toEqual([])
   })
 })
 
@@ -207,13 +207,14 @@ describe("JournalPage - the subject is an exact id, asked for on Enter", () => {
   })
 })
 
-describe("JournalPage - a payment reference and the least days are asked for on Enter", () => {
+describe("JournalPage - the filters ask for a payment reference and the least days on Enter", () => {
   it("asks for the typed reference and the days at least, each once Enter is pressed", async () => {
     const fetched = backend({ journal: JOURNAL_ENTRIES })
     vi.stubGlobal("fetch", fetched)
     draw(<JournalPage />)
     const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
 
+    fireEvent.click(await screen.findByRole("button", { name: "Filters" }))
     const reference = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Payment reference" })
     fireEvent.change(reference, { target: { value: " NT-ABCD " } })
     fireEvent.submit(reference)
@@ -224,5 +225,6 @@ describe("JournalPage - a payment reference and the least days are asked for on 
     expect(asked().some((url) => url.includes("minDays="))).toBe(false)
     fireEvent.submit(days)
     await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&reference=NT-ABCD&minDays=30"))
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeTruthy()
   })
 })

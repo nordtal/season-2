@@ -93,12 +93,9 @@ export function Translations({
       actions={
         <>
           <ServiceFilter texts={texts.data} service={service} onService={onService} />
-          <SearchField
-            value={query}
-            onValueChange={setQuery}
-            label={t("steward.texts.search")}
-            className={CONTROL_WIDTH}
-          />
+          <div className={"flex " + CONTROL_WIDTH}>
+            <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
+          </div>
         </>
       }
     />

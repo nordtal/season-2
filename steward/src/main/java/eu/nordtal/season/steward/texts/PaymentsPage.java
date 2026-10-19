@@ -67,11 +67,11 @@ public interface PaymentsPage {
     @Name("Status")
     MessageRef status();
 
-    @Name("Every status")
-    MessageRef all();
+    @Name("No match")
+    MessageRef noMatch();
 
-    @Name("None with this status")
-    MessageRef noneWithStatus();
+    @Name("Filter")
+    MessageRef filter();
 
     @Name("Reference")
     MessageRef reference();
@@ -96,6 +96,9 @@ public interface PaymentsPage {
 
     @Name("Overdue")
     MessageRef overdue();
+
+    @Name("Overdue only")
+    MessageRef onlyOverdue();
 
     @Name("Tab")
     MessageRef tab();

@@ -1,0 +1,111 @@
+import type { CSSProperties, ReactNode } from "react"
+import { cn } from "cn"
+
+import { SkeletonText } from "@/components/steward/query-state"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+/** A value's place on a phone card: a line counted from 1, and its start, its end or the whole line. */
+export type Slot = { line: number; side: "start" | "end" | "wide"; labelled?: boolean }
+
+/** `action` stands beside every line of the card; `null` leaves the value out of the card. */
+export type Placement = Slot | "action" | null
+
+export type Column<T> = {
+  /** The heading, and the label of a `labelled` slot. Empty for an action column. */
+  head: string
+  /** Takes the room the other columns leave, and wraps. Every other column is as wide as its content. */
+  grow?: boolean
+  end?: boolean
+  phone: Placement | ((row: T) => Placement)
+  render: (row: T) => ReactNode
+  /** What the cell shows before there is a row. */
+  waiting?: ReactNode
+  className?: string
+  title?: (row: T) => string | undefined
+}
+
+function placement(placed: Placement): Record<string, string | number | CSSProperties | undefined> {
+  if (placed === null) return { "data-phone": "off" }
+  if (placed === "action") return { "data-phone": "action" }
+  const style: CSSProperties & { "--phone-line": number } = { "--phone-line": placed.line }
+  return {
+    "data-phone": placed.side,
+    "data-labelled": placed.labelled ? "" : undefined,
+    style,
+  }
+}
+
+function lines<T>(columns: Column<T>[]): number {
+  return Math.max(1, ...columns.map((column) => (typeof column.phone === "object" ? (column.phone?.line ?? 1) : 1)))
+}
+
+/**
+ * Every list in Steward. Below `--container-rows` each row is a card whose values sit in the slots their columns name.
+ *
+ * While `rows` is undefined it draws `waiting` rows of each column's `waiting`.
+ */
+export function DataTable<T>({
+  columns,
+  rows,
+  rowKey,
+  waiting = 8,
+  onRowClick,
+}: {
+  columns: Column<T>[]
+  rows: T[] | undefined
+  rowKey: (row: T) => string | number
+  waiting?: number
+  onRowClick?: (row: T) => void
+}) {
+  const cardLines: CSSProperties & { "--phone-lines": number } = { "--phone-lines": lines(columns) }
+  return (
+    <Table className="steward-table">
+      <TableHeader>
+        <TableRow>
+          {columns.map((column, index) => (
+            <TableHead key={index} className={cn(!column.grow && "w-px", column.end && "text-right")}>
+              {column.head}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows === undefined
+          ? Array.from({ length: waiting }, (_, index) => (
+              <TableRow key={index} style={cardLines}>
+                {columns.map((column, columnIndex) => (
+                  <TableCell
+                    key={columnIndex}
+                    data-label={column.head || undefined}
+                    className={cn(column.end && "text-right")}
+                    {...placement(typeof column.phone === "function" ? null : column.phone)}
+                  >
+                    {column.waiting ?? (column.head ? <SkeletonText width="medium" /> : null)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          : rows.map((row) => (
+              <TableRow
+                key={rowKey(row)}
+                style={cardLines}
+                className={onRowClick ? "cursor-pointer" : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
+                {columns.map((column, columnIndex) => (
+                  <TableCell
+                    key={columnIndex}
+                    data-label={column.head || undefined}
+                    title={column.title?.(row)}
+                    className={cn(column.grow && "whitespace-normal", column.end && "text-right", column.className)}
+                    {...placement(typeof column.phone === "function" ? column.phone(row) : column.phone)}
+                  >
+                    {column.render(row)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+      </TableBody>
+    </Table>
+  )
+}

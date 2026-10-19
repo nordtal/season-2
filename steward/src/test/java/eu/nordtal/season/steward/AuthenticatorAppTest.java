@@ -63,8 +63,11 @@ class AuthenticatorAppTest extends WebTestSupport {
         asAnotherAdmin("770000000000000202", () -> {
             final HttpClient browser = browser();
             signIn(browser);
-            final byte[] secret = enrol(browser);
-            final String spent = codeNow(secret, 0);
+            final byte[] secret = fromBase32(startEnrolment(browser).get("secret").getAsString());
+            // One step for both codes, or a 30 s boundary between them makes the spent code a fresh one.
+            final long step = Totp.stepAt(Instant.now());
+            final String spent = Totp.code(secret, step, 6);
+            assertEquals(204, post(browser, "/auth/totp/enrol/finish", codeBody(spent)).statusCode());
 
             final HttpClient later = browser();
             signIn(later);
@@ -72,7 +75,7 @@ class AuthenticatorAppTest extends WebTestSupport {
             assertEquals(400, replayed.statusCode(), "the code that confirmed the app was taken again");
             assertFalse(me(later).get("verified").getAsBoolean());
 
-            final String next = codeNow(secret, 1);
+            final String next = Totp.code(secret, step + 1, 6);
             final HttpResponse<String> held =
                     post(later, "/auth/totp/verify", "{\"code\":\"" + next + "\",\"hold\":\"ONE_HOUR\"}");
             assertEquals(204, held.statusCode(), held.body());

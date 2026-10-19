@@ -33,12 +33,13 @@ import {
   withLine,
   type PartPath,
 } from "@/lib/document-edit"
-import { documentName, inGame } from "@/lib/documents"
+import { documentName } from "@/lib/documents"
 import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useCommandRun, useDocumentDrawing, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
+import { serviceTitle } from "@/lib/words"
 import { cn } from "cn"
 import { toast } from "sonner"
 import { RequestOutcome } from "@/components/steward/game-actions"
@@ -135,7 +136,7 @@ export function DocumentEditor({
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
         <DocumentMarks view={view} />
-        {drawing.data && !inGame(view.declaration) ? (
+        {drawing.data && !view.game ? (
           <Badge
             variant="outline"
             className={cn("shrink-0 tabular-nums", drawing.data.components > drawing.data.most && "text-destructive")}
@@ -249,7 +250,7 @@ function Outdated({ view, language }: { view: DocumentView; language: Language }
           <h4 className="text-xs font-medium text-muted-foreground">
             {t("steward.document-editor.version", { version })}
           </h4>
-          <DocumentPreview declaration={view.declaration} document={document} language={language} />
+          <DocumentPreview declaration={view.declaration} game={view.game} document={document} language={language} />
         </div>
       ))}
     </div>
@@ -765,13 +766,24 @@ export function useDocumentDrafts() {
 
 /** Whether an admin changed the document, and whether a release changed the packaged one since. */
 export function DocumentMarks({ view }: { view: DocumentView }) {
-  if (!view.written) return null
   return (
     <>
-      <Badge variant="outline" className="shrink-0">
-        {t("steward.document-editor.changed")}
-      </Badge>
-      {view.outdated ? (
+      {/* Several servers ship a game document, each one its own or all one shared. */}
+      {view.game ? (
+        <span className="flex flex-wrap gap-1">
+          {view.services.map((service) => (
+            <Badge key={service} variant="outline" className="h-4 px-1.5 text-[0.625rem] text-muted-foreground">
+              {serviceTitle(service)}
+            </Badge>
+          ))}
+        </span>
+      ) : null}
+      {view.written ? (
+        <Badge variant="outline" className="shrink-0">
+          {t("steward.document-editor.changed")}
+        </Badge>
+      ) : null}
+      {view.written && view.outdated ? (
         <Badge variant="outline" className="shrink-0 text-warning">
           {t("steward.document-editor.outdated")}
         </Badge>

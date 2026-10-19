@@ -84,6 +84,7 @@ public final class DocumentsApi {
 
     /**
      * @param services the services whose jars ship it
+     * @param game     whether the game draws it rather than Discord, as {@link DocumentSpec.Shape#game()} says
      * @param packaged the document the jar ships
      * @param hash     the SHA-256 of the packaged declaration and document
      * @param named    every value a text may name, as {@link DocumentDeclaration#named()} lists them
@@ -95,6 +96,7 @@ public final class DocumentsApi {
             DocumentDeclaration declaration,
             Map<String, Value> named,
             List<String> services,
+            boolean game,
             Document packaged,
             String hash,
             @Nullable Document written,
@@ -461,6 +463,7 @@ public final class DocumentsApi {
                     own.declaration(),
                     own.declaration().named(),
                     List.copyOf(each.services()),
+                    own.declaration().shape().game(),
                     own.document(),
                     own.hash(),
                     admin == null ? null : merged.document(),

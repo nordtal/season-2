@@ -120,6 +120,7 @@ class DocumentsApiIntegrationTest {
         assertEquals(packaged().hash(), view.get("hash").getAsString());
         assertFalse(view.has("written"));
         assertFalse(view.get("outdated").getAsBoolean());
+        assertFalse(view.get("game").getAsBoolean());
         assertEquals(
                 "text",
                 view.getAsJsonObject("named")

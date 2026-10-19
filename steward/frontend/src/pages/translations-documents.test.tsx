@@ -80,6 +80,18 @@ const modal: DocumentView = view(
   },
 )
 
+/** A server's own tab list footer. */
+function footer(service: string): DocumentView {
+  return view(
+    { namespace: service, name: "tab-footer", area: "Tab list", shape: "TAB_LIST" },
+    { parts: [] },
+    {
+      game: true,
+      services: [service],
+    },
+  )
+}
+
 /** What the bot's renderer answers for the contribution, cut to what this page draws. */
 function rendered(draft: DocumentDraft): Record<string, unknown> {
   const de = draft.language === "de"
@@ -166,6 +178,19 @@ describe("the list of documents", () => {
     await open("Link")
     const card = await screen.findByRole("article", { name: "Link code" })
     await waitFor(() => expect(card.textContent).toMatch(/Link.*Code.*six digits/))
+  })
+
+  it("lists a game document under the game, named by each server that shows it", async () => {
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([footer("smp"), footer("hunger-games")]) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Tab list")
+    const cards = await screen.findAllByRole("article", { name: "Tab footer" })
+    expect(cards.map((card) => within(card).getByRole("heading").parentElement?.textContent)).toEqual([
+      "Tab footerSMP",
+      "Tab footerHunger Games",
+    ])
   })
 
   it("lists a text of a bundle as a card of its own", async () => {

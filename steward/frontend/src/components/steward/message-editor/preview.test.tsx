@@ -66,4 +66,21 @@ describe("a game place's preview", () => {
       cleanup()
     }
   })
+
+  it("draws a title's subtitle under it, on one line", () => {
+    const runs = (source: string) => parse(source, "MINIMESSAGE", Object.keys(TONES)) ?? []
+    const { container } = render(
+      <Preview
+        runs={runs("<emphasis>One moment</emphasis>")}
+        subtitle={runs("<muted>You will be</muted><newline>connected")}
+        shown="TITLE"
+        surface="GAME"
+        fill={(name) => name}
+        glyphs={[]}
+        tones={TONES}
+      />,
+    )
+    const lines = [...container.querySelectorAll<HTMLElement>("[data-slot=mc-line]")]
+    expect(lines.map((line) => line.textContent)).toEqual(["One moment", "You will be connected"])
+  })
 })

@@ -8,11 +8,13 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Slot;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.title.Title;
 import org.junit.jupiter.api.Test;
 
 class GameDocumentTest {
@@ -97,5 +99,27 @@ class GameDocumentTest {
         assertEquals("2 online\nnordtal.eu", plain(reading.format(Locale.ENGLISH, FOOTER.with(new Online(2, false)))));
         assertEquals(
                 "2 online\nfull\nnordtal.eu", plain(reading.format(Locale.ENGLISH, FOOTER.with(new Online(2, true)))));
+    }
+
+    @Test
+    void aTitlesFirstShownLineIsTheTitleAndTheLinesAfterItAreTheSubtitle() {
+        final DocumentSpec<Online> title =
+                DocumentSpec.game("test", "title", "Titles", DocumentSpec.Shape.TITLE, Online.class);
+        final MessageRenderer reading =
+                RENDER.reading(spec -> new Documents.Packaged(title.declaration(), Document.decode("""
+                {"parts": [{"type": "TEXT", "lines": [
+                  {"when": "!full", "text": {"en": "{online} online"}},
+                  {"when": "full", "text": {"en": "full"}},
+                  {"text": {"en": "<muted>wait</muted>"}},
+                  {"text": {"en": "here"}}]}]}
+                """)));
+
+        final Title shown = reading.title(
+                Locale.ENGLISH,
+                title.with(new Online(2, true)),
+                Title.Times.times(Duration.ZERO, Duration.ZERO, Duration.ZERO));
+
+        assertEquals("full", plain(shown.title()));
+        assertEquals("wait here", plain(shown.subtitle()));
     }
 }

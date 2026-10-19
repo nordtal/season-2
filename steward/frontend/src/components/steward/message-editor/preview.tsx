@@ -316,6 +316,11 @@ const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b
 
 const ONE_LINE = new Set(["TITLE", "SUBTITLE", "ACTION_BAR", "BOSS_BAR"])
 
+/** A title or a bar holds one line, so the game draws each line break there as a space. */
+function oneLine(runs: Run[]): Run[] {
+  return runs.map((run): Run => (run.kind === "break" ? { kind: "text", text: " ", style: run.style } : run))
+}
+
 type PreviewProps = {
   runs: Run[]
   shown: string | undefined
@@ -325,10 +330,22 @@ type PreviewProps = {
   tones: Tones
   /** Whether the text is the server's answer, which Steward shows as a toast. */
   answer?: boolean
+  /** A title's subtitle, drawn under it. */
+  subtitle?: Run[]
   className?: string
 }
 
-export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = false, className }: PreviewProps) {
+export function Preview({
+  runs,
+  shown,
+  surface,
+  fill,
+  glyphs,
+  tones,
+  answer = false,
+  subtitle,
+  className,
+}: PreviewProps) {
   if (shown === undefined || (surface !== "GAME" && surface !== "DISCORD")) {
     return (
       <PagePreview
@@ -342,12 +359,14 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = fa
   if (surface === "DISCORD") {
     return <DiscordPreview runs={runs} shown={shown} fill={fill} className={className} />
   }
-  // A title or a bar holds one line, so the game draws each line break there as a space.
-  const drawn = ONE_LINE.has(shown)
-    ? runs.map((run): Run => (run.kind === "break" ? { kind: "text", text: " ", style: run.style } : run))
-    : runs
-  const text = ({ base = "#FFFFFF", scale = SCALE, wrap }: { base?: string; scale?: number; wrap?: number } = {}) => (
-    <MinecraftText runs={drawn} fill={fill} glyphs={glyphs} tones={tones} base={base} scale={scale} wrap={wrap} />
+  const drawn = ONE_LINE.has(shown) ? oneLine(runs) : runs
+  const text = ({
+    base = "#FFFFFF",
+    scale = SCALE,
+    wrap,
+    of = drawn,
+  }: { base?: string; scale?: number; wrap?: number; of?: Run[] } = {}) => (
+    <MinecraftText runs={of} fill={fill} glyphs={glyphs} tones={tones} base={base} scale={scale} wrap={wrap} />
   )
   // A line that the game draws however long runs past the preview's edge, so the scene scrolls and does not cut it.
   const scene = (children: ReactNode, background = SKY) => (
@@ -370,6 +389,9 @@ export function Preview({ runs, shown, surface, fill, glyphs, tones, answer = fa
           <div style={{ fontSize: 8 * (title ? 4 : 2), lineHeight: `${9 * (title ? 4 : 2) + 2}px` }}>
             {text({ scale: title ? 4 : 2 })}
           </div>
+          {subtitle ? (
+            <div style={{ fontSize: 16, lineHeight: "20px" }}>{text({ scale: 2, of: oneLine(subtitle) })}</div>
+          ) : null}
         </div>,
       )
     }

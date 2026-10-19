@@ -163,8 +163,8 @@ at once. `POST /api/documents/render` draws a draft, every value at its declared
 what a save would be refused for. A Discord document is drawn with the bot's own renderer from
 `discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A
 menu is drawn with the game's `GameDocument` as its title, then each item's name and lore and each
-label, in MiniMessage. A chat text, a tab list and a kick screen are drawn with `GameDocument` as their lines in
-MiniMessage.
+label, in MiniMessage. A chat text, a tab list, a kick screen and a title are drawn with `GameDocument` as their
+lines in MiniMessage; a title's first line is the title and the lines after it its subtitle.
 `POST /api/document-preview` sends a draft of a message or a plain document to the admin alone: the bot
 draws it with the same renderer, every value at its example, and sends it as a direct message. It
 refuses a modal, a channel name, a game text and a draft a save would refuse.

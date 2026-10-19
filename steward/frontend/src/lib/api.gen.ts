@@ -1051,6 +1051,7 @@ export type DocumentShape =
   | "CHAT"
   | "TAB_LIST"
   | "KICK_SCREEN"
+  | "TITLE"
 
 export type DocumentSlot = {
   id: string

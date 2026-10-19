@@ -15,7 +15,7 @@ API that a facility wraps anywhere else.
 | `WorldDistances` | The view and simulation distance of every world.                                   |
 | `Identities`     | The session cache of `PlayerIdentity` from `:database`.                            |
 | `ModeStates`     | Each player's Survival and Creative states, kept apart in `game_mode_state`.       |
-| `Previews`       | An admin's text, shown to a player as the key's own text would be.                 |
+| `Previews`       | An admin's text or drafted document, shown to a player as the live one would be.   |
 | `renderer()`     | The message renderer for chat and replies.                                         |
 
 ## The plugin base
@@ -59,6 +59,10 @@ warning.
 - `Identities` reads an identity at pre-login and holds it until the player leaves. Every hub signal
   reads all held identities again in one query, and `whenChanged` receives each one that differs.
 - `Previews` shows a title, subtitle or action bar if the key is one, and a chat line otherwise. It
-  reads a key of a bundle that the plugin does not load as MiniMessage.
+  reads a key of a bundle that the plugin does not load as MiniMessage. A drafted game document is
+  shown whole, every value at its example: a menu opens read-only (`PreviewMenu`, its items and labels
+  in the document's order), a tab list half replaces the half the player sees, a boss bar stays ten
+  seconds, a title shows its subtitle, and a chat text, kick screen, server list or hologram arrives
+  as chat lines.
 - `renderer()` draws names as the plugin passes them to `composeNames` in `enable()`. A text writes
   the tone around a name as `plain`. The console reads names bare.

@@ -5,21 +5,28 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.Document;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.papercommon.command.Answer;
+import eu.nordtal.season.papercommon.tab.TabList;
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -39,13 +46,52 @@ class PreviewsTest {
     /** Every call the player received, by method name and its one argument. */
     private final List<Object[]> calls = new ArrayList<>();
 
+    /** Both arguments of every tab list the player received. */
+    private final List<Object[]> headerAndFooter = new ArrayList<>();
+
     private final Player alex = (Player) Proxy.newProxyInstance(
             Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
+                if (method.getName().equals("playerListFooter")) {
+                    return Component.text("the footer now");
+                }
+                if (method.getName().equals("sendPlayerListHeaderAndFooter")) {
+                    headerAndFooter.add(args);
+                }
                 calls.add(new Object[] {method.getName(), args == null ? null : args[0]});
                 return null;
             });
 
-    private final Previews previews = new Previews(uuid -> uuid.equals(ALEX.value()) ? alex : null, RENDERER);
+    /** The work handed to the main thread, which a test runs itself; a window cannot open without a server. */
+    private final List<Runnable> onMain = new ArrayList<>();
+
+    private final List<Duration> delays = new ArrayList<>();
+
+    private final Scheduler main = new Scheduler() {
+        @Override
+        public void execute(final Runnable work) {
+            onMain.add(work);
+        }
+
+        @Override
+        public Task after(final Duration delay, final Runnable work) {
+            delays.add(delay);
+            onMain.add(work);
+            return () -> {};
+        }
+    };
+
+    private final Previews previews = new Previews(uuid -> uuid.equals(ALEX.value()) ? alex : null, RENDERER, main);
+
+    private static MessagePreview drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
+        return MessagePreview.of(
+                new Documents.Packaged(
+                        DocumentSpec.game("test", name, "Test", shape).declaration(),
+                        Document.decode("{\"parts\": [" + parts + "]}")),
+                "en");
+    }
+
+    private static final String TWO_LINES = """
+            {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "<muted>and below</muted>"}}]}""";
 
     private static MessagePreview preview(final Display shown) {
         return new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", shown, Map.of());
@@ -98,6 +144,64 @@ class PreviewsTest {
                 new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", Display.CHAT, Map.of("bad", "#123456")));
 
         assertEquals("#123456", colourOfTheValue());
+    }
+
+    @Test
+    void aDraftedTitleShowsItsFirstLineAsTitleAndTheRestAsSubtitle() {
+        assertInstanceOf(Answer.Done.class, previews.show(ALEX, drafted(DocumentSpec.Shape.TITLE, "t", TWO_LINES)));
+
+        final Title title = (Title) calls.getFirst()[1];
+        assertEquals("Drafted", plain(title.title()));
+        assertEquals("and below", plain(title.subtitle()));
+    }
+
+    @Test
+    void aDraftedTabListHeaderStandsOverTheFooterThePlayerSeesNow() {
+        previews.show(
+                ALEX,
+                MessagePreview.of(
+                        new Documents.Packaged(
+                                TabList.HEADER.declaration(), Document.decode("{\"parts\": [" + TWO_LINES + "]}")),
+                        "en"));
+
+        assertEquals("sendPlayerListHeaderAndFooter", calls.getFirst()[0]);
+        final Object[] both = headerAndFooter.getFirst();
+        assertEquals("Drafted\nand below", plain(both[0]));
+        assertEquals("the footer now", plain(both[1]));
+    }
+
+    @Test
+    void aDraftedBossBarIsShownAndTakenDownAfterAWhile() {
+        previews.show(ALEX, drafted(DocumentSpec.Shape.BOSS_BAR, "b", """
+                {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "and below"}}]}"""));
+
+        assertEquals("showBossBar", calls.getFirst()[0]);
+        final BossBar bar = (BossBar) calls.getFirst()[1];
+        // The HUD pads a pill with its spacing glyphs around the text.
+        assertTrue(plain(bar.name()).contains("Drafted and below"), plain(bar.name()));
+        assertEquals(List.of(Previews.BOSS_BAR), delays);
+
+        onMain.forEach(Runnable::run);
+        assertEquals("hideBossBar", calls.getLast()[0]);
+        assertEquals(bar, calls.getLast()[1]);
+    }
+
+    @Test
+    void aDraftedKickScreenArrivesAsChatLines() {
+        previews.show(ALEX, drafted(DocumentSpec.Shape.KICK_SCREEN, "k", TWO_LINES));
+
+        assertEquals("sendMessage", calls.getFirst()[0]);
+        assertEquals("Drafted\nand below", plain(calls.getFirst()[1]));
+    }
+
+    @Test
+    void aDraftedMenuOpensOnTheMainThread() {
+        final DocumentSpec<DocumentSpec.None> menu = DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class);
+        previews.show(ALEX, MessagePreview.of(new Documents.Packaged(menu.declaration(), Document.decode("""
+                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}""")), "en"));
+
+        assertTrue(calls.isEmpty());
+        assertEquals(1, onMain.size());
     }
 
     @Test

@@ -177,8 +177,9 @@ label, in MiniMessage. A chat text, a tab list, a kick screen, a title, a boss b
 `GameDocument` as their lines in MiniMessage; a title's first line is the title and the lines after it
 its subtitle.
 `POST /api/document-preview` sends a draft of a message or a plain document to the admin alone: the bot
-draws it with the same renderer, every value at its example, and sends it as a direct message. It
-refuses a modal, a channel name, a game text and a draft a save would refuse.
+draws it with the same renderer, every value at its example, and sends it as a direct message. A game
+text's draft goes to the game server of the admin's linked player, which shows it where its shape is.
+It refuses a modal, a channel name and a draft a save would refuse.
 `GET /api/discord/channels` answers the live channels.
 
 `POST /api/document-images` stores a PNG, JPEG, GIF or WebP image of at most 8 MiB, and

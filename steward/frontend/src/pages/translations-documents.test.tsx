@@ -411,6 +411,35 @@ describe("an open document", () => {
     expect((await screen.findAllByRole("menuitem")).map((item) => item.textContent)).toEqual(["Text block"])
   })
 
+  it("shows a game draft as it stands to the admin's player in game", async () => {
+    const asked: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([footer("smp")]),
+        render: () => ({}),
+        preview: (body) => {
+          asked.push(body)
+          return "smp:8"
+        },
+        commands: { "smp:8": { id: "smp:8", status: "DONE", result: words("Shown to your player.") } },
+      }),
+    )
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Tab list")
+    within(await screen.findByRole("article", { name: "Tab footer" }))
+      .getByRole("button", { name: "Tab footer" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Tab footer" })
+    expect(within(editor).queryByRole("button", { name: "Send it to me in Discord" })).toBeNull()
+    fireEvent.click(within(editor).getByRole("button", { name: "Show it to my player in game" }))
+
+    expect(await within(editor).findByText("Shown to your player.")).toBeTruthy()
+    expect(asked[0]).toMatchObject({ declaration: { name: "tab-footer", shape: "TAB_LIST" }, language: "en" })
+  })
+
   it("saves a part as a shared part after showing each document it changes before and after", async () => {
     const saved: [string, DocumentPart | null][] = []
     vi.stubGlobal(

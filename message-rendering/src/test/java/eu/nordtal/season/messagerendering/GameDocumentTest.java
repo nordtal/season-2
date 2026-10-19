@@ -71,6 +71,15 @@ class GameDocumentTest {
         return out.toString();
     }
 
+    /** A preview fills an item's entry and one item of each data list at their examples. */
+    @Test
+    void anExampleItemHasOneLinePerDataList() {
+        final GameDocument.Drawn drawn =
+                GameDocument.example(RENDER, MENU, Viewer.of(Locale.ENGLISH)).exampleItem("target");
+
+        assertEquals(2, drawn.lore().size());
+    }
+
     @Test
     void anItemsFirstShownLineIsItsNameAndADataListGivesALinePerItem() {
         final GameDocument.Drawn drawn = menu(Locale.ENGLISH)

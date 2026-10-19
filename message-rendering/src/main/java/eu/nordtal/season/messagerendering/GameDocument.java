@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.document.Condition;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.document.Text;
 import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.spec.TextFormat;
@@ -63,6 +64,39 @@ public final class GameDocument {
         final Map<String, Value> own = new LinkedHashMap<>();
         packaged.declaration().slots().forEach(slot -> own.putAll(slot.values()));
         this.kinds = packaged.declaration().kinds(own);
+    }
+
+    /** Returns a draw of {@code packaged} with every value at its declared example, as a preview fills it. */
+    public static GameDocument example(
+            final MessageRenderer renderer, final Documents.Packaged packaged, final Viewer viewer) {
+        return new GameDocument(
+                renderer,
+                packaged,
+                viewer,
+                Value.examples(packaged.declaration().named()));
+    }
+
+    /** Draws the item with its entry and one item of each data list at their declared examples. */
+    public Drawn exampleItem(final String slot) {
+        final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
+        for (final Slot declared : packaged.declaration().slots()) {
+            if (declared.type() == Slot.Type.LIST) {
+                lists.put(declared.id(), List.of(Value.examples(declared.values())));
+            }
+        }
+        return itemOf(slot, exampleEntry(slot), lists);
+    }
+
+    /** Paints the label with its entry at its declared example. */
+    public String exampleLabel(final String slot) {
+        return labelOf(slot, exampleEntry(slot));
+    }
+
+    private Map<String, Object> exampleEntry(final String slot) {
+        return packaged.declaration()
+                .slot(slot)
+                .map(declared -> Value.examples(declared.values()))
+                .orElse(Map.of());
     }
 
     /** Returns the lines of every text block that its values show, one under the other. */

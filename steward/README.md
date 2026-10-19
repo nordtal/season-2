@@ -157,6 +157,8 @@ declaration, the services that ship it, its hash and the admin's document. The a
 carried over to the jar's declaration, and `adapted` lists what that changed. The answer also holds the
 network's languages, and each document says whether a release changed the packaged document after the
 admin saved. The Translations page shows each document as a preview and opens its editor in its card.
+A game text's lines are edited in the key editor's field (`message-editor/rich-field.tsx`), with the
+game's tones, glyphs and values; it adds only text blocks and offers no Discord line style.
 `PUT /api/documents/{namespace}/{name}` saves the admin's document against the packaged hash and
 refuses one that `DocumentCheck` refuses; the bot follows the change and edits its managed messages
 at once. Each save is kept as a version with its admin and time: `GET /api/documents/{namespace}/{name}/versions`

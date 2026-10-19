@@ -379,6 +379,38 @@ describe("an open document", () => {
     await waitFor(() => expect(reset).toEqual(["discord/contribution"]))
   })
 
+  it("edits a game text in the game's own field, with its tones and glyphs, and adds only text blocks", async () => {
+    const title = view(
+      {
+        namespace: "smp",
+        name: "duel-result-title",
+        area: "Duels",
+        shape: "TITLE",
+        values: { aura: { kind: "number", example: "3" } },
+      },
+      { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }, { text: { en: "+{aura} aura" } }] }] },
+      { game: true, services: ["smp"] },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Duels")
+    within(await screen.findByRole("article", { name: "Duel result title" }))
+      .getByRole("button", { name: "Duel result title" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Duel result title" })
+    // The field draws the text as it looks, not its markup, and offers the game's glyphs; Discord's line styles are gone.
+    expect(within(editor).queryByDisplayValue("<good>Won</good>")).toBeNull()
+    expect(within(editor).getAllByRole("button", { name: "Insert a glyph" })).toHaveLength(2)
+    expect(within(editor).queryByText("Plain")).toBeNull()
+    fireEvent.click(within(editor).getAllByRole("button", { name: "Source" })[0])
+    expect(within(editor).getByDisplayValue("<good>Won</good>")).toBeTruthy()
+
+    fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add a part" }), { button: 0, ctrlKey: false })
+    expect((await screen.findAllByRole("menuitem")).map((item) => item.textContent)).toEqual(["Text block"])
+  })
+
   it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {
     const written = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
     vi.stubGlobal(

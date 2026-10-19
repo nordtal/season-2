@@ -46,6 +46,10 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
   ["app/security-key.tsx", "useRegisterKey is a mutation. Nothing here is read."],
   [
+    "components/steward/message-editor/rich-field.tsx",
+    "The glyphs only draw the glyph pills and fill the glyph menu; until they arrive a glyph shows as its name.",
+  ],
+  [
     "components/steward/message-preview.tsx",
     "The tones and glyphs only colour a line of text drawn from the start; until they arrive it is drawn plain.",
   ],

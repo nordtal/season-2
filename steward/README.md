@@ -159,7 +159,10 @@ network's languages, and each document says whether a release changed the packag
 admin saved. The Translations page shows each document as a preview and opens its editor in its card.
 `PUT /api/documents/{namespace}/{name}` saves the admin's document against the packaged hash and
 refuses one that `DocumentCheck` refuses; the bot follows the change and edits its managed messages
-at once. `POST /api/documents/render` draws a draft, every value at its declared example, and answers
+at once. Each save is kept as a version with its admin and time: `GET /api/documents/{namespace}/{name}/versions`
+answers them newest first, each carried over to the jar's declaration, and the editor restores one by saving it again.
+`DELETE /api/documents/{namespace}/{name}` makes the packaged document live again and is kept as a version too.
+`POST /api/documents/render` draws a draft, every value at its declared example, and answers
 what a save would be refused for. A Discord document is drawn with the bot's own renderer from
 `discord-rendering` as Discord's JSON, which the preview only draws, with the count of components. A
 menu is drawn with the game's `GameDocument` as its title, then each item's name and lore and each

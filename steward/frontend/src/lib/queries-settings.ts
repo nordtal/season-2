@@ -12,6 +12,7 @@ import {
   type DocumentDeclaration,
   type DocumentDrawing,
   type DocumentList,
+  type DocumentVersion,
   type Uploaded,
   type MessageChanges,
   type MessageSaveResult,
@@ -168,17 +169,37 @@ export function useDocumentDrawing(declaration: DocumentDeclaration, document: D
   })
 }
 
-/** Saves an admin's document over the packaged one. The answer replaces the list, and the bot edits its messages. */
+/** Every save of a document, the newest first. */
+export function useDocumentVersions(declaration: DocumentDeclaration, enabled: boolean) {
+  const path = documentPath(declaration)
+  return useQuery({
+    queryKey: keys.documentVersions(path),
+    queryFn: () => api<DocumentVersion[]>(`/api/documents/${path}/versions`),
+    enabled,
+  })
+}
+
+/**
+ * Saves an admin's document over the packaged one, or with `null` makes the packaged one live again. The answer replaces
+ * the list, the save is a new version, and the bot edits its messages.
+ */
 export function useSaveDocument() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ declaration, document }: { declaration: DocumentDeclaration; document: Document }) =>
+    mutationFn: ({ declaration, document }: { declaration: DocumentDeclaration; document: Document | null }) =>
       api<DocumentList>(
-        `/api/documents/${encodeURIComponent(declaration.namespace)}/${encodeURIComponent(declaration.name)}`,
-        { method: "PUT", body: document },
+        `/api/documents/${documentPath(declaration)}`,
+        document ? { method: "PUT", body: document } : { method: "DELETE" },
       ),
-    onSuccess: (list) => client.setQueryData(keys.documents, list),
+    onSuccess: (list, { declaration }) => {
+      client.setQueryData(keys.documents, list)
+      void client.invalidateQueries({ queryKey: keys.documentVersions(documentPath(declaration)) })
+    },
   })
+}
+
+function documentPath(declaration: DocumentDeclaration): string {
+  return `${encodeURIComponent(declaration.namespace)}/${encodeURIComponent(declaration.name)}`
 }
 
 /** Stores an image and answers its `upload://` address. */

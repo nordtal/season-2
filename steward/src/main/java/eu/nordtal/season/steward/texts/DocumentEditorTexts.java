@@ -107,6 +107,15 @@ public interface DocumentEditorTexts {
     @Name("Close")
     MessageRef close();
 
+    @Name("Versions")
+    MessageRef versions();
+
+    @Name("Restore")
+    MessageRef restore();
+
+    @Name("Live version")
+    MessageRef live();
+
     /** A kind of part, as {@code Part.Type} names it. */
     enum Part {
         CONTAINER,

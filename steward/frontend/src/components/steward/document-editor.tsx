@@ -52,6 +52,7 @@ import {
   WhenField,
   type Context,
 } from "@/components/steward/document-fields"
+import { DocumentVersions } from "@/components/steward/document-versions"
 import { DocumentPreview, PAUSE_MS } from "@/components/steward/message-editor/document-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -116,9 +117,10 @@ export function DocumentEditor({
   const sendable = view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
   const send = useSendDraft(view)
 
-  function submit() {
+  // A restore is a save of the version's document, or of none for the packaged one.
+  function submit(document: Document | null = draft) {
     save.mutate(
-      { declaration: view.declaration, document: draft },
+      { declaration: view.declaration, document },
       {
         onSuccess: () => {
           onDraft(undefined)
@@ -168,6 +170,7 @@ export function DocumentEditor({
         disabled={!writable}
         onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
       />
+      <DocumentVersions view={view} disabled={!writable || save.isPending} onRestore={submit} />
       {save.error ? <Failure error={save.error} /> : null}
       {send.error ? <Failure error={send.error} /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
@@ -197,7 +200,7 @@ export function DocumentEditor({
           >
             {t("steward.document-editor.discard")}
           </Button>
-          <Button type="button" disabled={!writable || !changed || refused || save.isPending} onClick={submit}>
+          <Button type="button" disabled={!writable || !changed || refused || save.isPending} onClick={() => submit()}>
             {t("steward.document-editor.save")}
           </Button>
         </div>

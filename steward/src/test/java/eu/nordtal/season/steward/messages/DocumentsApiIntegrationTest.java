@@ -83,11 +83,14 @@ class DocumentsApiIntegrationTest {
         final DocumentsApi documents =
                 new DocumentsApi(new AgentClient(agent.client()), store, SettingStore.using(database));
         app = Javalin.create(config -> {
-                    config.jsonMapper(new JavalinGson(new Gson(), true));
+                    config.jsonMapper(new JavalinGson(Json.gson(), true));
                     config.http.maxRequestSize = DocumentsApi.IMAGE_BYTES;
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
                     config.routes.get("/api/documents", documents::list);
                     config.routes.put("/api/documents/{namespace}/{name}", ctx -> documents.save(ctx, Actor.STEWARD));
+                    config.routes.delete(
+                            "/api/documents/{namespace}/{name}", ctx -> documents.reset(ctx, Actor.STEWARD));
+                    config.routes.get("/api/documents/{namespace}/{name}/versions", documents::versions);
                     config.routes.post("/api/document-images", ctx -> documents.upload(ctx, Actor.STEWARD));
                     config.routes.get("/api/document-images/{id}", documents::image);
                     config.routes.post("/api/documents/render", documents::render);
@@ -144,6 +147,60 @@ class DocumentsApiIntegrationTest {
         assertEquals(
                 Document.decode(written), Document.decode(view.get("written").toString()));
         assertFalse(view.get("outdated").getAsBoolean());
+    }
+
+    @Test
+    void everySaveIsListedNewestFirstAndAResetMakesThePackagedOneLive() throws Exception {
+        final String hello = WELCOME.replace("Welcome {player}", "Hello {player}");
+        send("PUT", "/api/documents/smp/welcome", hello.getBytes(UTF_8), 200);
+        send(
+                "PUT",
+                "/api/documents/smp/welcome",
+                WELCOME.replace("Welcome", "Hi").getBytes(UTF_8),
+                200);
+
+        final JsonObject list =
+                GSON.fromJson(send("DELETE", "/api/documents/smp/welcome", new byte[0], 200), JsonObject.class);
+
+        assertFalse(list.getAsJsonArray("documents").get(0).getAsJsonObject().has("written"));
+        assertEquals(List.of(), store.documents(List.of("smp")));
+        final com.google.gson.JsonArray versions = GSON.fromJson(
+                send("GET", "/api/documents/smp/welcome/versions", new byte[0], 200), com.google.gson.JsonArray.class);
+        assertEquals(3, versions.size());
+        assertFalse(versions.get(0).getAsJsonObject().has("document"), "the newest version is the packaged one");
+        assertEquals(
+                Document.decode(hello),
+                Document.decode(
+                        versions.get(2).getAsJsonObject().get("document").toString()));
+        assertEquals(
+                "STEWARD",
+                versions.get(2)
+                        .getAsJsonObject()
+                        .getAsJsonObject("actor")
+                        .get("kind")
+                        .getAsString());
+        assertTrue(versions.get(2).getAsJsonObject().has("saved"));
+        send("GET", "/api/documents/smp/nothing/versions", new byte[0], 404);
+    }
+
+    /** A version saved over an older release is answered as the jar's declaration takes it. */
+    @Test
+    void aVersionOverAnotherReleaseIsAnsweredCarriedOver() throws Exception {
+        store.change(
+                new DocumentStore.StoredDocument("smp", "welcome", Document.decode("""
+                                {"parts":[{"type":"TEXT","lines":[{"text":{"en":"Hi {player}"}}]},
+                                  {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}},
+                                    {"slot":"leave","label":{"en":"Leave"}}]}]}"""), "a".repeat(64)),
+                Actor.STEWARD);
+
+        final JsonObject version = GSON.fromJson(
+                        send("GET", "/api/documents/smp/welcome/versions", new byte[0], 200),
+                        com.google.gson.JsonArray.class)
+                .get(0)
+                .getAsJsonObject();
+        final Document carried = Document.decode(version.get("document").toString());
+        assertEquals(1, carried.parts().get(1).allItems().size());
+        send("PUT", "/api/documents/smp/welcome", carried.json().getBytes(UTF_8), 200);
     }
 
     @Test

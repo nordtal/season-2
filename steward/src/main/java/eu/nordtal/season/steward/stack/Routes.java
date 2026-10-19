@@ -116,6 +116,13 @@ public final class Routes {
                         ctx, new JournalDetail.MessagesSaved(api.documents.save(ctx, caller.actor(ctx)))),
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.delete(
+                "/api/documents/{namespace}/{name}",
+                ctx -> Journaling.line(
+                        ctx, new JournalDetail.MessagesSaved(api.documents.reset(ctx, caller.actor(ctx)))),
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.get("/api/documents/{namespace}/{name}/versions", api.documents::versions, Gate.KEY_HELD);
         config.routes.post(
                 "/api/document-images",
                 ctx -> api.documents.upload(ctx, caller.actor(ctx)),

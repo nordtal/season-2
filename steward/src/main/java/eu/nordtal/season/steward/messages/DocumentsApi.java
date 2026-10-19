@@ -30,6 +30,7 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -136,6 +137,13 @@ public final class DocumentsApi {
     public record MenuPart(String slot, Part.Type type, List<String> lines) {}
 
     public record Uploaded(long id, String address) {}
+
+    /**
+     * One save of a document, newest first.
+     *
+     * @param document what was saved, carried over to the jar's declaration, or {@code null} for the packaged one
+     */
+    public record DocumentVersion(long id, @Nullable Document document, Actor actor, Instant saved) {}
 
     public void list(final Context ctx) {
         ctx.json(documents());
@@ -326,6 +334,45 @@ public final class DocumentsApi {
         }
         ctx.json(documents());
         return declaration.id();
+    }
+
+    /**
+     * {@code DELETE /api/documents/{namespace}/{name}} removes the admin's document, so the packaged one is live again.
+     *
+     * @return the document's {@code namespace/name}
+     */
+    public String reset(final Context ctx, final Actor actor) {
+        final DocumentStore stored = writable();
+        final DocumentDeclaration declaration = packagedOf(ctx).declaration();
+        stored.remove(declaration.namespace(), declaration.name(), actor);
+        ctx.json(documents());
+        return declaration.id();
+    }
+
+    /**
+     * {@code GET /api/documents/{namespace}/{name}/versions} answers every save of the document, newest first.
+     * A version is restored by saving its document, or by {@link #reset} where it has none.
+     */
+    public void versions(final Context ctx) {
+        final Documents.Packaged packaged = packagedOf(ctx);
+        final DocumentStore stored = store;
+        final DocumentDeclaration declaration = packaged.declaration();
+        ctx.json((stored == null
+                        ? List.<DocumentStore.Version>of()
+                        : stored.versions(declaration.namespace(), declaration.name()))
+                .stream()
+                        .map(version -> {
+                            final DocumentStore.StoredDocument saved = version.document();
+                            return new DocumentVersion(
+                                    version.id(),
+                                    saved == null
+                                            ? null
+                                            : DocumentMerge.merge(packaged, saved.document(), saved.replaced())
+                                                    .document(),
+                                    version.actor(),
+                                    version.saved());
+                        })
+                        .toList());
     }
 
     /**

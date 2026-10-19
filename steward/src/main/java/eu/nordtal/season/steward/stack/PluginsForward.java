@@ -7,6 +7,7 @@ import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
+import eu.nordtal.season.internalapi.InternalClient;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.journal.Journaling;
@@ -122,18 +123,31 @@ public final class PluginsForward {
         } else {
             final AgentWire.PluginFileDocument now = agent.pluginFile(service(ctx), plugin(ctx), path(ctx));
             if (!now.revision().equals(edit.revision())) {
-                throw new RequestRefused(409, ANSWER.settingsChanged(service(ctx), plugin(ctx) + "/" + path(ctx)));
+                throw changedOnDisk(ctx);
             }
             text = PluginYaml.apply(now.file().path(), now.text(), edit.changes());
         }
-        final AgentWire.PluginFileSaved written = agent.savePluginFile(
-                service(ctx), plugin(ctx), path(ctx), new AgentWire.PluginFileSave(text, edit.revision(), by));
+        final AgentWire.PluginFileSaved written;
+        try {
+            written = agent.savePluginFile(
+                    service(ctx), plugin(ctx), path(ctx), new AgentWire.PluginFileSave(text, edit.revision(), by));
+        } catch (final InternalClient.Failure refused) {
+            // The agent's own 409 would read as the agent being down.
+            if (refused.status() != 409) {
+                throw refused;
+            }
+            throw changedOnDisk(ctx);
+        }
         final PluginFileSaved saved = new PluginFileSaved(
                 written.file(),
                 written.revision(),
                 Reloading.restartRequired(ANSWERED.setting(false, service(ctx), false)));
         ctx.json(saved);
         return saved;
+    }
+
+    private static RequestRefused changedOnDisk(final Context ctx) {
+        return new RequestRefused(409, ANSWER.settingsChanged(service(ctx), plugin(ctx) + "/" + path(ctx)));
     }
 
     private static String plugin(final Context ctx) {

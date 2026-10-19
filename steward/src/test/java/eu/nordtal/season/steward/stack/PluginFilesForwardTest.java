@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -232,6 +233,7 @@ class PluginFilesForwardTest {
                 send("PUT", FILE, "{\"text\":\"use-mysql: true\\n\",\"revision\":\"" + Sha256.hex("older") + "\"}");
 
         assertEquals(409, refused.statusCode());
+        assertFalse(JsonParser.parseString(refused.body()).getAsJsonObject().has("where"), refused.body());
         assertEquals("use-mysql: false\n", Files.readString(config));
         assertTrue(journal.isEmpty());
     }

@@ -144,6 +144,57 @@ class WebClientTest {
     }
 
     @Test
+    void aDownloadThatCannotConnectIsTriedAgainAsOftenAsAsked(@TempDir final Path root) throws IOException {
+        final int closed;
+        try (ServerSocket socket = new ServerSocket(0)) {
+            closed = socket.getLocalPort();
+        }
+        final List<Duration> pauses = new ArrayList<>();
+        final Waiting counted = new Waiting() {
+            @Override
+            public Instant now() {
+                return Instant.EPOCH;
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                pauses.add(duration);
+                return true;
+            }
+        };
+        final WebClient client = WebClient.create(Duration.ofSeconds(2))
+                .retrying(3, new Backoff(Duration.ofMillis(10), Duration.ofMillis(40)), counted);
+
+        assertThrows(
+                IOException.class,
+                () -> client.download(URI.create("http://127.0.0.1:" + closed + "/smp.jar"), root.resolve("smp.jar")));
+
+        assertEquals(List.of(Duration.ofMillis(10), Duration.ofMillis(20)), pauses);
+    }
+
+    @Test
+    void aDownloadRefusedWithAStatusIsNotRetried(@TempDir final Path root) {
+        final List<Duration> pauses = new ArrayList<>();
+        final Waiting counted = new Waiting() {
+            @Override
+            public Instant now() {
+                return Instant.EPOCH;
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                pauses.add(duration);
+                return true;
+            }
+        };
+        final WebClient client =
+                WebClient.create(Duration.ofSeconds(5)).retrying(3, Backoff.fixed(Duration.ofMillis(10)), counted);
+
+        assertThrows(HttpFailure.class, () -> client.download(at("/missing"), root.resolve("smp.jar")));
+        assertTrue(pauses.isEmpty());
+    }
+
+    @Test
     void aStatusIsAnAnswerAndIsNotRetried() throws IOException {
         final List<Duration> pauses = new ArrayList<>();
         final Waiting counted = new Waiting() {

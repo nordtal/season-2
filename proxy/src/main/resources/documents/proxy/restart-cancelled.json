@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>{occasion, select, update {The update} recreate {The restart} backup {The backup} down {The maintenance} other {The maintenance}} is cancelled.</good> <muted>Nothing happens.</muted>",
+            "de": "<good>{occasion, select, update {Die Aktualisierung} recreate {Der Neustart} backup {Die Sicherung} down {Die Wartung} other {Die Wartung}} ist abgesagt.</good> <muted>Es passiert nichts.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

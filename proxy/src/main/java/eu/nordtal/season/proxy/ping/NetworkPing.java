@@ -4,8 +4,9 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
+import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.proxy.ProxyMessages;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.proxy.launch.LaunchCountdown;
 import eu.nordtal.season.proxy.phase.PhaseWatch;
 import eu.nordtal.season.settings.network.PlayersSpec;
@@ -15,6 +16,18 @@ import net.kyori.adventure.text.Component;
 
 /** Sets the MOTD of the current phase and the player limit in the ping. It reads fields only and never blocks. */
 public final class NetworkPing {
+
+    /** The server list's values. The phase picks the line; the countdown is that of {@link LaunchCountdown}. */
+    record ServerList(
+            SeasonPhase phase,
+            ServerListContext list,
+            LaunchCountdown.Stage countdown,
+            long days,
+            long hours,
+            long minutes) {}
+
+    static final DocumentSpec<ServerList> SERVER_LIST =
+            DocumentSpec.game("proxy", "server-list", "Server list", DocumentSpec.Shape.SERVER_LIST, ServerList.class);
 
     private final ProxyServer proxy;
     private final PlayersSpec players;
@@ -60,20 +73,12 @@ public final class NetworkPing {
     /** Returns the text of the current phase in the default language. */
     private Component description() {
         final PhaseWatch.Known known = phases.known();
-        final ServerListContext list = ServerListContext.of(
-                snapshots.current(),
-                proxy.getPlayerCount(),
-                players.maxPlayers(),
-                renderer.raw().format(language, LaunchCountdown.left(known.launch(), clock.instant())));
-        final ProxyMessages.Motd motd = ProxyMessages.MESSAGES.motd();
+        final ServerListContext list =
+                ServerListContext.of(snapshots.current(), proxy.getPlayerCount(), players.maxPlayers());
+        final LaunchCountdown.Countdown left = LaunchCountdown.left(known.launch(), clock.instant());
         return renderer.format(
                 language,
-                switch (known.phase()) {
-                    case PRE_LAUNCH -> motd.preLaunch(list);
-                    case PRE_EVENT -> motd.preEvent(list);
-                    case START_EVENT -> motd.startEvent(list);
-                    case SMP -> motd.smp(list);
-                    case MAINTENANCE -> motd.maintenance();
-                });
+                SERVER_LIST.with(new ServerList(
+                        known.phase(), list, left.countdown(), left.days(), left.hours(), left.minutes())));
     }
 }

@@ -8,8 +8,8 @@ import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -35,15 +35,14 @@ class RestartGateTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(RestartGateTest.class);
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
 
-    private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
-    private final GateMessages gateMessages = new GateMessages(MessageRenderer.of(messages), defaults());
+    private final GateMessages gateMessages = new GateMessages(ProxyRenderer.RENDERER, defaults());
     private final FallbackCache locales = new FallbackCache(Duration.ofMinutes(15), Clock.systemUTC());
 
     @Test
     void bothLanguagesAreThere() {
-        assertTrue(messages.hasTranslation(Locale.ENGLISH, "gate.restarting"));
-        assertTrue(
-                messages.hasTranslation(Locale.GERMAN, "gate.restarting"),
+        assertNotEquals(
+                screen(Locale.ENGLISH),
+                screen(Locale.GERMAN),
                 "every other gate screen has a German half and this one is no different");
     }
 
@@ -70,9 +69,7 @@ class RestartGateTest {
         final RestartGate gate =
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
 
-        assertEquals(
-                drawn(messages.get(Locale.ENGLISH, "gate.restarting")),
-                flatten(gate.refuse(UUID.randomUUID(), "a-stranger")));
+        assertEquals(screen(Locale.ENGLISH), flatten(gate.refuse(UUID.randomUUID(), "a-stranger")));
     }
 
     @Test
@@ -83,8 +80,8 @@ class RestartGateTest {
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
 
         final String rendered = flatten(gate.refuse(PLAYER, "hmtill"));
-        assertEquals(drawn(messages.get(Locale.GERMAN, "gate.restarting")), rendered);
-        assertNotEquals(drawn(messages.get(Locale.ENGLISH, "gate.restarting")), rendered);
+        assertEquals(screen(Locale.GERMAN), rendered);
+        assertNotEquals(screen(Locale.ENGLISH), rendered);
     }
 
     @Test
@@ -108,7 +105,7 @@ class RestartGateTest {
     void itPromisesNoTime() {
         // Steward restarts it after a stop that has not happened yet, so any time would be a guess.
         for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
-            final String raw = messages.get(locale, "gate.restarting");
+            final String raw = screen(locale);
             assertTrue(raw.matches("(?s).*\\S.*"), raw);
             assertTrue(
                     !raw.matches("(?s).*\\b\\d+\\s*(seconds?|minutes?|Sekunden?|Minuten?)\\b.*"),
@@ -167,9 +164,9 @@ class RestartGateTest {
         }
     }
 
-    /** A bundle value with its MiniMessage tags removed, as a player reads it. */
-    private static String drawn(final String raw) {
-        return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
+    /** The packaged screen as a player reads it. */
+    private static String screen(final Locale locale) {
+        return flatten(ProxyRenderer.RENDERER.format(locale, Sent.of(GateMessages.RESTARTING)));
     }
 
     /** The component's text and every child's, concatenated. */

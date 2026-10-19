@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <muted>needs its resource pack for the tab list, nametags, boards and HUD.</muted>",
+            "de": "<brand>Nordtal</brand> <muted>braucht sein Resource-Pack für Tab-Liste, Namensschilder, Tafeln und HUD.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -15,10 +15,9 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.proxy.MutableClock;
 import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
@@ -26,7 +25,6 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,12 +48,11 @@ class BackendKickArrivalTest {
             proxy(),
             SERVERS,
             new BackendHealth(new MutableClock(Instant.EPOCH)),
-            new GateMessages(MessageRenderer.of(Messages.load("messages/proxy", Locale.ENGLISH)), (GateSpec)
-                    Proxy.newProxyInstance(
-                            GateSpec.class.getClassLoader(), new Class<?>[] {GateSpec.class}, (InvocationHandler)
-                                    (self, method, arguments) -> {
-                                        throw new UnsupportedOperationException(method.getName());
-                                    })),
+            new GateMessages(ProxyRenderer.RENDERER, (GateSpec) Proxy.newProxyInstance(
+                    GateSpec.class.getClassLoader(), new Class<?>[] {GateSpec.class}, (InvocationHandler)
+                            (self, method, arguments) -> {
+                                throw new UnsupportedOperationException(method.getName());
+                            })),
             new LoginRoster(),
             LoggerFactory.getLogger(BackendKickArrivalTest.class),
             clock);

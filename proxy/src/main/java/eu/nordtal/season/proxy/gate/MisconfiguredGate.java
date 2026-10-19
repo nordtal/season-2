@@ -1,12 +1,12 @@
 package eu.nordtal.season.proxy.gate;
 
-import static eu.nordtal.season.proxy.ProxyMessages.MESSAGES;
-
 import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -16,6 +16,11 @@ import org.slf4j.Logger;
 
 /** Refuses every login, admins included, when the configuration of the proxy cannot be read. */
 public final class MisconfiguredGate {
+
+    static final DocumentSpec<DocumentSpec.None> SCREEN =
+            DocumentSpec.game("proxy", "misconfigured", "Login", DocumentSpec.Shape.KICK_SCREEN);
+    static final DocumentSpec<DocumentSpec.None> SERVER_LIST =
+            DocumentSpec.game("proxy", "server-list-misconfigured", "Server list", DocumentSpec.Shape.SERVER_LIST);
 
     private final Logger logger;
     private final Component screen;
@@ -27,8 +32,8 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final MessageRenderer renderer) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(renderer, "renderer");
-        this.screen = GateMessages.inEveryLanguage(renderer, MESSAGES.gate().misconfigured());
-        this.motd = renderer.format(Locale.ENGLISH, MESSAGES.motd().misconfigured());
+        this.screen = GateMessages.inEveryLanguage(renderer, Sent.of(SCREEN));
+        this.motd = renderer.format(Locale.ENGLISH, Sent.of(SERVER_LIST));
     }
 
     /** Returns the MOTD. */

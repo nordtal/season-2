@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted><italic>from {flag} <emphasis>{partner.name}</emphasis>{admin}:</italic> <neutral>{message}</neutral></muted>",
+            "de": "<muted><italic>von {flag} <emphasis>{partner.name}</emphasis>{admin}:</italic> <neutral>{message}</neutral></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

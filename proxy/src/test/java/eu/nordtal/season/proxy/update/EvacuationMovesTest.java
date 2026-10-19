@@ -15,9 +15,8 @@ import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
@@ -26,7 +25,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -65,8 +63,7 @@ class EvacuationMovesTest {
                 SERVERS,
                 new Homecoming(
                         LoggerFactory.getLogger(EvacuationMovesTest.class),
-                        MessageRenderer.of(Messages.load(
-                                EvacuationMovesTest.class.getClassLoader(), "messages/proxy", Locale.ENGLISH)),
+                        ProxyRenderer.RENDERER,
                         new LoginRoster(),
                         SERVERS,
                         RunRecorder.NONE),

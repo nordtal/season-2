@@ -1,0 +1,50 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand><bold>nordtal.eu</bold></brand>",
+            "de": "<brand><bold>nordtal.eu</bold></brand>"
+          }
+        },
+        {
+          "when": "phase=pre-launch",
+          "text": {
+            "en": "<muted>{season.name} opens in <emphasis>{countdown, select, days {{days, plural, one {# day} other {# days}} {hours, plural, one {# hour} other {# hours}}} hours {{hours, plural, one {# hour} other {# hours}} {minutes, plural, one {# minute} other {# minutes}}} minutes {{minutes, plural, one {# minute} other {# minutes}}} imminent {any moment now} other {not announced yet}}</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>{countdown, select, days {{days, plural, one {# Tag} other {# Tagen}} {hours, plural, one {# Stunde} other {# Stunden}}} hours {{hours, plural, one {# Stunde} other {# Stunden}} {minutes, plural, one {# Minute} other {# Minuten}}} minutes {{minutes, plural, one {# Minute} other {# Minuten}}} imminent {jedem Moment} other {noch nicht angekündigt}}</emphasis></muted>"
+          }
+        },
+        {
+          "when": "phase=pre-event",
+          "text": {
+            "en": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> {list.hgParticipants, plural, one {player} other {players}} in <emphasis>{list.hgTeams}</emphasis> {list.hgTeams, plural, one {team} other {teams}}</muted>",
+            "de": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> Spieler in <emphasis>{list.hgTeams}</emphasis> {list.hgTeams, plural, one {Team} other {Teams}}</muted>"
+          }
+        },
+        {
+          "when": "phase=start-event",
+          "text": {
+            "en": "<muted>Hunger Games: <emphasis>{list.hgAlive}</emphasis> of <emphasis>{list.hgParticipants}</emphasis> still alive</muted>",
+            "de": "<muted>Hunger Games: <emphasis>{list.hgAlive}</emphasis> von <emphasis>{list.hgParticipants}</emphasis> leben noch</muted>"
+          }
+        },
+        {
+          "when": "phase=smp",
+          "text": {
+            "en": "<muted>{season.name} is running. <emphasis>{list.smpMilestonesDone}</emphasis> of <emphasis>{list.smpMilestones}</emphasis> {list.smpMilestones, plural, one {milestone} other {milestones}} done.</muted>",
+            "de": "<muted>{season.name} läuft. <emphasis>{list.smpMilestonesDone}</emphasis> von <emphasis>{list.smpMilestones}</emphasis> {list.smpMilestones, plural, one {Meilenstein} other {Meilensteinen}} geschafft.</muted>"
+          }
+        },
+        {
+          "when": "phase=maintenance",
+          "text": {
+            "en": "<muted>The network is down for maintenance.</muted>",
+            "de": "<muted>Das Netzwerk ist wegen Wartung offline.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

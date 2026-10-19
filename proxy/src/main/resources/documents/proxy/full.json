@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <warn>is full.</warn> <muted><emphasis>{online}</emphasis> of <emphasis>{max}</emphasis> {max, plural, one {player is} other {players are}} online. Try again in a few minutes.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>ist voll.</warn> <muted><emphasis>{online}</emphasis> von <emphasis>{max}</emphasis> Spielern sind online. Versuch es in ein paar Minuten noch einmal.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

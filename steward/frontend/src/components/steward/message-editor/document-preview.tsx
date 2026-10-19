@@ -139,8 +139,8 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
 }
 
 /**
- * A chat text, a tab list, a kick screen, a title or a boss bar on the scene the game draws it in, as a text of a
- * bundle is.
+ * A chat text, a tab list, a kick screen, a title, a boss bar or a server list on the scene the game draws it in, as
+ * a text of a bundle is.
  * A title's first line is the title and the lines after it are its subtitle.
  */
 function GamePreview({ shape, lines, className }: { shape: string; lines: string[]; className?: string }) {

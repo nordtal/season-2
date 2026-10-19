@@ -122,7 +122,7 @@ class ProxyRulesTest {
     void theCountdownLineDrawsATitle() {
         classes()
                 .that(isListed(WATCH))
-                .should(callInOrder("say", "RestartWatch#countdown", "RestartWatch#title", "RestartWatch#now"))
+                .should(callInOrder("say", "RestartWatch#countdown", "RestartWatch#tick", "RestartWatch#now"))
                 .because("the first title in say lies between the countdown's line and the outage's")
                 .check(classes);
     }
@@ -132,7 +132,7 @@ class ProxyRulesTest {
     void theVoiceHintIsSaidOncePerCountdown() {
         classes()
                 .that(isListed(WATCH))
-                .should(callInOrder("say", "RestartWatch#saidVoice", "Restart#voice"))
+                .should(callInOrder("say", "RestartWatch#saidVoice", "RestartWatch#VOICE"))
                 .andShould(callFrom("check", "RestartWatch#saidVoice"))
                 .check(classes);
     }

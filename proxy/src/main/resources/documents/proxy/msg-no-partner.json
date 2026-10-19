@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Nobody has written to you yet. Use /msg with a name.</warn>",
+            "de": "<warn>Dir hat noch niemand geschrieben. Nutze /msg mit einem Namen.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

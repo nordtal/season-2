@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand><bold>nordtal.eu</bold></brand>",
+            "de": "<brand><bold>nordtal.eu</bold></brand>"
+          }
+        },
+        {
+          "text": {
+            "en": "<bad>The network is misconfigured. Nobody can join.</bad>",
+            "de": "<bad>Das Netzwerk ist falsch konfiguriert. Niemand kann beitreten.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

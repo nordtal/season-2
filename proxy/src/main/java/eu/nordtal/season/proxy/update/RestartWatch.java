@@ -1,7 +1,5 @@
 package eu.nordtal.season.proxy.update;
 
-import static eu.nordtal.season.proxy.ProxyMessages.MESSAGES;
-
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.season.common.time.CountdownPlan;
@@ -12,9 +10,10 @@ import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.proxy.PhaseServers;
-import eu.nordtal.season.proxy.ProxyMessages;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,10 +26,41 @@ import java.util.Set;
 import java.util.function.BooleanSupplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /** Announces the countdown of an update run to every player. The countdown ends at {@link UpdateRequest#due()}. */
 public final class RestartWatch {
+
+    /** @param service the compose service, which the text names when {@code what} is {@code OTHER} */
+    record Counted(
+            RunShape.Occasion occasion,
+            Homecoming.Service what,
+            @Example("steward") String service,
+            @Example("30") long seconds) {}
+
+    record Now(
+            RunShape.Occasion occasion,
+            Homecoming.Service what,
+            @Example("steward") String service) {}
+
+    record Fated(RunShape.Fate fate) {}
+
+    record Occasioned(RunShape.Occasion occasion) {}
+
+    record Tick(@Example("10") long seconds) {}
+
+    static final DocumentSpec<Counted> COUNTDOWN = chat("restart-countdown", Counted.class);
+    static final DocumentSpec<Now> NOW = chat("restart-now", Now.class);
+    /** What happens to the player, after the countdown's or the now's line. */
+    static final DocumentSpec<Fated> FATE = chat("restart-fate", Fated.class);
+
+    static final DocumentSpec<Occasioned> CANCELLED = chat("restart-cancelled", Occasioned.class);
+    static final DocumentSpec<Occasioned> FAILED = chat("restart-failed", Occasioned.class);
+    static final DocumentSpec<DocumentSpec.None> VOICE = chat("restart-voice", DocumentSpec.None.class);
+    /** The seconds left as the subtitle, the title empty. */
+    static final DocumentSpec<Tick> TICK =
+            DocumentSpec.game("proxy", "restart-tick", "Restart", DocumentSpec.Shape.TITLE, Tick.class);
 
     /** The display times of the tick subtitle. */
     private static final Title.Times TIMES =
@@ -235,30 +265,28 @@ public final class RestartWatch {
             case COUNTDOWN -> {
                 each((player, locale) -> player.sendMessage(line(
                         locale,
-                        countdown(current.occasion(), what(current), announcement.seconds()),
+                        countdown(current.occasion(), current.onlyService(), announcement.seconds()),
                         fateOf(current, player))));
-                title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
+                tick(announcement.seconds());
                 if (!saidVoice) {
                     saidVoice = true;
                     each((player, locale) -> {
                         if (losesVoice(current, player)) {
-                            player.sendMessage(
-                                    renderer.format(locale, MESSAGES.restart().voice()));
+                            player.sendMessage(renderer.format(locale, Sent.of(VOICE)));
                         }
                     });
                 }
             }
             case NOW -> {
                 each((player, locale) -> player.sendMessage(
-                        line(locale, now(current.occasion(), what(current)), fateOf(current, player))));
-                title(locale -> renderer.format(locale, now(current.occasion(), what(current))));
+                        line(locale, now(current.occasion(), current.onlyService()), fateOf(current, player))));
+                subtitle(locale -> renderer.format(locale, now(current.occasion(), current.onlyService())));
             }
-            case TICK ->
-                title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
+            case TICK -> tick(announcement.seconds());
             case CANCELLED ->
-                broadcast(locale -> renderer.format(locale, MESSAGES.restart().cancelled(occasion(current))));
+                broadcast(locale -> renderer.format(locale, CANCELLED.with(new Occasioned(current.occasion()))));
             case FAILED ->
-                broadcast(locale -> renderer.format(locale, MESSAGES.restart().failed(occasion(current))));
+                broadcast(locale -> renderer.format(locale, FAILED.with(new Occasioned(current.occasion()))));
         }
     }
 
@@ -266,37 +294,25 @@ public final class RestartWatch {
      * Returns the chat message with the occasion, the service and the {@link RunShape.Fate} of the player.
      * {@link RunShape.Fate#NOTHING} adds no text.
      */
-    private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
+    private Component line(final Locale locale, final Sent<?> announcement, final RunShape.Fate fate) {
         final Component head = renderer.format(locale, announcement);
-        final ProxyMessages.Restart.Fate fates = MESSAGES.restart().fate();
-        return switch (fate) {
-            case NOTHING -> head;
-            case RECONNECT -> head.append(Component.space()).append(renderer.format(locale, fates.reconnect()));
-            case WAITING_ROOM -> head.append(Component.space()).append(renderer.format(locale, fates.waitingRoom()));
-            case DISCONNECT -> head.append(Component.space()).append(renderer.format(locale, fates.disconnect()));
-        };
+        return fate == RunShape.Fate.NOTHING
+                ? head
+                : head.append(Component.space()).append(renderer.format(locale, FATE.with(new Fated(fate))));
     }
 
-    static MessageRef countdown(final RunShape.Occasion occasion, final MessageRef what, final long seconds) {
-        final ProxyMessages.Restart.RestartCountdown lines = MESSAGES.restart().countdown();
-        return switch (occasion) {
-            case UPDATE -> lines.update(what, seconds);
-            case RECREATE -> lines.recreate(what, seconds);
-            case BACKUP -> lines.backup(what, seconds);
-            case DOWN -> lines.down(what, seconds);
-            case MAINTENANCE -> lines.maintenance(seconds);
-        };
+    /** @param only the only service of the run, {@code null} for several */
+    static Sent<Counted> countdown(final RunShape.Occasion occasion, final @Nullable String only, final long seconds) {
+        return COUNTDOWN.with(new Counted(occasion, Homecoming.Service.of(only), service(only), seconds));
     }
 
-    static MessageRef now(final RunShape.Occasion occasion, final MessageRef what) {
-        final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
-        return switch (occasion) {
-            case UPDATE -> lines.update(what);
-            case RECREATE -> lines.recreate(what);
-            case BACKUP -> lines.backup(what);
-            case DOWN -> lines.down(what);
-            case MAINTENANCE -> lines.maintenance();
-        };
+    /** @param only the only service of the run, {@code null} for several */
+    static Sent<Now> now(final RunShape.Occasion occasion, final @Nullable String only) {
+        return NOW.with(new Now(occasion, Homecoming.Service.of(only), service(only)));
+    }
+
+    private static String service(final @Nullable String only) {
+        return only == null ? "" : only;
     }
 
     /** Returns whether the player loses voice chat. */
@@ -313,31 +329,18 @@ public final class RestartWatch {
                 .orElse(null));
     }
 
-    /** Returns the name of the only service of the run, or "the network" for several. */
-    private static MessageRef what(final RunShape current) {
-        final String only = current.onlyService();
-        return only == null ? MESSAGES.restart().what().network() : Homecoming.serviceName(only);
-    }
-
-    /** Returns the occasion as a noun. */
-    private static MessageRef occasion(final RunShape current) {
-        final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
-        return switch (current.occasion()) {
-            case UPDATE -> occasions.update();
-            case RECREATE -> occasions.recreate();
-            case BACKUP -> occasions.backup();
-            case DOWN -> occasions.down();
-            case MAINTENANCE -> occasions.maintenance();
-        };
-    }
-
     /** Sends the message to every player in the language of the player. */
     private void broadcast(final java.util.function.Function<Locale, Component> render) {
         each((player, locale) -> player.sendMessage(render.apply(locale)));
     }
 
+    /** Shows the seconds left to every player as a subtitle. */
+    private void tick(final long seconds) {
+        each((player, locale) -> player.showTitle(renderer.title(locale, TICK.with(new Tick(seconds)), TIMES)));
+    }
+
     /** Shows the message to every player as a subtitle. */
-    private void title(final java.util.function.Function<Locale, Component> render) {
+    private void subtitle(final java.util.function.Function<Locale, Component> render) {
         each((player, locale) ->
                 player.showTitle(Title.title(Component.empty(), Lines.joined(render.apply(locale)), TIMES)));
     }
@@ -350,5 +353,9 @@ public final class RestartWatch {
                 logger.warn("Could not tell {} about the restart", player.getUsername(), failure);
             }
         }
+    }
+
+    private static <V extends Record> DocumentSpec<V> chat(final String name, final Class<V> values) {
+        return DocumentSpec.game("proxy", name, "Restart", DocumentSpec.Shape.CHAT, values);
     }
 }

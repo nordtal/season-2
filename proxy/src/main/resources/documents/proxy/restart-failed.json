@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>{occasion, select, update {The update} recreate {The restart} backup {The backup} down {The maintenance} other {The maintenance}} failed.</bad> <muted>You stay here. It is tried again.</muted>",
+            "de": "<bad>{occasion, select, update {Die Aktualisierung} recreate {Der Neustart} backup {Die Sicherung} down {Die Wartung} other {Die Wartung}} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

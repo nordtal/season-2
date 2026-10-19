@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Join the</bad> <brand>Nordtal</brand> <bad>Discord server to play here.</bad>",
+            "de": "<bad>Tritt dem</bad> <brand>Nordtal</brand><bad>-Discord-Server bei, um hier zu spielen.</bad>"
+          }
+        },
+        {
+          "when": "invite",
+          "text": {
+            "en": "<newline><muted>Join here: <emphasis>{invite}</emphasis></muted>",
+            "de": "<newline><muted>Hier beitreten: <emphasis>{invite}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,27 +2,26 @@ package eu.nordtal.season.proxy.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.update.UpdateKind;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.proxy.ProxyRenderer;
 import java.util.Locale;
-import java.util.Properties;
 import java.util.Set;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
 /**
  * The rule behind every countdown line, and the lines themselves.
  *
- * Message keys are derived from the enums, so a constant without a line fails here.
+ * The documents pick their lines by the enums, so a constant without a line fails here.
  */
 class RunShapeTest {
 
-    private static final String ROOT = "messages/proxy";
+    private static final Locale[] LOCALES = {Locale.ENGLISH, Locale.GERMAN};
 
     /** The backends this network has; a name without a line still falls back to its compose name. */
     private static final Set<String> SERVICES = Set.of("smp", "limbo", "hunger-games", "proxy");
@@ -119,95 +118,62 @@ class RunShapeTest {
     // the lines
 
     @Test
-    void everyOccasionHasItsThreeLines() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
-            for (final String family : new String[] {"restart.countdown.", "restart.now.", "restart.occasion."}) {
-                final String key = family + key(occasion);
-                assertTrue(english.containsKey(key), "no English line for " + key);
-                assertTrue(german.containsKey(key), "no German line for " + key);
+    void everyOccasionHasItsThreeLines() {
+        for (final Locale locale : LOCALES) {
+            for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
+                final String countdown = plain(locale, RestartWatch.countdown(occasion, "smp", 17));
+                assertTrue(
+                        countdown.contains("17"),
+                        "a countdown that does not name the number is a line that never changes: " + countdown);
+                // The service is optional: MAINTENANCE names the network, since such a run is about no one service.
+                final String now = plain(locale, RestartWatch.now(occasion, "smp"));
+                assertFalse(now.isBlank(), occasion + " has no now line in " + locale);
+                assertFalse(now.matches(".*\\d.*"), "zero is not a number worth printing: " + now);
+                final String cancelled =
+                        plain(locale, RestartWatch.CANCELLED.with(new RestartWatch.Occasioned(occasion)));
+                assertFalse(cancelled.isBlank(), occasion + " has no cancelled line in " + locale);
             }
         }
     }
 
     @Test
-    void thePlaceholdersAreTheOnesRestartWatchPasses() throws IOException {
-        final Properties english = load("en");
-
-        for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
-            final String countdown = english.getProperty("restart.countdown." + key(occasion));
-            assertTrue(
-                    countdown.contains("{seconds}"),
-                    "a countdown that does not name the number is a line that never changes: " + countdown);
-            // <what> is optional: MAINTENANCE says "nordtal", since a network-wide run is about no one service.
-            final String now = english.getProperty("restart.now." + key(occasion));
-            assertFalse(now.contains("{seconds}"), "zero is not a number worth printing: " + now);
-        }
-    }
-
-    @Test
-    void everyExitIsSpokenFor() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
+    void everyExitIsSpokenFor() {
         for (final RunShape.Fate fate : RunShape.Fate.values()) {
-            final String key = "restart.fate." + key(fate);
+            final String english = plain(Locale.ENGLISH, RestartWatch.FATE.with(new RestartWatch.Fated(fate)));
+            final String german = plain(Locale.GERMAN, RestartWatch.FATE.with(new RestartWatch.Fated(fate)));
             if (fate == RunShape.Fate.NOTHING) {
                 // RestartWatch appends nothing here, so a line would be dead text.
-                assertFalse(english.containsKey(key), key + " exists and is never printed");
-                assertFalse(german.containsKey(key), key + " exists and is never printed");
+                assertEquals("", english, fate + " has a line and it is never printed");
                 continue;
             }
-            assertTrue(english.containsKey(key), "no English line for " + key);
-            assertTrue(german.containsKey(key), "no German line for " + key);
+            assertFalse(english.isBlank(), "no line for " + fate);
+            assertNotEquals(english, german, "no German line for " + fate);
         }
     }
 
     @Test
-    void theVoiceLineIsThere() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        assertTrue(english.containsKey("restart.voice"), "no English line for restart.voice");
-        assertTrue(german.containsKey("restart.voice"), "no German line for restart.voice");
-        assertFalse(
-                english.getProperty("restart.voice").contains("{"),
-                "the hint takes no placeholder: this proxy knows no number to put in one");
+    void theVoiceLineIsThere() {
+        final String english = plain(Locale.ENGLISH, Sent.of(RestartWatch.VOICE));
+        assertFalse(english.isBlank(), "no line for the voice hint");
+        assertNotEquals(
+                english, plain(Locale.GERMAN, Sent.of(RestartWatch.VOICE)), "no German line for the voice hint");
     }
 
     @Test
-    void theServicesAreNamed() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        assertTrue(english.containsKey("restart.what.network"), "restart.what.network");
+    void theServicesAreNamed() {
+        assertEquals(Homecoming.Service.NETWORK, Homecoming.Service.of(null));
         for (final String service : SERVICES) {
-            final String key = "restart.what." + service;
-            assertTrue(english.containsKey(key), "no English name for " + key);
-            assertTrue(german.containsKey(key), "no German name for " + key);
+            assertNotEquals(Homecoming.Service.OTHER, Homecoming.Service.of(service), "no name for " + service);
         }
     }
 
     // helpers
 
-    /** {@code RestartWatch.key}, which this must match exactly. */
-    private static String key(final Enum<?> value) {
-        return value.name().toLowerCase(Locale.ROOT).replace('_', '-');
-    }
-
     private static RunShape.Occasion occasionOf(final UpdateKind kind) {
         return RunShape.of(kind, Set.of("smp"), true, false).occasion();
     }
 
-    private static Properties load(final String language) throws IOException {
-        final Properties properties = new Properties();
-        try (InputStream stream =
-                RunShapeTest.class.getClassLoader().getResourceAsStream(ROOT + "/" + language + ".properties")) {
-            assertTrue(stream != null, "no bundle for " + language);
-            properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
-        }
-        return properties;
+    private static String plain(final Locale locale, final Sent<?> sent) {
+        return PlainTextComponentSerializer.plainText().serialize(ProxyRenderer.RENDERER.format(locale, sent));
     }
 }

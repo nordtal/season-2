@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>The network is misconfigured.</bad> <muted>Nobody can join until an admin fixes it.</muted>",
+            "de": "<bad>Das Netzwerk ist falsch konfiguriert.</bad> <muted>Niemand kann beitreten, bis ein Admin das behebt.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

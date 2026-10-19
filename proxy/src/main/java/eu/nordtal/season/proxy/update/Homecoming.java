@@ -1,14 +1,13 @@
 package eu.nordtal.season.proxy.update;
 
-import static eu.nordtal.season.proxy.ProxyMessages.MESSAGES;
-
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.season.database.update.RunRecorder;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.proxy.PhaseServers;
-import eu.nordtal.season.proxy.ProxyMessages;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Duration;
 import java.util.Collection;
@@ -27,6 +26,40 @@ import org.slf4j.Logger;
  * The waiting room sends a chat message. The standby proxy sends a chat message and a countdown subtitle.
  */
 public final class Homecoming {
+
+    /** The service a text names: the network, one of the season's services, or another by its compose name. */
+    public enum Service {
+        NETWORK,
+        SMP,
+        LIMBO,
+        HUNGER_GAMES,
+        PROXY,
+        OTHER;
+
+        /** @param service the compose service, {@code null} for the whole network */
+        static Service of(final @Nullable String service) {
+            if (service == null) {
+                return NETWORK;
+            }
+            return switch (service) {
+                case "smp" -> SMP;
+                case "limbo" -> LIMBO;
+                case "hunger-games" -> HUNGER_GAMES;
+                case "proxy" -> PROXY;
+                default -> OTHER;
+            };
+        }
+    }
+
+    /** @param service the compose service, which the text names when {@code what} is {@code OTHER} */
+    record Named(Service what, @Example("steward") String service) {}
+
+    record Seconds(@Example("10") long seconds) {}
+
+    static final DocumentSpec<Named> MOVED_OUT = chat("return-moved-out", Named.class);
+    static final DocumentSpec<Named> WAITING_ROOM = chat("return-waiting-room", Named.class);
+    static final DocumentSpec<Seconds> COUNTDOWN = chat("return-countdown", Seconds.class);
+    static final DocumentSpec<DocumentSpec.None> NOW = chat("return-now", DocumentSpec.None.class);
 
     /** The seconds that the standby proxy announces the return before it happens. */
     public static final Duration NOTICE = Duration.ofSeconds(10);
@@ -75,7 +108,7 @@ public final class Homecoming {
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(renderer.format(locale, MESSAGES.returnSection().movedOut(serviceName(from))));
+            player.sendMessage(renderer.format(locale, MOVED_OUT.with(named(from))));
         } catch (final RuntimeException failure) {
             logger.warn("Could not tell {} why they are moved off '{}'", player.getUsername(), from, failure);
         }
@@ -114,7 +147,7 @@ public final class Homecoming {
                 .ifPresent(room -> returned(destination, room, 1));
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(renderer.format(locale, MESSAGES.returnSection().waitingRoom(serviceName(destination))));
+            player.sendMessage(renderer.format(locale, WAITING_ROOM.with(named(destination))));
         } catch (final RuntimeException failure) {
             logger.warn(
                     "Could not tell {} that they are being moved back to '{}'",
@@ -152,24 +185,21 @@ public final class Homecoming {
         final Locale locale = roster.localeOf(player.getUniqueId());
         switch (announcement.kind()) {
             case COUNTDOWN -> {
-                player.sendMessage(
-                        renderer.format(locale, MESSAGES.returnSection().countdown(announcement.seconds())));
+                player.sendMessage(renderer.format(locale, COUNTDOWN.with(new Seconds(announcement.seconds()))));
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
+                    tick(player, locale, announcement.seconds());
                 }
             }
             case TICK -> {
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
+                    tick(player, locale, announcement.seconds());
                 }
             }
             case NOW -> {
-                player.sendMessage(
-                        renderer.format(locale, MESSAGES.returnSection().now()));
+                final Component now = renderer.format(locale, Sent.of(NOW));
+                player.sendMessage(now);
                 if (isPlaying(player)) {
-                    subtitle(
-                            player,
-                            renderer.format(locale, MESSAGES.returnSection().now()));
+                    player.showTitle(Title.title(Component.empty(), Lines.joined(now), TIMES));
                 }
             }
             case CANCELLED, FAILED ->
@@ -197,19 +227,16 @@ public final class Homecoming {
         return server != null && !servers.isWaitingRoom(server);
     }
 
-    private static void subtitle(final Player player, final Component line) {
-        player.showTitle(Title.title(Component.empty(), Lines.joined(line), TIMES));
+    /** Shows the seconds left as a subtitle, as {@code RestartWatch} does. */
+    private void tick(final Player player, final Locale locale, final long seconds) {
+        player.showTitle(renderer.title(locale, RestartWatch.TICK.with(new RestartWatch.Tick(seconds)), TIMES));
     }
 
-    /** Returns the message with the name of the compose service, or the service name itself without a message. */
-    public static MessageRef serviceName(final String service) {
-        final ProxyMessages.Restart.What names = MESSAGES.restart().what();
-        return switch (service) {
-            case "smp" -> names.smp();
-            case "limbo" -> names.limbo();
-            case "hunger-games" -> names.hungerGames();
-            case "proxy" -> names.proxy();
-            default -> names.other(service);
-        };
+    private static Named named(final String service) {
+        return new Named(Service.of(service), service);
+    }
+
+    private static <V extends Record> DocumentSpec<V> chat(final String name, final Class<V> values) {
+        return DocumentSpec.game("proxy", name, "Restart", DocumentSpec.Shape.CHAT, values);
     }
 }

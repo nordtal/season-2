@@ -1,0 +1,30 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "fate=reconnect",
+          "text": {
+            "en": "<muted>You see a loading screen and then play on.</muted>",
+            "de": "<muted>Du siehst kurz einen Ladebildschirm und spielst dann weiter.</muted>"
+          }
+        },
+        {
+          "when": "fate=waiting-room",
+          "text": {
+            "en": "<muted>You wait in the waiting room and return on your own.</muted>",
+            "de": "<muted>Du wartest im Warteraum und kommst von selbst zurück.</muted>"
+          }
+        },
+        {
+          "when": "fate=disconnect",
+          "text": {
+            "en": "<muted>The game disconnects you. Join again after about a minute.</muted>",
+            "de": "<muted>Du wirst vom Server getrennt. Verbinde dich in etwa einer Minute neu.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>That command does not exist.</bad>",
+            "de": "<bad>Diesen Befehl gibt es nicht.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

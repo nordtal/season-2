@@ -1,0 +1,27 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand><bold>Network rules</bold></brand>",
+            "de": "<brand><bold>Regeln des Netzwerks</bold></brand>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Treat everyone decently and play fair. Use PvP on the SMP only when both sides agree. Ask questions on Discord:</muted>",
+            "de": "<muted>Geh mit allen anständig um und spiel fair. Nutze PvP auf der SMP nur, wenn beide Seiten zustimmen. Stell Fragen im Discord:</muted>"
+          }
+        },
+        {
+          "text": {
+            "en": "<click:open_url:'{invite}'><hover:show_text:'{invite}'><brand><underlined>Join the Nordtal Discord</underlined></brand></hover></click>",
+            "de": "<click:open_url:'{invite}'><hover:show_text:'{invite}'><brand><underlined>Zum Nordtal-Discord</underlined></brand></hover></click>"
+          }
+        }
+      ]
+    }
+  ]
+}

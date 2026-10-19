@@ -1,0 +1,44 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "occasion=update",
+          "text": {
+            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being updated in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
+            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} aktualisiert.</warn>"
+          }
+        },
+        {
+          "when": "occasion=recreate",
+          "text": {
+            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> restarts in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
+            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> startet in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} neu.</warn>"
+          }
+        },
+        {
+          "when": "occasion=backup",
+          "text": {
+            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being backed up in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
+            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} gesichert.</warn>"
+          }
+        },
+        {
+          "when": "occasion=down",
+          "text": {
+            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> goes down for maintenance in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
+            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> geht in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} für eine Wartung offline.</warn>"
+          }
+        },
+        {
+          "when": "occasion=maintenance",
+          "text": {
+            "en": "<warn>Nordtal goes down for maintenance in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
+            "de": "<warn>Nordtal geht in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} für eine Wartung offline.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

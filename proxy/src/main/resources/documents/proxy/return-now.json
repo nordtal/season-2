@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>You reconnect now.</good>",
+            "de": "<good>Du verbindest dich jetzt neu.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

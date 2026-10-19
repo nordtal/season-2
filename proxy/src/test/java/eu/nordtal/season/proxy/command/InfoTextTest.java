@@ -1,44 +1,45 @@
 package eu.nordtal.season.proxy.command;
 
+import static eu.nordtal.season.proxy.ProxyRenderer.RENDERER;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
-/** The values behind {@code /discord} and {@code /rules}. */
+/** The texts of {@code /discord} and {@code /rules}. */
 class InfoTextTest {
 
-    private static final Messages MESSAGES =
-            Messages.load(InfoTextTest.class.getClassLoader(), "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
+    private static final String INVITE = "https://discord.gg/test-invite";
 
-    private static final List<String> KEYS = List.of(
-            InfoTexts.DISCORD_TEXT.apply("").key(),
-            InfoTexts.RULES_TEXT.apply("").key());
+    private static final List<DocumentSpec<InfoTexts.Invite>> TEXTS = List.of(InfoTexts.DISCORD, InfoTexts.RULES);
 
     @Test
-    void theKeysExist() {
-        for (final String key : KEYS) {
-            for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(
-                        MESSAGES.hasTranslation(locale, key),
-                        key + " is missing in " + locale.getLanguage() + ", so the command would"
-                                + " print its own key at a player");
-            }
+    void bothAreThereInBothLanguages() {
+        for (final DocumentSpec<InfoTexts.Invite> text : TEXTS) {
+            assertFalse(plain(Locale.ENGLISH, text).isBlank(), text.name());
+            assertNotEquals(
+                    plain(Locale.ENGLISH, text),
+                    plain(Locale.GERMAN, text),
+                    text.name() + " has no German text, so the command would print English at a German player");
         }
     }
 
     @Test
-    void bothNameTheInvite() {
-        for (final String key : KEYS) {
+    void bothLinkTheInvite() {
+        for (final DocumentSpec<InfoTexts.Invite> text : TEXTS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 assertTrue(
-                        MESSAGES.get(locale, key).contains("{invite}"),
-                        key + " (" + locale.getLanguage() + ") does not substitute the Discord"
-                                + " invite. It is gate.yml's one copy of that link, and a bundle"
+                        opens(RENDERER.format(locale, text.with(new InfoTexts.Invite(INVITE)))),
+                        text.name() + " (" + locale.getLanguage() + ") does not link the Discord"
+                                + " invite. It is gate.yml's one copy of that link, and a text"
                                 + " that spells the URL out itself is the copy that goes stale -"
                                 + " read by exactly the people who cannot get in.");
             }
@@ -48,11 +49,9 @@ class InfoTextTest {
     @Test
     void theRulesAreWrittenNotAPlaceholder() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final String rules =
-                    MESSAGES.get(locale, InfoTexts.RULES_TEXT.apply("").key());
+            final String rules = plain(locale, InfoTexts.RULES).toUpperCase(Locale.ROOT);
             assertFalse(
-                    rules.toUpperCase(Locale.ROOT).contains("PLACEHOLDER")
-                            || rules.toUpperCase(Locale.ROOT).contains("PLATZHALTER"),
+                    rules.contains("PLACEHOLDER") || rules.contains("PLATZHALTER"),
                     "the " + locale.getLanguage() + " rules are a placeholder again");
         }
     }
@@ -60,13 +59,28 @@ class InfoTextTest {
     @Test
     void theRulesAreThreeSentencesAtMost() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final String text =
-                    MESSAGES.get(locale, InfoTexts.RULES_TEXT.apply("").key()).replaceAll("<[^>]*>|\\{invite}", " ");
+            final String text = plain(locale, InfoTexts.RULES);
             final long sentences =
-                    Pattern.compile("[.!?](\\s|$)").matcher(text).results().count();
+                    Pattern.compile("[.!?:](\\s|$)").matcher(text).results().count();
             assertTrue(
                     sentences <= 3,
                     "the " + locale.getLanguage() + " rules run to " + sentences + " sentences: " + text);
         }
+    }
+
+    private static String plain(final Locale locale, final DocumentSpec<InfoTexts.Invite> text) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(RENDERER.format(locale, text.with(new InfoTexts.Invite(INVITE))));
+    }
+
+    /** Returns whether a part of the text opens the invite on a click. */
+    private static boolean opens(final Component component) {
+        final ClickEvent click = component.clickEvent();
+        if (click != null
+                && ClickEvent.Action.OPEN_URL.equals(click.action())
+                && ((ClickEvent.Payload.Text) click.payload()).value().equals(INVITE)) {
+            return true;
+        }
+        return component.children().stream().anyMatch(InfoTextTest::opens);
     }
 }

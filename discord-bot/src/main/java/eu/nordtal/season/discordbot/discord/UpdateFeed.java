@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Posts a card for every update run in the admin channel, in English. A start-up install that succeeded has no card.
+ * Posts a card in the admin channel, in English, for every update run that {@link #shown} admits.
  *
  * An edit notifies nobody, so steward's alert reports a failed run.
  */
@@ -113,6 +113,9 @@ public final class UpdateFeed {
     /** The runs in progress, by request id. */
     private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
+    /** The runs in progress that have no card yet, by request id. */
+    private final java.util.Set<Long> held = ConcurrentHashMap.newKeySet();
+
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
     /** Set by every signal. A signal during a pass causes exactly one more pass. */
@@ -148,8 +151,7 @@ public final class UpdateFeed {
                 if (request.status().isFinished() || request.id() > mark) {
                     continue;
                 }
-                board.post(
-                        card(request), messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
+                follow(request);
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
@@ -212,23 +214,62 @@ public final class UpdateFeed {
 
         for (final UpdateRequest request : fresh) {
             lastSeen = Math.max(lastSeen, request.id());
-            if (!shown(request)) {
-                continue;
-            }
-            final boolean over = request.status().isFinished();
-            board.post(card(request), messageId -> {
-                if (over) {
-                    return;
-                }
-                drawing.put(request.id(), new Drawn(messageId, request.result()));
-            });
+            follow(request);
         }
+        release();
         redraw();
     }
 
-    /** Returns whether a run gets a card. Only a start-up install that did not fail has none. */
+    /** Posts a run that is shown and follows it until it ends, or holds a run in progress that is not shown yet. */
+    private void follow(final UpdateRequest request) {
+        if (!shown(request)) {
+            if (!request.status().isFinished()) {
+                held.add(request.id());
+            }
+            return;
+        }
+        final boolean over = request.status().isFinished();
+        board.post(card(request), messageId -> {
+            if (over) {
+                return;
+            }
+            drawing.put(request.id(), new Drawn(messageId, request.result()));
+        });
+    }
+
+    /** Reads the held runs again and posts each one that is shown now. */
+    private void release() {
+        for (final long id : List.copyOf(held)) {
+            final Optional<UpdateRequest> row;
+            try {
+                row = updates.find(id);
+            } catch (final RuntimeException failure) {
+                log.warn("Could not re-read update request {} for the admin channel", id, failure);
+                continue;
+            }
+            if (row.isEmpty() || shown(row.get()) || row.get().status().isFinished()) {
+                held.remove(id);
+                row.ifPresent(this::follow);
+            }
+        }
+    }
+
+    /**
+     * Returns whether a run gets a card now.
+     *
+     * Not a start-up install that went well, nor an update that is still resolving or found nothing to do.
+     */
     static boolean shown(final UpdateRequest request) {
-        return request.kind() != UpdateKind.INSTALL || request.status() == UpdateStatus.FAILED;
+        return switch (request.kind()) {
+            case INSTALL -> request.status() == UpdateStatus.FAILED;
+            case UPDATE ->
+                switch (report(request).stage()) {
+                    case RESOLVING -> request.status().isFinished();
+                    case NOTHING_TO_DO -> false;
+                    default -> true;
+                };
+            default -> true;
+        };
     }
 
     /** Reads the runs in progress again and edits the message of each run that changed. */
@@ -261,9 +302,12 @@ public final class UpdateFeed {
 
     /** Draws one run. A row with no parsable report has the stage {@code RESOLVING}. */
     private DocumentRenderer.Drawn card(final UpdateRequest request) {
-        final UpdateReport report =
-                UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return card(report, request, documents, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
+        return card(
+                report(request), request, documents, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
+    }
+
+    private static UpdateReport report(final UpdateRequest request) {
+        return UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
     }
 
     /**

@@ -41,6 +41,7 @@ function useNav() {
 
 /**
  * Opening the column moves nothing in the island. The island drops its surface and path and becomes the head of the column, search and account included.
+ * The path comes last, so its unfolding moves neither search nor account.
  */
 function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle } = nav
@@ -67,6 +68,10 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       >
         <NavToggle shown={shown} onToggle={toggle} glyph="panel" />
         <Brand version={shown} />
+        <div className="flex shrink-0 items-center gap-1">
+          <SearchButton />
+          <UserMenu me={me} align="start" plain />
+        </div>
         <div
           aria-hidden={shown}
           inert={shown}
@@ -76,10 +81,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
           }`}
         >
           <Trail crumbs={crumbs} />
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <SearchButton />
-          <UserMenu me={me} align="start" plain />
         </div>
       </div>
 

@@ -78,14 +78,4 @@ public interface LimboMessages {
             MessageRef subtitle();
         }
     }
-
-    Tab tab();
-
-    @Name("Tab list")
-    @Shown(Display.TAB_LIST)
-    interface Tab {
-
-        @Name("Footer")
-        MessageRef footer();
-    }
 }

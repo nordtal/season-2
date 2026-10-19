@@ -29,6 +29,11 @@ public final class TabList {
         this.renderer = Objects.requireNonNull(renderer, "renderer");
     }
 
+    /** Declares a server's footer that names no value. */
+    public static DocumentSpec<DocumentSpec.None> footer(final String namespace) {
+        return DocumentSpec.game(namespace, "tab-footer", "Tab list", DocumentSpec.Shape.TAB_LIST);
+    }
+
     /** Declares a server's footer that counts its players. */
     public static DocumentSpec<Counted> countedFooter(final String namespace) {
         return DocumentSpec.game(namespace, "tab-footer", "Tab list", DocumentSpec.Shape.TAB_LIST, Counted.class);

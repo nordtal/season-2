@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<newline><faint>You will be connected to the network</faint>",
+            "de": "<newline><faint>Du wirst mit dem Netzwerk verbunden</faint>"
+          }
+        }
+      ]
+    }
+  ]
+}

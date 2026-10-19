@@ -35,4 +35,5 @@ dependencies {
 
 messageSpec {
     specClasses.add("eu.nordtal.season.limbo.LimboMessages")
+    documentClasses.add("eu.nordtal.season.limbo.presence.WaitingRoomRules")
 }

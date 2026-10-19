@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Your partner did not join before the countdown.</warn> <muted><emphasis>{team.name}</emphasis> plays alone with full hearts.</muted>",
+            "de": "<warn>Dein Teampartner ist vor dem Countdown nicht beigetreten.</warn> <muted><emphasis>{team.name}</emphasis> spielt allein mit vollen Herzen weiter.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

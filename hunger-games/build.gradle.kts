@@ -28,8 +28,6 @@ tasks.withType<JavaCompile>().configureEach {
 // The tests read these files.
 repositoryRootTestInputs {
     reads("compose.yml")
-    reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
-    reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
 }
 
 dependencies {
@@ -48,7 +46,14 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.season.hungergames.HungerGamesMessages")
     documentClasses.add("eu.nordtal.season.hungergames.HungerGamesPlugin")
+    documentClasses.add("eu.nordtal.season.hungergames.border.BorderController")
+    documentClasses.add("eu.nordtal.season.hungergames.combat.CombatListener")
+    documentClasses.add("eu.nordtal.season.hungergames.game.Ceremony")
+    documentClasses.add("eu.nordtal.season.hungergames.game.HungerGamesManager")
+    documentClasses.add("eu.nordtal.season.hungergames.game.WinTracker")
+    documentClasses.add("eu.nordtal.season.hungergames.hud.GameHud")
+    documentClasses.add("eu.nordtal.season.hungergames.lobby.Lobby")
+    documentClasses.add("eu.nordtal.season.hungergames.loot.LootRefill")
     documentClasses.add("eu.nordtal.season.hungergames.presence.DisconnectBodies")
 }

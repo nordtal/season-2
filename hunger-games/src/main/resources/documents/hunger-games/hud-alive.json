@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Alive {alive}",
+            "de": "Lebend {alive}"
+          }
+        }
+      ]
+    }
+  ]
+}

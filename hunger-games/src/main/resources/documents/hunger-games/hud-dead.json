@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Dead {dead}",
+            "de": "Tot {dead}"
+          }
+        }
+      ]
+    }
+  ]
+}

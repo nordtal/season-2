@@ -1,12 +1,12 @@
 package eu.nordtal.season.hungergames.loot;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.hungergames.border.BorderController;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -34,6 +34,9 @@ import org.slf4j.LoggerFactory;
  * A refill clears and fills the chest of every loot point inside the border.
  */
 public final class LootRefill {
+
+    static final DocumentSpec<DocumentSpec.None> REFILL =
+            DocumentSpec.game("hunger-games", "loot-refill", "Game", DocumentSpec.Shape.CHAT);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LootRefill.class);
 
@@ -149,9 +152,7 @@ public final class LootRefill {
     /** Sends the refill announcement to the players in the world. */
     private void announce() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(renderer.format(
-                    identities.languageOf(player.getUniqueId()),
-                    MESSAGES.hg().loot().refill()));
+            player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), Sent.of(REFILL)));
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }

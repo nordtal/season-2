@@ -1,9 +1,9 @@
 package eu.nordtal.season.hungergames.game;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import java.time.Clock;
@@ -25,6 +25,9 @@ import org.slf4j.LoggerFactory;
  * {@link Tiebreak} decides deaths within {@link #SIMULTANEOUS_WINDOW}.
  */
 public final class WinTracker {
+
+    static final DocumentSpec<DocumentSpec.None> SAME_TEAM_FINAL_TWO =
+            DocumentSpec.game("hunger-games", "win-same-team-final-two", "Game", DocumentSpec.Shape.CHAT);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WinTracker.class);
 
@@ -150,9 +153,8 @@ public final class WinTracker {
             return;
         }
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(renderer.format(
-                    identities.languageOf(player.getUniqueId()),
-                    MESSAGES.hg().win().sameTeamFinalTwo()));
+            player.sendMessage(
+                    renderer.format(identities.languageOf(player.getUniqueId()), Sent.of(SAME_TEAM_FINAL_TWO)));
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }

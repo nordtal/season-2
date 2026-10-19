@@ -40,7 +40,7 @@ class WinOutcomeTest {
 
         assertNull(outcome.winnerMemberId());
         assertTrue(outcome.tie());
-        // hg.win.no-winner prints "({kills} each)", so both sides have to be the same number.
+        // ceremony-result prints "({winnerKills} each)" after a tie, so both sides have to be the same number.
         assertEquals(2, outcome.winnerKills());
         assertEquals(2, outcome.loserKills());
     }

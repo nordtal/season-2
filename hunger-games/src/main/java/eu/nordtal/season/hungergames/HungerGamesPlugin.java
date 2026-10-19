@@ -137,7 +137,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected List<String> bundles() {
-        return List.of("messages/hunger-games");
+        return List.of();
     }
 
     @Override
@@ -208,7 +208,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         loot = refill;
         winTracker = new WinTracker(dao, renderer(), identities(), sounds, clock());
         final GameHud lines =
-                new GameHud(world, spec, renderer().raw(), borderController, state, winTracker, refill, clock());
+                new GameHud(world, spec, renderer(), borderController, state, winTracker, refill, clock());
         lines.declareOn(hud());
         gameHud = lines;
         final Lobby waiting = new Lobby(this, dao, rosters, spec, renderer(), identities());

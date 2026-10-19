@@ -1,0 +1,23 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "!killed",
+          "text": {
+            "en": "<bad><glyph:death></bad> <muted>{player.name} was eliminated while offline.</muted>",
+            "de": "<bad><glyph:death></bad> <muted>{player.name} wurde offline eliminiert.</muted>"
+          }
+        },
+        {
+          "when": "killed",
+          "text": {
+            "en": "<bad><glyph:death></bad> <muted>{player.name} was eliminated by {killer.name} while offline.</muted>",
+            "de": "<bad><glyph:death></bad> <muted>{player.name} wurde offline von {killer.name} eliminiert.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

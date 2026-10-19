@@ -122,7 +122,7 @@ public final class WebClient {
         return token == null || token.isBlank() ? this : header("Authorization", "Bearer " + token);
     }
 
-    /** Returns the client retrying a GET up to {@code attempts} times if the connection fails. */
+    /** Returns the client retrying a GET or a download up to {@code attempts} times if the connection fails. */
     public WebClient retrying(final int attempts, final Backoff backoff, final Waiting waiting) {
         if (attempts < 1) {
             throw new IllegalArgumentException("a request is tried at least once, got " + attempts);
@@ -140,22 +140,31 @@ public final class WebClient {
 
     /** Sends a GET that answers within {@code within}. */
     public Reply get(final URI uri, final Duration within) throws IOException {
+        return retried(() -> send(request(uri, within).GET(), uri));
+    }
+
+    /** Runs {@code attempt} until it succeeds, fails with a status or an interrupt, or the tries run out. */
+    private <T> T retried(final Attempt<T> attempt) throws IOException {
         IOException last = null;
         Duration pause = backoff.first();
-        for (int attempt = 1; attempt <= attempts; attempt++) {
+        for (int tried = 1; tried <= attempts; tried++) {
             try {
-                return send(request(uri, within).GET(), uri);
-            } catch (final InterruptedIOException interrupted) {
-                throw interrupted;
+                return attempt.run();
+            } catch (final InterruptedIOException | HttpFailure notRetried) {
+                throw notRetried;
             } catch (final IOException failed) {
                 last = failed;
-                if (attempt == attempts || waiting == null || !waiting.sleep(pause)) {
+                if (tried == attempts || waiting == null || !waiting.sleep(pause)) {
                     break;
                 }
                 pause = backoff.after(pause);
             }
         }
         throw Objects.requireNonNull(last, "last");
+    }
+
+    private interface Attempt<T> {
+        T run() throws IOException;
     }
 
     /** Returns the body of a 2xx GET and refuses any other status with {@link HttpFailure}. */
@@ -220,21 +229,27 @@ public final class WebClient {
         return response.body();
     }
 
-    /** Saves the body of a 2xx GET to {@code destination} and refuses any other status. */
+    /**
+     * Saves the body of a 2xx GET to {@code destination} and refuses any other status.
+     * A failed connection or a broken body is tried again like a {@link #get}.
+     */
     public void download(final URI uri, final Path destination) throws IOException {
-        final HttpResponse<InputStream> response =
-                exchange(request(uri, timeout).GET(), HttpResponse.BodyHandlers.ofInputStream());
-        try (InputStream body = response.body()) {
-            if (response.statusCode() / 100 != 2) {
-                body.readAllBytes();
-                throw new HttpFailure(uri, response.statusCode(), "");
+        retried(() -> {
+            final HttpResponse<InputStream> response =
+                    exchange(request(uri, timeout).GET(), HttpResponse.BodyHandlers.ofInputStream());
+            try (InputStream body = response.body()) {
+                if (response.statusCode() / 100 != 2) {
+                    body.readAllBytes();
+                    throw new HttpFailure(uri, response.statusCode(), "");
+                }
+                final Path parent = destination.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.copy(body, destination, StandardCopyOption.REPLACE_EXISTING);
             }
-            final Path parent = destination.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Files.copy(body, destination, StandardCopyOption.REPLACE_EXISTING);
-        }
+            return destination;
+        });
     }
 
     /** Returns whether a GET answers 200 within the timeout. */

@@ -11,8 +11,8 @@ public final class SourceHttp {
 
     public static final String USER_AGENT = "nordtal-season-2/steward (+https://github.com/nordtal/season-2)";
 
-    /** A failed connection is tried twice more, so one lost packet does not fail a resolve. */
-    private static final int ATTEMPTS = 3;
+    /** A failed connection is tried again for half a minute, so a short network loss does not fail a run. */
+    private static final int ATTEMPTS = 6;
 
     private SourceHttp() {}
 
@@ -27,7 +27,7 @@ public final class SourceHttp {
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
                 .bearer(token)
-                .retrying(ATTEMPTS, new Backoff(Duration.ofSeconds(1), Duration.ofSeconds(4)), waiting);
+                .retrying(ATTEMPTS, new Backoff(Duration.ofSeconds(1), Duration.ofSeconds(16)), waiting);
     }
 
     /** Returns the resolver's seam over {@code web}, explaining a 404 and a rate limit in the failure. */

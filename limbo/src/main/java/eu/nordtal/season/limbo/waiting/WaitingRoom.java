@@ -1,13 +1,12 @@
 package eu.nordtal.season.limbo.waiting;
 
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.limbo.LimboMessages;
 import eu.nordtal.season.limbo.config.LimboSpec;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.limboprotocol.WaitReason;
-import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -29,6 +28,18 @@ import org.jspecify.annotations.Nullable;
  * A timer sends the title again every {@code title-refresh-seconds}.
  */
 public final class WaitingRoom {
+
+    /** How far the running update is; {@code counted} is false when the proxy sent no number. */
+    record Progress(boolean counted, long percent) {}
+
+    static final DocumentSpec<DocumentSpec.None> PACK = screen("resource-pack");
+    static final DocumentSpec<DocumentSpec.None> BACKEND = screen("server-not-up");
+    static final DocumentSpec<Progress> UPDATE =
+            DocumentSpec.game("limbo", "update", "Waiting room", DocumentSpec.Shape.TITLE, Progress.class);
+    static final DocumentSpec<DocumentSpec.None> HELD = screen("server-stopped");
+    static final DocumentSpec<DocumentSpec.None> QUEUE = screen("next-in-line");
+    static final DocumentSpec<DocumentSpec.None> MAINTENANCE = screen("maintenance");
+    static final DocumentSpec<DocumentSpec.None> UNKNOWN = screen("unknown-reason");
 
     private final Plugin plugin;
     private final LimboSpec config;
@@ -104,16 +115,24 @@ public final class WaitingRoom {
                 ? Title.Times.times(Duration.ofMillis(300), stay, Duration.ofMillis(200))
                 : Title.Times.times(Duration.ZERO, stay, Duration.ZERO);
 
-        final LimboMessages.Limbo.Screen screen =
-                LimboMessages.MESSAGES.limbo().waiting().of(reason);
-        final Integer percent = reason == WaitReason.UPDATE ? percents.get(player.getUniqueId()) : null;
-        final MessageRef title = percent == null
-                ? screen.title()
-                : LimboMessages.MESSAGES.limbo().waiting().updateProgress(percent);
-        player.showTitle(Title.title(
-                Lines.joined(renderer.format(locale, title)),
-                Lines.joined(renderer.format(locale, screen.subtitle())),
-                times));
+        player.showTitle(renderer.title(locale, screen(reason, percents.get(player.getUniqueId())), times));
+    }
+
+    /** Returns the screen of the reason, the update's with its percentage when the proxy sent one. */
+    static Sent<?> screen(final WaitReason reason, final @Nullable Integer percent) {
+        return switch (reason) {
+            case PACK -> Sent.of(PACK);
+            case BACKEND -> Sent.of(BACKEND);
+            case UPDATE -> UPDATE.with(new Progress(percent != null, percent == null ? 0 : percent));
+            case HELD -> Sent.of(HELD);
+            case QUEUE -> Sent.of(QUEUE);
+            case MAINTENANCE -> Sent.of(MAINTENANCE);
+            case UNKNOWN -> Sent.of(UNKNOWN);
+        };
+    }
+
+    private static DocumentSpec<DocumentSpec.None> screen(final String name) {
+        return DocumentSpec.game("limbo", name, "Waiting room", DocumentSpec.Shape.TITLE);
     }
 
     /** Starts the timer that sends the titles. */

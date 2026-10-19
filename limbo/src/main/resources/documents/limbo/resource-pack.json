@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>Loading the resource pack</emphasis>",
+            "de": "<emphasis>Resource-Pack lädt</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>The first load takes longer.</muted>",
+            "de": "<muted>Beim ersten Mal dauert es länger.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

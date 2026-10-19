@@ -1,0 +1,29 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "when": "!counted",
+          "text": {
+            "en": "<accent>Update running</accent>",
+            "de": "<accent>Update läuft</accent>"
+          }
+        },
+        {
+          "when": "counted",
+          "text": {
+            "en": "<accent>Update running · {percent, number, plain} %</accent>",
+            "de": "<accent>Update läuft · {percent, number, plain} %</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>You will be reconnected when it is finished.</muted>",
+            "de": "<muted>Du wirst erneut verbunden, sobald es fertig ist.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

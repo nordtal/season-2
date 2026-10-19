@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>The server is stopped</accent>",
+            "de": "<accent>Der Server ist gestoppt</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>You will be reconnected as soon as it runs.</muted>",
+            "de": "<muted>Du wirst erneut verbunden, sobald er läuft.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

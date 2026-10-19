@@ -23,7 +23,6 @@ class BundleContinuationTest {
 
     private static final List<String> BUNDLE_ROOTS = List.of(
             "smp/src/main/resources/messages",
-            "limbo/src/main/resources/messages",
             "hunger-games/src/main/resources/messages",
             "proxy/src/main/resources/messages");
 

@@ -22,7 +22,6 @@ class EveryBundleIsCompleteTest {
     private static final Set<String> KNOWN = Set.of(
             "database/src/main/resources/messages/database",
             "hunger-games/src/main/resources/messages/hunger-games",
-            "limbo/src/main/resources/messages/limbo",
             "proxy/src/main/resources/messages/proxy",
             "smp/src/main/resources/messages/smp");
 

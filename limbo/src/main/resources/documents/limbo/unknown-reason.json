@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>One moment</emphasis>",
+            "de": "<emphasis>Einen Moment</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>You will be connected to the network.</muted>",
+            "de": "<muted>Du wirst mit dem Netzwerk verbunden.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

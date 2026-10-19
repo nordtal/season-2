@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>Waiting for the server</accent>",
+            "de": "<accent>Warten auf den Server</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>You will be connected as soon as it is up.</muted>",
+            "de": "<muted>Du wirst verbunden, sobald er läuft.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -15,7 +15,6 @@ repositoryRootTestInputs {
     readsTree("database/src/main/resources/messages")
     readsTree("discord-bot/src/main/resources/messages")
     readsTree("hunger-games/src/main/resources/messages")
-    readsTree("limbo/src/main/resources/messages")
     readsTree("paper-common/src/main/resources/documents")
     readsTree("proxy/src/main/resources/messages")
     readsTree("smp/src/main/resources/messages")

@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { afterEach, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDeclaration, DocumentDraft } from "@/lib/api"
-import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
+import { DocumentPreview, galleryCells } from "@/components/steward/message-editor/document-preview"
 
 afterEach(() => {
   cleanup()
@@ -60,4 +60,50 @@ it("asks for a drawing once typing pauses, and an older draft's late answer neve
   await new Promise((resolve) => setTimeout(resolve, 50))
   expect(screen.queryByText("first")).toBeNull()
   expect(screen.getByText("third")).toBeTruthy()
+})
+
+it("draws a gallery's one image whole at its own shape, never cropped to a banner", async () => {
+  const image = "https://nordtal.eu/square.png"
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ discord: { components: [{ type: 12, items: [{ media: { url: image } }] }] } }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    ),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const { container } = render(<DocumentPreview declaration={declaration} game={false} document={saying("")} />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+  await vi.waitFor(() => expect(container.querySelector(`img[src="${image}"]`)).not.toBeNull())
+  const drawn = container.querySelector(`img[src="${image}"]`)!.className
+  expect(drawn).toMatch(/\bw-auto\b/)
+  expect(drawn).toMatch(/\bh-auto\b/)
+  expect(drawn).not.toMatch(/aspect-|\bh-28\b/)
+})
+
+it("lays a gallery of two to ten images out in whole rows, the rows of three under a first row of the rest", () => {
+  for (let count = 2; count <= 10; count++) {
+    const cells = galleryCells(count)
+    expect(cells).toHaveLength(count)
+    // A cell spanning two rows counts twice.
+    const area = cells.reduce((sum, cell) => {
+      const span = Number(/col-span-(\d)/.exec(cell)![1])
+      return sum + span * (cell.includes("row-span-2") ? 2 : 1)
+    }, 0)
+    expect(area % 6, `${count} images`).toBe(0)
+  }
+  expect(galleryCells(5).map((cell) => cell.split(" ")[0])).toEqual([
+    "col-span-3",
+    "col-span-3",
+    "col-span-2",
+    "col-span-2",
+    "col-span-2",
+  ])
+  expect(galleryCells(7)[0]).toContain("col-span-6")
+  expect(galleryCells(9).every((cell) => cell.startsWith("col-span-2"))).toBe(true)
 })

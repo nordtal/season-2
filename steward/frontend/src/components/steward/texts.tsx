@@ -130,7 +130,8 @@ export function TextsForm({
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const { drafts, setDraft } = useDocumentDrafts()
-  const [beside, setBeside] = useState<Language | undefined>(undefined)
+  // The language every document is edited and previewed in, kept while another document is open.
+  const [documentLanguage, setDocumentLanguage] = useState<Language>(ENGLISH)
   const views = useMemo(() => documents?.documents ?? [], [documents])
   const listed = useMemo(
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
@@ -313,14 +314,14 @@ export function TextsForm({
         renderLeaf={(leaf) => (
           <Card
             card={leaf.value}
+            language={documentLanguage}
             editing={
               leaf.value.kind === "document" && opened.document === documentId(leaf.value.view.declaration)
                 ? {
                     writable: documents?.writable ?? false,
                     draft: drafts[opened.document],
                     onDraft: (next) => opened.document && setDraft(opened.document, next),
-                    beside,
-                    onBeside: setBeside,
+                    onLanguage: setDocumentLanguage,
                     onClose: () => onOpen({}),
                   }
                 : undefined
@@ -366,21 +367,21 @@ type Editing = {
   writable: boolean
   draft: Document | undefined
   onDraft: (draft: Document | undefined) => void
-  beside: Language | undefined
-  onBeside: (language: Language | undefined) => void
+  onLanguage: (language: Language) => void
   onClose: () => void
 }
 
 /**
  * One document or text as it appears, under its name. A click opens it: a text on a page of its own, a document's editor
- * in the card, beside its preview from a laptop's width and under it on a phone.
+ * in the card, left of its preview from a laptop's width and under it on a phone.
  */
 function Card({
   card,
+  language,
   editing,
   onOpen,
   ...shared
-}: Shared & { card: PageCard; editing?: Editing; onOpen: () => void }) {
+}: Shared & { card: PageCard; language: Language; editing?: Editing; onOpen: () => void }) {
   const name = cardName(card)
   const id = card.kind === "text" ? textId(card.text.entry) : undefined
   if (card.kind === "document" && editing) {
@@ -389,32 +390,31 @@ function Card({
       <article
         aria-label={name}
         data-open
-        className="grid min-w-0 grid-cols-1 items-start gap-4 rounded-lg border p-3 lg:grid-cols-2"
+        className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
       >
-        <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]">
-          {[ENGLISH, ...(editing.beside ? [editing.beside] : [])].map((language) => (
-            <DocumentPreview
-              key={language}
-              declaration={card.view.declaration}
-              game={card.view.game}
-              document={draft}
-              language={language}
-            />
-          ))}
+        <div className="min-w-0 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)] lg:col-start-2 lg:row-start-1">
+          <DocumentPreview
+            declaration={card.view.declaration}
+            game={card.view.game}
+            document={draft}
+            language={language}
+          />
         </div>
-        <DocumentEditor
-          view={card.view}
-          draft={draft}
-          // The network's languages and any the document is written in beyond them.
-          languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
-          writable={editing.writable}
-          beside={editing.beside}
-          onBeside={editing.onBeside}
-          onClose={editing.onClose}
-          onDraft={(next) =>
-            editing.onDraft(next && JSON.stringify(next) !== JSON.stringify(documentOf(card.view)) ? next : undefined)
-          }
-        />
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <DocumentEditor
+            view={card.view}
+            draft={draft}
+            // The network's languages and any the document is written in beyond them.
+            languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
+            writable={editing.writable}
+            language={language}
+            onLanguage={editing.onLanguage}
+            onClose={editing.onClose}
+            onDraft={(next) =>
+              editing.onDraft(next && JSON.stringify(next) !== JSON.stringify(documentOf(card.view)) ? next : undefined)
+            }
+          />
+        </div>
       </article>
     )
   }
@@ -437,7 +437,7 @@ function Card({
       </div>
       <button type="button" aria-label={name} onClick={onOpen} className="min-w-0 text-left">
         {card.kind === "document" ? (
-          <ShippedPreview view={card.view} {...shared} />
+          <ShippedPreview view={card.view} language={language} />
         ) : (
           <TextPreview entry={card.text.entry} {...shared} />
         )}
@@ -446,7 +446,7 @@ function Card({
   )
 }
 
-function ShippedPreview({ view, language }: { view: DocumentView; language?: Language }) {
+function ShippedPreview({ view, language }: { view: DocumentView; language: Language }) {
   return (
     <DocumentPreview declaration={view.declaration} game={view.game} document={documentOf(view)} language={language} />
   )

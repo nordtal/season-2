@@ -1,4 +1,12 @@
-import { BracketsCurlyIcon, PlusIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  BracketsCurlyIcon,
+  LockSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+  UploadSimpleIcon,
+} from "@phosphor-icons/react"
 import { useId, useRef, type ReactNode } from "react"
 
 import type { DocumentPart, DocumentValue, DocumentView } from "@/lib/api"
@@ -16,7 +24,6 @@ import { languageName } from "@/lib/language-names"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useUploadImage } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
-import { cn } from "cn"
 import { Failure } from "@/components/steward/query-state"
 import { ColourControl } from "@/components/steward/colour-control"
 import { Media } from "@/components/steward/message-editor/document-preview"
@@ -25,13 +32,14 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 /** What every field of the editor reads: the document's values, the languages edited and whether a change is allowed. */
 export type Context = {
   view: DocumentView
-  /** The language edited beside English, if any. */
-  beside: Language | undefined
+  /** The one language edited and previewed. */
+  language: Language
   writable: boolean
   /** Returns the draft with the part at `path` changed, or removed when `change` returns nothing. */
   onPart: (path: PartPath, change: (part: DocumentPart) => DocumentPart | undefined) => void
@@ -86,7 +94,7 @@ export function ImageField({
   )
 }
 
-/** A text in English and, beside it, in the second language, each version a field of its own. */
+/** A text in the language edited, each version a field of its own. */
 export function TextField({
   text,
   context,
@@ -101,22 +109,16 @@ export function TextField({
   onText: (text: DocumentText) => void
   multiline?: boolean
 }) {
-  const languages = [ENGLISH, ...(context.beside ? [context.beside] : [])]
-  const names = [...Object.keys(context.view.named), ...Object.keys(values ?? {})]
+  const { language } = context
   return (
-    <div className={cn("grid min-w-0 grid-cols-1 gap-2", languages.length > 1 && "sm:grid-cols-2")}>
-      {languages.map((language) => (
-        <Versions
-          key={language}
-          language={language}
-          versions={versionsOf(text, language)}
-          names={names}
-          disabled={!context.writable}
-          multiline={multiline}
-          onVersions={(versions) => onText(withVersions(text, language, versions))}
-        />
-      ))}
-    </div>
+    <Versions
+      language={language}
+      versions={versionsOf(text, language)}
+      names={[...Object.keys(context.view.named), ...Object.keys(values ?? {})]}
+      disabled={!context.writable}
+      multiline={multiline}
+      onVersions={(versions) => onText(withVersions(text, language, versions))}
+    />
   )
 }
 
@@ -367,5 +369,104 @@ export function AddButton({ label, disabled, onPress }: { label: string; disable
       <PlusIcon aria-hidden />
       {label}
     </Button>
+  )
+}
+
+/** The lock of a part or button the code needs, which stays. */
+export function Required() {
+  return (
+    <span title={t("steward.document-editor.required")} className="flex size-7 shrink-0 items-center justify-center">
+      <LockSimpleIcon aria-label={t("steward.document-editor.required")} className="size-4 text-muted-foreground" />
+    </span>
+  )
+}
+
+/** The language edited and previewed, one at a time, as the text editor picks it. */
+export function LanguageToggle({
+  languages,
+  language,
+  onLanguage,
+}: {
+  languages: string[]
+  language: Language
+  onLanguage: (language: Language) => void
+}) {
+  if (languages.length < 2) return null
+  return (
+    <Tabs value={language} onValueChange={onLanguage}>
+      <TabsList aria-label={t("steward.document-editor.language")} className="group-data-horizontal/tabs:h-8 p-0.5">
+        {[ENGLISH, ...languages.filter((each) => each !== ENGLISH)].map((each) => (
+          <TabsTrigger key={each} value={each} title={languageName(each)} className="px-2.5 text-xs">
+            {each.toUpperCase()}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  )
+}
+
+export function Images({
+  part,
+  most,
+  disabled,
+  set,
+}: {
+  part: DocumentPart
+  most: number
+  disabled: boolean
+  set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
+}) {
+  const media = part.media ?? []
+  return (
+    <>
+      {media.map((address, index) => (
+        <div key={index} className="flex min-w-0 items-start gap-1">
+          <ImageField
+            address={address}
+            disabled={disabled}
+            onAddress={(next) => set((it) => ({ ...it, media: media.map((each, at) => (at === index ? next : each)) }))}
+          />
+          {media.length > 1 ? (
+            <IconButton
+              label={t("steward.document-editor.remove")}
+              disabled={disabled}
+              onPress={() => set((it) => ({ ...it, media: media.filter((_, at) => at !== index) }))}
+            >
+              <TrashIcon aria-hidden />
+            </IconButton>
+          ) : null}
+        </div>
+      ))}
+      {media.length < most ? (
+        <AddButton
+          label={t("steward.document-editor.add-image")}
+          disabled={disabled}
+          onPress={() => set((it) => ({ ...it, media: [...media, ""] }))}
+        />
+      ) : null}
+    </>
+  )
+}
+
+export function Move({
+  disabled,
+  first,
+  last,
+  onMove,
+}: {
+  disabled: boolean
+  first: boolean
+  last: boolean
+  onMove: (by: -1 | 1) => void
+}) {
+  return (
+    <>
+      <IconButton label={t("steward.document-editor.move-up")} disabled={disabled || first} onPress={() => onMove(-1)}>
+        <ArrowUpIcon aria-hidden />
+      </IconButton>
+      <IconButton label={t("steward.document-editor.move-down")} disabled={disabled || last} onPress={() => onMove(1)}>
+        <ArrowDownIcon aria-hidden />
+      </IconButton>
+    </>
   )
 }

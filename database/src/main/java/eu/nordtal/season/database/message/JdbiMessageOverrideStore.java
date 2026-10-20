@@ -27,17 +27,24 @@ final class JdbiMessageOverrideStore implements MessageOverrideStore {
         if (bundles.isEmpty()) {
             return List.of();
         }
+        final Map<String, List<String>> originals = originals(bundles);
         return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT bundle, key, language, variant, text, replaced FROM message_override
+                        SELECT bundle, key, language, variant, text FROM message_override
                         WHERE bundle = ANY(:bundles) ORDER BY bundle, key, language, variant""")
                 .bindArray("bundles", String.class, List.copyOf(bundles))
-                .map((rows, context) -> new MessageOverride(
-                        rows.getString("bundle"),
-                        rows.getString("key"),
-                        rows.getString("language"),
-                        rows.getInt("variant"),
-                        rows.getString("text"),
-                        rows.getString("replaced")))
+                .map((rows, context) -> {
+                    final String bundle = rows.getString("bundle");
+                    final String key = rows.getString("key");
+                    final String language = rows.getString("language");
+                    final @Nullable List<String> original = originals.get(bundle + "/" + key + "/" + language);
+                    return new MessageOverride(
+                            bundle,
+                            key,
+                            language,
+                            rows.getInt("variant"),
+                            rows.getString("text"),
+                            original == null ? null : PackagedTexts.hash(original));
+                })
                 .list());
     }
 

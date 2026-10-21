@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { ChatTextIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
@@ -33,7 +33,7 @@ import {
   StyleButtons,
   ValueStyleMenu,
 } from "@/components/steward/message-editor/parts"
-import { BreakButton, NumberButton, ToolDivider, Toolbar } from "@/components/steward/message-editor/tools"
+import { BreakButton, NumberButton, Toolbar } from "@/components/steward/message-editor/tools"
 import { Glyph, MINECRAFT_FONT, type Tones } from "@/components/steward/message-editor/preview"
 
 export type VisualEditorProps = {
@@ -54,6 +54,8 @@ export type VisualEditorProps = {
    */
   around?: Style
   disabled?: boolean
+  /** Controls drawn at the end of the tool row. */
+  trailing?: ReactNode
 }
 
 type Range = { from: number; to: number }
@@ -75,6 +77,7 @@ export function VisualEditor({
   pound,
   around,
   disabled,
+  trailing,
 }: VisualEditorProps) {
   const root = useRef<HTMLDivElement>(null)
   const [generation, setGeneration] = useState(0)
@@ -279,7 +282,7 @@ export function VisualEditor({
 
   return (
     <div className="flex min-w-0 flex-col">
-      <Toolbar label={label} nested={nested}>
+      <Toolbar label={label} nested={nested} end={trailing}>
         {args.some((arg) => !arg.action) ? (
           <PlaceholderMenu
             args={args}
@@ -302,7 +305,6 @@ export function VisualEditor({
           <BreakButton disabled={disabled} onPress={() => insertAt([{ kind: "break", style: {} }])} />
         ) : null}
         <ValueStyleMenu styles={styles} value={value?.run.s} disabled={disabled} onChange={restyleValue} />
-        <ToolDivider />
         <StyleButtons
           format={format}
           style={shared}

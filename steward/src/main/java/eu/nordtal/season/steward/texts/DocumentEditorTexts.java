@@ -45,7 +45,7 @@ public interface DocumentEditorTexts {
     MessageRef addText();
 
     @Name("Shown when")
-    MessageRef when();
+    MessageRef when(@Arg("of") Of of);
 
     @Name("Condition")
     MessageRef condition(@Arg("condition") Condition condition);
@@ -178,6 +178,13 @@ public interface DocumentEditorTexts {
         PLAIN,
         TITLE,
         HEADING
+    }
+
+    /** What a condition shows or hides. */
+    enum Of {
+        PART,
+        LINE,
+        ITEM
     }
 
     /** When a part, a line or a button shows. */

@@ -451,6 +451,34 @@ describe("an open document", () => {
     },
   )
 
+  it("names the part's and the line's condition apart and keeps the source switch in the field's toolbar", async () => {
+    const title = view(
+      {
+        namespace: "smp",
+        name: "duel-result-title",
+        area: "Duels",
+        shape: "TITLE",
+        values: { aura: { kind: "number", example: "3" } },
+      },
+      { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }] }] },
+      { game: true, services: ["smp"], named: { aura: { kind: "number", example: "3" } } },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Duels")
+    within(await screen.findByRole("article", { name: "Duel result title" }))
+      .getByRole("button", { name: "Duel result title" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Duel result title" })
+    expect(within(editor).getByText("Part shown when")).toBeTruthy()
+    expect(within(editor).getByText("Line shown when")).toBeTruthy()
+    const toolbar = within(editor).getByRole("toolbar")
+    expect(within(toolbar).getByRole("button", { name: "Source" })).toBeTruthy()
+    expect(within(toolbar).getByRole("button", { name: "As it looks" })).toBeTruthy()
+  })
+
   it("shows a game draft as it stands to the admin's player in game", async () => {
     const asked: unknown[] = []
     vi.stubGlobal(

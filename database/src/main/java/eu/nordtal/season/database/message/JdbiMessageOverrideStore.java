@@ -75,7 +75,6 @@ final class JdbiMessageOverrideStore implements MessageOverrideStore {
             final List<String> texts,
             final List<String> original,
             final Actor actor) {
-        final @Nullable String replaced = original.isEmpty() ? null : PackagedTexts.hash(original);
         jdbi.useTransaction(handle -> {
             for (final String table : List.of("message_override", "message_override_original")) {
                 handle.createUpdate("DELETE FROM " + table
@@ -88,14 +87,13 @@ final class JdbiMessageOverrideStore implements MessageOverrideStore {
             for (int variant = 0; variant < texts.size(); variant++) {
                 handle.createUpdate("""
                                 INSERT INTO message_override
-                                    (bundle, key, language, variant, text, replaced, actor_kind, actor_id, changed)
-                                VALUES (:bundle, :key, :language, :variant, :text, :replaced, :kind, :id, now())""")
+                                    (bundle, key, language, variant, text, actor_kind, actor_id, changed)
+                                VALUES (:bundle, :key, :language, :variant, :text, :kind, :id, now())""")
                         .bind("bundle", bundle)
                         .bind("key", key)
                         .bind("language", language)
                         .bind("variant", variant)
                         .bind("text", texts.get(variant))
-                        .bind("replaced", replaced)
                         .bind("kind", actor.kind().name())
                         .bind("id", actor.id())
                         .execute();

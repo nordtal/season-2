@@ -216,6 +216,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V77__a_shared_part_is_a_part_documents_copy.sql",
                 "2a5edf98cc3c8182ca5230ff358dd99b37604701a82a74f80ac996d9cc76805d");
+        FROZEN.put(
+                "V78__an_overrides_hash_comes_from_the_texts_it_replaced.sql",
+                "4de798f4c95dc7110ec9437322a1c4135afe56a22c9d63b5639ae5a48d9de310");
     }
 
     @Test

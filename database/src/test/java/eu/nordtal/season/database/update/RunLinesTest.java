@@ -71,6 +71,38 @@ class RunLinesTest {
     }
 
     @Test
+    void anArtefactWithAVersionComesBeforeOneWithout() {
+        final List<RunStep.Change> image = List.of(
+                new RunStep.Change("hunger-games", "0.51.0", "0.52.0", null),
+                new RunStep.Change("image", null, null, null));
+        final List<RunStep.Change> proxy = List.of(
+                new RunStep.Change("image", null, null, null), new RunStep.Change("proxy", "0.51.0", "0.52.0", null));
+        assertEquals(List.of("hunger-games 0.51.0 → 0.52.0", "image no build yet"), english(resolve(image)));
+        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image no build yet"), english(resolve(proxy)));
+        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image no build yet"), english(resolve(proxy.reversed())));
+    }
+
+    private static RunStep.Row resolve(final List<RunStep.Change> changes) {
+        return new RunStep.Row(
+                1,
+                RunStep.Kind.RESOLVE,
+                "proxy",
+                null,
+                null,
+                RunStep.Outcome.DONE,
+                null,
+                null,
+                changes,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                List.of(),
+                List.of());
+    }
+
+    @Test
     void everyFactIsALine() {
         final RunStep.Row row = new RunStep.Row(
                 1,

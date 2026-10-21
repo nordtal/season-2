@@ -671,7 +671,7 @@ final class Kinds {
     }
 
     static SnapshotResult dump(final Runner runner, final Steps record) {
-        final Steps.Step dumping = record.begin(RunStep.Kind.DUMP_DATABASE, Snapshots.DATABASE);
+        final Steps.Step dumping = record.begin(RunStep.Kind.DUMP_DATABASE);
         final SnapshotResult dumped = runner.backups.saveDatabase();
         // pg_dump reads a snapshot, so no stop stands behind a dump.
         dumping.archive(dumped, true);

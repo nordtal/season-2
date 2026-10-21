@@ -25,7 +25,8 @@ final class Resolved {
             "report.images-local", RunStep.Reason.LOCAL_BUILD,
             "report.foreign-newer", RunStep.Reason.FOREIGN_NEWER,
             "report.not-in-release", RunStep.Reason.NOT_IN_RELEASE,
-            "report.unclaimed", RunStep.Reason.UNCLAIMED);
+            "report.unclaimed", RunStep.Reason.UNCLAIMED,
+            "report.velocity-ahead", RunStep.Reason.VELOCITY_AHEAD);
 
     private Resolved() {}
 

@@ -231,6 +231,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V82__a_settled_inbox_request_keeps_typed_answers_and_a_reason_code.sql",
                 "5d56c277f42c9158642c5004f2cfc4ac6e6850ba59da9f3bf96c3b01477f51a5");
+        FROZEN.put(
+                "V83__a_resolve_step_names_a_velocity_ahead_of_its_api_and_a_dump_names_no_service.sql",
+                "d2df0ffae40f48cfe7182c7ecb3e2dda96dab8748ddb7cef26c0adce352e7db1");
     }
 
     @Test

@@ -186,6 +186,9 @@ class RunnerTest {
                         "start:smp-container"),
                 containers.calls);
         assertEquals(List.of("smp"), directory.find(request.id()).orElseThrow().moving());
+        assertTrue(
+                steps(request.id()).contains("DUMP_DATABASE DONE"),
+                "a dump acts on no service: " + steps(request.id()));
         allTold(outcome);
         assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.DATABASE));
         assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp"));

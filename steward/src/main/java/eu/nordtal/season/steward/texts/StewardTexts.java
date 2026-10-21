@@ -343,6 +343,12 @@ public interface StewardTexts {
             @Name("Play time out of range")
             MessageRef playtimeRange(@Arg("most") Duration most);
 
+            @Name("Aura out of range")
+            MessageRef auraRange(@Arg("most") int most);
+
+            @Name("Spins out of range")
+            MessageRef spinsRange(@Arg("most") int most);
+
             @Name("Announcement too long")
             MessageRef tooLong(@Arg("language") String language, @Arg("most") int most);
 

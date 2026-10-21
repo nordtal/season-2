@@ -72,8 +72,24 @@ public final class CommandApi {
             final SmpRequest request,
             final JournalAction action,
             final @Nullable JournalDetail detail) {
-        return "smp:" + submit(ctx, data().smp(), request, action, detail);
+        return "smp:" + submit(ctx, data().smp(), request, new Line(action, null, detail));
     }
+
+    /** Writes the request about {@code subject} to the SMP inbox, journaled as about them, and returns its name. */
+    String submit(
+            final Context ctx,
+            final DiscordId subject,
+            final SmpRequest request,
+            final JournalAction action,
+            final JournalDetail detail) {
+        return "smp:" + submit(ctx, data().smp(), request, new Line(action, subject, detail));
+    }
+
+    /** The journal line of a request, written with the asker as its actor. */
+    private record Line(
+            JournalAction action,
+            @Nullable DiscordId subject,
+            @Nullable JournalDetail detail) {}
 
     /** Writes the request to the Hunger Games inbox with a journal line and returns its name. */
     String submit(
@@ -81,18 +97,16 @@ public final class CommandApi {
             final HungerGamesRequest request,
             final JournalAction action,
             final @Nullable JournalDetail detail) {
-        return "hunger_games:" + submit(ctx, data().hungerGames(), request, action, detail);
+        return "hunger_games:" + submit(ctx, data().hungerGames(), request, new Line(action, null, detail));
     }
 
-    private <P> long submit(
-            final Context ctx,
-            final Inbox<P> inbox,
-            final P request,
-            final JournalAction action,
-            final @Nullable JournalDetail detail) {
+    private <P> long submit(final Context ctx, final Inbox<P> inbox, final P request, final Line line) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<P> asked = inbox.submit(
-                request, who.actor(), Schedule.within(PATIENCE), AuditLine.of(action, who.actor(), detail));
+                request,
+                who.actor(),
+                Schedule.within(PATIENCE),
+                new AuditLine(line.action(), who.actor(), line.subject(), null, line.detail()));
         log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
         return asked.id();
     }

@@ -177,6 +177,8 @@ export type Person = {
   adminGrantedAt?: string
   packExemptBy?: string
   packExemptAt?: string
+  aura: number
+  spins: number
 }
 
 export type Grant = {
@@ -705,6 +707,8 @@ export type JournalAction =
   | "START_GAME"
   | "UNANCHORED_GRANT"
   | "LINK_CODES_EXHAUSTED"
+  | "SET_AURA"
+  | "SET_SPINS"
 
 export type Actor = {
   kind: ActorKind

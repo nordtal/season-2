@@ -621,6 +621,8 @@ public final class Web {
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
         cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/people/{id}/aura", games::setAura, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/people/{id}/spins", games::setSpins, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);

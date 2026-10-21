@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The aura is set to {aura}. The change is recorded.</good>",
+            "de": "<good>Die Aura ist auf {aura} gesetzt. Die Änderung ist gespeichert.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

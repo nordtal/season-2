@@ -3,15 +3,17 @@ package eu.nordtal.season.smp.command;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.access.AccessReader;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.papercommon.command.Answer;
-import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.TrackDao;
+import eu.nordtal.season.smp.wheel.SpinDao;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -27,11 +29,17 @@ import org.junit.jupiter.api.Test;
 
 class SmpAdminIntegrationTest {
 
+    private static final DiscordId PERSON = DiscordId.of("111111111111111111");
+
+    private static final DiscordId ADMIN = DiscordId.of("222222222222222222");
+
     private static DataSource dataSource;
 
     private final List<String> reached = new ArrayList<>();
 
     private SmpAdmin admin;
+
+    private Jdbi jdbi;
 
     @BeforeAll
     static void startDatabase() {
@@ -40,12 +48,12 @@ class SmpAdminIntegrationTest {
 
     @BeforeEach
     void freshTrack() {
-        execute("TRUNCATE TABLE smp_milestone CASCADE");
-        final Jdbi jdbi = Jdbis.over(dataSource);
-        final Identities identities = new Identities(players -> List.of());
+        execute("TRUNCATE TABLE smp_milestone, discord_user CASCADE");
+        jdbi = Jdbis.over(dataSource);
         admin = new SmpAdmin(
                 jdbi.onDemand(TrackDao.class),
                 jdbi.onDemand(AuraDao.class),
+                jdbi.onDemand(SpinDao.class),
                 new SmpAdmin.Track() {
                     @Override
                     public void finishObjective(final String milestone, final ObjectiveRow objective) {
@@ -57,7 +65,6 @@ class SmpAdminIntegrationTest {
                         reached.add("milestone " + milestone);
                     }
                 },
-                identities,
                 AccessReader.using(dataSource, Clock.systemUTC()),
                 Logger.getAnonymousLogger());
     }
@@ -109,6 +116,47 @@ class SmpAdminIntegrationTest {
 
         assertInstanceOf(Answer.Done.class, admin.unlockMilestone("waiting"));
         assertEquals(List.of("milestone waiting"), reached);
+    }
+
+    @Test
+    void aSetAuraIsRecordedAsTheDifferenceByTheAskingPerson() {
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PERSON.value() + "'), ('" + ADMIN.value() + "')");
+
+        assertInstanceOf(Answer.Done.class, admin.setAura(PERSON, 40, Actor.person(ADMIN)));
+        assertInstanceOf(Answer.Done.class, admin.setAura(PERSON, -10, Actor.person(ADMIN)));
+        assertInstanceOf(Answer.Done.class, admin.setAura(PERSON, -10, Actor.person(ADMIN)));
+
+        assertEquals(
+                List.of("40 PERSON " + ADMIN.value(), "-50 PERSON " + ADMIN.value()),
+                jdbi.withHandle(handle -> handle.createQuery(
+                                "SELECT e.delta || ' ' || a.actor_kind || ' ' || a.actor_id FROM smp_aura_event e"
+                                        + " JOIN smp_aura_admin a ON a.event_id = e.id ORDER BY e.at, e.delta DESC")
+                        .mapTo(String.class)
+                        .list()),
+                "an unchanged value records nothing");
+        assertEquals(
+                "-10",
+                jdbi.withHandle(handle -> handle.createQuery("SELECT aura::text FROM smp_player WHERE discord_id = :id")
+                        .bind("id", PERSON.value())
+                        .mapTo(String.class)
+                        .one()));
+    }
+
+    @Test
+    void setSpinsAreTheExtrasLeftBesideThoseUsed() {
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PERSON.value() + "')");
+
+        assertInstanceOf(Answer.Done.class, admin.setSpins(PERSON, 2));
+        execute("UPDATE smp_spin SET used = 5, granted = 6 WHERE discord_id = '" + PERSON.value() + "'");
+        assertInstanceOf(Answer.Done.class, admin.setSpins(PERSON, 3));
+
+        assertEquals(
+                "8 5",
+                jdbi.withHandle(handle -> handle.createQuery(
+                                "SELECT granted || ' ' || used FROM smp_spin WHERE discord_id = :id")
+                        .bind("id", PERSON.value())
+                        .mapTo(String.class)
+                        .one()));
     }
 
     private static void execute(final String sql) {

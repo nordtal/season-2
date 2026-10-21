@@ -383,6 +383,9 @@ export type TextArgs = {
     channel: Arg["choice"]
     enabled: Arg["choice"]
   }
+  "journal.set-aura": {
+    aura: Arg["number"]
+  }
   "journal.set-launch": {
     to: Arg["instant"]
   }
@@ -401,6 +404,9 @@ export type TextArgs = {
   "journal.set-smp-start": {
     to: Arg["instant"]
     movedGrants: Arg["number"]
+  }
+  "journal.set-spins": {
+    spins: Arg["number"]
   }
   "journal.settle": {
     reference: Arg["text"]
@@ -820,6 +826,9 @@ export type TextArgs = {
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.answer-unreadable": Record<string, never>
+  "steward.answer.aura-range": {
+    most: Arg["number"]
+  }
   "steward.answer.authenticator-not-offered": Record<string, never>
   "steward.answer.authenticator-there": Record<string, never>
   "steward.answer.backup-unfinished": {
@@ -986,6 +995,9 @@ export type TextArgs = {
   "steward.answer.sign-in-unconfigured": {
     missing: Arg["text"]
   }
+  "steward.answer.spins-range": {
+    most: Arg["number"]
+  }
   "steward.answer.subscription-gone": Record<string, never>
   "steward.answer.too-late": Record<string, never>
   "steward.answer.too-long": {
@@ -1144,6 +1156,8 @@ export type TextArgs = {
   "steward.failure.log-lost": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
+  "steward.failure.smp-failed": Record<string, never>
+  "steward.failure.smp-silent": Record<string, never>
   "steward.failure.try-again": Record<string, never>
   "steward.failure.unreachable": Record<string, never>
   "steward.form.cancel": Record<string, never>
@@ -1646,6 +1660,16 @@ export type TextArgs = {
   }
   "steward.people.admin": Record<string, never>
   "steward.people.admins": Record<string, never>
+  "steward.people.aura": Record<string, never>
+  "steward.people.aura-not-written": Record<string, never>
+  "steward.people.aura-now": {
+    aura: Arg["number"]
+  }
+  "steward.people.aura-set": {
+    name: Arg["text"]
+    aura: Arg["number"]
+  }
+  "steward.people.aura-title": Record<string, never>
   "steward.people.begins": {
     at: Arg["instant"]
   }
@@ -1786,6 +1810,16 @@ export type TextArgs = {
     source: Arg["choice"]
   }
   "steward.people.source-column": Record<string, never>
+  "steward.people.spins": Record<string, never>
+  "steward.people.spins-not-written": Record<string, never>
+  "steward.people.spins-now": {
+    spins: Arg["number"]
+  }
+  "steward.people.spins-set": {
+    name: Arg["text"]
+    spins: Arg["number"]
+  }
+  "steward.people.spins-title": Record<string, never>
   "steward.people.state": Record<string, never>
   "steward.people.supporter": Record<string, never>
   "steward.people.supporters": Record<string, never>

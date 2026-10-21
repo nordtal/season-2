@@ -222,6 +222,12 @@ public interface AdminTexts {
         @Name("Objective completed")
         MessageRef completeObjective(@Arg("objective") String objective);
 
+        @Name("Aura set")
+        MessageRef setAura(@Arg("aura") int aura);
+
+        @Name("Spins set")
+        MessageRef setSpins(@Arg("spins") int spins);
+
         @Name("Milestone unlocked")
         MessageRef unlockMilestone(@Arg("milestone") String milestone);
 

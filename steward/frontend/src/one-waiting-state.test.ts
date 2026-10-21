@@ -35,6 +35,7 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "app/user-menu.tsx",
     "useEndStepUp is a mutation. The step-up row reads the /api/me the shell has already waited for.",
   ],
+  ["pages/person-smp.tsx", "useSetAura and useSetSpins are mutations. The dialogs read the person they are given."],
   [
     "pages/access-person.tsx",
     "The dialogs' hooks are mutations. usePeople and useMe only decide whether Revoke admin is offered, and the" +

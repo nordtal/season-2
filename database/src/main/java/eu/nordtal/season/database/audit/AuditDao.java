@@ -23,7 +23,7 @@ interface AuditDao {
                    la.opens, ss.starts, ss.moved_grants, k.label, k.unlocked, k.hold_seconds AS key_hold_seconds,
                    k.keys_left, f.hold_seconds AS factor_hold_seconds, f.keys, f.authenticator, f.sessions,
                    pu.alert, pu.channel, pu.enabled, co.command, st.setting_group, bu.bundle, pl.artifact,
-                   bk.archive, bk.size_bytes, ob.objective, mi.milestone, un.valid_from,
+                   bk.archive, bk.size_bytes, ob.objective, mi.milestone, un.valid_from, au.aura, sp.spins,
                    ARRAY(SELECT l.language FROM journal_language l WHERE l.entry = e.id ORDER BY l.position)
                        AS languages,
                    ARRAY(SELECT a.discord_id FROM journal_admin_below a WHERE a.entry = e.id ORDER BY a.position)
@@ -50,6 +50,8 @@ interface AuditDao {
                      LEFT JOIN journal_objective ob ON ob.entry = e.id
                      LEFT JOIN journal_milestone mi ON mi.entry = e.id
                      LEFT JOIN journal_unanchored un ON un.entry = e.id
+                     LEFT JOIN journal_aura au ON au.entry = e.id
+                     LEFT JOIN journal_spins sp ON sp.entry = e.id
             """;
 
     /** Returns the newest entries. {@code id} breaks ties, as one transaction's entries share {@code occurred}. */

@@ -188,6 +188,62 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
+    /** An aura or spins set is a row naming the person, journaled about them with the value asked for. */
+    @Test
+    void anAuraOrSpinsSetIsARowAboutThePersonWithItsJournalLine() throws Exception {
+        final String person = "700000000000000042";
+        sql("INSERT INTO discord_user (discord_id) VALUES ('" + person + "')");
+        try {
+            assertRow(
+                    post("/api/people/" + person + "/aura", "{\"aura\": -25}"),
+                    "SMP",
+                    "SET_AURA",
+                    "{\"person\":\"" + person + "\",\"aura\":-25}");
+            assertRow(
+                    post("/api/people/" + person + "/spins", "{\"spins\": 3}"),
+                    "SMP",
+                    "SET_SPINS",
+                    "{\"person\":\"" + person + "\",\"spins\":3}");
+            assertEquals(
+                    "SET_AURA PERSON 1 -25,SET_SPINS PERSON 1 3",
+                    text("SELECT string_agg(e.action || ' ' || e.actor_kind || ' ' || e.actor_id || ' '"
+                            + " || coalesce(a.aura, s.spins), ',' ORDER BY e.action) FROM journal_entry e"
+                            + " LEFT JOIN journal_aura a ON a.entry = e.id LEFT JOIN journal_spins s ON s.entry = e.id"
+                            + " WHERE e.subject = '" + person + "'"));
+
+            final long before = commandRequestCount();
+            assertEquals(
+                    400,
+                    post("/api/people/" + person + "/aura", "{\"aura\": 1000001}")
+                            .statusCode());
+            assertEquals(
+                    400,
+                    post("/api/people/" + person + "/aura", "{\"aura\": 1.5}").statusCode());
+            assertEquals(
+                    400,
+                    post("/api/people/" + person + "/spins", "{\"spins\": -1}").statusCode());
+            assertEquals(400, post("/api/people/" + person + "/spins", "{}").statusCode());
+            assertEquals(
+                    404,
+                    post("/api/people/700000000000000043/spins", "{\"spins\": 1}")
+                            .statusCode());
+            assertEquals(404, post("/api/people/nobody/aura", "{\"aura\": 1}").statusCode());
+            assertEquals(before, commandRequestCount(), "a refused set was written into the inbox anyway");
+        } finally {
+            sql("DELETE FROM journal_entry WHERE subject = '" + person + "'");
+            sql("DELETE FROM discord_user WHERE discord_id = '" + person + "'");
+        }
+    }
+
+    private static String text(final String query) throws Exception {
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery(query)) {
+            assertTrue(rows.next());
+            return rows.getString(1);
+        }
+    }
+
     private static void sql(final String statement) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var run = connection.createStatement()) {

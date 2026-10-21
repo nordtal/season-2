@@ -75,6 +75,8 @@ export function person(over: Partial<Record<string, unknown>>): Record<string, u
     locale: "en",
     updated: "2026-09-01T00:00:00Z",
     accessActive: false,
+    aura: 0,
+    spins: 0,
     ...over,
   }
 }
@@ -130,6 +132,9 @@ export function backend(
     personPayments?: (discordId: string) => Record<string, unknown>[]
     grants?: (discordId: string) => Record<string, unknown>[]
     playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
+    /** An aura or spins set, which the SMP carries out; DONE when polled unless a test says otherwise. */
+    smpPost?: (url: string, body: unknown) => void
+    smpRun?: () => Record<string, unknown>
     /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
@@ -144,6 +149,11 @@ export function backend(
       asked.set("a-playtime", "SET_PLAYTIME")
       return json(answer.status, answer.body)
     }
+    if (/^\/api\/people\/\d+\/(aura|spins)$/.test(url) && init?.method === "POST") {
+      over.smpPost?.(url, requestBody(init))
+      return json(202, { id: "smp:1", status: "PENDING" })
+    }
+    if (url === "/api/commands/smp:1") return json(200, over.smpRun?.() ?? { id: "smp:1", status: "DONE" })
     if (url === "/api/access/settle") {
       // steward books it itself and answers at once; the bot only reacts.
       return json(200, { outcome: "BOOKED", days: 30, until: "2026-10-01T00:00:00Z" })

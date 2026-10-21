@@ -39,6 +39,17 @@ public interface AuraDao {
         }
     }
 
+    /** Sets the aura of a person and records the difference with its cause. Returns the difference. */
+    @Transaction
+    default int setAura(final DiscordId discordId, final int aura, final AuraCause cause) {
+        bumpAura(discordId, 0); // creates and locks the row, so a concurrent change waits for this one
+        final int delta = aura - auraOf(discordId).orElseThrow();
+        if (delta != 0) {
+            addAura(discordId, delta, cause);
+        }
+        return delta;
+    }
+
     @SqlUpdate("""
             INSERT INTO smp_player (discord_id, aura)
             VALUES (:discordId, :delta)

@@ -115,6 +115,7 @@ export type Term = keyof typeof TERM_ICON
 const FIELD_TERM: Record<string, Term> = {
   aura: "aura",
   "aura-budget": "aura",
+  "duel-stake": "aura",
   "spin-budget": "spins",
   target: "target",
   "border-diameter": "borderDiameter",

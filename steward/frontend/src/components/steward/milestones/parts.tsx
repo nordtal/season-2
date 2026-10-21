@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
+export function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
     <span
       title={title}

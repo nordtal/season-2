@@ -145,10 +145,11 @@ public final class StewardPreview {
                 agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
                 "{\"id\": \"smp\", \"local\": true}",
                 java.util.Map.of());
-        // smp's descriptor sits where the agent reads it, so the editor draws the track that smp's jar names.
+        // smp's descriptor sits where the agent reads it, so Steward draws each group with the editor smp's jar names.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
-                "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}",
+                "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\", \"advancement-awards\": "
+                        + "\"advancement-awards\", \"wheel\": \"wheel\", \"duels\": \"duels\"}}",
                 java.util.Map.of());
         final Path plugins = agent.volumes.resolve("smp/plugins");
         write(plugins.resolve("CoreProtect/config.yml"), """

@@ -116,9 +116,9 @@ export function DraftForm({
 /**
  * `compact` sits beside other fields and drops the explanation. `cell` is half of a paired row.
  */
-type FieldLayout = "full" | "compact" | "cell"
+export type FieldLayout = "full" | "compact" | "cell"
 
-function SettingField({
+export function SettingField({
   entry,
   layout,
   writable,

@@ -1192,7 +1192,13 @@ export type TextArgs = {
   "steward.form.sending": Record<string, never>
   "steward.form.waiting": Record<string, never>
   "steward.game.active": Record<string, never>
+  "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
+  "steward.game.arena": Record<string, never>
+  "steward.game.aura-of": {
+    name: Arg["text"]
+  }
+  "steward.game.chance": Record<string, never>
   "steward.game.complete": Record<string, never>
   "steward.game.complete-ask": {
     name: Arg["text"]
@@ -1205,10 +1211,15 @@ export type TextArgs = {
   "steward.game.done-at": {
     at: Arg["text"]
   }
+  "steward.game.duel-types": Record<string, never>
+  "steward.game.item": Record<string, never>
   "steward.game.keep": Record<string, never>
+  "steward.game.loadout": Record<string, never>
   "steward.game.locked": Record<string, never>
+  "steward.game.max": Record<string, never>
   "steward.game.milestone": Record<string, never>
   "steward.game.milestones": Record<string, never>
+  "steward.game.min": Record<string, never>
   "steward.game.move-down": {
     name: Arg["text"]
   }
@@ -1222,9 +1233,12 @@ export type TextArgs = {
   "steward.game.outcome": {
     status: Arg["choice"]
   }
+  "steward.game.platform": Record<string, never>
+  "steward.game.prize": Record<string, never>
   "steward.game.progress": {
     name: Arg["text"]
   }
+  "steward.game.region": Record<string, never>
   "steward.game.registered": {
     count: Arg["number"]
   }
@@ -1243,6 +1257,9 @@ export type TextArgs = {
   "steward.game.start-round": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
+    total: Arg["number"]
+  }
+  "steward.game.total-weight": {
     total: Arg["number"]
   }
   "steward.game.track": Record<string, never>

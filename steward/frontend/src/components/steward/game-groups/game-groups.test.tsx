@@ -57,7 +57,6 @@ function document(name: string, entries: ConfigEntry[]): ConfigDocument {
     readable: true,
     writable: true,
     revision: "r1",
-    restartRequired: false,
     entries,
   }
 }

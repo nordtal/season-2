@@ -81,8 +81,7 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
 
 export function noticeOf(document: ConfigDocument): string | null {
   if (document.problem) return t("steward.settings.refused", { problem: document.problem })
-  if (!document.writable) return t("steward.settings.read-only")
-  return document.restartRequired ? t("steward.settings.restart-needed") : null
+  return document.writable ? null : t("steward.settings.read-only")
 }
 
 export function SaveDraft({

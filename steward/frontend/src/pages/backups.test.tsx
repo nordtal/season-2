@@ -47,7 +47,6 @@ function stewardConfig() {
     readable: true,
     writable: true,
     revision: "rev-1",
-    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       /** A LIST key with two days, so the file's value differs from the default of all seven. */
@@ -75,7 +74,6 @@ function runsConfig() {
     readable: true,
     writable: true,
     revision: "rev-9",
-    restartRequired: false,
     entries: [
       entry({
         path: "backup.retention.daily",

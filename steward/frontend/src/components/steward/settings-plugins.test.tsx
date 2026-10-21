@@ -17,7 +17,6 @@ const CORE_PROTECT_ICON = "https://cdn.example/core-protect.png"
 const WHEEL = {
   ...location({ service: "smp", path: "smp/wheel", name: "wheel" }),
   revision: "r1",
-  restartRequired: false,
   entries: [entry({ path: "enabled", key: "enabled", value: "true", type: "BOOLEAN" })],
 }
 

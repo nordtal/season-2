@@ -108,10 +108,11 @@ export function backend(
   /** Third-party plugin files, by `<plugin>/<path>`; a service with none has no plugins folder. */
   plugins: Record<string, PluginFileView> = {},
 ) {
-  const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
+  const listing = Object.values(documents).map(({ service, name, path, live, readable, writable }) => ({
     service,
     name,
     path,
+    live,
     readable,
     writable,
   }))

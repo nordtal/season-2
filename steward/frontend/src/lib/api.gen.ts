@@ -411,7 +411,6 @@ export type ConfigDocument = {
   readable: boolean
   writable: boolean
   revision: string
-  restartRequired: boolean
   entries: ConfigEntry[]
   reload?: ReloadOutcome
 }

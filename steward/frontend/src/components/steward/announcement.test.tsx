@@ -44,7 +44,6 @@ function accessFile({ en = "111", de = "", overridden = false } = {}): ConfigDoc
     readable: true,
     writable: true,
     revision: "r1",
-    restartRequired: false,
     entries: [
       {
         path: "languages",

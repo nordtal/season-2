@@ -47,7 +47,6 @@ function stewardConfig() {
     readable: true,
     writable: true,
     revision: "rev-1",
-    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       entry({ path: "backup.days", key: "days", label: "Days", kind: "LIST", value: undefined, items: ["MONDAY"] }),

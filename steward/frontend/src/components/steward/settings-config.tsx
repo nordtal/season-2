@@ -27,18 +27,11 @@ import {
 } from "@/components/steward/settings-view"
 import { t } from "@/lib/texts"
 
-function isReloadAware(document: ConfigDocument): document is ConfigDocument {
-  return "restartRequired" in document && typeof document.restartRequired === "boolean"
-}
-
 export function ConfigFile({ item, target }: { item: FileItem; target: Target | null }) {
   const document = useConfig(item.location.path)
   return (
     <QueryState query={document} rows={8}>
       {(read) => {
-        if (!isReloadAware(read)) {
-          throw new Error(`${item.location.path}: steward answered a config document with no restartRequired`)
-        }
         const Editor = customEditor(item.editor, read) ?? ConfigForm
         return <Editor file={item.id} document={read} target={target} />
       }}
@@ -56,11 +49,14 @@ export function DraftForm({
   document,
   target,
   save: mutation,
+  notice = noticeOf(document),
 }: {
   file: string
   document: ConfigDocument
   target: Target | null
   save: GroupSave
+  /** The line above the fields; a group's own state by default. */
+  notice?: string | null
 }) {
   const { draft, changes, count, set, submit, discard, save } = useGroupDraft(file, document, mutation)
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
@@ -87,7 +83,7 @@ export function DraftForm({
       nodes={nodes}
       draftIds={draftIds}
       matches={configLeafMatches}
-      notice={noticeOf(document)}
+      notice={notice}
       target={target}
       above={save.error ? <Failure error={save.error} /> : null}
       renderLeaf={(leaf, highlight) =>

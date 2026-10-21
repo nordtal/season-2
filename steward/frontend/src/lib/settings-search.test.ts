@@ -42,7 +42,7 @@ function location(over: Partial<ConfigLocation> & { path: string; name: string }
 }
 
 function document(path: string, entries: ConfigEntry[]): ConfigDocument {
-  return { ...location({ path, name: path }), revision: "r1", restartRequired: false, entries }
+  return { ...location({ path, name: path }), revision: "r1", entries }
 }
 
 describe("entryHaystack / matchesQuery", () => {
@@ -291,7 +291,7 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
 }
 
 function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ConfigDocument {
-  return { ...loc, revision: "r1", restartRequired: false, entries }
+  return { ...loc, revision: "r1", entries }
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {

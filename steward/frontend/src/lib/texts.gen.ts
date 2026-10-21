@@ -2053,6 +2053,8 @@ export type TextArgs = {
     what: Arg["text"]
   }
   "steward.settings.all": Record<string, never>
+  "steward.settings.applies-after-restart": Record<string, never>
+  "steward.settings.applies-on-save": Record<string, never>
   "steward.settings.back-to-files": Record<string, never>
   "steward.settings.back-to-top": Record<string, never>
   "steward.settings.cannot-remove": Record<string, never>

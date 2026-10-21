@@ -126,7 +126,7 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
 
 function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  const document: ConfigDocument = { ...loc, revision: "r1", restartRequired: false, entries }
+  const document: ConfigDocument = { ...loc, revision: "r1", entries }
   vi.mocked(useConfigDocuments).mockReturnValue([queryResult(document)])
 }
 
@@ -208,9 +208,7 @@ function accessFile() {
     ),
   ]
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  vi.mocked(useConfigDocuments).mockReturnValue([
-    queryResult({ ...loc, revision: "r1", restartRequired: false, entries }),
-  ])
+  vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...loc, revision: "r1", entries })])
 }
 
 function paletteItems(): string[] {
@@ -223,8 +221,8 @@ function twoServicesWithTheSameSetting() {
   const same = configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })
   vi.mocked(useConfigs).mockReturnValue(queryResult([steward, bot]))
   vi.mocked(useConfigDocuments).mockReturnValue([
-    queryResult({ ...steward, revision: "r1", restartRequired: false, entries: [same] }),
-    queryResult({ ...bot, revision: "r1", restartRequired: false, entries: [{ ...same }] }),
+    queryResult({ ...steward, revision: "r1", entries: [same] }),
+    queryResult({ ...bot, revision: "r1", entries: [{ ...same }] }),
   ])
 }
 
@@ -566,9 +564,7 @@ describe("CommandPalette - finding a text", () => {
       environmentOverridden: false,
     }
     vi.mocked(useConfigs).mockReturnValue(queryResult([configLoc]))
-    vi.mocked(useConfigDocuments).mockReturnValue([
-      queryResult({ ...configLoc, revision: "r1", restartRequired: false, entries: [gravEntry] }),
-    ])
+    vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...configLoc, revision: "r1", entries: [gravEntry] })])
     oneBundle([messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" })])
 
     await search("grave decay")

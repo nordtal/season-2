@@ -21,7 +21,7 @@ class PlanViewTest {
                 false,
                 List.of(new Change("smp", "chunky", Change.Status.NOT_IN_RELEASE, "Chunky-1.4.jar", null, null)),
                 List.of(new UpdatePlan.Unclaimed("limbo", "Somebodys-1.0.jar")),
-                List.of(TEXTS.report().velocityAhead("4.3.0", "4.2.0")));
+                List.of(TEXTS.report().velocityAhead("4.4.0", "4.3.0")));
 
         final List<AgentWire.PlannedStep> steps = PlanView.of(plan).steps();
 

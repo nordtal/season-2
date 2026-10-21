@@ -13,7 +13,7 @@ public final class Platform {
     public static final String VELOCITY_FAMILY = "4.0.0";
 
     /** The Velocity version that {@code proxy} compiles against. */
-    public static final String VELOCITY_API = "4.2.0";
+    public static final String VELOCITY_API = "4.3.0";
 
     /** The resource pack format that {@link #MINECRAFT} reads. {@code resource-pack/src/pack.mcmeta} must cover it. */
     public static final int PACK_FORMAT = 88;

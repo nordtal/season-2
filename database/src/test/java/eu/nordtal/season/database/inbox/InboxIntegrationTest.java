@@ -2,6 +2,8 @@ package eu.nordtal.season.database.inbox;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -53,10 +55,6 @@ class InboxIntegrationTest {
     private static TestDatabase database;
     private static Inbox<BotRequest> inbox;
 
-    private enum Reason implements RefusalReason {
-        NOT_NOW
-    }
-
     @BeforeAll
     static void freshDatabase() {
         database = TestDatabase.fresh();
@@ -66,6 +64,7 @@ class InboxIntegrationTest {
     @BeforeEach
     void emptyTable() throws SQLException {
         execute("DELETE FROM bot_inbox");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + SOMEONE + "') ON CONFLICT DO NOTHING");
     }
 
     @Test
@@ -81,7 +80,7 @@ class InboxIntegrationTest {
                 LoggerFactory.getLogger(InboxIntegrationTest.class))) {
             Inbox.over(database.dataSource(), BotRequest.TABLE).listen(hub, request -> {
                 carriedOut.countDown();
-                return Outcome.done(Map.of("revoked", "1"));
+                return Outcome.done(new BotRequest.Revoke.Answer(1));
             });
             hub.start();
             // Past the drain of the connect, so only the notification can pick the row up.
@@ -153,7 +152,7 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aSettledRequestKeepsItsAnswerAndCannotBeSettledTwice() {
+    void aSettledRequestKeepsItsTypedAnswerInItsRowAndCannotBeSettledTwice() throws SQLException {
         final Request<BotRequest> asked = inbox.submit(new BotRequest.Grant(SOMEONE, 30), ADMIN);
         final Request<BotRequest> claimed = inbox.claim().orElseThrow();
         assertEquals(asked.id(), claimed.id());
@@ -161,17 +160,29 @@ class InboxIntegrationTest {
         assertEquals(InboxStatus.RUNNING, claimed.status());
         assertTrue(claimed.started() != null);
 
-        assertTrue(inbox.progress(asked.id(), Map.of("step", "role")));
-        assertEquals(
-                Optional.of(Map.of("step", "role")),
-                inbox.find(asked.id()).orElseThrow().outcome(Map.class));
-
-        final Request<BotRequest> done = inbox.settle(asked.id(), Outcome.done(Map.of("until", "2026-10-20")))
-                .orElseThrow();
+        final BotRequest.Grant.Answer until = new BotRequest.Grant.Answer(Instant.parse("2026-10-20T00:00:00Z"));
+        final Request<BotRequest> done =
+                inbox.settle(asked.id(), Outcome.done(until)).orElseThrow();
         assertEquals(InboxStatus.DONE, done.status());
-        assertEquals("{\"until\": \"2026-10-20\"}", done.outcome());
+        assertEquals(Optional.of(until), done.answer(BotRequest.Grant.Answer.class));
+        assertEquals(Optional.of(until), inbox.find(asked.id()).orElseThrow().answer(BotRequest.Grant.Answer.class));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_grant WHERE request = " + asked.id()
+                        + " AND until = '2026-10-20T00:00:00Z'"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE outcome IS NOT NULL"), "the answer is no text");
         assertTrue(inbox.settle(asked.id(), Outcome.failed(null)).isEmpty(), "settled a second time");
-        assertFalse(inbox.progress(asked.id(), Map.of()), "rewrote a settled answer");
+    }
+
+    @Test
+    void anAnswerOfAnotherKindIsNeverWritten() {
+        final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
+        assertTrue(inbox.claim().isPresent());
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> inbox.settle(asked.id(), Outcome.done(new BotRequest.Unlink.Answer(true))));
+        assertEquals(InboxStatus.RUNNING, inbox.find(asked.id()).orElseThrow().status());
     }
 
     @Test
@@ -181,27 +192,6 @@ class InboxIntegrationTest {
                 List.of(SOMEONE, DiscordId.of("400000000000000003")));
         inbox.submit(alert, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
         assertEquals(alert, inbox.claim().orElseThrow().payload());
-    }
-
-    @Test
-    void aBookedPaymentReachesTheBotWithEveryTypedValue() {
-        final BotRequest.PaymentBooked booked = new BotRequest.PaymentBooked(
-                UUID.fromString("00000000-0000-0000-0000-000000000042"),
-                SOMEONE,
-                "NT-ABC123",
-                60,
-                500,
-                true,
-                900,
-                Instant.parse("2026-10-01T00:00:00Z"),
-                Instant.parse("2026-11-30T00:00:00Z"),
-                UUID.fromString("00000000-0000-0000-0000-000000000043"));
-        inbox.submit(booked, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
-
-        final Request<BotRequest> claimed = inbox.claim().orElseThrow();
-        assertEquals("PAYMENT_BOOKED", claimed.kind());
-        assertEquals(
-                booked, claimed.payload(), "the booking arrives with every value and the entry it was journalled as");
     }
 
     @Test
@@ -289,7 +279,7 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void everyKindWithItsOwnTableHasAColumnPerComponent() throws SQLException {
+    void everyKindWithItsOwnTableHasAColumnPerComponentOfItsRequestAndAnswer() throws SQLException {
         for (final InboxTable<?> table : Inboxes.ALL) {
             for (final String kind : table.kinds()) {
                 final Class<?> type = table.typeOf(kind).orElseThrow();
@@ -298,6 +288,11 @@ class InboxIntegrationTest {
                 }
                 final Set<String> expected = new HashSet<>(Set.of("request"));
                 for (final var component : type.getRecordComponents()) {
+                    expected.add(InboxTable.column(component));
+                }
+                for (final var component : table.answerOf(type)
+                        .map(Class::getRecordComponents)
+                        .orElse(new java.lang.reflect.RecordComponent[0])) {
                     expected.add(InboxTable.column(component));
                 }
                 final Set<String> columns = new HashSet<>();
@@ -315,17 +310,49 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aRefusalReadsBackWithItsReasonAndMessage() {
+    void aRefusalIsARowOfItsReasonAndValuesAndReadsBackWorded() throws SQLException {
+        execute("DELETE FROM smp_inbox");
+        execute("DELETE FROM hunger_games_inbox");
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+        final long objective =
+                smp.submit(new SmpRequest.CompleteObjective("wood"), ADMIN).id();
+        final long start =
+                games.submit(new HungerGamesRequest.StartGame(false), ADMIN).id();
+        assertTrue(smp.claim().isPresent());
+        assertTrue(games.claim().isPresent());
+
+        final Refusal notActive = ServerRefusal.MILESTONE_NOT_ACTIVE.with("wood", "stone");
+        final Refusal tooFew = ServerRefusal.BELOW_SOFT_MINIMUM.with(3, 8);
+        smp.settle(objective, Outcome.refused(notActive));
+        games.settle(start, Outcome.refused(tooFew));
+
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM smp_refusal WHERE request = " + objective
+                        + " AND reason = 'MILESTONE_NOT_ACTIVE' AND key = 'wood' AND active = 'stone'"));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM hunger_games_refusal WHERE request = " + start
+                        + " AND reason = 'BELOW_SOFT_MINIMUM' AND count = 3 AND minimum = 8"));
+        assertEquals(notActive, smp.find(objective).orElseThrow().refusal().orElseThrow());
+        assertEquals(tooFew, games.find(start).orElseThrow().refusal().orElseThrow());
+    }
+
+    @Test
+    void aRefusalOfAnotherAuthorIsNeverWritten() {
         final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
 
-        inbox.settle(
-                asked.id(),
-                Outcome.refused(new Refusal(Reason.NOT_NOW, new MessageRef("inbox.not-now", Map.of("days", 3)))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> inbox.settle(
+                        asked.id(),
+                        Outcome.refused(new Refusal(Reason.NOT_NOW, new MessageRef("inbox.not-now", Map.of())))));
+    }
 
-        final Refusal read = inbox.find(asked.id()).orElseThrow().refusal().orElseThrow();
-        assertEquals("NOT_NOW", read.reason().name());
-        assertEquals(new MessageRef("inbox.not-now", Map.of("days", 3L)), read.message());
+    private enum Reason implements RefusalReason {
+        NOT_NOW
     }
 
     @Test
@@ -337,12 +364,12 @@ class InboxIntegrationTest {
             if (request.id() == first.id()) {
                 throw new IllegalStateException("the guild said no");
             }
-            return Outcome.done(null);
+            return Outcome.done(new BotRequest.Grant.Answer(Instant.parse("2026-10-27T00:00:00Z")));
         }));
 
         final Request<BotRequest> failed = inbox.find(first.id()).orElseThrow();
         assertEquals(InboxStatus.FAILED, failed.status());
-        assertEquals("{\"error\": \"the guild said no\"}", failed.outcome());
+        assertNull(failed.outcome(), "a failure's words go to the log");
         assertEquals(InboxStatus.DONE, inbox.find(second.id()).orElseThrow().status());
     }
 
@@ -351,7 +378,7 @@ class InboxIntegrationTest {
         final Request<BotRequest> waiting = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertEquals(
                 InboxStatus.CANCELLED,
-                inbox.cancel(waiting.id(), Map.of("by", "admin")).orElseThrow().status());
+                inbox.cancel(waiting.id(), null).orElseThrow().status());
 
         final Request<BotRequest> running = inbox.submit(new BotRequest.Unlink(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
@@ -367,7 +394,7 @@ class InboxIntegrationTest {
         Inbox.takeOver(database.dataSource(), BotRequest.TABLE, "the bot");
         final Request<BotRequest> failed = inbox.find(orphan.id()).orElseThrow();
         assertEquals(InboxStatus.FAILED, failed.status());
-        assertEquals("{\"error\": \"the bot restarted while it ran this\"}", failed.outcome());
+        assertNull(failed.outcome(), "the restart is in the log");
         assertEquals(InboxStatus.PENDING, inbox.find(waiting.id()).orElseThrow().status());
 
         execute("UPDATE bot_inbox SET finished = now() - interval '40 days' WHERE id = " + orphan.id());
@@ -425,8 +452,8 @@ class InboxIntegrationTest {
         assertEquals(InboxStatus.PENDING, ui.find(asked.id()).orElseThrow().status());
         assertThrowsDenied(ui::claim);
 
-        bot.drain(request -> Outcome.done(Map.of("revoked", "1")));
-        bot.settleOrphans(Map.of());
+        bot.drain(request -> Outcome.done(new BotRequest.Revoke.Answer(1)));
+        bot.settleOrphans(null);
         bot.purge(Duration.ofDays(30));
         assertEquals(InboxStatus.DONE, ui.find(asked.id()).orElseThrow().status());
     }
@@ -438,7 +465,7 @@ class InboxIntegrationTest {
         final String submitted = inbox.version();
         assertEquals(asked.id(), inbox.claim().orElseThrow().id());
         final String claimed = inbox.version();
-        inbox.settle(asked.id(), Outcome.done(Map.of("revoked", "1")));
+        inbox.settle(asked.id(), Outcome.done(new BotRequest.Revoke.Answer(1)));
         final String settled = inbox.version();
 
         assertEquals(

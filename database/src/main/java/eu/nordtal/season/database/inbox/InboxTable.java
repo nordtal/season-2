@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 
 /**
  * The inbox table of one consumer: its name, the channel for every change and the kinds it takes.
- * The kinds are the records of a sealed payload type, each stored under its name in upper snake case.
- * A kind is a row of its own table, one column per component, or JSON in the payload column.
+ * Kinds are the records of a sealed type, named in upper snake case: a row of their own table or JSON in the payload.
+ * A row kind's nested record {@code Answer} adds its columns to that row. A refusal is a row of the refusal table.
  */
 public final class InboxTable<P> {
 
@@ -24,9 +24,14 @@ public final class InboxTable<P> {
     private final Class<P> payloads;
     private final Map<String, Class<? extends P>> kinds;
     private final Set<Class<? extends P>> rows;
+    private final boolean outcome;
 
     private InboxTable(
-            final String name, final Channel channel, final Class<P> payloads, final Set<Class<? extends P>> rows) {
+            final String name,
+            final Channel channel,
+            final Class<P> payloads,
+            final Set<Class<? extends P>> rows,
+            final boolean outcome) {
         // The name enters SQL as an identifier, which has no placeholder.
         if (!Objects.requireNonNull(name, "name").matches("[a-z][a-z0-9_]*_inbox")) {
             throw new IllegalArgumentException("not an inbox table name: '" + name + "'");
@@ -36,6 +41,7 @@ public final class InboxTable<P> {
         this.payloads = Objects.requireNonNull(payloads, "payloads");
         this.kinds = kindsOf(payloads);
         this.rows = Set.copyOf(rows);
+        this.outcome = outcome;
         if (!kinds.values().containsAll(this.rows)) {
             throw new IllegalArgumentException(this.rows + " are not all kinds of " + payloads.getName());
         }
@@ -47,13 +53,18 @@ public final class InboxTable<P> {
      * @throws IllegalArgumentException if {@code payloads} is not a sealed interface of records
      */
     public static <P> InboxTable<P> of(final String name, final Channel channel, final Class<P> payloads) {
-        return new InboxTable<>(name, channel, payloads, Set.of());
+        return new InboxTable<>(name, channel, payloads, Set.of(), false);
     }
 
     /** Returns this table with {@code kinds} stored as rows of their own tables instead of JSON. */
     @SafeVarargs
     public final InboxTable<P> withRows(final Class<? extends P>... kinds) {
-        return new InboxTable<>(name, channel, payloads, Set.of(kinds));
+        return new InboxTable<>(name, channel, payloads, Set.of(kinds), outcome);
+    }
+
+    /** Returns this table with its outcome column, which holds the answers that are not a kind's row as JSON. */
+    public InboxTable<P> withOutcome() {
+        return new InboxTable<>(name, channel, payloads, rows, true);
     }
 
     public String name() {
@@ -88,6 +99,35 @@ public final class InboxTable<P> {
     /** Returns whether a kind is still JSON, so the table has its payload column. */
     boolean hasPayload() {
         return rows.size() < kinds.size();
+    }
+
+    /** Returns whether the table has its outcome column. */
+    boolean hasOutcome() {
+        return outcome;
+    }
+
+    /** Returns the answer of a row kind, its nested record {@code Answer}, or empty if it is answered without one. */
+    Optional<Class<?>> answerOf(final Class<?> type) {
+        if (!rows.contains(type)) {
+            return Optional.empty();
+        }
+        for (final Class<?> nested : type.getDeclaredClasses()) {
+            if (nested.isRecord() && nested.getSimpleName().equals("Answer")) {
+                return Optional.of(nested);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Returns whether {@code type} is the answer of one of the row kinds. */
+    boolean isAnswer(final Class<?> type) {
+        return rows.stream()
+                .anyMatch(kind -> answerOf(kind).filter(type::equals).isPresent());
+    }
+
+    /** Returns the table of the refusals: {@code smp_refusal} for {@code smp_inbox}. */
+    String refusalTable() {
+        return name.replaceFirst("_inbox$", "_refusal");
     }
 
     /** Returns the table of the rows of a kind: {@code bank_open_tab} for {@code OpenTab} of {@code bank_inbox}. */

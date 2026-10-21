@@ -1,8 +1,6 @@
 package eu.nordtal.season.steward.access;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
@@ -93,7 +91,7 @@ public final class AccessApi {
             @Nullable Instant until,
             @Nullable String was) {}
 
-    /** A request in the bot's inbox with the bot's answer, and a text answer is {@code {text}}. */
+    /** A request in the bot's inbox with the typed answer of its kind, if it has one. */
     public record AccessRequestRun(
             String id,
             String kind,
@@ -162,9 +160,12 @@ public final class AccessApi {
         final Request<BotRequest> row =
                 data().bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
 
-        final String outcome = row.outcome();
+        final Object answer = row.answer();
         ctx.json(new AccessRequestRun(
-                String.valueOf(row.id()), row.kind(), row.status(), outcome == null ? null : parsed(outcome)));
+                String.valueOf(row.id()),
+                row.kind(),
+                row.status(),
+                answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject()));
     }
 
     private void submit(final Context ctx, final BotRequest request) {
@@ -175,21 +176,6 @@ public final class AccessApi {
 
         ctx.status(202)
                 .json(new AccessRequestRun(String.valueOf(written.id()), written.kind(), written.status(), null));
-    }
-
-    /** Returns the bot's answer as an object, and a row that is not JSON as {@code {text}}. */
-    private static JsonObject parsed(final String result) {
-        try {
-            final JsonElement element = Json.tree(result);
-            if (element.isJsonObject()) {
-                return element.getAsJsonObject();
-            }
-        } catch (final JsonSyntaxException notJson) {
-            // The result is shown as text.
-        }
-        final JsonObject text = new JsonObject();
-        text.addProperty("text", result);
-        return text;
     }
 
     private static Body bodyOf(final Context ctx) {

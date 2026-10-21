@@ -943,7 +943,7 @@
     "steward.game.no-track": [["The SMP has not written its track yet."]],
     "steward.game.no-way-back": [["This cannot be undone."]],
     "steward.game.objective": [["Objective"]],
-    "steward.game.outcome": [[{"c":"status","plural":false,"cases":{"pending":["Sent. The server has not read it yet."],"running":["The server is running it."],"done":["The server answered:"],"refused":["The server refused:"],"failed":["The server read it and failed."],"expired":["The server did not read it within two minutes. Nothing changed."],"cancelled":["Withdrawn before the server read it. Nothing changed."],"other":[{"v":"status"}]}}]],
+    "steward.game.outcome": [[{"c":"status","plural":false,"cases":{"pending":["Sent. The server has not read it yet."],"running":["The server is running it."],"done":["The server carried it out."],"refused":["The server refused:"],"failed":["The server read it and failed."],"expired":["The server did not read it within two minutes. Nothing changed."],"cancelled":["Withdrawn before the server read it. Nothing changed."],"other":[{"v":"status"}]}}]],
     "steward.game.progress": [[{"v":"name"}," progress"]],
     "steward.game.registered": [[{"v":"count","k":"number"}," registered"]],
     "steward.game.remove-ask": [["Remove ",{"v":"name"},"?"]],

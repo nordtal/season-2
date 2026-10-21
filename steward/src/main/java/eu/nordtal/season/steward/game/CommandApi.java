@@ -1,6 +1,5 @@
 package eu.nordtal.season.steward.game;
 
-import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
@@ -27,7 +26,6 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -192,29 +190,16 @@ public final class CommandApi {
                 : run;
     }
 
-    /** Returns the status of a request, its result and the reason of a refusal. */
+    /** Returns the status of a request and the words and reason of a refusal. */
     private <P> CommandRun settled(final String name, final Request<P> row) {
-        final Optional<String> result = row.status() == InboxStatus.REFUSED
-                ? row.refusal().map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
-                : row.status() == InboxStatus.DONE ? row.outcome(String.class) : failure(row);
         return new CommandRun(
                 name,
                 row.status(),
-                result.map(StewardTexts.TEXTS.steward().said()::words).orElse(null),
+                row.refusal()
+                        .map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
+                        .map(StewardTexts.TEXTS.steward().said()::words)
+                        .orElse(null),
                 row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
-    }
-
-    /** Returns the failure text of a failed row. */
-    private static <P> Optional<String> failure(final Request<P> row) {
-        if (row.status() != InboxStatus.FAILED) {
-            return Optional.empty();
-        }
-        try {
-            return row.outcome(String.class);
-        } catch (final RuntimeException notText) {
-            return row.outcome(JsonObject.class)
-                    .map(error -> error.has("error") ? error.get("error").getAsString() : error.toString());
-        }
     }
 
     /** Returns the status of the announcement and the result for one language. */

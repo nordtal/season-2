@@ -28,10 +28,7 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, un
     try {
       const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
       if (row.status === "DONE") return row.result ?? {}
-      if (row.status === "FAILED") {
-        const said = row.result?.error
-        throw new Error(typeof said === "string" ? said : t("steward.failure.bot-failed"))
-      }
+      if (row.status === "FAILED") throw new Error(t("steward.failure.bot-failed"))
       if (row.status === "EXPIRED") {
         // EXPIRED means that the bot never picked the row up.
         throw new Error(t("steward.failure.bot-silent"))
@@ -163,7 +160,7 @@ export function useUnlink() {
   return useMutation({
     mutationFn: async (discordId: string) => {
       const result = await askTheBot("/api/access/unlink", { discordId })
-      return { unlinked: result.unlinked === "true" }
+      return { unlinked: result.unlinked === true }
     },
     onSettled: () => afterAccessChange(client),
   })
@@ -252,8 +249,8 @@ export function useSetPlaytime() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async ({ discordId, seconds }: { discordId: string; seconds: number }) => {
-      const result = await askTheBot(`/api/people/${discordId}/playtime`, { seconds })
-      return { discordId, seconds: Number(result.seconds ?? seconds) }
+      await askTheBot(`/api/people/${discordId}/playtime`, { seconds })
+      return { discordId, seconds }
     },
     onSettled: () => afterAccessChange(client),
   })

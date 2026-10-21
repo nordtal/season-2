@@ -583,7 +583,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     success.mockRestore()
   })
 
-  it("says what the bot said when it could not carry the change out", async () => {
+  it("says the bot failed when it could not carry the change out", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -591,7 +591,6 @@ describe("AccessPage - access changes are asked of the bot", () => {
           id: "a-grant",
           kind,
           status: "FAILED",
-          result: { error: "the role could not be applied" },
         }),
       }),
     )
@@ -602,7 +601,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
     await waitFor(() => expect(failure).toHaveBeenCalled())
-    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("the role could not be applied")
+    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("The bot failed to do this.")
     failure.mockRestore()
   })
 

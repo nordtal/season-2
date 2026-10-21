@@ -238,7 +238,7 @@ export function NodeList<L>({
   draftIds: Set<string>
   highlight: Highlight | null
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
-  /** Drawn after the caret, for a list whose branches are things of their own. */
+  /** Drawn before the name, for a list whose branches are things of their own; the caret then follows the name. */
   branchIcon?: (branch: TreeBranch<L>) => ReactNode
   list?: boolean
   cards?: boolean
@@ -268,8 +268,8 @@ export function NodeList<L>({
                   : list
                     ? "flex flex-col"
                     : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
-                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field.
-                nested && (cards || list ? "pl-6" : "pl-8"),
+                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
+                nested && !list && (cards ? "pl-6" : "pl-8"),
               )}
             >
               {group.map((leaf) => (
@@ -290,6 +290,13 @@ export function NodeList<L>({
         }
         const open = isOpen(group.id)
         const count = idsBelow(group).filter((id) => draftIds.has(id)).length
+        const caret = (
+          <CaretRightIcon
+            aria-hidden
+            data-caret
+            className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
+          />
+        )
         return (
           <Fragment key={group.id}>
             <button
@@ -298,10 +305,7 @@ export function NodeList<L>({
               onClick={() => onToggle(group.id)}
               className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm font-medium hover:bg-accent/50"
             >
-              <CaretRightIcon
-                aria-hidden
-                className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-              />
+              {branchIcon ? null : caret}
               {branchIcon?.(group)}
               <span className="flex min-w-0 items-center gap-1 truncate">
                 {group.labels.map((label, index) => (
@@ -313,6 +317,8 @@ export function NodeList<L>({
                   </Fragment>
                 ))}
               </span>
+              {/* A row with an icon keeps the icon column of the file rows, so its caret follows the name. */}
+              {branchIcon ? caret : null}
               {count > 0 ? (
                 <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
                   <DraftDot />

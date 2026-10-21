@@ -30,10 +30,7 @@ public final class RunLines {
                 .sorted(Comparator.comparing((RunStep.Change change) -> change.from() == null && change.to() == null)
                         .thenComparing(RunStep.Change::artefact))
                 .toList()) {
-            lines.add(TEXTS.run().change(change.artefact(), versions(change)));
-            if (change.image() != null) {
-                lines.add(TEXTS.run().image(change.image()));
-            }
+            lines.add(line(change));
         }
         for (final RunStep.Move move : step.players()) {
             lines.add(TEXTS.run().players(move.moved(), move.from(), move.to(), move.returned()));
@@ -74,16 +71,20 @@ public final class RunLines {
     /** A fingerprint, as the resource pack reports its SHA-1. */
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{32,64}", Pattern.CASE_INSENSITIVE);
 
-    private static MessageRef versions(final RunStep.Change change) {
+    /** Returns a change as its versions, else as what happened to its image, else as its name alone. */
+    private static MessageRef line(final RunStep.Change change) {
         if (change.from() != null && change.to() != null) {
-            return TEXTS.run().moved(shown(change.from()), change.to());
+            return TEXTS.run().change(change.artefact(), TEXTS.run().moved(shown(change.from()), change.to()));
         }
         if (change.to() != null) {
-            return TEXTS.run().version(change.to());
+            return TEXTS.run().change(change.artefact(), TEXTS.run().version(change.to()));
         }
-        return change.from() != null
-                ? TEXTS.run().version(change.from())
-                : TEXTS.run().noBuild();
+        if (change.from() != null) {
+            return TEXTS.run().change(change.artefact(), TEXTS.run().version(change.from()));
+        }
+        return change.image() != null
+                ? TEXTS.run().change(change.artefact(), TEXTS.run().image(change.image()))
+                : TEXTS.run().artefact(change.artefact());
     }
 
     /** Returns a version as it is, and a fingerprint by its first eight characters. */

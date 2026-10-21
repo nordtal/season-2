@@ -69,7 +69,7 @@ class ResolverTest {
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
-                .serving("/projects/velocity/versions/4.2.0/builds", "fill-velocity-4.2.0.json")
+                .serving("/projects/velocity/versions/4.3.0/builds", "fill-velocity-4.3.0.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
 
@@ -79,7 +79,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // 4.0.0 names the 4.x line, and 4.2.0 is the version the proxy plugin is compiled against.
+        // 4.0.0 names the 4.x line, and 4.3.0 is the version the proxy plugin is compiled against.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(
                 List.of(),
@@ -94,11 +94,11 @@ class ResolverTest {
         // The run must not fail when one release of the same family is added.
         http.answering("/projects/velocity", """
                 {"project":{"id":"velocity","name":"Velocity"},
-                 "versions":{"4.0.0":["4.3.0-SNAPSHOT","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
+                 "versions":{"4.0.0":["4.4.0-SNAPSHOT","4.4.0","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
                 """);
-        http.answering("/projects/velocity/versions/4.3.0/builds", """
+        http.answering("/projects/velocity/versions/4.4.0/builds", """
                 [{"id":31,"channel":"STABLE","time":"2026-09-08T00:00:00Z","downloads":{
-                   "server:default":{"name":"velocity-4.3.0-31.jar","url":"https://x/31",
+                   "server:default":{"name":"velocity-4.4.0-31.jar","url":"https://x/31",
                                      "checksums":{"sha256":"dd"}}}}]
                 """);
 
@@ -108,14 +108,14 @@ class ResolverTest {
         assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
         assertEquals(
-                "velocity-4.3.0-31.jar",
+                "velocity-4.4.0-31.jar",
                 changeFor(plan, "proxy", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
         // A key with typed values, so every surface words it in its reader's language and target.
         assertEquals("report.velocity-ahead", plan.notes().getFirst().key());
         final String note = Told.english(plan.notes().getFirst());
-        assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
+        assertTrue(note.contains("4.4.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(
                 Told.notes(PlanReport.of(plan)).contains("SOURCES WARNING -: " + note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
@@ -617,7 +617,7 @@ class ResolverTest {
     private void installCurrentEverything() throws IOException {
         write("proxy", "plugins/proxy-0.1.0.jar");
         write("proxy", "plugins/voicechat-velocity-2.6.18.jar");
-        write("proxy", ".server/velocity-4.2.0-30.jar");
+        write("proxy", ".server/velocity-4.3.0-44.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");

@@ -63,12 +63,12 @@ class PaperFillTest {
     }
 
     @Test
-    void velocitysFamily400ResolvesTo420TheFourSnapshotsInItIgnored() throws IOException {
+    void velocitysFamily400ResolvesTo430TheFiveSnapshotsInItIgnored() throws IOException {
         // `4.0.0` is Fill's name for the 4.x line and no version anybody runs.
         final PaperFill fill =
                 new PaperFill(new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
 
-        assertEquals("4.2.0", fill.newestStableVersion("velocity", "4.0.0"));
+        assertEquals("4.3.0", fill.newestStableVersion("velocity", "4.0.0"));
     }
 
     @Test

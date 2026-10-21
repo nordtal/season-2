@@ -746,6 +746,9 @@ export type TextArgs = {
     took: Arg["duration"]
     verified: Arg["choice"]
   }
+  "run.artefact": {
+    artefact: Arg["text"]
+  }
   "run.cache-freed": {
     freed: Arg["message"]
   }

@@ -74,12 +74,22 @@ class RunLinesTest {
     void anArtefactWithAVersionComesBeforeOneWithout() {
         final List<RunStep.Change> image = List.of(
                 new RunStep.Change("hunger-games", "0.51.0", "0.52.0", null),
-                new RunStep.Change("image", null, null, null));
+                new RunStep.Change("image", null, null, RunStep.Image.PULLED));
         final List<RunStep.Change> proxy = List.of(
-                new RunStep.Change("image", null, null, null), new RunStep.Change("proxy", "0.51.0", "0.52.0", null));
-        assertEquals(List.of("hunger-games 0.51.0 → 0.52.0", "image no build yet"), english(resolve(image)));
-        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image no build yet"), english(resolve(proxy)));
-        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image no build yet"), english(resolve(proxy.reversed())));
+                new RunStep.Change("image", null, null, RunStep.Image.PULLED),
+                new RunStep.Change("proxy", "0.51.0", "0.52.0", null));
+        assertEquals(List.of("hunger-games 0.51.0 → 0.52.0", "image pulled"), english(resolve(image)));
+        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image pulled"), english(resolve(proxy)));
+        assertEquals(List.of("proxy 0.51.0 → 0.52.0", "image pulled"), english(resolve(proxy.reversed())));
+    }
+
+    @Test
+    void anArtefactWithoutAVersionOrAnImageReadsAsItsName() {
+        assertEquals(
+                List.of("image kept", "voicechat"),
+                english(resolve(List.of(
+                        new RunStep.Change("image", null, null, RunStep.Image.KEPT),
+                        new RunStep.Change("voicechat", null, null, null)))));
     }
 
     private static RunStep.Row resolve(final List<RunStep.Change> changes) {
@@ -114,8 +124,9 @@ class RunLinesTest {
                 null,
                 null,
                 List.of(
-                        new RunStep.Change("paper", "26.2.121", "26.2.126", RunStep.Image.PULLED),
-                        new RunStep.Change("smp", null, "0.50.0", null)),
+                        new RunStep.Change("paper", "26.2.121", "26.2.126", null),
+                        new RunStep.Change("smp", null, "0.50.0", null),
+                        new RunStep.Change("image", null, null, RunStep.Image.PULLED)),
                 List.of(new RunStep.Move("smp", "limbo", 3, 2)),
                 List.of(new RunStep.ImageRemoved("a", 1024), new RunStep.ImageRemoved("b", 1024)),
                 2048L,
@@ -127,8 +138,8 @@ class RunLinesTest {
         assertEquals(
                 List.of(
                         "paper 26.2.121 → 26.2.126",
-                        "from a pulled image",
                         "smp 0.50.0",
+                        "image pulled",
                         "3 players moved from smp to limbo, 2 back",
                         "2 images removed, 2 KiB freed",
                         "build cache 2 KiB freed",

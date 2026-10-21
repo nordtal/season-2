@@ -288,9 +288,13 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef exitCode(@Arg("code") @Example("2") long code);
 
-        @Name("Which image a container was recreated from")
+        @Name("What happens to a container's image")
         @Shown(Display.STEWARD)
         MessageRef image(@Arg("image") RunStep.Image image);
+
+        @Name("An artefact no version names")
+        @Shown(Display.STEWARD)
+        MessageRef artefact(@Arg("artefact") @Example("paper") String artefact);
 
         @Name("Players moved off a service and back")
         @Shown(Display.STEWARD)

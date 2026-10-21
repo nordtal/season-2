@@ -237,6 +237,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V84__an_admin_s_setting_value_is_one_row_per_value_entry_and_field.sql",
                 "2704a45281d418f1de8dae7ceadaa4a6484a2a2e1de997e1bdff13f3c98af046");
+        FROZEN.put(
+                "V85__a_resolve_step_s_image_is_pulled.sql",
+                "e83ec75a2cafa283edb778ec41e37edfd4f3c735553f037ec93cc72a039aa65f");
     }
 
     @Test

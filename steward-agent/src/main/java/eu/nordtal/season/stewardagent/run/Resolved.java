@@ -56,7 +56,12 @@ final class Resolved {
             }
             final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, line.service());
             for (final UpdateReport.Change change : moving) {
-                step.change(change.artefact(), change.from(), versionOf(change), null);
+                // An out-of-date image is always pulled.
+                step.change(
+                        change.artefact(),
+                        change.from(),
+                        versionOf(change),
+                        UpdateRun.IMAGE.equals(change.artefact()) ? RunStep.Image.PULLED : null);
             }
             worst(about).on(step);
         }

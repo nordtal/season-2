@@ -1041,6 +1041,7 @@ export type StepReason =
   | "UNVERIFIABLE"
   | "LOCAL_BUILD"
   | "FOREIGN_NEWER"
+  | "VELOCITY_AHEAD"
 
 export type RunChange = {
   artefact: string

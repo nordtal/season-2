@@ -5,10 +5,15 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** The lines a step's facts read as, one renderer for Steward and the terminal. */
+/**
+ * The lines a step's facts read as, one renderer for Steward and the terminal.
+ *
+ * A step's artefacts read in one order: those with a version first, then those without, each by name.
+ */
 public final class RunLines {
 
     private RunLines() {}
@@ -21,7 +26,10 @@ public final class RunLines {
         if (step.exitCode() != null) {
             lines.add(TEXTS.run().exitCode(step.exitCode()));
         }
-        for (final RunStep.Change change : step.changes()) {
+        for (final RunStep.Change change : step.changes().stream()
+                .sorted(Comparator.comparing((RunStep.Change change) -> change.from() == null && change.to() == null)
+                        .thenComparing(RunStep.Change::artefact))
+                .toList()) {
             lines.add(TEXTS.run().change(change.artefact(), versions(change)));
             if (change.image() != null) {
                 lines.add(TEXTS.run().image(change.image()));

@@ -365,6 +365,8 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.MilestoneUnlocked("nether"), JournalAction.UNLOCK_MILESTONE);
         written.put(new JournalDetail.AdminRevoked(List.of(BOB, ALICE)), JournalAction.REVOKE_ADMIN);
         written.put(new JournalDetail.GrantUnanchored(UNTIL), JournalAction.UNANCHORED_GRANT);
+        written.put(new JournalDetail.AuraSet(-40), JournalAction.SET_AURA);
+        written.put(new JournalDetail.SpinsSet(3), JournalAction.SET_SPINS);
 
         return written;
     }

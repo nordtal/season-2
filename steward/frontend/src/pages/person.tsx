@@ -1,7 +1,7 @@
 import { useParams } from "@tanstack/react-router"
 
 import type { Grant, Person } from "@/lib/api"
-import { dateTime } from "@/lib/format"
+import { count, dateTime } from "@/lib/format"
 import { choice, span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { useGrants, useJournal, usePeople, usePersonPayments } from "@/lib/queries"
@@ -83,7 +83,7 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
 function PersonStats({ person, people, now }: { person?: Person; people?: readonly Person[]; now?: number }) {
   const badge = "text-base font-normal"
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
       <Stat
         label={t("steward.people.guild")}
         value={person ? <Entity id={person.discordId} kind="discord" /> : undefined}
@@ -115,6 +115,8 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
         valueClassName={badge}
       />
       <Stat label={t("steward.people.playtime")} value={person ? span(person.playtimeSeconds, "minutes") : undefined} />
+      <Stat label={t("steward.people.aura")} value={person ? count(person.aura) : undefined} />
+      <Stat label={t("steward.people.spins")} value={person ? count(person.spins) : undefined} />
       <Stat
         label={t("steward.people.language")}
         value={person?.locale}

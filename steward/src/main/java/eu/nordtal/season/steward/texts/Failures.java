@@ -37,4 +37,10 @@ public interface Failures {
 
     @Name("Bot silent")
     MessageRef botSilent();
+
+    @Name("SMP failed")
+    MessageRef smpFailed();
+
+    @Name("SMP silent")
+    MessageRef smpSilent();
 }

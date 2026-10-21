@@ -14,6 +14,8 @@ import org.jspecify.annotations.Nullable;
  * @param playtimeSeconds the total online time, null if the account was never online
  * @param adminGrantedBy the admin who granted this one, null for the root and for non-admins
  * @param packExemptBy the admin who let this account play without the resource pack, null unless one did
+ * @param aura the aura on the SMP, zero before the first change
+ * @param spins the extra wheel spins left, beside the free spin of each day
  */
 public record Person(
         DiscordId discordId,
@@ -38,4 +40,6 @@ public record Person(
         @Nullable String adminGrantedBy,
         @Nullable Instant adminGrantedAt,
         @Nullable String packExemptBy,
-        @Nullable Instant packExemptAt) {}
+        @Nullable Instant packExemptAt,
+        int aura,
+        int spins) {}

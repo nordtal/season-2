@@ -22,6 +22,7 @@ import {
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Entity } from "@/components/steward/entity"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
+import { AuraDialog, SpinsDialog } from "@/pages/person-smp"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -530,7 +531,16 @@ export function hasRole(person: Person): boolean {
 }
 
 /** One dialog is open at a time, rendered beside the actions and never inside them. */
-type PersonDialog = "grant" | "playtime" | "revoke" | "unlink" | "make-admin" | "revoke-admin" | "pack"
+type PersonDialog =
+  | "grant"
+  | "playtime"
+  | "aura"
+  | "spins"
+  | "revoke"
+  | "unlink"
+  | "make-admin"
+  | "revoke-admin"
+  | "pack"
 
 /**
  * Offers everything that can be done to one person, with its dialogs. A dialog is rendered beside the menu, because a Radix popover unmounts one opened from inside it.
@@ -544,6 +554,8 @@ export function PersonActions({ person, menu = false }: { person: Person; menu?:
   const actions = rowActions(person, {
     onGrant: () => setDialog("grant"),
     onPlaytime: () => setDialog("playtime"),
+    onAura: () => setDialog("aura"),
+    onSpins: () => setDialog("spins"),
     onRevoke: () => setDialog("revoke"),
     onUnlink: () => setDialog("unlink"),
     onMakeAdmin: () => setDialog("make-admin"),
@@ -567,6 +579,8 @@ export function PersonActions({ person, menu = false }: { person: Person; menu?:
       )}
       {dialog === "grant" ? <GrantDialog person={person} open onOpenChange={close} /> : null}
       {dialog === "playtime" ? <PlaytimeDialog person={person} open onOpenChange={close} /> : null}
+      {dialog === "aura" ? <AuraDialog person={person} open onOpenChange={close} /> : null}
+      {dialog === "spins" ? <SpinsDialog person={person} open onOpenChange={close} /> : null}
       {dialog === "revoke" ? <RevokeDialog person={person} open onOpenChange={close} /> : null}
       {dialog === "unlink" ? <UnlinkDialog person={person} open onOpenChange={close} /> : null}
       {dialog === "make-admin" ? <MakeAdminDialog person={person} open onOpenChange={close} /> : null}
@@ -589,6 +603,8 @@ function rowActions(
   on: {
     onGrant: () => void
     onPlaytime: () => void
+    onAura: () => void
+    onSpins: () => void
     onRevoke: () => void
     onUnlink: () => void
     onMakeAdmin: () => void
@@ -614,6 +630,26 @@ function rowActions(
       <Button type="button" variant="ghost" size="sm" onClick={on.onPlaytime}>
         <TERM_ICON.playtime aria-hidden />
         {t("steward.people.playtime")}
+      </Button>
+    ),
+  })
+
+  actions.push({
+    key: "aura",
+    node: (
+      <Button type="button" variant="ghost" size="sm" onClick={on.onAura}>
+        <TERM_ICON.aura aria-hidden />
+        {t("steward.people.aura")}
+      </Button>
+    ),
+  })
+
+  actions.push({
+    key: "spins",
+    node: (
+      <Button type="button" variant="ghost" size="sm" onClick={on.onSpins}>
+        <TERM_ICON.spins aria-hidden />
+        {t("steward.people.spins")}
       </Button>
     ),
   })

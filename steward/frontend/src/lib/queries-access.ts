@@ -5,6 +5,8 @@ import {
   type AccessRequestRun,
   type AdminGranted,
   type AdminRevoked,
+  type CommandAsked,
+  type CommandRun,
   type Exempted,
   type Settled,
   type Grant,
@@ -14,7 +16,7 @@ import {
 } from "@/lib/api"
 import { live, nextChange } from "@/lib/live"
 import { keys, type JournalFilter } from "@/lib/query-keys"
-import { t } from "@/lib/texts"
+import { message, t } from "@/lib/texts"
 
 /**
  * Asks the bot for an access change and reads its row again until the request is final. Only the bot can apply the role, send the direct message and post the admin note.
@@ -34,6 +36,26 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, un
         // EXPIRED means that the bot never picked the row up.
         throw new Error(t("steward.failure.bot-silent"))
       }
+      await change.arrived
+    } finally {
+      change.stop()
+    }
+  }
+}
+
+/** Asks the SMP for a change of one person and reads its row again until the request is final. */
+async function askTheSmp(path: string, body: unknown): Promise<void> {
+  const asked = await api<CommandAsked>(path, { method: "POST", body })
+  for (;;) {
+    const change = nextChange("REQUESTS")
+    try {
+      const row = await api<CommandRun>(`/api/commands/${asked.id}`)
+      if (row.status === "DONE") return
+      if (row.status === "REFUSED" || row.status === "FAILED" || row.status === "CANCELLED") {
+        throw new Error(row.result ? message(row.result) : t("steward.failure.smp-failed"))
+      }
+      // EXPIRED means that the SMP never picked the row up.
+      if (row.status === "EXPIRED") throw new Error(t("steward.failure.smp-silent"))
       await change.arrived
     } finally {
       change.stop()
@@ -204,6 +226,24 @@ export function useSettle() {
         was: result.was,
       }
     },
+    onSettled: () => afterAccessChange(client),
+  })
+}
+
+export function useSetAura() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ discordId, aura }: { discordId: string; aura: number }) =>
+      askTheSmp(`/api/people/${discordId}/aura`, { aura }),
+    onSettled: () => afterAccessChange(client),
+  })
+}
+
+export function useSetSpins() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ discordId, spins }: { discordId: string; spins: number }) =>
+      askTheSmp(`/api/people/${discordId}/spins`, { spins }),
     onSettled: () => afterAccessChange(client),
   })
 }

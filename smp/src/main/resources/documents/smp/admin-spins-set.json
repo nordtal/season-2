@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>{spins, plural, =0 {No extra spins are left.} one {One extra spin is left.} other {# extra spins are left.}}</good>",
+            "de": "<good>{spins, plural, =0 {Es ist kein Extra-Spin übrig.} one {Es ist ein Extra-Spin übrig.} other {Es sind # Extra-Spins übrig.}}</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

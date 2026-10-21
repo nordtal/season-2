@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -64,6 +63,7 @@ import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
+import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -160,11 +160,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {
-        root.then(console("aura")
-                        .then(Commands.argument("player", StringArgumentType.word())
-                                .then(Commands.argument("delta", IntegerArgumentType.integer(-10_000, 10_000))
-                                        .executes(this::changeAura))))
-                .then(console("access")
+        root.then(console("access")
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(this::showAccess)))
                 .then(console("objective")
@@ -291,9 +287,11 @@ public final class SmpPlugin extends NordtalPlugin {
         // This handler runs before the surface handler, so one pass starts the track over and draws it.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
-        answer(SmpRequest.TABLE, request -> switch (request) {
+        answer(SmpRequest.TABLE, (request, actor) -> switch (request) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
+            case SmpRequest.SetAura set -> admin.setAura(set.person(), set.aura(), actor);
+            case SmpRequest.SetSpins set -> admin.setSpins(set.person(), set.spins());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
         });
@@ -432,6 +430,7 @@ public final class SmpPlugin extends NordtalPlugin {
         return new SmpAdmin(
                 trackRows,
                 aura,
+                jdbi().onDemand(SpinDao.class),
                 new SmpAdmin.Track() {
                     // null: no player completed it.
                     @Override
@@ -444,20 +443,8 @@ public final class SmpPlugin extends NordtalPlugin {
                         engine.unlockMilestone(milestone, null);
                     }
                 },
-                identities(),
                 access(),
                 getLogger());
-    }
-
-    /** Changes the aura of an online player and records the change as the console's. */
-    private int changeAura(final CommandContext<CommandSourceStack> context) {
-        final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
-        if (player == null) {
-            tell(context.getSource().getSender(), Answer.failed(Sent.of(SmpAdmin.PLAYER_OFFLINE)));
-            return Command.SINGLE_SUCCESS;
-        }
-        final int delta = IntegerArgumentType.getInteger(context, "delta");
-        return run(context, () -> admin.changeAura(player.getUniqueId(), player.getName(), delta));
     }
 
     private int redrawNameTags(final CommandContext<CommandSourceStack> context) {

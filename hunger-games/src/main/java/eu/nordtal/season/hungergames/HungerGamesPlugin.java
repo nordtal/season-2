@@ -166,7 +166,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         rosters = jdbi().onDemand(RosterDao.class);
         wireGameSystems(config.get());
         wireListeners();
-        answer(HungerGamesRequest.TABLE, request -> switch (request) {
+        answer(HungerGamesRequest.TABLE, (request, actor) -> switch (request) {
             case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
             case HungerGamesRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case HungerGamesRequest.CheckSettings check -> checkSettings(check.change());

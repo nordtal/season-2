@@ -1,12 +1,14 @@
 package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.registration.Game;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.Refused;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -155,6 +157,69 @@ public final class GameActions {
                         new JournalDetail.MilestoneUnlocked(key)));
     }
 
+    /** The largest aura, up or down, an admin sets. */
+    static final int MOST_AURA = 1_000_000;
+
+    /** The most extra spins an admin sets. */
+    static final int MOST_SPINS = 10_000;
+
+    /** {@code POST /api/people/{id}/aura} with {@code {aura}} sets the person's aura on the SMP. */
+    public void setAura(final Context ctx) {
+        final DiscordId person = person(ctx);
+        final int aura = number(ctx, "aura", -MOST_AURA, MOST_AURA, ANSWER.auraRange(MOST_AURA));
+        answer(
+                ctx,
+                commands.submit(
+                        ctx,
+                        person,
+                        new SmpRequest.SetAura(person, aura),
+                        JournalAction.SET_AURA,
+                        new JournalDetail.AuraSet(aura)));
+    }
+
+    /** {@code POST /api/people/{id}/spins} with {@code {spins}} sets the extra spins the person has left. */
+    public void setSpins(final Context ctx) {
+        final DiscordId person = person(ctx);
+        final int spins = number(ctx, "spins", 0, MOST_SPINS, ANSWER.spinsRange(MOST_SPINS));
+        answer(
+                ctx,
+                commands.submit(
+                        ctx,
+                        person,
+                        new SmpRequest.SetSpins(person, spins),
+                        JournalAction.SET_SPINS,
+                        new JournalDetail.SpinsSet(spins)));
+    }
+
+    /** Returns the person the path names, refusing an id that names nobody. */
+    private DiscordId person(final Context ctx) {
+        final String id = ctx.pathParam("id").trim();
+        try {
+            if (exists("SELECT 1 FROM discord_user WHERE discord_id = ?", id)) {
+                return DiscordId.of(id);
+            }
+        } catch (final IllegalArgumentException notAnId) {
+            // An id that is not a Discord id names nobody.
+        }
+        throw new RequestRefused(404, ANSWER.unknownPerson());
+    }
+
+    /** Returns the whole number {@code name} of the body, refusing one outside {@code least} to {@code most}. */
+    private static int number(
+            final Context ctx, final String name, final int least, final int most, final MessageRef range) {
+        final JsonObject body = body(ctx);
+        try {
+            final long value =
+                    body.get(name).getAsJsonPrimitive().getAsBigDecimal().longValueExact();
+            if (value >= least && value <= most) {
+                return (int) value;
+            }
+        } catch (final RuntimeException notWhole) {
+            // A missing, fractional or non-numeric value is out of range too.
+        }
+        throw new RequestRefused(400, range);
+    }
+
     private static Refused refused(final Refusal refusal) {
         return new Refused(refusal.reason(), refusal.message());
     }
@@ -243,7 +308,7 @@ public final class GameActions {
                 return rows.next();
             }
         } catch (final SQLException failure) {
-            throw new IllegalStateException("could not read the SMP's track", failure);
+            throw new IllegalStateException("could not read " + sql, failure);
         }
     }
 }

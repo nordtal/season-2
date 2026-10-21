@@ -287,6 +287,60 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 })
 
+describe("AccessPage - aura and extra spins in the list, and settable", () => {
+  it("lists each person's aura and extra spins", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", aura: -40, spins: 3 })] }))
+    draw(<AccessPage />)
+
+    expect(await screen.findAllByText("-40")).not.toHaveLength(0)
+    expect(screen.getAllByText("3")).not.toHaveLength(0)
+  })
+
+  it("sets the aura, below zero too", async () => {
+    const calls: { url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [person({ discordUsername: "alice", aura: 10 })],
+        smpPost: (url, body) => calls.push({ url, body }),
+      }),
+    )
+    draw(<AccessPage />)
+
+    await clickRowAction(/^aura$/i)
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(within(dialog).getByLabelText(/^aura$/i), { target: { value: "-25" } })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(calls.length).toBe(1))
+    expect(calls[0]).toEqual({ url: "/api/people/100000000000000001/aura", body: { aura: -25 } })
+  })
+
+  it("sets the extra spins as a whole number not below zero", async () => {
+    const calls: { url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [person({ discordUsername: "alice", spins: 1 })],
+        smpPost: (url, body) => calls.push({ url, body }),
+      }),
+    )
+    draw(<AccessPage />)
+
+    await clickRowAction(/extra spins/i)
+    const spins = within(await screen.findByRole("alertdialog")).getByLabelText(/extra spins/i)
+    for (const refused of ["-1", "1.5", ""]) {
+      fireEvent.change(spins, { target: { value: refused } })
+      expect(asButton(screen.getByRole("button", { name: /^save$/i })).disabled).toBe(true)
+    }
+    fireEvent.change(spins, { target: { value: "4" } })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(calls.length).toBe(1))
+    expect(calls[0]).toEqual({ url: "/api/people/100000000000000001/spins", body: { spins: 4 } })
+  })
+})
+
 describe("AccessPage - unlink as a row action", () => {
   it("offers Unlink on a linked person", async () => {
     vi.stubGlobal("fetch", backend())
@@ -370,7 +424,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
   })
 
-  it("lays every phone card out in the same five slots, whatever the person holds", async () => {
+  it("lays every phone card out in the same five slots, and a third line only for aura or extra spins", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -386,17 +440,40 @@ describe("AccessPage - the actions of a row depend on that row", () => {
             mcName: "PlayerMC",
             playtimeSeconds: 3_600,
           }),
+          person({ discordId: "3", discordUsername: "spinner", spins: 2 }),
+          person({ discordId: "4", discordUsername: "shiny", aura: 40, spins: 2 }),
         ],
       }),
     )
     draw(<AccessPage />)
 
     /**
-     * The person and their roles come first, then access and play time, with the actions beside both.
+     * The person and their roles come first, then access and play time, with the actions beside both. Aura and extra
+     * spins follow on a line of their own where either is not zero.
      */
-    const card = ["start 1", "start 2", "off", "end 1", "end 2", "action"]
+    const card = ["start 1", "start 2", "off", "end 1", "end 2", "off", "off", "action"]
     expect(slots(await rowFor("quiet"))).toEqual(card)
     expect(slots(await rowFor("player"))).toEqual(card)
+    expect(slots(await rowFor("spinner"))).toEqual([
+      "start 1",
+      "start 2",
+      "off",
+      "end 1",
+      "end 2",
+      "off",
+      "start 3",
+      "action",
+    ])
+    expect(slots(await rowFor("shiny"))).toEqual([
+      "start 1",
+      "start 2",
+      "off",
+      "end 1",
+      "end 2",
+      "start 3",
+      "end 3",
+      "action",
+    ])
   })
 
   it("draws the person and their Minecraft account as one element with one popover on a phone's card", async () => {

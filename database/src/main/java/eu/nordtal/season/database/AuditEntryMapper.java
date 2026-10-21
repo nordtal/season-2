@@ -8,6 +8,7 @@ import eu.nordtal.season.database.JournalDetail.AccessRevoked;
 import eu.nordtal.season.database.JournalDetail.AdminRevoked;
 import eu.nordtal.season.database.JournalDetail.AlertPreferenceSet;
 import eu.nordtal.season.database.JournalDetail.Announced;
+import eu.nordtal.season.database.JournalDetail.AuraSet;
 import eu.nordtal.season.database.JournalDetail.AuthenticatorRemoved;
 import eu.nordtal.season.database.JournalDetail.AuthenticatorUsed;
 import eu.nordtal.season.database.JournalDetail.BackupDownloaded;
@@ -33,6 +34,7 @@ import eu.nordtal.season.database.JournalDetail.RunCancelled;
 import eu.nordtal.season.database.JournalDetail.SettingsSaved;
 import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.JournalDetail.SmpStartSet;
+import eu.nordtal.season.database.JournalDetail.SpinsSet;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -72,8 +74,15 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
 
     private static @Nullable JournalDetail detail(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
-            case GRANT_ACCESS, REVOKE_ACCESS, SET_PLAYTIME, UNLINK, SETTLE, REVOKE_ADMIN, UNANCHORED_GRANT ->
-                person(action, rs);
+            case GRANT_ACCESS,
+                    REVOKE_ACCESS,
+                    SET_PLAYTIME,
+                    SET_AURA,
+                    SET_SPINS,
+                    UNLINK,
+                    SETTLE,
+                    REVOKE_ADMIN,
+                    UNANCHORED_GRANT -> person(action, rs);
             case SET_PHASE, SET_LAUNCH, SET_SMP_START, ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE ->
                 season(action, rs);
             case REGISTER_KEY,
@@ -119,6 +128,14 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
             case SET_PLAYTIME -> {
                 final Long seconds = rs.getObject("playtime_seconds", Long.class);
                 yield seconds == null ? null : new PlaytimeSet(Duration.ofSeconds(seconds));
+            }
+            case SET_AURA -> {
+                final Integer aura = rs.getObject("aura", Integer.class);
+                yield aura == null ? null : new AuraSet(aura);
+            }
+            case SET_SPINS -> {
+                final Integer spins = rs.getObject("spins", Integer.class);
+                yield spins == null ? null : new SpinsSet(spins);
             }
             case UNLINK -> {
                 final Boolean selfService = rs.getObject("self_service", Boolean.class);

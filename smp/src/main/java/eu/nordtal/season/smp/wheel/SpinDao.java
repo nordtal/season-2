@@ -60,4 +60,13 @@ public interface SpinDao {
                 SET granted = smp_spin.granted + excluded.granted
             """)
     void grantSpins(@Bind("discordId") DiscordId discordId, @Bind("count") int count);
+
+    /** Sets the extra spins left to {@code count}, keeping the count of spins used. */
+    @SqlUpdate("""
+            INSERT INTO smp_spin (discord_id, granted)
+            VALUES (:discordId, :count)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET granted = smp_spin.used + excluded.granted
+            """)
+    void setSpins(@Bind("discordId") DiscordId discordId, @Bind("count") int count);
 }

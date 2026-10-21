@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
 import type { Person } from "@/lib/api"
+import { count } from "@/lib/format"
 import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
@@ -28,7 +29,10 @@ const PEOPLE_PAGE_SIZE = 20
 
 type LinkFilter = "" | "linked" | "unlinked"
 
-/** The roster's columns. On a phone the person and the roles head the card, access and playtime follow. */
+/**
+ * The roster's columns. On a phone the person and the roles head the card, access and playtime follow, and aura and
+ * extra spins close it where they are not zero.
+ */
 function peopleColumns(list: Person[], now: number): Column<Person>[] {
   return [
     {
@@ -128,8 +132,37 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
         </span>
       ),
     },
+    {
+      head: t("steward.people.aura"),
+      // A phone draws the line only for somebody who has aura or extra spins, since most people have neither.
+      phone: (person) => (person.aura ? { line: 3, side: "start" } : null),
+      waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
+      render: (person) => <SmpCount person={person} term="aura" />,
+    },
+    {
+      head: t("steward.people.spins"),
+      phone: (person) => (person.spins ? { line: 3, side: person.aura ? "end" : "start" } : null),
+      waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
+      render: (person) => <SmpCount person={person} term="spins" />,
+    },
     { head: "", phone: "action", render: (person) => <PersonActions person={person} menu /> },
   ]
+}
+
+/** One SMP figure of a row. */
+function SmpCount({ person, term }: { person: Person; term: "aura" | "spins" }) {
+  const Icon = TERM_ICON[term]
+  return (
+    <span className="flex items-center gap-1 text-sm tabular-nums">
+      {/* The card's stand-in for the heading a phone does not draw. */}
+      <Icon
+        className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
+        role="img"
+        aria-label={t(`steward.people.${term}`)}
+      />
+      {count(person[term])}
+    </span>
+  )
 }
 
 /**

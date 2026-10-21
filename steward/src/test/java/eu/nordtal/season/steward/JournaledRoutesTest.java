@@ -32,6 +32,8 @@ class JournaledRoutesTest {
             Map.entry("POST /api/access/unlink", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/access/settle", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/people/{id}/playtime", Unjournaled.IN_THE_CHANGE),
+            Map.entry("POST /api/people/{id}/aura", Unjournaled.IN_THE_CHANGE),
+            Map.entry("POST /api/people/{id}/spins", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/season/phase", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/season/date", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/smp/objective", Unjournaled.IN_THE_CHANGE),

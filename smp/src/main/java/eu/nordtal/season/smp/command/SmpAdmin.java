@@ -14,11 +14,11 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
-import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.TrackDao;
+import eu.nordtal.season.smp.wheel.SpinDao;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,7 +33,9 @@ public final class SmpAdmin {
 
     public record Who(PlayerContext player) {}
 
-    public record AuraDelta(PlayerContext player, long delta) {}
+    public record AuraSet(long aura) {}
+
+    public record SpinsSet(long spins) {}
 
     public record Milestone(String key) {}
 
@@ -55,11 +57,8 @@ public final class SmpAdmin {
             admin("name-tags-redrawn", DocumentSpec.None.class);
     static final DocumentSpec<Objective> OBJECTIVE_COMPLETED = admin("objective-completed", Objective.class);
     static final DocumentSpec<Milestone> MILESTONE_UNLOCKED = admin("milestone-unlocked", Milestone.class);
-    static final DocumentSpec<Who> TARGET_UNLINKED = admin("target-unlinked", Who.class);
-    /** The transaction may have committed, so the answer says the result is unknown. */
-    static final DocumentSpec<AuraDelta> AURA_UNKNOWN = admin("aura-unknown", AuraDelta.class);
-
-    static final DocumentSpec<AuraDelta> AURA_CHANGED = admin("aura-changed", AuraDelta.class);
+    static final DocumentSpec<AuraSet> AURA_SET = admin("aura-set", AuraSet.class);
+    static final DocumentSpec<SpinsSet> SPINS_SET = admin("spins-set", SpinsSet.class);
 
     static final DocumentSpec<Who> UNLINKED = access("unlinked", Who.class);
     static final DocumentSpec<Linked> LINKED = access("linked", Linked.class);
@@ -83,22 +82,22 @@ public final class SmpAdmin {
 
     private final TrackDao rows;
     private final AuraDao aura;
+    private final SpinDao spins;
     private final Track track;
-    private final Identities identities;
     private final AccessReader access;
     private final Logger logger;
 
     public SmpAdmin(
             final TrackDao rows,
             final AuraDao aura,
+            final SpinDao spins,
             final Track track,
-            final Identities identities,
             final AccessReader access,
             final Logger logger) {
         this.rows = rows;
         this.aura = aura;
+        this.spins = spins;
         this.track = track;
-        this.identities = identities;
         this.access = access;
         this.logger = logger;
     }
@@ -131,20 +130,18 @@ public final class SmpAdmin {
         return Answer.done(MILESTONE_UNLOCKED.with(new Milestone(key)));
     }
 
-    public Answer changeAura(final UUID player, final String name, final int delta) {
-        final Optional<DiscordId> discordId = identities.discordIdOf(player);
-        if (discordId.isEmpty()) {
-            return Answer.failed(TARGET_UNLINKED.with(new Who(PlayerContext.of(PlayerId.of(player), name))));
-        }
-        try {
-            aura.addAura(discordId.get(), delta, new AuraCause.Admin(Actor.HOST));
-        } catch (final RuntimeException failure) {
-            // The transaction may have committed, so the answer says the result is unknown.
-            logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);
-            return Answer.failed(AURA_UNKNOWN.with(new AuraDelta(PlayerContext.of(PlayerId.of(player), name), delta)));
-        }
-        logger.info("the console changed " + name + "'s aura by " + delta);
-        return Answer.done(AURA_CHANGED.with(new AuraDelta(PlayerContext.of(PlayerId.of(player), name), delta)));
+    /** Sets the aura of {@code person} and records the difference as a change by {@code actor}. */
+    public Answer setAura(final DiscordId person, final int value, final Actor actor) {
+        final int delta = aura.setAura(person, value, new AuraCause.Admin(actor));
+        logger.info(actor + " set the aura of " + person.value() + " to " + value + ", a change of " + delta);
+        return Answer.done(AURA_SET.with(new AuraSet(value)));
+    }
+
+    /** Sets the extra spins {@code person} has left. */
+    public Answer setSpins(final DiscordId person, final int value) {
+        spins.setSpins(person, value);
+        logger.info("the extra spins of " + person.value() + " are set to " + value);
+        return Answer.done(SPINS_SET.with(new SpinsSet(value)));
     }
 
     public void showAccess(final PaperUser console, final UUID player, final String name) {

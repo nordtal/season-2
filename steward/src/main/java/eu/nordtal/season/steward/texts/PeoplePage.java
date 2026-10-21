@@ -30,6 +30,12 @@ public interface PeoplePage {
     @Name("Playtime")
     MessageRef playtime();
 
+    @Name("Aura")
+    MessageRef aura();
+
+    @Name("Extra spins")
+    MessageRef spins();
+
     @Name("Active until")
     MessageRef activeUntil(@Arg("until") Instant until);
 
@@ -191,6 +197,30 @@ public interface PeoplePage {
 
     @Name("Play time not written")
     MessageRef playtimeNotWritten();
+
+    @Name("Aura title")
+    MessageRef auraTitle();
+
+    @Name("Aura set")
+    MessageRef auraSet(@Arg("name") String name, @Arg("aura") int aura);
+
+    @Name("Aura now")
+    MessageRef auraNow(@Arg("aura") int aura);
+
+    @Name("Aura not written")
+    MessageRef auraNotWritten();
+
+    @Name("Spins title")
+    MessageRef spinsTitle();
+
+    @Name("Spins set")
+    MessageRef spinsSet(@Arg("name") String name, @Arg("spins") int spins);
+
+    @Name("Spins now")
+    MessageRef spinsNow(@Arg("spins") int spins);
+
+    @Name("Spins not written")
+    MessageRef spinsNotWritten();
 
     @Name("Hours")
     MessageRef hours();

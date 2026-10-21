@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.season.common.health.Readiness;
 import eu.nordtal.season.common.health.Shutdown;
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.database.Jdbis;
@@ -83,7 +84,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -418,10 +419,13 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return List.copyOf(problems);
     }
 
-    /** Answers this plugin's inbox on the hub. Call it in {@link #enable()}. The action runs on the hub's thread. */
-    protected final <P> void answer(final InboxTable<P> table, final Function<P, Answer> action) {
+    /**
+     * Answers this plugin's inbox on the hub. Call it in {@link #enable()}. The action runs on the hub's thread.
+     * It is handed each request and the actor who asked for it.
+     */
+    protected final <P> void answer(final InboxTable<P> table, final BiFunction<P, Actor, Answer> action) {
         Inbox.takeOver(pool, table, getName())
-                .listen(hub(), request -> outcome(safely(() -> action.apply(request.payload()))));
+                .listen(hub(), request -> outcome(safely(() -> action.apply(request.payload(), request.actor()))));
     }
 
     protected final Answer preview(final PlayerId player, final MessagePreview preview) {

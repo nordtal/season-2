@@ -35,6 +35,8 @@ describe("breadcrumbsFor", () => {
       locale: "en",
       updated: "2026-09-01T00:00:00Z",
       accessActive: false,
+      aura: 0,
+      spins: 0,
     }
     const people = [ally]
     expect(breadcrumbsFor("/access/123", people).at(-1)).toEqual({ label: "Ally", href: "/access/123" })

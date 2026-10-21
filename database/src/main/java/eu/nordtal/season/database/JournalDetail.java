@@ -100,6 +100,30 @@ public sealed interface JournalDetail {
         }
     }
 
+    record AuraSet(int aura) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.journal().setAura(aura);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(handle, "journal_aura", entry, "aura", aura);
+        }
+    }
+
+    record SpinsSet(int spins) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.journal().setSpins(spins);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(handle, "journal_spins", entry, "spins", spins);
+        }
+    }
+
     record Unlinked(boolean selfService) implements JournalDetail {
         @Override
         public MessageRef line() {

@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.inbox;
 
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.notify.Channel;
 import java.util.Objects;
@@ -8,11 +9,13 @@ import java.util.Objects;
 public sealed interface SmpRequest
         permits SmpRequest.CompleteObjective,
                 SmpRequest.UnlockMilestone,
+                SmpRequest.SetAura,
+                SmpRequest.SetSpins,
                 SmpRequest.PreviewMessage,
                 SmpRequest.CheckSettings {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
-            .withRows(CompleteObjective.class, UnlockMilestone.class);
+            .withRows(CompleteObjective.class, UnlockMilestone.class, SetAura.class, SetSpins.class);
 
     /** Closes one objective of the active milestone by hand and pays out what was collected. */
     record CompleteObjective(String key) implements SmpRequest {
@@ -27,6 +30,25 @@ public sealed interface SmpRequest
 
         public UnlockMilestone {
             Objects.requireNonNull(key, "key");
+        }
+    }
+
+    /** Sets a person's aura and records the difference as the asker's change. */
+    record SetAura(DiscordId person, int aura) implements SmpRequest {
+
+        public SetAura {
+            Objects.requireNonNull(person, "person");
+        }
+    }
+
+    /** Sets the extra spins a person has left, beside the free spin of each day. */
+    record SetSpins(DiscordId person, int spins) implements SmpRequest {
+
+        public SetSpins {
+            Objects.requireNonNull(person, "person");
+            if (spins < 0) {
+                throw new IllegalArgumentException("spins are never below zero, not " + spins);
+            }
         }
     }
 

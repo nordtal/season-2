@@ -222,6 +222,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V79__backup_archives_are_a_catalogue_and_a_failed_tool_keeps_its_exit_code.sql",
                 "a1f8fa9f3557291a2e2f05df9b196f42a111d91b341ad30f825a763e4181e32d");
+        FROZEN.put(
+                "V80__an_admin_sets_aura_and_spins_in_steward.sql",
+                "6231ac3ad2b0bc99f02db849a12e20818af79ed36afdd2464c26a6e6f6016a13");
     }
 
     @Test

@@ -104,6 +104,8 @@ class GateTest {
             Map.entry("POST /api/shared-parts/{name}/changes", Gate.KEY_HELD),
             Map.entry("POST /api/access/revoke", Gate.KEY_HELD),
             Map.entry("POST /api/people/{id}/playtime", Gate.KEY_HELD),
+            Map.entry("POST /api/people/{id}/aura", Gate.KEY_HELD),
+            Map.entry("POST /api/people/{id}/spins", Gate.KEY_HELD),
             Map.entry("POST /api/pack-exemptions/exempt", Gate.KEY_HELD),
             Map.entry("POST /api/pack-exemptions/enforce", Gate.KEY_HELD),
             Map.entry("POST /api/season/date", Gate.KEY_HELD),

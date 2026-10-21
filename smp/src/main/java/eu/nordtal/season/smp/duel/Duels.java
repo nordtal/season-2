@@ -13,8 +13,8 @@ import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.aura.DuelType;
 import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
-import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.port.Arenas;
@@ -272,10 +272,10 @@ public final class Duels implements Arenas {
     }
 
     private void giveLoadout(final Player player, final DuelType type) {
-        final List<WheelPrizeSpec> loadout =
+        final List<DuelLoadoutItemSpec> loadout =
                 type == DuelType.SWORD ? config.duelLoadoutSword() : config.duelLoadoutBow();
 
-        for (final WheelPrizeSpec entry : loadout) {
+        for (final DuelLoadoutItemSpec entry : loadout) {
             final Material material = GameKeys.material(entry.item()).orElse(null);
             if (material == null) {
                 plugin.getLogger()

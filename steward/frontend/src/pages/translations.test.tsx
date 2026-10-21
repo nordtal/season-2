@@ -379,6 +379,21 @@ describe("one text open at a time", () => {
     expect(screen.queryByRole("textbox")).toBeNull()
   })
 
+  it("opens a text in its card, under its name and beside its preview, and closes it there", async () => {
+    twoKeys()
+    draw(<Page />)
+
+    await openKey("First")
+    const card = screen.getByRole("article", { name: "First" })
+    expect(card.hasAttribute("data-open")).toBe(true)
+    expect(within(card).getByRole("textbox", { name: "First" })).toBeTruthy()
+    expect(screen.queryByRole("heading", { level: 1, name: "First" })).toBeNull()
+    screen.getByRole("article", { name: "Second" })
+
+    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "First" })).toBeNull())
+  })
+
   it("keeps the draft of a text when another is opened", async () => {
     twoKeys()
     draw(<Page />)
@@ -407,7 +422,6 @@ describe("one text open at a time", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard" }))
 
     expect(asTextArea(screen.getByRole("textbox", { name: "Second" })).value).toBe("two")
-    fireEvent.click(screen.getByRole("button", { name: "Translations" }))
     expect((await screen.findByRole("button", { name: "First" })).textContent).toContain("Hello")
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
   })

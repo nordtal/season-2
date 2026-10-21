@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 import { useDebounced } from "@/lib/use-debounced"
@@ -55,8 +56,8 @@ export type MessageEditorProps = {
   /** The language shown, held by the caller; without it the editor holds its own. */
   language?: Language
   onLanguage?: (language: Language) => void
-  /** Whether the text is drawn in each of its places under the field, with a button that sends it. */
-  placePreviews?: boolean
+  /** Where the text is drawn in each of its places, each with a button that sends it: the card's preview column. */
+  previewsIn: HTMLElement | null
 }
 
 /**
@@ -79,7 +80,7 @@ export function MessageEditor({
   previews,
   language: held,
   onLanguage,
-  placePreviews = true,
+  previewsIn,
 }: MessageEditorProps) {
   const [own, setOwn] = useState<Language>(ENGLISH)
   const language = held ?? own
@@ -270,24 +271,27 @@ export function MessageEditor({
           ))}
         </ul>
       ) : null}
-      {drawn !== null && placePreviews ? (
-        <div className={cn("grid grid-cols-1 gap-3", shownAt.length > 1 && "lg:grid-cols-2")}>
-          {shownAt.map((place) => (
-            <PlacePreview
-              key={place ?? ""}
-              place={place}
-              places={places}
-              target={place === undefined ? undefined : previews?.[place]}
-              runs={drawn}
-              fill={fill}
-              glyphs={glyphs.data ?? []}
-              tones={tones}
-              blocked={text === "" || problems.some((problem) => problem.error)}
-              request={{ path, service, entry, language, text, fill: sent }}
-            />
-          ))}
-        </div>
-      ) : null}
+      {drawn !== null && previewsIn
+        ? createPortal(
+            <div className="flex flex-col gap-3">
+              {shownAt.map((place) => (
+                <PlacePreview
+                  key={place ?? ""}
+                  place={place}
+                  places={places}
+                  target={place === undefined ? undefined : previews?.[place]}
+                  runs={drawn}
+                  fill={fill}
+                  glyphs={glyphs.data ?? []}
+                  tones={tones}
+                  blocked={text === "" || problems.some((problem) => problem.error)}
+                  request={{ path, service, entry, language, text, fill: sent }}
+                />
+              ))}
+            </div>,
+            previewsIn,
+          )
+        : null}
       {entry.description ? <p className="text-xs text-muted-foreground">{entry.description}</p> : null}
     </div>
   )

@@ -1,4 +1,4 @@
-import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
+import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type {
@@ -82,8 +82,8 @@ const ADDED: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">[] = [
 const STYLES: DocumentLineStyle[] = ["TITLE", "HEADING"]
 
 /**
- * A document's editor: every part of its structure folded to a line, its texts in the one language picked, a Discord
- * document's count of components and what a save would be refused for. A save is live at once.
+ * A document's editor: every part of its structure folded to a line, its texts in the one language picked and what a
+ * save would be refused for. A save is live at once.
  */
 export function DocumentEditor({
   view,
@@ -93,7 +93,6 @@ export function DocumentEditor({
   language,
   onLanguage,
   writable,
-  onClose,
 }: {
   view: DocumentView
   draft: Document
@@ -104,7 +103,6 @@ export function DocumentEditor({
   language: Language
   onLanguage: (language: Language) => void
   writable: boolean
-  onClose: () => void
 }) {
   const save = useSaveDocument()
   // The same debounced draft the preview draws, so both share one drawing.
@@ -143,27 +141,6 @@ export function DocumentEditor({
 
   return (
     <section aria-label={name} className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h3>
-        <DocumentMarks view={view} />
-        {drawing.data && !view.game ? (
-          <Badge
-            variant="outline"
-            className={cn("shrink-0 tabular-nums", drawing.data.components > drawing.data.most && "text-destructive")}
-          >
-            {t("steward.document-editor.components", { count: drawing.data.components, most: drawing.data.most })}
-          </Badge>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("steward.document-editor.close")}
-          onClick={onClose}
-        >
-          <XIcon aria-hidden />
-        </Button>
-      </div>
       {view.outdated ? <Outdated view={view} language={language} /> : null}
       {problems.length > 0 ? (
         <ul className="flex flex-col gap-1 text-xs">
@@ -218,6 +195,23 @@ export function DocumentEditor({
         </div>
       </PinnedRow>
     </section>
+  )
+}
+
+/** A Discord document's count of components against Discord's most, from the drawing its preview shares. */
+export function ComponentCount({ view, draft, language }: { view: DocumentView; draft: Document; language: Language }) {
+  const drawing = useDocumentDrawing(view.declaration, useDebounced(draft, PAUSE_MS), language)
+  if (!drawing.data || view.game) return null
+  return (
+    <Badge
+      variant="outline"
+      className={cn("shrink-0 tabular-nums", drawing.data.components > drawing.data.most && "text-destructive")}
+    >
+      {t("steward.document-editor.components", {
+        count: drawing.data.components,
+        most: drawing.data.most,
+      })}
+    </Badge>
   )
 }
 

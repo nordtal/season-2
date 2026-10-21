@@ -227,7 +227,7 @@ describe("an open document", () => {
     const editor = await openContribution()
     const card = screen.getByRole("article", { name: "Contribution" })
     expect(card.hasAttribute("data-open")).toBe(true)
-    expect(await within(editor).findByText("7 of 40 components")).toBeTruthy()
+    expect(await within(card).findByText("7 of 40 components")).toBeTruthy()
     // Each part folds to a line naming its kind and first words; only the first one starts open.
     expect(within(editor).getByRole("button", { name: "Embed" }).getAttribute("aria-expanded")).toBe("true")
     expect(
@@ -239,7 +239,7 @@ describe("an open document", () => {
     expect(within(editor).getAllByLabelText("Required by the code").length).toBeGreaterThan(0)
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
 
-    fireEvent.click(within(editor).getByRole("button", { name: "Close" }))
+    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
     await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
   })
 
@@ -266,6 +266,41 @@ describe("an open document", () => {
     fireEvent.mouseDown(within(editor).getByRole("tab", { name: "EN" }))
     await waitFor(() => expect(previewed("Access")).toHaveLength(1))
     expect(previewed("access-de")).toHaveLength(0)
+  })
+
+  it("opens in its card: the name stays above, the preview keeps its place and the editor follows it", async () => {
+    serve()
+    draw(<Page />)
+
+    const editor = await openContribution()
+    const card = screen.getByRole("article", { name: "Contribution" })
+    const name = within(card).getByRole("heading", { name: "Contribution" })
+    const preview = within(card)
+      .getAllByText("Access")
+      .find((each) => !editor.contains(each))!
+    expect(editor.contains(name)).toBe(false)
+    expect(name.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(preview.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
+  })
+
+  it("switches the language of the open document alone; every other card stays in English", async () => {
+    const donation = view({ name: "donation" }, contribution.packaged)
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, { documents: documents([contribution, donation]), render: rendered }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "DE" }))
+    const card = screen.getByRole("article", { name: "Contribution" })
+    await waitFor(() => expect(within(card).getAllByText("access-de").length).toBeGreaterThan(0))
+    const other = screen.getByRole("article", { name: "Donation" })
+    expect(await within(other).findByText("Access")).toBeTruthy()
+    expect(within(other).queryByText("access-de")).toBeNull()
   })
 
   it("saves the edited document at once and marks it changed in the list", async () => {
@@ -541,8 +576,9 @@ describe("an open document", () => {
     draw(<Page />)
 
     const editor = await openContribution()
-    expect(within(editor).getByText("Changed")).toBeTruthy()
-    expect(within(editor).getByText("Release changed")).toBeTruthy()
+    const card = screen.getByRole("article", { name: "Contribution" })
+    expect(within(card).getByText("Changed")).toBeTruthy()
+    expect(within(card).getByText("Release changed")).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })
@@ -556,7 +592,6 @@ describe("a jump from the command palette", () => {
 
     setPendingTextJump({ id: "smp/welcome", language: "en" })
 
-    await screen.findByRole("heading", { level: 1, name: "Welcome" })
     await waitFor(() =>
       expect(screen.getByRole("textbox", { name: "Welcome" }).textContent).toBe("Welcome to the server"),
     )

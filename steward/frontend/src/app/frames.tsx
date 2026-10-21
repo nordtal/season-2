@@ -40,8 +40,8 @@ function useNav() {
 }
 
 /**
- * Opening the column moves nothing in the island. The island drops its surface and path and becomes the head of the column, search and account included.
- * The path comes last, so its unfolding moves neither search nor account.
+ * The island drops its surface and path and becomes the head of the column, search and account included.
+ * An empty path is not drawn, because its padding and gap would widen the space before search on every toggle.
  */
 function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle } = nav
@@ -68,19 +68,21 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       >
         <NavToggle shown={shown} onToggle={toggle} glyph="panel" />
         <Brand version={shown} />
+        {crumbs.length > 0 ? (
+          <div
+            aria-hidden={shown}
+            inert={shown}
+            data-trail
+            className={`flex min-w-0 overflow-hidden transition-[max-width,opacity] ${MOTION} ${
+              shown ? "max-w-0 opacity-0" : "max-w-[32rem] pr-2 opacity-100"
+            }`}
+          >
+            <Trail crumbs={crumbs} />
+          </div>
+        ) : null}
         <div className="flex shrink-0 items-center gap-1">
           <SearchButton />
           <UserMenu me={me} align="start" plain />
-        </div>
-        <div
-          aria-hidden={shown}
-          inert={shown}
-          data-trail
-          className={`flex min-w-0 overflow-hidden transition-[max-width,opacity] ${MOTION} ${
-            shown ? "max-w-0 opacity-0" : "max-w-[32rem] pr-2 opacity-100"
-          }`}
-        >
-          <Trail crumbs={crumbs} />
         </div>
       </div>
 

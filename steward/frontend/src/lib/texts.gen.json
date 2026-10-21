@@ -1472,6 +1472,7 @@
     "steward.settings.search-in": [["Search ",{"v":"what"}]],
     "steward.settings.set": [["set"]],
     "steward.settings.settings-saved": [[{"c":"count","plural":true,"cases":{"one":["One setting saved."],"other":[{"pound":"count"}," settings saved."]}}]],
+    "steward.settings.syntax-error": [["Syntax error"]],
     "steward.settings.tag": [["Tag"]],
     "steward.settings.texts-saved": [[{"c":"count","plural":true,"cases":{"one":["One text saved."],"other":[{"pound":"count"}," texts saved."]}}]],
     "steward.settings.undo": [["Undo"]],

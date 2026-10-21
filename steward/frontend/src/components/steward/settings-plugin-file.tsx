@@ -8,7 +8,7 @@ import { Failure, QueryState } from "@/components/steward/query-state"
 import { SaveDraft } from "@/components/steward/group-draft"
 import { DraftForm } from "@/components/steward/settings-config"
 import { BackToTop, PinnedRow, type Target } from "@/components/steward/settings-view"
-import { Textarea } from "@/components/ui/textarea"
+import { CodeEditor } from "@/components/steward/code-editor"
 import { t } from "@/lib/texts"
 
 /**
@@ -99,15 +99,12 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
         {notice}
       </p>
       {save.error ? <Failure error={save.error} /> : null}
-      <Textarea
-        aria-label={label}
+      <CodeEditor
+        path={file.path}
+        label={label}
         value={draft ?? view.text}
         readOnly={!file.writable}
-        spellCheck={false}
-        onChange={(event) =>
-          setDraftValue(id, "text", event.target.value === view.text ? undefined : event.target.value)
-        }
-        className="min-h-64 font-mono text-xs whitespace-pre max-md:text-base"
+        onChange={(text) => setDraftValue(id, "text", text === view.text ? undefined : text)}
       />
       <PinnedRow>
         <BackToTop at={top} />

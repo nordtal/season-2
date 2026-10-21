@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, screen, within } from "@testing-library/react"
+import { EditorView } from "@codemirror/view"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { PluginFile, PluginFileView } from "@/lib/api"
@@ -45,6 +46,12 @@ const PLUGINS: Record<string, PluginFileView> = {
   "bStats/notes.txt": view(file("bStats", "notes.txt", { name: undefined }), "notes\n"),
 }
 
+/** Replaces the editor's whole text, as typing would. */
+function type(text: HTMLElement, value: string) {
+  const editor = EditorView.findFromDOM(text)!
+  editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
+}
+
 function navRows(): string[] {
   const nav = screen.getByRole("navigation", { name: "Files" })
   return Array.from(nav.querySelectorAll("button")).map((node) => node.textContent?.trim() ?? "")
@@ -69,8 +76,14 @@ describe("the plugins' files on the settings page", () => {
     const luckPerms = screen.getByRole("button", { name: "LuckPerms" })
     expect(luckPerms.getAttribute("aria-expanded")).toBe("false")
 
+    // The plugin's icon leads its row like a file's, and the caret follows the name.
+    expect(luckPerms.lastElementChild?.previousElementSibling?.textContent).toBe("LuckPerms")
+
     fireEvent.click(luckPerms)
     fireEvent.click(screen.getByRole("button", { name: /yaml-storage/ }))
+    expect(
+      screen.getByRole("button", { name: /yaml-storage/ }).lastElementChild?.previousElementSibling?.textContent,
+    ).toBe("yaml-storagegroups")
 
     expect(navRows()).toEqual([
       "Wheel",
@@ -95,11 +108,27 @@ describe("the plugins' files on the settings page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Chunky" }))
     const text = await screen.findByRole("textbox", { name: "Chunky config.yml" })
-    expect(text).toHaveProperty("value", "language: en\n")
-    fireEvent.change(text, { target: { value: "language: de\n" } })
+    expect(text.textContent).toBe("language: en")
+    type(text, "language: de\n")
 
-    expect(screen.getByRole("button", { name: "Save 1" })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Save 1" })).toBeTruthy()
     const chunky = screen.getByRole("button", { name: /Chunky/ })
     expect(within(chunky).getByLabelText("Changed")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }))
+    await waitFor(() => expect(text.textContent).toBe("language: en"))
+  })
+
+  it("colours a YAML file's text by its syntax and marks where it stops parsing", async () => {
+    vi.stubGlobal("fetch", backend({ "smp/wheel": WHEEL }, [], PLUGINS))
+
+    draw(<Settings service="smp" />)
+    fireEvent.click(await screen.findByRole("button", { name: "Chunky" }))
+    const text = await screen.findByRole("textbox", { name: "Chunky config.yml" })
+    expect(within(text).getByText("language").className).not.toBe("")
+
+    type(text, "language: [en\nother: 1\n")
+    // The linter waits for typing to pause; the gutter marks the line whether the error is a range or a point.
+    await waitFor(() => expect(document.querySelector(".cm-lint-marker-error")).toBeTruthy(), { timeout: 3000 })
   })
 })

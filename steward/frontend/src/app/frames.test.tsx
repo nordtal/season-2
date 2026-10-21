@@ -134,16 +134,23 @@ describe("the frame on a desktop", () => {
     expect(within(island).getByRole("button", { name: /Account/ })).toBeTruthy()
   })
 
-  it("puts the path after search and account, so its unfolding moves neither", async () => {
+  it("puts the path between the mark and search", async () => {
     drawAt("/services/smp", { open: false })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     const search = within(island).getByRole("button", { name: "Search pages" })
     assert.isTrue(
-      Boolean(search.compareDocumentPosition(island.querySelector("[data-trail]")!) & Node.DOCUMENT_POSITION_FOLLOWING),
-      "The path unfolds after the controls, which keep their offset from the island's left edge.",
+      Boolean(search.compareDocumentPosition(island.querySelector("[data-trail]")!) & Node.DOCUMENT_POSITION_PRECEDING),
+      "The path reads after Steward and before search and account.",
     )
+  })
+
+  it("draws no path on the overview, so folding the navigation leaves the gap before search as it is", async () => {
+    drawAt("/", { open: false })
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    assert.isNull(document.querySelector("[data-trail]"), "An empty path would still take its padding and a gap.")
   })
 
   it("has the account within reach of the island, and opens the settings from it", async () => {

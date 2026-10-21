@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { breadcrumbsFor } from "@/app/shell"
+import type { Person } from "@/lib/api"
 
 /** `decodeURIComponent` throws on `/services/%`. The test covers the header's `try`/`catch`. */
 describe("breadcrumbsFor", () => {
@@ -15,6 +16,29 @@ describe("breadcrumbsFor", () => {
       { label: "Updates", href: "/operations/updates" },
       { label: "27", href: "/operations/updates/27" },
     ])
+  })
+
+  it.each([
+    ["/translations", "Translations"],
+    ["/alerts", "Alerts"],
+  ])("names %s by its page", (path, label) => {
+    expect(breadcrumbsFor(path).at(-1)?.label).toBe(label)
+  })
+
+  it("names a user's page after the user, and by the id until the roster is there", () => {
+    const ally: Person = {
+      discordId: "123",
+      discordDisplayName: "Ally",
+      memberState: "MEMBER",
+      donor: false,
+      admin: false,
+      locale: "en",
+      updated: "2026-09-01T00:00:00Z",
+      accessActive: false,
+    }
+    const people = [ally]
+    expect(breadcrumbsFor("/access/123", people).at(-1)).toEqual({ label: "Ally", href: "/access/123" })
+    expect(breadcrumbsFor("/access/123").at(-1)?.label).toBe("123")
   })
 
   it("decodes a segment that a person should read", () => {

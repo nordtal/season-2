@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseRole;
+import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.PackagedTexts;
@@ -50,6 +51,23 @@ class MessageOverrideStoreIntegrationTest {
 
         steward.change("smp", "tab.footer", "de", List.of(), List.of(), ADMIN);
         assertEquals(Map.of(), steward.originals(Set.of("smp")), "a removed override kept what it had replaced");
+    }
+
+    @Test
+    void theReplacedHashIsReadFromTheOriginalRowsNotFromEachVariant() {
+        final TestDatabase database = TestDatabase.fresh();
+        final MessageOverrideStore steward = MessageOverrideStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        steward.change("smp", "tab.footer", "de", List.of("Moin", "Servus"), List.of("Hallo", "Hi {name}"), ADMIN);
+        Jdbis.over(database.dataSource())
+                .useHandle(handle -> handle.execute("UPDATE message_override SET replaced = NULL"));
+
+        final String replaced = PackagedTexts.hash(List.of("Hallo", "Hi {name}"));
+        assertEquals(
+                List.of(
+                        new MessageOverride("smp", "tab.footer", "de", 0, "Moin", replaced),
+                        new MessageOverride("smp", "tab.footer", "de", 1, "Servus", replaced)),
+                MessageOverrideStore.using(database.dataSourceAs(DatabaseRole.PROXY))
+                        .overrides(Set.of("smp")));
     }
 
     @Test

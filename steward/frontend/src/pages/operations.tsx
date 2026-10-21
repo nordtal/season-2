@@ -3,21 +3,20 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import type { ReportChange, ReportLine, Run } from "@/lib/api"
+import type { Run } from "@/lib/api"
 import { dateTime, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
-import { type MessageRef, choice, message, span, t } from "@/lib/texts"
+import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
-import { RunNotes } from "@/components/steward/run-notes"
+import { RunSteps } from "@/components/steward/run-steps"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { DataTable } from "@/components/steward/data-table"
 
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
@@ -54,84 +53,6 @@ export function StageBadge({ stage }: { stage: string }) {
   return <StatusBadge tone={stageTone(stage)}>{stageLabel(stage)}</StatusBadge>
 }
 
-/** Its word is the admin bundle's, so a state reads the same here and in Discord. */
-const LINE_TONE: Record<string, Tone> = {
-  UNCHANGED: "idle",
-  PLANNED: "idle",
-  STOPPED: "warn",
-  INSTALLED: "warn",
-  SAVED: "ok",
-  RESTORED: "ok",
-  STARTING: "warn",
-  HEALTHY: "ok",
-  FAILED: "down",
-}
-
-function LineState({ state }: { state: string }) {
-  /** An unknown state keeps its enum name, so a newer Steward is noticed. */
-  return <StatusBadge tone={LINE_TONE[state] ?? "idle"}>{t("run.state", { state: choice(state) })}</StatusBadge>
-}
-
-/**
- * One artefact, and what is happening to it. It branches on UNSUPPORTED and on `told`, whose `to` is `"-"`.
- */
-export function Change({ change }: { change: ReportChange }) {
-  if (change.state === "UNSUPPORTED") {
-    return (
-      <span className="text-muted-foreground">
-        <code className="text-xs">{change.artefact}</code> - {t("steward.operations.no-build")}
-      </span>
-    )
-  }
-  if (change.told) {
-    return (
-      <span className="flex flex-wrap items-center gap-1.5">
-        <code className="text-xs">{change.artefact}</code>
-        <span className="text-muted-foreground">{message(change.told)}</span>
-      </span>
-    )
-  }
-  return (
-    /** `flex-wrap`, so a long jar name does not leave a phone's edge. */
-    <span className="flex flex-wrap items-center gap-1.5">
-      <code className="text-xs">{change.artefact}</code>
-      {change.from ? (
-        <>
-          <Was value={change.from} />
-          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-        </>
-      ) : (
-        <span className="text-muted-foreground">{t("steward.operations.added")}</span>
-      )}
-      <span className="tnum">{change.to}</span>
-    </span>
-  )
-}
-
-/** A fingerprint, as the resource pack reports its SHA-1. */
-const FINGERPRINT = /^[0-9a-f]{32,64}$/i
-
-/**
- * Shows what was there before: a version, or the first eight characters of a fingerprint. The whole hash is on the title.
- */
-export function Was({ value }: { value: string }) {
-  if (!FINGERPRINT.test(value)) {
-    return <span className="text-muted-foreground tnum">{value}</span>
-  }
-  return (
-    <span className="font-mono text-xs text-muted-foreground" title={value}>
-      {value.slice(0, 8)}
-    </span>
-  )
-}
-
-/**
- * Returns whether a change row is a file actually moving. Steward omits the field for MOVING and a Gson round trip puts it back, so `state === "MOVING"` fails.
- */
-function isMoving(change: ReportChange): boolean {
-  return change.state !== "UNSUPPORTED"
-}
-
 export function runSeconds(run: Run): number | null {
   const started = parseInstant(run.started)
   if (started == null) return null
@@ -156,28 +77,32 @@ export function cancellable(run: Run, now = new Date()): boolean {
 /** The kinds a countdown runs for, as in Steward's SQL. */
 const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
 
-/** Returns what a run did, one fact per line, counted out of the report. */
+/** Returns the archives a run saved, one per finished save step, which holds before the catalogue too. */
+export function savedCount(run: Run): number {
+  return run.steps.filter(
+    (step) => (step.step === "DUMP_DATABASE" || step.step === "SAVE_VOLUME") && step.outcome === "DONE",
+  ).length
+}
+
+/** Returns what a run did, one fact per line, counted out of its steps. */
 export function summaryOf(run: Run): string[] {
-  if (run.resultText) return [t("steward.operations.report-unreadable")]
-  const report = run.report
-  if (!report) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
-  if (report.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
+  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
+  if (run.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
 
   const parts: string[] = []
-  const saved = report.services.filter((line) => line.state === "SAVED")
-  if (saved.length > 0) parts.push(t("steward.operations.saved", { count: saved.length }))
+  const saved = savedCount(run)
+  if (saved > 0) parts.push(t("steward.operations.saved", { count: saved }))
 
-  const moving = report.services.filter((line) => line.changes.some(isMoving))
-  if (moving.length > 0) {
-    const artefacts = moving.reduce((sum, line) => sum + line.changes.filter(isMoving).length, 0)
-    parts.push(t("steward.operations.moved", { services: moving.length, artefacts }))
+  const moved = run.steps.filter((step) => step.step === "INSTALL" && step.changes.length > 0)
+  if (moved.length > 0) {
+    const artefacts = moved.reduce((sum, step) => sum + step.changes.length, 0)
+    parts.push(t("steward.operations.moved", { services: moved.length, artefacts }))
   }
 
-  const failed = report.services.filter((line) => line.state === "FAILED")
+  const failed = run.steps.filter((step) => step.outcome === "FAILED")
   if (failed.length > 0) parts.push(t("steward.operations.failed", { count: failed.length }))
 
-  if (parts.length > 0) return parts
-  return [report.services.length === 0 ? t("steward.operations.no-line") : t("steward.operations.no-change")]
+  return parts.length > 0 ? parts : [t("steward.operations.no-change")]
 }
 
 export type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
@@ -316,7 +241,7 @@ export function CancelButton({ run }: { run: Run }) {
 }
 
 /**
- * One run, drawn and not dumped, for every kind but BACKUP. `useRun` polls while the run is unfinished, so the report grows on screen.
+ * One run, drawn and not dumped, for every kind but BACKUP. `useRun` polls while the run is unfinished, so its steps grow on screen.
  */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
@@ -348,12 +273,8 @@ export function UpdateRunPage() {
 }
 
 function RunDetail({ run }: { run?: Run }) {
-  const report = run?.report
-  const finished = !run
-    ? false
-    : report
-      ? ENDINGS.has(report.stage)
-      : run.status !== "PENDING" && run.status !== "RUNNING"
+  const stage = run?.stage
+  const finished = !run ? false : stage ? ENDINGS.has(stage) : run.status !== "PENDING" && run.status !== "RUNNING"
 
   return (
     <>
@@ -363,8 +284,8 @@ function RunDetail({ run }: { run?: Run }) {
             {t("steward.operations.status")}
           </span>
           <div className="flex items-center gap-2">
-            {report ? (
-              <StageBadge stage={report.stage} />
+            {stage ? (
+              <StageBadge stage={stage} />
             ) : run ? (
               <RunStatus status={run.status} />
             ) : (
@@ -395,7 +316,7 @@ function RunDetail({ run }: { run?: Run }) {
         />
       </div>
 
-      {report?.stage === "NOTHING_TO_DO" ? (
+      {stage === "NOTHING_TO_DO" ? (
         <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
           <TERM_ICON.nothingToDo className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
@@ -404,7 +325,7 @@ function RunDetail({ run }: { run?: Run }) {
         </div>
       ) : null}
 
-      {run?.savedSomething === false && run.kind === "BACKUP" && finished ? (
+      {run?.kind === "BACKUP" && finished && savedCount(run) === 0 ? (
         <div
           className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
           role="alert"
@@ -416,40 +337,30 @@ function RunDetail({ run }: { run?: Run }) {
         </div>
       ) : null}
 
-      {report && run ? (
+      {stage && run ? (
         <Panel title={t("steward.operations.stages")}>
-          <StageTrail stage={report.stage} kind={run.kind} />
+          <StageTrail stage={stage} kind={run.kind} />
         </Panel>
       ) : null}
 
-      <Panel title={t("steward.operations.report")}>
-        {!run ? (
-          /** The size of the Report card, so the page does not jump when it loads. */
+      {!run ? (
+        <Panel title={t("steward.operations.report")}>
+          {/* The size of the Report card, so the page does not jump when it loads. */}
           <Loading rows={4} />
-        ) : run.resultText ? (
-          <>
-            <p className="flex items-start gap-2 text-sm text-warning">
-              <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {t("steward.operations.raw-report")}
-            </p>
-            <pre className="max-h-96 overflow-auto rounded-md border border-border bg-card p-3 text-card-foreground font-mono text-xs leading-5 whitespace-pre-wrap">
-              {run.resultText}
-            </pre>
-          </>
-        ) : !report ? (
+        </Panel>
+      ) : run.steps.length === 0 ? (
+        <Panel title={t("steward.operations.report")}>
           <Empty title={t("steward.operations.no-report")} />
-        ) : (
-          <ReportLines lines={report.services} said={run.said} />
-        )}
-      </Panel>
-
-      {report ? <RunNotes notes={report.notes} /> : null}
+        </Panel>
+      ) : (
+        <RunSteps steps={run.steps} title={t("steward.operations.report")} />
+      )}
     </>
   )
 }
 
 /**
- * The stages that a finished run of each kind walked, because its report keeps only the last one. A run that did not end DONE gets no ticks.
+ * The stages that a finished run of each kind walked, because a run keeps only the last one. A run that did not end DONE gets no ticks.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(TRAIL),
@@ -503,56 +414,5 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
         </li>
       ) : null}
     </ol>
-  )
-}
-
-function ReportLines({ lines, said }: { lines: ReportLine[]; said: Record<string, MessageRef> }) {
-  if (lines.length === 0) {
-    return <Empty title={t("steward.operations.no-line-title")} />
-  }
-  return (
-    <DataTable
-      rows={lines}
-      rowKey={(line) => line.service}
-      columns={[
-        {
-          head: t("steward.operations.service"),
-          phone: { line: 1, side: "start" },
-          className: "align-top font-medium",
-          render: (line) => line.service,
-        },
-        {
-          head: t("steward.operations.state"),
-          phone: { line: 1, side: "end" },
-          className: "align-top",
-          render: (line) => <LineState state={line.state} />,
-        },
-        {
-          head: t("steward.operations.changes"),
-          grow: true,
-          phone: { line: 2, side: "wide" },
-          className: "align-top",
-          render: (line) => {
-            const words = said[line.service]
-            return line.changes.length === 0 && !words ? (
-              <span className="text-muted-foreground">{"\u2013"}</span>
-            ) : (
-              <div className="flex flex-col gap-1 py-1.5">
-                {line.changes.map((change) => (
-                  <Change key={`${line.service}-${change.artefact}`} change={change} />
-                ))}
-                {words ? (
-                  <span
-                    className={line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
-                  >
-                    {message(words)}
-                  </span>
-                ) : null}
-              </div>
-            )
-          },
-        },
-      ]}
-    />
   )
 }

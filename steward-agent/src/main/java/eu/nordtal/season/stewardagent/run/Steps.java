@@ -5,6 +5,8 @@ import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.RunStep.Kind;
 import eu.nordtal.season.database.update.RunStep.Outcome;
 import eu.nordtal.season.database.update.RunStep.Reason;
+import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import java.nio.file.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
@@ -81,6 +83,15 @@ final class Steps {
             end(Outcome.FAILED, reason);
         }
 
+        /** Ends the step on what a save or restore came back with, a failure as the tool's with its exit code. */
+        void ended(final SnapshotResult result) {
+            if (result.ok()) {
+                done();
+            } else if (id != 0) {
+                write(() -> recorder.end(run, id, Outcome.FAILED, Reason.TOOL_FAILED, result.exitCode()));
+            }
+        }
+
         void end(final Outcome outcome, final @Nullable Reason reason) {
             if (id != 0) {
                 write(() -> recorder.end(run, id, outcome, reason));
@@ -113,6 +124,32 @@ final class Steps {
         void offsite(final String snapshot, final long bytesAdded) {
             if (id != 0) {
                 write(() -> recorder.offsite(id, snapshot, bytesAdded));
+            }
+        }
+
+        void cacheFreed(final long bytes) {
+            if (id != 0) {
+                write(() -> recorder.cacheFreed(id, bytes));
+            }
+        }
+
+        /** Catalogues the archive a save wrote, if it wrote one. */
+        void archive(final SnapshotResult saved, final boolean stopVerified) {
+            final String file = saved.file();
+            if (id != 0 && saved.ok() && file != null) {
+                write(() -> recorder.archive(
+                        id,
+                        saved.name(),
+                        Path.of(file).getFileName().toString(),
+                        saved.bytes(),
+                        saved.took(),
+                        stopVerified));
+            }
+        }
+
+        void pruned(final String file, final RunStep.PruneRule rule) {
+            if (id != 0) {
+                write(() -> recorder.pruned(id, file, rule));
             }
         }
     }

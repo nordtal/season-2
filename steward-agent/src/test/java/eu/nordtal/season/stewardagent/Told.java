@@ -1,5 +1,10 @@
 package eu.nordtal.season.stewardagent;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
@@ -11,6 +16,28 @@ import org.jspecify.annotations.Nullable;
 
 /** Renders what a run told in English, for the tests that read report notes and lines. */
 public final class Told {
+
+    /** The shape of the report with every message in English, for the tests that read it. */
+    private static final Gson ENGLISH = Json.gson()
+            .newBuilder()
+            .registerTypeHierarchyAdapter(MessageRef.class, (JsonSerializer<MessageRef>)
+                    (message, type, context) -> new JsonPrimitive(DatabaseText.english(message)))
+            .registerTypeAdapter(UpdateReport.ServiceLine.class, (JsonSerializer<UpdateReport.ServiceLine>)
+                    (line, type, context) -> {
+                        final JsonObject shown = new JsonObject();
+                        shown.addProperty("service", line.service());
+                        shown.add("state", context.serialize(line.state()));
+                        shown.add("changes", context.serialize(line.changes()));
+                        final MessageRef said = line.said();
+                        if (said != null) {
+                            shown.add("said", context.serialize(said, MessageRef.class));
+                        }
+                        if (line.facts() != null) {
+                            shown.add("facts", context.serialize(line.facts()));
+                        }
+                        return shown;
+                    })
+            .create();
 
     private Told() {}
 
@@ -36,14 +63,14 @@ public final class Told {
         return String.join(". ", records(notes));
     }
 
-    /** A stored report with its messages in English, as the host's terminal prints it. */
+    /** A stored report with its messages in English, and other text unchanged. */
     public static String report(final String stored) {
-        return UpdateReports.english(stored);
+        return UpdateReports.parse(stored).map(ENGLISH::toJson).orElse(stored);
     }
 
-    /** Returns a plan as the records a run would write, in English, for a failed assertion. */
+    /** Returns a plan as the report a run would write, for a failed assertion. */
     public static String plan(final UpdatePlan plan) {
-        return UpdateReports.english(UpdateReports.toJson(PlanReport.of(plan)));
+        return ENGLISH.toJson(PlanReport.of(plan));
     }
 
     public static List<String> notes(final UpdateReport report) {

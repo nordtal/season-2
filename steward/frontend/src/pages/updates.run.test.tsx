@@ -14,26 +14,31 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-const REPORT = {
-  stage: "DONE",
-  services: [
-    {
-      service: "proxy",
-      state: "HEALTHY",
-      changes: [
-        { artefact: "proxy", from: "0.9.3", to: "0.9.4" },
-        {
-          artefact: "resource-pack",
-          from: "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
-          to: "0.9.4",
-        },
-      ],
-    },
-  ],
-  notes: [],
-}
+const text = (value: string) => ({ kind: "text", value })
 
-function backend(report: unknown = REPORT, extra: Record<string, unknown> = {}): typeof fetch {
+/** The rows a finished update writes, with its lines as Steward words them. */
+const STEPS = [
+  {
+    seq: 1,
+    step: "INSTALL",
+    service: "proxy",
+    outcome: "DONE",
+    lines: [
+      {
+        key: "run.change",
+        args: {
+          artefact: text("proxy"),
+          change: { kind: "message", value: { key: "run.moved", args: { from: text("0.9.3"), to: text("0.9.4") } } },
+        },
+      },
+    ],
+    changes: [{ artefact: "proxy", from: "0.9.3", to: "0.9.4" }],
+    saved: [],
+    pruned: [],
+  },
+]
+
+function backend(steps: unknown = STEPS, stage = "DONE"): typeof fetch {
   const impl: typeof fetch = async (input) => {
     const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
@@ -49,9 +54,8 @@ function backend(report: unknown = REPORT, extra: Record<string, unknown> = {}):
         moving: [],
         started: "2026-09-20T18:01:00Z",
         finished: "2026-09-20T18:04:00Z",
-        report,
-        said: {},
-        ...extra,
+        stage,
+        steps,
       })
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)
@@ -89,80 +93,49 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/**
- * A report names the version pair that `PlanReport` writes, and a pack by its short pre-run hash.
- */
-describe("a run's report reads as versions, not as bookkeeping", () => {
-  it("prints the jump steward resolved and no jar name", async () => {
+describe("a run's steps read as Steward words them", () => {
+  it("prints each step with its service and its lines", async () => {
     vi.stubGlobal("fetch", backend())
     draw()
 
-    expect(await screen.findByText("0.9.3")).toBeTruthy()
-    expect(screen.getAllByText("0.9.4").length).toBeGreaterThan(0)
-    expect(screen.queryByText(/\.jar/)).toBeNull()
+    expect(await screen.findByText("proxy 0.9.3 → 0.9.4")).toBeTruthy()
+    expect(screen.getByText("Install")).toBeTruthy()
   })
 
-  it("shortens the pack's fingerprint and keeps the whole of it on the title", async () => {
-    vi.stubGlobal("fetch", backend())
-    draw()
-
-    const short = await screen.findByText("c0bac3a0")
-    expect(short.getAttribute("title")).toBe("c0bac3a03dad681347cbe4a3bc932aff8ffd8203")
-    expect(screen.queryByText("c0bac3a03dad681347cbe4a3bc932aff8ffd8203")).toBeNull()
-  })
-
-  it("tells the run's notes and what a line says in the page's words", async () => {
+  it("names a failed step's reason and exit code", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
-        {
-          stage: "FAILED",
-          services: [
-            {
-              service: "smp",
-              state: "FAILED",
-              changes: [],
-              facts: { act: "STOP", reason: "exit 1" },
-            },
-          ],
-          notes: [
-            {
-              step: "SCOPE",
-              outcome: "SKIPPED",
-              service: "limbo",
-              what: { key: "report.held-left-out", args: {} },
-            },
-          ],
-        },
-        { said: { smp: { key: "report.stop-failed", args: { reason: { kind: "text", value: "exit 1" } } } } },
+        [
+          {
+            seq: 1,
+            step: "DUMP_DATABASE",
+            outcome: "FAILED",
+            reason: "TOOL_FAILED",
+            lines: [
+              { key: "run.reason", args: { reason: { kind: "choice", value: "tool-failed" } } },
+              { key: "run.exit-code", args: { code: { kind: "number", value: 2 } } },
+            ],
+            changes: [],
+            saved: [],
+            pruned: [],
+          },
+        ],
+        "FAILED",
       ),
     )
     draw()
 
-    expect(await screen.findByText("could not be stopped: exit 1")).toBeTruthy()
-    expect(screen.getByText("held down, left out")).toBeTruthy()
-    expect(screen.getByText("limbo")).toBeTruthy()
+    expect(await screen.findByText("the tool failed")).toBeTruthy()
+    expect(screen.getByText("exit code 2")).toBeTruthy()
+    expect(screen.getByText("Dump the database")).toBeTruthy()
   })
 
-  it("leaves a filename alone when that is honestly all there is", async () => {
-    /** A renamed jar falls back to its filename, because an invented version would be worse. */
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        stage: "DONE",
-        services: [
-          {
-            service: "smp",
-            state: "HEALTHY",
-            changes: [{ artefact: "coreprotect", from: "CoreProtect.jar", to: "22.4" }],
-          },
-        ],
-        notes: [],
-      }),
-    )
+  it("says there is no report yet while a run has no step", async () => {
+    vi.stubGlobal("fetch", backend([], "PLANNED"))
     draw()
 
-    expect(await screen.findByText("CoreProtect.jar")).toBeTruthy()
+    expect(await screen.findByText("No report yet")).toBeTruthy()
   })
 })
 
@@ -176,24 +149,12 @@ describe("a run's figures wrap on a phone", () => {
     expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
   })
 
-  it("names the run's outcome once, as its report's stage", async () => {
+  it("names the run's outcome once, as its stage", async () => {
     vi.stubGlobal("fetch", backend())
     draw()
 
-    await screen.findByText("0.9.3")
+    await screen.findByText("proxy 0.9.3 → 0.9.4")
     const status = screen.getByText("Status").parentElement!
     expect(within(status).getAllByText(/^done$/i)).toHaveLength(1)
-  })
-})
-
-describe("a run's raw report follows the theme", () => {
-  it("draws the raw report in the console's theme colours, with no fixed colour of its own", async () => {
-    vi.stubGlobal("fetch", backend(undefined, { resultText: "steward-agent: not a report" }))
-    draw()
-
-    const raw = (await screen.findByText("steward-agent: not a report")).closest("pre")
-    expect(raw?.className).toMatch(/\bbg-card\b/)
-    expect(raw?.className).toMatch(/\btext-card-foreground\b/)
-    expect(raw?.className).not.toMatch(/\[#|-(white|black)\b/)
   })
 })

@@ -1,5 +1,5 @@
 /**
- * Takes apart Steward's backup file names, `<volume>-<stamp>.tar.zst` and `nordtal-<stamp>.dump`. The report has no file name, so the name is all that says what an archive holds.
+ * Takes apart Steward's backup file names, `<volume>-<stamp>.tar.zst` and `nordtal-<stamp>.dump`. Only the name says whether an archive is a volume or a database dump.
  */
 const VOLUME_ARCHIVE = /^(.+)-(\d{8}T\d{6}Z)\.tar\.zst(\.partial)?$/
 const DATABASE_DUMP = /^(.+)-(\d{8}T\d{6}Z)\.dump(\.partial)?$/

@@ -240,6 +240,11 @@ public interface UpdateDirectory {
         return List.of();
     }
 
+    /** Returns the stage and the steps of the run with their facts, nothing when the database cannot say. */
+    default RunRecord recordOf(final long run) {
+        return RunRecord.EMPTY;
+    }
+
     /** Returns where the steps and facts of a run are written. */
     default RunRecorder recorder() {
         return RunRecorder.NONE;

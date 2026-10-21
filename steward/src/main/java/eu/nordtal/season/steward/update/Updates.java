@@ -3,10 +3,12 @@ package eu.nordtal.season.steward.update;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.inbox.StewardRequest;
+import eu.nordtal.season.database.update.RunLines;
+import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
@@ -21,9 +23,7 @@ import io.javalin.http.Context;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -57,6 +57,7 @@ public final class Updates {
     }
 
     public void list(final Context ctx) {
+        // shortcut: one query set per run, up to 200 runs; read each fact table once per page when the list gets slow.
         ctx.json(data().updates().recent(QueryLimit.of(ctx, 20, 200)).stream()
                 .map(this::describe)
                 .toList());
@@ -121,7 +122,7 @@ public final class Updates {
                 ask.services == null || ask.services.isEmpty() ? "" : " for " + String.join(", ", ask.services));
         final List<String> scope = data().updates().scopeOf(written.id());
         Journaling.line(ctx, new JournalDetail.RunAsked(written.id(), written.kind(), scope));
-        ctx.status(202).json(describe(written, scope));
+        ctx.status(202).json(describe(written, scope, RunRecord.EMPTY));
     }
 
     /** Returns whether a run of this kind replaces, stops or destroys something without undo. */
@@ -152,11 +153,11 @@ public final class Updates {
     }
 
     /**
-     * One run. A report that does not parse is {@code resultText}.
+     * One run with its steps.
      *
      * @param scope the services of the run, and empty means the whole network
      * @param moving the services the run stops
-     * @param said the message of each report line by service
+     * @param stage {@code null} before the run wrote one
      */
     public record Run(
             long id,
@@ -171,23 +172,55 @@ public final class Updates {
             List<String> moving,
             @Nullable Instant started,
             @Nullable Instant finished,
-            @Nullable UpdateReport report,
-            Map<String, MessageRef> said,
-            @Nullable Boolean savedSomething,
-            @Nullable String resultText) {}
+            UpdateReport.@Nullable Stage stage,
+            List<Step> steps) {}
+
+    /**
+     * A step of a run, with its facts in words and the archives it saved and pruned.
+     *
+     * @param lines the facts of the step in words, the same lines the terminal prints
+     */
+    public record Step(
+            int seq,
+            RunStep.Kind step,
+            @Nullable String service,
+            @Nullable Instant started,
+            @Nullable Instant finished,
+            RunStep.@Nullable Outcome outcome,
+            RunStep.@Nullable Reason reason,
+            List<MessageRef> lines,
+            List<RunStep.Change> changes,
+            List<RunStep.Archive> saved,
+            List<RunStep.Archive> pruned) {
+
+        static Step of(final RunStep.Row row) {
+            return new Step(
+                    row.seq(),
+                    row.step(),
+                    row.service(),
+                    row.started(),
+                    row.finished(),
+                    row.outcome(),
+                    row.reason(),
+                    RunLines.of(row),
+                    row.changes(),
+                    row.saved(),
+                    row.pruned());
+        }
+    }
 
     /** The answer of {@code GET /api/updates/active}, with {@code null} when no run is open. */
     public record ActiveRun(@Nullable Run run) {}
 
     Run describe(final UpdateRequest request) {
-        return describe(request, data().updates().scopeOf(request.id()));
+        return describe(
+                request,
+                data().updates().scopeOf(request.id()),
+                data().updates().recordOf(request.id()));
     }
 
     /** Returns the run for {@code scope}, and an empty scope means the whole network. */
-    static Run describe(final UpdateRequest request, final List<String> scope) {
-        final String result = request.result();
-        final Optional<UpdateReport> report =
-                result == null || result.isBlank() ? Optional.empty() : UpdateReports.parse(result);
+    static Run describe(final UpdateRequest request, final List<String> scope, final RunRecord record) {
         return new Run(
                 request.id(),
                 request.kind(),
@@ -201,10 +234,8 @@ public final class Updates {
                 request.moving(),
                 request.started(),
                 request.finished(),
-                report.orElse(null),
-                report.map(UpdateReport::said).orElse(Map.of()),
-                report.map(UpdateReport::savedSomething).orElse(null),
-                report.isPresent() || result == null || result.isBlank() ? null : result);
+                record.stage(),
+                record.steps().stream().map(Step::of).toList());
     }
 
     /** The body of {@code POST /api/updates}. */

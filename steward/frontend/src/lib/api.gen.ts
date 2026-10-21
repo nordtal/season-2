@@ -87,10 +87,8 @@ export type Run = {
   moving: string[]
   started?: string
   finished?: string
-  report?: Report
-  said: Record<string, MessageRef>
-  savedSomething?: boolean
-  resultText?: string
+  stage?: ReportStage
+  steps: RunStep[]
 }
 
 export type ActiveRun = {
@@ -341,7 +339,7 @@ export type Available = {
   hasWork: boolean
   hasFailures: boolean
   changes: AvailableChange[]
-  notes: RunNote[]
+  steps: PlannedStep[]
 }
 
 export type Action = {
@@ -608,10 +606,32 @@ export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLE
 
 export type ActorKind = "PERSON" | "STEWARD" | "HOST" | "BOT"
 
-export type Report = {
-  stage: ReportStage
-  services: ReportLine[]
-  notes: RunNote[]
+export type ReportStage =
+  | "RESOLVING"
+  | "PLANNED"
+  | "COUNTDOWN"
+  | "STOPPING"
+  | "BACKING_UP"
+  | "INSTALLING"
+  | "STARTING"
+  | "VERIFYING"
+  | "DONE"
+  | "NOTHING_TO_DO"
+  | "FAILED"
+  | "CANCELLED"
+
+export type RunStep = {
+  seq: number
+  step: StepKind
+  service?: string
+  started?: string
+  finished?: string
+  outcome?: StepOutcome
+  reason?: StepReason
+  lines: MessageRef[]
+  changes: RunChange[]
+  saved: RunArchive[]
+  pruned: RunArchive[]
 }
 
 export type SeasonPhase = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
@@ -813,11 +833,12 @@ export type AvailableChange = {
   reason?: MessageRef
 }
 
-export type RunNote = {
-  step: RunStep
-  outcome: RunOutcome
+export type PlannedStep = {
+  step: string
   service?: string
-  what: MessageRef
+  outcome?: string
+  reason?: string
+  lines: MessageRef[]
 }
 
 export type PluginFile = {
@@ -937,25 +958,83 @@ export type Measure = {
 
 export type Resolution = "RAW" | "HOUR"
 
-export type ReportStage =
-  | "RESOLVING"
-  | "PLANNED"
+export type StepKind =
+  | "RUNTIME"
+  | "SCOPE"
+  | "RESOLVE"
+  | "HAND_OVER"
+  | "ROOM_CHECK"
+  | "PRUNE"
+  | "DUMP_DATABASE"
+  | "STANDBY_UP"
   | "COUNTDOWN"
-  | "STOPPING"
-  | "BACKING_UP"
-  | "INSTALLING"
-  | "STARTING"
-  | "VERIFYING"
-  | "DONE"
-  | "NOTHING_TO_DO"
-  | "FAILED"
-  | "CANCELLED"
+  | "PLAYERS_MOVED"
+  | "STOP"
+  | "SAVE_VOLUME"
+  | "HOLD"
+  | "UNHOLD"
+  | "MIGRATE"
+  | "INSTALL"
+  | "RESTORE"
+  | "START"
+  | "VERIFY"
+  | "PLAYERS_BACK"
+  | "STANDBY_DOWN"
+  | "CLEANUP"
+  | "OFFSITE_COPY"
 
-export type ReportLine = {
-  service: string
-  state: LineState
-  changes: ReportChange[]
-  facts?: LineFacts
+export type StepOutcome = "DONE" | "SKIPPED" | "WARNING" | "FAILED"
+
+export type StepReason =
+  | "UNREACHABLE"
+  | "UNEXPECTED"
+  | "CANCELLED"
+  | "INTERRUPTED"
+  | "NO_CONTAINER"
+  | "REFUSED"
+  | "NOT_HEALTHY"
+  | "UNVERIFIED_STOP"
+  | "PLAYERS_STAYED"
+  | "PLAYERS_UNKNOWN"
+  | "NO_ROOM"
+  | "TOOL_FAILED"
+  | "NO_REPOSITORY"
+  | "REFUSED_LOCAL_BUILD"
+  | "RELEASED_MEANWHILE"
+  | "OLDER_RELEASE"
+  | "HELD"
+  | "NOT_IN_SCOPE"
+  | "NOTHING_HELD"
+  | "UNNAMED"
+  | "NEVER_DOWN"
+  | "SELF"
+  | "UNKNOWN"
+  | "NOT_A_VOLUME"
+  | "NO_VOLUMES"
+  | "NOTHING_TO_REMOVE"
+  | "NOT_SAVED"
+  | "LEFT_DOWN"
+  | "SOURCE_FAILED"
+  | "NOT_IN_RELEASE"
+  | "UNCLAIMED"
+  | "UNVERIFIABLE"
+  | "LOCAL_BUILD"
+  | "FOREIGN_NEWER"
+
+export type RunChange = {
+  artefact: string
+  from?: string
+  to?: string
+  image?: ChangeImage
+}
+
+export type RunArchive = {
+  volume: string
+  file: string
+  bytes: number
+  tookMillis: number
+  stopVerified: boolean
+  rule?: PruneRule
 }
 
 export type SmpObjective = {
@@ -990,21 +1069,6 @@ export type LastRun = {
 }
 
 export type PluginGroup = "nordtal" | "preinstalled" | "added"
-
-export type RunStep =
-  | "RUN"
-  | "SCOPE"
-  | "SOURCES"
-  | "RELEASE"
-  | "STANDBY"
-  | "PLAYERS"
-  | "STOP"
-  | "BACKUP"
-  | "MIGRATE"
-  | "INSTALL"
-  | "CLEANUP"
-
-export type RunOutcome = "DONE" | "SKIPPED" | "WARNING" | "FAILED"
 
 export type ConfigShape = "SCALAR" | "LIST" | "MAP" | "SECTIONS"
 
@@ -1116,38 +1180,9 @@ export type Gauge =
   | "EXIT_CODE"
   | "OLDER_IMAGE"
 
-export type LineState =
-  | "UNCHANGED"
-  | "PLANNED"
-  | "STOPPED"
-  | "INSTALLED"
-  | "SAVED"
-  | "RESTORED"
-  | "STARTING"
-  | "HEALTHY"
-  | "FAILED"
+export type ChangeImage = "PULLED" | "KEPT"
 
-export type ReportChange = {
-  artefact: string
-  from?: string
-  to: string
-  state: ChangeState
-  told?: MessageRef
-}
-
-export type LineFacts = {
-  act?: LineAct
-  image?: LineImage
-  reason?: string
-  artefact?: string
-  fallback?: LineFallback
-  fallbackReason?: string
-  back?: LineBack
-  waited?: number
-  seen?: LineSeen
-  archive?: string
-  mark?: ArchiveMark
-}
+export type PruneRule = "RETENTION" | "OVER_BUDGET"
 
 export type ReferenceKind =
   | "ITEM"
@@ -1206,23 +1241,5 @@ export type DocumentItem = {
 }
 
 export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "ITEM" | "LABEL"
-
-export type ChangeState = "MOVING" | "UNSUPPORTED"
-
-export type LineAct = "STOP" | "BACKUP" | "INSTALL" | "RESTORE" | "RECREATE" | "RENEW" | "START" | "VERIFY"
-
-export type LineImage = "OUTDATED" | "PULLED" | "KEPT"
-
-export type LineFallback = "NONE" | "RUNNING" | "STARTED" | "REFUSED"
-
-export type LineBack = "YES" | "NO" | "INTERRUPTED" | "REFUSED" | "RESTARTED"
-
-export type LineSeen = {
-  status?: string
-  health?: string
-  unread?: string
-}
-
-export type ArchiveMark = "WRITTEN" | "NOT_WRITTEN"
 
 export type DocumentLineStyle = "TITLE" | "HEADING"

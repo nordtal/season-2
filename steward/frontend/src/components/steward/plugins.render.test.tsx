@@ -79,7 +79,7 @@ const AVAILABLE = {
   seasonPrerelease: false,
   hasWork: true,
   hasFailures: false,
-  notes: [],
+  steps: [],
   changes: [
     {
       service: "smp",

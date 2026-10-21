@@ -71,7 +71,7 @@ final class Restores {
             final Steps.Step restoring = record.begin(RunStep.Kind.RESTORE, archive);
             final Snapshots.Restored restored = runner.backups.restore(archive);
             if (restored.result().ok() || !restored.touched()) {
-                Kinds.restored(restoring, restored.result());
+                restoring.ended(restored.result());
                 return putBack(saved, restored.result(), archive);
             }
             restoring.failed(RunStep.Reason.LEFT_DOWN);
@@ -121,7 +121,7 @@ final class Restores {
             if (restored.ok() && row != null) {
                 runner.directory.putBack(row, TEXTS.report().restoredOver(dump));
             }
-            Kinds.restored(record.begin(RunStep.Kind.RESTORE, dump), restored);
+            record.begin(RunStep.Kind.RESTORE, dump).ended(restored);
             return putBack(stopped.report(), restored, dump);
         };
         return Kinds.Planned.plan(Run.Plan.of(

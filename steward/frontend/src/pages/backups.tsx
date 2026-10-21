@@ -4,11 +4,11 @@ import { DownloadIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { toast } from "sonner"
 
-import type { Backup, Run } from "@/lib/api"
+import type { Backup, Run, RunArchive } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, parseInstant, relative } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
-import { span, t } from "@/lib/texts"
+import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AskButton } from "@/pages/operations"
+import { AskButton, savedCount } from "@/pages/operations"
 import { DataTable } from "@/components/steward/data-table"
 import { entryAt, useStewardConfig } from "@/components/steward/group-form"
 import { ScheduleDialog } from "@/pages/backup-dialogs"
@@ -91,9 +91,9 @@ function backupRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "BACKUP")
 }
 
-function saved(run: Run): { saved: number; total: number } {
-  const lines = run.report?.services ?? []
-  return { saved: lines.filter((line) => line.state === "SAVED").length, total: lines.length }
+/** Returns the archives the run saved, from the catalogue and not from the disk. */
+function savedBy(run: Run): RunArchive[] {
+  return run.steps.flatMap((step) => step.saved)
 }
 
 function ran(run: Run): string {
@@ -150,10 +150,7 @@ function Runs() {
                 end: true,
                 phone: { line: 3, side: "end", labelled: true },
                 className: "tnum",
-                render: (run) => {
-                  const archives = saved(run)
-                  return archives.total === 0 ? "\u2013" : count(archives.saved)
-                },
+                render: (run) => (run.steps.length === 0 ? "\u2013" : count(savedCount(run))),
               },
               {
                 head: t("steward.backups.took"),
@@ -274,30 +271,30 @@ function RestoreDialog() {
   )
 }
 
-/**
- * Returns the archives one run wrote: those modified within a minute of its start and finish. A run that cannot be dated matches nothing.
- */
-function archivesOf(run: Run, backups: Backup[]): Backup[] {
-  const started = parseInstant(run.started)?.getTime()
-  const finished = parseInstant(run.finished)?.getTime()
-  if (started === undefined || finished === undefined || started === null || finished === null) {
-    return []
-  }
-  const from = started - 60_000
-  const to = finished + 60_000
-  return backups
-    .filter((backup) => {
-      const modified = parseInstant(backup.modified)?.getTime()
-      return modified !== undefined && modified !== null && modified >= from && modified <= to
-    })
-    .toSorted((left, right) => left.name.localeCompare(right.name))
+/** An archive the run saved or pruned, with the file on the disk if it is still there. */
+type RunFile = RunArchive & { onDisk?: Backup }
+
+/** Returns the archives the run saved, then those it pruned, each found on the disk by its name. */
+function filesOf(run: Run, backups: Backup[]): RunFile[] {
+  const disk = new Map(backups.map((backup) => [backup.name, backup]))
+  return [...savedBy(run), ...run.steps.flatMap((step) => step.pruned)].map((archive) => ({
+    ...archive,
+    onDisk: disk.get(archive.file),
+  }))
 }
 
-function holds(backup: Backup): string {
-  const what = archived(backup.name)
+/** Returns where the file is: when it was written, pruned with its rule, or missing from the disk. */
+function whereabouts(file: RunFile): string {
+  if (file.onDisk) return dateTime(file.onDisk.modified)
+  if (file.rule) return t("steward.backups.pruned", { rule: choice(file.rule) })
+  return t("steward.backups.missing")
+}
+
+function holds(file: RunFile): string {
+  const what = archived(file.file)
   const subject =
     what.kind === "database" ? t("steward.backups.database") : (what.subject ?? t("steward.backups.unknown"))
-  return t("steward.backups.holds", { subject, partial: backup.partial })
+  return t("steward.backups.holds", { subject, partial: file.onDisk?.partial ?? false })
 }
 
 export function BackupRunDetailPage() {
@@ -305,7 +302,7 @@ export function BackupRunDetailPage() {
   const runs = useRuns(80)
   const backups = useBackups()
   const run = runs.data?.find((candidate) => String(candidate.id) === id)
-  const files = run ? archivesOf(run, backups.data ?? []) : []
+  const files = run ? filesOf(run, backups.data ?? []) : []
 
   return (
     <div className="flex flex-col gap-6">
@@ -321,10 +318,7 @@ export function BackupRunDetailPage() {
                 value={run ? dateTime(run.started || run.requested) : undefined}
               />
               <Stat label={t("steward.backups.took")} value={run ? ran(run) : undefined} />
-              <Stat
-                label={t("steward.backups.archives")}
-                value={answer && backups.data ? count(files.length) : undefined}
-              />
+              <Stat label={t("steward.backups.archives")} value={answer && run ? count(savedCount(run)) : undefined} />
             </div>
 
             <Panel title={t("steward.backups.archives")}>
@@ -334,14 +328,14 @@ export function BackupRunDetailPage() {
                 <DataTable
                   rows={answer && backups.data ? files : undefined}
                   waiting={3}
-                  rowKey={(backup) => backup.name}
+                  rowKey={(file) => `${file.file}-${file.rule ?? ""}`}
                   columns={[
                     {
                       head: t("steward.backups.archive"),
                       grow: true,
                       phone: { line: 1, side: "wide" },
                       waiting: <SkeletonText className="text-xs" width="long" />,
-                      render: (backup) => <code className="text-xs break-all">{backup.name}</code>,
+                      render: (file) => <code className="text-xs break-all">{file.file}</code>,
                     },
                     {
                       head: t("steward.backups.holds-column"),
@@ -352,24 +346,25 @@ export function BackupRunDetailPage() {
                       head: t("steward.backups.written"),
                       phone: { line: 3, side: "start" },
                       className: "text-muted-foreground",
-                      render: (backup) => dateTime(backup.modified),
+                      render: (file) =>
+                        file.onDisk ? whereabouts(file) : <span className="text-warning">{whereabouts(file)}</span>,
                     },
                     {
                       head: t("steward.backups.size"),
                       end: true,
                       phone: { line: 2, side: "end" },
                       className: "tnum",
-                      render: (backup) => bytes(backup.bytes),
+                      render: (file) => bytes(file.bytes),
                     },
                     {
                       head: "",
                       phone: "action",
-                      render: (backup) =>
-                        backup.partial ? null : (
+                      render: (file) =>
+                        !file.onDisk || file.onDisk.partial ? null : (
                           <a
-                            href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
-                            download={backup.name}
-                            aria-label={t("steward.backups.download-file", { file: backup.name })}
+                            href={`/api/backups/${encodeURIComponent(file.file)}/download`}
+                            download={file.file}
+                            aria-label={t("steward.backups.download-file", { file: file.file })}
                             className="inline-flex text-muted-foreground tap-target hover:text-foreground"
                           >
                             <DownloadIcon className="size-4" />

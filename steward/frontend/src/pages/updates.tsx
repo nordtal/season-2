@@ -15,7 +15,7 @@ import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
-import { RunNotes } from "@/components/steward/run-notes"
+import { RunSteps } from "@/components/steward/run-steps"
 import { Stat } from "@/components/steward/stat"
 import { AvailableBadge, RunStatus, runKind } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -244,7 +244,7 @@ function Available() {
 /** What a run would note. It has its own panel, because panels are not nested. */
 function PlanNotes() {
   const available = useAvailable()
-  return available.data ? <RunNotes notes={available.data.notes} /> : null
+  return available.data ? <RunSteps steps={available.data.steps} title={t("steward.operations.notes")} /> : null
 }
 
 /** Returns the runs that install or restart. */
@@ -300,7 +300,7 @@ function Runs() {
                 render: (run) => (
                   <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                     <RunStatus status={run.status} />
-                    {run.report && !ENDINGS.has(run.report.stage) ? <StageBadge stage={run.report.stage} /> : null}
+                    {run.stage && !ENDINGS.has(run.stage) ? <StageBadge stage={run.stage} /> : null}
                     {cancellable(run) ? <CancelButton run={run} /> : null}
                   </div>
                 ),
@@ -310,7 +310,7 @@ function Runs() {
                 grow: true,
                 phone: { line: 3, side: "start" },
                 render: (run) =>
-                  run.report?.stage === "NOTHING_TO_DO" ? (
+                  run.stage === "NOTHING_TO_DO" ? (
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <TERM_ICON.nothingToDo className="size-3.5 shrink-0" aria-hidden />
                       {t("steward.operations.nothing-to-do")}

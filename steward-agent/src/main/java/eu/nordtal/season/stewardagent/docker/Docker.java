@@ -444,15 +444,17 @@ public final class Docker {
                 }
             }
         }
-        return new Pruned(deleted, removed, reclaimed(images) + reclaimed(cache));
+        final long cacheBytes = reclaimed(cache);
+        return new Pruned(deleted, removed, reclaimed(images) + cacheBytes, cacheBytes);
     }
 
     /**
      * What {@link #prune} removed.
      *
      * @param removed the listed images by id with their size
+     * @param cacheBytes the part of {@code freedBytes} the build cache freed
      */
-    public record Pruned(int images, Map<String, Long> removed, long freedBytes) {}
+    public record Pruned(int images, Map<String, Long> removed, long freedBytes, long cacheBytes) {}
 
     private static long reclaimed(final JsonObject answer) {
         final JsonElement bytes = answer.get("SpaceReclaimed");

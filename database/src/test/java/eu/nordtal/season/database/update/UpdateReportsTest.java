@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.database.DatabaseText;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -227,8 +228,7 @@ class UpdateReportsTest {
         assertTrue(report.line("smp").isMoving(), "a told change still stops its service");
         assertTrue(json.contains("\"key\":\"report.image-outdated\""), json);
         assertFalse(json.contains("out of date"), json);
-        final String english = UpdateReports.english(json);
-        assertTrue(english.contains("\"told\":\"out of date\""), english);
+        assertEquals("out of date", told(UpdateReports.parse(json).orElseThrow()));
     }
 
     @Test
@@ -243,7 +243,6 @@ class UpdateReportsTest {
 
         assertEquals("out of date", change.to());
         assertEquals(null, change.told());
-        assertTrue(UpdateReports.english(stored).contains("\"to\":\"out of date\""), UpdateReports.english(stored));
     }
 
     @Test
@@ -259,26 +258,32 @@ class UpdateReportsTest {
 
         final String json = UpdateReports.toJson(report);
         // A unit comes back as its word, which a select chooses on as it did on the constant.
-        assertEquals(
-                UpdateReports.english(json),
-                UpdateReports.english(
-                        UpdateReports.toJson(UpdateReports.parse(json).orElseThrow())));
+        assertEquals("1.2 MiB in 1m 12s", told(UpdateReports.parse(json).orElseThrow()));
         assertTrue(json.contains("\"key\":\"report.size\""), json);
         assertTrue(json.contains("\"kind\":\"duration\""), json);
         assertFalse(json.contains("MiB"), "the unit is a choice the bundle words: " + json);
-        final String english = UpdateReports.english(json);
-        assertTrue(english.contains("\"told\":\"1.2 MiB in 1m 12s\""), english);
     }
 
     @Test
-    void theTerminalReadsWhatALineSaysBesideItsFacts() {
-        final String told = UpdateReports.english(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(), null)
-                        .failed(UpdateReport.Facts.notBack(
-                                UpdateReport.Back.NO, 5L, new UpdateReport.Facts.Seen(null, null, null))))));
-        assertTrue(
-                told.contains("\"said\":\"not healthy within 5 minutes (no container for it in the project)\""), told);
-        assertTrue(told.contains("\"back\":\"NO\""), told);
+    void aLineKeepsWhatItSaysBesideItsFacts() {
+        final UpdateReport.ServiceLine line = UpdateReports.parse(UpdateReports.toJson(UpdateReport.at(
+                                UpdateReport.Stage.FAILED)
+                        .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(), null)
+                                .failed(UpdateReport.Facts.notBack(
+                                        UpdateReport.Back.NO, 5L, new UpdateReport.Facts.Seen(null, null, null))))))
+                .orElseThrow()
+                .line("smp");
+        assertEquals(
+                "not healthy within 5 minutes (no container for it in the project)",
+                DatabaseText.english(java.util.Objects.requireNonNull(line.said())));
+        assertEquals(
+                UpdateReport.Back.NO,
+                java.util.Objects.requireNonNull(line.facts()).back());
+    }
+
+    private static String told(final UpdateReport report) {
+        return DatabaseText.english(java.util.Objects.requireNonNull(
+                report.services().getFirst().changes().getFirst().told()));
     }
 
     @Test

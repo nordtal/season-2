@@ -2,9 +2,12 @@ package eu.nordtal.season.database.update;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -42,14 +45,15 @@ interface RunStepDao {
 
     /** Ends a step of that run that is open. A step that ended gives zero rows. */
     @SqlUpdate("""
-            UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason
+            UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason, exit_code = :exitCode
             WHERE id = :step AND run = :run AND finished IS NULL
             """)
     int end(
             @Bind("run") long run,
             @Bind("step") long step,
             @Bind("outcome") String outcome,
-            @Bind("reason") @Nullable String reason);
+            @Bind("reason") @Nullable String reason,
+            @Bind("exitCode") @Nullable Integer exitCode);
 
     @SqlUpdate("""
             UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason
@@ -81,6 +85,124 @@ interface RunStepDao {
 
     @SqlUpdate("INSERT INTO run_offsite (step, snapshot, bytes_added) VALUES (:step, :snapshot, :added)")
     void offsite(@Bind("step") long step, @Bind("snapshot") String snapshot, @Bind("added") long added);
+
+    @SqlUpdate("INSERT INTO run_cache_freed (step, bytes) VALUES (:step, :bytes)")
+    void cacheFreed(@Bind("step") long step, @Bind("bytes") long bytes);
+
+    @SqlUpdate("""
+            INSERT INTO backup_archive (volume, file, bytes, took, saved_by, stop_verified)
+            VALUES (:volume, :file, :bytes, make_interval(secs => :millis / 1000.0), :step, :stopVerified)
+            """)
+    void archive(
+            @Bind("step") long step,
+            @Bind("volume") String volume,
+            @Bind("file") String file,
+            @Bind("bytes") long bytes,
+            @Bind("millis") long millis,
+            @Bind("stopVerified") boolean stopVerified);
+
+    @SqlUpdate("""
+            UPDATE backup_archive SET pruned_by = :step, prune_rule = :rule
+            WHERE file = :file AND pruned_by IS NULL
+            """)
+    void pruned(@Bind("step") long step, @Bind("file") String file, @Bind("rule") String rule);
+
+    /** Returns the stage of the run, none before a statement wrote one. */
+    @SqlQuery("SELECT stage FROM steward_inbox WHERE id = :run")
+    Optional<String> stage(@Bind("run") long run);
+
+    @SqlQuery("""
+            SELECT id, seq, step, service, started, finished, outcome, reason, exit_code
+            FROM run_step WHERE run = :run ORDER BY seq
+            """)
+    @RegisterConstructorMapper(StepRow.class)
+    List<StepRow> rows(@Bind("run") long run);
+
+    /** A row of {@code run_step} before its facts are joined to it. */
+    record StepRow(
+            long id,
+            int seq,
+            RunStep.Kind step,
+            @Nullable String service,
+            Instant started,
+            @Nullable Instant finished,
+            RunStep.@Nullable Outcome outcome,
+            RunStep.@Nullable Reason reason,
+            @Nullable Integer exitCode) {}
+
+    @SqlQuery("""
+            SELECT c.step, c.artefact, c.version_from, c.version_to, c.image
+            FROM run_change c JOIN run_step s ON s.id = c.step WHERE s.run = :run ORDER BY c.step, c.artefact
+            """)
+    @RegisterConstructorMapper(ChangeRow.class)
+    List<ChangeRow> changes(@Bind("run") long run);
+
+    record ChangeRow(
+            long step,
+            String artefact,
+            @Nullable String versionFrom,
+            @Nullable String versionTo,
+            RunStep.@Nullable Image image) {}
+
+    @SqlQuery("""
+            SELECT p.step, p.from_service, p.to_service, p.moved, p.returned
+            FROM run_players p JOIN run_step s ON s.id = p.step WHERE s.run = :run ORDER BY p.step, p.from_service
+            """)
+    @RegisterConstructorMapper(MoveRow.class)
+    List<MoveRow> moves(@Bind("run") long run);
+
+    record MoveRow(long step, String fromService, String toService, int moved, int returned) {}
+
+    @SqlQuery("""
+            SELECT r.step, r.image, r.bytes
+            FROM run_image_removed r JOIN run_step s ON s.id = r.step WHERE s.run = :run ORDER BY r.step, r.image
+            """)
+    @RegisterConstructorMapper(RemovedRow.class)
+    List<RemovedRow> imagesRemoved(@Bind("run") long run);
+
+    record RemovedRow(long step, String image, long bytes) {}
+
+    /** The single numbers of a step: the build cache freed, the room check and the offsite copy. */
+    @SqlQuery("""
+            SELECT s.id AS step, f.bytes AS cache_freed, r.bytes_needed, r.bytes_free, o.snapshot, o.bytes_added
+            FROM run_step s
+            LEFT JOIN run_cache_freed f ON f.step = s.id
+            LEFT JOIN run_room r ON r.step = s.id
+            LEFT JOIN run_offsite o ON o.step = s.id
+            WHERE s.run = :run AND (f.step IS NOT NULL OR r.step IS NOT NULL OR o.step IS NOT NULL)
+            """)
+    @RegisterConstructorMapper(NumbersRow.class)
+    List<NumbersRow> numbers(@Bind("run") long run);
+
+    record NumbersRow(
+            long step,
+            @Nullable Long cacheFreed,
+            @Nullable Long bytesNeeded,
+            @Nullable Long bytesFree,
+            @Nullable String snapshot,
+            @Nullable Long bytesAdded) {}
+
+    /** The archives the run saved or pruned, each with the step that did so. */
+    @SqlQuery("""
+            SELECT a.saved_by, a.pruned_by, a.volume, a.file, a.bytes,
+                   cast(extract(epoch FROM a.took) * 1000 AS bigint) AS took_millis, a.stop_verified, a.prune_rule
+            FROM backup_archive a
+            WHERE a.saved_by IN (SELECT id FROM run_step WHERE run = :run)
+               OR a.pruned_by IN (SELECT id FROM run_step WHERE run = :run)
+            ORDER BY a.id
+            """)
+    @RegisterConstructorMapper(ArchiveRow.class)
+    List<ArchiveRow> archives(@Bind("run") long run);
+
+    record ArchiveRow(
+            long savedBy,
+            @Nullable Long prunedBy,
+            String volume,
+            String file,
+            long bytes,
+            long tookMillis,
+            boolean stopVerified,
+            RunStep.@Nullable PruneRule pruneRule) {}
 
     @SqlUpdate("UPDATE steward_inbox SET stage = :stage WHERE id = :run AND stage IS DISTINCT FROM :stage")
     void stage(@Bind("run") long run, @Bind("stage") String stage);

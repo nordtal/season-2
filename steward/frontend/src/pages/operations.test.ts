@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { Run } from "@/lib/api"
+import type { Run, RunStep } from "@/lib/api"
 import { cancellable, summaryOf } from "@/pages/operations"
 
 function row(over: Partial<Run> = {}): Run {
@@ -11,7 +11,7 @@ function row(over: Partial<Run> = {}): Run {
     status: "PENDING",
     actorKind: "HOST",
     actorId: "",
-    said: {},
+    steps: [],
     requested: "2026-09-20T20:00:00Z",
     scheduledFor: "2026-09-20T20:01:00Z",
     countdownEnd: "2026-09-20T20:01:00Z",
@@ -66,25 +66,43 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 })
 
+const step = (over: Partial<RunStep>): RunStep => ({
+  seq: 1,
+  step: "INSTALL",
+  outcome: "DONE",
+  lines: [],
+  changes: [],
+  saved: [],
+  pruned: [],
+  ...over,
+})
+const change = (artefact: string) => ({ artefact, from: "1", to: "2" })
+const archive = (file: string) => ({ volume: "smp", file, bytes: 1, tookMillis: 1, stopVerified: true })
+
 /** One fact per line, counted in the bundle's words. */
 describe("summaryOf - what a run did, counted", () => {
   it("counts the services that moved and the files they moved, each in its own number", () => {
-    const report: Run["report"] = {
-      stage: "DONE",
-      services: [
-        { service: "smp", state: "HEALTHY", changes: [{ artefact: "smp", from: "1", to: "2", state: "MOVING" }] },
-        {
-          service: "proxy",
-          state: "FAILED",
-          changes: [
-            { artefact: "proxy", from: "1", to: "2", state: "MOVING" },
-            { artefact: "limbo", from: "1", to: "2", state: "MOVING" },
-          ],
-        },
-      ],
-      notes: [],
-    }
+    const steps = [
+      step({ service: "smp", changes: [change("smp")] }),
+      step({ service: "proxy", changes: [change("proxy"), change("limbo")] }),
+      step({ step: "START", service: "proxy", outcome: "FAILED" }),
+    ]
 
-    expect(summaryOf(row({ status: "DONE", report }))).toEqual(["2 services, 3 artefacts", "1 failed"])
+    expect(summaryOf(row({ status: "DONE", stage: "FAILED", steps }))).toEqual(["2 services, 3 artefacts", "1 failed"])
+  })
+
+  it("counts one archive per finished save step, also for a run from before the catalogue", () => {
+    const steps = [
+      step({ step: "DUMP_DATABASE", saved: [archive("nordtal-1.dump")] }),
+      step({ step: "SAVE_VOLUME", service: "smp" }),
+      step({ step: "SAVE_VOLUME", service: "limbo", outcome: "FAILED" }),
+    ]
+
+    expect(summaryOf(row({ kind: "BACKUP", status: "DONE", stage: "DONE", steps }))).toEqual(["2 saved", "1 failed"])
+  })
+
+  it("says nothing was written before the first step, and no change once steps moved nothing", () => {
+    expect(summaryOf(row())).toEqual(["nothing written yet"])
+    expect(summaryOf(row({ status: "DONE", stage: "DONE", steps: [step({ step: "STOP" })] }))).toEqual(["no change"])
   })
 })

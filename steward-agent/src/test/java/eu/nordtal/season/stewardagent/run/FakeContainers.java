@@ -156,7 +156,7 @@ final class FakeContainers implements ContainerOps {
     @Override
     public Pruned pruneImages() {
         calls.add("prune-images");
-        return new Pruned(3, Map.of("sha256:old", 2_000_000_000L), 2_000_000_000L, null);
+        return new Pruned(3, Map.of("sha256:old", 2_000_000_000L), 2_000_000_000L, 300_000_000L, null);
     }
 
     private RedeployResult made(final String call, final String service) {

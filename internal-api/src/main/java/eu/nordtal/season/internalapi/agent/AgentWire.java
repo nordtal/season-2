@@ -462,7 +462,7 @@ public final class AgentWire {
             boolean fixed) {}
 
     /**
-     * What a run would do now: every artefact with its status, and the notes a run would write.
+     * What a run would do now: every artefact with its status, and the resolve steps a run would write.
      *
      * @param resolvedAt when the agent asked the sources
      */
@@ -473,11 +473,20 @@ public final class AgentWire {
             boolean hasWork,
             boolean hasFailures,
             List<ResolvedChange> changes,
-            List<Note> notes) {}
+            List<PlannedStep> steps) {}
 
-    /** One note of a run, by step and outcome. {@code service} is absent for a note that belongs to no service. */
-    public record Note(
-            String step, String outcome, @Nullable String service, Message what) {}
+    /**
+     * A step a run of the plan would write, by the names of {@code RunStep}'s kinds, outcomes and reasons.
+     *
+     * @param service absent for a step of the whole run
+     * @param lines the facts of the step in words, as a run's step reads
+     */
+    public record PlannedStep(
+            String step,
+            @Nullable String service,
+            @Nullable String outcome,
+            @Nullable String reason,
+            List<Message> lines) {}
 
     /** A message as data: its key and each value with its kind. A value is the JSON it already is. */
     public record Message(String key, JsonObject args) {}

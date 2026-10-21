@@ -11,6 +11,7 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.TabRefusal;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -265,9 +266,62 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef step(@Arg("step") UpdateReport.Step step);
 
-        @Name("How a note went")
+        @Name("How a step went")
         @Shown(Display.STEWARD)
-        MessageRef outcome(@Arg("outcome") UpdateReport.Outcome outcome);
+        MessageRef outcome(@Arg("outcome") RunStep.Outcome outcome);
+
+        @Name("What a step does")
+        @Shown(Display.STEWARD)
+        MessageRef stepKind(@Arg("kind") RunStep.Kind kind);
+
+        @Name("Why a step did not go as asked")
+        @Shown(Display.STEWARD)
+        MessageRef reason(@Arg("reason") RunStep.Reason reason);
+
+        @Name("The exit code of a tool that failed")
+        @Shown(Display.STEWARD)
+        MessageRef exitCode(@Arg("code") @Example("2") long code);
+
+        @Name("Which image a container was recreated from")
+        @Shown(Display.STEWARD)
+        MessageRef image(@Arg("image") RunStep.Image image);
+
+        @Name("Players moved off a service and back")
+        @Shown(Display.STEWARD)
+        MessageRef players(
+                @Arg("moved") long moved,
+                @Arg("from") @Example("smp") String from,
+                @Arg("to") @Example("limbo") String to,
+                @Arg("returned") long returned);
+
+        @Name("Images a cleanup removed")
+        @Shown(Display.STEWARD)
+        MessageRef imagesRemoved(@Arg("images") long images, @Arg("freed") MessageRef freed);
+
+        @Name("The build cache a cleanup freed")
+        @Shown(Display.STEWARD)
+        MessageRef cacheFreed(@Arg("freed") MessageRef freed);
+
+        @Name("The room a backup needs and finds")
+        @Shown(Display.STEWARD)
+        MessageRef room(@Arg("needed") MessageRef needed, @Arg("free") MessageRef free);
+
+        @Name("An offsite copy")
+        @Shown(Display.STEWARD)
+        MessageRef offsite(@Arg("snapshot") @Example("4f1c2d") String snapshot, @Arg("added") MessageRef added);
+
+        @Name("An archive a step saved")
+        @Shown(Display.STEWARD)
+        MessageRef archiveSaved(
+                @Arg("file") @Example("nordtal-20261020-0400.dump") String file,
+                @Arg("size") MessageRef size,
+                @Arg("took") Duration took,
+                @Arg("verified") boolean verified);
+
+        @Name("An archive a step pruned")
+        @Shown(Display.STEWARD)
+        MessageRef archivePruned(
+                @Arg("file") @Example("nordtal-20261020-0400.dump") String file, @Arg("rule") RunStep.PruneRule rule);
 
         @Name("An artefact with no build for this Minecraft version")
         @Shown(Display.DISCORD_TEXT)

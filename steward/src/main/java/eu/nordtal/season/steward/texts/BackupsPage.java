@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.texts;
 
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
@@ -118,4 +119,10 @@ public interface BackupsPage {
 
     @Name("Download a file")
     MessageRef downloadFile(@Arg("file") String file);
+
+    @Name("An archive a prune removed")
+    MessageRef pruned(@Arg("rule") RunStep.PruneRule rule);
+
+    @Name("An archive missing from the disk")
+    MessageRef missing();
 }

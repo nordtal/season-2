@@ -78,6 +78,7 @@ function run(id: number, kind: string) {
     moving: [],
     started: "2026-09-24T10:00:00Z",
     finished: "2026-09-24T10:01:00Z",
+    steps: [],
   }
 }
 
@@ -99,7 +100,7 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
         hasWork: false,
         hasFailures: false,
         changes: [],
-        notes: [],
+        steps: [],
       })
     }
     if (url.startsWith("/api/updates")) return json(200, over.runs ?? [])

@@ -206,7 +206,7 @@ const openRun = (over: Partial<Run> = {}): Run => ({
   status: "PENDING",
   actorKind: "HOST",
   actorId: "",
-  said: {},
+  steps: [],
   scope: ["smp"],
   requested: "2026-09-24T20:00:00Z",
   scheduledFor: new Date(Date.now() + 60_000).toISOString(),
@@ -260,7 +260,7 @@ describe("ServicePage - a run that is open", () => {
         run: openRun({
           status: "RUNNING",
           countdownEnd: "2026-09-24T20:00:30Z",
-          report: { stage: "STOPPING", services: [], notes: [] },
+          stage: "STOPPING",
         }),
       }),
     )

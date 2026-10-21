@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.MessageRef;
 import java.io.IOException;
@@ -21,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -212,10 +210,6 @@ public final class ApiTypes {
         if (type == MessageRef.class || type == AgentWire.Message.class) {
             return "MessageRef";
         }
-        if (type == AgentWire.Note.class) {
-            // The wire cannot import a run's note, so it holds a copy. Both are drawn as one type.
-            return named(sameShape(type, UpdateReport.Note.class));
-        }
         if (type == eu.nordtal.season.messages.document.Text.class) {
             // Its adapter writes a language's one text as a string and its random versions as a list.
             return "Record<string, string | string[]>";
@@ -231,21 +225,6 @@ public final class ApiTypes {
             return declared.get(type);
         }
         throw new IllegalStateException("no wire shape for " + type);
-    }
-
-    /** Returns {@code original} after checking that {@code copy} has the same components with the same names. */
-    private static Class<?> sameShape(final Class<?> copy, final Class<?> original) {
-        final List<String> copied = componentNames(copy);
-        if (!copied.equals(componentNames(original))) {
-            throw new IllegalStateException(copy + " no longer matches " + original + ": " + copied);
-        }
-        return original;
-    }
-
-    private static List<String> componentNames(final Class<?> type) {
-        return Arrays.stream(type.getRecordComponents())
-                .map(RecordComponent::getName)
-                .toList();
     }
 
     private static String union(final Class<?> type, final int indent) {

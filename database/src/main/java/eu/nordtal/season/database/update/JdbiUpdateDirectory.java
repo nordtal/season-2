@@ -298,6 +298,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public RunRecord recordOf(final long run) {
+        return recorder.record(run);
+    }
+
+    @Override
     public List<RunProgress.Step> stepsOf(final UpdateRequest run) {
         return recorder.steps(run.id());
     }

@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.update;
 
+import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -18,7 +19,21 @@ public interface RunRecorder {
 
     /** Ends a step of that run that is open. */
     default void end(
-            final long run, final long step, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {}
+            final long run, final long step, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {
+        end(run, step, outcome, reason, null);
+    }
+
+    /**
+     * Ends a step of that run that is open.
+     *
+     * @param exitCode what the tool exited with, only with {@link RunStep.Reason#TOOL_FAILED}
+     */
+    default void end(
+            final long run,
+            final long step,
+            final RunStep.Outcome outcome,
+            final RunStep.@Nullable Reason reason,
+            final @Nullable Integer exitCode) {}
 
     /** Ends every open step of the run, as a run that stops early leaves them. */
     default void endOpen(final long run, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {}
@@ -36,6 +51,26 @@ public interface RunRecorder {
     default void room(final long step, final long needed, final long free) {}
 
     default void offsite(final long step, final String snapshot, final long bytesAdded) {}
+
+    /** The bytes a cleanup freed in the build cache. */
+    default void cacheFreed(final long step, final long bytes) {}
+
+    /**
+     * An archive the step wrote, into the catalogue.
+     *
+     * @param volume the volume it holds, or {@code database} for a dump
+     * @param stopVerified false when a service it holds stopped and nobody could read how it ended
+     */
+    default void archive(
+            final long step,
+            final String volume,
+            final String file,
+            final long bytes,
+            final Duration took,
+            final boolean stopVerified) {}
+
+    /** An archive of the catalogue that the step removed. A file the catalogue does not hold records nothing. */
+    default void pruned(final long step, final String file, final RunStep.PruneRule rule) {}
 
     /** Adds players that the proxy moved off a service to the move that steward-agent began for it. */
     default void moved(final long run, final String from, final String to, final int players) {}

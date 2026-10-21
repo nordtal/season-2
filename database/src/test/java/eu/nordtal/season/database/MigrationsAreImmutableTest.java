@@ -219,6 +219,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V78__an_overrides_hash_comes_from_the_texts_it_replaced.sql",
                 "4de798f4c95dc7110ec9437322a1c4135afe56a22c9d63b5639ae5a48d9de310");
+        FROZEN.put(
+                "V79__backup_archives_are_a_catalogue_and_a_failed_tool_keeps_its_exit_code.sql",
+                "a1f8fa9f3557291a2e2f05df9b196f42a111d91b341ad30f825a763e4181e32d");
     }
 
     @Test

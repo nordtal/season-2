@@ -33,7 +33,7 @@ function run(over: Partial<Run> = {}): Run {
     status: "PENDING",
     actorKind: "HOST",
     actorId: "",
-    said: {},
+    steps: [],
     scope: [],
     requested: new Date().toISOString(),
     // A countdown that Steward has not picked up yet.
@@ -59,7 +59,7 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
         hasWork: false,
         hasFailures: false,
         changes: [],
-        notes: [],
+        steps: [],
       })
     }
     if (url.startsWith("/api/updates")) return json(200, runs)

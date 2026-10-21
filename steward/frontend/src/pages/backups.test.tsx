@@ -122,18 +122,19 @@ function run(over: Record<string, unknown> = {}) {
     moving: [],
     started: "2026-09-17T04:45:02Z",
     finished: "2026-09-17T04:46:08Z",
-    report: {
-      stage: "FAILED",
-      notes: [],
-      services: Array.from({ length: 12 }, (_, index) => ({
-        service: `nordtal-s2_volume-${index}`,
-        state: "FAILED",
-        changes: [],
-        facts: { act: "BACKUP", reason: "no mount at /backup-sources" },
-      })),
-    },
+    stage: "FAILED",
+    steps: Array.from({ length: 12 }, (_, index) => saving(`nordtal-s2_volume-${index}`, [], "FAILED")),
     ...over,
   }
+}
+
+/** A step that saved the archives it names, as the catalogue gives them back. */
+function saving(service: string, saved: Record<string, unknown>[], outcome = "DONE") {
+  return { seq: 1, step: "SAVE_VOLUME", service, outcome, lines: [], changes: [], saved, pruned: [] }
+}
+
+function archive(file: string, over: Record<string, unknown> = {}) {
+  return { volume: "nordtal-s2_mc-smp", file, bytes: 1_500_000_000, tookMillis: 4000, stopVerified: true, ...over }
 }
 
 function backup(over: Record<string, unknown> = {}) {
@@ -257,6 +258,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** The table row that names a file. */
+const rowOf = async (file: string) => asElement((await screen.findByText(file)).closest("tr"))
+
 describe("BackupsPage - the schedule dialog carries the retention numbers now (item 9)", () => {
   it("reads retention out of steward-agent's runs group, since the run applies it", async () => {
     vi.stubGlobal("fetch", backend({}))
@@ -373,15 +377,12 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
       backend({
         runs: [
           run({
-            report: {
-              stage: "DONE",
-              notes: [],
-              services: [
-                { service: "a", state: "SAVED", changes: [] },
-                { service: "b", state: "SAVED", changes: [] },
-                { service: "c", state: "FAILED", changes: [] },
-              ],
-            },
+            stage: "DONE",
+            steps: [
+              saving("a", [archive("a-20260917T044500Z.tar.zst")]),
+              saving("b", [archive("b-20260917T044500Z.tar.zst")]),
+              saving("c", [], "FAILED"),
+            ],
           }),
         ],
       }),
@@ -435,7 +436,7 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
 })
 
 describe("BackupsPage - the volumes panel and the archive listing are gone (items 5 & 6)", () => {
-  it("draws no separate volumes panel - the run's own report line already carries that", async () => {
+  it("draws no separate volumes panel - the run's own steps already carry that", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
     await screen.findByText("Runs")
@@ -453,11 +454,21 @@ describe("BackupsPage - the volumes panel and the archive listing are gone (item
 })
 
 describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", () => {
-  it("lists the archives written inside this run's own window, each one downloadable", async () => {
+  it("lists the archives the run saved, each one on the disk downloadable", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        runs: [run()],
+        runs: [
+          run({
+            steps: [
+              saving("nordtal-s2_mc-smp", [archive("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")]),
+              {
+                ...saving("nordtal", [archive("nordtal-20260917T044550Z.dump", { volume: "nordtal" })]),
+                step: "DUMP_DATABASE",
+              },
+            ],
+          }),
+        ],
         backups: [
           backup({ name: "nordtal-s2_mc-smp-20260917T044505Z.tar.zst", modified: "2026-09-17T04:45:05Z" }),
           backup({ name: "nordtal-20260917T044550Z.dump", modified: "2026-09-17T04:45:50Z" }),
@@ -473,6 +484,43 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
 
     const link = asAnchor(screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst"))
     expect(link.getAttribute("href")).toBe("/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download")
+  })
+
+  it("marks an archive pruned since with its rule, and one gone from the disk as missing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [
+          run({
+            steps: [
+              saving("nordtal-s2_mc-smp", [
+                archive("nordtal-s2_mc-smp-20260917T044505Z.tar.zst", { rule: "RETENTION" }),
+                archive("nordtal-s2_mc-limbo-20260917T044505Z.tar.zst"),
+              ]),
+              {
+                ...saving("", []),
+                step: "PRUNE",
+                service: undefined,
+                pruned: [archive("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", { rule: "OVER_BUDGET" })],
+              },
+            ],
+          }),
+        ],
+        backups: [],
+      }),
+    )
+    drawDetail("41")
+
+    expect(
+      within(await rowOf("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")).getByText("pruned, no retention rule kept it"),
+    ).toBeTruthy()
+    expect(
+      within(await rowOf("nordtal-s2_mc-limbo-20260917T044505Z.tar.zst")).getByText("missing from the disk"),
+    ).toBeTruthy()
+    expect(
+      within(await rowOf("nordtal-s2_mc-smp-20260910T044500Z.tar.zst")).getByText("pruned, over the disk budget"),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText(/^Download /)).toBeNull()
   })
 
   it("says so when no run matches the id, rather than drawing an empty page", async () => {

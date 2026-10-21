@@ -1,9 +1,14 @@
-package eu.nordtal.season.stewardagent.plan;
+package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.database.update.RunLines;
+import eu.nordtal.season.database.update.RunStep;
+import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.stewardagent.plan.PlanReport;
+import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import java.util.List;
 
 /** The whole resolve for the updates page, every row with its status. */
@@ -34,11 +39,23 @@ public final class PlanView {
                 plan.hasWork(),
                 plan.hasFailures(),
                 changes,
-                // The page draws the notes with the view of the run page.
-                PlanReport.of(plan).notes().stream()
-                        .map(note -> new AgentWire.Note(
-                                note.step().name(), note.outcome().name(), note.service(), wire(note.what())))
-                        .toList());
+                steps(PlanReport.of(plan)));
+    }
+
+    /** The resolve steps an update run writes for this plan, as the run itself computes them. */
+    private static List<AgentWire.PlannedStep> steps(final UpdateReport planned) {
+        final CollectedSteps collected = new CollectedSteps();
+        final Steps record = new Steps(collected, 1);
+        Resolved.run(planned).on(record.begin(RunStep.Kind.RESOLVE));
+        Resolved.services(record, planned);
+        return collected.rows().stream()
+                .map(step -> new AgentWire.PlannedStep(
+                        step.step().name(),
+                        step.service(),
+                        step.outcome() == null ? null : step.outcome().name(),
+                        step.reason() == null ? null : step.reason().name(),
+                        RunLines.of(step).stream().map(PlanView::wire).toList()))
+                .toList();
     }
 
     static AgentWire.Message wire(final MessageRef message) {

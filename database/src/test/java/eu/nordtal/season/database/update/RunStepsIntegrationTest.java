@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.TestDatabase;
@@ -33,7 +34,7 @@ class RunStepsIntegrationTest {
 
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE");
+        execute("TRUNCATE TABLE service_hold, steward_inbox, backup_archive RESTART IDENTITY CASCADE");
         updates = UpdateDirectory.using(dataSource);
         recorder = updates.recorder();
     }
@@ -52,12 +53,17 @@ class RunStepsIntegrationTest {
         for (final RunStep.Reason reason : RunStep.Reason.values()) {
             recorder.end(run, recorder.begin(run, RunStep.Kind.SCOPE, null), RunStep.Outcome.FAILED, reason);
         }
+        final long save = recorder.begin(run, RunStep.Kind.SAVE_VOLUME, "nordtal-s2_mc-smp");
+        for (final RunStep.PruneRule rule : RunStep.PruneRule.values()) {
+            recorder.archive(save, "nordtal-s2_mc-smp", rule.name(), 1, Duration.ZERO, true);
+            recorder.pruned(save, rule.name(), rule);
+        }
         for (final RunStep.Outcome outcome : RunStep.Outcome.values()) {
             recorder.end(run, recorder.begin(run, RunStep.Kind.SCOPE, null), outcome, null);
         }
 
         assertEquals(
-                RunStep.Kind.values().length + 1 + RunStep.Reason.values().length + RunStep.Outcome.values().length,
+                RunStep.Kind.values().length + 2 + RunStep.Reason.values().length + RunStep.Outcome.values().length,
                 number("SELECT count(*) FROM run_step WHERE run = " + run));
         assertEquals(
                 List.of(String.valueOf(RunStep.Kind.values().length + 1)),
@@ -144,6 +150,101 @@ class RunStepsIntegrationTest {
         assertEquals(List.of("900 400"), strings("SELECT bytes_needed || ' ' || bytes_free FROM run_room"));
         assertEquals(List.of("sha256:old 1200"), strings("SELECT image || ' ' || bytes FROM run_image_removed"));
         assertEquals(List.of("4f1c2d 300"), strings("SELECT snapshot || ' ' || bytes_added FROM run_offsite"));
+    }
+
+    @Test
+    void anArchiveIsARowOfTheStepThatSavedItAndOfTheOneThatPrunedIt() {
+        final long run =
+                updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO).id();
+        final long dump = recorder.begin(run, RunStep.Kind.DUMP_DATABASE, null);
+        final long save = recorder.begin(run, RunStep.Kind.SAVE_VOLUME, "nordtal-s2_mc-smp");
+        recorder.archive(dump, "database", "nordtal-1.dump", 400, Duration.ofMillis(1500), true);
+        recorder.archive(save, "nordtal-s2_mc-smp", "nordtal-s2_mc-smp-1.tar.gz", 900, Duration.ofSeconds(40), false);
+
+        final long prune = recorder.begin(run, RunStep.Kind.PRUNE, null);
+        recorder.pruned(prune, "nordtal-1.dump", RunStep.PruneRule.RETENTION);
+        recorder.pruned(prune, "nordtal-s2_mc-smp-1.tar.gz", RunStep.PruneRule.OVER_BUDGET);
+        recorder.pruned(prune, "made-before-the-catalogue.tar.gz", RunStep.PruneRule.RETENTION);
+        final long again = recorder.begin(run, RunStep.Kind.PRUNE, null);
+        recorder.pruned(again, "nordtal-1.dump", RunStep.PruneRule.OVER_BUDGET);
+
+        assertEquals(
+                List.of(
+                        new RunStep.Archive("database", "nordtal-1.dump", 400, 1500, true, RunStep.PruneRule.RETENTION),
+                        new RunStep.Archive(
+                                "nordtal-s2_mc-smp",
+                                "nordtal-s2_mc-smp-1.tar.gz",
+                                900,
+                                40_000,
+                                false,
+                                RunStep.PruneRule.OVER_BUDGET)),
+                updates.recordOf(run).steps().get(2).pruned());
+        assertEquals(List.of(), updates.recordOf(run).steps().get(3).pruned());
+        assertEquals(
+                List.of("nordtal-1.dump"),
+                updates.recordOf(run).steps().getFirst().saved().stream()
+                        .map(RunStep.Archive::file)
+                        .toList());
+        assertEquals(2, number("SELECT count(*) FROM backup_archive"));
+    }
+
+    @Test
+    void aStepThatFailedOnAToolKeepsItsExitCodeAndNoOtherStepHasOne() {
+        final long run =
+                updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO).id();
+        final long dump = recorder.begin(run, RunStep.Kind.DUMP_DATABASE, null);
+        recorder.end(run, dump, RunStep.Outcome.FAILED, RunStep.Reason.TOOL_FAILED, 2);
+        final long save = recorder.begin(run, RunStep.Kind.SAVE_VOLUME, "nordtal-s2_mc-smp");
+
+        assertThrows(
+                RuntimeException.class,
+                () -> recorder.end(run, save, RunStep.Outcome.FAILED, RunStep.Reason.REFUSED, 1));
+        final long offsite = recorder.begin(run, RunStep.Kind.OFFSITE_COPY, null);
+        assertThrows(RuntimeException.class, () -> recorder.end(run, offsite, RunStep.Outcome.DONE, null, 0));
+        assertEquals(
+                List.of(2),
+                updates.recordOf(run).steps().stream()
+                        .map(RunStep.Row::exitCode)
+                        .filter(java.util.Objects::nonNull)
+                        .toList());
+    }
+
+    @Test
+    void theRecordJoinsEveryFactToItsStep() {
+        final long run =
+                updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO).id();
+        assertEquals(run, updates.claimNext().orElseThrow().id());
+        updates.progress(run, UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.INSTALLING)));
+        final long room = recorder.begin(run, RunStep.Kind.ROOM_CHECK, null);
+        recorder.begin(run, RunStep.Kind.PLAYERS_MOVED, null);
+        final long verify = recorder.begin(run, RunStep.Kind.VERIFY, "smp");
+        final long cleanup = recorder.begin(run, RunStep.Kind.CLEANUP, null);
+        final long copy = recorder.begin(run, RunStep.Kind.OFFSITE_COPY, null);
+        recorder.room(room, 900, 400);
+        recorder.moved(run, "smp", "limbo", 3);
+        recorder.change(verify, "smp", null, "0.50.0", null);
+        recorder.imageRemoved(cleanup, "sha256:old", 1200);
+        recorder.cacheFreed(cleanup, 700);
+        recorder.offsite(copy, "4f1c2d", 300);
+        recorder.end(run, verify, RunStep.Outcome.DONE, null);
+
+        final RunRecord record = updates.recordOf(run);
+
+        assertEquals(UpdateReport.Stage.INSTALLING, record.stage());
+        final List<RunStep.Row> steps = record.steps();
+        assertEquals(new RunStep.Room(900, 400), steps.get(0).room());
+        assertEquals(
+                List.of(new RunStep.Move("smp", "limbo", 3, 0)), steps.get(1).players());
+        assertEquals(
+                List.of(new RunStep.Change("smp", null, "0.50.0", null)),
+                steps.get(2).changes());
+        assertEquals(RunStep.Outcome.DONE, steps.get(2).outcome());
+        assertEquals(
+                List.of(new RunStep.ImageRemoved("sha256:old", 1200)),
+                steps.get(3).imagesRemoved());
+        assertEquals(700L, steps.get(3).cacheFreed());
+        assertEquals(new RunStep.Offsite("4f1c2d", 300), steps.get(4).offsite());
+        assertEquals(null, steps.get(4).room());
     }
 
     private static long number(final String sql) {

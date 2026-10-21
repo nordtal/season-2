@@ -1075,6 +1075,10 @@ export type TextArgs = {
   "steward.backups.when": Record<string, never>
   "steward.backups.written": Record<string, never>
   "steward.document-editor.accent": Record<string, never>
+  "steward.document-editor.adaptations": Record<string, never>
+  "steward.document-editor.adapted": {
+    change: Arg["choice"]
+  }
   "steward.document-editor.add": Record<string, never>
   "steward.document-editor.add-image": Record<string, never>
   "steward.document-editor.add-line": Record<string, never>

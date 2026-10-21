@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
@@ -94,6 +95,12 @@ public interface DocumentEditorTexts {
 
     @Name("Packaged and saved")
     MessageRef version(@Arg("version") Version version);
+
+    @Name("Adapted to the release")
+    MessageRef adaptations();
+
+    @Name("One adaptation to the release")
+    MessageRef adapted(@Arg("change") DocumentMerge.Change change);
 
     @Name("Save")
     MessageRef save();

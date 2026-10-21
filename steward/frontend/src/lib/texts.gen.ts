@@ -2032,6 +2032,7 @@ export type TextArgs = {
   "steward.settings.settings-saved": {
     count: Arg["number"]
   }
+  "steward.settings.syntax-error": Record<string, never>
   "steward.settings.tag": Record<string, never>
   "steward.settings.texts-saved": {
     count: Arg["number"]

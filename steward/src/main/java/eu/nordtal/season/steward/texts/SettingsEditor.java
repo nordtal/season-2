@@ -26,6 +26,9 @@ public interface SettingsEditor {
     @Name("Read-only")
     MessageRef readOnly();
 
+    @Name("Syntax error")
+    MessageRef syntaxError();
+
     @Name("Changed")
     MessageRef changed();
 

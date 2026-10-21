@@ -372,7 +372,6 @@ public final class Web {
                 localVapidKeys == null
                         ? null
                         : new WebPushSender(config.webPush().subject(), localVapidKeys),
-                config.publicUrl(),
                 texts.messages());
         final AlertMonitor monitor = new AlertMonitor(stack::stackReading, thresholds, book, data.updates(), clock);
         return new AlertWiring(monitor, router, preferences);

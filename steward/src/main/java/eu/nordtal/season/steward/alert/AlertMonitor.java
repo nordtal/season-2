@@ -1,23 +1,20 @@
 package eu.nordtal.season.steward.alert;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.update.UpdateDirectory;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.messages.MessageRef;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -30,8 +27,6 @@ import org.slf4j.LoggerFactory;
  * The first reading only sets the baseline. A failed run is raised once.
  */
 public final class AlertMonitor {
-
-    public static final String RAISED_BY = "steward";
 
     /** The age limit of a failed run that {@link #runs} still raises. */
     static final Duration RUN_WINDOW = Duration.ofMinutes(15);
@@ -124,7 +119,7 @@ public final class AlertMonitor {
             }
             final Alert alert = runFailed(run);
             try {
-                if (book.raiseOnce("run:" + run.id(), alert, RAISED_BY)) {
+                if (book.raiseOnce(alert, Actor.STEWARD)) {
                     log.info("Run {} failed, so it was raised as an alert.", run.id());
                 }
             } catch (final RuntimeException failure) {
@@ -133,26 +128,17 @@ public final class AlertMonitor {
         }
     }
 
+    /** Returns the alert of a failed run, whose steps the alert book reads from the run. */
     static Alert runFailed(final UpdateRequest run) {
-        final List<MessageRef> detail = new ArrayList<>();
-        detail.add(TEXTS.alert().run(run.id()));
-        UpdateReports.parse(run.result()).map(UpdateReport::failures).orElse(List.of()).stream()
-                .map(failure -> failure.service() == null
-                        ? failure.what()
-                        : TEXTS.alert().failure(failure.service(), failure.what()))
-                .forEach(detail::add);
         return new Alert(
-                AlertType.RUN,
+                JournalAction.RUN_FAILED,
                 Alert.Level.DOWN,
-                run.kind().name().toLowerCase(Locale.ROOT),
-                TEXTS.run().title(run.kind(), UpdateReport.Stage.FAILED),
-                detail,
-                run.page());
+                new JournalDetail.RunFailed(run.id(), run.kind(), List.of()));
     }
 
     private void raise(final Alert alert) {
         try {
-            book.raise(alert, RAISED_BY);
+            book.raise(alert, Actor.STEWARD);
             log.info("{} is now {}: {}", alert.type().key(), alert.level().key(), alert.subject());
         } catch (final RuntimeException failure) {
             log.warn("Could not raise the alert of {} on {}", alert.type().key(), alert.subject(), failure);
@@ -178,16 +164,10 @@ public final class AlertMonitor {
         if (all.size() == 1) {
             return worst;
         }
-        final List<String> subjects =
-                all.stream().map(Alert::subject).distinct().toList();
         return new Alert(
-                worst.type(),
+                worst.action(),
                 worst.level(),
-                String.join(", ", subjects),
-                TEXTS.alert().several(subjects, all.size()),
-                all.stream().map(Alert::title).toList(),
-                all.stream().flatMap(alert -> alert.measured().stream()).toList(),
-                worst.path());
+                all.stream().flatMap(alert -> alert.measured().stream()).toList());
     }
 
     /** Compares level and subject, not the title. */
@@ -199,7 +179,6 @@ public final class AlertMonitor {
     }
 
     private static Alert cleared(final Alert was) {
-        return new Alert(
-                was.type(), Alert.Level.OK, was.subject(), TEXTS.alert().clear(was.type()), was.path());
+        return new Alert(was.action(), Alert.Level.OK, List.of());
     }
 }

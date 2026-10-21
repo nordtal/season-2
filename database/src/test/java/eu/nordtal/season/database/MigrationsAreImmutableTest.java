@@ -225,6 +225,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V80__an_admin_sets_aura_and_spins_in_steward.sql",
                 "6231ac3ad2b0bc99f02db849a12e20818af79ed36afdd2464c26a6e6f6016a13");
+        FROZEN.put(
+                "V81__an_alert_is_a_journal_entry_with_a_level_and_measures.sql",
+                "96f05e520b443d4aef9a5d14d57fb85514933e5b725954c76c81537d24e5b8f8");
     }
 
     @Test

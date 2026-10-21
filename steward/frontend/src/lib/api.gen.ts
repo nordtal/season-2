@@ -574,7 +574,7 @@ export type Alert = {
 }
 
 export type RecentAlert = {
-  id: number
+  id: string
   raised: string
   raisedBy: string
   type: AlertType
@@ -709,6 +709,23 @@ export type JournalAction =
   | "LINK_CODES_EXHAUSTED"
   | "SET_AURA"
   | "SET_SPINS"
+  | "SERVICE_DOWN"
+  | "BACKUP_STALE"
+  | "DISK_FULL"
+  | "MEMORY_FULL"
+  | "IMAGE_DRIFT"
+  | "PACK_DEAD"
+  | "RUN_FAILED"
+  | "PAYMENT_NEEDS_LOOK"
+  | "LINK_REFUSED"
+  | "LINK_FAILED"
+  | "PURCHASE_FAILED"
+  | "DM_NOT_DELIVERED"
+  | "ROLE_NOT_CHANGED"
+  | "ROLE_AMBIGUOUS"
+  | "ROLE_NOT_CREATED"
+  | "LOCK_NOT_KEPT"
+  | "LOCK_WITHOUT_CHANNEL"
 
 export type Actor = {
   kind: ActorKind
@@ -1183,6 +1200,8 @@ export type Gauge =
   | "RESTARTS"
   | "EXIT_CODE"
   | "OLDER_IMAGE"
+  | "REGISTRY"
+  | "PACK"
 
 export type ChangeImage = "PULLED" | "KEPT"
 

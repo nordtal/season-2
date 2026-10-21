@@ -104,7 +104,8 @@ class StackAlertsTest {
         assertEquals(List.of(), withServices(clean));
         final Alert down = withServices(failed).getFirst();
         assertEquals(Alert.Level.DOWN, down.level());
-        assertEquals("migrate exited with code 1", AdminPlain.of(down.title()));
+        assertEquals("migrate failed", AdminPlain.of(down.title()));
+        assertEquals(List.of("migrate exited with code 1."), AdminPlain.of(down.lines()));
     }
 
     @Test
@@ -136,7 +137,11 @@ class StackAlertsTest {
     void aServiceDockerRestartedWithinTheHourIsYellowUntilItHasRunAnHour() {
         final List<Alert> looping = withServices(new StackReading.Service(
                 "smp", "running", "starting", StackReading.Purpose.SERVES, null, false, 3, NOW.minusSeconds(40)));
-        assertEquals(List.of("smp restarted 3 times since it was started"), titles(looping));
+        assertEquals(List.of("smp restarts"), titles(looping));
+        assertEquals(
+                List.of("smp restarted 3 times since it was started. Its server exited and Docker started it again"
+                        + " within the last hour. Its log says why."),
+                AdminPlain.of(looping.getFirst().lines()));
         assertEquals(Alert.Level.WARN, looping.getFirst().level());
         assertEquals(
                 List.of(Measure.of(Gauge.RESTARTS, "smp", 3)),
@@ -176,7 +181,7 @@ class StackAlertsTest {
                 List.of("smp and proxy run an older image than the registry has", "The images were not compared"),
                 titles(alerts));
         assertTrue(alerts.stream().allMatch(alert -> alert.type() == AlertType.DRIFT));
-        assertEquals(List.of("timed out"), AdminPlain.of(alerts.get(1).detail()));
+        assertEquals(List.of("timed out"), AdminPlain.of(alerts.get(1).lines()));
     }
 
     @Test
@@ -196,7 +201,7 @@ class StackAlertsTest {
         assertEquals(List.of("The resource pack does not answer"), titles(alerts));
         assertEquals(AlertType.PACK, alerts.getFirst().type());
         assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
-        assertTrue(AdminPlain.of(alerts.getFirst().detail()).getFirst().contains(url));
+        assertTrue(AdminPlain.of(alerts.getFirst().lines()).getFirst().contains(url));
     }
 
     @Test
@@ -247,7 +252,10 @@ class StackAlertsTest {
         archives.add(archive("limbo-world-20260930T110000Z.tar.zst", 37));
         archives.add(archive("limbo-world-20260929T110000Z.tar.zst", 61));
         final List<Alert> alerts = of(List.of(service("smp", "running")), null, archives, null);
-        assertEquals(List.of("limbo-world: the newest archive is 37 hours old"), titles(alerts));
+        assertEquals(List.of("limbo-world: the newest archive is too old"), titles(alerts));
+        assertEquals(
+                List.of("limbo-world: the newest is 37 hours old. The limit is 36 hours."),
+                AdminPlain.of(alerts.getFirst().lines()));
         assertEquals("limbo-world", alerts.getFirst().subject());
     }
 
@@ -256,7 +264,7 @@ class StackAlertsTest {
         final List<StackReading.Archive> archives = new ArrayList<>(freshBackups());
         archives.add(archive("nordtal-s2_mc-limbo-20260930T110000Z.tar.zst", 37));
         final List<Alert> alerts = of(List.of(service("limbo", "running")), null, archives, null);
-        assertEquals(List.of("mc-limbo: the newest archive is 37 hours old"), titles(alerts));
+        assertEquals(List.of("mc-limbo: the newest archive is too old"), titles(alerts));
         assertEquals("mc-limbo", alerts.getFirst().subject());
         assertEquals(Alert.Level.WARN, alerts.getFirst().level());
     }
@@ -285,7 +293,7 @@ class StackAlertsTest {
                 null,
                 List.of(archive("db-20260930T110000Z.dump", 37), archive("smp-world-20261002T110000Z.tar.zst", 1)),
                 null);
-        assertEquals(List.of("The newest database dump is 37 hours old"), titles(alerts));
+        assertEquals(List.of("The newest database dump is too old"), titles(alerts));
         assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
     }
 
@@ -311,7 +319,7 @@ class StackAlertsTest {
                         local("smp-world-20261002T110000Z.tar.zst", 1),
                         archive("db-20261001T020000Z.dump", 40)),
                 null);
-        assertEquals(List.of("The newest backup copied off this host is 40 hours old"), titles(alerts));
+        assertEquals(List.of("The newest backup copied off this host is too old"), titles(alerts));
         assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
     }
 
@@ -325,8 +333,15 @@ class StackAlertsTest {
     @Test
     void diskAndMemoryAreYellowFromTheirThresholdOn() {
         assertEquals(
-                List.of("The disk is 85 % full", "Memory is 90 % used"),
+                List.of("The disk is over its threshold", "Memory use is over its threshold"),
                 titles(of(List.of(service("smp", "running")), null, freshBackups(), host(85, 10))));
+        assertEquals(
+                List.of(
+                        List.of("The disk is 85 % full. The threshold is 85 %."),
+                        List.of("Memory is 90 % used. The threshold is 90 %.")),
+                of(List.of(service("smp", "running")), null, freshBackups(), host(85, 10)).stream()
+                        .map(alert -> AdminPlain.of(alert.lines()))
+                        .toList());
         assertEquals(List.of(), of(List.of(service("smp", "running")), null, freshBackups(), host(84, 11)));
     }
 
@@ -373,9 +388,11 @@ class StackAlertsTest {
     }
 
     @Test
-    void anAlertAboutSomethingMissingMeasuredNothing() {
+    void somethingMissingIsAMeasureWithoutAValue() {
         assertEquals(
-                List.of(List.of(), List.of()),
+                List.of(
+                        List.of(new Measure(Gauge.BACKUP_AGE_HOURS, "backups", null, 36.0, null)),
+                        List.of(Measure.state(Gauge.REGISTRY, "registry", "timed out"))),
                 of(List.of(service("smp", "running")), "timed out", List.of(), null).stream()
                         .map(Alert::measured)
                         .toList());

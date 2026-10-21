@@ -20,21 +20,31 @@ const READING: Alerts = {
       level: "down",
       subject: "smp",
       title: { key: "alert.not-running", args: { service: { kind: "text", value: "smp" } } },
-      detail: [{ key: "alert.docker-state", args: { state: { kind: "text", value: "exited" } } }],
+      detail: [
+        {
+          key: "alert.docker-state",
+          args: { service: { kind: "text", value: "smp" }, state: { kind: "text", value: "exited" } },
+        },
+      ],
       measured: [{ gauge: "CONTAINER_STATE", subject: "smp", state: "exited" }],
       path: "/services/smp",
     },
   ],
   recent: [
     {
-      id: 7,
+      id: "00000000-0000-0000-0000-000000000007",
       raised: "2026-10-02T11:58:00Z",
       raisedBy: "steward",
       type: "disk",
       level: "warn",
       subject: "disk",
-      title: { key: "alert.disk", args: { percent: { kind: "number", value: 91 } } },
-      detail: [],
+      title: { key: "alert.disk", args: {} },
+      detail: [
+        {
+          key: "alert.disk-use",
+          args: { percent: { kind: "number", value: 91 }, threshold: { kind: "number", value: 85 } },
+        },
+      ],
       measured: [{ gauge: "DISK_PERCENT", subject: "disk", value: 91.2, limit: 85 }],
       path: "/",
     },
@@ -77,20 +87,20 @@ describe("AlertsPage", () => {
     draw(READING)
     const link = await screen.findByRole("link", { name: "smp is not running" })
     expect(link.getAttribute("href")).toBe("/services/smp")
-    expect(screen.getByText("Docker reports the state exited.")).toBeTruthy()
+    expect(screen.getByText("smp: Docker reports the state exited.")).toBeTruthy()
     expect(screen.getByText("down")).toBeTruthy()
   })
 
   it("lists every alert raised lately, with when and by whom", async () => {
     draw(READING)
-    expect(await screen.findByRole("link", { name: "The disk is 91 % full" })).toBeTruthy()
+    expect(await screen.findByRole("link", { name: "The disk is over its threshold" })).toBeTruthy()
     expect(screen.getByText(/by steward/)).toBeTruthy()
   })
 
   it("says all clear when nothing is wrong, and still lists the past", async () => {
     draw({ ...READING, level: "ok", alerts: [] })
     expect(await screen.findByText("All clear.")).toBeTruthy()
-    expect(screen.getByRole("link", { name: "The disk is 91 % full" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "The disk is over its threshold" })).toBeTruthy()
   })
 
   it("shows a reading that failed rather than calling it clear", async () => {
@@ -99,8 +109,8 @@ describe("AlertsPage", () => {
     expect(screen.queryByText("All clear.")).toBeNull()
   })
 
-  it("words an all-clear by what cleared, and an older one without its list of subjects", async () => {
-    const clear = (id: number, args: Alerts["recent"][number]["title"]["args"]) => ({
+  it("words an all-clear by what cleared", async () => {
+    const clear = (id: string, args: Alerts["recent"][number]["title"]["args"]) => ({
       ...READING.recent[0],
       id,
       type: "service" as const,
@@ -112,8 +122,8 @@ describe("AlertsPage", () => {
     draw({
       ...READING,
       recent: [
-        clear(8, { type: { kind: "text", value: "service" } }),
-        clear(9, { subject: { kind: "text", value: "hunger-games, limbo, proxy" } }),
+        clear("00000000-0000-0000-0000-000000000008", { type: { kind: "text", value: "service" } }),
+        clear("00000000-0000-0000-0000-000000000009", { type: { kind: "text", value: "run" } }),
       ],
     })
     expect(await screen.findByRole("link", { name: "Every service runs again" })).toBeTruthy()
@@ -121,7 +131,7 @@ describe("AlertsPage", () => {
     expect(screen.queryByText(/hunger-games/)).toBeNull()
   })
 
-  it("keeps each line of an older grouped detail on a line of its own", async () => {
+  it("keeps each line of a multi-line answer on a line of its own", async () => {
     draw({
       ...READING,
       recent: [

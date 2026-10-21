@@ -1,13 +1,12 @@
 package eu.nordtal.season.discordbot.access.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AccessGrant;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.config.AccessSpec;
@@ -16,9 +15,7 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordbot.roles.Withholding;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.messages.value.Mention;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -53,7 +50,6 @@ public final class AccessRoles {
     private final Withholding withholding;
     private final AccessDirectory access;
     private final DocumentRenderer documents;
-    private static final String PAGE = "/access";
 
     private final AdminLog admin;
     private final ReconcileDao dao;
@@ -274,11 +270,8 @@ public final class AccessRoles {
                         channel -> channel.sendMessage(drawn.create())
                                 .queue(
                                         ok -> log.debug("DMed {}", discordId),
-                                        failure -> admin.alert(dmNotDelivered(List.of(
-                                                TEXTS.alert().to(Mention.of(discordId)),
-                                                TEXTS.alert().words(drawn.text()))))),
-                        failure -> admin.alert(dmNotDelivered(List.of(TEXTS.alert()
-                                .failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))))));
+                                        failure -> admin.alert(dmNotDelivered(discordId, failure))),
+                        failure -> admin.alert(dmNotDelivered(discordId, failure)));
     }
 
     /**
@@ -353,9 +346,11 @@ public final class AccessRoles {
         return role;
     }
 
-    private static Alert dmNotDelivered(final List<MessageRef> detail) {
+    private static Alert dmNotDelivered(final DiscordId member, final Throwable failure) {
         return new Alert(
-                AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), detail, PAGE);
+                JournalAction.DM_NOT_DELIVERED,
+                Alert.Level.WARN,
+                new JournalDetail.MemberFailed(member, String.valueOf(failure.getMessage())));
     }
 
     /** Returns the language's contribution channel as a mention, or an empty text where it has none. */

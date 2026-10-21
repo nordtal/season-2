@@ -1,10 +1,9 @@
 package eu.nordtal.season.discordbot.access.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.TabRefusal;
@@ -274,12 +273,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             case REFUSED -> {
                 final TabRefusal refusal = Objects.requireNonNull(request.tabRefusal());
                 admin.alert(new Alert(
-                        AlertType.PAYMENT,
+                        JournalAction.LINK_REFUSED,
                         Alert.Level.DOWN,
-                        "purchase",
-                        TEXTS.alert().linkRefused(),
-                        List.of(TEXTS.alert().refused(request.reference(), refusal)),
-                        "/payments"));
+                        new JournalDetail.LinkRefused(request.id(), request.reference(), refusal)));
                 edit(
                         hook,
                         documents.reply(
@@ -347,12 +343,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);
         admin.alert(new Alert(
-                AlertType.PAYMENT,
+                JournalAction.PURCHASE_FAILED,
                 Alert.Level.DOWN,
-                "purchase",
-                TEXTS.alert().purchaseFailed(),
-                List.of(TEXTS.alert().failedFor(LinkFlow.member(event.getUser()), String.valueOf(exception))),
-                "/payments"));
+                new JournalDetail.MemberFailed(DiscordId.of(event.getUser().getId()), String.valueOf(exception))));
         event.getHook()
                 .editOriginal(documents.reply(locale, Replies.PURCHASE_FAILED).edit())
                 .queue();

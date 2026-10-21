@@ -79,7 +79,7 @@ export function AlertsPage() {
 }
 
 /**
- * One alert. The title wraps and is never cut, because its subject tells two alerts apart. An older line keeps its breaks.
+ * One alert. The title wraps and is never cut, because its subject tells two alerts apart. A line keeps its breaks, as an answer from Discord may have them.
  */
 function AlertLine({
   level,

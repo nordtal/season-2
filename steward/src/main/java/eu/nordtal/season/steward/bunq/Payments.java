@@ -1,11 +1,10 @@
 package eu.nordtal.season.steward.bunq;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.JournalDetail.PaymentFlagged;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
-import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BankRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Outcome;
@@ -17,10 +16,8 @@ import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.internalapi.BankWire;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -35,8 +32,6 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
  */
 @Slf4j
 public final class Payments {
-
-    private static final String RAISED_BY = "steward";
 
     private final Bank bunq;
     private final PaymentRequests requests;
@@ -180,20 +175,17 @@ public final class Payments {
             final String reference = matcher.group();
             final Optional<PaymentRequest> request = requests.byReference(reference);
             if (request.isEmpty()) {
-                needsALook(
+                needsALook(new PaymentFlagged(
+                        PaymentFlagged.Problem.UNKNOWN_REFERENCE,
                         paymentId,
-                        TEXTS.alert().unknownReference(String.valueOf(paymentId), Money.euroCents(cents), reference));
+                        Money.euroCents(cents),
+                        reference,
+                        null,
+                        null));
                 continue;
             }
             if (request.get().status() != PaymentRequestStatus.OPEN) {
-                needsALook(
-                        paymentId,
-                        TEXTS.alert()
-                                .notOpen(
-                                        String.valueOf(paymentId),
-                                        Money.euroCents(cents),
-                                        reference,
-                                        request.get().status()));
+                needsALook(flagged(PaymentFlagged.Problem.NOT_OPEN, request.get(), paymentId, cents));
                 continue;
             }
             attribute(request.get(), paymentId, cents, PaymentMatch.REFERENCE);
@@ -217,9 +209,7 @@ public final class Payments {
                     paymentId,
                     request.reference(),
                     clash);
-            needsALook(
-                    paymentId,
-                    TEXTS.alert().claimed(String.valueOf(paymentId), Money.euroCents(cents), request.reference()));
+            needsALook(flagged(PaymentFlagged.Problem.CLAIMED, request, paymentId, cents));
             return;
         }
         switch (booking) {
@@ -234,25 +224,20 @@ public final class Payments {
             // The request closed after it was read.
             case Bookings.Booking.NotOpen closed -> {}
             case Bookings.Booking.BelowMinimum below ->
-                needsALook(
-                        paymentId,
-                        TEXTS.alert().noTier(String.valueOf(paymentId), Money.euroCents(cents), request.reference()));
+                needsALook(flagged(PaymentFlagged.Problem.BELOW_TIER, request, paymentId, cents));
         }
     }
 
+    private static PaymentFlagged flagged(
+            final PaymentFlagged.Problem problem, final PaymentRequest request, final long paymentId, final int cents) {
+        return new PaymentFlagged(
+                problem, paymentId, Money.euroCents(cents), request.reference(), request.id(), request.status());
+    }
+
     /** Raises an alert once per bank payment. */
-    private void needsALook(final long paymentId, final MessageRef detail) {
-        if (alerts.raiseOnce(
-                "payment:" + paymentId,
-                new Alert(
-                        AlertType.PAYMENT,
-                        Alert.Level.DOWN,
-                        "payment",
-                        TEXTS.alert().payment(),
-                        List.of(detail),
-                        "/payments"),
-                RAISED_BY)) {
-            log.warn("Payment {} needs a look: {}", paymentId, detail);
+    private void needsALook(final PaymentFlagged flagged) {
+        if (alerts.raiseOnce(new Alert(JournalAction.PAYMENT_NEEDS_LOOK, Alert.Level.DOWN, flagged), Actor.STEWARD)) {
+            log.warn("Payment {} needs a look: {}", flagged.bankPayment(), flagged.problem());
         }
     }
 

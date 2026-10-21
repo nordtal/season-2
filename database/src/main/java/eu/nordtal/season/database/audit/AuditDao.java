@@ -54,8 +54,12 @@ interface AuditDao {
                      LEFT JOIN journal_spins sp ON sp.entry = e.id
             """;
 
-    /** Returns the newest entries. {@code id} breaks ties, as one transaction's entries share {@code occurred}. */
+    /**
+     * Returns the newest entries but alerts.
+     * {@code id} breaks ties, as one transaction's entries share {@code occurred}.
+     */
     @SqlQuery(ENTRIES + """
+            WHERE e.level IS NULL
             ORDER BY e.occurred DESC, e.id DESC
             LIMIT :limit
             """)
@@ -72,7 +76,8 @@ interface AuditDao {
      * The casts give {@code :action IS NULL} a type. Days are a grant's or a booking's.
      */
     @SqlQuery(ENTRIES + """
-            WHERE (cast(:action AS varchar) IS NULL OR e.action = cast(:action AS varchar))
+            WHERE e.level IS NULL
+              AND (cast(:action AS varchar) IS NULL OR e.action = cast(:action AS varchar))
               AND (cast(:subject AS varchar) IS NULL OR e.subject = cast(:subject AS varchar))
               AND (cast(:reference AS text) IS NULL OR p.reference = cast(:reference AS text))
               AND (cast(:minDays AS integer) IS NULL OR coalesce(g.days, b.days) >= cast(:minDays AS integer))

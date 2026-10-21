@@ -200,7 +200,7 @@ public final class SignalHub implements AutoCloseable {
         return waiting.sleep(reconnectBackoff) && running;
     }
 
-    /** Stops the loop and closes the connection under the blocking wait. */
+    /** Stops the loop, closes the connection under the blocking wait and waits for a running refresh to end. */
     @Override
     public void close() {
         running = false;
@@ -213,6 +213,13 @@ public final class SignalHub implements AutoCloseable {
         final Thread hubThread = this.thread;
         if (hubThread != null) {
             hubThread.interrupt();
+            if (!hubThread.equals(Thread.currentThread())) {
+                try {
+                    hubThread.join();
+                } catch (final InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
     }
 }

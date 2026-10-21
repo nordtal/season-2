@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,6 +189,28 @@ class SignalHubTest {
 
         assertFalse(thread.isAlive(), "close() has to end the loop, since the process shuts down behind it");
         assertTrue(channel.closed, "the dedicated connection is the process's to release on shutdown");
+    }
+
+    @Test
+    void closingWaitsForARunningRefreshSoNothingRunsAfterIt() throws Exception {
+        final CountDownLatch entered = new CountDownLatch(1);
+        final AtomicInteger ended = new AtomicInteger();
+        final SignalHub hub = new SignalHub(channels -> FakeChannel.quiet(), "test", LOGGER, QUIET, BACKOFF);
+        hub.on(Channel.BOT, "the slow thing", () -> {
+            entered.countDown();
+            // A database call ignores the interrupt of close(), so this wait does too.
+            final long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(300);
+            while (System.nanoTime() < end) {
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+            }
+            ended.incrementAndGet();
+        });
+        hub.start();
+        assertTrue(entered.await(10, TimeUnit.SECONDS));
+
+        hub.close();
+
+        assertEquals(1, ended.get(), "an inbox drain that outlives close() claims rows of the next owner");
     }
 
     @Test

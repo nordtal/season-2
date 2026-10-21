@@ -54,7 +54,7 @@ class InboxTrialIntegrationTest {
     @Test
     void anAnswerWithoutARefusalTakesTheChange() {
         final ServerTrial.Verdict verdict =
-                trial(asked -> server.settle(asked.id(), Outcome.done("taken"))).ask("smp", CHANGE, Actor.STEWARD);
+                trial(asked -> server.settle(asked.id(), Outcome.done(null))).ask("smp", CHANGE, Actor.STEWARD);
 
         assertEquals(ServerTrial.Verdict.Kind.TAKEN, verdict.kind());
     }

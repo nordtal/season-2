@@ -228,6 +228,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V81__an_alert_is_a_journal_entry_with_a_level_and_measures.sql",
                 "96f05e520b443d4aef9a5d14d57fb85514933e5b725954c76c81537d24e5b8f8");
+        FROZEN.put(
+                "V82__a_settled_inbox_request_keeps_typed_answers_and_a_reason_code.sql",
+                "5d56c277f42c9158642c5004f2cfc4ac6e6850ba59da9f3bf96c3b01477f51a5");
     }
 
     @Test

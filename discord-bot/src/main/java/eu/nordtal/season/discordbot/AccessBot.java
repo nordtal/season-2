@@ -19,6 +19,7 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentGateway;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tiers;
@@ -201,6 +202,7 @@ public class AccessBot implements AutoCloseable {
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());
 
+        final Bookings booked = new Bookings(database.dataSource());
         // Last, because it refreshes on connect and uses JDA.
         final SignalHub hub = listen(
                 databaseConfig,
@@ -214,7 +216,7 @@ public class AccessBot implements AutoCloseable {
                         (tag, message) -> wiring.announcements()
                                 .post(tag, locale -> core.messages().format(locale, message)),
                         wiring.admin()::postAlert,
-                        wiring.bookings()::tell,
+                        payment -> wiring.bookings().tell(booked.told(payment)),
                         previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)))),
                 wiring.adminRole(),
                 core.messages(),

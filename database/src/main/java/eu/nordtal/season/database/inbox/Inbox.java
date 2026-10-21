@@ -1,12 +1,12 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseJson;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.messages.Refusal;
 import java.lang.reflect.RecordComponent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +26,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.Query;
+import org.jdbi.v3.core.statement.SqlStatement;
 import org.jdbi.v3.core.statement.Update;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -54,9 +56,9 @@ public final class Inbox<P> {
     private static final String RECORD = """
             WITH inserted AS (
                 INSERT INTO <table> (kind, <payloadColumn> actor_kind, actor_id, status,
-                                     requested, scheduled_for, started, finished, outcome)
+                                     requested, scheduled_for, started, finished <outcomeColumn>)
                 SELECT :kind, <payloadValue> :actorKind, :actorId, :status,
-                       began, began, began, now(), cast(:outcome AS jsonb)
+                       began, began, began, now() <outcome>
                 FROM (SELECT now() - make_interval(secs => cast(:took AS double precision)) AS began) AS run
                 RETURNING *
             )
@@ -88,8 +90,8 @@ public final class Inbox<P> {
                 UPDATE <table>
                 SET status = :to,
                     finished = CASE WHEN :settles THEN now() END,
-                    started = CASE WHEN :to = 'PENDING' THEN NULL ELSE started END,
-                    outcome = coalesce(cast(:outcome AS jsonb), outcome)
+                    started = CASE WHEN :to = 'PENDING' THEN NULL ELSE started END
+                    <outcome>
                 WHERE id = :id AND status = :from
                 RETURNING *
             )
@@ -100,7 +102,7 @@ public final class Inbox<P> {
     private static final String READ = """
             SELECT id, kind, <payloadColumn>
                    CASE WHEN status = 'PENDING' AND expires <= now() THEN 'EXPIRED' ELSE status END AS status,
-                   actor_kind, actor_id, requested, scheduled_for, expires, started, finished, outcome
+                   actor_kind, actor_id, requested, scheduled_for, expires, started, finished <outcomeColumn>
             FROM <table>
             """;
 
@@ -121,12 +123,12 @@ public final class Inbox<P> {
     /**
      * Returns the inbox of the one consumer at its start and fails what its last start left running.
      *
-     * @param consumer how a sentence names it: "the bot", "smp"
+     * @param consumer how the log names it: "the bot", "smp"
      */
     public static <P> Inbox<P> takeOver(final DataSource dataSource, final InboxTable<P> table, final String consumer) {
         Objects.requireNonNull(consumer, "consumer");
         final Inbox<P> inbox = over(dataSource, table);
-        final int orphans = inbox.settleOrphans(Map.of("error", consumer + " restarted while it ran this"));
+        final int orphans = inbox.settleOrphans(null);
         if (orphans > 0) {
             log.warn("{} request(s) in {} were left running by the last start of {}", orphans, table, consumer);
         }
@@ -201,13 +203,70 @@ public final class Inbox<P> {
             columns.append(", ").append(InboxTable.column(component));
             values.append(", :").append(component.getName());
         }
-        final Update insert = handle.createUpdate("INSERT INTO <row> (" + columns + ") VALUES (" + values + ")")
+        bound(handle.createUpdate("INSERT INTO <row> (" + columns + ") VALUES (" + values + ")"), payload)
                 .define("row", table.rowTable(payload.getClass()))
-                .bind("request", id);
-        for (final RecordComponent component : components) {
-            insert.bindByType(component.getName(), component(component, payload), component.getGenericType());
+                .bind("request", id)
+                .execute();
+    }
+
+    /** Writes a typed answer into the row of its request's kind, a column per component. */
+    private void answer(final Handle handle, final long id, final Class<?> kind, final Object answer) {
+        final StringBuilder columns = new StringBuilder();
+        for (final RecordComponent component : answer.getClass().getRecordComponents()) {
+            columns.append(columns.isEmpty() ? "" : ", ")
+                    .append(InboxTable.column(component))
+                    .append(" = :")
+                    .append(component.getName());
         }
+        bound(handle.createUpdate("UPDATE <row> SET " + columns + " WHERE request = :request"), answer)
+                .define("row", table.rowTable(kind))
+                .bind("request", id)
+                .execute();
+    }
+
+    /** Binds every component of a record by its name. */
+    private static Update bound(final Update update, final Object record) {
+        for (final RecordComponent component : record.getClass().getRecordComponents()) {
+            update.bindByType(component.getName(), component(component, record), component.getGenericType());
+        }
+        return update;
+    }
+
+    /** Writes a server's refusal as a row of the refusal table: its reason and each of its values in a column. */
+    private void refuse(final Handle handle, final long id, final Refusal refusal) {
+        if (!(refusal.reason() instanceof ServerRefusal reason)) {
+            throw new IllegalArgumentException(table + " keeps a server's refusal only, not " + refusal.reason());
+        }
+        final StringBuilder columns = new StringBuilder("request, reason");
+        final StringBuilder values = new StringBuilder(":request, :reason");
+        for (final String name : reason.arguments()) {
+            columns.append(", ").append(name);
+            values.append(", :").append(name);
+        }
+        final Update insert = handle.createUpdate("INSERT INTO <refusal> (" + columns + ") VALUES (" + values + ")")
+                .define("refusal", table.refusalTable())
+                .bind("request", id)
+                .bind("reason", reason.name());
+        reason.arguments()
+                .forEach(name -> insert.bind(name, refusal.message().args().get(name)));
         insert.execute();
+    }
+
+    /** Reads the refusal of a refused row back, worded again from its reason and values. */
+    private @Nullable Refusal refusal(final Handle handle, final long id) {
+        return handle.createQuery("SELECT * FROM <refusal> WHERE request = :id")
+                .define("refusal", table.refusalTable())
+                .bind("id", id)
+                .map((row, context) -> {
+                    final ServerRefusal reason = ServerRefusal.valueOf(row.getString("reason"));
+                    final Map<String, Object> values = new HashMap<>();
+                    for (final String name : reason.arguments()) {
+                        values.put(name, row.getObject(name));
+                    }
+                    return reason.with(values);
+                })
+                .findOne()
+                .orElse(null);
     }
 
     private static @Nullable Object component(final RecordComponent component, final Object record) {
@@ -218,9 +277,10 @@ public final class Inbox<P> {
         }
     }
 
-    private <T> T readRow(final Handle handle, final long id, final Class<T> type) {
+    /** Reads a record off the row of a kind, a component per column: the request, or the answer of its kind. */
+    private <T> T readRow(final Handle handle, final long id, final Class<?> kind, final Class<T> type) {
         return handle.createQuery("SELECT * FROM <row> WHERE request = :id")
-                .define("row", table.rowTable(type))
+                .define("row", table.rowTable(kind))
                 .bind("id", id)
                 .map((row, context) -> {
                     final RecordComponent[] components = type.getRecordComponents();
@@ -241,7 +301,7 @@ public final class Inbox<P> {
                 })
                 .findOne()
                 .orElseThrow(() ->
-                        new IllegalStateException(table + " request " + id + " has no row in " + table.rowTable(type)));
+                        new IllegalStateException(table + " request " + id + " has no row in " + table.rowTable(kind)));
     }
 
     /** Claims the oldest due request and marks it running. Call it until empty, as one signal may stand for many. */
@@ -259,7 +319,8 @@ public final class Inbox<P> {
      * @return whether a running row was updated
      */
     public boolean progress(final long id, final Object answer) {
-        return move(id, InboxStatus.RUNNING, InboxStatus.RUNNING, Objects.requireNonNull(answer, "answer"))
+        Objects.requireNonNull(answer, "answer");
+        return jdbi.inTransaction(handle -> move(handle, id, InboxStatus.RUNNING, InboxStatus.RUNNING, answer))
                 .isPresent();
     }
 
@@ -269,8 +330,9 @@ public final class Inbox<P> {
      * @return the settled row, or empty if it was not running
      */
     public Optional<Request<P>> settle(final long id, final Outcome outcome) {
-        final Settled settled = Settled.of(outcome);
-        return move(id, InboxStatus.RUNNING, settled.status(), settled.answer());
+        final Settled settled = Settled.of(outcome, table);
+        return jdbi.inTransaction(handle -> move(handle, id, InboxStatus.RUNNING, settled.status(), settled.json())
+                .map(moved -> written(handle, moved, outcome)));
     }
 
     /**
@@ -281,35 +343,60 @@ public final class Inbox<P> {
     public Request<P> record(final P payload, final Actor actor, final Outcome outcome, final Duration took) {
         Objects.requireNonNull(payload, "payload");
         Objects.requireNonNull(actor, "actor");
-        final Settled settled = Settled.of(outcome);
+        final Settled settled = Settled.of(outcome, table);
         return jdbi.inTransaction(handle -> {
-            final Request<P> request = withPayload(handle.createQuery(RECORD), payload)
+            final Request<P> request = withOutcome(
+                            withPayload(handle.createQuery(RECORD), payload),
+                            ", cast(:outcome AS jsonb)",
+                            settled.json())
                     .define("table", table.name())
                     .bind("kind", table.kindOf(payload))
                     .bind("actorKind", actor.kind().name())
                     .bind("actorId", actor.id())
                     .bind("status", settled.status().name())
-                    .bind("outcome", settled.answer() == null ? null : DatabaseJson.encode(settled.answer()))
                     .bind("took", seconds(Objects.requireNonNull(took, "took")))
                     .bind("channel", table.channel().sqlName())
                     .map((row, context) -> map(row, handle, payload))
                     .one();
             insertRow(handle, request.id(), payload);
-            return request;
+            return written(handle, request, outcome);
         });
     }
 
-    /** The status an outcome settles a row in, and the answer written. */
-    private record Settled(InboxStatus status, @Nullable Object answer) {
+    /** The status an outcome settles a row in, and what goes into the outcome column. */
+    private record Settled(InboxStatus status, @Nullable Object json) {
 
-        static Settled of(final Outcome outcome) {
+        static Settled of(final Outcome outcome, final InboxTable<?> table) {
             return switch (Objects.requireNonNull(outcome, "outcome")) {
-                case Outcome.Done done -> new Settled(InboxStatus.DONE, done.answer());
+                case Outcome.Done done ->
+                    new Settled(
+                            InboxStatus.DONE,
+                            done.answer() == null
+                                            || table.isAnswer(done.answer().getClass())
+                                    ? null
+                                    : done.answer());
                 case Outcome.Failed failed -> new Settled(InboxStatus.FAILED, failed.answer());
-                case Outcome.Refused refused ->
-                    new Settled(InboxStatus.REFUSED, Json.tree(StoredRefusal.write(refused.refusal())));
+                case Outcome.Refused _ -> new Settled(InboxStatus.REFUSED, null);
             };
         }
+    }
+
+    /** Writes the typed part of an outcome beside the row it settled and reads the row again. */
+    private Request<P> written(final Handle handle, final Request<P> settled, final Outcome outcome) {
+        final Class<?> kind = settled.payload().getClass();
+        final Optional<Class<?>> answers = table.answerOf(kind);
+        if (outcome instanceof Outcome.Refused refused) {
+            refuse(handle, settled.id(), refused.refusal());
+        } else if (outcome instanceof Outcome.Done(final Object answer)
+                && (answers.isPresent() || (answer != null && table.isAnswer(answer.getClass())))) {
+            if (answers.isEmpty() || !answers.get().isInstance(answer)) {
+                throw new IllegalArgumentException(settled.kind() + " in " + table + " is not answered with " + answer);
+            }
+            answer(handle, settled.id(), kind, answer);
+        } else {
+            return settled;
+        }
+        return read(handle, settled.id()).orElseThrow();
     }
 
     /**
@@ -319,21 +406,43 @@ public final class Inbox<P> {
      * @return the cancelled row, or empty if it was claimed or settled
      */
     public Optional<Request<P>> cancel(final long id, final @Nullable Object answer) {
-        return move(id, InboxStatus.PENDING, InboxStatus.CANCELLED, answer);
+        return jdbi.inTransaction(handle -> move(handle, id, InboxStatus.PENDING, InboxStatus.CANCELLED, answer));
     }
 
     private Optional<Request<P>> move(
-            final long id, final InboxStatus from, final InboxStatus to, final @Nullable Object answer) {
-        return jdbi.withHandle(handle -> handle.createQuery(MOVE)
+            final Handle handle,
+            final long id,
+            final InboxStatus from,
+            final InboxStatus to,
+            final @Nullable Object json) {
+        return withOutcome(handle.createQuery(MOVE), ", outcome = coalesce(cast(:outcome AS jsonb), outcome)", json)
                 .define("table", table.name())
                 .bind("id", id)
                 .bind("from", from.name())
                 .bind("to", to.name())
                 .bind("settles", to.settled())
-                .bind("outcome", answer == null ? null : DatabaseJson.encode(answer))
                 .bind("channel", table.channel().sqlName())
                 .map(mapper(handle))
-                .findOne());
+                .findOne();
+    }
+
+    /**
+     * Defines {@code <outcome>} as {@code sql}, which binds the JSON of the outcome column, in a table that has one.
+     *
+     * @throws IllegalArgumentException if {@code json} is given for a table without that column
+     */
+    private <S extends SqlStatement<S>> S withOutcome(
+            final S statement, final String sql, final @Nullable Object json) {
+        if (!table.hasOutcome()) {
+            if (json != null) {
+                throw new IllegalArgumentException(table + " keeps no answer as JSON, so not " + json);
+            }
+            return statement.define("outcome", "").define("outcomeColumn", "");
+        }
+        return statement
+                .define("outcome", sql)
+                .define("outcomeColumn", ", outcome")
+                .bind("outcome", json == null ? null : DatabaseJson.encode(json));
     }
 
     /** Expires every pending request past its patience and returns how many. */
@@ -351,33 +460,35 @@ public final class Inbox<P> {
     /**
      * Fails every request left running, at the start of the one consumer. {@link #takeOver} calls it.
      *
-     * @param answer what to write into those rows
+     * @param answer what to write into the outcome column of those rows, null for nothing
      * @return the rows failed
      */
-    public int settleOrphans(final Object answer) {
+    public int settleOrphans(final @Nullable Object answer) {
         return settleOrphans(answer, List.of());
     }
 
     /**
      * Fails every request left running except the spared ones, which another process still runs.
      *
-     * @param answer what to write into those rows
+     * @param answer what to write into the outcome column of those rows, null for nothing
      * @param spared the ids to leave running
      * @return the rows failed
      */
-    public int settleOrphans(final Object answer, final Collection<Long> spared) {
-        return count(
-                """
-                WITH failed AS (
-                    UPDATE <table> SET status = 'FAILED', finished = now(), outcome = cast(:outcome AS jsonb)
-                    WHERE status = 'RUNNING' AND id <> ALL(cast(:spared AS bigint[]))
-                    RETURNING id
-                )
-                SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM failed) AS notified
-                """,
-                Map.of(
-                        "outcome", DatabaseJson.encode(Objects.requireNonNull(answer, "answer")),
-                        "spared", spared.toArray(Long[]::new)));
+    public int settleOrphans(final @Nullable Object answer, final Collection<Long> spared) {
+        return jdbi.withHandle(
+                handle -> withOutcome(handle.createQuery("""
+                                WITH failed AS (
+                                    UPDATE <table> SET status = 'FAILED', finished = now() <outcome>
+                                    WHERE status = 'RUNNING' AND id <> ALL(cast(:spared AS bigint[]))
+                                    RETURNING id
+                                )
+                                SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM failed) AS notified
+                                """), ", outcome = cast(:outcome AS jsonb)", answer)
+                        .define("table", table.name())
+                        .bind("channel", table.channel().sqlName())
+                        .bind("spared", spared.toArray(Long[]::new))
+                        .mapTo(Integer.class)
+                        .one());
     }
 
     /** Returns one row as JSON, so it can outlive a table that a restore replaces. */
@@ -448,18 +559,25 @@ public final class Inbox<P> {
 
     /** Returns one request in any state, or empty if the row does not exist. An overdue row reads as expired. */
     public Optional<Request<P>> find(final long id) {
-        return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE id = :id")
-                .define("table", table.name())
-                .define("payloadColumn", table.hasPayload() ? "payload," : "")
+        return jdbi.withHandle(handle -> read(handle, id));
+    }
+
+    private Optional<Request<P>> read(final Handle handle, final long id) {
+        return reading(handle, "WHERE id = :id")
                 .bind("id", id)
                 .map(mapper(handle))
-                .findOne());
+                .findOne();
+    }
+
+    private Query reading(final Handle handle, final String where) {
+        return handle.createQuery(READ + where)
+                .define("table", table.name())
+                .define("payloadColumn", table.hasPayload() ? "payload," : "")
+                .define("outcomeColumn", table.hasOutcome() ? ", outcome" : "");
     }
 
     public List<Request<P>> recent(final Class<? extends P> kind, final int limit) {
-        return jdbi.withHandle(handle -> handle.createQuery(READ + "WHERE kind = :kind ORDER BY id DESC LIMIT :limit")
-                .define("table", table.name())
-                .define("payloadColumn", table.hasPayload() ? "payload," : "")
+        return jdbi.withHandle(handle -> reading(handle, "WHERE kind = :kind ORDER BY id DESC LIMIT :limit")
                 .bind("kind", table.kindOf(kind))
                 .bind("limit", Math.max(1, limit))
                 .map(mapper(handle))
@@ -494,7 +612,7 @@ public final class Inbox<P> {
 
     /**
      * Expires overdue requests, then claims and answers every due request, oldest first.
-     * A re-entrant call does nothing. A handler that throws fails its request with the message, never retried.
+     * A re-entrant call does nothing. A handler that throws fails its request, never retried, and the log has why.
      *
      * @return the requests settled
      */
@@ -524,9 +642,8 @@ public final class Inbox<P> {
         try {
             outcome = handler.handle(request);
         } catch (final RuntimeException failure) {
-            // The message without the stack trace, as a web interface reads the row.
             log.error("{} request {} ({}) failed", table, request.id(), request.kind(), failure);
-            outcome = Outcome.failed(Map.of("error", String.valueOf(failure.getMessage())));
+            outcome = Outcome.failed(null);
         }
         if (settle(request.id(), outcome).isEmpty()) {
             log.warn("{} request {} was no longer running when it was settled", table, request.id());
@@ -570,19 +687,25 @@ public final class Inbox<P> {
                         () -> new IllegalStateException(table + " holds a kind this build does not know: " + kind));
         final Object payload = known != null
                 ? known
-                : table.isRow(type) ? readRow(handle, id, type) : DatabaseJson.decode(row.getString("payload"), type);
+                : table.isRow(type)
+                        ? readRow(handle, id, type, type)
+                        : DatabaseJson.decode(row.getString("payload"), type);
+        final InboxStatus status = InboxStatus.valueOf(row.getString("status"));
+        final Optional<Class<?>> answers = table.answerOf(type);
         return new Request<>(
                 id,
                 kind,
                 table.payloads().cast(payload),
-                InboxStatus.valueOf(row.getString("status")),
+                status,
                 Actor.of(row.getString("actor_kind"), row.getString("actor_id")),
                 Objects.requireNonNull(instant(row.getTimestamp("requested")), "requested"),
                 Objects.requireNonNull(instant(row.getTimestamp("scheduled_for")), "scheduled_for"),
                 instant(row.getTimestamp("expires")),
                 instant(row.getTimestamp("started")),
                 instant(row.getTimestamp("finished")),
-                row.getString("outcome"));
+                table.hasOutcome() ? row.getString("outcome") : null,
+                status == InboxStatus.DONE && answers.isPresent() ? readRow(handle, id, type, answers.get()) : null,
+                status == InboxStatus.REFUSED ? refusal(handle, id) : null);
     }
 
     private static @Nullable Instant instant(final @Nullable Timestamp timestamp) {

@@ -10,12 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 
 /** A request to the bot, which alone holds a Discord session. Each record is one kind. */
 public sealed interface BotRequest {
 
-    InboxTable<BotRequest> TABLE = InboxTable.of("bot_inbox", Channel.BOT, BotRequest.class);
+    /** The bot's inbox table. Its outcome column holds what an announcement and an alert answer. */
+    InboxTable<BotRequest> TABLE = InboxTable.of("bot_inbox", Channel.BOT, BotRequest.class)
+            .withRows(Grant.class, Revoke.class, PaymentBooked.class, Unlink.class, SetPlaytime.class)
+            .withOutcome();
 
     /** Adds days of access to a person, applies the role and tells them. */
     record Grant(DiscordId person, int days) implements BotRequest {
@@ -26,6 +28,9 @@ public sealed interface BotRequest {
                 throw new IllegalArgumentException("a grant is at least one day, got " + days);
             }
         }
+
+        /** @param until the end of the person's access after the grant */
+        public record Answer(Instant until) {}
     }
 
     /** Removes every running grant and the role, and tells the person. */
@@ -34,45 +39,22 @@ public sealed interface BotRequest {
         public Revoke {
             Objects.requireNonNull(person, "person");
         }
+
+        /** @param revoked the running grants it ended */
+        public record Answer(int revoked) {}
     }
 
     /**
      * Tells a payer what steward booked: the roles, the direct messages, the thank-you and the admin card.
-     * The booking is committed with this row, so the bot only reacts.
+     * The booking is committed with this row, so the bot only reacts and reads what it tells from the booking.
      *
-     * @param donationCents the part of the payment that counts as donation
-     * @param downgraded whether fewer days were granted than ordered
-     * @param receivedCents the amount, null for an admin's booking by hand
-     * @param from the start of the access period it bought
-     * @param entry the journal entry of the booking, which the admin card draws
+     * @param entry the journal entry of the booking, which holds the days and the donation it booked
      */
-    record PaymentBooked(
-            UUID payment,
-            DiscordId person,
-            String reference,
-            int days,
-            int donationCents,
-            boolean downgraded,
-            @Nullable Integer receivedCents,
-            Instant from,
-            Instant until,
-            UUID entry)
-            implements BotRequest {
+    record PaymentBooked(UUID payment, UUID entry) implements BotRequest {
 
         public PaymentBooked {
             Objects.requireNonNull(payment, "payment");
-            Objects.requireNonNull(person, "person");
-            Objects.requireNonNull(reference, "reference");
-            Objects.requireNonNull(from, "from");
-            Objects.requireNonNull(until, "until");
             Objects.requireNonNull(entry, "entry");
-            if (days <= 0) {
-                throw new IllegalArgumentException("a booking grants at least one day, got " + days);
-            }
-        }
-
-        public boolean donation() {
-            return donationCents > 0;
         }
     }
 
@@ -82,6 +64,9 @@ public sealed interface BotRequest {
         public Unlink {
             Objects.requireNonNull(person, "person");
         }
+
+        /** @param unlinked whether there was a link to break */
+        public record Answer(boolean unlinked) {}
     }
 
     /** Writes the total play time of a person. */

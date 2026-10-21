@@ -129,6 +129,11 @@ class RecreateRunTest extends WebTestSupport {
         }
     }
 
+    /** Picks the grant and the revoke of the test's grantee out of bot_inbox {@code i}. */
+    private static final String FOR_THE_GRANTEE = " (exists (select 1 from bot_grant g where g.request = i.id"
+            + " and g.person = '555000000000000001') or exists (select 1 from bot_revoke r where r.request = i.id"
+            + " and r.person = '555000000000000001'))";
+
     private void assertAccessGrantAndRevokeAreJournalled(final HttpClient browser, final String snowflake)
             throws Exception {
         // 3. and 4. Giving and taking away access: the bot journals those, and this side writes the request.
@@ -142,11 +147,11 @@ class RecreateRunTest extends WebTestSupport {
                         .statusCode());
         assertEquals(
                 2,
-                count("select count(*) from bot_inbox where payload ->> 'person' ="
-                        + " '555000000000000001' and actor_kind = 'PERSON' and actor_id = '" + snowflake + "'"));
+                count("select count(*) from bot_inbox i where" + FOR_THE_GRANTEE
+                        + " and actor_kind = 'PERSON' and actor_id = '" + snowflake + "'"));
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("delete from bot_inbox where payload ->> 'person' = '555000000000000001'");
+            statement.execute("delete from bot_inbox i where" + FOR_THE_GRANTEE);
         }
     }
 

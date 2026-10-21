@@ -16,6 +16,9 @@ import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.inbox.BankRequest;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.inbox.InboxStatus;
+import eu.nordtal.season.database.inbox.Request;
+import eu.nordtal.season.database.payment.BookedPayment;
 import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequest;
@@ -124,7 +127,34 @@ class PaymentsTest {
         assertAll(
                 () -> assertEquals(TabRefusal.TOO_MANY_REQUESTS, refused.tabRefusal()),
                 () -> assertNotNull(refused.tabFailed()),
-                () -> assertEquals(PaymentRequestStatus.OPEN, refused.status(), "pressing again is the retry"));
+                () -> assertEquals(PaymentRequestStatus.OPEN, refused.status(), "pressing again is the retry"),
+                () -> assertEquals(
+                        1,
+                        count("SELECT count(*) FROM bank_inbox i JOIN bank_open_tab t ON t.request = i.id"
+                                + " WHERE i.status = 'FAILED' AND t.tab IS NULL"),
+                        "the refusal is the request's own, so the row keeps only its status"));
+    }
+
+    @Test
+    void aCancelledTabIsTheTypedAnswerOfItsRequest() {
+        final PaymentRequest request = requests.open(PAYER, 30, 300, 0, 24);
+        requests.attachTab(request.id(), 4343L, "https://bunq.me/y");
+        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.person(PAYER)));
+
+        payments.pass();
+
+        final Request<BankRequest> cancelled = Inbox.<BankRequest>over(owner, BankRequest.TABLE)
+                .recent(BankRequest.CancelTab.class, 1)
+                .getFirst();
+        assertAll(
+                () -> assertEquals(InboxStatus.DONE, cancelled.status()),
+                () -> assertEquals(
+                        Optional.of(new BankRequest.CancelTab.Answer(4343L)),
+                        cancelled.answer(BankRequest.CancelTab.Answer.class)),
+                () -> assertEquals(
+                        1,
+                        count("SELECT count(*) FROM bank_cancel_tab WHERE request = " + cancelled.id()
+                                + " AND tab = 4343")));
     }
 
     @Test
@@ -154,13 +184,10 @@ class PaymentsTest {
                         AuditDirectory.using(owner).recent(1).getFirst().id(),
                         ((BotRequest.PaymentBooked) told.getFirst()).entry(),
                         "the bot draws its card from the entry the booking wrote"),
-                () -> assertTrue(
-                        told.getFirst() instanceof BotRequest.PaymentBooked paid
-                                && paid.days() == 30
-                                && paid.donationCents() == 500
-                                && !paid.downgraded()
-                                && paid.person().equals(PAYER),
-                        told.toString()));
+                () -> assertEquals(
+                        List.of(30, 500, false, PAYER),
+                        told(told.getFirst()),
+                        "the bot reads the days, the donation and the payer of the booking"));
 
         // bunq returns the same payment on the next pass, which books nothing again.
         payments.pass();
@@ -174,10 +201,11 @@ class PaymentsTest {
 
         payments.pass();
 
-        final BotRequest.PaymentBooked paid = (BotRequest.PaymentBooked) told().getFirst();
+        final BookedPayment paid = new Bookings(owner).told((BotRequest.PaymentBooked) told().getFirst());
         assertAll(
                 () -> assertEquals(60, paid.days()),
                 () -> assertTrue(paid.downgraded()),
+                () -> assertEquals(Integer.valueOf(500), paid.receivedCents()),
                 () -> assertEquals(
                         PaymentMatch.REFERENCE,
                         requests.byId(request.id()).orElseThrow().matchedBy()));
@@ -269,10 +297,16 @@ class PaymentsTest {
                         handle -> handle.createQuery(sql).mapTo(Integer.class).one());
     }
 
+    /** Returns what the bot reads of a booking: the days, the donation, whether it was downgraded and the payer. */
+    private static List<Object> told(final BotRequest booking) {
+        final BookedPayment paid = new Bookings(owner).told((BotRequest.PaymentBooked) booking);
+        return List.of(paid.days(), paid.donationCents(), paid.downgraded(), paid.person());
+    }
+
     /** The requests of the bot, oldest first. */
     private static List<BotRequest> told() {
         return Inbox.<BotRequest>over(owner, BotRequest.TABLE).recent(BotRequest.PaymentBooked.class, 50).stream()
-                .map(eu.nordtal.season.database.inbox.Request::payload)
+                .map(Request::payload)
                 .toList()
                 .reversed();
     }

@@ -18,7 +18,6 @@ class ColumnsAreAtomicIntegrationTest {
 
     /** The composite columns the schema still has. */
     private static final Set<String> COMPOSITE = Set.of(
-            "bank_inbox.outcome",
             "bot_inbox.outcome",
             "bot_inbox.payload",
             "command_tree.tree",
@@ -26,13 +25,11 @@ class ColumnsAreAtomicIntegrationTest {
             "game_catalogue.catalogue",
             "game_catalogue.datapacks",
             "guild_channels.channels",
-            "hunger_games_inbox.outcome",
             "hunger_games_inbox.payload",
             "setting_group.defaults",
             "setting_group.environment",
             "setting_group.schema",
             "setting_override.value",
-            "smp_inbox.outcome",
             "smp_inbox.payload",
             "steward_inbox.moving",
             "steward_inbox.outcome",

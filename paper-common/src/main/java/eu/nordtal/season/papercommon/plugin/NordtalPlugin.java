@@ -463,12 +463,15 @@ public abstract class NordtalPlugin extends JavaPlugin {
         }
     }
 
-    /** Returns the outcome of an answer in an inbox: English plain text, or the refusal. */
-    protected final Outcome outcome(final Answer answer) {
+    /** Returns the outcome of an answer in an inbox: its status and a refusal. A failure's words go to the log. */
+    private Outcome outcome(final Answer answer) {
         return switch (answer) {
-            case Answer.Done done -> Outcome.done(english(done.message()));
+            case Answer.Done done -> Outcome.done(null);
             case Answer.Refused refused -> Outcome.refused(refused.refusal());
-            case Answer.Failed failed -> Outcome.failed(english(failed.message()));
+            case Answer.Failed failed -> {
+                getLogger().warning("a request failed: " + english(failed.message()));
+                yield Outcome.failed(null);
+            }
         };
     }
 

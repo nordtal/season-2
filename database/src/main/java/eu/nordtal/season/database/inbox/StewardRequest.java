@@ -7,7 +7,8 @@ import java.util.List;
 public sealed interface StewardRequest {
 
     /** The run inbox table. The proxy and the bot's feed follow its rows on the same channel. */
-    InboxTable<StewardRequest> TABLE = InboxTable.of("steward_inbox", Channel.UPDATE, StewardRequest.class);
+    InboxTable<StewardRequest> TABLE =
+            InboxTable.of("steward_inbox", Channel.UPDATE, StewardRequest.class).withOutcome();
 
     List<String> services();
 

@@ -19,7 +19,6 @@ import eu.nordtal.season.internalapi.BankWire;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import lombok.extern.slf4j.Slf4j;
@@ -92,18 +91,17 @@ public final class Payments {
 
     private Outcome answer(final Request<BankRequest> asked) {
         final Optional<PaymentRequest> found = requests.byId(asked.payload().payment());
-        if (found.isEmpty()) {
-            return Outcome.done(Map.of("nothing", "the payment request is gone"));
-        }
         return switch (asked.payload()) {
-            case BankRequest.OpenTab open -> createTab(found.get());
-            case BankRequest.CancelTab cancel -> cancelTab(found.get());
+            case BankRequest.OpenTab open ->
+                found.map(this::createTab).orElseGet(() -> Outcome.done(new BankRequest.OpenTab.Answer(null)));
+            case BankRequest.CancelTab cancel ->
+                found.map(this::cancelTab).orElseGet(() -> Outcome.done(new BankRequest.CancelTab.Answer(null)));
         };
     }
 
     private Outcome createTab(final PaymentRequest request) {
         if (request.status() != PaymentRequestStatus.OPEN || request.tab().isPresent()) {
-            return Outcome.done(Map.of("nothing", "the request is closed or has its tab"));
+            return Outcome.done(new BankRequest.OpenTab.Answer(null));
         }
         final BankWire.Tab tab;
         try {
@@ -112,24 +110,25 @@ public final class Payments {
             // The payer sees a text for the refusal code. The words of bunq stay in this log.
             log.warn(
                     "bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
+            // The refusal code is the request's own, so the row keeps nothing.
             requests.failTab(request.id(), refused.refusal());
-            return Outcome.failed(Map.of("refusal", refused.refusal().name()));
+            return Outcome.failed(null);
         }
 
         if (requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
             log.info("Created bunq.me tab {} for {}", tab.id(), request.reference());
-            return Outcome.done(Map.of("tab", String.valueOf(tab.id())));
+            return Outcome.done(new BankRequest.OpenTab.Answer(tab.id()));
         }
 
         // The request closed after it was read, so the new tab is cancelled.
         log.warn("Request {} closed while its tab was being created; cancelling tab {}", request.reference(), tab.id());
         bunq.cancelTab(tab.id());
-        return Outcome.done(Map.of("cancelled", String.valueOf(tab.id())));
+        return Outcome.done(new BankRequest.OpenTab.Answer(tab.id()));
     }
 
     private Outcome cancelTab(final PaymentRequest request) {
         if (request.tab().isEmpty() || request.tabCancelled() != null) {
-            return Outcome.done(Map.of("nothing", "there is no standing tab"));
+            return Outcome.done(new BankRequest.CancelTab.Answer(null));
         }
         final long tabId = request.tab().orElseThrow();
         final boolean accepted = bunq.cancelTab(tabId);
@@ -142,7 +141,7 @@ public final class Payments {
                     request.reference(),
                     accepted ? "" : " (bunq had already closed it)");
         }
-        return Outcome.done(Map.of("cancelled", String.valueOf(tabId)));
+        return Outcome.done(new BankRequest.CancelTab.Answer(tabId));
     }
 
     private void matchByTab() {

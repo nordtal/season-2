@@ -42,7 +42,7 @@ const GENERIC: Record<string, Icon> = {
   advancement: TERM_ICON.advancement,
 }
 
-function useChoices(
+export function useChoices(
   reference: ConfigReference,
   sibling: string | undefined,
 ): { choices: Choices; icons?: GameIcons; pending: boolean } {
@@ -59,7 +59,7 @@ function useChoices(
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 
-function Mark({
+export function Mark({
   choice,
   icons,
   registry,
@@ -218,6 +218,8 @@ export function ReferenceMarks({
 
 /**
  * A list holds chips and adds values with the same picker. A value that nothing lists stays, marked, and is never replaced.
+ *
+ * `face` replaces what a single value's button shows, and `className` styles that button.
  */
 export function ReferencePicker({
   id,
@@ -228,6 +230,8 @@ export function ReferencePicker({
   sibling,
   disabled,
   typed,
+  face,
+  className,
   onChange,
 }: {
   id: string
@@ -238,6 +242,8 @@ export function ReferencePicker({
   sibling?: string
   disabled: boolean
   typed: ReactNode
+  face?: ReactNode
+  className?: string
   onChange: (values: string[]) => void
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
@@ -329,23 +335,26 @@ export function ReferencePicker({
         type="button"
         variant="outline"
         disabled={disabled}
-        className="h-auto min-h-9 w-full min-w-0 justify-start gap-2 py-1 font-normal"
+        className={cn("h-auto min-h-9 w-full min-w-0 justify-start gap-2 py-1 font-normal", className)}
         onClick={() => setOpen(true)}
       >
-        {value === "" ? (
-          <span className="text-muted-foreground">{t("steward.settings.none")}</span>
-        ) : choice ? (
-          <>
-            <Mark choice={choice} icons={icons} registry={choices.registry} />
-            <span className="truncate">{choice.name}</span>
-            <span className="ml-auto truncate font-mono text-xs text-muted-foreground max-sm:hidden">{choice.id}</span>
-          </>
-        ) : (
-          <span className="flex min-w-0 items-center gap-1.5 text-warning">
-            <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
-            <span className="truncate font-mono text-xs">{value}</span>
-          </span>
-        )}
+        {face ??
+          (value === "" ? (
+            <span className="text-muted-foreground">{t("steward.settings.none")}</span>
+          ) : choice ? (
+            <>
+              <Mark choice={choice} icons={icons} registry={choices.registry} />
+              <span className="truncate">{choice.name}</span>
+              <span className="ml-auto truncate font-mono text-xs text-muted-foreground max-sm:hidden">
+                {choice.id}
+              </span>
+            </>
+          ) : (
+            <span className="flex min-w-0 items-center gap-1.5 text-warning">
+              <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
+              <span className="truncate font-mono text-xs">{value}</span>
+            </span>
+          ))}
       </Button>
       {sheet}
     </>

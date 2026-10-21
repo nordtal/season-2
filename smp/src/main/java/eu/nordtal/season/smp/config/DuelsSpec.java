@@ -67,7 +67,7 @@ public interface DuelsSpec {
     @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
     @NoExplanationNeeded
-    default List<WheelPrizeSpec> duelLoadoutSword() {
+    default List<DuelLoadoutItemSpec> duelLoadoutSword() {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
@@ -75,7 +75,7 @@ public interface DuelsSpec {
     @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
     @NoExplanationNeeded
-    default List<WheelPrizeSpec> duelLoadoutBow() {
+    default List<DuelLoadoutItemSpec> duelLoadoutBow() {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
 }

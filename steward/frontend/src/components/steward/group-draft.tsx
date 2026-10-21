@@ -1,11 +1,14 @@
-import { useMemo } from "react"
+import { type ReactNode, useMemo } from "react"
 import type { UseMutationResult } from "@tanstack/react-query"
 
 import type { ConfigChanges, ConfigDocument, ReloadOutcome } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
+import { useSaveConfig } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import { changed, type Draft } from "@/components/steward/configuration"
+import { Failure } from "@/components/steward/query-state"
+import { PinnedRow } from "@/components/steward/settings-view"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { t } from "@/lib/texts"
 
@@ -105,5 +108,35 @@ export function SaveDraft({
         {pending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
       </Button>
     </>
+  )
+}
+
+/** A custom editor's frame: the group's notice and a refused save above `children`, the save row pinned below. */
+export function GroupEditor({
+  file,
+  document,
+  children,
+}: {
+  file: string
+  document: ConfigDocument
+  children: (draft: Draft, set: (path: string, value: DraftValue | undefined) => void) => ReactNode
+}) {
+  const { draft, count, set, submit, discard, save } = useGroupDraft(file, document, useSaveConfig(document.path))
+  const notice = noticeOf(document)
+  return (
+    <div className="flex flex-col gap-3">
+      {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+      {save.error ? <Failure error={save.error} /> : null}
+      {children(draft, set)}
+      <PinnedRow>
+        <SaveDraft
+          count={count}
+          writable={document.writable}
+          pending={save.isPending}
+          onSave={submit}
+          onDiscard={discard}
+        />
+      </PinnedRow>
+    </div>
   )
 }

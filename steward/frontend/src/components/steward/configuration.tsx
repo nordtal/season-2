@@ -93,8 +93,7 @@ export function Control({
   }
 
   if (entry.kind === "SECTIONS") {
-    const raw = draft[entry.path]
-    const value = (isSectionValuesArray(raw) ? raw : undefined) ?? sectionsFromEntry(entry)
+    const value = draftSections(draft, entry)
     return (
       <RepeatableCards
         entry={entry}
@@ -106,9 +105,25 @@ export function Control({
     )
   }
 
-  const rawTyped = draft[entry.path]
-  const typed = typeof rawTyped === "string" ? rawTyped : undefined
-  const value = typed ?? entry.value ?? ""
+  return (
+    <ScalarControl
+      id={entry.path}
+      entry={entry}
+      value={draftText(draft, entry)}
+      disabled={disabled}
+      onChange={onChange}
+    />
+  )
+}
 
-  return <ScalarControl id={entry.path} entry={entry} value={value} disabled={disabled} onChange={onChange} />
+/** A card list as the draft holds it, or as stored. */
+export function draftSections(draft: Draft, entry: ConfigEntry): SectionValues[] {
+  const raw = draft[entry.path]
+  return (isSectionValuesArray(raw) ? raw : undefined) ?? sectionsFromEntry(entry)
+}
+
+/** A single value as the draft holds it, or as stored. */
+export function draftText(draft: Draft, entry: ConfigEntry): string {
+  const raw = draft[entry.path]
+  return typeof raw === "string" ? raw : (entry.value ?? "")
 }

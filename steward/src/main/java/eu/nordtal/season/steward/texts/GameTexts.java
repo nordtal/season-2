@@ -5,7 +5,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The texts of the game panels: the Hunger Games round, the request outcome and the milestone track. */
+/** The texts of the game panels: the Hunger Games round, the request outcome, the milestones and the game settings. */
 @Name("Games")
 public interface GameTexts {
 
@@ -104,4 +104,43 @@ public interface GameTexts {
 
     @Name("Move down")
     MessageRef moveDown(@Arg("name") String name);
+
+    @Name("Advancement")
+    MessageRef advancement();
+
+    @Name("Item")
+    MessageRef item();
+
+    @Name("Prize")
+    MessageRef prize();
+
+    @Name("Region")
+    MessageRef region();
+
+    @Name("Total weight")
+    MessageRef totalWeight(@Arg("total") int total);
+
+    @Name("Chance")
+    MessageRef chance();
+
+    @Name("Aura of")
+    MessageRef auraOf(@Arg("name") String name);
+
+    @Name("Arena")
+    MessageRef arena();
+
+    @Name("Duel types")
+    MessageRef duelTypes();
+
+    @Name("Platform")
+    MessageRef platform();
+
+    @Name("Loadout")
+    MessageRef loadout();
+
+    @Name("Min")
+    MessageRef min();
+
+    @Name("Max")
+    MessageRef max();
 }

@@ -158,7 +158,7 @@ writes them. Every process reads them at start and on the signal hub's `nordtal_
 plugin reads them off the main thread and shows the packaged texts until the hub has connected.
 
 - The texts of an override replace the packaged texts of that language as a set. The override keeps
-  the packaged texts it replaced and their hash.
+  the packaged texts it replaced, and every process compares their hash with its jar.
 - A process sets an override aside when its hash no longer matches the jar or the validator refuses
   it. The hash no longer matches when the admin wrote the override over a text that this release
   changed. The packaged text shows until an admin saves the override again. Every process logs the

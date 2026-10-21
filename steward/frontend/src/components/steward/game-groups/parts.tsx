@@ -77,7 +77,8 @@ export function RemoveButton({ name, disabled, onRemove }: { name: string; disab
 }
 
 /** A picker that reads as a row's name: no frame of its own inside a framed list. */
-export const BARE = "min-w-0 flex-1 border-transparent bg-transparent shadow-none dark:border-transparent dark:bg-transparent"
+export const BARE =
+  "min-w-0 flex-1 border-transparent bg-transparent shadow-none dark:border-transparent dark:bg-transparent"
 
 /**
  * Picks one game value. `face` is what the button shows; without a catalogue the value is typed.

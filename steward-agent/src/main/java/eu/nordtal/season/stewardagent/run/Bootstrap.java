@@ -5,6 +5,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReport.Note;
 import eu.nordtal.season.database.update.UpdateReport.Step;
@@ -52,14 +53,19 @@ public final class Bootstrap {
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         Optional<UpdateReport> report;
         List<String> services = List.of();
+        final CollectedSteps steps = new CollectedSteps();
         try {
             final AgentWire.Topology read = topology.get();
             final UpdatePlan missing =
                     Runs.resolve(config, read, plugins, settings).onlyMissing();
             services = services(missing);
-            report = report(missing, handingOver(plan -> Runs.apply(config, read, plan, settings, plugins), handOver));
+            report = report(
+                    new Steps(steps, 1),
+                    missing,
+                    handingOver(plan -> Runs.apply(config, read, plan, settings, plugins), handOver));
         } catch (final RuntimeException failure) {
             log.error("Start-up install: nothing could be resolved, so nothing was installed", failure);
+            new Steps(steps, 1).begin(RunStep.Kind.RESOLVE).failed(RunStep.Reason.UNEXPECTED);
             report = Optional.of(unexpected(UpdateReport.at(UpdateReport.Stage.FAILED), failure));
         }
         if (report.isEmpty()) {
@@ -75,6 +81,7 @@ public final class Bootstrap {
                             written.stage() == UpdateReport.Stage.FAILED ? UpdateStatus.FAILED : UpdateStatus.DONE,
                             UpdateReports.toJson(written),
                             Duration.between(began, clock.instant()));
+            steps.into(new Steps(Schema.updates(database).recorder(), run.id()));
             log.info("Start-up install written as run {}, {}", run.id(), written.stage());
         } catch (final RuntimeException failure) {
             log.error("Start-up install ended {}, and its run could not be written", written.stage(), failure);
@@ -106,14 +113,18 @@ public final class Bootstrap {
     /**
      * What the start-up install amounts to, or empty when nothing was missing and everything could be checked.
      *
+     * @param record takes the steps of the install
      * @param missing the plan reduced to what has nothing installed, and what could not be checked
      * @param apply installs a plan; called only when something is missing
      */
-    static Optional<UpdateReport> report(final UpdatePlan missing, final Function<UpdatePlan, ApplyResult> apply) {
+    static Optional<UpdateReport> report(
+            final Steps record, final UpdatePlan missing, final Function<UpdatePlan, ApplyResult> apply) {
         if (!missing.hasMissing() && !missing.hasFailures()) {
             return Optional.empty();
         }
         final UpdateReport planned = PlanReport.of(missing);
+        Resolved.run(planned).on(record.begin(RunStep.Kind.RESOLVE));
+        Resolved.services(record, planned);
         if (!missing.hasMissing()) {
             return Optional.of(planned.withStage(UpdateReport.Stage.FAILED));
         }
@@ -122,6 +133,7 @@ public final class Bootstrap {
             result = apply.apply(missing);
         } catch (final RuntimeException failure) {
             log.error("Start-up install: the install failed part way through", failure);
+            record.begin(RunStep.Kind.INSTALL).failed(RunStep.Reason.UNEXPECTED);
             return Optional.of(unexpected(planned.withStage(UpdateReport.Stage.FAILED), failure));
         }
         // A line the plan failed keeps its reason. Only a line that waits for its files is overwritten.
@@ -130,6 +142,7 @@ public final class Bootstrap {
                 .map(UpdateReport.ServiceLine::service)
                 .toList();
         final UpdateReport installed = Installed.into(planned, result, waiting);
+        Installed.record(record, planned, result, services(missing));
         final boolean failed = missing.hasFailures()
                 || result.hasFailures()
                 || installed.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED)

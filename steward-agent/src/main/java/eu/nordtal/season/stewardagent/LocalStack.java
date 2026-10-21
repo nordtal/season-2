@@ -151,10 +151,10 @@ final class LocalStack implements ContainerOps {
                     "pruned {} unused images and the build cache, freeing {} bytes",
                     pruned.images(),
                     pruned.freedBytes());
-            return new Pruned(pruned.images(), pruned.removed(), pruned.freedBytes(), null);
+            return new Pruned(pruned.images(), pruned.removed(), pruned.freedBytes(), pruned.cacheBytes(), null);
         } catch (final DockerException refused) {
             log.warn("pruning the unused images failed: {}", refused.getMessage());
-            return new Pruned(0, Map.of(), 0, String.valueOf(refused.getMessage()));
+            return new Pruned(0, Map.of(), 0, 0, String.valueOf(refused.getMessage()));
         }
     }
 

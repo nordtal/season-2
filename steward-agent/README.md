@@ -22,7 +22,7 @@ steward-agent migrate
 steward-agent run ID
 # Write a run request, as a button does, and print its id.
 steward-agent request KIND [a,b] [MIN]
-# Print the status and the report of a run.
+# Print the status and stage of a run, then each step with its facts.
 steward-agent status ID
 ```
 
@@ -55,9 +55,12 @@ follows this sequence. `Run` implements it, `Kinds` holds one planner per kind, 
 The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
 publishes the standbys' ports.
 
-A report is a list of records. Each record holds a step, an outcome, a service and a message of the
-admin bundle (`ReportTexts` in `:database`). Steward's run page shows all records. The bot's card
-shows only the failed records, and only for a run that failed or was stopped.
+A run is its rows: `run_step` with an outcome and a reason code per step, and a fact table per kind
+of fact, with the archives in `backup_archive`. Steward's run page and `status` draw a run from those
+rows, and `RunLines` in `:database` words the facts of a step for both. A report is a list of
+records. Each record holds a step, an outcome, a service and a message of the admin bundle
+(`ReportTexts` in `:database`). The bot's card shows only the failed records, and only for a run
+that failed or was stopped.
 
 ## Updating to another release
 

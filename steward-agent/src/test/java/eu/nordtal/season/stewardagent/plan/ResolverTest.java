@@ -15,6 +15,7 @@ import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
+import eu.nordtal.season.stewardagent.run.PlanView;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.FakeHttp;
 import eu.nordtal.season.stewardagent.source.GitHubReleases;

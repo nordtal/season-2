@@ -1,5 +1,9 @@
 package eu.nordtal.season.database.update;
 
+import java.time.Instant;
+import java.util.List;
+import org.jspecify.annotations.Nullable;
+
 /**
  * The typed values of the steps of a run, as {@code run_step} and its fact tables hold them.
  * steward-agent writes a step when it begins and ends it with an outcome and, if it went wrong, a reason.
@@ -115,4 +119,70 @@ public final class RunStep {
         PULLED,
         KEPT
     }
+
+    /** Why a prune removed an archive. */
+    public enum PruneRule {
+        /** No daily, weekly or monthly rule keeps it any longer. */
+        RETENTION,
+        /** The archives took more than their share of the disk, and it was among the oldest. */
+        OVER_BUDGET
+    }
+
+    /**
+     * One step as read back, with every fact written for it.
+     *
+     * @param started {@code null} for a step of a plan, which no run has begun
+     * @param exitCode what the tool exited with, for a step that failed on it
+     * @param cacheFreed the bytes a cleanup freed in the build cache
+     * @param saved the archives the step wrote
+     * @param pruned the archives the step removed
+     */
+    public record Row(
+            int seq,
+            Kind step,
+            @Nullable String service,
+            @Nullable Instant started,
+            @Nullable Instant finished,
+            @Nullable Outcome outcome,
+            @Nullable Reason reason,
+            @Nullable Integer exitCode,
+            List<Change> changes,
+            List<Move> players,
+            List<ImageRemoved> imagesRemoved,
+            @Nullable Long cacheFreed,
+            @Nullable Room room,
+            @Nullable Offsite offsite,
+            List<Archive> saved,
+            List<Archive> pruned) {}
+
+    /** An artefact a step resolves, installs or sees. */
+    public record Change(
+            String artefact,
+            @Nullable String from,
+            @Nullable String to,
+            @Nullable Image image) {}
+
+    /** Players moved off a service, and how many came back. */
+    public record Move(String from, String to, int moved, int returned) {}
+
+    public record ImageRemoved(String image, long bytes) {}
+
+    public record Room(long needed, long free) {}
+
+    public record Offsite(String snapshot, long bytesAdded) {}
+
+    /**
+     * An archive of the catalogue.
+     *
+     * @param volume the volume it holds, or {@code database} for a dump
+     * @param stopVerified false when a service it holds stopped and nobody could read how it ended
+     * @param rule why it was pruned, {@code null} while it is kept
+     */
+    public record Archive(
+            String volume,
+            String file,
+            long bytes,
+            long tookMillis,
+            boolean stopVerified,
+            @Nullable PruneRule rule) {}
 }

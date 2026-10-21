@@ -156,6 +156,7 @@ final class Kinds {
                 final ContainerOps.Pruned pruned = containers.pruneImages();
                 pruned.removed().forEach(cleanup::imageRemoved);
                 if (pruned.failure() == null) {
+                    cleanup.cacheFreed(pruned.cacheBytes());
                     cleanup.done();
                 } else {
                     cleanup.warned(RunStep.Reason.REFUSED);
@@ -369,7 +370,8 @@ final class Kinds {
 
         final List<String> volumes = topology.backupVolumes();
         // Swept first, so a disk the budget can clear does not refuse the backup.
-        final UpdateReport swept = prune(runner, UpdateReport.at(UpdateReport.Stage.STOPPING), volumes, record);
+        prune(runner, volumes, record);
+        final UpdateReport swept = UpdateReport.at(UpdateReport.Stage.STOPPING);
         final Planned noRoom = refusedWithoutRoom(runner, swept, volumes, record);
         if (noRoom != null) {
             return noRoom;
@@ -391,8 +393,8 @@ final class Kinds {
         final Run.Payload save = (steps, stopped) -> {
             final UpdateReport saved = steps.save(stopped.report(), volumes);
             // It frees disk before the next run.
-            return new Run.Done(
-                    prune(runner, saved, volumes, record), false, back -> offsite(runner, back, progress, record));
+            prune(runner, volumes, record);
+            return new Run.Done(saved, false, back -> offsite(runner, back, progress, record));
         };
         return Planned.plan(
                 Run.Plan.of(planned, save, UpdateReport.Undertaking.BACKUP, true, Runner.Doubt.FAILS_THE_RUN));
@@ -409,10 +411,8 @@ final class Kinds {
         final SnapshotResult result = copied.get();
         if (result.ok()) {
             copying.offsite(String.valueOf(result.file()), result.bytes());
-            copying.done();
-        } else {
-            copying.failed(RunStep.Reason.TOOL_FAILED);
         }
+        copying.ended(result);
         final UpdateReport reported = back.with(UpdateRun.saved(Snapshots.OFFSITE, result, null));
         progress.accept(reported);
         return reported;
@@ -423,34 +423,12 @@ final class Kinds {
         return new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
     }
 
-    private static UpdateReport prune(
-            final Runner runner, final UpdateReport saved, final List<String> inBackup, final Steps record) {
-        final Retention policy = policyOf(runner);
+    private static void prune(final Runner runner, final List<String> inBackup, final Steps record) {
         final Steps.Step pruning = record.begin(RunStep.Kind.PRUNE);
-        final Snapshots.Pruned pruned = runner.backups.prune(policy, inBackup);
+        final Snapshots.Pruned pruned = runner.backups.prune(policyOf(runner), inBackup);
+        pruned.expired().forEach(file -> pruning.pruned(file, RunStep.PruneRule.RETENTION));
+        pruned.overBudget().forEach(file -> pruning.pruned(file, RunStep.PruneRule.OVER_BUDGET));
         pruning.done();
-        UpdateReport report = saved;
-        if (!pruned.expired().isEmpty()) {
-            report = report.withNote(Note.done(
-                    Step.BACKUP,
-                    TEXTS.report()
-                            .pruned(
-                                    policy.daily(),
-                                    policy.weekly(),
-                                    policy.monthly(),
-                                    pruned.expired().size(),
-                                    pruned.expired())));
-        }
-        if (!pruned.overBudget().isEmpty()) {
-            report = report.withNote(Note.done(
-                    Step.BACKUP,
-                    TEXTS.report()
-                            .prunedOverBudget(
-                                    runner.config.backup().budgetPercent(),
-                                    pruned.overBudget().size(),
-                                    pruned.overBudget())));
-        }
-        return report;
     }
 
     /**
@@ -695,16 +673,10 @@ final class Kinds {
     static SnapshotResult dump(final Runner runner, final Steps record) {
         final Steps.Step dumping = record.begin(RunStep.Kind.DUMP_DATABASE, Snapshots.DATABASE);
         final SnapshotResult dumped = runner.backups.saveDatabase();
-        restored(dumping, dumped);
+        // pg_dump reads a snapshot, so no stop stands behind a dump.
+        dumping.archive(dumped, true);
+        dumping.ended(dumped);
         return dumped;
-    }
-
-    static void restored(final Steps.Step step, final SnapshotResult result) {
-        if (result.ok()) {
-            step.done();
-        } else {
-            step.failed(RunStep.Reason.TOOL_FAILED);
-        }
     }
 
     private static void skipped(final Steps record, final List<String> services, final RunStep.Reason why) {

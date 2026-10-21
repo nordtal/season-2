@@ -37,7 +37,7 @@ function available(over: Partial<Available> = {}): Available {
     hasWork: true,
     hasFailures: false,
     changes: [],
-    notes: [],
+    steps: [],
     ...over,
   }
 }
@@ -153,7 +153,7 @@ describe("the available card", () => {
     expect(screen.queryByText("viaversion")).toBeNull()
   })
 
-  it("draws a plan's notes as the run page does, by step with each one's service", async () => {
+  it("draws a plan's steps as the run page does, each with its service and its facts", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -167,15 +167,13 @@ describe("the available card", () => {
               fileName: "Chunky-Bukkit-1.5.4.jar",
             }),
           ],
-          notes: [
+          steps: [
             {
-              step: "SOURCES",
+              step: "RESOLVE",
               outcome: "WARNING",
+              reason: "UNCLAIMED",
               service: "limbo",
-              what: {
-                key: "report.unclaimed",
-                args: { file: { kind: "text", value: "Somebodys-1.0.jar" } },
-              },
+              lines: [{ key: "run.reason", args: { reason: { kind: "choice", value: "unclaimed" } } }],
             },
           ],
         }),
@@ -185,7 +183,7 @@ describe("the available card", () => {
 
     await screen.findByText("chunky")
     expect(screen.getByText("Notes")).toBeTruthy()
-    expect(screen.getByText(/Somebodys-1\.0\.jar/)).toBeTruthy()
+    expect(screen.getByText("a jar no artefact claims")).toBeTruthy()
     expect(screen.getByText("all 1")).toBeTruthy()
   })
 

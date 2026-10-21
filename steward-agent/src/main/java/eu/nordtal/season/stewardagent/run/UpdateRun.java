@@ -163,11 +163,8 @@ final class UpdateRun {
 
             final Steps.Step step = record.begin(RunStep.Kind.SAVE_VOLUME, volume);
             final SnapshotResult result = snapshots.save(volume);
-            if (result.ok()) {
-                step.done();
-            } else {
-                step.failed(RunStep.Reason.TOOL_FAILED);
-            }
+            step.archive(result, unverifiedStops.isEmpty());
+            step.ended(result);
             UpdateReport.Mark mark = null;
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
@@ -412,8 +409,14 @@ final class UpdateRun {
     }
 
     private UpdateReport cameBack(final UpdateReport report, final String service, final Steps.Step step) {
-        step.done();
         final Facts fallback = fellBack.get(service);
+        if (fallback == null) {
+            // The versions the service came back with: no container tells its version, so these are the ones installed.
+            report.line(service).changes().stream()
+                    .filter(change -> change.told() == null && !UpdateReport.Change.NONE.equals(change.to()))
+                    .forEach(change -> step.change(change.artefact(), null, change.to(), null));
+        }
+        step.done();
         // A fallback line stays FAILED, its facts now saying that the service is back.
         return report.with(
                 fallback == null

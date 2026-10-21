@@ -1083,17 +1083,16 @@ deploy_by() {
 
 update_wait() {
     local id="$1" container="$2"
-    local waited=0 silent=0 answer status report said="" code
+    local waited=0 silent=0 answer status steps said="" code
 
     log "waiting; Ctrl-C stops WATCHING and never the run itself"
     while :; do
-        # One line: the status, a tab and the report. No output means the row is gone.
+        # The status and a tab before the stage, then one line per step. No output means the row is gone.
         code=0
         answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null)" || code=$?
+        steps="$(sed '1d' <<<"$answer")"
         answer="$(sed -n '1p' <<<"$answer")"
         status="${answer%%$'\t'*}"
-        report="${answer#*$'\t'}"
-        [[ "$status" == "$answer" ]] && report=""
 
         if [[ -z "$status" ]]; then
             (( silent > 0 )) || warn "steward-agent does not answer, which a run that recreates it also causes; asking
@@ -1110,14 +1109,7 @@ update_wait() {
             said="$status"
         fi
         if update_is_over "$status"; then
-            # jq if present, otherwise the raw JSON line.
-            if [[ -n "$report" ]]; then
-                if command -v jq >/dev/null 2>&1; then
-                    printf '%s\n' "$report" | jq . || printf '%s\n' "$report"
-                else
-                    printf '%s\n' "$report"
-                fi
-            fi
+            [[ -z "$steps" ]] || printf '%s\n' "$steps"
             [[ "$status" == DONE ]] && return 0
             (( code == UPDATE_KEPT_LOCAL )) && return "$UPDATE_KEPT_LOCAL"
             return 1

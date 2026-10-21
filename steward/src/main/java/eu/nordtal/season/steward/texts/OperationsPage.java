@@ -15,9 +15,6 @@ public interface OperationsPage {
     @Name("A stage on the trail")
     MessageRef step(@Arg("stage") UpdateReport.Stage stage);
 
-    @Name("Report unreadable")
-    MessageRef reportUnreadable();
-
     @Name("Nothing written yet")
     MessageRef nothingWritten();
 
@@ -32,9 +29,6 @@ public interface OperationsPage {
 
     @Name("Failed")
     MessageRef failed(@Arg("count") int count);
-
-    @Name("No line")
-    MessageRef noLine();
 
     @Name("No change")
     MessageRef noChange();
@@ -99,9 +93,6 @@ public interface OperationsPage {
     @Name("Still running")
     MessageRef stillRunning();
 
-    @Name("A stage a run never reached")
-    MessageRef notReached();
-
     @Name("Nothing to do, as a title")
     MessageRef nothingToDoTitle();
 
@@ -114,29 +105,14 @@ public interface OperationsPage {
     @Name("Report")
     MessageRef report();
 
-    @Name("Raw report")
-    MessageRef rawReport();
-
     @Name("No report")
     MessageRef noReport();
-
-    @Name("No line, as a title")
-    MessageRef noLineTitle();
 
     @Name("Service")
     MessageRef service();
 
     @Name("State")
     MessageRef state();
-
-    @Name("Changes")
-    MessageRef changes();
-
-    @Name("No build")
-    MessageRef noBuild();
-
-    @Name("New")
-    MessageRef added();
 
     @Name("Notes")
     MessageRef notes();

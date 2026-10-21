@@ -79,11 +79,13 @@ public interface ContainerOps {
      * The result of the prune.
      *
      * @param removed the removed images by id with their size, as far as Docker listed them
+     * @param cacheBytes the part of {@code freedBytes} the build cache freed
      * @param failure Docker's answer when it refused, {@code null} when it pruned
      */
     record Pruned(
             int images,
             Map<String, Long> removed,
             long freedBytes,
+            long cacheBytes,
             @org.jspecify.annotations.Nullable String failure) {}
 }

@@ -56,7 +56,7 @@ final class FakeSnapshots implements Snapshots {
         calls.add("backup:" + volume);
         if (failing.contains(volume)) {
             return SnapshotResult.failed(
-                    volume, Duration.ofSeconds(1), "tar exited 2: " + volume + " is not a readable archive");
+                    volume, Duration.ofSeconds(1), 2, "tar exited 2: " + volume + " is not a readable archive");
         }
         if (empty.contains(volume)) {
             return SnapshotResult.failed(

@@ -80,7 +80,7 @@ function run(over: Partial<Run> = {}): Run {
     status: "FAILED",
     actorKind: "HOST",
     actorId: "",
-    said: {},
+    steps: [],
     requested: "2026-09-16T04:45:00Z",
     scheduledFor: "2026-09-16T04:45:00Z",
     countdownEnd: "2026-09-16T04:45:00Z",

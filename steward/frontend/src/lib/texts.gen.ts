@@ -578,18 +578,6 @@ export type TextArgs = {
   }
   "report.proxy-pack-without-sha-1": Record<string, never>
   "report.proxy-without-pack": Record<string, never>
-  "report.pruned": {
-    daily: Arg["number"]
-    weekly: Arg["number"]
-    monthly: Arg["number"]
-    count: Arg["number"]
-    archives: Arg["list"]
-  }
-  "report.pruned-over-budget": {
-    percent: Arg["number"]
-    count: Arg["number"]
-    archives: Arg["list"]
-  }
   "report.recreating": {
     pull: Arg["choice"]
   }
@@ -734,9 +722,32 @@ export type TextArgs = {
   "report.words": {
     text: Arg["text"]
   }
+  "run.archive-pruned": {
+    file: Arg["text"]
+    rule: Arg["choice"]
+  }
+  "run.archive-saved": {
+    file: Arg["text"]
+    size: Arg["message"]
+    took: Arg["duration"]
+    verified: Arg["choice"]
+  }
+  "run.cache-freed": {
+    freed: Arg["message"]
+  }
   "run.change": {
     artefact: Arg["text"]
     change: Arg["message"]
+  }
+  "run.exit-code": {
+    code: Arg["number"]
+  }
+  "run.image": {
+    image: Arg["choice"]
+  }
+  "run.images-removed": {
+    images: Arg["number"]
+    freed: Arg["message"]
   }
   "run.kind": {
     kind: Arg["choice"]
@@ -746,8 +757,25 @@ export type TextArgs = {
     to: Arg["text"]
   }
   "run.no-build": Record<string, never>
+  "run.offsite": {
+    snapshot: Arg["text"]
+    added: Arg["message"]
+  }
   "run.outcome": {
     outcome: Arg["choice"]
+  }
+  "run.players": {
+    moved: Arg["number"]
+    from: Arg["text"]
+    to: Arg["text"]
+    returned: Arg["number"]
+  }
+  "run.reason": {
+    reason: Arg["choice"]
+  }
+  "run.room": {
+    needed: Arg["message"]
+    free: Arg["message"]
   }
   "run.state": {
     state: Arg["choice"]
@@ -757,6 +785,9 @@ export type TextArgs = {
   }
   "run.step": {
     step: Arg["choice"]
+  }
+  "run.step-kind": {
+    kind: Arg["choice"]
   }
   "run.successful": {
     successful: Arg["number"]
@@ -994,6 +1025,7 @@ export type TextArgs = {
   "steward.backups.initiated-by": Record<string, never>
   "steward.backups.latest": Record<string, never>
   "steward.backups.left": Record<string, never>
+  "steward.backups.missing": Record<string, never>
   "steward.backups.next": Record<string, never>
   "steward.backups.no-archive": Record<string, never>
   "steward.backups.no-clock": Record<string, never>
@@ -1003,6 +1035,9 @@ export type TextArgs = {
   "steward.backups.none-finished": Record<string, never>
   "steward.backups.not-tracked": Record<string, never>
   "steward.backups.nothing-to-restore": Record<string, never>
+  "steward.backups.pruned": {
+    rule: Arg["choice"]
+  }
   "steward.backups.restore": Record<string, never>
   "steward.backups.run": Record<string, never>
   "steward.backups.runs": Record<string, never>
@@ -1465,7 +1500,6 @@ export type TextArgs = {
   }
   "steward.notifications.unnamed": Record<string, never>
   "steward.operations.a-run": Record<string, never>
-  "steward.operations.added": Record<string, never>
   "steward.operations.all-notes": Record<string, never>
   "steward.operations.all-updates": Record<string, never>
   "steward.operations.ask": {
@@ -1479,7 +1513,6 @@ export type TextArgs = {
     run: Arg["number"]
   }
   "steward.operations.cancelled-note": Record<string, never>
-  "steward.operations.changes": Record<string, never>
   "steward.operations.duration": Record<string, never>
   "steward.operations.entered": {
     kind: Arg["text"]
@@ -1495,26 +1528,20 @@ export type TextArgs = {
     services: Arg["number"]
     artefacts: Arg["number"]
   }
-  "steward.operations.no-build": Record<string, never>
   "steward.operations.no-change": Record<string, never>
   "steward.operations.no-earlier-than": Record<string, never>
-  "steward.operations.no-line": Record<string, never>
-  "steward.operations.no-line-title": Record<string, never>
   "steward.operations.no-report": Record<string, never>
   "steward.operations.not-a-number": Record<string, never>
   "steward.operations.not-cancelled": {
     run: Arg["number"]
   }
-  "steward.operations.not-reached": Record<string, never>
   "steward.operations.notes": Record<string, never>
   "steward.operations.nothing-to-do": Record<string, never>
   "steward.operations.nothing-to-do-title": Record<string, never>
   "steward.operations.nothing-written": Record<string, never>
   "steward.operations.now": Record<string, never>
   "steward.operations.outcome": Record<string, never>
-  "steward.operations.raw-report": Record<string, never>
   "steward.operations.report": Record<string, never>
-  "steward.operations.report-unreadable": Record<string, never>
   "steward.operations.requested-by": Record<string, never>
   "steward.operations.run": {
     id: Arg["text"]

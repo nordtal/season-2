@@ -117,18 +117,6 @@ public interface ReportTexts {
     @Name("No offsite target")
     MessageRef noOffsite();
 
-    @Name("Old archives removed")
-    MessageRef pruned(
-            @Arg("daily") int daily,
-            @Arg("weekly") int weekly,
-            @Arg("monthly") int monthly,
-            @Arg("count") int count,
-            @Arg("archives") List<String> archives);
-
-    @Name("Archives removed for the disk budget")
-    MessageRef prunedOverBudget(
-            @Arg("percent") int percent, @Arg("count") int count, @Arg("archives") List<String> archives);
-
     @Name("A backup that would not fit")
     MessageRef backupWontFit(
             @Arg("expected") MessageRef expected,

@@ -7,9 +7,11 @@ import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.inbox.StewardRequest;
+import eu.nordtal.season.database.update.RunLines;
+import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.Refused;
@@ -25,12 +27,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The host's side of a run: it writes a request to the inbox and reads its status.
  *
- * {@code request KIND [a,b] [MINUTES] [--replace-local]} prints the row's id, {@code status ID} its status and report.
+ * {@code request KIND [a,b] [MINUTES] [--replace-local]} prints the row's id, {@code status ID} its status and steps.
  */
 final class HostRequests {
 
@@ -110,18 +111,29 @@ final class HostRequests {
         if (row.isEmpty()) {
             return 1;
         }
-        final String stored = row.get().result();
-        final String report = stored == null ? "" : UpdateReports.english(stored);
-        System.out.println(row.get().status() + "\t" + report.replace('\n', ' '));
-        return keptLocal(row.get().status(), stored) ? KEPT_LOCAL : 0;
+        final UpdateStatus status = row.get().status();
+        final RunRecord run = runs.recordOf(row.get().id());
+        told(status, run).forEach(System.out::println);
+        return keptLocal(status, run) ? KEPT_LOCAL : 0;
     }
 
-    static boolean keptLocal(final UpdateStatus status, final @Nullable String stored) {
-        final String key = TEXTS.report().localBuildsKept().key();
+    /** The status and stage on one line, then each step with its facts indented below it. */
+    static List<String> told(final UpdateStatus status, final RunRecord run) {
+        final List<String> told = new ArrayList<>();
+        told.add(status + "\t" + (run.stage() == null ? "" : run.stage().name()));
+        for (final RunStep.Row step : run.steps()) {
+            told.add(DatabaseText.english(TEXTS.run().stepKind(step.step()))
+                    + (step.service() == null ? "" : " " + step.service())
+                    + (step.outcome() == null
+                            ? ""
+                            : ": " + DatabaseText.english(TEXTS.run().outcome(step.outcome()))));
+            RunLines.of(step).forEach(line -> told.add("    " + DatabaseText.english(line)));
+        }
+        return told;
+    }
+
+    static boolean keptLocal(final UpdateStatus status, final RunRecord run) {
         return status == UpdateStatus.FAILED
-                && UpdateReports.parse(stored)
-                        .map(report -> report.notes().stream()
-                                .anyMatch(note -> key.equals(note.what().key())))
-                        .orElse(false);
+                && run.steps().stream().anyMatch(step -> step.reason() == RunStep.Reason.REFUSED_LOCAL_BUILD);
     }
 }

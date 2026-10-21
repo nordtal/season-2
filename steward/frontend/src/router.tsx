@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router"
+import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router"
 
 import { NotFoundPage } from "@/app/not-found"
 import { Shell } from "@/app/shell"
@@ -82,12 +82,6 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
-  // The run page's layouts on real runs, loaded apart.
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/designs/run-page",
-    component: lazyRouteComponent(() => import("@/app/designs/run-page"), "RunPageDesigns"),
-  }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

@@ -21,7 +21,7 @@ postgresql = "42.7.14"
 jdbi = "3.55.0"
 hikaricp = "7.1.0"
 # Tests apply the real migration files with it; at runtime only steward-agent migrates.
-flyway = "13.10.0"
+flyway = "13.10.3"
 # API only; :common never binds a backend.
 slf4j = "2.0.20"
 # The postgresql module only; its junit-jupiter module targets JUnit 5.
@@ -39,7 +39,7 @@ node = "7.1.0"
 # In :steward only, since it pulls Jackson; no maintained Jackson-free WebAuthn library exists.
 webauthn = "2.10.1"
 # compileOnly in :steward, only so the `JsonProcessingException` webauthn declares resolves.
-jackson = "2.22.3"
+jackson = "2.22.4"
 # :steward's tests write authenticator answers; the version webauthn brings at runtime.
 cbor = "4.5.6"
 junit = "6.1.3"

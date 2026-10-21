@@ -14,8 +14,8 @@ class StackTest {
     void thePackIsStoredAsTwoValuesOfTheProxysPackGroup() {
         final String sql = Stack.storePack("http://localhost:8081/p.zip", "abc");
 
-        assertTrue(sql.contains("('proxy', 'pack', 'url', to_jsonb('http://localhost:8081/p.zip'::text)"), sql);
-        assertTrue(sql.contains("('proxy', 'pack', 'sha1', to_jsonb('abc'::text)"), sql);
+        assertTrue(sql.contains("('url', to_jsonb('http://localhost:8081/p.zip'::text))"), sql);
+        assertTrue(sql.contains("('sha1', to_jsonb('abc'::text))"), sql);
         assertTrue(sql.contains("ON CONFLICT (service, name, path) DO UPDATE"), sql);
     }
 

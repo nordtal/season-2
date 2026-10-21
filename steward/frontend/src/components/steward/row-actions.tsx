@@ -32,8 +32,8 @@ export function RowActions({ actions, label, menu = false }: { actions: RowActio
     <div className="flex items-center justify-end">
       <Popover>
         <PopoverTrigger asChild>
-          {/* `outline` and not `ghost`, because a lone three-dot button without a border reads as decoration. */}
-          <Button type="button" variant="outline" size="sm" aria-label={label}>
+          {/* A square of the row's height, so the button fits its column and leaves the row as high as the others. */}
+          <Button type="button" variant="ghost" size="icon" aria-label={label} className="size-row min-h-0">
             <DotsThreeIcon aria-hidden />
           </Button>
         </PopoverTrigger>

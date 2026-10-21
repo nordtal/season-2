@@ -82,7 +82,7 @@ export function TreeView<L>({
   above?: ReactNode
   collapsed?: boolean
   list?: boolean
-  /** Leaves are cards, one column on a phone and two from a tablet's width. */
+  /** Leaves are cards, one to a row. */
   cards?: boolean
   /** The page clears it for a jump. */
   search?: OutsideSearch
@@ -264,7 +264,7 @@ export function NodeList<L>({
               key={`leaves-${group[0].id}`}
               className={cn(
                 cards
-                  ? "grid grid-cols-1 gap-3 py-2 md:grid-cols-2"
+                  ? "flex flex-col gap-3 py-2"
                   : list
                     ? "flex flex-col"
                     : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
@@ -273,15 +273,7 @@ export function NodeList<L>({
               )}
             >
               {group.map((leaf) => (
-                <div
-                  key={leaf.id}
-                  className={cn(
-                    "min-w-0",
-                    !list && !cards && leaf.wide && "col-span-full",
-                    // An open card holds its editor and takes the whole row.
-                    cards && "has-[[data-open]]:col-span-full",
-                  )}
-                >
+                <div key={leaf.id} className={cn("min-w-0", !list && !cards && leaf.wide && "col-span-full")}>
                   {renderLeaf(leaf, highlight && leaf.ids.includes(highlight.id) ? highlight : null)}
                 </div>
               ))}

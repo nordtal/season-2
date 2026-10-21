@@ -198,10 +198,8 @@ export async function open(label: string | RegExp) {
   fireEvent.click(await screen.findByRole("button", { name: label }))
 }
 
-/** Opens the card `name` names; an open document or text goes back to the list first. */
+/** Opens the card `name` names. */
 export async function openKey(name: string) {
-  const back = screen.queryByRole("button", { name: "Translations" })
-  if (back) fireEvent.click(back)
   fireEvent.click(await screen.findByRole("button", { name }))
 }
 

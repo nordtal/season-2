@@ -1,4 +1,5 @@
-import { CaretRightIcon } from "@phosphor-icons/react"
+import { XIcon } from "@phosphor-icons/react"
+import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
@@ -33,26 +34,20 @@ import {
   useSaveMessageTexts,
 } from "@/lib/queries"
 import { branchesOf, formatOf, parse, type Run } from "@/lib/rich-text"
-import { humanise, messageLeafMatches, messageName, textId, textsTree } from "@/lib/settings-tree"
-import { groupOf, isAnswer, pageGroupOf, pagesOf, pillsOf, previewPlacesOf, type Places } from "@/lib/text-places"
+import { messageLeafMatches, messageName, textId, textsTree } from "@/lib/settings-tree"
+import { isAnswer, pagesOf, pillsOf, previewPlacesOf, type Places } from "@/lib/text-places"
 import { Failure } from "@/components/steward/query-state"
 import { SaveDraft } from "@/components/steward/group-draft"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
 import { exampleOf } from "@/components/steward/message-editor/examples"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
-import { DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
+import { ComponentCount, DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
-import {
-  DraftDot,
-  PinnedRow,
-  type Highlight,
-  type OutsideSearch,
-  type Target,
-  TreeView,
-} from "@/components/steward/settings-view"
+import { DraftDot, type Highlight, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
 export const TEXTS_FILE = "texts"
@@ -99,7 +94,7 @@ function changesOf(draft: Record<string, MessageDraft>, byId: Map<string, Messag
 }
 
 /**
- * Every Discord document and every text, each drawn as it appears. An opened text shows its editor on a page of its own; an opened document shows its editor in its card.
+ * Every Discord document, game document and text, each drawn as it appears. The one opened shows its editor in its card.
  */
 export function TextsForm({
   texts,
@@ -109,7 +104,6 @@ export function TextsForm({
   search,
   opened,
   onOpen,
-  header,
 }: {
   texts: MessageTexts
   documents: DocumentList | undefined
@@ -118,8 +112,6 @@ export function TextsForm({
   search: OutsideSearch
   opened: Opened
   onOpen: (opened: Opened) => void
-  /** The page's title row, drawn over the list and not over an open document or text. */
-  header: ReactNode
 }) {
   const draft = useDraft<MessageDraft>(TEXTS_FILE, isMessageDraftRecord)
   const save = useSaveMessageTexts()
@@ -130,8 +122,6 @@ export function TextsForm({
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const { drafts, setDraft } = useDocumentDrafts()
-  // The language every document is edited and previewed in, kept while another document is open.
-  const [documentLanguage, setDocumentLanguage] = useState<Language>(ENGLISH)
   const views = useMemo(() => documents?.documents ?? [], [documents])
   const listed = useMemo(
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
@@ -260,85 +250,71 @@ export function TextsForm({
     fallenBack,
   }
 
-  const text = byId.get(opened.text ?? "")
-  if (text) {
+  const openText = (text: MessageText) => {
     const id = textId(text.entry)
-    return (
-      <TextPage
+    return (previewsIn: HTMLElement | null) => (
+      <MessageEditor
         entry={text.entry}
-        onClose={() => onOpen({})}
-        above={above}
-        save={saveButtons}
-        {...shared}
-        editor={
-          <MessageEditor
-            key={id}
-            entry={text.entry}
-            path={text.path}
-            service={service}
-            languages={languages.get(text.entry.bundle) ?? [ENGLISH]}
-            colours={colours ?? NETWORK_COLOURS}
-            places={texts.places}
-            writable={texts.writable}
-            draft={draft[id]}
-            highlight={highlight?.id === id ? highlight : null}
-            onChange={(changed, value) => set(id, changed, value)}
-            fallbacks={fallenBack.get(id) ?? []}
-            onTakeOver={takeOverOf(text.entry)}
-            takingOver={takeOver.isPending}
-            previews={text.previews}
-            placePreviews
-          />
-        }
+        path={text.path}
+        service={service}
+        languages={languages.get(text.entry.bundle) ?? [ENGLISH]}
+        colours={colours ?? NETWORK_COLOURS}
+        places={texts.places}
+        writable={texts.writable}
+        draft={draft[id]}
+        highlight={highlight?.id === id ? highlight : null}
+        onChange={(changed, value) => set(id, changed, value)}
+        fallbacks={fallenBack.get(id) ?? []}
+        onTakeOver={takeOverOf(text.entry)}
+        takingOver={takeOver.isPending}
+        previews={text.previews}
+        previewsIn={previewsIn}
       />
     )
   }
 
   return (
-    <>
-      {header}
-      <TreeView<PageCard>
-        file={TEXTS_FILE}
-        nodes={nodes}
-        draftIds={draftIds}
-        matches={(card, query) =>
-          card.kind === "document" ? documentMatches(card.view, query) : messageLeafMatches(card.text.entry, query)
-        }
-        notice={texts.writable ? null : t("steward.settings.read-only")}
-        target={null}
-        search={search}
-        empty={t("steward.texts.none")}
-        above={above}
-        collapsed
-        cards
-        renderLeaf={(leaf) => (
+    <TreeView<PageCard>
+      file={TEXTS_FILE}
+      nodes={nodes}
+      draftIds={draftIds}
+      matches={(card, query) =>
+        card.kind === "document" ? documentMatches(card.view, query) : messageLeafMatches(card.text.entry, query)
+      }
+      notice={texts.writable ? null : t("steward.settings.read-only")}
+      target={target}
+      search={search}
+      empty={t("steward.texts.none")}
+      above={above}
+      collapsed
+      cards
+      renderLeaf={(leaf) => {
+        const card = leaf.value
+        const id = card.kind === "document" ? documentId(card.view.declaration) : textId(card.text.entry)
+        const open = card.kind === "document" ? opened.document === id : opened.text === id
+        return (
           <Card
-            card={leaf.value}
-            language={documentLanguage}
+            key={open ? "open" : "closed"}
+            card={card}
             editing={
-              leaf.value.kind === "document" && opened.document === documentId(leaf.value.view.declaration)
-                ? {
-                    writable: documents?.writable ?? false,
-                    draft: drafts[opened.document],
-                    onDraft: (next) => opened.document && setDraft(opened.document, next),
-                    onLanguage: setDocumentLanguage,
-                    onClose: () => onOpen({}),
-                  }
-                : undefined
+              !open
+                ? undefined
+                : card.kind === "document"
+                  ? {
+                      writable: documents?.writable ?? false,
+                      draft: drafts[id],
+                      onDraft: (next) => setDraft(id, next),
+                      onClose: () => onOpen({}),
+                    }
+                  : { editor: openText(card.text), onClose: () => onOpen({}) }
             }
-            onOpen={() =>
-              onOpen(
-                leaf.value.kind === "document"
-                  ? { document: documentId(leaf.value.view.declaration) }
-                  : { text: textId(leaf.value.text.entry) },
-              )
-            }
+            onOpen={() => onOpen(card.kind === "document" ? { document: id } : { text: id })}
             {...shared}
           />
-        )}
-        save={saveButtons}
-      />
-    </>
+        )
+      }}
+      save={saveButtons}
+    />
   )
 }
 
@@ -362,88 +338,130 @@ function cardName(card: PageCard): string {
   return card.kind === "document" ? documentName(card.view.declaration) : messageName(card.text.entry)
 }
 
-/** An open document's draft and the editor's settings, which the page keeps while another document is open. */
-type Editing = {
+/** An open document's draft, which the page keeps while another document is open. */
+type EditingDocument = {
   writable: boolean
   draft: Document | undefined
   onDraft: (draft: Document | undefined) => void
-  onLanguage: (language: Language) => void
+  onClose: () => void
+}
+
+/** An open text's editor, which draws the text in each of its places into the element it is handed. */
+type EditingText = {
+  editor: (previewsIn: HTMLElement | null) => ReactNode
   onClose: () => void
 }
 
 /**
- * One document or text as it appears, under its name. A click opens it: a text on a page of its own, a document's editor
- * in the card, left of its preview from a laptop's width and under it on a phone.
+ * One document or text as it appears, under its name, one card to a row. A click opens it in the card: its name stays
+ * on top and its preview in its place, and the editor opens beside the preview from a laptop's width, under it on a
+ * phone. A closed card is as wide as the preview column of an open one, so the card opens to the right; the gap between
+ * the columns is twice the card's padding and border, which keeps the preview's width.
  */
 function Card({
   card,
-  language,
   editing,
   onOpen,
   ...shared
-}: Shared & { card: PageCard; language: Language; editing?: Editing; onOpen: () => void }) {
+}: Shared & {
+  card: PageCard
+  editing?: EditingDocument | EditingText
+  onOpen: () => void
+}) {
   const name = cardName(card)
   const id = card.kind === "text" ? textId(card.text.entry) : undefined
-  if (card.kind === "document" && editing) {
-    const draft = editing.draft ?? documentOf(card.view)
-    return (
-      <article
-        aria-label={name}
-        data-open
-        className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-      >
-        <div className="min-w-0 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)] lg:col-start-2 lg:row-start-1">
-          <DocumentPreview
-            declaration={card.view.declaration}
-            game={card.view.game}
-            document={draft}
-            language={language}
-          />
-        </div>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <DocumentEditor
-            view={card.view}
-            draft={draft}
-            // The network's languages and any the document is written in beyond them.
-            languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
-            writable={editing.writable}
-            language={language}
-            onLanguage={editing.onLanguage}
-            onClose={editing.onClose}
-            onDraft={(next) =>
-              editing.onDraft(next && JSON.stringify(next) !== JSON.stringify(documentOf(card.view)) ? next : undefined)
-            }
-          />
-        </div>
-      </article>
-    )
-  }
+  const named =
+    card.kind === "text"
+      ? `text-${transitionName(textId(card.text.entry))}`
+      : `document-${transitionName(documentId(card.view.declaration))}`
+  // The language one open document is edited and previewed in; every other card shows English.
+  const [language, setLanguage] = useState<Language>(ENGLISH)
+  const [previewsIn, setPreviewsIn] = useState<HTMLElement | null>(null)
+  const draft =
+    card.kind === "document" ? (editing && "draft" in editing && editing.draft) || documentOf(card.view) : undefined
   return (
-    <article aria-label={name} className="flex min-w-0 flex-col gap-2 rounded-lg border p-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 grow basis-28 truncate text-sm font-medium">{name}</h3>
-        {card.kind === "text" ? (
-          <Pills entry={card.text.entry} places={shared.places} />
-        ) : (
-          <DocumentMarks view={card.view} />
-        )}
-        {card.kind === "text" && !card.text.entry.inBundle ? (
-          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            {t("steward.settings.not-in-bundle")}
-          </Badge>
+    <article
+      aria-label={name}
+      data-open={editing ? true : undefined}
+      style={{ viewTransitionName: named }}
+      className={cn(
+        "grid min-w-0 grid-cols-1 items-start gap-3 rounded-lg border p-3 [view-transition-class:translation-card]",
+        editing ? "lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
+      )}
+    >
+      <div className="flex min-h-7 min-w-0 items-start gap-2 lg:col-span-full">
+        <div className="flex min-h-7 min-w-0 grow flex-wrap items-center gap-2">
+          <h3 className="min-w-0 grow basis-28 truncate text-sm font-medium">{name}</h3>
+          {card.kind === "text" ? (
+            <Pills entry={card.text.entry} places={shared.places} />
+          ) : (
+            <DocumentMarks view={card.view} />
+          )}
+          {card.kind === "text" && !card.text.entry.inBundle ? (
+            <Badge variant="outline" className="shrink-0 text-muted-foreground">
+              {t("steward.settings.not-in-bundle")}
+            </Badge>
+          ) : null}
+          {id !== undefined && shared.fallenBack.has(id) ? <FallenBack /> : null}
+          {id !== undefined && shared.draftIds.has(id) ? <DraftDot /> : null}
+          {editing && card.kind === "document" && draft ? (
+            <ComponentCount view={card.view} draft={draft} language={language} />
+          ) : null}
+        </div>
+        {editing ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("steward.document-editor.close")}
+            onClick={editing.onClose}
+          >
+            <XIcon aria-hidden />
+          </Button>
         ) : null}
-        {id !== undefined && shared.fallenBack.has(id) ? <FallenBack /> : null}
-        {id !== undefined && shared.draftIds.has(id) ? <DraftDot /> : null}
       </div>
-      <button type="button" aria-label={name} onClick={onOpen} className="min-w-0 text-left">
-        {card.kind === "document" ? (
-          <ShippedPreview view={card.view} language={language} />
-        ) : (
-          <TextPreview entry={card.text.entry} {...shared} />
-        )}
-      </button>
+      {!editing ? (
+        <button type="button" aria-label={name} onClick={onOpen} className="min-w-0 text-left">
+          {card.kind === "document" ? (
+            <ShippedPreview view={card.view} language={ENGLISH} />
+          ) : (
+            <TextPreview entry={card.text.entry} {...shared} />
+          )}
+        </button>
+      ) : (
+        <div ref={setPreviewsIn} className="min-w-0 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]">
+          {card.kind === "document" && draft ? (
+            <DocumentPreview
+              declaration={card.view.declaration}
+              game={card.view.game}
+              document={draft}
+              language={language}
+            />
+          ) : null}
+        </div>
+      )}
+      {editing && "draft" in editing && card.kind === "document" && draft ? (
+        <DocumentEditor
+          view={card.view}
+          draft={draft}
+          // The network's languages and any the document is written in beyond them.
+          languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
+          writable={editing.writable}
+          language={language}
+          onLanguage={setLanguage}
+          onDraft={(next) =>
+            editing.onDraft(next && JSON.stringify(next) !== JSON.stringify(documentOf(card.view)) ? next : undefined)
+          }
+        />
+      ) : null}
+      {editing && "editor" in editing ? <div className="min-w-0">{editing.editor(previewsIn)}</div> : null}
     </article>
   )
+}
+
+/** A view transition's name is an identifier, so every other character of an id becomes a hyphen. */
+function transitionName(id: string): string {
+  return id.replace(/[^A-Za-z0-9_-]/g, "-")
 }
 
 function ShippedPreview({ view, language }: { view: DocumentView; language: Language }) {
@@ -470,82 +488,6 @@ function TextPreview({ entry, language = ENGLISH, ...shared }: Shared & { entry:
       answer={isAnswer(entry)}
     />
   )
-}
-
-/** Where an open document or text is listed, then its name. */
-function PageTitle({
-  group,
-  area,
-  name,
-  onClose,
-}: {
-  group: string
-  area: string | undefined
-  name: string
-  onClose: () => void
-}) {
-  return (
-    <header className="flex flex-col gap-3">
-      <nav className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-muted-foreground">
-        <button type="button" onClick={onClose} className="hover:text-foreground">
-          {t("steward.shell.page", { page: "translations" })}
-        </button>
-        <CaretRightIcon aria-hidden className="size-3 shrink-0" />
-        <span>{t("steward.texts.group", { group: choice(group) })}</span>
-        {area ? (
-          <>
-            <CaretRightIcon aria-hidden className="size-3 shrink-0" />
-            <span>{area}</span>
-          </>
-        ) : null}
-      </nav>
-      <h1 className="font-heading text-3xl font-semibold tracking-tight text-balance">{name}</h1>
-    </header>
-  )
-}
-
-/** An open text: where it is listed, and its editor. */
-function TextPage({
-  entry,
-  onClose,
-  editor,
-  above,
-  save,
-  ...shared
-}: Shared & {
-  entry: MessageEntry
-  onClose: () => void
-  editor: ReactNode
-  above: ReactNode
-  save: ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-6">
-      <PageTitle
-        group={groupOf(entry, shared.places)}
-        area={pageAreaOf(entry)}
-        name={messageName(entry)}
-        onClose={onClose}
-      />
-      {above}
-      <section className="flex min-w-0 flex-col gap-3 rounded-lg border p-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{messageName(entry)}</h2>
-          <Pills entry={entry} places={shared.places} />
-        </div>
-        {editor}
-      </section>
-      <PinnedRow>{save}</PinnedRow>
-    </div>
-  )
-}
-
-/** The area a text is listed under: the page group of one of Steward's own texts, else its top section. */
-function pageAreaOf(entry: MessageEntry): string {
-  const page = pageGroupOf(entry)
-  return page === undefined
-    ? (entry.section[0] ?? humanise(entry.key.split(".")[0]))
-    : t("steward.shell.page", { page })
 }
 
 /** A text's places, and the pages of one of Steward's texts that is on several. */

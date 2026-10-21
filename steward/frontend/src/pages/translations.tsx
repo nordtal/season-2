@@ -39,7 +39,8 @@ export function TranslationsPage() {
   const navigate = useNavigate({ from: "/translations" })
   const { service, ...opened } = search
   const onOpen = useCallback(
-    (next: Opened) => void navigate({ search: (kept) => ({ service: kept.service, ...next }) }),
+    // The card that opens or closes grows or shrinks between its two looks instead of jumping.
+    (next: Opened) => void navigate({ search: (kept) => ({ service: kept.service, ...next }), viewTransition: true }),
     [navigate],
   )
   return (
@@ -102,7 +103,7 @@ export function Translations({
   )
   return (
     <div className="flex flex-col gap-6">
-      {texts.data ? null : title}
+      {title}
       <QueryState query={texts} rows={8}>
         {(read) => (
           <TextsForm
@@ -113,7 +114,6 @@ export function Translations({
             search={{ query, onQuery: setQuery, at: header }}
             opened={opened}
             onOpen={onOpen}
-            header={title}
           />
         )}
       </QueryState>

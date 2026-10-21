@@ -234,6 +234,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V83__a_resolve_step_names_a_velocity_ahead_of_its_api_and_a_dump_names_no_service.sql",
                 "d2df0ffae40f48cfe7182c7ecb3e2dda96dab8748ddb7cef26c0adce352e7db1");
+        FROZEN.put(
+                "V84__an_admin_s_setting_value_is_one_row_per_value_entry_and_field.sql",
+                "2704a45281d418f1de8dae7ceadaa4a6484a2a2e1de997e1bdff13f3c98af046");
     }
 
     @Test

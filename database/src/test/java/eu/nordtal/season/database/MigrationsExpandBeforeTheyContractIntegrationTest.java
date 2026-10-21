@@ -195,6 +195,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.50.0", role, "SELECT", "message_override", "replaced");
         }
+        // An admin's setting as one composite value, which setting_override_node now holds as rows.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.54.0", role, "SELECT", "setting_override", "value");
+        }
         // The old journal, which no proxy or limbo code wrote.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "id", "occurred", "action", "actor_kind", "actor_id");

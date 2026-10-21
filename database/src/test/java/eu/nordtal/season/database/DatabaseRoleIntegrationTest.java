@@ -32,8 +32,8 @@ class DatabaseRoleIntegrationTest {
             DatabaseRole.STEWARD);
 
     /** Only steward writes a setting. */
-    private static final String WRITE_SETTING = "INSERT INTO setting_override (service, name, path, value, actor_kind,"
-            + " changed) SELECT 'x', 'y', 'z', '1', 'HOST', now() WHERE false";
+    private static final String WRITE_SETTING = "INSERT INTO setting_override_node (service, name, path, node, kind,"
+            + " number) SELECT 'x', 'y', 'z', 0, 'NUMBER', 1 WHERE false";
 
     private static TestDatabase database;
 

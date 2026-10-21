@@ -268,8 +268,8 @@ export function NodeList<L>({
                   : list
                     ? "flex flex-col"
                     : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
-                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
-                nested && !list && (cards ? "pl-6" : "pl-8"),
+                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies. A card on a phone keeps that width for its editor.
+                nested && !list && (cards ? "md:pl-6" : "pl-8"),
               )}
             >
               {group.map((leaf) => (

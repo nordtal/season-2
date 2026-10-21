@@ -307,11 +307,14 @@ function Version({
 /** When a part, a line or a button shows: always, or by one of the document's values. */
 export function WhenField({
   view,
+  of = "ITEM",
   when,
   disabled,
   onWhen,
 }: {
   view: DocumentView
+  /** What the condition shows, named beside it, since a part's and its line's conditions stand one under the other. */
+  of?: "PART" | "LINE" | "ITEM"
   when: string | undefined
   disabled: boolean
   onWhen: (when: string | undefined) => void
@@ -322,8 +325,10 @@ export function WhenField({
   if (first === undefined) return null
   const value = read.mode === "ALWAYS" ? first : read.value
   const choose = (next: When) => onWhen(writeWhen(next))
+  const label = t("steward.document-editor.when", { of: choice(of) })
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-1" aria-label={t("steward.document-editor.when")}>
+    <span className="flex min-w-0 flex-wrap items-center gap-1" aria-label={label}>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <Select
         value={read.mode}
         disabled={disabled}
@@ -337,7 +342,7 @@ export function WhenField({
           )
         }
       >
-        <SelectTrigger size="sm" aria-label={t("steward.document-editor.when")} className="w-24">
+        <SelectTrigger size="sm" aria-label={label} className="w-24">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -350,7 +355,7 @@ export function WhenField({
       </Select>
       {read.mode === "ALWAYS" ? null : (
         <Select value={read.value} disabled={disabled} onValueChange={(next) => choose({ ...read, value: next })}>
-          <SelectTrigger size="sm" aria-label={t("steward.document-editor.when")} className="w-36 font-mono text-xs">
+          <SelectTrigger size="sm" aria-label={label} className="w-36 font-mono text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

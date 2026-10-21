@@ -9,7 +9,7 @@ import type { Format, Style } from "@/lib/rich-text"
 import type { TextNode } from "@/lib/texts"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { GlyphMenu, PlaceholderMenu, StyleButtons } from "@/components/steward/message-editor/parts"
-import { BreakButton, ToolDivider, Toolbar } from "@/components/steward/message-editor/tools"
+import { BreakButton, Toolbar } from "@/components/steward/message-editor/tools"
 import type { Tones } from "@/components/steward/message-editor/preview"
 
 export type SourceEditorProps = {
@@ -22,6 +22,8 @@ export type SourceEditorProps = {
   tones: Tones
   label: string
   disabled?: boolean
+  /** Controls drawn at the end of the tool row. */
+  trailing?: ReactNode
 }
 
 const MONO = "font-mono text-[13px] leading-6 max-md:text-base"
@@ -39,6 +41,7 @@ export function SourceEditor({
   tones,
   label,
   disabled,
+  trailing,
 }: SourceEditorProps) {
   const area = useRef<HTMLTextAreaElement>(null)
   const under = useRef<HTMLPreElement>(null)
@@ -74,7 +77,7 @@ export function SourceEditor({
 
   return (
     <div className="flex min-w-0 flex-col">
-      <Toolbar label={label}>
+      <Toolbar label={label} end={trailing}>
         {args.some((arg) => !arg.action) ? (
           <PlaceholderMenu
             args={args}
@@ -93,19 +96,16 @@ export function SourceEditor({
           />
         ) : null}
         {format !== "PLAIN" ? (
-          <>
-            <ToolDivider />
-            <StyleButtons
-              format={format}
-              style={{}}
-              tones={tones}
-              args={args}
-              fill={fill}
-              disabled={disabled}
-              onStyle={restyle}
-              nested
-            />
-          </>
+          <StyleButtons
+            format={format}
+            style={{}}
+            tones={tones}
+            args={args}
+            fill={fill}
+            disabled={disabled}
+            onStyle={restyle}
+            nested
+          />
         ) : null}
       </Toolbar>
       <div className="relative min-w-0">

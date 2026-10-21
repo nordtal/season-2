@@ -44,7 +44,7 @@ import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
 import { exampleOf } from "@/components/steward/message-editor/examples"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
-import { ComponentCount, DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
+import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
 import { DraftDot, type Highlight, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
@@ -512,4 +512,19 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
       ))}
     </span>
   )
+}
+
+/** Keeps the draft of each opened document while the page lives. */
+function useDocumentDrafts() {
+  const [drafts, setDrafts] = useState<Record<string, Document>>({})
+  return {
+    drafts,
+    setDraft: (id: string, draft: Document | undefined) =>
+      setDrafts((all) => {
+        const next = { ...all }
+        if (draft) next[id] = draft
+        else delete next[id]
+        return next
+      }),
+  }
 }

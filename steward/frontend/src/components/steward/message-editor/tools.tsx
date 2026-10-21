@@ -83,23 +83,32 @@ export function NumberButton({ onPress, disabled }: { onPress: () => void; disab
 }
 
 /**
- * It scrolls sideways when it does not fit, and stays in view while the field scrolls under it, so a phone's keyboard never pushes it out of reach. Inside a hover it is a plain row.
+ * Its tools wrap into rows of equal columns, so each one stays in reach at every width. It stays in view while the field
+ * scrolls under it, so a phone's keyboard never pushes it out of reach. Inside a hover it has no frame.
  */
-export function Toolbar({ label, nested, children }: { label: string; nested?: boolean; children: ReactNode }) {
+export function Toolbar({
+  label,
+  nested,
+  end,
+  children,
+}: {
+  label: string
+  nested?: boolean
+  /** Drawn after the tools, at the row's end. */
+  end?: ReactNode
+  children: ReactNode
+}) {
   return (
     <div
       role="toolbar"
       aria-label={label}
       className={cn(
-        "flex min-w-0 items-center gap-0.5 overflow-x-auto",
+        "grid min-w-0 grid-cols-[repeat(auto-fill,minmax(var(--spacing-control),1fr))] items-center justify-items-center",
         !nested && "sticky top-(--content-top,0px) z-10 rounded-t-lg border-b border-input bg-background px-1 py-1",
       )}
     >
       {children}
+      {end ? <span className="col-span-2 flex">{end}</span> : null}
     </div>
   )
-}
-
-export function ToolDivider() {
-  return <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
 }

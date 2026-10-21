@@ -165,7 +165,7 @@ export function DocumentEditor({
       {send.run ? <RequestOutcome run={send.run} /> : null}
       {/* The language and the save stay in reach while a long document scrolls. */}
       <PinnedRow>
-        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2 rounded-md border bg-card/95 p-2 backdrop-blur">
+        <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-1 rounded-md border bg-card/95 p-1 backdrop-blur md:gap-2 md:p-2">
           <LanguageToggle languages={languages} language={language} onLanguage={onLanguage} />
           {sendable ? (
             <Button
@@ -180,18 +180,23 @@ export function DocumentEditor({
               <PaperPlaneTiltIcon aria-hidden />
             </Button>
           ) : null}
-          <span className="flex-1" />
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={!changed || save.isPending}
-            onClick={() => onDraft(undefined)}
-          >
-            {t("steward.document-editor.discard")}
-          </Button>
-          <Button type="button" disabled={!writable || !changed || refused || save.isPending} onClick={() => submit()}>
-            {t("steward.document-editor.save")}
-          </Button>
+          <span className="ml-auto flex items-center gap-1 md:gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!changed || save.isPending}
+              onClick={() => onDraft(undefined)}
+            >
+              {t("steward.document-editor.discard")}
+            </Button>
+            <Button
+              type="button"
+              disabled={!writable || !changed || refused || save.isPending}
+              onClick={() => submit()}
+            >
+              {t("steward.document-editor.save")}
+            </Button>
+          </span>
         </div>
       </PinnedRow>
     </section>
@@ -291,9 +296,10 @@ function PartEditor({
   const empty = part.type === "SEPARATOR"
   const words = firstWords(part, context.language)
   return (
-    <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
-      <div className="flex min-w-0 flex-wrap items-center gap-1 p-1">
-        <span className="flex shrink-0 items-center">
+    // On a phone a part draws no box of its own, only a rule above it, so its fields keep the card's width.
+    <div className={cn("min-w-0 border-t md:rounded-md md:border", open && !empty && "md:bg-muted/40")}>
+      <div className="flex min-w-0 items-center justify-between gap-1 py-1 md:justify-start md:p-1">
+        <span className="contents shrink-0 items-center md:flex">
           <Move disabled={!writable} first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
           {holdsRequired(view.declaration, slotsOf(part)) ? (
             <Required />
@@ -312,7 +318,7 @@ function PartEditor({
           aria-expanded={empty ? undefined : open}
           disabled={empty}
           onClick={() => setOpen(!open)}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 items-center gap-1.5 rounded-sm p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-1"
         >
           {empty ? null : (
             <CaretRightIcon
@@ -332,18 +338,17 @@ function PartEditor({
           )}
         </button>
         <SharedPartMenu part={part} context={context} set={set} />
-        {open ? (
+      </div>
+      {open && (!empty || Object.keys(view.named).length > 0) ? (
+        <div className="flex min-w-0 flex-col gap-2 border-t py-2 md:p-2">
           <WhenField
             view={view}
+            of="PART"
             when={part.when}
             disabled={!writable}
             onWhen={(when) => set((it) => ({ ...it, when }))}
           />
-        ) : null}
-      </div>
-      {open && !empty ? (
-        <div className="flex min-w-0 flex-col gap-2 border-t p-2">
-          <PartBody part={part} path={path} context={context} set={set} />
+          {empty ? null : <PartBody part={part} path={path} context={context} set={set} />}
         </div>
       ) : null}
     </div>
@@ -539,7 +544,13 @@ function LineEditor({
           </Select>
         )}
         <span className="flex-1" />
-        <WhenField view={view} when={line.when} disabled={!writable} onWhen={(when) => onLine({ ...line, when })} />
+        <WhenField
+          view={view}
+          of="LINE"
+          when={line.when}
+          disabled={!writable}
+          onWhen={(when) => onLine({ ...line, when })}
+        />
         {removable ? (
           <IconButton
             label={t("steward.document-editor.remove")}
@@ -745,21 +756,6 @@ function AddPart({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-/** Keeps the draft of each opened document while the page lives. */
-export function useDocumentDrafts() {
-  const [drafts, setDrafts] = useState<Record<string, Document>>({})
-  return {
-    drafts,
-    setDraft: (id: string, draft: Document | undefined) =>
-      setDrafts((all) => {
-        const next = { ...all }
-        if (draft) next[id] = draft
-        else delete next[id]
-        return next
-      }),
-  }
 }
 
 /** Whether an admin changed the document, and whether a release changed the packaged one since. */

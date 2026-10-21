@@ -1153,7 +1153,9 @@ export type TextArgs = {
     version: Arg["choice"]
   }
   "steward.document-editor.versions": Record<string, never>
-  "steward.document-editor.when": Record<string, never>
+  "steward.document-editor.when": {
+    of: Arg["choice"]
+  }
   "steward.failure.agent-silent": Record<string, never>
   "steward.failure.bot-failed": Record<string, never>
   "steward.failure.bot-silent": Record<string, never>

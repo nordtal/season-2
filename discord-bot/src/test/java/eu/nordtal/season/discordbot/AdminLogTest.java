@@ -1,6 +1,5 @@
 package eu.nordtal.season.discordbot;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,25 +9,24 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
-import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.LinkFlow;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** The bot raises alerts as rows, draws the alerts that steward routes back and posts journal lines as cards. */
@@ -37,25 +35,28 @@ class AdminLogTest {
     private static final DocumentRenderer ADMIN = StoredDocumentsStandIn.renderer();
 
     private static final Alert DM = new Alert(
-            AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), "/access");
+            JournalAction.DM_NOT_DELIVERED,
+            Alert.Level.WARN,
+            new JournalDetail.MemberFailed(DiscordId.of("400000000000000001"), null));
 
     private static final class Book implements AlertBook {
 
         final List<Alert> raised = new ArrayList<>();
-        final List<String> by = new ArrayList<>();
+        final List<Actor> by = new ArrayList<>();
         boolean gone;
 
         @Override
-        public void raise(final Alert alert, final String raisedBy) {
+        public UUID raise(final Alert alert, final Actor actor) {
             if (gone) {
                 throw new IllegalStateException("the database is gone");
             }
             raised.add(alert);
-            by.add(raisedBy);
+            by.add(actor);
+            return UUID.randomUUID();
         }
 
         @Override
-        public boolean raiseOnce(final String source, final Alert alert, final String raisedBy) {
+        public boolean raiseOnce(final Alert alert, final Actor actor) {
             throw new UnsupportedOperationException();
         }
 
@@ -70,7 +71,7 @@ class AdminLogTest {
         }
 
         @Override
-        public int purge(final Duration age) {
+        public Optional<RaisedAlert> alert(final UUID id) {
             throw new UnsupportedOperationException();
         }
     }
@@ -82,7 +83,7 @@ class AdminLogTest {
         AdminLog.raise(book, DM);
 
         assertEquals(List.of(DM), book.raised);
-        assertEquals(List.of("discord-bot"), book.by);
+        assertEquals(List.of(Actor.BOT), book.by);
     }
 
     @Test
@@ -97,8 +98,7 @@ class AdminLogTest {
     @Test
     void anAlertPingsTheAdminsItNamesAndNobodyElse() {
         final MessageCreateData sent = AdminLog.pinging(
-                AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000001")))),
-                List.of(DiscordId.of("400000000000000001")));
+                card(List.of(DiscordId.of("400000000000000001")), LINK), List.of(DiscordId.of("400000000000000001")));
 
         assertTrue(sent.getAllowedMentions().isEmpty(), "no role, everyone or here ping: " + sent.getAllowedMentions());
         assertEquals(java.util.Set.of("400000000000000001"), sent.getMentionedUsers());
@@ -157,12 +157,12 @@ class AdminLogTest {
 
     @Test
     void aRoutedAlertIsItsMentionsMarkTitleLinesAndLinkWithEveryValueEscaped() {
-        final DocumentRenderer.Drawn card = AdminLog.card(ADMIN, alert(List.of(DiscordId.of("400000000000000002"))));
+        final DocumentRenderer.Drawn card = card(List.of(DiscordId.of("400000000000000002")), LINK);
 
         assertEquals("""
                 <@400000000000000002>
                 ## 🛑 smp\\_1 is not running
-                <@400000000000000001>: \\*gone\\*""", card.text());
+                smp\\_1: Docker reports the state \\*gone\\*.""", card.text());
         final Button open =
                 MessageComponentTree.of(card.components()).findAll(Button.class).getFirst();
         assertEquals("https://steward.example/services/smp_1", open.getUrl());
@@ -170,13 +170,9 @@ class AdminLogTest {
 
     @Test
     void anAlertWithoutAPageCarriesNoButton() {
-        final BotRequest.PostAlert unlinked = new BotRequest.PostAlert(
-                Alert.Level.WARN, TEXTS.alert().notRunning("smp_1"), List.of(), null, List.of());
-
         assertEquals(
                 List.of(),
-                MessageComponentTree.of(AdminLog.card(ADMIN, unlinked).components())
-                        .findAll(Button.class));
+                MessageComponentTree.of(card(List.of(), null).components()).findAll(Button.class));
     }
 
     @Test
@@ -225,12 +221,17 @@ class AdminLogTest {
                 **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }
 
-    private static BotRequest.PostAlert alert(final List<DiscordId> admins) {
-        return new BotRequest.PostAlert(
-                Alert.Level.DOWN,
-                TEXTS.alert().notRunning("smp_1"),
-                List.of(TEXTS.alert().failedFor(Mention.of(DiscordId.of("400000000000000001")), "*gone*")),
-                "https://steward.example/services/smp_1",
-                admins);
+    private static final String LINK = "https://steward.example/services/smp_1";
+
+    /** Draws a stopped service whose name and state need escaping. */
+    private static DocumentRenderer.Drawn card(final List<DiscordId> admins, final @Nullable String link) {
+        return AdminLog.card(
+                ADMIN,
+                new Alert(
+                        JournalAction.SERVICE_DOWN,
+                        Alert.Level.DOWN,
+                        List.of(Measure.state(Measure.Gauge.CONTAINER_STATE, "smp_1", "*gone*"))),
+                admins,
+                link);
     }
 }

@@ -7,6 +7,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
@@ -33,8 +34,6 @@ import org.jspecify.annotations.Nullable;
 
 @Slf4j
 public final class AdminLog {
-
-    static final String RAISED_BY = "discord-bot";
 
     private static final String AREA = "Admin channel";
 
@@ -98,18 +97,22 @@ public final class AdminLog {
     private final AuditDirectory journal;
     private final AlertBook alerts;
     private final DocumentRenderer documents;
+    private final String stewardUrl;
 
+    /** @param stewardUrl Steward's address, which an alert card's link starts with. An empty value shows no link. */
     public AdminLog(
             final JDA jda,
             final AccessSpec config,
             final AuditDirectory journal,
             final AlertBook alerts,
-            final DocumentRenderer documents) {
+            final DocumentRenderer documents,
+            final String stewardUrl) {
         this.jda = jda;
         this.config = config;
         this.journal = journal;
         this.alerts = alerts;
         this.documents = documents;
+        this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
     }
 
     /** Raises something an admin must act on. Steward routes it to push and back here. This method never throws. */
@@ -119,29 +122,40 @@ public final class AdminLog {
 
     static void raise(final AlertBook book, final Alert alert) {
         try {
-            book.raise(alert, RAISED_BY);
+            book.raise(alert, Actor.BOT);
         } catch (final RuntimeException exception) {
-            log.error("Could not raise the alert {}: {}", alert.title(), alert.detail(), exception);
+            log.error("Could not raise the alert {}: {}", alert.action(), alert.detail(), exception);
         }
     }
 
-    public boolean postAlert(final BotRequest.PostAlert alert) {
-        return send(card(documents, alert), alert.mentions());
+    /** Posts the alert the request names, drawn from its entry. Returns false when there is no such entry. */
+    public boolean postAlert(final BotRequest.PostAlert request) {
+        final RaisedAlert raised = alerts.alert(request.entry()).orElse(null);
+        if (raised == null) {
+            log.warn("There is no alert {} to post", request.entry());
+            return false;
+        }
+        final Alert alert = raised.alert();
+        final String link = stewardUrl.isBlank() ? null : stewardUrl + alert.path();
+        return send(card(documents, alert, request.mentions(), link), request.mentions());
     }
 
-    static DocumentRenderer.Drawn card(final DocumentRenderer documents, final BotRequest.PostAlert alert) {
-        final String link = alert.link();
+    static DocumentRenderer.Drawn card(
+            final DocumentRenderer documents,
+            final Alert alert,
+            final List<DiscordId> mentions,
+            final @Nullable String link) {
         return documents.render(
                 ALERT,
                 new Card(mark(alert.level()).symbol(), alert.title()),
                 Map.of(
                         "mentions",
-                        DocumentRenderer.FilledList.of(alert.mentions().stream()
+                        DocumentRenderer.FilledList.of(mentions.stream()
                                 .map(admin -> new Pinged(Mention.of(admin)))
                                 .toList()),
                         "lines",
                         DocumentRenderer.FilledList.of(
-                                alert.detail().stream().map(Detail::new).toList()),
+                                alert.lines().stream().map(Detail::new).toList()),
                         "open",
                         link == null ? new DocumentRenderer.FilledNothing() : DocumentRenderer.FilledButton.link(link)),
                 Locales.DEFAULT);

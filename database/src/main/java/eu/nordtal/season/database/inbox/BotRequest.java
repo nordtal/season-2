@@ -1,7 +1,6 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Instant;
@@ -98,22 +97,15 @@ public sealed interface BotRequest {
 
     /**
      * Posts an alert into the admin channel and mentions the admins who chose Discord for its type.
+     * The bot draws the card from the alert's journal entry.
      *
-     * @param link the Steward page of the alert, may be null
+     * @param entry the alert's journal entry
      * @param mentions empty for an all-clear, which mentions nobody
      */
-    record PostAlert(
-            Alert.Level level,
-            MessageRef title,
-            List<MessageRef> detail,
-            @Nullable String link,
-            List<DiscordId> mentions)
-            implements BotRequest {
+    record PostAlert(UUID entry, List<DiscordId> mentions) implements BotRequest {
 
         public PostAlert {
-            Objects.requireNonNull(level, "level");
-            Objects.requireNonNull(title, "title");
-            detail = List.copyOf(detail);
+            Objects.requireNonNull(entry, "entry");
             mentions = List.copyOf(mentions);
         }
     }

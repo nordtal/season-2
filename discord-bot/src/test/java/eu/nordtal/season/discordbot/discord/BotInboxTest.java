@@ -1,6 +1,5 @@
 package eu.nordtal.season.discordbot.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -8,7 +7,6 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseMessages;
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -63,7 +61,7 @@ class BotInboxTest {
                 return !tag.equals("fr");
             },
             alert -> {
-                carriedOut.add("alert " + alert.level() + " " + alert.title().key() + " " + alert.mentions());
+                carriedOut.add("alert " + alert.entry() + " " + alert.mentions());
                 return true;
             },
             booked -> carriedOut.add("told " + booked.person() + " " + booked.days()),
@@ -170,10 +168,10 @@ class BotInboxTest {
 
     @Test
     void anAlertIsPostedWithItsMentionsAndSaysItWentOut() {
-        final String answer = answer(new BotRequest.PostAlert(
-                Alert.Level.WARN, TEXTS.alert().disk(91), List.of(), "https://steward.example/", List.of(ADMIN)));
+        final UUID entry = UUID.fromString("00000000-0000-0000-0000-000000000042");
+        final String answer = answer(new BotRequest.PostAlert(entry, List.of(ADMIN)));
 
-        assertEquals(List.of("alert WARN alert.disk [400000000000000001]"), carriedOut);
+        assertEquals(List.of("alert " + entry + " [400000000000000001]"), carriedOut);
         assertEquals("{\"posted\":\"true\"}", answer);
     }
 

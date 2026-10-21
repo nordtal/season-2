@@ -18,9 +18,6 @@ class ColumnsAreAtomicIntegrationTest {
 
     /** The composite columns the schema still has. */
     private static final Set<String> COMPOSITE = Set.of(
-            "admin_alert.detail",
-            "admin_alert.measured",
-            "admin_alert.title",
             "bank_inbox.outcome",
             "bot_inbox.outcome",
             "bot_inbox.payload",

@@ -44,6 +44,17 @@ import org.junit.jupiter.api.TestInstance;
 class AuditDirectoryIntegrationTest {
 
     private static final String ALICE = "100000000000000001";
+
+    /** The details of alerts, which the alert book writes and reads. */
+    private static final Set<Class<?>> ALERT_DETAILS = Set.of(
+            JournalDetail.RunFailed.class,
+            JournalDetail.PaymentFlagged.class,
+            JournalDetail.LinkRefused.class,
+            JournalDetail.MemberFailed.class,
+            JournalDetail.RoleNotChanged.class,
+            JournalDetail.RoleNamed.class,
+            JournalDetail.ChannelsNotClosed.class);
+
     private static final String BOB = "100000000000000002";
     private static final String ADMIN = "100000000000000009";
 
@@ -83,7 +94,7 @@ class AuditDirectoryIntegrationTest {
         assertEquals(
                 Set.of(),
                 Arrays.stream(JournalDetail.class.getPermittedSubclasses())
-                        .filter(kind -> !covered.contains(kind))
+                        .filter(kind -> !covered.contains(kind) && !ALERT_DETAILS.contains(kind))
                         .collect(Collectors.toSet()),
                 "every detail is written and read back here");
 
@@ -119,12 +130,17 @@ class AuditDirectoryIntegrationTest {
     @Test
     void everyActionIsAcceptedWithoutValuesAndReadsAsAtLeastItsName() {
         for (final JournalAction action : JournalAction.values()) {
-            if (action != JournalAction.SETTLE) {
+            if (action != JournalAction.SETTLE && AlertType.of(action) == null) {
                 directory.record(AuditLine.of(action, Actor.STEWARD, null));
             }
         }
 
-        assertEquals(JournalAction.values().length - 1, directory.recent(100).size());
+        assertEquals(
+                Arrays.stream(JournalAction.values())
+                                .filter(action -> AlertType.of(action) == null)
+                                .count()
+                        - 1,
+                directory.recent(100).size());
     }
 
     @Test

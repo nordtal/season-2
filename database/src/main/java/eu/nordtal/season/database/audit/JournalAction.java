@@ -3,6 +3,7 @@ package eu.nordtal.season.database.audit;
 /**
  * The {@code journal_entry.action} that a writer files an entry under and the journal filters by.
  * Each action has its line in {@link eu.nordtal.season.database.AdminTexts} and needs an entry in that column's check.
+ * The actions from {@link #SERVICE_DOWN} on are alerts, which {@code AlertType} sorts into types.
  */
 public enum JournalAction {
     ADMIN_ROOT,
@@ -46,5 +47,22 @@ public enum JournalAction {
     UNANCHORED_GRANT,
     LINK_CODES_EXHAUSTED,
     SET_AURA,
-    SET_SPINS
+    SET_SPINS,
+    SERVICE_DOWN,
+    BACKUP_STALE,
+    DISK_FULL,
+    MEMORY_FULL,
+    IMAGE_DRIFT,
+    PACK_DEAD,
+    RUN_FAILED,
+    PAYMENT_NEEDS_LOOK,
+    LINK_REFUSED,
+    LINK_FAILED,
+    PURCHASE_FAILED,
+    DM_NOT_DELIVERED,
+    ROLE_NOT_CHANGED,
+    ROLE_AMBIGUOUS,
+    ROLE_NOT_CREATED,
+    LOCK_NOT_KEPT,
+    LOCK_WITHOUT_CHANNEL
 }

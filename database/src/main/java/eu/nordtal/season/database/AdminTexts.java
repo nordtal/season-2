@@ -365,15 +365,22 @@ public interface AdminTexts {
         MessageRef clear(@Arg("type") AlertType type);
 
         @Name("Several of one type at once")
-        MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);
+        MessageRef several(@Arg("subjects") List<String> subjects);
 
         @Name("Which run")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef run(@Arg("run") long run);
 
-        @Name("Why a run failed, about one service")
+        @Name("A step of a failed run that failed or warned")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef failure(@Arg("service") @Example("smp") String service, @Arg("what") MessageRef what);
+        MessageRef step(@Arg("kind") MessageRef kind, @Arg("why") MessageRef why);
+
+        @Name("A step of a failed run on one service that failed or warned")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef stepOn(
+                @Arg("kind") MessageRef kind,
+                @Arg("service") @Example("smp") String service,
+                @Arg("why") MessageRef why);
 
         @Name("No services")
         MessageRef noServices();
@@ -386,21 +393,25 @@ public interface AdminTexts {
 
         @Name("Failing healthcheck")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef healthFails();
+        MessageRef healthFails(@Arg("service") @Example("smp") String service);
 
         @Name("Docker's word")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef dockerState(@Arg("state") String state);
+        MessageRef dockerState(@Arg("service") @Example("smp") String service, @Arg("state") String state);
 
         @Name("A service restarts")
-        MessageRef restarting(@Arg("service") @Example("smp") String service, @Arg("count") int count);
+        MessageRef restarting(@Arg("service") @Example("smp") String service);
 
         @Name("Restarted by Docker")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef restartedByDocker();
+        MessageRef restartedByDocker(@Arg("service") @Example("smp") String service, @Arg("count") long count);
 
         @Name("A one-shot service failed")
-        MessageRef failedOnce(@Arg("service") @Example("smp") String service, @Arg("code") int code);
+        MessageRef failedOnce(@Arg("service") @Example("smp") String service);
+
+        @Name("The exit code of a one-shot service")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef exitCode(@Arg("service") @Example("smp") String service, @Arg("code") long code);
 
         @Name("Older images")
         MessageRef olderImage(@Arg("services") List<String> services, @Arg("count") int count);
@@ -418,49 +429,48 @@ public interface AdminTexts {
         @Name("No finished backup")
         MessageRef noBackup();
 
-        @Name("Only started backups")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef onlyStarted();
-
         @Name("No database dump")
         MessageRef noDump();
-
-        @Name("What a missing dump means")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef dumpMatters();
 
         @Name("No archive of a volume")
         MessageRef noArchive(@Arg("volume") String volume);
 
         @Name("An old dump")
-        MessageRef oldDump(@Arg("hours") long hours);
+        MessageRef oldDump();
 
         @Name("An old archive")
-        MessageRef oldArchive(@Arg("volume") String volume, @Arg("hours") long hours);
+        MessageRef oldArchive(@Arg("volume") String volume);
 
         @Name("No copy off the host")
         MessageRef noOffsite();
 
         @Name("An old copy off the host")
-        MessageRef oldOffsite(@Arg("hours") long hours);
+        MessageRef oldOffsite();
 
-        @Name("The permitted age")
+        @Name("A backup series without a file")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef permittedAge(@Arg("hours") long hours);
+        MessageRef missing(@Arg("subject") @Example("database dump") String subject);
+
+        @Name("The age of a backup series against the permitted age")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef age(
+                @Arg("subject") @Example("database dump") String subject,
+                @Arg("hours") long hours,
+                @Arg("limit") long limit);
 
         @Name("A full disk")
-        MessageRef disk(@Arg("percent") long percent);
+        MessageRef disk();
+
+        @Name("How full the disk is")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef diskUse(@Arg("percent") long percent, @Arg("threshold") long threshold);
 
         @Name("Used memory")
-        MessageRef memory(@Arg("percent") long percent);
+        MessageRef memory();
 
-        @Name("The threshold")
+        @Name("How much memory is used")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef threshold(@Arg("percent") long percent);
-
-        @Name("No memory limit")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef noLimit();
+        MessageRef memoryUse(@Arg("percent") long percent, @Arg("threshold") long threshold);
 
         @Name("A payment needs a look")
         MessageRef payment();
@@ -506,7 +516,7 @@ public interface AdminTexts {
         MessageRef nobodyLocked();
 
         @Name("Channels the lock does not close")
-        MessageRef lockNotKept(@Arg("count") int count);
+        MessageRef lockNotKept();
 
         @Name("Which channel, and what went wrong")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})

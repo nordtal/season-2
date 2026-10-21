@@ -100,7 +100,7 @@ class PaymentsTest {
         TAB_PAYMENTS.clear();
         RECENT.clear();
         owner().useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, journal_entry, bot_inbox,"
-                + " bank_inbox, admin_alert, discord_user CASCADE"));
+                + " bank_inbox, journal_entry, discord_user CASCADE"));
         requests = new PaymentRequests(owner);
         payments = new Payments(
                 bank,
@@ -198,7 +198,8 @@ class PaymentsTest {
                 () -> assertEquals(0, told().size()),
                 () -> assertEquals(
                         1,
-                        count("SELECT count(*) FROM admin_alert WHERE type = 'PAYMENT' AND source = 'payment:4900'")));
+                        count("SELECT count(*) FROM journal_entry e JOIN journal_bank_payment b ON b.entry = e.id"
+                                + " WHERE e.action = 'PAYMENT_NEEDS_LOOK' AND b.bank_payment = 4900")));
     }
 
     @Test

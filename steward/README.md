@@ -59,8 +59,9 @@ a statement without a grant fails in `check`.
   names why a route writes no line. `JournaledRoutesTest` fails on a changing route with neither.
 - **Alerts:** Steward measures the stack every 30 seconds against the thresholds of the `web` group. It
   downloads the proxy's pack URL every ten minutes. It raises failed runs and unbookable payments. The bot
-  raises what it could not do in Discord. Steward sends each `admin_alert` row once per alert type and
-  admin to Web Push and to the admin channel through the bot's inbox.
+  raises what it could not do in Discord. An alert is a journal entry with a level and its measure rows.
+  Steward sends each one once per alert type and admin to Web Push, and asks the bot to post it in the admin
+  channel. The bot draws the card from the entry.
 - **Payments:** Steward holds no bank credential. `Bookings` in `:database` books a payment in one
   transaction: it marks the request paid, appends the access, sets the donor flag, writes the journal line
   and tells the bot. The poll books a matched payment at the `prices` read at start. Every question to

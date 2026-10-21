@@ -1,5 +1,7 @@
 package eu.nordtal.season.database.alert;
 
+import eu.nordtal.season.database.audit.JournalAction;
+import java.util.Arrays;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
@@ -62,6 +64,36 @@ public enum AlertType {
 
     public String key() {
         return name().toLowerCase(Locale.ROOT);
+    }
+
+    /** Returns the type of an alert's action, null for an action that is no alert. */
+    public static @Nullable AlertType of(final JournalAction action) {
+        return switch (action) {
+            case SERVICE_DOWN -> SERVICE;
+            case BACKUP_STALE -> BACKUP;
+            case DISK_FULL -> DISK;
+            case MEMORY_FULL -> MEMORY;
+            case IMAGE_DRIFT -> DRIFT;
+            case PACK_DEAD -> PACK;
+            case RUN_FAILED -> RUN;
+            case PAYMENT_NEEDS_LOOK, LINK_REFUSED, PURCHASE_FAILED -> PAYMENT;
+            case LINK_FAILED,
+                    DM_NOT_DELIVERED,
+                    ROLE_NOT_CHANGED,
+                    ROLE_AMBIGUOUS,
+                    ROLE_NOT_CREATED,
+                    LOCK_NOT_KEPT,
+                    LOCK_WITHOUT_CHANNEL -> BOT;
+            default -> null;
+        };
+    }
+
+    /** Returns the first action of this type, the one a measured type raises and clears with. */
+    public JournalAction action() {
+        return Arrays.stream(JournalAction.values())
+                .filter(action -> of(action) == this)
+                .findFirst()
+                .orElseThrow();
     }
 
     public static @Nullable AlertType of(final @Nullable String key) {

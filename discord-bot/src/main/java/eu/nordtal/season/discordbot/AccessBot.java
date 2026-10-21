@@ -161,7 +161,7 @@ public class AccessBot implements AutoCloseable {
                     loadCoreServices(accessConfig, network, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
-            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
+            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases, botConfig.stewardUrl());
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.documents(), wiring);
 
             this.signals = finishStartup(
@@ -284,13 +284,18 @@ public class AccessBot implements AutoCloseable {
     }
 
     private DiscordWiring wireDiscord(
-            final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
+            final JDA jda,
+            final AccessSpec accessConfig,
+            final CoreServices core,
+            final PhaseDirectory phases,
+            final String stewardUrl) {
         final AdminLog admin = new AdminLog(
                 jda,
                 accessConfig,
                 AuditDirectory.using(database.dataSource()),
                 AlertBook.using(database.dataSource()),
-                core.renderer());
+                core.renderer(),
+                stewardUrl);
         // A period sold while season_phase.smp_start is NULL starts at the sale, not at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);

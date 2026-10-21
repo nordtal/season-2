@@ -112,6 +112,24 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     WEB_PUSH_UNSUBSCRIBE,
                     START_GAME,
                     LINK_CODES_EXHAUSTED -> null;
+            // The journal's queries leave alerts out, which the alert book reads.
+            case SERVICE_DOWN,
+                    BACKUP_STALE,
+                    DISK_FULL,
+                    MEMORY_FULL,
+                    IMAGE_DRIFT,
+                    PACK_DEAD,
+                    RUN_FAILED,
+                    PAYMENT_NEEDS_LOOK,
+                    LINK_REFUSED,
+                    LINK_FAILED,
+                    PURCHASE_FAILED,
+                    DM_NOT_DELIVERED,
+                    ROLE_NOT_CHANGED,
+                    ROLE_AMBIGUOUS,
+                    ROLE_NOT_CREATED,
+                    LOCK_NOT_KEPT,
+                    LOCK_WITHOUT_CHANNEL -> throw new IllegalArgumentException(action + " is an alert");
         };
     }
 

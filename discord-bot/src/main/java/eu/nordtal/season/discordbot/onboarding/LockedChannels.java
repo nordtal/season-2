@@ -1,11 +1,10 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
+import eu.nordtal.season.database.JournalDetail.ChannelFailure;
+import eu.nordtal.season.database.JournalDetail.ChannelsNotClosed;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AlertOnce;
-import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -57,7 +56,7 @@ final class LockedChannels {
             Permission.MESSAGE_ATTACH_FILES,
             Permission.MESSAGE_HISTORY);
 
-    /** The number of channels that the alert names. Its title counts all failed channels. */
+    /** The number of channels that the alert names. */
     private static final int NAMED = 10;
 
     private static final String KEY = "lock channels";
@@ -85,7 +84,7 @@ final class LockedChannels {
 
     /** Sets the overwrites of every channel of the guild and raises one alert that names the failed channels. */
     void keep(final Guild guild, final Role lock, final String onboardingChannelId) {
-        final List<MessageRef> failed = new ArrayList<>();
+        final List<ChannelFailure> failed = new ArrayList<>();
         guild.getChannels(true).stream()
                 .filter(IPermissionContainer.class::isInstance)
                 .map(IPermissionContainer.class::cast)
@@ -98,15 +97,12 @@ final class LockedChannels {
         alerts.raise(KEY, alert(failed));
     }
 
-    /** Returns an alert that counts the failed channels and names the first of them. */
-    private static Alert alert(final List<MessageRef> failed) {
+    /** Returns an alert that names the first of the failed channels. */
+    private static Alert alert(final List<ChannelFailure> failed) {
         return new Alert(
-                AlertType.BOT,
+                JournalAction.LOCK_NOT_KEPT,
                 Alert.Level.WARN,
-                KEY,
-                TEXTS.alert().lockNotKept(failed.size()),
-                List.copyOf(failed.subList(0, Math.min(NAMED, failed.size()))),
-                Onboarding.PAGE);
+                new ChannelsNotClosed(List.copyOf(failed.subList(0, Math.min(NAMED, failed.size())))));
     }
 
     /** Sets the overwrites of a new channel and raises an alert when that fails. */
@@ -115,7 +111,7 @@ final class LockedChannels {
     }
 
     /** Sets the overwrites of one channel in order. Returns the first failure and sets no further overwrite. */
-    private Optional<MessageRef> keep(
+    private Optional<ChannelFailure> keep(
             final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
         final Guild guild = channel.getGuild();
         for (final Overwrite overwrite : wanted(channel.getId().equals(onboardingChannelId))) {
@@ -124,7 +120,7 @@ final class LockedChannels {
                 case LOCK -> lock;
                 case EVERYONE -> guild.getPublicRole();
             };
-            final Optional<MessageRef> failed = keep(channel, holder, overwrite);
+            final Optional<ChannelFailure> failed = keep(channel, holder, overwrite);
             if (failed.isPresent()) {
                 return failed;
             }
@@ -132,7 +128,7 @@ final class LockedChannels {
         return Optional.empty();
     }
 
-    private static Optional<MessageRef> keep(
+    private static Optional<ChannelFailure> keep(
             final IPermissionContainer channel, final IPermissionHolder holder, final Overwrite overwrite) {
         final EnumSet<Permission> open = overwrite.holder() == Holder.BOT ? BOT_OPEN : LOCK_OPEN;
         final boolean opening = overwrite.view() == View.OPEN;
@@ -150,7 +146,7 @@ final class LockedChannels {
             return Optional.empty();
         } catch (final RuntimeException failure) {
             log.warn("Could not keep the overwrite of {} in {}: {}", whom, name(channel), failure.toString());
-            return Optional.of(TEXTS.alert().failedIn(name(channel), String.valueOf(failure.getMessage())));
+            return Optional.of(new ChannelFailure(name(channel), String.valueOf(failure.getMessage())));
         }
     }
 

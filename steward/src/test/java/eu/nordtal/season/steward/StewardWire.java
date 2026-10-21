@@ -135,6 +135,7 @@ public final class StewardWire {
             Map.entry(eu.nordtal.season.database.game.GameCatalogue.Tag.class, "GameTag"),
             Map.entry(AccessGrant.class, "Grant"),
             Map.entry(PaymentRequest.class, "Payment"),
+            Map.entry(AlertRoutes.CurrentAlert.class, "Alert"),
             Map.entry(AuditEntry.class, "JournalEntry"),
             Map.entry(Actor.Kind.class, "ActorKind"),
             Map.entry(UpdateReport.class, "Report"),

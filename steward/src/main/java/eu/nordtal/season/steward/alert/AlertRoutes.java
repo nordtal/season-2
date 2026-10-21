@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.alert;
 
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -55,11 +57,33 @@ public final class AlertRoutes {
             @Nullable Instant checkedAt,
             @Nullable String unreadable,
             Alert.Level level,
-            List<Alert> alerts,
+            List<CurrentAlert> alerts,
             List<RecentAlert> recent) {}
 
+    /** Holds an alert as the page shows it, its title and lines rendered from its rows. */
+    public record CurrentAlert(
+            AlertType type,
+            Alert.Level level,
+            String subject,
+            MessageRef title,
+            List<MessageRef> detail,
+            List<Measure> measured,
+            String path) {
+
+        static CurrentAlert of(final Alert alert) {
+            return new CurrentAlert(
+                    alert.type(),
+                    alert.level(),
+                    alert.subject(),
+                    alert.title(),
+                    alert.lines(),
+                    alert.measured(),
+                    alert.path());
+        }
+    }
+
     public record RecentAlert(
-            long id,
+            UUID id,
             Instant raised,
             String raisedBy,
             AlertType type,
@@ -79,7 +103,7 @@ public final class AlertRoutes {
                 now.checkedAt(),
                 now.unreadable(),
                 now.level(),
-                now.alerts(),
+                now.alerts().stream().map(CurrentAlert::of).toList(),
                 book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
     }
 
@@ -118,11 +142,11 @@ public final class AlertRoutes {
     }
 
     private static RecentAlert shown(final RaisedAlert raised) {
-        final Alert alert = raised.alert();
+        final CurrentAlert alert = CurrentAlert.of(raised.alert());
         return new RecentAlert(
                 raised.id(),
                 raised.raised(),
-                raised.raisedBy(),
+                raised.raisedBy().kind() == Actor.Kind.BOT ? "discord-bot" : "steward",
                 alert.type(),
                 alert.level(),
                 alert.subject(),

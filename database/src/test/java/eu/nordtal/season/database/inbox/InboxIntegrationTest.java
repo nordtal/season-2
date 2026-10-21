@@ -1,6 +1,5 @@
 package eu.nordtal.season.database.inbox;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,7 +9,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.TestDatabase;
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.notify.SignalHub;
@@ -21,7 +19,6 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.value.DisplayName;
-import eu.nordtal.season.messages.value.Mention;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -178,12 +175,9 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void anAlertKeepsItsLevelMessagesAndMentionsThroughTheTable() {
+    void anAlertKeepsItsEntryAndMentionsThroughTheTable() {
         final BotRequest.PostAlert alert = new BotRequest.PostAlert(
-                Alert.Level.DOWN,
-                TEXTS.alert().notRunning("smp"),
-                List.of(TEXTS.alert().dockerState("exited"), TEXTS.alert().to(Mention.of(SOMEONE))),
-                "https://steward.example/services/smp",
+                UUID.fromString("00000000-0000-0000-0000-000000000044"),
                 List.of(SOMEONE, DiscordId.of("400000000000000003")));
         inbox.submit(alert, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
         assertEquals(alert, inbox.claim().orElseThrow().payload());

@@ -3,13 +3,19 @@ package eu.nordtal.season.database;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.database.payment.PaymentRequestStatus;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.update.ByteSize;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.Update;
 import org.jspecify.annotations.Nullable;
@@ -40,6 +47,16 @@ public sealed interface JournalDetail {
 
     default @Nullable UUID payment() {
         return null;
+    }
+
+    /** Returns the member the entry is about, for an alert whose detail names one. */
+    default @Nullable DiscordId member() {
+        return null;
+    }
+
+    /** Returns the lines an alert shows below its title. */
+    default List<MessageRef> lines() {
+        return List.of(line());
     }
 
     /** Returns the line of an entry, which is its action's when it has no detail. */
@@ -499,6 +516,192 @@ public sealed interface JournalDetail {
             row(handle, "journal_unanchored", entry, "valid_from", from);
         }
     }
+
+    /** A failed run. Its kind and the steps that failed or warned are read from the run. */
+    record RunFailed(Long run, UpdateKind kind, List<FailedStep> steps) implements JournalDetail {
+        public RunFailed {
+            steps = List.copyOf(steps);
+        }
+
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().run(run);
+        }
+
+        @Override
+        public List<MessageRef> lines() {
+            return Stream.concat(Stream.of(line()), steps.stream().map(FailedStep::line))
+                    .toList();
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {}
+    }
+
+    /** A step of a failed run that failed or warned, with the reason it ended with. */
+    record FailedStep(
+            RunStep.Kind kind, @Nullable String service, RunStep.Outcome outcome, RunStep.@Nullable Reason reason) {
+        public MessageRef line() {
+            final MessageRef why =
+                    reason == null ? TEXTS.run().outcome(outcome) : TEXTS.run().reason(reason);
+            return service == null
+                    ? TEXTS.alert().step(TEXTS.run().stepKind(kind), why)
+                    : TEXTS.alert().stepOn(TEXTS.run().stepKind(kind), service, why);
+        }
+    }
+
+    /**
+     * A bunq payment that was not booked. The reference is its own only when no request has it.
+     *
+     * @param status the request's status as it is now, null without a request
+     */
+    record PaymentFlagged(
+            Problem problem,
+            long bankPayment,
+            Money amount,
+            String reference,
+            @Nullable UUID payment,
+            @Nullable PaymentRequestStatus status)
+            implements JournalDetail {
+
+        /** Why a payment was not booked. */
+        public enum Problem {
+            UNKNOWN_REFERENCE,
+            NOT_OPEN,
+            CLAIMED,
+            BELOW_TIER
+        }
+
+        @Override
+        public MessageRef line() {
+            final String id = String.valueOf(bankPayment);
+            return switch (problem) {
+                case UNKNOWN_REFERENCE -> TEXTS.alert().unknownReference(id, amount, reference);
+                case NOT_OPEN ->
+                    TEXTS.alert()
+                            .notOpen(
+                                    id,
+                                    amount,
+                                    reference,
+                                    Objects.requireNonNullElse(status, PaymentRequestStatus.OPEN));
+                case CLAIMED -> TEXTS.alert().claimed(id, amount, reference);
+                case BELOW_TIER -> TEXTS.alert().noTier(id, amount, reference);
+            };
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(
+                    handle,
+                    "journal_bank_payment",
+                    entry,
+                    "bank_payment",
+                    bankPayment,
+                    "problem",
+                    problem.name(),
+                    "cents",
+                    amount.minor(),
+                    "reference",
+                    payment == null ? reference : null);
+        }
+    }
+
+    /** bunq refused the payment link of a request, whose reference and refusal it shows. */
+    record LinkRefused(UUID payment, String reference, TabRefusal refusal) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().refused(reference, refusal);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {}
+    }
+
+    /** Something the bot did for a member failed. A direct message that Discord refused has no error. */
+    record MemberFailed(DiscordId member, @Nullable String error) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return error == null
+                    ? TEXTS.alert().to(Mention.of(member))
+                    : TEXTS.alert().failedFor(Mention.of(member), error);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            if (error != null) {
+                row(handle, "journal_error", entry, "error", error);
+            }
+        }
+    }
+
+    /** A role that Discord did not give to a member or take from one. */
+    record RoleNotChanged(DiscordRole role, boolean given, DiscordId member, String error) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().failedFor(Mention.of(member), error);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(handle, "journal_role", entry, "role", role.name(), "given", given);
+            row(handle, "journal_error", entry, "error", error);
+        }
+    }
+
+    /** A role the bot finds by its name: several of that name have no error, one not created has one. */
+    record RoleNamed(String name, @Nullable String error) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return error == null ? TEXTS.alert().noneAdopted() : TEXTS.alert().words(error);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(handle, "journal_role", entry, "name", name);
+            if (error != null) {
+                row(handle, "journal_error", entry, "error", error);
+            }
+        }
+    }
+
+    /** The channels the lock role could not be closed out of. */
+    record ChannelsNotClosed(List<ChannelFailure> channels) implements JournalDetail {
+        public ChannelsNotClosed {
+            channels = List.copyOf(channels);
+        }
+
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().lockNotKept();
+        }
+
+        @Override
+        public List<MessageRef> lines() {
+            return channels.stream()
+                    .map(failed -> TEXTS.alert().failedIn(failed.channel(), failed.error()))
+                    .toList();
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            for (int position = 0; position < channels.size(); position++) {
+                final ChannelFailure failed = channels.get(position);
+                row(
+                        handle,
+                        "journal_channel_failure",
+                        entry,
+                        "position",
+                        position,
+                        "channel",
+                        failed.channel(),
+                        "error",
+                        failed.error());
+            }
+        }
+    }
+
+    /** A channel and what Discord answered when the bot set its overwrites. */
+    record ChannelFailure(String channel, String error) {}
 
     /** Inserts one row into the table of a family from the column names and values in {@code pairs}. */
     private static void row(

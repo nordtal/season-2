@@ -2,6 +2,11 @@
 import type { Arg } from "@/lib/texts"
 
 export type TextArgs = {
+  "alert.age": {
+    subject: Arg["text"]
+    hours: Arg["number"]
+    limit: Arg["number"]
+  }
   "alert.claimed": {
     payment: Arg["text"]
     amount: Arg["money"]
@@ -11,14 +16,20 @@ export type TextArgs = {
     type: Arg["choice"]
   }
   "alert.dead-pack": Record<string, never>
-  "alert.disk": {
+  "alert.disk": Record<string, never>
+  "alert.disk-use": {
     percent: Arg["number"]
+    threshold: Arg["number"]
   }
   "alert.dm": Record<string, never>
   "alert.docker-state": {
+    service: Arg["text"]
     state: Arg["text"]
   }
-  "alert.dump-matters": Record<string, never>
+  "alert.exit-code": {
+    service: Arg["text"]
+    code: Arg["number"]
+  }
   "alert.failed-for": {
     person: Arg["mention"]
     error: Arg["text"]
@@ -29,31 +40,30 @@ export type TextArgs = {
   }
   "alert.failed-once": {
     service: Arg["text"]
-    code: Arg["number"]
   }
-  "alert.failure": {
+  "alert.health-fails": {
     service: Arg["text"]
-    what: Arg["message"]
   }
-  "alert.health-fails": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
   }
   "alert.link-failed": Record<string, never>
   "alert.link-refused": Record<string, never>
-  "alert.lock-not-kept": {
-    count: Arg["number"]
-  }
+  "alert.lock-not-kept": Record<string, never>
   "alert.lock-without-channel": Record<string, never>
-  "alert.memory": {
+  "alert.memory": Record<string, never>
+  "alert.memory-use": {
     percent: Arg["number"]
+    threshold: Arg["number"]
+  }
+  "alert.missing": {
+    subject: Arg["text"]
   }
   "alert.no-archive": {
     volume: Arg["text"]
   }
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
-  "alert.no-limit": Record<string, never>
   "alert.no-offsite": Record<string, never>
   "alert.no-services": Record<string, never>
   "alert.no-tier": {
@@ -78,32 +88,25 @@ export type TextArgs = {
   }
   "alert.old-archive": {
     volume: Arg["text"]
-    hours: Arg["number"]
   }
-  "alert.old-dump": {
-    hours: Arg["number"]
-  }
-  "alert.old-offsite": {
-    hours: Arg["number"]
-  }
+  "alert.old-dump": Record<string, never>
+  "alert.old-offsite": Record<string, never>
   "alert.older-image": {
     services: Arg["list"]
     count: Arg["number"]
   }
-  "alert.only-started": Record<string, never>
   "alert.payment": Record<string, never>
-  "alert.permitted-age": {
-    hours: Arg["number"]
-  }
   "alert.purchase-failed": Record<string, never>
   "alert.refused": {
     reference: Arg["text"]
     refusal: Arg["choice"]
   }
-  "alert.restarted-by-docker": Record<string, never>
-  "alert.restarting": {
+  "alert.restarted-by-docker": {
     service: Arg["text"]
     count: Arg["number"]
+  }
+  "alert.restarting": {
+    service: Arg["text"]
   }
   "alert.role-ambiguous": {
     name: Arg["text"]
@@ -120,10 +123,15 @@ export type TextArgs = {
   }
   "alert.several": {
     subjects: Arg["list"]
-    count: Arg["number"]
   }
-  "alert.threshold": {
-    percent: Arg["number"]
+  "alert.step": {
+    kind: Arg["message"]
+    why: Arg["message"]
+  }
+  "alert.step-on": {
+    kind: Arg["message"]
+    service: Arg["text"]
+    why: Arg["message"]
   }
   "alert.to": {
     person: Arg["mention"]

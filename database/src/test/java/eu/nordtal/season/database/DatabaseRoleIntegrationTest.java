@@ -147,16 +147,19 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM bank_inbox WHERE false"));
     }
 
-    /** The bot raises an alert and reads none. Steward routes them. */
+    /** The bot raises an alert and reads it back for its card. Only steward routes them. */
     @Test
     void theBotRaisesAlertsAndOnlyStewardRoutesThem() {
-        final String raise = "INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path)"
-                + " VALUES ('x', 'BOT', 'WARN', 'a', '{\"key\": \"alert.dm\", \"args\": {}}', '[]', '/')";
+        final String measure = "INSERT INTO alert_measure (entry, position, gauge, subject)"
+                + " SELECT id, 0, 'DISK_PERCENT', 'disk' FROM journal_entry WHERE false";
+        final String route = "UPDATE journal_entry SET routed = now() WHERE false";
         assertAll(Stream.of(
-                        may(DatabaseRole.DISCORD_BOT, raise),
-                        mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM admin_alert"),
-                        mayNot(DatabaseRole.SMP, raise),
-                        may(DatabaseRole.STEWARD, "UPDATE admin_alert SET routed = now() WHERE false"),
+                        may(DatabaseRole.DISCORD_BOT, measure),
+                        may(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM alert_measure"),
+                        mayNot(DatabaseRole.SMP, measure),
+                        may(DatabaseRole.STEWARD, route),
+                        mayNot(DatabaseRole.DISCORD_BOT, route),
+                        mayNot(DatabaseRole.STEWARD, "UPDATE journal_entry SET level = 'OK' WHERE false"),
                         may(DatabaseRole.STEWARD, "DELETE FROM steward_alert_preference WHERE false"),
                         mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_alert_preference"))
                 .map(DatabaseRoleIntegrationTest::check));

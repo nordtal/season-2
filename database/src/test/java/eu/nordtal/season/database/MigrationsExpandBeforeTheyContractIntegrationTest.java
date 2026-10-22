@@ -87,7 +87,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.52.0", "80"),
             Map.entry("0.53.0", "82"),
             Map.entry("0.54.0", "85"),
-            Map.entry("0.54.1", "85"));
+            Map.entry("0.54.1", "85"),
+            Map.entry("0.55.0", "88"));
 
     /** The privileges a release no longer uses, with that release. A grant may go in the release after it. */
     private static final Map<String, String> NO_LONGER_USED = noLongerUsed();
@@ -189,7 +190,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         database.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), before);
         Jdbi.create(database.dataSource()).useHandle(handle -> handle.execute("""
                 INSERT INTO setting_override (service, name, path, value, actor_kind, changed)
-                VALUES ('steward-agent', 'runs', 'volumes-root', '"/srv"', 'STEWARD', now())"""));
+                VALUES ('steward-agent', 'runs', 'volumes-root', '"/srv"', 'STEWARD', now());
+                INSERT INTO setting_override_node (service, name, path, node, parent, field, ordinal, kind, string, number, flag)
+                SELECT o.service, o.name, o.path, n.* FROM setting_override AS o
+                CROSS JOIN LATERAL setting_override_nodes(o.value) AS n"""));
 
         // The one-shot of a new release reads its run settings before its own migrations have run.
         assertEquals(

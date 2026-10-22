@@ -246,6 +246,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V87__an_announcement_is_a_row_per_language.sql",
                 "0541c1deac1686f4182c5edd7e74674b9138041cd8209681bafb4a706cb8a2f8");
+        FROZEN.put(
+                "V88__a_text_preview_is_a_row_with_its_examples.sql",
+                "6018a136e63b3ff69b8c2be2adaefcdef51536d8ec4078f69593400f3bb9f9e0");
     }
 
     @Test

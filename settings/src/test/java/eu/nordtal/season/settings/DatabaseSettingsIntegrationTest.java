@@ -8,6 +8,7 @@ import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.messages.Tone;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -50,5 +51,18 @@ class DatabaseSettingsIntegrationTest {
             assertTrue(changed.tryAcquire(30, TimeUnit.SECONDS), "the change never reached the process");
         }
         assertEquals("from-steward", example.get().name());
+    }
+
+    @Test
+    void aServiceReadsTheColoursOfAnother() throws Exception {
+        final TestDatabase database = TestDatabase.fresh();
+        SettingStore.using(database.dataSourceAs(DatabaseRole.STEWARD))
+                .change("smp", Colours.GROUP.name(), Map.of("good", "\"#123456\""), Actor.STEWARD, current -> true);
+
+        final Map<Tone, String> colours =
+                Colours.current(SettingStore.using(database.dataSourceAs(DatabaseRole.HUNGER_GAMES)), "smp");
+
+        assertEquals("#123456", colours.get(Tone.GOOD));
+        assertEquals(Tone.BAD.hex(), colours.get(Tone.BAD));
     }
 }

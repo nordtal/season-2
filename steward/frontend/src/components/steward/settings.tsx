@@ -122,16 +122,27 @@ export function ServiceSettings({
         ) : files.length === 0 && plugins.length === 0 && !failure ? (
           <p className="px-2 text-sm text-muted-foreground">{t("steward.settings.no-files")}</p>
         ) : (
-          files.map((item) => (
-            <FileRow
-              key={item.id}
-              item={item}
-              selected={item.id === shown}
-              dirty={dirty.includes(item.id)}
-              icon={<StewardMark className="size-4 shrink-0" />}
-              onSelect={() => onFile(item.id)}
-            />
-          ))
+          [
+            { live: true, heading: t("steward.settings.applies-on-save") },
+            { live: false, heading: t("steward.settings.applies-after-restart") },
+          ].map(({ live, heading }) => {
+            const section = files.filter((item) => item.location.live === live)
+            return section.length === 0 ? null : (
+              <section key={heading} className="flex flex-col gap-0.5 not-first:mt-3">
+                <h2 className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{heading}</h2>
+                {section.map((item) => (
+                  <FileRow
+                    key={item.id}
+                    item={item}
+                    selected={item.id === shown}
+                    dirty={dirty.includes(item.id)}
+                    icon={<StewardMark className="size-4 shrink-0" />}
+                    onSelect={() => onFile(item.id)}
+                  />
+                ))}
+              </section>
+            )
+          })
         )}
         {plugins.length > 0 ? (
           <>

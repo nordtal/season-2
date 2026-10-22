@@ -8,6 +8,12 @@ import eu.nordtal.season.messages.spec.Name;
 @Name("Settings")
 public interface SettingsEditor {
 
+    @Name("Applies after a restart")
+    MessageRef appliesAfterRestart();
+
+    @Name("Applies on save")
+    MessageRef appliesOnSave();
+
     @Name("Files")
     MessageRef files();
 

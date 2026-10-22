@@ -62,7 +62,6 @@ const FILE: ConfigDocument = {
   readable: true,
   writable: true,
   revision: "r1",
-  restartRequired: false,
   entries: [
     entry("milestones", undefined, {
       kind: "SECTIONS",

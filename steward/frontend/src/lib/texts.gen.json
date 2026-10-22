@@ -1484,6 +1484,8 @@
     "steward.settings.add-entry": [["Add entry"]],
     "steward.settings.add-to": [["Add to ",{"v":"what"}]],
     "steward.settings.all": [["all"]],
+    "steward.settings.applies-after-restart": [["Applies after a restart"]],
+    "steward.settings.applies-on-save": [["Applies on save"]],
     "steward.settings.back-to-files": [["Back to the files"]],
     "steward.settings.back-to-top": [["Back to the top"]],
     "steward.settings.cannot-remove": [["This entry cannot be removed."]],

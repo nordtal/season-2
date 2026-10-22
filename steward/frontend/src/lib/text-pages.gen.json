@@ -771,6 +771,8 @@
     "steward.settings.add-entry": ["services","season"],
     "steward.settings.add-to": ["services","updates","backups","season"],
     "steward.settings.all": ["services","updates","backups","season"],
+    "steward.settings.applies-after-restart": ["services","season"],
+    "steward.settings.applies-on-save": ["services","season"],
     "steward.settings.back-to-files": ["services","season"],
     "steward.settings.back-to-top": ["services","season","translations"],
     "steward.settings.cannot-remove": ["services","season"],

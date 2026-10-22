@@ -5,7 +5,7 @@ import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
 import { usePluginFile, useSavePluginFile } from "@/lib/queries"
 import { Failure, QueryState } from "@/components/steward/query-state"
-import { SaveDraft } from "@/components/steward/group-draft"
+import { noticeOf, SaveDraft } from "@/components/steward/group-draft"
 import { DraftForm } from "@/components/steward/settings-config"
 import { BackToTop, PinnedRow, type Target } from "@/components/steward/settings-view"
 import { CodeEditor } from "@/components/steward/code-editor"
@@ -63,10 +63,17 @@ function PluginForm({
     readable: file.readable,
     writable: file.writable,
     revision: view.revision,
-    restartRequired: true,
     entries,
   }
-  return <DraftForm file={id} document={document} target={target} save={save} />
+  return (
+    <DraftForm
+      file={id}
+      document={document}
+      target={target}
+      save={save}
+      notice={noticeOf(document) ?? t("steward.settings.restart-needed")}
+    />
+  )
 }
 
 function isTextDraft(value: unknown): value is Record<string, string> {

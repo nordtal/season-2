@@ -92,7 +92,6 @@ public final class SettingsDocument {
                 location.readable(),
                 location.writable(),
                 revision,
-                !group.live(),
                 entries,
                 reload);
     }
@@ -358,7 +357,6 @@ public final class SettingsDocument {
             boolean readable,
             boolean writable,
             String revision,
-            boolean restartRequired,
             List<Entry> entries,
             @Nullable Reloading reload) {}
 

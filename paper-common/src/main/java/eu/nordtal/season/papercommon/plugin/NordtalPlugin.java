@@ -27,6 +27,8 @@ import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
+import eu.nordtal.season.database.mode.ModeStateStore.Container;
+import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -437,9 +439,23 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return previews.show(player, preview);
     }
 
-    /** Hands the requests about a player's Survival and Creative states to the states this server holds. */
-    protected final ModeStates modeStates() {
-        return modeStates;
+    /** Stores a copy of the state a player here holds, so Steward shows it as it is. */
+    protected final Answer storeModeState(final PlayerId player) {
+        modeStates.storeHeld(player);
+        return Answer.done(Sent.of(Replies.STATE_STORED));
+    }
+
+    /** Removes the stack Steward showed, if the slot of the state a player here holds still has it. */
+    protected final Answer removeStack(
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final int slot,
+            final String item,
+            final int amount) {
+        return modeStates.remove(player, mode, container, slot, item, amount)
+                ? Answer.done(Sent.of(Replies.STACK_REMOVED))
+                : Answer.refused(ServerRefusal.STACK_CHANGED.with());
     }
 
     protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {

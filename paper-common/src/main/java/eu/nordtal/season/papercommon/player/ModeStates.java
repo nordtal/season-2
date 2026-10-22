@@ -1,16 +1,13 @@
 package eu.nordtal.season.papercommon.player;
 
 import eu.nordtal.season.common.id.PlayerId;
-import eu.nordtal.season.database.inbox.ServerRefusal;
+import eu.nordtal.season.common.time.SerialLane;
 import eu.nordtal.season.database.mode.ModeStateStore;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Held;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.database.mode.ModeStateStore.State;
-import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.papercommon.command.Answer;
-import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,15 +17,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -66,9 +62,9 @@ public final class ModeStates implements Listener {
     private final NamespacedKey held;
     // Players whose switch is waiting for the database. Main thread only.
     private final Set<UUID> pending = new HashSet<>();
+    private final PaperScheduler scheduler;
     // Every write of a state, one at a time, so a quit is written before the arrival that follows it.
-    private final ExecutorService lane = Executors.newSingleThreadExecutor(
-            Thread.ofPlatform().name("mode-states").daemon().factory());
+    private final Executor lane;
     // The state a player takes back, read before the join and applied at it.
     private final Map<UUID, Held> arriving = new ConcurrentHashMap<>();
 
@@ -79,6 +75,15 @@ public final class ModeStates implements Listener {
         this.isAdmin = isAdmin;
         this.logger = logger;
         this.held = new NamespacedKey(plugin, "mode-state");
+        this.scheduler = PaperScheduler.of(plugin);
+        // Paper takes no work from a disabled plugin, so what is queued at close runs on the closing thread.
+        this.lane = new SerialLane(work -> {
+            if (plugin.isEnabled()) {
+                scheduler.execute(work);
+            } else {
+                work.run();
+            }
+        });
     }
 
     /** Returns the mode whose state {@code gameMode} uses, or null for Spectator, which uses none. */
@@ -118,7 +123,7 @@ public final class ModeStates implements Listener {
         }
         final UUID id = event.getUniqueId();
         try {
-            lane.submit(() -> store.arrive(plugin.getName(), PlayerId.of(id)))
+            CompletableFuture.supplyAsync(() -> store.arrive(plugin.getName(), PlayerId.of(id)), lane)
                     .get(WAIT_SECONDS, TimeUnit.SECONDS)
                     .ifPresent(held -> arriving.put(id, held));
         } catch (final ExecutionException | TimeoutException failed) {
@@ -159,7 +164,6 @@ public final class ModeStates implements Listener {
         final GameMode wanted = event.getNewGameMode();
         final Snapshot leaving = Snapshot.of(player);
         final State stored = leaving.state();
-        final PaperScheduler scheduler = PaperScheduler.of(plugin);
         lane.execute(() -> {
             final Optional<State> back;
             try {
@@ -193,11 +197,10 @@ public final class ModeStates implements Listener {
     /** Writes the state of every player still here and waits for every write. Paper disconnects them later. */
     public void close() {
         plugin.getServer().getOnlinePlayers().forEach(this::leave);
-        lane.shutdown();
         try {
-            if (!lane.awaitTermination(WAIT_SECONDS * 2, TimeUnit.SECONDS)) {
-                logger.warn("the states of the players were not all written before the server stopped");
-            }
+            CompletableFuture.runAsync(() -> {}, lane).get(WAIT_SECONDS * 2, TimeUnit.SECONDS);
+        } catch (final ExecutionException | TimeoutException failed) {
+            logger.warn("the states of the players were not all written before the server stopped", failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -217,7 +220,7 @@ public final class ModeStates implements Listener {
     }
 
     /** Stores a copy of the state a player here holds, so Steward shows it as it is. */
-    public Answer storeHeld(final PlayerId player) {
+    public void storeHeld(final PlayerId player) {
         final Held now = onMain(() -> {
             final Player here = plugin.getServer().getPlayer(player.value());
             return here == null || pending.contains(here.getUniqueId())
@@ -227,11 +230,10 @@ public final class ModeStates implements Listener {
         if (now != null) {
             copy(player, now);
         }
-        return Answer.done(Sent.of(Replies.STATE_STORED));
     }
 
-    /** Removes the stack Steward showed in a slot of the state a player here holds. */
-    public Answer remove(
+    /** Removes the stack Steward showed in a slot of the state a player here holds; false if the slot changed. */
+    public boolean remove(
             final PlayerId player,
             final Mode mode,
             final Container container,
@@ -254,21 +256,21 @@ public final class ModeStates implements Listener {
             return new Held(mode, Snapshot.of(here).state());
         });
         if (changed == null) {
-            return Answer.refused(ServerRefusal.STACK_CHANGED.with());
+            return false;
         }
         copy(player, changed);
-        return Answer.done(Sent.of(Replies.STACK_REMOVED));
+        return true;
     }
 
     private void copy(final PlayerId player, final Held now) {
-        waitFor(lane.submit(() -> store.copy(plugin.getName(), player, now.mode(), now.state())));
+        waitFor(CompletableFuture.runAsync(() -> store.copy(plugin.getName(), player, now.mode(), now.state()), lane));
     }
 
-    private <T> @Nullable T onMain(final Callable<@Nullable T> work) {
-        return waitFor(plugin.getServer().getScheduler().callSyncMethod(plugin, work));
+    private <T> @Nullable T onMain(final Supplier<@Nullable T> work) {
+        return waitFor(CompletableFuture.supplyAsync(work, scheduler.mainThread()));
     }
 
-    private static <T> T waitFor(final Future<T> work) {
+    private static <T> T waitFor(final CompletableFuture<T> work) {
         try {
             return work.get(WAIT_SECONDS, TimeUnit.SECONDS);
         } catch (final ExecutionException | TimeoutException failed) {

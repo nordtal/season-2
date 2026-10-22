@@ -243,6 +243,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V86__steward_shows_and_edits_a_player_s_survival_and_creative_states.sql",
                 "f61f92d334ca69c007f38c4b4d75881fab111efd38a2b78ff629d03fc047e38b");
+        FROZEN.put(
+                "V87__an_announcement_is_a_row_per_language.sql",
+                "0541c1deac1686f4182c5edd7e74674b9138041cd8209681bafb4a706cb8a2f8");
     }
 
     @Test

@@ -14,10 +14,10 @@ import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -160,14 +160,30 @@ class BotInboxTest {
 
     @Test
     void anAnnouncementPostsEveryLanguageAndSaysWhichWentOut() {
-        final java.util.Map<String, MessageRef> messages = new java.util.LinkedHashMap<>();
-        messages.put("de", DatabaseMessages.MESSAGES.announcement().words("Hallo"));
-        messages.put("fr", DatabaseMessages.MESSAGES.announcement().words("Bonjour"));
+        final Map<String, String> words = new LinkedHashMap<>();
+        words.put("de", "Hallo");
+        words.put("fr", "Bonjour");
 
-        final String answer = answer(new BotRequest.Announce(messages));
+        final Object answer = done(BotRequest.Announce.words(words));
 
         assertEquals(List.of("announce de announcement.words", "announce fr announcement.words"), carriedOut);
-        assertEquals("{\"de\":\"POSTED\",\"fr\":\"NOT_POSTED\"}", answer);
+        assertEquals(
+                new BotRequest.Announce.Answer(List.of(
+                        new BotRequest.Announce.Posted("de", true), new BotRequest.Announce.Posted("fr", false))),
+                answer);
+    }
+
+    @Test
+    void aMilestoneIsRenderedInEachLanguageFromItsName() {
+        final Map<String, String> names = new LinkedHashMap<>();
+        names.put("de", "Standbein");
+        names.put("en", "Foothold");
+
+        done(BotRequest.Announce.milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "border.1", names));
+
+        assertEquals(
+                List.of("announce de announcement.milestone.border", "announce en announcement.milestone.border"),
+                carriedOut);
     }
 
     @Test

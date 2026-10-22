@@ -9,7 +9,6 @@ import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.Refusal;
-import java.lang.reflect.RecordComponent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -113,11 +112,13 @@ public final class Inbox<P> {
 
     private final Jdbi jdbi;
     private final InboxTable<P> table;
+    private final KindRows rows;
     private final AtomicBoolean draining = new AtomicBoolean();
 
     private Inbox(final DataSource dataSource, final InboxTable<P> table) {
         this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
         this.table = Objects.requireNonNull(table, "table");
+        this.rows = new KindRows(table);
     }
 
     /** Returns the inbox over {@code table}, which borrows a pool that somebody else closes. */
@@ -200,7 +201,7 @@ public final class Inbox<P> {
                 .bind("channel", table.channel().sqlName())
                 .map((row, context) -> map(row, handle, payload))
                 .one();
-        insertRow(handle, request.id(), payload);
+        rows.insertRow(handle, request.id(), payload);
         return request;
     }
 
@@ -212,46 +213,6 @@ public final class Inbox<P> {
         return query.define("payloadColumn", "payload,")
                 .define("payloadValue", "cast(:payload AS jsonb),")
                 .bind("payload", table.isRow(payload.getClass()) ? null : DatabaseJson.encode(payload));
-    }
-
-    private void insertRow(final Handle handle, final long id, final P payload) {
-        if (!table.isRow(payload.getClass())) {
-            return;
-        }
-        final RecordComponent[] components = payload.getClass().getRecordComponents();
-        final StringBuilder columns = new StringBuilder("request");
-        final StringBuilder values = new StringBuilder(":request");
-        for (final RecordComponent component : components) {
-            columns.append(", ").append(InboxTable.column(component));
-            values.append(", :").append(component.getName());
-        }
-        bound(handle.createUpdate("INSERT INTO <row> (" + columns + ") VALUES (" + values + ")"), payload)
-                .define("row", table.rowTable(payload.getClass()))
-                .bind("request", id)
-                .execute();
-    }
-
-    /** Writes a typed answer into the row of its request's kind, a column per component. */
-    private void answer(final Handle handle, final long id, final Class<?> kind, final Object answer) {
-        final StringBuilder columns = new StringBuilder();
-        for (final RecordComponent component : answer.getClass().getRecordComponents()) {
-            columns.append(columns.isEmpty() ? "" : ", ")
-                    .append(InboxTable.column(component))
-                    .append(" = :")
-                    .append(component.getName());
-        }
-        bound(handle.createUpdate("UPDATE <row> SET " + columns + " WHERE request = :request"), answer)
-                .define("row", table.rowTable(kind))
-                .bind("request", id)
-                .execute();
-    }
-
-    /** Binds every component of a record by its name. */
-    private static Update bound(final Update update, final Object record) {
-        for (final RecordComponent component : record.getClass().getRecordComponents()) {
-            update.bindByType(component.getName(), component(component, record), component.getGenericType());
-        }
-        return update;
     }
 
     /** Writes a server's refusal as a row of the refusal table: its reason and each of its values in a column. */
@@ -289,41 +250,6 @@ public final class Inbox<P> {
                 })
                 .findOne()
                 .orElse(null);
-    }
-
-    private static @Nullable Object component(final RecordComponent component, final Object record) {
-        try {
-            return component.getAccessor().invoke(record);
-        } catch (final ReflectiveOperationException impossible) {
-            throw new IllegalStateException(impossible);
-        }
-    }
-
-    /** Reads a record off the row of a kind, a component per column: the request, or the answer of its kind. */
-    private <T> T readRow(final Handle handle, final long id, final Class<?> kind, final Class<T> type) {
-        return handle.createQuery("SELECT * FROM <row> WHERE request = :id")
-                .define("row", table.rowTable(kind))
-                .bind("id", id)
-                .map((row, context) -> {
-                    final RecordComponent[] components = type.getRecordComponents();
-                    final Class<?>[] types = new Class<?>[components.length];
-                    final Object[] values = new Object[components.length];
-                    for (int i = 0; i < components.length; i++) {
-                        final RecordComponent component = components[i];
-                        types[i] = component.getType();
-                        values[i] = context.findColumnMapperFor(component.getGenericType())
-                                .orElseThrow(() -> new IllegalStateException("no column mapper for " + component))
-                                .map(row, InboxTable.column(component), context);
-                    }
-                    try {
-                        return type.getDeclaredConstructor(types).newInstance(values);
-                    } catch (final ReflectiveOperationException failure) {
-                        throw new IllegalStateException(table + " request " + id + " reads as no " + type, failure);
-                    }
-                })
-                .findOne()
-                .orElseThrow(() ->
-                        new IllegalStateException(table + " request " + id + " has no row in " + table.rowTable(kind)));
     }
 
     /** Claims the oldest due request and marks it running. Call it until empty, as one signal may stand for many. */
@@ -380,7 +306,7 @@ public final class Inbox<P> {
                     .bind("channel", table.channel().sqlName())
                     .map((row, context) -> map(row, handle, payload))
                     .one();
-            insertRow(handle, request.id(), payload);
+            rows.insertRow(handle, request.id(), payload);
             return written(handle, request, outcome);
         });
     }
@@ -414,7 +340,7 @@ public final class Inbox<P> {
             if (answers.isEmpty() || !answers.get().isInstance(answer)) {
                 throw new IllegalArgumentException(settled.kind() + " in " + table + " is not answered with " + answer);
             }
-            answer(handle, settled.id(), kind, answer);
+            rows.answer(handle, settled.id(), kind, answer);
         } else {
             return settled;
         }
@@ -710,7 +636,7 @@ public final class Inbox<P> {
         final Object payload = known != null
                 ? known
                 : table.isRow(type)
-                        ? readRow(handle, id, type, type)
+                        ? rows.readRow(handle, id, type, type)
                         : DatabaseJson.decode(row.getString("payload"), type);
         final InboxStatus status = InboxStatus.valueOf(row.getString("status"));
         final Optional<Class<?>> answers = table.answerOf(type);
@@ -726,7 +652,9 @@ public final class Inbox<P> {
                 instant(row.getTimestamp("started")),
                 instant(row.getTimestamp("finished")),
                 table.hasOutcome() ? row.getString("outcome") : null,
-                status == InboxStatus.DONE && answers.isPresent() ? readRow(handle, id, type, answers.get()) : null,
+                status == InboxStatus.DONE && answers.isPresent()
+                        ? rows.readRow(handle, id, type, answers.get())
+                        : null,
                 status == InboxStatus.REFUSED ? refusal(handle, id) : null);
     }
 

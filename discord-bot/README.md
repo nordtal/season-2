@@ -111,4 +111,5 @@ of `:messages`. `:architecture` refuses `Messages.format` in this module.
   bot in the request it reacts to. A mention in a card names someone without a ping. Only an alert's admins
   are pinged.
 - The bot's own bundle holds only what a member reads, in every language. A server or Steward writes an
-  announcement as messages of `:database`'s bundle, and the bot renders it in each channel's language.
+  announcement as a row per language with the admin's words or the milestone's name, and the bot renders it
+  from `:database`'s bundle in each channel's language and answers on the same row whether it was posted.

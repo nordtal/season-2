@@ -1,8 +1,10 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.database.notify.Channel;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -15,7 +17,7 @@ import java.util.stream.Collectors;
 /**
  * The inbox table of one consumer: its name, the channel for every change and the kinds it takes.
  * Kinds are the records of a sealed type, named in upper snake case: a row of their own table or JSON in the payload.
- * A row kind's nested record {@code Answer} adds its columns to that row. A refusal is a row of the refusal table.
+ * A row kind's {@code Answer} adds columns to its row, a list of records a table of rows. A refusal is a row too.
  */
 public final class InboxTable<P> {
 
@@ -133,6 +135,30 @@ public final class InboxTable<P> {
     /** Returns the table of the rows of a kind: {@code bank_open_tab} for {@code OpenTab} of {@code bank_inbox}. */
     String rowTable(final Class<?> type) {
         return name.replaceFirst("_inbox$", "_") + kindName(type).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Returns the table of a kind's list of records: {@code bot_announce_line} for the lines of {@code Announce}.
+     * An answer's list of the same name writes into the same table, keyed by the element's first component.
+     */
+    String elementTable(final Class<?> kind, final String component) {
+        final Class<?> element = Arrays.stream(kind.getRecordComponents())
+                .filter(own -> own.getName().equals(component))
+                .findFirst()
+                .flatMap(InboxTable::elementOf)
+                .orElseThrow(() -> new IllegalArgumentException(kind + " has no list of records named " + component));
+        return rowTable(kind) + "_" + snake(element.getSimpleName()).toLowerCase(Locale.ROOT);
+    }
+
+    /** Returns the record of a list component, whose elements are rows of their own table, or empty for any other. */
+    static Optional<Class<?>> elementOf(final RecordComponent component) {
+        if (component.getType() == List.class
+                && component.getGenericType() instanceof ParameterizedType list
+                && list.getActualTypeArguments()[0] instanceof Class<?> element
+                && element.isRecord()) {
+            return Optional.of(element);
+        }
+        return Optional.empty();
     }
 
     /** Returns the column of a component: {@code replaces_local} for {@code replacesLocal}. */

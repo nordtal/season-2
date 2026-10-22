@@ -1,7 +1,7 @@
 package eu.nordtal.season.smp.progress;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -365,16 +365,13 @@ public final class ObjectiveEngine implements Contributions {
      * The player {@code completedBy} hears {@code BIG_SUCCESS} and everybody else {@code NETWORK_EVENT}.
      */
     private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
-        announcer.announce(locale -> {
-            final MilestoneContext milestone = new MilestoneContext(MilestoneNames.of(renderer, locale, milestoneKey));
-            final DatabaseMessages.Announcements announcement = DatabaseMessages.MESSAGES.announcement();
-            return switch (unlock) {
-                case BORDER -> announcement.milestoneSection().border(milestone);
-                case NETHER -> announcement.milestoneSection().nether(milestone);
-                case END -> announcement.milestoneSection().end(milestone);
-                case NOTHING -> announcement.milestone(milestone);
-            };
-        });
+        final BotRequest.Announce.Message message = switch (unlock) {
+            case BORDER -> BotRequest.Announce.Message.MILESTONE_BORDER;
+            case NETHER -> BotRequest.Announce.Message.MILESTONE_NETHER;
+            case END -> BotRequest.Announce.Message.MILESTONE_END;
+            case NOTHING -> BotRequest.Announce.Message.MILESTONE;
+        };
+        announcer.announce(message, milestoneKey, locale -> MilestoneNames.of(renderer, locale, milestoneKey));
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = identities.languageOf(player.getUniqueId());
             final Reached reached =

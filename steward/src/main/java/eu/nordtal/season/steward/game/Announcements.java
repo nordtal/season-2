@@ -3,7 +3,6 @@ package eu.nordtal.season.steward.game;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
-import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
@@ -29,7 +28,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** Writes an announcement of an admin as one request with a message per language into the bot's inbox. */
+/** Writes an announcement of an admin as one request with a line per language into the bot's inbox. */
 public final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -67,12 +66,9 @@ public final class Announcements {
      */
     public void send(final Context ctx) {
         final Map<String, String> checked = texts(ctx);
-        final Map<String, MessageRef> messages = new LinkedHashMap<>();
-        checked.forEach((tag, text) ->
-                messages.put(tag, DatabaseMessages.MESSAGES.announcement().words(text)));
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> asked = bot().submit(
-                        new BotRequest.Announce(messages),
+                        BotRequest.Announce.words(checked),
                         who.actor(),
                         Schedule.within(PATIENCE),
                         AuditLine.of(
@@ -126,13 +122,10 @@ public final class Announcements {
 
     /** Returns the result for one language once the bot has answered. */
     static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
-        final @Nullable String posted = row.outcome(Map.class)
-                .map(answer -> answer.get(language))
-                .map(String::valueOf)
-                .orElse(null);
-        if (posted == null) {
-            return Optional.empty();
-        }
-        return Optional.of(SAID.announced(BotRequest.Announce.POSTED.equals(posted), language));
+        return row.answer(BotRequest.Announce.Answer.class).stream()
+                .flatMap(answer -> answer.lines().stream())
+                .filter(line -> line.language().equals(language))
+                .findFirst()
+                .map(line -> SAID.announced(line.posted(), language));
     }
 }

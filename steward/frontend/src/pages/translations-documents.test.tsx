@@ -615,6 +615,44 @@ describe("an open document", () => {
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })
+
+  it("names each change a release made to the saved document", async () => {
+    const written = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
+    const adapted = [
+      { change: "SLOT_ADDED" as const, subject: "buy" },
+      { change: "SLOT_REMOVED" as const, subject: "refund" },
+    ]
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written, outdated: true, adapted }, modal]),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const changes = within(await openContribution()).getByRole("list", { name: "Adapted to the release" })
+    expect(within(changes).getByText("Code element added at the end")).toBeTruthy()
+    expect(within(changes).getByText("buy")).toBeTruthy()
+    expect(within(changes).getByText("Code element removed")).toBeTruthy()
+    expect(within(changes).getByText("refund")).toBeTruthy()
+  })
+
+  it("says that the packaged document shows, and why, when a release set the saved one aside", async () => {
+    const adapted = [{ change: "SET_ASIDE" as const, subject: "The slot buy is not placed." }]
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written: contribution.packaged, outdated: true, adapted }, modal]),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const changes = within(await openContribution()).getByRole("list", { name: "Adapted to the release" })
+    expect(within(changes).getByText("Set aside, the packaged document shows")).toBeTruthy()
+    expect(within(changes).getByText("The slot buy is not placed.")).toBeTruthy()
+  })
 })
 
 describe("a jump from the command palette", () => {

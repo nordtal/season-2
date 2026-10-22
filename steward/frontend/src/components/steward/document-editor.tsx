@@ -243,21 +243,34 @@ function useSendDraft(view: DocumentView) {
 /** The packaged document beside the admin's, when a release changed the packaged one after the admin saved. */
 function Outdated({ view, language }: { view: DocumentView; language: Language }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {(
-        [
-          ["packaged", view.packaged],
-          ["saved", view.written ?? view.packaged],
-        ] as const
-      ).map(([version, document]) => (
-        <div key={version} className="flex min-w-0 flex-col gap-1">
-          <h4 className="text-xs font-medium text-muted-foreground">
-            {t("steward.document-editor.version", { version })}
-          </h4>
-          <DocumentPreview declaration={view.declaration} game={view.game} document={document} language={language} />
-        </div>
-      ))}
-    </div>
+    <>
+      {view.adapted.length > 0 ? (
+        <ul aria-label={t("steward.document-editor.adaptations")} className="flex flex-col gap-1 text-xs">
+          {view.adapted.map(({ change, subject }) => (
+            <li key={change + subject} className="flex flex-wrap gap-x-2 text-warning">
+              <span>{t("steward.document-editor.adapted", { change: choice(change) })}</span>
+              {/* A slot is named by its id; a set-aside names the check's reason. */}
+              <span className={cn("min-w-0 break-words", change !== "SET_ASIDE" && "font-mono")}>{subject}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {(
+          [
+            ["packaged", view.packaged],
+            ["saved", view.written ?? view.packaged],
+          ] as const
+        ).map(([version, document]) => (
+          <div key={version} className="flex min-w-0 flex-col gap-1">
+            <h4 className="text-xs font-medium text-muted-foreground">
+              {t("steward.document-editor.version", { version })}
+            </h4>
+            <DocumentPreview declaration={view.declaration} game={view.game} document={document} language={language} />
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 

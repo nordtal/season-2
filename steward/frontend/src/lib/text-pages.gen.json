@@ -140,6 +140,8 @@
     "steward.backups.when": ["backups"],
     "steward.backups.written": ["backups"],
     "steward.document-editor.accent": ["translations"],
+    "steward.document-editor.adaptations": ["translations"],
+    "steward.document-editor.adapted": ["translations"],
     "steward.document-editor.add": ["translations"],
     "steward.document-editor.add-image": ["translations"],
     "steward.document-editor.add-line": ["translations"],

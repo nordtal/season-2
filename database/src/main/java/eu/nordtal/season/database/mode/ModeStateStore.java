@@ -1,13 +1,14 @@
 package eu.nordtal.season.database.mode;
 
 import eu.nordtal.season.common.id.PlayerId;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
 
 /**
- * Stores the state of the mode a player left on a Paper server, Survival or Creative, so the two never share an item.
- * The state the player is in lives in the server's own player data.
+ * Stores the Survival and Creative states of the players on each Paper server, so the two never share an item.
+ * Every write locks the state it changes, so a server's switch and Steward's removal never overwrite each other.
  */
 public interface ModeStateStore {
 
@@ -17,10 +18,30 @@ public interface ModeStateStore {
     }
 
     /**
-     * Stores {@code leaving} as the state of {@code left} and returns the stored state of {@code entered}.
-     * It is empty if the player never left {@code entered} on this server. A failure stores nothing.
+     * Stores {@code leaving} as {@code left} and returns the stored state of {@code entered}.
+     * The server holds {@code entered} from then on. It is empty if the player never left it on this server.
+     * A failure stores nothing.
      */
     Optional<State> swap(String server, PlayerId player, Mode left, State leaving, Mode entered);
+
+    /** Stores the state of {@code held} as the player leaves the server, and the other mode's as not held. */
+    void leave(String server, PlayerId player, Mode held, State state);
+
+    /** Returns the state the player held on leaving the server, which the server holds from then on. */
+    Optional<Held> arrive(String server, PlayerId player);
+
+    /**
+     * Stores a copy of the state the server holds of {@code held}.
+     *
+     * @return whether the server held it, else nothing is written
+     */
+    boolean copy(String server, PlayerId player, Mode held, State state);
+
+    /** Returns every state of the player on every server, by server and mode. */
+    List<Stored> states(PlayerId player);
+
+    /** Removes the stack Steward showed in a slot of a stored state. A held state is the server's to change. */
+    Removal remove(String server, PlayerId player, Mode mode, Container container, int slot, String item, int amount);
 
     /** Adventure shares Survival's state and Spectator changes none. */
     enum Mode {
@@ -34,6 +55,25 @@ public interface ModeStateStore {
         ENDER_CHEST
     }
 
+    /** Where a state is. */
+    enum Status {
+        /** The player does not hold the mode, and the row is its state. */
+        STORED,
+        /** The player held the mode on leaving, and the row is its state until the player joins again. */
+        AWAY,
+        /** The server holds the state, and the row is a copy as of its time. */
+        HELD
+    }
+
+    /** What became of a removal. */
+    enum Removal {
+        REMOVED,
+        /** The server holds the state, and the removal is the server's. */
+        HELD,
+        /** The slot holds another stack, or the state is gone. */
+        CHANGED
+    }
+
     /** @param experience the progress towards the next level, from 0 to 1 */
     record State(int level, float experience, List<Stack> stacks) {
 
@@ -41,6 +81,12 @@ public interface ModeStateStore {
             stacks = List.copyOf(stacks);
         }
     }
+
+    /** The state of the mode a player held on leaving. */
+    record Held(Mode mode, State state) {}
+
+    /** One state as Steward reads it. */
+    record Stored(String server, Mode mode, Status status, State state, Instant saved) {}
 
     /** One stack in one slot. */
     final class Stack {

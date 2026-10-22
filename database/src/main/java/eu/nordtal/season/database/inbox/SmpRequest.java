@@ -2,6 +2,8 @@ package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.database.mode.ModeStateStore.Container;
+import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
 import java.util.Objects;
 
@@ -12,10 +14,18 @@ public sealed interface SmpRequest
                 SmpRequest.SetAura,
                 SmpRequest.SetSpins,
                 SmpRequest.PreviewMessage,
-                SmpRequest.CheckSettings {
+                SmpRequest.CheckSettings,
+                SmpRequest.StoreModeState,
+                SmpRequest.RemoveStack {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
-            .withRows(CompleteObjective.class, UnlockMilestone.class, SetAura.class, SetSpins.class);
+            .withRows(
+                    CompleteObjective.class,
+                    UnlockMilestone.class,
+                    SetAura.class,
+                    SetSpins.class,
+                    StoreModeState.class,
+                    RemoveStack.class);
 
     /** Closes one objective of the active milestone by hand and pays out what was collected. */
     record CompleteObjective(String key) implements SmpRequest {
@@ -66,6 +76,29 @@ public sealed interface SmpRequest
 
         public CheckSettings {
             Objects.requireNonNull(change, "change");
+        }
+    }
+
+    /** Stores a copy of the state the player holds, so Steward shows it as it is. */
+    record StoreModeState(PlayerId player) implements SmpRequest {
+
+        public StoreModeState {
+            Objects.requireNonNull(player, "player");
+        }
+    }
+
+    /**
+     * Removes the stack Steward showed in a slot of the state the player holds.
+     * Refused while the player is not on the server, holds the other mode, or the slot holds another stack.
+     */
+    record RemoveStack(PlayerId player, Mode mode, Container container, int slot, String item, int amount)
+            implements SmpRequest {
+
+        public RemoveStack {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(mode, "mode");
+            Objects.requireNonNull(container, "container");
+            Objects.requireNonNull(item, "item");
         }
     }
 }

@@ -2,6 +2,8 @@ package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.database.access.AccessSource;
 import eu.nordtal.season.database.access.MemberState;
+import eu.nordtal.season.database.mode.ModeStateStore.Mode;
+import eu.nordtal.season.database.mode.ModeStateStore.Status;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
@@ -333,4 +335,46 @@ public interface PeoplePage {
 
     @Name("Request gone")
     MessageRef requestGone(@Arg("source") AccessSource source);
+
+    @Name("Inventories")
+    MessageRef inventories();
+
+    @Name("No inventory")
+    MessageRef noInventory();
+
+    @Name("Inventory server")
+    MessageRef inventoryServer();
+
+    @Name("Game mode")
+    MessageRef mode(@Arg("mode") Mode mode);
+
+    @Name("Inventory status")
+    MessageRef inventoryStatus(@Arg("status") Status status, @Arg("server") String server);
+
+    @Name("Level")
+    MessageRef level(@Arg("level") int level);
+
+    @Name("Armour and offhand")
+    MessageRef armour();
+
+    @Name("Main inventory")
+    MessageRef mainInventory();
+
+    @Name("Hotbar")
+    MessageRef hotbar();
+
+    @Name("Ender chest")
+    MessageRef enderChest();
+
+    @Name("Stack")
+    MessageRef stack(@Arg("item") String item, @Arg("amount") int amount);
+
+    @Name("Remove stack")
+    MessageRef removeStack(@Arg("item") String item, @Arg("amount") int amount);
+
+    @Name("Remove stack loss")
+    MessageRef removeStackLoss(@Arg("server") String server);
+
+    @Name("Stack removed")
+    MessageRef stackRemoved(@Arg("item") String item, @Arg("amount") int amount);
 }

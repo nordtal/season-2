@@ -383,6 +383,7 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.GrantUnanchored(UNTIL), JournalAction.UNANCHORED_GRANT);
         written.put(new JournalDetail.AuraSet(-40), JournalAction.SET_AURA);
         written.put(new JournalDetail.SpinsSet(3), JournalAction.SET_SPINS);
+        written.put(new JournalDetail.StackRemoved("minecraft:oak_log", 12), JournalAction.REMOVE_STACK);
 
         return written;
     }

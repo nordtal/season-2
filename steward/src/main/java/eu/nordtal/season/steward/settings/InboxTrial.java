@@ -2,13 +2,10 @@ package eu.nordtal.season.steward.settings;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.common.time.Backoff;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
-import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
-import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.internalapi.agent.Topology;
@@ -22,8 +19,6 @@ public final class InboxTrial implements ServerTrial {
 
     /** Long enough for a running server to claim and answer, short enough for a save to wait on. */
     static final Duration PATIENCE = Duration.ofSeconds(5);
-
-    private static final Backoff POLL = Backoff.fixed(Duration.ofMillis(200));
 
     private final Inbox<SmpRequest> smp;
     private final Inbox<HungerGamesRequest> hungerGames;
@@ -52,14 +47,8 @@ public final class InboxTrial implements ServerTrial {
     }
 
     private <P> Verdict ask(final Inbox<P> inbox, final P question, final Actor actor) {
-        final long id = inbox.submit(question, actor, Schedule.within(PATIENCE)).id();
-        final Optional<Request<P>> answered = clock.until(
-                () -> inbox.find(id)
-                        .filter(row -> row.status() != InboxStatus.PENDING && row.status() != InboxStatus.RUNNING),
-                PATIENCE,
-                POLL);
+        final Optional<Request<P>> answered = inbox.ask(question, actor, PATIENCE, clock);
         if (answered.isEmpty()) {
-            inbox.cancel(id, null);
             return new Verdict(Verdict.Kind.UNANSWERED, null);
         }
         final Request<P> row = answered.get();

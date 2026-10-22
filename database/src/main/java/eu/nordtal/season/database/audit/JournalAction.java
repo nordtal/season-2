@@ -48,6 +48,7 @@ public enum JournalAction {
     LINK_CODES_EXHAUSTED,
     SET_AURA,
     SET_SPINS,
+    REMOVE_STACK,
     SERVICE_DOWN,
     BACKUP_STALE,
     DISK_FULL,

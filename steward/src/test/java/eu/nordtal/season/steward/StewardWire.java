@@ -41,6 +41,7 @@ import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
 import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.game.GameDataRoutes;
+import eu.nordtal.season.steward.game.Inventories;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
 import eu.nordtal.season.steward.metric.Metrics;
@@ -76,6 +77,8 @@ public final class StewardWire {
             GameActions.SmpTrack.class,
             GameActions.HungerGamesRound.class,
             GameActions.CommandAsked.class,
+            Inventories.PlayerInventories.class,
+            Inventories.StackRemoval.class,
             CommandApi.CommandRun.class,
             Announcements.AnnouncementsAsked.class,
             AccessApi.Settled.class,
@@ -130,6 +133,9 @@ public final class StewardWire {
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(Metrics.Curve.class, "Metrics"),
             Map.entry(GameDataRoutes.Icons.class, "GameIcons"),
+            Map.entry(eu.nordtal.season.database.mode.ModeStateStore.Mode.class, "StateMode"),
+            Map.entry(eu.nordtal.season.database.mode.ModeStateStore.Container.class, "StateContainer"),
+            Map.entry(eu.nordtal.season.database.mode.ModeStateStore.Status.class, "StateStatus"),
             Map.entry(CommandTree.Node.class, "CommandNode"),
             Map.entry(eu.nordtal.season.database.game.GameCatalogue.Entry.class, "GameEntry"),
             Map.entry(eu.nordtal.season.database.game.GameCatalogue.Tag.class, "GameTag"),

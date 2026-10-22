@@ -141,6 +141,18 @@ public sealed interface JournalDetail {
         }
     }
 
+    record StackRemoved(String item, int amount) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.journal().removeStack(item, amount);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            row(handle, "journal_removed_stack", entry, "item", item, "amount", amount);
+        }
+    }
+
     record Unlinked(boolean selfService) implements JournalDetail {
         @Override
         public MessageRef line() {

@@ -83,6 +83,7 @@ class GateTest {
             Map.entry("DELETE /api/authenticator", Gate.KEY_FRESH),
             // These routes grant access or money, or cut a link only the player can redo.
             Map.entry("POST /api/access/grant", Gate.KEY_FRESH),
+            Map.entry("POST /api/people/{id}/inventories/remove", Gate.KEY_FRESH),
             Map.entry("POST /api/access/unlink", Gate.KEY_FRESH),
             Map.entry("POST /api/access/settle", Gate.KEY_FRESH),
             // These changes cannot be undone: the season moving on, game progress, a public message.

@@ -135,6 +135,10 @@ export function backend(
     /** An aura or spins set, which the SMP carries out; DONE when polled unless a test says otherwise. */
     smpPost?: (url: string, body: unknown) => void
     smpRun?: () => Record<string, unknown>
+    /** A person's inventories; none stored unless a test says otherwise. */
+    inventories?: (discordId: string) => Record<string, unknown>
+    /** A stack removal, which Steward answers itself. */
+    removeStack?: (url: string, body: unknown) => void
     /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
@@ -183,6 +187,14 @@ export function backend(
       const [, discordId, what] = own
       return json(200, (what === "payments" ? over.personPayments : over.grants)?.(discordId) ?? [])
     }
+    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove)?$/.exec(url)
+    if (inventories) {
+      const [, discordId, removal] = inventories
+      if (!removal) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
+      over.removeStack?.(url, requestBody(init))
+      return new Response(null, { status: 204 })
+    }
+    if (url === "/api/game-data") return json(200, { datapacks: [], registries: {}, tags: {} })
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])

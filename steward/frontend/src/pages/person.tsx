@@ -14,6 +14,7 @@ import { StatusBadge, type Tone } from "@/components/steward/status"
 import { DataTable } from "@/components/steward/data-table"
 import { AccessBadge, LinkBadge, MemberBadge, PersonActions, RoleBadges, personName } from "@/pages/access-person"
 import { JournalTable } from "@/pages/journal"
+import { PersonInventories } from "@/pages/person-inventories"
 import { PaymentsTable } from "@/pages/payments"
 
 /**
@@ -55,6 +56,12 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
       <Panel title={t("steward.people.periods")}>
         <PersonPeriods person={person} now={now} />
       </Panel>
+
+      {person.minecraftUuid ? (
+        <Panel title={t("steward.people.inventories")}>
+          <PersonInventories person={person} />
+        </Panel>
+      ) : null}
 
       <Panel title={t("steward.payments.title")}>
         <QueryState

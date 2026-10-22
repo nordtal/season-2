@@ -13,6 +13,8 @@ import {
   type JournalEntry,
   type Payment,
   type Person,
+  type PlayerInventories,
+  type StackRemoval,
 } from "@/lib/api"
 import { live, nextChange } from "@/lib/live"
 import { keys, type JournalFilter } from "@/lib/query-keys"
@@ -98,6 +100,28 @@ export function usePersonPayments(discordId: string) {
     queryKey: keys.personPayments(discordId),
     queryFn: () => api<Payment[]>(`/api/people/${encodeURIComponent(discordId)}/payments`),
     ...live("PEOPLE"),
+  })
+}
+
+/** Each read asks the server that holds the player for a fresh copy, so it does not follow window focus. */
+export function useInventories(discordId: string) {
+  return useQuery({
+    queryKey: keys.inventories(discordId),
+    queryFn: () => api<PlayerInventories>(`/api/people/${encodeURIComponent(discordId)}/inventories`),
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useRemoveStack(discordId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (removal: StackRemoval) =>
+      api<void>(`/api/people/${encodeURIComponent(discordId)}/inventories/remove`, { method: "POST", body: removal }),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.inventories(discordId) }),
+        client.invalidateQueries({ queryKey: ["journal"] }),
+      ]),
   })
 }
 

@@ -27,6 +27,8 @@ import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
+import eu.nordtal.season.database.mode.ModeStateStore.Container;
+import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -131,6 +133,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Hud hud;
     private Menus menus;
     private AdminWatch adminWatch;
+    private ModeStates modeStates;
     private CommandTrees commandTrees;
     private @Nullable SignalHub hub;
 
@@ -223,7 +226,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 this, identities, operators, renderer, refusesWithoutIdentity(), this::languageKnown, logger()));
         adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
-        listen(new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger()));
+        modeStates = new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger());
+        listen(modeStates);
         // Only the proxy enforces the network's limit.
         listen(new Unbounded());
 
@@ -370,6 +374,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
             quietly("menus.stopAll", menus::stopAll);
         }
         quietly("disable", this::disable);
+        if (modeStates != null) {
+            quietly("modeStates.close", modeStates::close);
+        }
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
         }
@@ -430,6 +437,25 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     protected final Answer preview(final PlayerId player, final MessagePreview preview) {
         return previews.show(player, preview);
+    }
+
+    /** Stores a copy of the state a player here holds, so Steward shows it as it is. */
+    protected final Answer storeModeState(final PlayerId player) {
+        modeStates.storeHeld(player);
+        return Answer.done(Sent.of(Replies.STATE_STORED));
+    }
+
+    /** Removes the stack Steward showed, if the slot of the state a player here holds still has it. */
+    protected final Answer removeStack(
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final int slot,
+            final String item,
+            final int amount) {
+        return modeStates.remove(player, mode, container, slot, item, amount)
+                ? Answer.done(Sent.of(Replies.STACK_REMOVED))
+                : Answer.refused(ServerRefusal.STACK_CHANGED.with());
     }
 
     protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {

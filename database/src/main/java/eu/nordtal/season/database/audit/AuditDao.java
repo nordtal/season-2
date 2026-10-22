@@ -24,6 +24,7 @@ interface AuditDao {
                    k.keys_left, f.hold_seconds AS factor_hold_seconds, f.keys, f.authenticator, f.sessions,
                    pu.alert, pu.channel, pu.enabled, co.command, st.setting_group, bu.bundle, pl.artifact,
                    bk.archive, bk.size_bytes, ob.objective, mi.milestone, un.valid_from, au.aura, sp.spins,
+                   rs.item AS removed_item, rs.amount AS removed_amount,
                    ARRAY(SELECT l.language FROM journal_language l WHERE l.entry = e.id ORDER BY l.position)
                        AS languages,
                    ARRAY(SELECT a.discord_id FROM journal_admin_below a WHERE a.entry = e.id ORDER BY a.position)
@@ -52,6 +53,7 @@ interface AuditDao {
                      LEFT JOIN journal_unanchored un ON un.entry = e.id
                      LEFT JOIN journal_aura au ON au.entry = e.id
                      LEFT JOIN journal_spins sp ON sp.entry = e.id
+                     LEFT JOIN journal_removed_stack rs ON rs.entry = e.id
             """;
 
     /**

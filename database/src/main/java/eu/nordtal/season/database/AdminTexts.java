@@ -228,6 +228,9 @@ public interface AdminTexts {
         @Name("Spins set")
         MessageRef setSpins(@Arg("spins") int spins);
 
+        @Name("Stack removed")
+        MessageRef removeStack(@Arg("item") @Example("minecraft:oak_log") String item, @Arg("amount") int amount);
+
         @Name("Milestone unlocked")
         MessageRef unlockMilestone(@Arg("milestone") String milestone);
 

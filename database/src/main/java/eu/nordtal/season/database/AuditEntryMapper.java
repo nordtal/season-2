@@ -35,6 +35,7 @@ import eu.nordtal.season.database.JournalDetail.SettingsSaved;
 import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.JournalDetail.SmpStartSet;
 import eu.nordtal.season.database.JournalDetail.SpinsSet;
+import eu.nordtal.season.database.JournalDetail.StackRemoved;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -72,6 +73,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 JournalDetail.line(action, detail(action, rs)));
     }
 
+    // An alert throws: the journal's queries leave alerts out, which the alert book reads.
     private static @Nullable JournalDetail detail(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
             case GRANT_ACCESS,
@@ -79,6 +81,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     SET_PLAYTIME,
                     SET_AURA,
                     SET_SPINS,
+                    REMOVE_STACK,
                     UNLINK,
                     SETTLE,
                     REVOKE_ADMIN,
@@ -112,7 +115,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     WEB_PUSH_UNSUBSCRIBE,
                     START_GAME,
                     LINK_CODES_EXHAUSTED -> null;
-            // The journal's queries leave alerts out, which the alert book reads.
             case SERVICE_DOWN,
                     BACKUP_STALE,
                     DISK_FULL,
@@ -154,6 +156,10 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
             case SET_SPINS -> {
                 final Integer spins = rs.getObject("spins", Integer.class);
                 yield spins == null ? null : new SpinsSet(spins);
+            }
+            case REMOVE_STACK -> {
+                final String item = rs.getString("removed_item");
+                yield item == null ? null : new StackRemoved(item, rs.getInt("removed_amount"));
             }
             case UNLINK -> {
                 final Boolean selfService = rs.getObject("self_service", Boolean.class);

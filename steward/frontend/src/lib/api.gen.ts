@@ -128,6 +128,21 @@ export type CommandAsked = {
   status: string
 }
 
+export type PlayerInventories = {
+  linked: boolean
+  online?: string
+  states: InventoryState[]
+}
+
+export type StackRemoval = {
+  server: string
+  mode: StateMode
+  container: StateContainer
+  slot: number
+  item: string
+  amount: number
+}
+
 export type CommandRun = {
   id: string
   status: InboxStatus
@@ -644,6 +659,20 @@ export type SmpMilestone = {
   objectives: SmpObjective[]
 }
 
+export type InventoryState = {
+  server: string
+  mode: StateMode
+  status: StateStatus
+  level: number
+  progress: number
+  saved: string
+  stacks: InventoryStack[]
+}
+
+export type StateMode = "SURVIVAL" | "CREATIVE"
+
+export type StateContainer = "INVENTORY" | "ENDER_CHEST"
+
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
 
 export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
@@ -708,6 +737,7 @@ export type JournalAction =
   | "LINK_CODES_EXHAUSTED"
   | "SET_AURA"
   | "SET_SPINS"
+  | "REMOVE_STACK"
   | "SERVICE_DOWN"
   | "BACKUP_STALE"
   | "DISK_FULL"
@@ -1065,6 +1095,15 @@ export type SmpObjective = {
   target: number
   completed: boolean
   completedAt?: string
+}
+
+export type StateStatus = "STORED" | "AWAY" | "HELD"
+
+export type InventoryStack = {
+  container: StateContainer
+  slot: number
+  item: string
+  amount: number
 }
 
 export type ImageState = "OUTDATED" | "UP_TO_DATE" | "LOCAL" | "UNKNOWN"

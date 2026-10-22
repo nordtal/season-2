@@ -49,6 +49,7 @@ import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
 import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.game.GameDataRoutes;
+import eu.nordtal.season.steward.game.Inventories;
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;
@@ -133,6 +134,7 @@ public final class Web {
     private final CommandApi commands;
 
     private final GameActions games;
+    private final Inventories inventories;
     private final Announcements announcements;
 
     private final AccessApi access;
@@ -245,17 +247,17 @@ public final class Web {
         this.guild = new DiscordApi(config.discord(), data == null ? null : GuildChannels.using(data.dataSource()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
+        this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
         this.consoleCommands = new ConsoleCommands(data == null ? null : CommandTreeStore.using(data.dataSource()));
         this.settings = new Settings(config);
-        final @Nullable AdminTree localAdmins = data == null ? null : AdminTree.using(data.dataSource());
-        this.admins = localAdmins;
-        this.adminApi = adminApiOf(data, localAdmins);
+        this.admins = data == null ? null : AdminTree.using(data.dataSource());
+        this.adminApi = adminApiOf(data, admins);
         this.packExemptionApi = packExemptionsOf(data);
-        this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
+        this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new AgentApi(agent, agentOffered);
@@ -622,6 +624,7 @@ public final class Web {
         cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/people/{id}/aura", games::setAura, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/people/{id}/spins", games::setSpins, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
+        inventories.register(cfg);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);

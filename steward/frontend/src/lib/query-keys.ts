@@ -35,6 +35,7 @@ export const keys = {
   payments: ["payments"] as const,
   openPayments: ["payments", "open"] as const,
   personPayments: (discordId: string) => ["payments", "person", discordId] as const,
+  inventories: (discordId: string) => ["inventories", discordId] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (filter: JournalFilter) => ["journal", filter] as const,
   actions: (limit: number) => ["actions", limit] as const,

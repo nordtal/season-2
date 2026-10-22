@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import eu.nordtal.season.common.RepositoryRoot;
+import eu.nordtal.season.database.setting.SettingStore;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -11,6 +12,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -172,6 +175,25 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
                 newlyRequired,
                 "a migration added a required column without a default to a table release " + release
                         + "'s standbys insert into");
+    }
+
+    @Test
+    void anUpdateRunReadsItsSettingsOnTheSchemaOfTheReleaseBefore() throws IOException {
+        final String newest = NEWEST_MIGRATION.get(release());
+        final String before = NEWEST_MIGRATION.values().stream()
+                .filter(migration -> Integer.parseInt(migration) < Integer.parseInt(newest))
+                .max(Comparator.comparingInt(Integer::parseInt))
+                .orElseThrow();
+        final TestDatabase database = TestDatabase.empty();
+        database.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), before);
+        Jdbi.create(database.dataSource()).useHandle(handle -> handle.execute("""
+                INSERT INTO setting_override (service, name, path, value, actor_kind, changed)
+                VALUES ('steward-agent', 'runs', 'volumes-root', '"/srv"', 'STEWARD', now())"""));
+
+        // The one-shot of a new release reads its run settings before its own migrations have run.
+        assertEquals(
+                List.of(new SettingStore.Value("steward-agent", "runs", "volumes-root", "\"/srv\"")),
+                SettingStore.using(database.dataSource()).overrides(Set.of("steward-agent")));
     }
 
     private static Map<String, String> noLongerUsed() {

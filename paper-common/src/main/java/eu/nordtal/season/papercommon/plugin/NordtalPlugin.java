@@ -131,6 +131,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Hud hud;
     private Menus menus;
     private AdminWatch adminWatch;
+    private ModeStates modeStates;
     private CommandTrees commandTrees;
     private @Nullable SignalHub hub;
 
@@ -223,7 +224,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 this, identities, operators, renderer, refusesWithoutIdentity(), this::languageKnown, logger()));
         adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
-        listen(new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger()));
+        modeStates = new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger());
+        listen(modeStates);
         // Only the proxy enforces the network's limit.
         listen(new Unbounded());
 
@@ -370,6 +372,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
             quietly("menus.stopAll", menus::stopAll);
         }
         quietly("disable", this::disable);
+        if (modeStates != null) {
+            quietly("modeStates.close", modeStates::close);
+        }
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
         }
@@ -430,6 +435,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     protected final Answer preview(final PlayerId player, final MessagePreview preview) {
         return previews.show(player, preview);
+    }
+
+    /** Hands the requests about a player's Survival and Creative states to the states this server holds. */
+    protected final ModeStates modeStates() {
+        return modeStates;
     }
 
     protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {

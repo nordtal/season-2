@@ -19,6 +19,13 @@ public final class Replies {
     public static final DocumentSpec<DocumentSpec.None> SETTINGS_TAKEN =
             reply("settings-taken", "Admin", DocumentSpec.None.class);
 
+    /** Steward shows it, never the game. */
+    public static final DocumentSpec<DocumentSpec.None> STATE_STORED =
+            reply("state-stored", "Admin", DocumentSpec.None.class);
+    /** Steward shows it, never the game. */
+    public static final DocumentSpec<DocumentSpec.None> STACK_REMOVED =
+            reply("stack-removed", "Admin", DocumentSpec.None.class);
+
     public static final DocumentSpec<Typed> HELP_HEADER = reply("help-header", "Command", Typed.class);
     /** A subcommand under the header. */
     public static final DocumentSpec<Usage> HELP_LINE = reply("help-line", "Command", Usage.class);

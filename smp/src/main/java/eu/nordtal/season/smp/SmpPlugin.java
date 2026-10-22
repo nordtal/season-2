@@ -294,6 +294,16 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.SetSpins set -> admin.setSpins(set.person(), set.spins());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
+            case SmpRequest.StoreModeState store -> modeStates().storeHeld(store.player());
+            case SmpRequest.RemoveStack remove ->
+                modeStates()
+                        .remove(
+                                remove.player(),
+                                remove.mode(),
+                                remove.container(),
+                                remove.slot(),
+                                remove.item(),
+                                remove.amount());
         });
         getLogger().info(track.size() + " milestones, " + spawnRegions.all().size() + " protected boxes");
     }

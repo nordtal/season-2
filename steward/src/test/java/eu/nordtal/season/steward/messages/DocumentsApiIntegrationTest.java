@@ -12,7 +12,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.document.DocumentStore;
-import eu.nordtal.season.database.inbox.MessagePreview;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
@@ -36,7 +36,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +66,7 @@ class DocumentsApiIntegrationTest {
     private DocumentStore store;
 
     /** The preview of the last {@code POST /api/document-preview}. */
-    private MessagePreview previewed;
+    private DocumentPreview previewed;
 
     @BeforeEach
     void start() throws IOException {
@@ -458,11 +457,11 @@ class DocumentsApiIntegrationTest {
         send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
 
         assertEquals(
-                MessagePreview.of(
+                new DocumentPreview(
+                        "de",
                         new Documents.Packaged(
                                 Documents.decode(DECLARATIONS).getFirst(),
-                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}"))),
-                        "de"),
+                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}")))),
                 previewed);
     }
 
@@ -479,9 +478,7 @@ class DocumentsApiIntegrationTest {
         send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
 
         assertEquals(Display.TAB_LIST, previewed.shown());
-        assertEquals(
-                "tab-footer",
-                Objects.requireNonNull(previewed.document()).declaration().name());
+        assertEquals("tab-footer", previewed.document().declaration().name());
     }
 
     @Test

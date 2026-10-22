@@ -1,8 +1,12 @@
 package eu.nordtal.season.messages.text;
 
 import eu.nordtal.season.messages.value.Kind;
+import java.time.DateTimeException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Declares what one message offers its texts. {@link MessageCheck} takes it as its input.
@@ -30,5 +34,40 @@ public record Declaration(
         roles = Set.copyOf(roles);
         actions = Set.copyOf(actions);
         examples = Map.copyOf(examples);
+    }
+
+    /**
+     * Returns a typed value for each placeholder of the message's own arguments, as an editor shows them.
+     * The value is the one {@code given}, else the declared example, else the kind's. A placeholder none of them
+     * parses is left out, as is every global.
+     */
+    public Map<String, Object> example(final Map<String, String> given) {
+        final Map<String, Object> args = new TreeMap<>();
+        for (final Map.Entry<String, Kind> value : values.entrySet()) {
+            final String name = value.getKey();
+            final int dot = name.indexOf('.');
+            if (!roles.contains(dot < 0 ? name : name.substring(0, dot))) {
+                continue;
+            }
+            final List<String> candidates = new ArrayList<>(3);
+            final String typed = given.get(name);
+            if (typed != null) {
+                candidates.add(typed);
+            }
+            final String declared = examples.get(name);
+            if (declared != null) {
+                candidates.add(declared);
+            }
+            candidates.add(value.getValue().defaultExample());
+            for (final String candidate : candidates) {
+                try {
+                    args.put(name, value.getValue().example(candidate));
+                    break;
+                } catch (final IllegalArgumentException | DateTimeException unread) {
+                    // Tries the next candidate.
+                }
+            }
+        }
+        return args;
     }
 }

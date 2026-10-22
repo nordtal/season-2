@@ -25,26 +25,29 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     private final Predicate<BotRequest.PostAlert> alert;
     private final Consumer<BotRequest.PaymentBooked> paid;
     private final Predicate<BotRequest.PreviewMessage> preview;
+    private final Predicate<BotRequest.PreviewDocument> document;
 
     /**
      * @param announce renders a message in one language, posts it to that language's announcement channel and
      *     returns whether it was posted
      * @param alert posts an alert to the admin channel and returns whether it was posted
      * @param paid sends the payer a message about the booked payment
-     * @param preview sends an admin the previewed text or document as a direct message and returns whether Discord
-     *     delivered it
+     * @param preview sends an admin the previewed text as a direct message and returns whether Discord delivered it
+     * @param document sends an admin the previewed document the same way
      */
     public BotInbox(
             final AccessChanges effects,
             final BiPredicate<String, MessageRef> announce,
             final Predicate<BotRequest.PostAlert> alert,
             final Consumer<BotRequest.PaymentBooked> paid,
-            final Predicate<BotRequest.PreviewMessage> preview) {
+            final Predicate<BotRequest.PreviewMessage> preview,
+            final Predicate<BotRequest.PreviewDocument> document) {
         this.effects = Objects.requireNonNull(effects, "effects");
         this.announce = Objects.requireNonNull(announce, "announce");
         this.alert = Objects.requireNonNull(alert, "alert");
         this.paid = Objects.requireNonNull(paid, "paid");
         this.preview = Objects.requireNonNull(preview, "preview");
+        this.document = Objects.requireNonNull(document, "document");
     }
 
     @Override
@@ -70,6 +73,8 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
             // Steward words the refusal.
             case BotRequest.PreviewMessage previewed ->
                 preview.test(previewed) ? Outcome.done(null) : Outcome.refused(ServerRefusal.NOT_DELIVERED.with());
+            case BotRequest.PreviewDocument previewed ->
+                document.test(previewed) ? Outcome.done(null) : Outcome.refused(ServerRefusal.NOT_DELIVERED.with());
         };
     }
 

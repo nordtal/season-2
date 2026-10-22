@@ -5,6 +5,7 @@ import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.MilestoneContext;
+import eu.nordtal.season.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,14 @@ public sealed interface BotRequest {
 
     /** The bot's inbox table. Its outcome column holds what an alert answers. */
     InboxTable<BotRequest> TABLE = InboxTable.of("bot_inbox", Channel.BOT, BotRequest.class)
-            .withRows(Grant.class, Revoke.class, PaymentBooked.class, Unlink.class, SetPlaytime.class, Announce.class)
+            .withRows(
+                    Grant.class,
+                    Revoke.class,
+                    PaymentBooked.class,
+                    Unlink.class,
+                    SetPlaytime.class,
+                    Announce.class,
+                    PreviewMessage.class)
             .withOutcome();
 
     /** Adds days of access to a person, applies the role and tells them. */
@@ -200,10 +208,43 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Sends an admin a text or a whole document that the admin tries, as a direct message. Refused if undelivered. */
-    record PreviewMessage(DiscordId person, MessagePreview preview) implements BotRequest {
+    /** Sends an admin a text that the admin tries, as a direct message. Refused if undelivered. */
+    record PreviewMessage(
+            DiscordId person,
+            String key,
+            String language,
+            String text,
+            Display shown,
+            String service,
+            List<MessagePreview.Example> examples)
+            implements BotRequest {
 
         public PreviewMessage {
+            Objects.requireNonNull(person, "person");
+            examples = new MessagePreview(key, language, text, shown, service, examples).examples();
+        }
+
+        public PreviewMessage(final DiscordId person, final MessagePreview preview) {
+            this(
+                    person,
+                    preview.key(),
+                    preview.language(),
+                    preview.text(),
+                    preview.shown(),
+                    preview.service(),
+                    preview.examples());
+        }
+
+        /** Returns the tried text. */
+        public MessagePreview preview() {
+            return new MessagePreview(key, language, text, shown, service, examples);
+        }
+    }
+
+    /** Sends an admin a drafted document, as a direct message. Refused if undelivered. */
+    record PreviewDocument(DiscordId person, DocumentPreview preview) implements BotRequest {
+
+        public PreviewDocument {
             Objects.requireNonNull(person, "person");
             Objects.requireNonNull(preview, "preview");
         }

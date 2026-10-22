@@ -6,10 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.document.Document;
@@ -41,7 +42,8 @@ class PreviewsTest {
     private static final MessageRenderer RENDERER =
             MessageRenderer.of(Messages.load("messages/database", Locale.ENGLISH, Locale.GERMAN));
 
-    private static final MessageRef CONFIRM = new MessageRef("admin.confirm", Map.of("command", "/smp unlock"));
+    /** The proxy paints a bad tone its own way; every other service keeps the defaults. */
+    private static final ToneColours PROXY = ToneColours.parse(Map.of(Tone.BAD, "#123456"), unreadable -> {});
 
     /** Every call the player received, by method name and its one argument. */
     private final List<Object[]> calls = new ArrayList<>();
@@ -83,21 +85,30 @@ class PreviewsTest {
         }
     };
 
-    private final Previews previews = new Previews(uuid -> uuid.equals(ALEX.value()) ? alex : null, RENDERER, main);
+    private final Previews previews = new Previews(
+            uuid -> uuid.equals(ALEX.value()) ? alex : null,
+            RENDERER,
+            service -> service.equals("proxy") ? PROXY : ToneColours.DEFAULTS,
+            main);
 
-    private static MessagePreview drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
-        return MessagePreview.of(
+    private static DocumentPreview drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
+        return new DocumentPreview(
+                "en",
                 new Documents.Packaged(
                         DocumentSpec.game("test", name, "Test", shape).declaration(),
-                        Document.decode("{\"parts\": [" + parts + "]}")),
-                "en");
+                        Document.decode("{\"parts\": [" + parts + "]}")));
     }
 
     private static final String TWO_LINES = """
             {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "<muted>and below</muted>"}}]}""";
 
     private static MessagePreview preview(final Display shown) {
-        return new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", shown, Map.of());
+        return preview(shown, "smp");
+    }
+
+    private static MessagePreview preview(final Display shown, final String service) {
+        return new MessagePreview(
+                "admin.confirm", "en", "Type <bad>{command}</bad>", shown, service, Map.of("command", "/smp unlock"));
     }
 
     /** The colour the value of the one chat line shown so far is drawn in. */
@@ -142,9 +153,7 @@ class PreviewsTest {
     /** A key of another service, the proxy's on the SMP, is painted as that service paints it. */
     @Test
     void aToneIsPaintedInTheColourOfTheKeysOwnService() {
-        previews.show(
-                ALEX,
-                new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", Display.CHAT, Map.of("bad", "#123456")));
+        previews.show(ALEX, preview(Display.CHAT, "proxy"));
 
         assertEquals("#123456", colourOfTheValue());
     }
@@ -162,10 +171,10 @@ class PreviewsTest {
     void aDraftedTabListHeaderStandsOverTheFooterThePlayerSeesNow() {
         previews.show(
                 ALEX,
-                MessagePreview.of(
+                new DocumentPreview(
+                        "en",
                         new Documents.Packaged(
-                                TabList.HEADER.declaration(), Document.decode("{\"parts\": [" + TWO_LINES + "]}")),
-                        "en"));
+                                TabList.HEADER.declaration(), Document.decode("{\"parts\": [" + TWO_LINES + "]}"))));
 
         assertEquals("sendPlayerListHeaderAndFooter", calls.getFirst()[0]);
         final Object[] both = headerAndFooter.getFirst();
@@ -196,15 +205,16 @@ class PreviewsTest {
     @Test
     void aDraftedMenuOpensOnTheMainThread() {
         final DocumentSpec<DocumentSpec.None> menu = DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class);
-        previews.show(ALEX, MessagePreview.of(new Documents.Packaged(menu.declaration(), Document.decode("""
-                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}""")), "en"));
+        previews.show(
+                ALEX, new DocumentPreview("en", new Documents.Packaged(menu.declaration(), Document.decode("""
+                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}"""))));
 
         assertTrue(calls.isEmpty());
         assertEquals(1, onMain.size());
     }
 
     @Test
-    void aPreviewWithoutColoursIsPaintedInThisServersOwn() {
+    void aServiceThatSetsNoColoursPaintsInTheDefaults() {
         previews.show(ALEX, preview(Display.CHAT));
 
         assertEquals(Tone.BAD.hex(), colourOfTheValue());

@@ -27,7 +27,6 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -158,11 +157,24 @@ public final class MessagesApi {
         final JsonElement values = body.get("values");
         final JsonElement service = body.get("service");
         return new MessagePreview(
-                exampleOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()),
+                key,
                 language,
                 text,
                 shown,
-                coloursOf(service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK));
+                service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK,
+                givenOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()));
+    }
+
+    /** Returns the value given for each placeholder of the key's own, as typed. The recipient reads it. */
+    private static Map<String, String> givenOf(final MessageEntry entry, final JsonObject values) {
+        final Map<String, String> given = new LinkedHashMap<>();
+        for (final MessageArg arg : entry.args()) {
+            final JsonElement value = values.get(arg.name());
+            if (!arg.action() && !arg.global() && value != null && value.isJsonPrimitive()) {
+                given.put(arg.name(), value.getAsString());
+            }
+        }
+        return given;
     }
 
     /** Returns the places of a key that a preview reaches, in schema order, without the Steward surface. */
@@ -171,40 +183,6 @@ public final class MessagesApi {
                 .map(Display::valueOf)
                 .filter(display -> display.surface() != Display.Surface.STEWARD)
                 .toList();
-    }
-
-    /**
-     * Returns the key's message with a typed value for each placeholder, without actions and globals.
-     * The value is the one in {@code values}, else the schema's example, else the kind's example. A placeholder
-     * none of them parses is left out.
-     */
-    private static MessageRef exampleOf(final MessageEntry entry, final JsonObject values) {
-        final Map<String, Object> args = new LinkedHashMap<>();
-        for (final MessageArg arg : entry.args()) {
-            if (arg.action() || arg.global()) {
-                continue;
-            }
-            final String token = arg.kind();
-            final Kind kind = token == null ? Kind.TEXT : Kind.byToken(token).orElse(Kind.TEXT);
-            final JsonElement given = values.get(arg.name());
-            final List<String> candidates = new ArrayList<>();
-            if (given != null && given.isJsonPrimitive()) {
-                candidates.add(given.getAsString());
-            }
-            if (arg.example() != null) {
-                candidates.add(arg.example());
-            }
-            candidates.add(kind.defaultExample());
-            for (final String candidate : candidates) {
-                try {
-                    args.put(arg.name(), kind.example(candidate));
-                    break;
-                } catch (final IllegalArgumentException | DateTimeException unread) {
-                    // Tries the next candidate.
-                }
-            }
-        }
-        return new MessageRef(entry.key(), args);
     }
 
     /**
@@ -485,12 +463,7 @@ public final class MessagesApi {
         }
         final SettingStore store = settings;
         if (store != null) {
-            try {
-                Colours.declared(DatabaseSettings.current(store, service, Colours.GROUP))
-                        .forEach((tone, hex) -> colours.put(tone.tag(), hex));
-            } catch (final SettingsException unreadable) {
-                // Every tone keeps its default colour.
-            }
+            Colours.current(store, service).forEach((tone, hex) -> colours.put(tone.tag(), hex));
         }
         return colours;
     }

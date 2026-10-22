@@ -20,8 +20,6 @@ import eu.nordtal.season.messages.RefusalReason;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.messages.value.DisplayName;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -195,33 +193,55 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aPreviewReachesTheServerWithItsTextAndEveryTypedValue() throws SQLException {
+    void aPreviewIsARowOfItsTextAndARowPerExampleOnEveryInbox() throws SQLException {
         final PlayerId alex = PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a"));
-        final SmpRequest.PreviewMessage preview = new SmpRequest.PreviewMessage(
-                alex,
-                new MessagePreview(
-                        new MessageRef(
-                                "objective.done",
-                                Map.of("player.name", new DisplayName(alex, "Alex"), "count", new BigDecimal("3"))),
-                        "de",
-                        "<good>{player.name}</good> hat {count}",
-                        Display.TITLE,
-                        Map.of("good", "#123456")));
-        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final MessagePreview tried = new MessagePreview(
+                "objective.done",
+                "de",
+                "<good>{player.name}</good> hat {count}",
+                Display.TITLE,
+                "hunger-games",
+                Map.of("player.name", "Alex", "count", "3"));
+        execute("DELETE FROM bot_inbox");
         execute("DELETE FROM smp_inbox");
-        smp.submit(preview, ADMIN);
+        execute("DELETE FROM hunger_games_inbox");
+        final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+        bot.submit(new BotRequest.PreviewMessage(SOMEONE, tried), ADMIN);
+        smp.submit(new SmpRequest.PreviewMessage(alex, tried), ADMIN);
+        games.submit(new HungerGamesRequest.PreviewMessage(alex, tried), ADMIN);
 
-        final Request<SmpRequest> claimed = smp.claim().orElseThrow();
+        assertEquals(
+                new BotRequest.PreviewMessage(SOMEONE, tried),
+                bot.claim().orElseThrow().payload());
+        assertEquals(
+                new SmpRequest.PreviewMessage(alex, tried),
+                smp.claim().orElseThrow().payload());
+        final Request<HungerGamesRequest> claimed = games.claim().orElseThrow();
         assertEquals("PREVIEW_MESSAGE", claimed.kind());
-        assertEquals(preview, claimed.payload());
+        assertEquals(tried, ((HungerGamesRequest.PreviewMessage) claimed.payload()).preview());
+        for (final String inbox : List.of("bot", "smp", "hunger_games")) {
+            assertEquals(0, count("SELECT count(*) FROM " + inbox + "_inbox WHERE payload IS NOT NULL"), inbox);
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM " + inbox + "_preview_message WHERE key = 'objective.done'"
+                            + " AND service = 'hunger-games' AND shown = 'TITLE'"),
+                    inbox);
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM " + inbox + "_preview_message_example"
+                            + " WHERE name = 'count' AND value = '3'"),
+                    inbox);
+        }
     }
 
     @Test
     void aDraftedDocumentReachesTheBotWhole() throws SQLException {
-        final BotRequest.PreviewMessage preview = new BotRequest.PreviewMessage(
+        final BotRequest.PreviewDocument preview = new BotRequest.PreviewDocument(
                 DiscordId.of("1"),
-                MessagePreview.of(
-                        new Documents.Packaged(Documents.decode("""
+                new DocumentPreview(
+                        "de", new Documents.Packaged(Documents.decode("""
                                         [{"namespace":"bot","name":"welcome","area":"Join","shape":"MESSAGE",
                                           "values":{"player":{"kind":"text","example":"Alex"}},
                                           "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""").getFirst(), Document.decode("""
@@ -229,13 +249,13 @@ class InboxIntegrationTest {
                                           {"type":"CONTAINER","accent":"#5865f2","parts":[
                                             {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"Hallo {player}"}}]}]},
                                           {"type":"GALLERY","media":["upload://7"]},
-                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}""")), "de"));
+                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}"""))));
         final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
         execute("DELETE FROM bot_inbox");
         bot.submit(preview, ADMIN);
 
         final Request<BotRequest> claimed = bot.claim().orElseThrow();
-        assertEquals("PREVIEW_MESSAGE", claimed.kind());
+        assertEquals("PREVIEW_DOCUMENT", claimed.kind());
         assertEquals(preview, claimed.payload());
     }
 

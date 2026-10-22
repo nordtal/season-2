@@ -7,6 +7,7 @@ import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxStatus;
@@ -18,6 +19,7 @@ import eu.nordtal.season.database.online.OnlinePlayer;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.messages.MessagesApi;
@@ -35,7 +37,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Writes the browser's actions on the game servers as typed requests into the servers' inboxes.
  * A request is named {@code <target>:<id>}, or {@code announce:<id>:<language>} for one announcement line.
- * The bot is a target for the preview of a text only.
+ * The bot is a target for the preview of a text or a document only.
  */
 public final class CommandApi {
 
@@ -109,16 +111,41 @@ public final class CommandApi {
         return asked.id();
     }
 
+    /** Writes the request for an admin's preview of a text and returns its name. */
+    public String preview(final Context ctx, final MessagePreview preview) {
+        return preview(
+                ctx,
+                preview.shown(),
+                admin -> new BotRequest.PreviewMessage(admin, preview),
+                player -> new SmpRequest.PreviewMessage(player, preview),
+                player -> new HungerGamesRequest.PreviewMessage(player, preview));
+    }
+
+    /** Writes the request for an admin's preview of a drafted document and returns its name. */
+    public String preview(final Context ctx, final DocumentPreview preview) {
+        return preview(
+                ctx,
+                preview.shown(),
+                admin -> new BotRequest.PreviewDocument(admin, preview),
+                player -> new SmpRequest.PreviewDocument(player, preview),
+                player -> new HungerGamesRequest.PreviewDocument(player, preview));
+    }
+
     /**
-     * Writes the request for an admin's preview and returns its name.
+     * Writes the request for an admin's preview shown at {@code shown} and returns its name.
      * The target is a direct message of the bot or the linked player on their game server. The request has no
      * journal line.
      */
-    public String preview(final Context ctx, final MessagePreview preview) {
+    private String preview(
+            final Context ctx,
+            final Display shown,
+            final Function<DiscordId, BotRequest> bot,
+            final Function<PlayerId, SmpRequest> smp,
+            final Function<PlayerId, HungerGamesRequest> games) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final DiscordId admin = DiscordId.of(who.id());
-        if (MessagesApi.PreviewTarget.of(preview.shown()) == MessagesApi.PreviewTarget.DISCORD) {
-            return "bot:" + ask(who, data().bot(), new BotRequest.PreviewMessage(admin, preview));
+        if (MessagesApi.PreviewTarget.of(shown) == MessagesApi.PreviewTarget.DISCORD) {
+            return "bot:" + ask(who, data().bot(), bot.apply(admin));
         }
         final UUID linked = data().access()
                 .linkedMinecraftAccount(admin)
@@ -131,10 +158,8 @@ public final class CommandApi {
                 .orElse("");
         final PlayerId player = PlayerId.of(linked);
         return switch (server) {
-            case Topology.SMP -> "smp:" + ask(who, data().smp(), new SmpRequest.PreviewMessage(player, preview));
-            case Topology.HUNGER_GAMES ->
-                "hunger_games:"
-                        + ask(who, data().hungerGames(), new HungerGamesRequest.PreviewMessage(player, preview));
+            case Topology.SMP -> "smp:" + ask(who, data().smp(), smp.apply(player));
+            case Topology.HUNGER_GAMES -> "hunger_games:" + ask(who, data().hungerGames(), games.apply(player));
             default -> throw new RequestRefused(409, ANSWER.previewOffline());
         };
     }
@@ -181,7 +206,8 @@ public final class CommandApi {
     private CommandRun sent(final String name, final long id) {
         final Request<BotRequest> row = data().bot()
                 .find(id)
-                .filter(found -> found.payload() instanceof BotRequest.PreviewMessage)
+                .filter(found -> found.payload() instanceof BotRequest.PreviewMessage
+                        || found.payload() instanceof BotRequest.PreviewDocument)
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final CommandRun run = settled(name, row);
         return row.status() == InboxStatus.DONE

@@ -29,6 +29,16 @@ class MessagesTest {
     }
 
     @Test
+    void anExampleFillsADeclaredKeyFromItsSchemaAndTakesTheValuesOfAnUndeclaredKeyAsText() {
+        final Messages messages = messages();
+
+        assertEquals(new MessageRef("greeting", Map.of("name", "Alex")), messages.example("greeting", Map.of()));
+        assertEquals(
+                new MessageRef("elsewhere.key", Map.of("count", "7")),
+                messages.example("elsewhere.key", Map.of("count", "7")));
+    }
+
+    @Test
     void onlyTheLanguageMattersSoDeAtAndDeDeShareABundle() {
         final Messages messages = messages();
 

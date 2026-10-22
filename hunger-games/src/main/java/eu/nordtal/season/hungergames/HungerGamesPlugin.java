@@ -169,6 +169,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         answer(HungerGamesRequest.TABLE, (request, actor) -> switch (request) {
             case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
             case HungerGamesRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
+            case HungerGamesRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case HungerGamesRequest.CheckSettings check -> checkSettings(check.change());
             case HungerGamesRequest.StoreModeState store -> storeModeState(store.player());
             case HungerGamesRequest.RemoveStack remove ->

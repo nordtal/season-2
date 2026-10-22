@@ -126,9 +126,8 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    @Test
-    void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
-            throws Exception {
+    /** An SMP jar with a welcome to the game, whose player has an example, and a link message on Discord. */
+    private Path welcomeJar() throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.9.1.jar");
         PluginJars.smp(
                 jar,
@@ -144,6 +143,13 @@ class RosterApiTest extends WebTestSupport {
                    "shown": ["DISCORD_EMBED"], "args": []}],
                  "contexts": {}, "globals": []}
                 """));
+        return jar;
+    }
+
+    @Test
+    void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
+            throws Exception {
+        final Path jar = welcomeJar();
         final String welcome = """
                 {"bundle": "smp/smp", "key": "welcome", "language": "en", "text": "Hi {player}",
                  "shown": "CHAT", "values": {"player": "Ally"}}
@@ -164,7 +170,12 @@ class RosterApiTest extends WebTestSupport {
                     GSON.fromJson(shown.body(), JsonObject.class).get("id").getAsString();
             assertTrue(inGame.startsWith("smp:"), inGame);
             assertEquals("PREVIEW_MESSAGE", row(inGame).get("kind"));
-            assertTrue(row(inGame).get("payload").contains(player), row(inGame).get("payload"));
+            final String request = inGame.substring("smp:".length());
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM smp_preview_message p JOIN smp_preview_message_example e"
+                            + " USING (request) WHERE request = " + request + " AND p.player = '" + player
+                            + "' AND p.key = 'welcome' AND e.name = 'player' AND e.value = 'Ally'"));
 
             final HttpResponse<String> sent = post(
                     "/api/message-preview",

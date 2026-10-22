@@ -293,6 +293,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.SetAura set -> admin.setAura(set.person(), set.aura(), actor);
             case SmpRequest.SetSpins set -> admin.setSpins(set.person(), set.spins());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
+            case SmpRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
             case SmpRequest.RemoveStack remove ->

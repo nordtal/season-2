@@ -212,3 +212,8 @@ restores a `pg_dump`. Preview writes the session cookie to `build/preview/state.
 `storageState`. The stand-in agent has no bundle of its own, so the Translations page lists nothing until
 `--jars DIR` supplies real jars, one directory per service (`DIR/smp/smp-<version>.jar`,
 `DIR/discord-bot/discord-bot-<version>.jar`).
+
+`SettingsPageEndToEndTest` starts the same preview and drives smp's settings tab in Chromium with
+`frontend/e2e/settings-plugins.ts`, run by the private Node with `playwright-core`. It needs a Chromium
+binary in `NORDTAL_CHROMIUM` and skips without one; CI sets it to the runner's Chrome. Its screenshots,
+390 and 1280 pixels wide, land in `build/e2e-shots/`.

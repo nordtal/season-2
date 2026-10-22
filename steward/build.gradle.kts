@@ -72,6 +72,8 @@ repositoryRootTestInputs {
     reads("steward/frontend/index.html")
 
     readsTree("steward/src", "steward/frontend/src")
+    // SettingsPageEndToEndTest runs this script with Node.
+    reads("steward/frontend/e2e/settings-plugins.ts")
 }
 
 // The frontend: a private Node under build/nodejs, built by Vite and packed into the jar under web/.
@@ -178,6 +180,17 @@ val checkFrontendComments =
         repositoryRoot.set(rootProject.layout.projectDirectory)
         enforced.set(conventionsEnforced || (findProperty("conventions.comments")?.toString()?.toBoolean() ?: false))
     }
+
+// SettingsPageEndToEndTest runs frontend/e2e with this Node, which takes playwright-core from node_modules.
+tasks.named<Test>("test") {
+    dependsOn(tasks.named("npmInstall"))
+    inputs.property("chromium", providers.environmentVariable("NORDTAL_CHROMIUM").orElse(""))
+    val nodeBinary = node.resolvedNodeDir.map { it.file("bin/node").asFile.absolutePath }
+    val shots = layout.buildDirectory.dir("e2e-shots").map { it.asFile.absolutePath }
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider { listOf("-Dsteward.node=${nodeBinary.get()}", "-Dsteward.shots=${shots.get()}") },
+    )
+}
 
 tasks.named("check") {
     dependsOn(viteTest, oxfmtCheck, oxlint, checkFrontendComments)

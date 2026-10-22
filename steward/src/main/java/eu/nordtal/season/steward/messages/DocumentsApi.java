@@ -5,7 +5,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.document.DocumentStore;
-import eu.nordtal.season.database.inbox.MessagePreview;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -214,7 +214,7 @@ public final class DocumentsApi {
      * The bot sends a Discord one as a direct message, the game server the admin is on shows a game one. It refuses a
      * draft that no message holds, one a save would refuse and one the renderer cannot draw.
      */
-    public MessagePreview preview(final Context ctx) {
+    public DocumentPreview preview(final Context ctx) {
         final DocumentDraft draft = draftOf(ctx);
         final DocumentDeclaration declaration = draft.declaration();
         final DocumentSpec.Shape shape = declaration.shape();
@@ -247,7 +247,7 @@ public final class DocumentsApi {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
         }
-        return MessagePreview.of(packaged, draft.language());
+        return new DocumentPreview(draft.language(), packaged);
     }
 
     private static DocumentDraft draftOf(final Context ctx) {

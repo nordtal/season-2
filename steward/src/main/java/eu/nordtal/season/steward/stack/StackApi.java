@@ -5,6 +5,7 @@ import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -206,7 +207,7 @@ public final class StackApi implements AutoCloseable {
     }
 
     /** Returns the preview of {@code POST /api/document-preview}. */
-    public MessagePreview documentPreview(final Context ctx) {
+    public DocumentPreview documentPreview(final Context ctx) {
         return documents.preview(ctx);
     }
 

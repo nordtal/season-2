@@ -192,7 +192,7 @@ public final class GameActions {
     }
 
     /** Returns the person the path names, refusing an id that names nobody. */
-    private DiscordId person(final Context ctx) {
+    DiscordId person(final Context ctx) {
         final String id = ctx.pathParam("id").trim();
         try {
             if (exists("SELECT 1 FROM discord_user WHERE discord_id = ?", id)) {

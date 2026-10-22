@@ -359,6 +359,10 @@ export type TextArgs = {
     service: Arg["text"]
     artifact: Arg["text"]
   }
+  "journal.remove-stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
   "journal.rename-key": {
     label: Arg["text"]
   }
@@ -896,6 +900,10 @@ export type TextArgs = {
     mebibytes: Arg["number"]
   }
   "steward.answer.interrupted": Record<string, never>
+  "steward.answer.inventory-held": {
+    server: Arg["text"]
+  }
+  "steward.answer.inventory-unlinked": Record<string, never>
   "steward.answer.keep-section": {
     path: Arg["text"]
     field: Arg["text"]
@@ -988,6 +996,9 @@ export type TextArgs = {
     path: Arg["text"]
   }
   "steward.answer.self": Record<string, never>
+  "steward.answer.server-silent": {
+    server: Arg["text"]
+  }
   "steward.answer.settings-changed": {
     service: Arg["text"]
     group: Arg["text"]
@@ -1690,6 +1701,7 @@ export type TextArgs = {
   }
   "steward.people.admin": Record<string, never>
   "steward.people.admins": Record<string, never>
+  "steward.people.armour": Record<string, never>
   "steward.people.aura": Record<string, never>
   "steward.people.aura-not-written": Record<string, never>
   "steward.people.aura-now": {
@@ -1715,6 +1727,7 @@ export type TextArgs = {
     usable: Arg["choice"]
   }
   "steward.people.discord-id": Record<string, never>
+  "steward.people.ender-chest": Record<string, never>
   "steward.people.exact-tip": {
     at: Arg["instant"]
   }
@@ -1731,15 +1744,26 @@ export type TextArgs = {
     name: Arg["text"]
   }
   "steward.people.guild": Record<string, never>
+  "steward.people.hotbar": Record<string, never>
   "steward.people.hours": Record<string, never>
   "steward.people.id-example": Record<string, never>
+  "steward.people.inventories": Record<string, never>
+  "steward.people.inventory-server": Record<string, never>
+  "steward.people.inventory-status": {
+    status: Arg["choice"]
+    server: Arg["text"]
+  }
   "steward.people.language": Record<string, never>
   "steward.people.last-changed": {
     at: Arg["instant"]
   }
+  "steward.people.level": {
+    level: Arg["number"]
+  }
   "steward.people.linked-at": {
     at: Arg["instant"]
   }
+  "steward.people.main-inventory": Record<string, never>
   "steward.people.make-admin": Record<string, never>
   "steward.people.make-admin-title": {
     name: Arg["text"]
@@ -1749,6 +1773,9 @@ export type TextArgs = {
   }
   "steward.people.minecraft": Record<string, never>
   "steward.people.minutes": Record<string, never>
+  "steward.people.mode": {
+    mode: Arg["choice"]
+  }
   "steward.people.most-days": {
     most: Arg["number"]
   }
@@ -1759,6 +1786,7 @@ export type TextArgs = {
     until: Arg["instant"]
   }
   "steward.people.no-entry": Record<string, never>
+  "steward.people.no-inventory": Record<string, never>
   "steward.people.no-longer-admin": Record<string, never>
   "steward.people.no-match": Record<string, never>
   "steward.people.no-pack": Record<string, never>
@@ -1812,6 +1840,13 @@ export type TextArgs = {
     to: Arg["number"]
     total: Arg["number"]
   }
+  "steward.people.remove-stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
+  "steward.people.remove-stack-loss": {
+    server: Arg["text"]
+  }
   "steward.people.request": Record<string, never>
   "steward.people.request-gone": {
     source: Arg["choice"]
@@ -1850,6 +1885,14 @@ export type TextArgs = {
     spins: Arg["number"]
   }
   "steward.people.spins-title": Record<string, never>
+  "steward.people.stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
+  "steward.people.stack-removed": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
   "steward.people.state": Record<string, never>
   "steward.people.supporter": Record<string, never>
   "steward.people.supporters": Record<string, never>

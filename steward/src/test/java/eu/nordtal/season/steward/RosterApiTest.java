@@ -244,13 +244,6 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    private static void sql(final String statement) throws Exception {
-        try (var connection = WebFixture.postgres.dataSource().getConnection();
-                var run = connection.createStatement()) {
-            run.execute(statement);
-        }
-    }
-
     private static java.util.Map<String, String> row(final String id) throws Exception {
         final String[] name = id.split(":", -1);
         final java.util.Map<String, String> row = new java.util.HashMap<>();

@@ -349,6 +349,15 @@ public interface StewardTexts {
             @Name("Spins out of range")
             MessageRef spinsRange(@Arg("most") int most);
 
+            @Name("Player not linked")
+            MessageRef inventoryUnlinked();
+
+            @Name("Inventory held elsewhere")
+            MessageRef inventoryHeld(@Arg("server") String server);
+
+            @Name("Server did not answer")
+            MessageRef serverSilent(@Arg("server") String server);
+
             @Name("Announcement too long")
             MessageRef tooLong(@Arg("language") String language, @Arg("most") int most);
 

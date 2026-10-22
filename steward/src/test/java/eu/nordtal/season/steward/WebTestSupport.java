@@ -39,6 +39,13 @@ abstract class WebTestSupport extends WebFixture {
         }
     }
 
+    static void sql(final String statement) throws Exception {
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
+                var run = connection.createStatement()) {
+            run.execute(statement);
+        }
+    }
+
     static long count(final String sql) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement();

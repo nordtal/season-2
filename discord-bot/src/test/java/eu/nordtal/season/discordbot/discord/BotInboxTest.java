@@ -71,6 +71,11 @@ class BotInboxTest {
                 carriedOut.add("preview " + previewed.person() + " "
                         + previewed.preview().text());
                 return !previewed.person().equals(CLOSED);
+            },
+            previewed -> {
+                carriedOut.add("document " + previewed.person() + " "
+                        + previewed.preview().language());
+                return true;
             });
 
     /** Discord delivers nothing to this admin, whose direct messages are closed. */
@@ -140,11 +145,12 @@ class BotInboxTest {
     @Test
     void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
         final MessagePreview preview = new MessagePreview(
-                DatabaseMessages.MESSAGES.announcement().words("Hallo"),
+                DatabaseMessages.MESSAGES.announcement().words("Hallo").key(),
                 "de",
                 "**{text}**",
                 Display.DISCORD_MESSAGE,
-                Map.of());
+                "network",
+                Map.of("text", "Hallo"));
 
         final Outcome sent = subject.handle(row(new BotRequest.PreviewMessage(ADMIN, preview), Actor.person(ADMIN)));
         final Outcome bounced =

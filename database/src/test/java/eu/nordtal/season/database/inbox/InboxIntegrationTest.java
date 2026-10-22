@@ -279,6 +279,42 @@ class InboxIntegrationTest {
     }
 
     @Test
+    void anAnnouncementIsARowPerLanguageAndEachLanguageKeepsWhetherItWasPosted() throws SQLException {
+        execute("INSERT INTO smp_milestone (key) VALUES ('border.1') ON CONFLICT DO NOTHING");
+        final Map<String, String> names = new java.util.LinkedHashMap<>();
+        names.put("en", "Foothold");
+        names.put("de", "Standbein");
+        final BotRequest.Announce milestone =
+                BotRequest.Announce.milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "border.1", names);
+        final Inbox<BotRequest> smp =
+                Inbox.over(database.dataSourceAs(eu.nordtal.season.database.DatabaseRole.SMP), BotRequest.TABLE);
+        final Inbox<BotRequest> bot = Inbox.over(
+                database.dataSourceAs(eu.nordtal.season.database.DatabaseRole.DISCORD_BOT), BotRequest.TABLE);
+
+        final long asked = smp.submit(milestone, Actor.STEWARD).id();
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_announce WHERE request = " + asked
+                        + " AND message = 'MILESTONE_BORDER' AND milestone = 'border.1'"));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_announce_line WHERE request = " + asked
+                        + " AND language = 'de' AND milestone_name = 'Standbein' AND posted IS NULL"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE payload IS NOT NULL"), "the request is no text");
+
+        final Request<BotRequest> claimed = bot.claim().orElseThrow();
+        assertEquals(milestone.message(), ((BotRequest.Announce) claimed.payload()).message());
+        assertEquals(Set.copyOf(milestone.lines()), Set.copyOf(((BotRequest.Announce) claimed.payload()).lines()));
+
+        final BotRequest.Announce.Answer posted = new BotRequest.Announce.Answer(
+                List.of(new BotRequest.Announce.Posted("de", false), new BotRequest.Announce.Posted("en", true)));
+        bot.settle(asked, Outcome.done(posted));
+        assertEquals(Optional.of(posted), smp.find(asked).orElseThrow().answer(BotRequest.Announce.Answer.class));
+        assertEquals(1, count("SELECT count(*) FROM bot_announce_line WHERE language = 'en' AND posted"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE outcome IS NOT NULL"), "the answer is no text");
+    }
+
+    @Test
     void everyKindWithItsOwnTableHasAColumnPerComponentOfItsRequestAndAnswer() throws SQLException {
         for (final InboxTable<?> table : Inboxes.ALL) {
             for (final String kind : table.kinds()) {
@@ -286,27 +322,48 @@ class InboxIntegrationTest {
                 if (!table.isRow(type)) {
                     continue;
                 }
-                final Set<String> expected = new HashSet<>(Set.of("request"));
-                for (final var component : type.getRecordComponents()) {
-                    expected.add(InboxTable.column(component));
+                final Map<String, Set<String>> expected = new java.util.HashMap<>();
+                expect(expected, table, type, type);
+                table.answerOf(type).ifPresent(answer -> expect(expected, table, type, answer));
+                for (final var columns : expected.entrySet()) {
+                    assertEquals(columns.getValue(), columnsOf(columns.getKey()), columns.getKey());
                 }
-                for (final var component : table.answerOf(type)
-                        .map(Class::getRecordComponents)
-                        .orElse(new java.lang.reflect.RecordComponent[0])) {
-                    expected.add(InboxTable.column(component));
-                }
-                final Set<String> columns = new HashSet<>();
-                try (Connection connection = database.dataSource().getConnection();
-                        Statement statement = connection.createStatement();
-                        ResultSet rows = statement.executeQuery("SELECT column_name FROM information_schema.columns"
-                                + " WHERE table_name = '" + table.rowTable(type) + "'")) {
-                    while (rows.next()) {
-                        columns.add(rows.getString(1));
-                    }
-                }
-                assertEquals(expected, columns, table.rowTable(type));
             }
         }
+    }
+
+    /** Adds the columns of a record of {@code kind}, its own and those of the elements of each of its lists. */
+    private static void expect(
+            final Map<String, Set<String>> expected,
+            final InboxTable<?> table,
+            final Class<?> kind,
+            final Class<?> record) {
+        final Set<String> own = expected.computeIfAbsent(table.rowTable(kind), row -> new HashSet<>(Set.of("request")));
+        for (final var component : record.getRecordComponents()) {
+            final Optional<Class<?>> element = InboxTable.elementOf(component);
+            if (element.isEmpty()) {
+                own.add(InboxTable.column(component));
+                continue;
+            }
+            final Set<String> elements = expected.computeIfAbsent(
+                    table.elementTable(kind, component.getName()), row -> new HashSet<>(Set.of("request")));
+            for (final var inner : element.get().getRecordComponents()) {
+                elements.add(InboxTable.column(inner));
+            }
+        }
+    }
+
+    private static Set<String> columnsOf(final String table) throws SQLException {
+        final Set<String> columns = new HashSet<>();
+        try (Connection connection = database.dataSource().getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(
+                        "SELECT column_name FROM information_schema.columns WHERE table_name = '" + table + "'")) {
+            while (rows.next()) {
+                columns.add(rows.getString(1));
+            }
+        }
+        return columns;
     }
 
     @Test

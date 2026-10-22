@@ -408,6 +408,26 @@ class RosterApiTest extends WebTestSupport {
                     get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
             assertEquals("PENDING", line.get("status").getAsString(), line.toString());
         }
+
+        // Stands in for the bot: posts English and finds no channel for German.
+        final long asked = Long.parseLong(ids.get("en").getAsString().replaceAll("\\D", ""));
+        eu.nordtal.season.database.inbox.Inbox.over(
+                        WebFixture.postgres.dataSource(), eu.nordtal.season.database.inbox.BotRequest.TABLE)
+                .drain(request -> request.id() == asked
+                        ? eu.nordtal.season.database.inbox.Outcome.done(
+                                new eu.nordtal.season.database.inbox.BotRequest.Announce.Answer(List.of(
+                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("de", false),
+                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("en", true))))
+                        : eu.nordtal.season.database.inbox.Outcome.failed(null));
+        final java.util.Map<String, JsonObject> results = new java.util.HashMap<>();
+        for (final String tag : List.of("en", "de")) {
+            final JsonObject line = GSON.fromJson(
+                    get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
+            assertEquals("DONE", line.get("status").getAsString(), line.toString());
+            results.put(tag, line.getAsJsonObject("result"));
+        }
+        assertTrue(results.get("en").toString().contains("true"), results.toString());
+        assertTrue(results.get("de").toString().contains("false"), results.toString());
     }
 
     private static void assertRow(

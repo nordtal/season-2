@@ -7,7 +7,6 @@ import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messages.MessageRef;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -74,14 +73,11 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
         };
     }
 
-    /** Posts the message of every language and answers per language whether it was posted. */
-    private Map<String, String> post(final BotRequest.Announce announcement) {
-        final Map<String, String> posted = new LinkedHashMap<>();
-        announcement
-                .messages()
-                .forEach((tag, message) -> posted.put(
-                        tag,
-                        announce.test(tag, message) ? BotRequest.Announce.POSTED : BotRequest.Announce.NOT_POSTED));
-        return posted;
+    /** Posts the text of every language and answers per language whether it was posted. */
+    private BotRequest.Announce.Answer post(final BotRequest.Announce announcement) {
+        return new BotRequest.Announce.Answer(announcement.lines().stream()
+                .map(line -> new BotRequest.Announce.Posted(
+                        line.language(), announce.test(line.language(), announcement.text(line))))
+                .toList());
     }
 }

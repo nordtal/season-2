@@ -106,9 +106,7 @@ class DatabaseRoleIntegrationTest {
                         DatabaseRole.DISCORD_BOT,
                         "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('REVOKE', '{}', 'HOST')"),
                 mayNot(DatabaseRole.STEWARD, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
-                may(
-                        DatabaseRole.SMP,
-                        "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('ANNOUNCE', '{}', 'STEWARD')"),
+                may(DatabaseRole.SMP, "INSERT INTO bot_inbox (kind, actor_kind) VALUES ('ANNOUNCE', 'STEWARD')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {

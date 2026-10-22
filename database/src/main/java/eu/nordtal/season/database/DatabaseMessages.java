@@ -155,5 +155,9 @@ public interface DatabaseMessages {
         @Name("Settings refused")
         @Shown(Display.STEWARD)
         MessageRef settingsRefused(@Arg("service") @Example("smp") String service, @Arg("detail") String detail);
+
+        @Name("Stack changed")
+        @Shown(Display.STEWARD)
+        MessageRef stackChanged();
     }
 }

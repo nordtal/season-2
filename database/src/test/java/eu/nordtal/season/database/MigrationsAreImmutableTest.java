@@ -240,6 +240,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V85__a_resolve_step_s_image_is_pulled.sql",
                 "e83ec75a2cafa283edb778ec41e37edfd4f3c735553f037ec93cc72a039aa65f");
+        FROZEN.put(
+                "V86__steward_shows_and_edits_a_player_s_survival_and_creative_states.sql",
+                "f61f92d334ca69c007f38c4b4d75881fab111efd38a2b78ff629d03fc047e38b");
     }
 
     @Test

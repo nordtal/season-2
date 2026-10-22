@@ -1,6 +1,8 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.time.Backoff;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseJson;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -39,6 +41,9 @@ import org.slf4j.LoggerFactory;
 public final class Inbox<P> {
 
     private static final Logger log = LoggerFactory.getLogger(Inbox.class);
+
+    /** How often {@link #ask} looks for the answer. */
+    private static final Backoff POLL = Backoff.fixed(Duration.ofMillis(200));
 
     /** Writes a request and announces it in one statement, so a notification exists only for a committed row. */
     private static final String SUBMIT = """
@@ -147,6 +152,23 @@ public final class Inbox<P> {
     /** Writes a request for its time and wakes the consumer. */
     public Request<P> submit(final P payload, final Actor actor, final Schedule schedule) {
         return jdbi.inTransaction(handle -> insert(handle, payload, actor, schedule));
+    }
+
+    /**
+     * Writes a request that expires after {@code patience} and waits that long for it to be settled.
+     * A request still open then is withdrawn and the answer is empty.
+     */
+    public Optional<Request<P>> ask(final P payload, final Actor actor, final Duration patience, final Waiting clock) {
+        final long id = submit(payload, actor, Schedule.within(patience)).id();
+        final Optional<Request<P>> answered = clock.until(
+                () -> find(id).filter(
+                                row -> row.status() != InboxStatus.PENDING && row.status() != InboxStatus.RUNNING),
+                patience,
+                POLL);
+        if (answered.isEmpty()) {
+            cancel(id, null);
+        }
+        return answered;
     }
 
     /** Writes a request and its journal line in one transaction. */

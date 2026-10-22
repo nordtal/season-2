@@ -13,6 +13,8 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 /** Implements {@link ModeStateStore} with JDBI. */
 final class JdbiModeStateStore implements ModeStateStore {
 
+    private static final State EMPTY = new State(0, 0f, List.of());
+
     private final Jdbi jdbi;
 
     JdbiModeStateStore(final DataSource dataSource) {
@@ -23,23 +25,166 @@ final class JdbiModeStateStore implements ModeStateStore {
     public Optional<State> swap(
             final String server, final PlayerId player, final Mode left, final State leaving, final Mode entered) {
         return jdbi.inTransaction(handle -> {
-            store(handle, server, player, left, leaving);
-            return read(handle, server, player, entered);
+            store(handle, server, player, left, leaving, Status.STORED);
+            final Optional<State> back = read(handle, server, player, entered, true);
+            // The empty state of a mode never left is the server's too, so Steward shows it as held.
+            handle.createUpdate("""
+                            INSERT INTO game_mode_state (server, player_uuid, mode, level, experience, saved, status)
+                            VALUES (:server, :player, :mode, 0, 0, now(), 'HELD')
+                            ON CONFLICT (server, player_uuid, mode) DO UPDATE SET status = 'HELD'""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", entered.name())
+                    .execute();
+            return back;
+        });
+    }
+
+    @Override
+    public void leave(final String server, final PlayerId player, final Mode held, final State state) {
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("""
+                            UPDATE game_mode_state SET status = 'STORED'
+                            WHERE server = :server AND player_uuid = :player AND mode <> :mode
+                              AND status <> 'STORED'""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", held.name())
+                    .execute();
+            store(handle, server, player, held, state, Status.AWAY);
+        });
+    }
+
+    @Override
+    public Optional<Held> arrive(final String server, final PlayerId player) {
+        return jdbi.inTransaction(handle -> handle.createQuery("""
+                        UPDATE game_mode_state SET status = 'HELD'
+                        WHERE server = :server AND player_uuid = :player AND status = 'AWAY'
+                        RETURNING mode""")
+                .bind("server", server)
+                .bind("player", player)
+                .mapTo(String.class)
+                .findOne()
+                .map(Mode::valueOf)
+                .map(mode ->
+                        new Held(mode, read(handle, server, player, mode, false).orElseThrow())));
+    }
+
+    @Override
+    public boolean copy(final String server, final PlayerId player, final Mode held, final State state) {
+        return jdbi.inTransaction(handle -> {
+            final boolean holds = handle.createQuery("""
+                            SELECT status FROM game_mode_state
+                            WHERE server = :server AND player_uuid = :player AND mode = :mode AND status = 'HELD'
+                            FOR UPDATE""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", held.name())
+                    .mapTo(String.class)
+                    .findOne()
+                    .isPresent();
+            if (holds) {
+                store(handle, server, player, held, state, Status.HELD);
+            }
+            return holds;
+        });
+    }
+
+    @Override
+    public List<Stored> states(final PlayerId player) {
+        return jdbi.inTransaction(handle -> handle
+                .createQuery("""
+                        SELECT server, mode, status, saved FROM game_mode_state
+                        WHERE player_uuid = :player ORDER BY server, mode""")
+                .bind("player", player)
+                .map((row, context) -> new Stored(
+                        row.getString("server"),
+                        Mode.valueOf(row.getString("mode")),
+                        Status.valueOf(row.getString("status")),
+                        EMPTY,
+                        row.getTimestamp("saved").toInstant()))
+                .list()
+                .stream()
+                .map(row -> new Stored(
+                        row.server(),
+                        row.mode(),
+                        row.status(),
+                        read(handle, row.server(), player, row.mode(), false).orElseThrow(),
+                        row.saved()))
+                .toList());
+    }
+
+    @Override
+    public Removal remove(
+            final String server,
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final int slot,
+            final String item,
+            final int amount) {
+        return jdbi.inTransaction(handle -> {
+            // The lock makes a server's switch or arrival wait for the removal, and the removal for theirs.
+            final Optional<Status> status = handle.createQuery("""
+                            SELECT status FROM game_mode_state
+                            WHERE server = :server AND player_uuid = :player AND mode = :mode FOR UPDATE""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", mode.name())
+                    .mapTo(String.class)
+                    .findOne()
+                    .map(Status::valueOf);
+            if (status.isEmpty()) {
+                return Removal.CHANGED;
+            }
+            if (status.get() == Status.HELD) {
+                return Removal.HELD;
+            }
+            final int removed = handle.createUpdate("""
+                            DELETE FROM game_mode_state_item
+                            WHERE server = :server AND player_uuid = :player AND mode = :mode
+                              AND container = :container AND slot = :slot AND item = :item AND amount = :amount""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", mode.name())
+                    .bind("container", container.name())
+                    .bind("slot", slot)
+                    .bind("item", item)
+                    .bind("amount", amount)
+                    .execute();
+            if (removed == 0) {
+                return Removal.CHANGED;
+            }
+            handle.createUpdate("""
+                            UPDATE game_mode_state SET saved = now()
+                            WHERE server = :server AND player_uuid = :player AND mode = :mode""")
+                    .bind("server", server)
+                    .bind("player", player)
+                    .bind("mode", mode.name())
+                    .execute();
+            return Removal.REMOVED;
         });
     }
 
     private static void store(
-            final Handle handle, final String server, final PlayerId player, final Mode mode, final State state) {
+            final Handle handle,
+            final String server,
+            final PlayerId player,
+            final Mode mode,
+            final State state,
+            final Status status) {
         handle.createUpdate("""
-                        INSERT INTO game_mode_state (server, player_uuid, mode, level, experience, saved)
-                        VALUES (:server, :player, :mode, :level, :experience, now())
+                        INSERT INTO game_mode_state (server, player_uuid, mode, level, experience, saved, status)
+                        VALUES (:server, :player, :mode, :level, :experience, now(), :status)
                         ON CONFLICT (server, player_uuid, mode) DO UPDATE
-                            SET level = excluded.level, experience = excluded.experience, saved = excluded.saved""")
+                            SET level = excluded.level, experience = excluded.experience, saved = excluded.saved,
+                                status = excluded.status""")
                 .bind("server", server)
                 .bind("player", player)
                 .bind("mode", mode.name())
                 .bind("level", state.level())
                 .bind("experience", state.experience())
+                .bind("status", status.name())
                 .execute();
         handle.createUpdate("""
                         DELETE FROM game_mode_state_item
@@ -69,10 +214,10 @@ final class JdbiModeStateStore implements ModeStateStore {
     }
 
     private static Optional<State> read(
-            final Handle handle, final String server, final PlayerId player, final Mode mode) {
+            final Handle handle, final String server, final PlayerId player, final Mode mode, final boolean lock) {
         final Optional<State> stored = handle.createQuery("""
                         SELECT level, experience FROM game_mode_state
-                        WHERE server = :server AND player_uuid = :player AND mode = :mode""")
+                        WHERE server = :server AND player_uuid = :player AND mode = :mode""" + (lock ? " FOR UPDATE" : ""))
                 .bind("server", server)
                 .bind("player", player)
                 .bind("mode", mode.name())

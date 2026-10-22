@@ -19,6 +19,7 @@ import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.game.GameCatalogue;
 import eu.nordtal.season.database.game.GameDataStore;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxTable;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -210,8 +211,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         renderer = MessageRenderer.of(
                         messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige))
                 .reading(documents);
-        previews = new Previews(
-                getServer()::getPlayer, renderer, PaperScheduler.of(this).mainThread());
+        previews = newPreviews();
         hud = new Hud(this, identities);
         listen(hud);
         // Declared first, the drafted bar stands above the lines the plugin declares in enable().
@@ -436,6 +436,20 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     protected final Answer preview(final PlayerId player, final MessagePreview preview) {
+        return previews.show(player, preview);
+    }
+
+    /** A preview is painted in the colours of the key's own service, as its settings name them. */
+    private Previews newPreviews() {
+        final SettingStore store = SettingStore.using(pool);
+        return new Previews(
+                getServer()::getPlayer,
+                renderer,
+                service -> ToneColours.parse(Colours.current(store, service), unreadable -> {}),
+                PaperScheduler.of(this).mainThread());
+    }
+
+    protected final Answer preview(final PlayerId player, final DocumentPreview preview) {
         return previews.show(player, preview);
     }
 

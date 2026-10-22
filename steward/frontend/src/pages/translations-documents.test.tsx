@@ -219,7 +219,8 @@ function unfold(editor: HTMLElement): HTMLElement {
   return within(editor).getByDisplayValue("Access")
 }
 
-describe("an open document", () => {
+// Fifteen seconds, because an open editor draws every part with its pickers, which takes close to five on CI.
+describe("an open document", { timeout: 15_000 }, () => {
   it("opens its editor in its card, with the component count and a lock on what the code requires", async () => {
     serve()
     draw(<Page />)

@@ -75,10 +75,7 @@ final class JdbiSettingStore implements SettingStore {
                 .list());
     }
 
-    /**
-     * The value column as text. A release's update run reads its settings before it migrates, so on the schema of the
-     * release before, which holds the value as one column.
-     */
+    /** The value column as text, also on the schema of the release before, which an update run reads first. */
     private static String valueColumn(final Handle handle) {
         return handle.createQuery("SELECT to_regclass('setting_override_node') IS NOT NULL")
                         .mapTo(Boolean.class)

@@ -6,7 +6,7 @@ describe("languageName", () => {
   it("names a language in that language", () => {
     expect(languageName("en")).toBe("English")
     expect(languageName("de")).toBe("Deutsch")
-    expect(languageName("fr")).toBe("français")
+    expect(languageName("fr")).toBe("Français")
   })
 
   it("shows a tag it cannot read as itself", () => {

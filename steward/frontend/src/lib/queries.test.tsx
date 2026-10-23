@@ -72,7 +72,9 @@ afterEach(() => {
 /** Answers the POST with request 9 and every read of it with `status`. */
 function request(status: () => Record<string, unknown>) {
   fetched.mockImplementation(async (_url, init) =>
-    init?.method === "POST" ? answer(202, { id: "9", status: "PENDING" }) : answer(200, { id: "9", ...status() }),
+    init?.method === "POST"
+      ? answer(202, { id: "smp:9", status: "PENDING" })
+      : answer(200, { id: "smp:9", ...status() }),
   )
 }
 
@@ -84,7 +86,7 @@ describe("a request a mutation asks for", () => {
     const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
 
     const done = result.current.mutateAsync({ discordId: "1", aura: 5 })
-    await waitFor(() => expect(queryClient.getQueryState(keys.commandRun("9"))?.data).toMatchObject({ status }))
+    await waitFor(() => expect(queryClient.getQueryState(keys.commandRun("smp:9"))?.data).toMatchObject({ status }))
     status = "DONE"
     act(() => announce(queryClient, "REQUESTS"))
 
@@ -93,10 +95,10 @@ describe("a request a mutation asks for", () => {
 
   it("fails with the run's own result when the server refuses it", async () => {
     const queryClient = client()
-    request(() => ({ status: "REFUSED", result: { key: "steward.failure.smp-failed" } }))
+    request(() => ({ status: "REFUSED", result: { key: "steward.said.words", args: { text: "No such player." } } }))
     const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
 
-    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow(/./)
+    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow("No such player.")
   })
 
   it("fails with the silent text when nobody picked it up", async () => {
@@ -105,7 +107,7 @@ describe("a request a mutation asks for", () => {
     const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
 
     await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow(
-      t("steward.failure.smp-silent"),
+      t("steward.failure.server-silent", { service: "smp" }),
     )
   })
 })

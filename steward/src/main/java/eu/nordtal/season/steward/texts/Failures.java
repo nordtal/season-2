@@ -39,15 +39,9 @@ public interface Failures {
     @Name("Log lost")
     MessageRef logLost();
 
-    @Name("Bot failed")
-    MessageRef botFailed();
+    @Name("Server failed")
+    MessageRef serverFailed(@Arg("service") @Example("discord-bot") String service);
 
-    @Name("Bot silent")
-    MessageRef botSilent();
-
-    @Name("SMP failed")
-    MessageRef smpFailed();
-
-    @Name("SMP silent")
-    MessageRef smpSilent();
+    @Name("Server silent")
+    MessageRef serverSilent(@Arg("service") @Example("discord-bot") String service);
 }

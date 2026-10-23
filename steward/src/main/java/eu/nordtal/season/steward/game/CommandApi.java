@@ -203,25 +203,18 @@ public final class CommandApi {
         return settled(name, inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name))));
     }
 
-    /**
-     * Returns the status of a bot request with its typed answer.
-     * A done preview carries the sent text; an announcement is followed by language instead.
-     */
+    /** Returns the status of a bot request with its typed answer. An announcement is followed by language instead. */
     private CommandRun sent(final String name, final long id) {
         final Request<BotRequest> row = data.bot()
                 .find(id)
                 .filter(found -> !(found.payload() instanceof BotRequest.Announce))
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final CommandRun run = settled(name, row);
-        final boolean preview = row.payload() instanceof BotRequest.PreviewMessage
-                || row.payload() instanceof BotRequest.PreviewDocument;
         final Object answer = row.answer();
         return new CommandRun(
                 name,
                 run.status(),
-                preview && row.status() == InboxStatus.DONE
-                        ? StewardTexts.TEXTS.steward().said().previewSent()
-                        : run.result(),
+                run.result(),
                 run.reason(),
                 answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject());
     }
@@ -247,7 +240,7 @@ public final class CommandApi {
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
         return new CommandRun(
                 name,
-                Announcements.status(row.status()),
+                Announcements.status(row, language),
                 Announcements.result(row, language).orElse(null),
                 null,
                 null);

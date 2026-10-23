@@ -431,15 +431,16 @@ class RosterApiTest extends WebTestSupport {
                                         new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("de", false),
                                         new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("en", true))))
                         : eu.nordtal.season.database.inbox.Outcome.failed(null));
-        final java.util.Map<String, JsonObject> results = new java.util.HashMap<>();
-        for (final String tag : List.of("en", "de")) {
-            final JsonObject line = GSON.fromJson(
-                    get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
-            assertEquals("DONE", line.get("status").getAsString(), line.toString());
-            results.put(tag, line.getAsJsonObject("result"));
-        }
-        assertTrue(results.get("en").toString().contains("true"), results.toString());
-        assertTrue(results.get("de").toString().contains("false"), results.toString());
+        final JsonObject en = GSON.fromJson(
+                get("/api/commands/" + ids.get("en").getAsString()).body(), JsonObject.class);
+        assertEquals("DONE", en.get("status").getAsString(), en.toString());
+        assertFalse(en.has("result"), en.toString());
+        final JsonObject de = GSON.fromJson(
+                get("/api/commands/" + ids.get("de").getAsString()).body(), JsonObject.class);
+        assertEquals("FAILED", de.get("status").getAsString(), de.toString());
+        assertEquals(
+                "steward.said.not-announced",
+                de.getAsJsonObject("result").get("key").getAsString());
     }
 
     private static void assertRow(

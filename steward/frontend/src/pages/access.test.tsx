@@ -570,7 +570,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
     const alert = await within(dialog).findByRole("alert")
-    expect(alert.textContent).toContain("The bot failed to do this.")
+    expect(alert.textContent).toContain("discord-bot failed to do this.")
     expect(alert.textContent).not.toContain("ApiError")
     expect(dialog.isConnected).toBe(true)
   })

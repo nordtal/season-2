@@ -4,8 +4,6 @@ import {
   api,
   type AdminGranted,
   type AdminRevoked,
-  type CommandAsked,
-  type CommandRun,
   type Exempted,
   type Settled,
   type Grant,
@@ -16,40 +14,21 @@ import {
   type StackRemoval,
 } from "@/lib/api"
 import { live } from "@/lib/live"
-import { finalRun } from "@/lib/queries-commands"
+import { askUntilDone } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
-import { message, t } from "@/lib/texts"
-
-/**
- * Posts a request into a server's inbox and answers its run once it is final. The server that carries it out is the
- * bot or the SMP, which `failed` and `silent` name when it fails or never picks the request up.
- */
-async function untilFinal(
-  client: QueryClient,
-  path: string,
-  body: unknown,
-  failed: "steward.failure.bot-failed" | "steward.failure.smp-failed",
-  silent: "steward.failure.bot-silent" | "steward.failure.smp-silent",
-): Promise<CommandRun> {
-  const asked = await api<CommandAsked>(path, { method: "POST", body })
-  const row = await finalRun(client, asked.id)
-  if (row.status === "DONE") return row
-  if (row.status === "EXPIRED") throw new Error(t(silent))
-  throw new Error(row.result ? message(row.result) : t(failed))
-}
 
 /**
  * Asks the bot for an access change and answers its typed answer. Only the bot can apply the role, send the direct
  * message and post the admin note.
  */
 async function askTheBot(client: QueryClient, path: string, body: unknown): Promise<Record<string, unknown>> {
-  const run = await untilFinal(client, path, body, "steward.failure.bot-failed", "steward.failure.bot-silent")
+  const run = await askUntilDone(client, path, body)
   return run.answer ?? {}
 }
 
 /** Asks the SMP for a change of one person. */
 async function askTheSmp(client: QueryClient, path: string, body: unknown): Promise<void> {
-  await untilFinal(client, path, body, "steward.failure.smp-failed", "steward.failure.smp-silent")
+  await askUntilDone(client, path, body)
 }
 
 export function usePeople(enabled = true) {

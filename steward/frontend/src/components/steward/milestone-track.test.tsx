@@ -121,14 +121,14 @@ const TRACK: SmpTrack = {
 
 type Row = { status: string; result?: string }
 
-function backend({ row = { status: "DONE", result: "Objective closed." } }: { row?: Row } = {}) {
+function backend({ row = { status: "DONE" } }: { row?: Row } = {}) {
   const sent: { url: string; body: unknown }[] = []
   vi.stubGlobal(
     "fetch",
     vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
       if (init?.method === "POST") {
         sent.push({ url, body: JSON.parse(init.body ?? "") })
-        return json(202, { id: String(sent.length), status: "PENDING" })
+        return json(202, { id: `smp:${sent.length}`, status: "PENDING" })
       }
       if (url === "/api/smp/track") return json(200, TRACK)
       if (url === "/api/setting-groups/smp/milestones") return json(200, FILE)
@@ -213,7 +213,7 @@ describe("SmpActions", () => {
     expect(sent).toHaveLength(0)
     fireEvent.click(within(dialog).getByRole("button", { name: "Complete" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "logs" } }]))
-    expect(await within(dialog).findByText("Objective closed.")).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 
   it("shows a step's settings under their schema labels", async () => {
@@ -262,6 +262,6 @@ describe("SmpActions", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
 
-    expect(await within(dialog).findByText(/did not read it within two minutes/)).toBeTruthy()
+    expect(await within(dialog).findByText(/smp did not answer within two minutes/)).toBeTruthy()
   })
 })

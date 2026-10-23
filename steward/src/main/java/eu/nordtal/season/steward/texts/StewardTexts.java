@@ -434,11 +434,8 @@ public interface StewardTexts {
             @Name("A message saved")
             MessageRef message();
 
-            @Name("An announcement's line")
-            MessageRef announced(@Arg("posted") boolean posted, @Arg("language") @Example("Deutsch") String language);
-
-            @Name("A preview sent")
-            MessageRef previewSent();
+            @Name("An announcement's line not posted")
+            MessageRef notAnnounced(@Arg("language") @Example("Deutsch") String language);
 
             @Name("No guild id")
             MessageRef noGuildId();

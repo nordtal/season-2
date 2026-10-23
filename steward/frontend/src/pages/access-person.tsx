@@ -589,7 +589,7 @@ function rowActions(
     actions.push({
       key: "revoke",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onRevoke}>
           <TERM_ICON.revokeAccess aria-hidden />
           {t("steward.people.revoke")}
         </Button>
@@ -601,7 +601,7 @@ function rowActions(
     actions.push({
       key: "unlink",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onUnlink}>
           <TERM_ICON.unlink aria-hidden />
           {t("steward.people.unlink")}
         </Button>
@@ -625,7 +625,7 @@ function rowActions(
     actions.push({
       key: "revoke-admin",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onRevokeAdmin}>
           <TERM_ICON.revokeAdmin aria-hidden />
           {t("steward.people.revoke-admin")}
         </Button>

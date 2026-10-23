@@ -57,32 +57,27 @@ function SettleAction({ reference }: { reference: string }) {
       title={t("steward.payments.settle-ask")}
       description={t("steward.payments.settle-note", { reference })}
       action={t("steward.payments.settle")}
-      act={() => {
-        settle.mutate(reference, {
-          onSuccess: (result) => {
-            if (result.outcome === "BOOKED") {
-              toast.success(t("steward.payments.settled", { reference }), {
-                description: t("steward.payments.settled-note", { days: result.days ?? 0, until: result.until ?? "" }),
-              })
-            } else if (result.outcome === "NOT_OPEN") {
-              toast.warning(t("steward.payments.not-open", { reference }), {
-                description: t("steward.payments.not-open-note", {
-                  was: result.was
-                    ? t("steward.payments.state", { status: choice(result.was) })
-                    : t("steward.payments.state", { status: choice("PAID") }),
-                }),
-              })
-            } else {
-              toast.warning(t("steward.payments.no-payment", { reference }), {
-                description: t("steward.payments.nothing-booked"),
-              })
-            }
-          },
-          onError: (error) => {
-            toast.error(t("steward.payments.nothing-settled"), { description: String(error) })
-          },
+      act={() =>
+        settle.mutateAsync(reference).then((result) => {
+          if (result.outcome === "BOOKED") {
+            toast.success(t("steward.payments.settled", { reference }), {
+              description: t("steward.payments.settled-note", { days: result.days ?? 0, until: result.until ?? "" }),
+            })
+          } else if (result.outcome === "NOT_OPEN") {
+            toast.warning(t("steward.payments.not-open", { reference }), {
+              description: t("steward.payments.not-open-note", {
+                was: result.was
+                  ? t("steward.payments.state", { status: choice(result.was) })
+                  : t("steward.payments.state", { status: choice("PAID") }),
+              }),
+            })
+          } else {
+            toast.warning(t("steward.payments.no-payment", { reference }), {
+              description: t("steward.payments.nothing-booked"),
+            })
+          }
         })
-      }}
+      }
     />
   )
 }

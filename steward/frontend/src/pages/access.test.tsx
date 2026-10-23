@@ -18,7 +18,6 @@ import {
   person,
   requestBody,
   rowFor,
-  toastDescription,
 } from "@/pages/access.fixtures"
 
 /**
@@ -557,7 +556,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     success.mockRestore()
   })
 
-  it("says the bot failed when it could not carry the change out", async () => {
+  it("keeps the dialog open and says in it that the bot failed", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -568,28 +567,25 @@ describe("AccessPage - access changes are asked of the bot", () => {
         }),
       }),
     )
-    const failure = vi.spyOn(toast, "error")
     draw(<AccessPage />)
 
     const dialog = await openGrant()
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
-    await waitFor(() => expect(failure).toHaveBeenCalled())
-    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("The bot failed to do this.")
-    failure.mockRestore()
+    const alert = await within(dialog).findByRole("alert")
+    expect(alert.textContent).toContain("The bot failed to do this.")
+    expect(alert.textContent).not.toContain("ApiError")
+    expect(dialog.isConnected).toBe(true)
   })
 
-  it("says nothing changed when the bot never picked the request up", async () => {
+  it("keeps the dialog open and says in it that nothing changed when the bot never picked the request up", async () => {
     vi.stubGlobal("fetch", backend({ answer: (kind) => ({ id: "a-grant", kind, status: "EXPIRED" }) }))
-    const failure = vi.spyOn(toast, "error")
     draw(<AccessPage />)
 
     const dialog = await openGrant()
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
-    await waitFor(() => expect(failure).toHaveBeenCalled())
-    expect(toastDescription(failure.mock.calls[0][1]?.description)).toContain("Nothing changed")
-    failure.mockRestore()
+    expect((await within(dialog).findByRole("alert")).textContent).toContain("Nothing changed")
   })
 })
 

@@ -32,10 +32,9 @@ export function AuraDialog({
       open={open}
       onOpenChange={onOpenChange}
       act={(aura) =>
-        write.mutateAsync({ discordId: person.discordId, aura }).then(
-          () => toast.success(t("steward.people.aura-set", { name: personName(person), aura })),
-          (error) => toast.error(t("steward.people.aura-not-written"), { description: String(error) }),
-        )
+        write
+          .mutateAsync({ discordId: person.discordId, aura })
+          .then(() => toast.success(t("steward.people.aura-set", { name: personName(person), aura })))
       }
     />
   )
@@ -63,10 +62,9 @@ export function SpinsDialog({
       open={open}
       onOpenChange={onOpenChange}
       act={(spins) =>
-        write.mutateAsync({ discordId: person.discordId, spins }).then(
-          () => toast.success(t("steward.people.spins-set", { name: personName(person), spins })),
-          (error) => toast.error(t("steward.people.spins-not-written"), { description: String(error) }),
-        )
+        write
+          .mutateAsync({ discordId: person.discordId, spins })
+          .then(() => toast.success(t("steward.people.spins-set", { name: personName(person), spins })))
       }
     />
   )

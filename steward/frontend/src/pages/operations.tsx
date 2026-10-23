@@ -389,14 +389,19 @@ function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
  * The stages that a finished run of each kind walked, because a run keeps only the last one. A run that did not end DONE gets no ticks.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
-  UPDATE: new Set(TRAIL),
+  UPDATE: new Set(["RESOLVING", "PLANNED", "COUNTDOWN", "STOPPING", "INSTALLING", "STARTING", "VERIFYING"]),
   BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
   RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
   // A DOWN ends at STOPPING.
   DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
-  START: new Set(["STARTING", "VERIFYING"]),
-  // Written once it is done, on a start with no server running yet.
-  INSTALL: new Set(["PLANNED", "INSTALLING"]),
+  START: new Set(["PLANNED", "STARTING", "VERIFYING"]),
+  RECREATE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  DEPLOY: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  REMOVE_PLUGIN: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  // A volume restore also writes BACKING_UP, a database restore does not.
+  RESTORE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  // Written once it is done, on a start with no server running yet: it resolves and installs.
+  INSTALL: new Set(["RESOLVING", "INSTALLING"]),
 }
 
 function StageTrail({ stage, kind }: { stage: string; kind: string }) {

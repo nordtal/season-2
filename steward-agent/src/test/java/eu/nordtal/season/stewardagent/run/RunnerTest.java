@@ -105,7 +105,10 @@ class RunnerTest {
         assertNotNull(
                 row.countdownEnd(), "the proxy warns from this column, so a restart that skips it is unannounced");
         assertEquals(List.of("smp"), row.moving(), "the countdown names what moves, and only that");
-        assertTrue(progress.contains(RunStage.COUNTDOWN), "the feeds see the countdown too: " + progress);
+        assertEquals(
+                List.of(RunStage.PLANNED, RunStage.COUNTDOWN, RunStage.STOPPING, RunStage.STARTING, RunStage.VERIFYING),
+                progress,
+                "the feeds see every stage, the countdown too");
         // The fake runtime counts no players.
         assertEquals(
                 List.of(
@@ -193,7 +196,16 @@ class RunnerTest {
         final List<String> steps = steps(request.id());
         assertTrue(steps.contains("SAVE_VOLUME nordtal-s2_mc-smp DONE"), steps.toString());
         assertTrue(steps.contains("OFFSITE_COPY SKIPPED NO_REPOSITORY"), "the archives stay on this disk: " + steps);
-        assertTrue(progress.contains(RunStage.BACKING_UP), "a backup says so while it saves: " + progress);
+        assertEquals(
+                List.of(
+                        RunStage.PLANNED,
+                        RunStage.COUNTDOWN,
+                        RunStage.STOPPING,
+                        RunStage.BACKING_UP,
+                        RunStage.STARTING,
+                        RunStage.VERIFYING),
+                progress,
+                "a backup has a stage while it dumps, and says so while it saves");
     }
 
     @Test
@@ -206,6 +218,7 @@ class RunnerTest {
         assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
         assertEquals(List.of("PRUNE DONE", "ROOM_CHECK FAILED NO_ROOM"), steps(request.id()));
+        assertEquals(List.of(RunStage.PLANNED), progress, "its steps are shown under a stage");
     }
 
     @Test

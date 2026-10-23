@@ -3,9 +3,13 @@ package eu.nordtal.season.database.update;
 /** Where a run has got to: the {@code stage} column of its row, which steward-agent writes as the run goes. */
 public enum RunStage {
 
-    /** Asking every source for the newest version. */
+    /** Asking every source for the newest version: an update's first stage. */
     RESOLVING,
-    /** Resolved and not started. */
+    /**
+     * Every other kind's first stage, and an update's once it is resolved.
+     *
+     * Nothing has stopped yet. A backup prunes, checks the room and dumps the database in it.
+     */
     PLANNED,
     /** The countdown runs and can be cancelled. */
     COUNTDOWN,

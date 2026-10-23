@@ -6,6 +6,7 @@ import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.ServiceHold;
 import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -153,6 +154,9 @@ public final class Runner implements RequestRunner {
     @Override
     public Outcome run(final UpdateRequest request, final Consumer<RunStage> progress) {
         final Steps record = new Steps(directory.recorder(), request.id());
+        // Before the first step, so every step is shown under a stage. Only an update has more to work out.
+        final RunStage first = request.kind() == UpdateKind.UPDATE ? RunStage.RESOLVING : RunStage.PLANNED;
+        progress.accept(first);
         try {
             final UpdateRun steps = new UpdateRun(request.id(), containers, backups, progress, record);
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
@@ -164,9 +168,13 @@ public final class Runner implements RequestRunner {
             }
             // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
-            return planned.outcome() != null
-                    ? planned.outcome()
-                    : new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
+            if (planned.outcome() != null) {
+                return planned.outcome();
+            }
+            if (first != RunStage.PLANNED) {
+                progress.accept(RunStage.PLANNED);
+            }
+            return new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
             record.endOpen(RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);

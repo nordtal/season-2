@@ -63,6 +63,11 @@ function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeo
   return vi.fn<typeof fetch>(impl)
 }
 
+/** Returns whether the stage trail draws a tick before the stage. */
+function ticked(stage: string): boolean {
+  return screen.getByText(stage, { selector: "span" }).querySelector("svg") !== null
+}
+
 function draw() {
   const root = createRootRoute()
   const routeTree = root.addChildren([
@@ -138,6 +143,26 @@ describe("a run's steps read as Steward words them", () => {
     const router = draw()
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/operations/backups/79"))
+  })
+
+  it("ticks only the stages a finished run of its kind writes", async () => {
+    vi.stubGlobal("fetch", backend(STEPS, "DONE", "RECREATE"))
+    draw()
+
+    await screen.findByText("Stopping", { selector: "span" })
+    expect(ticked("Planned")).toBe(true)
+    expect(ticked("Stopping")).toBe(true)
+    expect(ticked("Resolving")).toBe(false)
+    expect(ticked("Backing up")).toBe(false)
+  })
+
+  it("ticks no backup on a finished update", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+
+    await screen.findByText("Installing", { selector: "span" })
+    expect(ticked("Installing")).toBe(true)
+    expect(ticked("Backing up")).toBe(false)
   })
 
   it("says there is no report yet while a run has no step", async () => {

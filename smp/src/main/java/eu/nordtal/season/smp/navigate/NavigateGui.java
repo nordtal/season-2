@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -25,11 +26,16 @@ import org.bukkit.inventory.ItemStack;
 public final class NavigateGui extends Menu {
 
     /** @param page the shown page, counted from 1 */
-    record Window(long page, long pages) {}
+    record Window(@Example("1") long page, @Example("3") long pages) {}
 
-    record Target(String target, String world, long x, long y, long z) {}
+    record Target(
+            @Example("Home") String target,
+            @Example("world") String world,
+            @Example("-120") long x,
+            @Example("64") long y,
+            @Example("355") long z) {}
 
-    record Distance(long blocks) {}
+    record Distance(@Example("350") long blocks) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
             "smp",
@@ -45,7 +51,7 @@ public final class NavigateGui extends Menu {
             Slot.label("page"),
             Slot.item("next-page"));
 
-    record Started(String target) {}
+    record Started(@Example("Home") String target) {}
 
     static final DocumentSpec<Started> STARTED =
             DocumentSpec.game("smp", "navigate-started", "Navigate", DocumentSpec.Shape.CHAT, Started.class);

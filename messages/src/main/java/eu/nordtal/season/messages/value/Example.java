@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 /**
  * The example value an editor shows before a live value is known and checks the length limit with.
  * It is written as {@link Kind#example} reads it, and a choice's example is one of its values.
- * Without an example, an enum uses its first constant and any other value uses the kind's default.
+ * Without one, a choice uses its first value; any other value must declare one, and the build refuses it otherwise.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

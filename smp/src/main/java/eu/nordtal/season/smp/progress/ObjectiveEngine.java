@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
@@ -51,7 +52,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class ObjectiveEngine implements Contributions {
 
-    record Completed(String objective) {}
+    record Completed(@Example("Mine 64 diamonds") String objective) {}
 
     record Reached(MilestoneContext milestone) {}
 

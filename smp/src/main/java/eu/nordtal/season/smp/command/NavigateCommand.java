@@ -12,6 +12,7 @@ import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -46,9 +47,9 @@ public final class NavigateCommand {
     static final DocumentSpec<DocumentSpec.None> NOTHING_TO_CANCEL =
             DocumentSpec.game("smp", "navigate-nothing-to-cancel", "Navigate", DocumentSpec.Shape.CHAT);
 
-    record Named(String name) {}
+    record Named(@Example("Home") String name) {}
 
-    record MaxLength(int max) {}
+    record MaxLength(@Example("32") int max) {}
 
     /** The plain help line of a subcommand, which the command help's line takes in. */
     record Described(Sub sub) {}

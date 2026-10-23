@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -27,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 public final class WheelGui extends Menu {
 
     /** @param spins the spins left after this one */
-    record Window(long spins) {}
+    record Window(@Example("3") long spins) {}
 
     record Again(State state) {}
 

@@ -3,19 +3,20 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The texts of the start page: the host figures, the latest backup, drift, issues and the latest actions. */
 @Name("Status")
 public interface OverviewPage {
 
     @Name("Cores")
-    MessageRef cores(@Arg("count") int count);
+    MessageRef cores(@Arg("count") @Example("8") int count);
 
     @Name("Memory")
     MessageRef memory();
 
     @Name("Used of")
-    MessageRef usedOf(@Arg("used") String used, @Arg("total") String total);
+    MessageRef usedOf(@Arg("used") @Example("9.3 GiB") String used, @Arg("total") @Example("16 GiB") String total);
 
     @Name("Latest backup")
     MessageRef latestBackup();

@@ -88,12 +88,12 @@ public interface DatabaseMessages {
 
         @Name("A run is still open")
         MessageRef runOpen(
-                @Arg("id") long id,
+                @Arg("id") @Example("42") long id,
                 @Arg("kind") @Example("update") UpdateKind kind,
                 @Arg("status") @Example("pending") UpdateStatus status);
 
         @Name("Already down")
-        MessageRef alreadyHeld(@Arg("services") List<String> services);
+        MessageRef alreadyHeld(@Arg("services") @Example("smp,proxy") List<String> services);
     }
 
     @Name("Season dates")
@@ -101,19 +101,27 @@ public interface DatabaseMessages {
     interface SeasonRefusals {
 
         @Name("Opening in the past")
-        MessageRef launchInThePast(@Arg("at") Instant at, @Arg("clear") String clear);
+        MessageRef launchInThePast(
+                @Arg("at") @Example("2026-10-01T18:00:00Z") Instant at,
+                @Arg("clear") @Example("/season launch clear") String clear);
 
         @Name("Paid time in the past")
-        MessageRef smpStartInThePast(@Arg("at") Instant at, @Arg("clear") String clear);
+        MessageRef smpStartInThePast(
+                @Arg("at") @Example("2026-10-01T18:00:00Z") Instant at,
+                @Arg("clear") @Example("/season smp-start clear") String clear);
 
         @Name("Opening after paid time")
-        MessageRef launchAfterSmpStart(@Arg("at") Instant at, @Arg("smp") Instant smpStart);
+        MessageRef launchAfterSmpStart(
+                @Arg("at") @Example("2026-11-07T18:00:00Z") Instant at,
+                @Arg("smp") @Example("2026-10-31T18:00:00Z") Instant smpStart);
 
         @Name("Paid time already running")
         MessageRef smpRunning();
 
         @Name("Paid time before the opening")
-        MessageRef smpStartBeforeLaunch(@Arg("at") Instant at, @Arg("launch") Instant launch);
+        MessageRef smpStartBeforeLaunch(
+                @Arg("at") @Example("2026-10-24T18:00:00Z") Instant at,
+                @Arg("launch") @Example("2026-10-31T18:00:00Z") Instant launch);
     }
 
     @Name("Server actions")
@@ -124,25 +132,27 @@ public interface DatabaseMessages {
         MessageRef noActiveMilestone();
 
         @Name("No such objective")
-        MessageRef noSuchObjective(@Arg("key") String key);
+        MessageRef noSuchObjective(@Arg("key") @Example("mine-diamonds") String key);
 
         @Name("Milestone not active")
-        MessageRef milestoneNotActive(@Arg("key") String key, @Arg("active") String active);
+        MessageRef milestoneNotActive(
+                @Arg("key") @Example("the-end") String key, @Arg("active") @Example("the-nether") String active);
 
         @Name("Wrong phase")
-        MessageRef wrongPhase(@Arg("phase") String phase);
+        MessageRef wrongPhase(@Arg("phase") @Example("smp") String phase);
 
         @Name("No game")
         MessageRef noGame();
 
         @Name("Wrong state")
-        MessageRef wrongState(@Arg("state") String state);
+        MessageRef wrongState(@Arg("state") @Example("running") String state);
 
         @Name("Below the hard minimum")
-        MessageRef belowHardMinimum(@Arg("minimum") long minimum, @Arg("count") long count);
+        MessageRef belowHardMinimum(@Arg("minimum") @Example("4") long minimum, @Arg("count") @Example("3") long count);
 
         @Name("Below the recommended minimum")
-        MessageRef belowSoftMinimum(@Arg("count") long count, @Arg("minimum") long minimum);
+        MessageRef belowSoftMinimum(
+                @Arg("count") @Example("10") long count, @Arg("minimum") @Example("16") long minimum);
 
         @Name("Player not here")
         @Shown(Display.STEWARD)
@@ -154,7 +164,9 @@ public interface DatabaseMessages {
 
         @Name("Settings refused")
         @Shown(Display.STEWARD)
-        MessageRef settingsRefused(@Arg("service") @Example("smp") String service, @Arg("detail") String detail);
+        MessageRef settingsRefused(
+                @Arg("service") @Example("smp") String service,
+                @Arg("detail") @Example("view-distance must be between 2 and 32") String detail);
 
         @Name("Stack changed")
         @Shown(Display.STEWARD)

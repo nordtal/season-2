@@ -88,8 +88,13 @@ public final class Contexts {
                     .orElseThrow(() -> new IllegalStateException(type.getName() + "." + component.getName() + " is a "
                             + value.getSimpleName() + ", which is no kind a message can show"));
             final Example example = component.getAnnotation(Example.class);
+            final List<String> choices = Kind.choices(value);
+            if (example == null && choices.isEmpty()) {
+                throw new IllegalStateException(
+                        type.getName() + "." + component.getName() + " needs an @Example that fits what it names");
+            }
             attributes.add(new Attribute(
-                    prefix + component.getName(), kind, example == null ? kind.defaultExample() : example.value()));
+                    prefix + component.getName(), kind, example == null ? choices.getFirst() : example.value()));
         }
         if (type == PlayerContext.class) {
             attributes.add(new Attribute(prefix + SELF, Kind.CHOICE, "false"));

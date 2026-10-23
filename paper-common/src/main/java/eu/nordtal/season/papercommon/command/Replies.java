@@ -1,13 +1,16 @@
 package eu.nordtal.season.papercommon.command;
 
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
 
 /** The replies every server's commands share: the admin answers, which the console and Steward read, and the help. */
 public final class Replies {
 
-    public record Typed(String command) {}
+    public record Typed(@Example("/poi") String command) {}
 
-    public record Usage(String usage, String what) {}
+    public record Usage(
+            @Example("/poi add <name>") String usage,
+            @Example("Saves where you stand as a point.") String what) {}
 
     public static final DocumentSpec<Typed> CONFIRM = reply("admin-confirm", "Admin", Typed.class);
     public static final DocumentSpec<DocumentSpec.None> FAILED =

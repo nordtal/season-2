@@ -8,6 +8,7 @@ import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -25,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Lobby {
 
-    record Broadcast(long ready, long total) {}
+    record Broadcast(
+            @Example("12") long ready, @Example("16") long total) {}
 
     /** The rules, the number of ready teams and the ready button. */
     static final DocumentSpec<Broadcast> BROADCAST =

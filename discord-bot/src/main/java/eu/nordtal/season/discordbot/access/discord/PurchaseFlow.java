@@ -44,7 +44,7 @@ import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
 
-    record Option(@Example("30") long days, Money price) {}
+    record Option(@Example("30") long days, @Example("500") Money price) {}
 
     /**
      * @param price    the price of the days alone
@@ -53,13 +53,18 @@ public final class PurchaseFlow extends ListenerAdapter {
      * @param amount   the donation the button offers
      */
     record Summary(
-            @Example("30") long days, Money price, Money donation, Money total, boolean donating, Money amount) {}
+            @Example("30") long days,
+            @Example("500") Money price,
+            @Example("100") Money donation,
+            @Example("600") Money total,
+            boolean donating,
+            @Example("600") Money amount) {}
 
     record Link(
-            Money total,
+            @Example("600") Money total,
             @Example("https://bunq.me/t/example") String url,
             @Example("NT-A1B2C3") String reference,
-            Instant until) {}
+            @Example("2026-10-24T18:00:00Z") Instant until) {}
 
     static final DocumentSpec<DocumentSpec.None> CHOOSE = DocumentSpec.message(
             StoredDocuments.NAMESPACE, "purchase-choose", "Purchase", Slot.select("days", Option.class));

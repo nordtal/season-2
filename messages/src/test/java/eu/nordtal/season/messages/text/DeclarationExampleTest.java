@@ -10,7 +10,7 @@ import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** An editor's example fills a message's own placeholders from the admin's values, the schema and the kind. */
+/** An editor's example fills a message's own placeholders from the admin's values, and else the schema. */
 class DeclarationExampleTest {
 
     private static final MessageSchema.Bundle SCHEMA = MessageSchema.decode(new StringReader("""
@@ -19,7 +19,7 @@ class DeclarationExampleTest {
                "args": [
                  {"name": "player", "context": "player", "action": false},
                  {"name": "time", "kind": "duration", "example": "PT5M", "action": false},
-                 {"name": "count", "kind": "number", "action": false},
+                 {"name": "count", "kind": "number", "example": "4", "action": false},
                  {"name": "open", "action": true}]}],
              "contexts": {
                "player": {"name": "Player", "attributes": [{"name": "name", "kind": "name", "example": "Alex"}]},
@@ -39,11 +39,11 @@ class DeclarationExampleTest {
     }
 
     @Test
-    void aValueThatDoesNotReadAsItsKindIsTheSchemasExampleElseTheKinds() {
+    void aValueThatDoesNotReadAsItsKindIsTheSchemasExample() {
         final Map<String, Object> example = GREETING.example(Map.of("time", "a while", "count", "many"));
 
         assertEquals(Duration.ofMinutes(5), example.get("time"));
-        assertEquals(new BigDecimal("3"), example.get("count"));
+        assertEquals(new BigDecimal("4"), example.get("count"));
         assertEquals("Alex", ((DisplayName) example.get("player.name")).name());
     }
 

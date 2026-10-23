@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The words of the announcement form, which has one text per language. */
 @Name("Announcements")
@@ -18,7 +19,7 @@ public interface AnnouncementsPage {
     MessageRef ask();
 
     @Name("Where")
-    MessageRef where(@Arg("languages") int languages);
+    MessageRef where(@Arg("languages") @Example("2") int languages);
 
     @Name("Host channel")
     MessageRef hostChannel();

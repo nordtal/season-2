@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -34,7 +35,13 @@ public final class ObjectiveGui extends Menu {
      * @param spins the extra spins the player's shares would give now
      * @param budget the extra spins of all objectives
      */
-    record Window(MilestoneContext milestone, long done, long total, long spins, long budget, boolean contributed) {}
+    record Window(
+            MilestoneContext milestone,
+            @Example("2") long done,
+            @Example("8") long total,
+            @Example("3") long spins,
+            @Example("10") long budget,
+            boolean contributed) {}
 
     /**
      * @param handIn whether a click opens the hand-in window
@@ -43,19 +50,21 @@ public final class ObjectiveGui extends Menu {
      * @param pool the extra spins of the objective
      */
     record Card(
-            String objective,
+            @Example("Mine 64 diamonds") String objective,
             boolean finished,
             boolean handIn,
             boolean counted,
-            String bar,
-            long amount,
-            long target,
+            @Example("████████████░░░░░░░░") String bar,
+            @Example("40") long amount,
+            @Example("64") long target,
             boolean shared,
-            double percent,
-            long gives,
-            long pool) {}
+            @Example("62.5") double percent,
+            @Example("3") long gives,
+            @Example("12") long pool) {}
 
-    record Share(String objective, double percent) {}
+    record Share(
+            @Example("Mine 64 diamonds") String objective,
+            @Example("62.5") double percent) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
             "smp",

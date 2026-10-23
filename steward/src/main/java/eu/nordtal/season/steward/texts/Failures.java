@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The texts for a missing answer and for the errors that the interface raises. */
 @Name("Failure")
@@ -21,7 +22,7 @@ public interface Failures {
     MessageRef notDone();
 
     @Name("HTTP status")
-    MessageRef http(@Arg("status") int status);
+    MessageRef http(@Arg("status") @Example("503") int status);
 
     @Name("Try again")
     MessageRef tryAgain();
@@ -39,8 +40,8 @@ public interface Failures {
     MessageRef logLost();
 
     @Name("Server failed")
-    MessageRef serverFailed(@Arg("service") String service);
+    MessageRef serverFailed(@Arg("service") @Example("discord-bot") String service);
 
     @Name("Server silent")
-    MessageRef serverSilent(@Arg("service") String service);
+    MessageRef serverSilent(@Arg("service") @Example("discord-bot") String service);
 }

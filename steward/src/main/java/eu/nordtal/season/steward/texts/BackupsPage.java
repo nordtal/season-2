@@ -4,6 +4,7 @@ import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The words of the backups page. */
 @Name("Backups page")
@@ -88,7 +89,7 @@ public interface BackupsPage {
     MessageRef volumeReplaced();
 
     @Name("What a file holds")
-    MessageRef holds(@Arg("subject") String subject, @Arg("partial") boolean partial);
+    MessageRef holds(@Arg("subject") @Example("smp-world") String subject, @Arg("partial") boolean partial);
 
     @Name("An archive of a volume that left the backup")
     MessageRef left();
@@ -100,7 +101,7 @@ public interface BackupsPage {
     MessageRef unknown();
 
     @Name("A backup's title")
-    MessageRef backup(@Arg("id") String id);
+    MessageRef backup(@Arg("id") @Example("17") String id);
 
     @Name("All backups")
     MessageRef allBackups();
@@ -124,7 +125,7 @@ public interface BackupsPage {
     MessageRef size();
 
     @Name("Download a file")
-    MessageRef downloadFile(@Arg("file") String file);
+    MessageRef downloadFile(@Arg("file") @Example("nordtal-20261020-0400.dump") String file);
 
     @Name("An archive a prune removed")
     MessageRef pruned(@Arg("rule") RunStep.PruneRule rule);

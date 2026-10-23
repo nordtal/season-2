@@ -238,6 +238,46 @@ class MessageBundlesTest {
     }
 
     @Test
+    void anExampleKeyThatNamesItsBundleCarriesTheWordsOfThatKey() throws IOException {
+        writeJar(
+                configs.resolve("proxy/proxy-0.9.1.jar"),
+                Map.of(
+                        "messages/proxy/en.properties",
+                        "restart.countdown.update={what} is being updated in {count} seconds\n",
+                        "messages/proxy/schema.json",
+                        NESTING_SCHEMA.replace("\"restart.what.network\"", "\"restart/restart.what.network\""),
+                        "messages/restart/en.properties",
+                        "restart.what.network=The network\n"));
+        final MessageEntry update = entry(
+                MessageBundles.read(
+                        new MessageBundleLocation("proxy", "proxy", configs.resolve("proxy/proxy-0.9.1.jar"))),
+                "restart.countdown.update");
+
+        assertEquals(Map.of("en", "The network"), update.args().getFirst().exampleWords());
+    }
+
+    @Test
+    void anExampleKeyThatNamesItsBundleIgnoresTheSameKeyInAnotherBundle() throws IOException {
+        writeJar(
+                configs.resolve("proxy/proxy-0.9.1.jar"),
+                Map.of(
+                        "messages/proxy/en.properties",
+                        "restart.countdown.update={what} is being updated in {count} seconds\n",
+                        "messages/proxy/schema.json",
+                        NESTING_SCHEMA.replace("\"restart.what.network\"", "\"restart/restart.what.network\""),
+                        "messages/another/en.properties",
+                        "restart.what.network=Somewhere else\n",
+                        "messages/restart/en.properties",
+                        "restart.what.network=The network\n"));
+        final MessageEntry update = entry(
+                MessageBundles.read(
+                        new MessageBundleLocation("proxy", "proxy", configs.resolve("proxy/proxy-0.9.1.jar"))),
+                "restart.countdown.update");
+
+        assertEquals(Map.of("en", "The network"), update.args().getFirst().exampleWords());
+    }
+
+    @Test
     void aKeyMissingFromTheGermanBundleIsARealGapNotSilentlyFilledWithEnglish() throws IOException {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),

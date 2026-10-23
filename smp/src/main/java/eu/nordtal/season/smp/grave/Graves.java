@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -52,9 +53,9 @@ import org.joml.Vector3f;
  */
 public final class Graves {
 
-    record Left(Duration left) {}
+    record Left(@Example("PT25M") Duration left) {}
 
-    record Experience(int experience) {}
+    record Experience(@Example("30") int experience) {}
 
     static final DocumentSpec<Left> HOLOGRAM =
             DocumentSpec.game("smp", "grave-hologram", "Graves", DocumentSpec.Shape.HOLOGRAM, Left.class);

@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -19,7 +20,7 @@ import org.bukkit.plugin.Plugin;
 
 public final class NavigateListener implements Listener {
 
-    record Arrived(String target) {}
+    record Arrived(@Example("Home") String target) {}
 
     static final DocumentSpec<Arrived> ARRIVED =
             DocumentSpec.game("smp", "navigate-arrived", "Navigate", DocumentSpec.Shape.CHAT, Arrived.class);

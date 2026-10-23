@@ -170,8 +170,11 @@ function backend(
     config?: unknown
     put?: (body: unknown) => Response
     putRuns?: (body: unknown) => Response
-    runs?: unknown[]
+    runs?: { id: number }[]
+    /** The runs only `/api/updates/{id}` answers, as an old one beyond the list's limit. */
+    one?: { id: number }[]
     backups?: unknown[]
+    backupsDown?: boolean
     people?: Person[]
     /** steward-agent has not published its runs group yet. */
     noRuns?: boolean
@@ -209,12 +212,18 @@ function backend(
       return json(200, over.config ?? stewardConfig())
     }
     if (url === "/api/backups") {
+      if (over.backupsDown) return json(500, { error: "The catalogue is not readable." })
       return json(200, over.backups ?? [backup()])
     }
     if (url.startsWith("/api/backups/") && init?.method === "POST") {
       return json(202, { id: 7, kind: "RESTORE", archive: url })
     }
-    if (url.startsWith("/api/updates")) return json(200, over.runs ?? [run()])
+    const one = /^\/api\/updates\/(\d+)$/.exec(url)
+    if (one) {
+      const found = (over.one ?? over.runs ?? [run()]).find((candidate) => String(candidate.id) === one[1])
+      return found ? json(200, found) : json(404, { error: `There is no request ${one[1]}.` })
+    }
+    if (url.startsWith("/api/updates?")) return json(200, over.runs ?? [run()])
     if (url === "/api/schedule") {
       return json(200, { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null })
     }
@@ -251,19 +260,21 @@ function drawDetail(id: string) {
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: BackupRunDetailPage }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
   ])
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [`/operations/backups/${id}`] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return router
 }
 
 afterEach(() => {
@@ -558,7 +569,60 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     vi.stubGlobal("fetch", backend({ runs: [] }))
     drawDetail("999")
 
-    expect(await screen.findByText("No such run")).toBeTruthy()
+    expect(await screen.findByText(/There is no request 999/)).toBeTruthy()
+  })
+
+  it("reads its one run by id, so a run older than the list's limit has its page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [],
+        one: [
+          run({ id: 3, steps: [saving("nordtal-s2_mc-smp", [archive("nordtal-s2_mc-smp-20250101T044500Z.tar.zst")])] }),
+        ],
+        backups: [],
+      }),
+    )
+    drawDetail("3")
+
+    expect(await screen.findByText("nordtal-s2_mc-smp-20250101T044500Z.tar.zst")).toBeTruthy()
+  })
+
+  it("draws a running backup's stages and steps as the update run's page does", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [
+          run({
+            status: "RUNNING",
+            stage: "BACKING_UP",
+            finished: null,
+            steps: [saving("nordtal-s2_mc-smp", [archive("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")])],
+          }),
+        ],
+        backups: [],
+      }),
+    )
+    drawDetail("41")
+
+    const current = await screen.findByText("Backing up", { selector: "[aria-current='step'] *" })
+    expect(current).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Report" })).toBeTruthy()
+    expect(screen.getByText("Save a volume")).toBeTruthy()
+  })
+
+  it("names a failed catalogue in the archives panel instead of waiting on it", async () => {
+    vi.stubGlobal("fetch", backend({ backupsDown: true }))
+    drawDetail("41")
+
+    expect(await screen.findByText(/The catalogue is not readable/)).toBeTruthy()
+  })
+
+  it("sends a run of another kind to its page under Updates", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ kind: "RESTART", steps: [] })], backups: [] }))
+    const router = drawDetail("41")
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/operations/updates/41"))
   })
 })
 

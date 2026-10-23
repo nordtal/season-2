@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
@@ -244,26 +245,49 @@ export function CancelButton({ run }: { run: Run }) {
   )
 }
 
-/**
- * One run, drawn and not dumped, for every kind but BACKUP, which it sends to its page under Backups. `useRun` polls while the run is unfinished, so its steps grow on screen.
- */
+/** The page of one update run. A backup run goes to its page under Backups. */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
+  return (
+    <RunPage
+      id={id}
+      title={t("steward.operations.run", { id })}
+      list={{ to: "/operations/updates", label: t("steward.operations.all-updates") }}
+    />
+  )
+}
+
+/**
+ * One run, drawn and not dumped, under the page of its kind, which `runPath` names; a run of another kind goes to its own page. `useRun` polls while the run is unfinished, so its steps grow on screen.
+ */
+export function RunPage({
+  id,
+  title,
+  list,
+  children,
+}: {
+  id: string
+  title: string
+  /** The page of the kind's runs, which the button leads back to. */
+  list: { to: "/operations/updates" | "/operations/backups"; label: string }
+  /** What the kind adds, drawn before the report. The run is undefined while it loads. */
+  children?: (run: Run | undefined) => ReactNode
+}) {
   const numeric = /^\d+$/.test(id)
   const run = useRun(id, numeric)
 
-  // A Discord card posted earlier can name a backup run under Updates.
-  if (run.data?.kind === "BACKUP") return <Navigate {...runPath(run.data)} replace />
+  // A Discord card or a journal line can name a run under the other kind's page.
+  if (run.data && runPath(run.data).to !== `${list.to}/$id`) return <Navigate {...runPath(run.data)} replace />
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={numeric ? t("steward.operations.run", { id }) : t("steward.operations.a-run")}
+        title={numeric ? title : t("steward.operations.a-run")}
         actions={
           <Button asChild variant="outline">
-            <Link to="/operations/updates">
+            <Link to={list.to}>
               <ArrowRightIcon aria-hidden />
-              {t("steward.operations.all-updates")}
+              {list.label}
             </Link>
           </Button>
         }
@@ -273,13 +297,13 @@ export function UpdateRunPage() {
         <Empty title={t("steward.operations.not-a-number")} />
       ) : (
         /** A missing row arrives as a 404 failure. */
-        <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
+        <QueryState query={run}>{(data) => <RunDetail run={data}>{children?.(data)}</RunDetail>}</QueryState>
       )}
     </div>
   )
 }
 
-function RunDetail({ run }: { run?: Run }) {
+function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
   const stage = run?.stage
   const finished = !run ? false : stage ? ENDINGS.has(stage) : run.status !== "PENDING" && run.status !== "RUNNING"
 
@@ -342,6 +366,8 @@ function RunDetail({ run }: { run?: Run }) {
           <StageTrail stage={stage} kind={run.kind} />
         </Panel>
       ) : null}
+
+      {children}
 
       {!run ? (
         <Panel title={t("steward.operations.report")}>

@@ -357,8 +357,14 @@ export function ObjectiveSheet({
               />
             </div>
           ) : null}
-          <ResponsiveDialogFooter className="flex-row justify-between gap-2">
-            <Button type="button" variant="ghost" disabled={disabled} onClick={() => setAsking(true)}>
+          <ResponsiveDialogFooter>
+            <Button
+              type="button"
+              variant="destructive"
+              className="sm:mr-auto"
+              disabled={disabled}
+              onClick={() => setAsking(true)}
+            >
               <TrashIcon aria-hidden />
               {t("steward.form.remove")}
             </Button>
@@ -374,6 +380,7 @@ export function ObjectiveSheet({
         title={t("steward.game.remove-ask", { name })}
         cancel={t("steward.game.keep")}
         action={t("steward.game.remove-it")}
+        destructive
         act={() => {
           onRemove()
           onClose()

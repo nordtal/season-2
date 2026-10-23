@@ -295,6 +295,7 @@ export function RepeatableCards({
         description={listExplanation ? <span className="whitespace-pre-wrap">{listExplanation}</span> : undefined}
         cancel={t("steward.settings.keep-it")}
         action={t("steward.settings.remove-it")}
+        destructive
         act={() => {
           if (pendingRemoval !== null) onChange(value.filter((_, at) => at !== pendingRemoval))
         }}

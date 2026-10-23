@@ -6,8 +6,9 @@ public enum RunStage {
     /** Asking every source for the newest version: an update's first stage. */
     RESOLVING,
     /**
-     * Every other kind's first stage, and an update's once it is resolved: what the run acts on is known and nothing
-     * has stopped. A backup prunes, checks the room and dumps the database in it.
+     * Every other kind's first stage, and an update's once it is resolved.
+     *
+     * Nothing has stopped yet. A backup prunes, checks the room and dumps the database in it.
      */
     PLANNED,
     /** The countdown runs and can be cancelled. */

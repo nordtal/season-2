@@ -1290,7 +1290,7 @@ export type MessageArg = {
   global: boolean
   example?: string
   action: boolean
-  exampleWords: Record<string, string>
+  takes?: string[]
   exampleValue?: unknown
 }
 

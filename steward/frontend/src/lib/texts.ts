@@ -326,7 +326,7 @@ function shown(value: Typed, style: string | undefined, words?: Words): string {
     case "glyph":
       return ""
     case "message":
-      return message(value.value)
+      return plain(runs(value.value.key, value.value.args ?? {}, words?.texts))
     default:
       return typeof value.value === "boolean" ? word(value.value ? "choice.yes" : "choice.no", {}, words) : value.value
   }

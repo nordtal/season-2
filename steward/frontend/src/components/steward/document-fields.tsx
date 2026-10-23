@@ -191,7 +191,7 @@ function GameVersion({
         onText={onSource}
         format="MINIMESSAGE"
         args={args}
-        fill={fillOf(args, undefined, language, words(language))}
+        fill={fillOf(args, undefined, words(language))}
         tones={syntax.data?.tones ?? {}}
         kinds={syntax.data?.kinds ?? {}}
         label={languageName(language)}
@@ -217,7 +217,6 @@ export function argsOf(values: Record<string, DocumentValue>): MessageArg[] {
     global: name.includes("."),
     example: value.example,
     action: false,
-    exampleWords: {},
     exampleValue: value.exampleValue,
   }))
 }

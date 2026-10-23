@@ -33,6 +33,7 @@ public final class OverrideCheck {
         final Map<String, String> examples = new HashMap<>();
         final Set<String> roles = new HashSet<>();
         final Set<String> actions = new HashSet<>();
+        final Set<String> takesMessages = new HashSet<>();
         for (final MessageArg arg : entry.args()) {
             if (arg.action()) {
                 actions.add(arg.name());
@@ -44,6 +45,9 @@ public final class OverrideCheck {
             }
             if (arg.example() != null) {
                 examples.put(arg.name(), arg.example());
+            }
+            if (arg.takes() != null) {
+                takesMessages.add(arg.name());
             }
             if (!arg.global()) {
                 roles.add(
@@ -63,6 +67,7 @@ public final class OverrideCheck {
                 "MINIMESSAGE".equals(entry.format()),
                 entry.limit(),
                 examples,
+                takesMessages,
                 Display.oneLine(shown));
     }
 }

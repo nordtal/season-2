@@ -91,7 +91,7 @@ export function MessageEditor({
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
   // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
-  const fill = fillOf(entry.args, examples.data, language, words(language))
+  const fill = fillOf(entry.args, examples.data, words(language))
   const sent = sentOf(entry.args, examples.data)
 
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
@@ -113,9 +113,7 @@ export function MessageEditor({
 
   const runs = useMemo(() => parse(text, format, toneTags), [text, format, toneTags])
   const drawn =
-    runs === null
-      ? null
-      : branchesOf(runs, format, toneTags, (name) => exampleOf(name, entry.args, examples.data, language))
+    runs === null ? null : branchesOf(runs, format, toneTags, (name) => exampleOf(name, entry.args, examples.data))
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(path, entry.key, checked)

@@ -31,6 +31,7 @@ class MessageCheckTest {
             true,
             0,
             Map.of("winner.name", "Alex", "n", "3", "reason", "Nordtal"),
+            Set.of(),
             false);
 
     private static List<String> packaged(final String text) {
@@ -135,16 +136,45 @@ class MessageCheckTest {
 
     @Test
     void aTextLongerThanItsDisplayWithTheExamplesFilledInIsRefused() {
-        final Declaration button =
-                new Declaration(Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"), false);
+        final Declaration button = new Declaration(
+                Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"), Set.of(), false);
         assertEquals(List.of(), MessageCheck.errors("Buy {n} now", button, Mode.OVERRIDE));
         refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters, and its place fits");
     }
 
     @Test
+    void aListOfMessagesIsMeasuredByItsMessagesNotByTheirKeys() {
+        // One item, since a longer list measures as its joining message.
+        final Declaration changes = new Declaration(
+                Map.of("changes", Kind.LIST),
+                Set.of("changes"),
+                Set.of(),
+                false,
+                0,
+                Map.of("changes", "admin/run.change-image"),
+                Set.of("changes"),
+                false);
+        final Declaration words = new Declaration(
+                Map.of("changes", Kind.LIST),
+                Set.of("changes"),
+                Set.of(),
+                false,
+                0,
+                Map.of("changes", "........"),
+                Set.of(),
+                false);
+        assertEquals(
+                MessageCheck.shownLength(MessageText.parse("{changes}", false), words),
+                MessageCheck.shownLength(MessageText.parse("{changes}", false), changes));
+        assertEquals(
+                List.of(Kind.MESSAGE.example("admin/run.change-image")),
+                changes.example(Map.of()).get("changes"));
+    }
+
+    @Test
     void aLineBreakWhereTheGameDrawsOneLineIsRefusedInABundleAndAWarningInAnOverride() {
         final Declaration title =
-                new Declaration(Map.of("n", Kind.NUMBER), Set.of(), Set.of(), true, 0, Map.of(), true);
+                new Declaration(Map.of("n", Kind.NUMBER), Set.of(), Set.of(), true, 0, Map.of(), Set.of(), true);
         refused(MessageCheck.errors("first<newline>second", title, Mode.PACKAGED), "one line");
         assertEquals(
                 List.of(false),

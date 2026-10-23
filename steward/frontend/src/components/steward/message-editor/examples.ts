@@ -1,57 +1,37 @@
 import { useMemo } from "react"
 
 import type { MessageArg, MessageExamples } from "@/lib/api"
-import { ENGLISH, type Language, wordsOf } from "@/lib/message-text"
+import { type Language, wordsOf } from "@/lib/message-text"
 import { useMessageTexts } from "@/lib/queries"
 import { valueText, type Words } from "@/lib/texts"
 
 export type Fill = (name: string, style?: string) => string
 
 /**
- * The first that exists wins: the live example for its type, then a nested message's example in the language or in English, then its schema's example read as its kind, then as written, then its name.
+ * The first that exists wins: the live example for its type, then its schema's example read as its kind, then as written, then its name.
  */
-export function exampleOf(
-  name: string,
-  args: MessageArg[],
-  examples: MessageExamples | undefined,
-  language: Language,
-): unknown {
+export function exampleOf(name: string, args: MessageArg[], examples: MessageExamples | undefined): unknown {
   const arg = args.find((candidate) => candidate.name === name)
-  return (
-    liveOf(arg, name, examples) ??
-    arg?.exampleWords[language] ??
-    arg?.exampleWords[ENGLISH] ??
-    arg?.exampleValue ??
-    arg?.example ??
-    name
-  )
+  return liveOf(arg, name, examples) ?? arg?.exampleValue ?? arg?.example ?? name
 }
 
 /** Draws each value's example as the game and the bot render its kind, in `words` where they are known. */
-export function fillOf(
-  args: MessageArg[],
-  examples: MessageExamples | undefined,
-  language: Language,
-  words?: Words,
-): Fill {
-  return (name, style) => valueText(exampleOf(name, args, examples, language), style, words)
+export function fillOf(args: MessageArg[], examples: MessageExamples | undefined, words?: Words): Fill {
+  return (name, style) => valueText(exampleOf(name, args, examples), style, words)
 }
 
-/** Returns the words a preview writes values in, by its language, once Steward's texts have arrived. */
+/** Returns the words a preview writes values and nested messages in, by its language, once Steward's texts have arrived. */
 export function useWords(): (language: Language) => Words | undefined {
   const { data } = useMessageTexts()
-  const values = useMemo(
-    () => data?.texts.map((text) => text.entry).filter((entry) => entry.bundle === "values"),
-    [data],
-  )
+  const entries = useMemo(() => data?.texts.map((text) => text.entry), [data])
   const known = useMemo(
     () =>
       new Map(
-        values === undefined ? [] : (data?.languages ?? []).map((language) => [language, wordsOf(values, language)]),
+        entries === undefined ? [] : (data?.languages ?? []).map((language) => [language, wordsOf(entries, language)]),
       ),
-    [data, values],
+    [data, entries],
   )
-  return (language) => known.get(language) ?? (values === undefined ? undefined : wordsOf(values, language))
+  return (language) => known.get(language) ?? (entries === undefined ? undefined : wordsOf(entries, language))
 }
 
 /** The server renders each example itself, so it is sent as written: a nested message as its key. */

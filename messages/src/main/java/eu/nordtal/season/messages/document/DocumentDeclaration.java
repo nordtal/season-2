@@ -5,6 +5,7 @@ import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Kind;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,11 +80,15 @@ public record DocumentDeclaration(
         all.putAll(item);
         final Map<String, Kind> kinds = new HashMap<>();
         final Map<String, String> examples = new HashMap<>();
+        final Set<String> takesMessages = new HashSet<>();
         all.forEach((name, value) -> {
             kinds.put(name, Kind.byToken(value.kind()).orElse(Kind.TEXT));
             examples.put(name, value.example());
+            if (value.takes() != null) {
+                takesMessages.add(name);
+            }
         });
-        return new Declaration(kinds, Set.of(), Set.of(), markup, limit, examples, oneLine);
+        return new Declaration(kinds, Set.of(), Set.of(), markup, limit, examples, takesMessages, oneLine);
     }
 
     public Map<String, Kind> kinds(final Map<String, Value> item) {

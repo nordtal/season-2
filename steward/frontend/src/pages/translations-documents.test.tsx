@@ -505,6 +505,38 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(within(toolbar).getByRole("button", { name: "As it looks" })).toBeTruthy()
   })
 
+  it("offers a menu item line's condition the item's own values beside the document's", async () => {
+    const grave = view(
+      {
+        namespace: "smp",
+        name: "grave",
+        area: "Graves",
+        shape: "MENU",
+        values: { loot: { kind: "number", example: "3" } },
+        slots: [{ id: "owner", type: "ITEM", required: true, values: { known: { kind: "boolean", example: "true" } } }],
+      },
+      { parts: [{ type: "ITEM", slot: "owner", lines: [{ text: { en: "Owner" }, when: "known" }] }] },
+      { game: true, services: ["smp"], named: { loot: { kind: "number", example: "3" } } },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([grave]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Graves")
+    within(await screen.findByRole("article", { name: "Grave" }))
+      .getByRole("button", { name: "Grave" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Grave" })
+    if (!within(editor).queryByText("Line shown when")) {
+      fireEvent.click(within(editor).getByRole("button", { expanded: false, name: /Item/ }))
+    }
+    const [mode, value] = within(editor).getAllByRole("combobox", { name: "Line shown when" })
+    expect(mode.textContent).toBe("is set")
+    expect(value.textContent).toBe("known")
+    fireEvent.keyDown(value, { key: "Enter" })
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["loot", "known"])
+  })
+
   it("shows a game draft as it stands to the admin's player in game", async () => {
     const asked: unknown[] = []
     vi.stubGlobal(

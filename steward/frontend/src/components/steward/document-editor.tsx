@@ -515,7 +515,7 @@ function LineEditor({
           </Select>
         )}
         <span className="flex-1" />
-        <WhenField view={view} of="LINE" when={line.when} onWhen={(when) => onLine({ ...line, when })} />
+        <WhenField view={view} of="LINE" values={entry} when={line.when} onWhen={(when) => onLine({ ...line, when })} />
         {removable ? (
           <IconButton label={t("steward.document-editor.remove")} onPress={() => onLine(undefined)}>
             <TrashIcon aria-hidden />

@@ -287,17 +287,20 @@ function Version({
 export function WhenField({
   view,
   of = "ITEM",
+  values,
   when,
   onWhen,
 }: {
   view: DocumentView
   /** What the condition shows, named beside it, since a part's and its line's conditions stand one under the other. */
   of?: "PART" | "LINE" | "ITEM"
+  /** A menu item's or label's own values, which its lines' conditions may name too. */
+  values?: Record<string, DocumentValue>
   when: string | undefined
   onWhen: (when: string | undefined) => void
 }) {
   const read = readWhen(when)
-  const names = Object.keys(view.named)
+  const names = Object.keys({ ...view.named, ...values })
   const first = names[0]
   if (first === undefined) return null
   const value = read.mode === "ALWAYS" ? first : read.value
@@ -318,7 +321,7 @@ export function WhenField({
           )
         }
       >
-        <SelectTrigger size="sm" aria-label={label} className="w-24">
+        <SelectTrigger size="sm" aria-label={label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

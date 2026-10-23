@@ -76,13 +76,13 @@ public final class UpdateFeed {
             @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
             MessageRef by,
 
-            @Nullable Duration took) {}
+            @Nullable @Example("PT4M30S") Duration took) {}
 
     record Service(
             @Example(Mark.PREVIEW) String mark,
             @Example("smp") String service,
             @Takes("admin/run.step-kind") MessageRef state,
-            List<MessageRef> changes) {}
+            @Example("admin/run.no-build") List<MessageRef> changes) {}
 
     record Failure(
             boolean named,

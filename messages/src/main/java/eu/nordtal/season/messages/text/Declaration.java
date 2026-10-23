@@ -38,7 +38,7 @@ public record Declaration(
 
     /**
      * Returns a typed value for each placeholder of the message's own arguments, as an editor shows them.
-     * The value is the one {@code given}, else the declared example, else the kind's. A placeholder none of them
+     * The value is the one {@code given}, else the declared example. A placeholder neither of them
      * parses is left out, as is every global.
      */
     public Map<String, Object> example(final Map<String, String> given) {
@@ -49,7 +49,7 @@ public record Declaration(
             if (!roles.contains(dot < 0 ? name : name.substring(0, dot))) {
                 continue;
             }
-            final List<String> candidates = new ArrayList<>(3);
+            final List<String> candidates = new ArrayList<>(2);
             final String typed = given.get(name);
             if (typed != null) {
                 candidates.add(typed);
@@ -58,7 +58,6 @@ public record Declaration(
             if (declared != null) {
                 candidates.add(declared);
             }
-            candidates.add(value.getValue().defaultExample());
             for (final String candidate : candidates) {
                 try {
                     args.put(name, value.getValue().example(candidate));

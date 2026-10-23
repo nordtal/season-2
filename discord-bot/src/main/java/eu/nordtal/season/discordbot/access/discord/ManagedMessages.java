@@ -19,9 +19,9 @@ import org.jdbi.v3.core.Jdbi;
 public final class ManagedMessages {
 
     /** @param amount the donation that gives the donor role */
-    record Contribution(Money amount) {}
+    record Contribution(@Example("500") Money amount) {}
 
-    record Tier(@Example("30") long days, Money price) {}
+    record Tier(@Example("30") long days, @Example("500") Money price) {}
 
     static final DocumentSpec<Contribution> CONTRIBUTION = DocumentSpec.message(
             StoredDocuments.NAMESPACE,

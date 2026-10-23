@@ -82,8 +82,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("\\n**€3.00** 30 days\""), drawn);
-        assertTrue(drawn.contains("+€3.00 →"), drawn);
+        assertTrue(drawn.contains("\\n**€5.00** 30 days\""), drawn);
+        assertTrue(drawn.contains("+€5.00 →"), drawn);
     }
 
     /** The preview once drew a message's example as its key, admin/run.no-build. */

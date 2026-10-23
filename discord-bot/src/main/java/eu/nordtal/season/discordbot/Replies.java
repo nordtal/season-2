@@ -24,20 +24,27 @@ public final class Replies {
 
     public record Answer(DiscordMemberContext player, TeamContext team) {}
 
-    public record Until(Instant until) {}
+    public record Until(@Example("2026-11-22T18:00:00Z") Instant until) {}
 
-    public record Paid(Money paid, @Example("30") long days, Instant until) {}
+    public record Paid(
+            @Example("500") Money paid,
+            @Example("30") long days,
+            @Example("2026-11-22T18:00:00Z") Instant until) {}
 
-    public record Given(@Example("30") long days, Instant until) {}
+    public record Given(
+            @Example("30") long days,
+            @Example("2026-11-22T18:00:00Z") Instant until) {}
 
     /** @param channel the contribution channel, empty where the language has none */
     public record Reminder(
-            Instant until, @Example("#contribution") String channel) {}
+            @Example("2026-11-22T18:00:00Z") Instant until,
+            @Example("#contribution") String channel) {}
 
     /** @param channel the contribution channel, empty where the language has none */
     public record Ended(@Example("#contribution") String channel) {}
 
-    public record Donated(DiscordMemberContext user, Money amount) {}
+    public record Donated(
+            DiscordMemberContext user, @Example("500") Money amount) {}
 
     public static final DocumentSpec<DocumentSpec.None> PURCHASE_PENDING = reply("purchase-pending", "Purchase");
     public static final DocumentSpec<Refused> PURCHASE_REFUSED = reply("purchase-refused", "Purchase", Refused.class);

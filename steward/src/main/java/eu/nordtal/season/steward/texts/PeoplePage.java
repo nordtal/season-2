@@ -7,6 +7,7 @@ import eu.nordtal.season.database.mode.ModeStateStore.Status;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -45,16 +46,16 @@ public interface PeoplePage {
     MessageRef online();
 
     @Name("Seen at")
-    MessageRef seenAt(@Arg("at") Instant at);
+    MessageRef seenAt(@Arg("at") @Example("2026-10-23T16:00:00Z") Instant at);
 
     @Name("Never seen")
     MessageRef neverSeen();
 
     @Name("Active until")
-    MessageRef activeUntil(@Arg("until") Instant until);
+    MessageRef activeUntil(@Arg("until") @Example("2026-11-22T00:00:00Z") Instant until);
 
     @Name("Exact time tip")
-    MessageRef exactTip(@Arg("at") Instant at);
+    MessageRef exactTip(@Arg("at") @Example("2026-10-23T16:00:00Z") Instant at);
 
     @Name("Never")
     MessageRef never();
@@ -63,10 +64,10 @@ public interface PeoplePage {
     MessageRef noAccess();
 
     @Name("No access tip")
-    MessageRef noAccessTip(@Arg("until") Instant until);
+    MessageRef noAccessTip(@Arg("until") @Example("2026-11-22T00:00:00Z") Instant until);
 
     @Name("Expired")
-    MessageRef expired(@Arg("at") Instant at);
+    MessageRef expired(@Arg("at") @Example("2026-10-01T00:00:00Z") Instant at);
 
     @Name("Not linked")
     MessageRef notLinked();
@@ -111,25 +112,28 @@ public interface PeoplePage {
     MessageRef rootAdmin();
 
     @Name("Granted by")
-    MessageRef grantedBy(@Arg("name") String name);
+    MessageRef grantedBy(@Arg("name") @Example("Kim") String name);
 
     @Name("No resource pack")
     MessageRef noPack();
 
     @Name("No resource pack tip")
-    MessageRef noPackTip(@Arg("by") String by, @Arg("at") Instant at);
+    MessageRef noPackTip(@Arg("by") @Example("Kim") String by, @Arg("at") @Example("2026-10-20T09:30:00Z") Instant at);
 
     @Name("Some admin")
     MessageRef someAdmin();
 
     @Name("Actions for")
-    MessageRef actionsFor(@Arg("name") String name);
+    MessageRef actionsFor(@Arg("name") @Example("Alex") String name);
 
     @Name("Count")
-    MessageRef count(@Arg("count") int count);
+    MessageRef count(@Arg("count") @Example("120") int count);
 
     @Name("Range")
-    MessageRef range(@Arg("from") int from, @Arg("to") int to, @Arg("total") int total);
+    MessageRef range(
+            @Arg("from") @Example("1") int from,
+            @Arg("to") @Example("50") int to,
+            @Arg("total") @Example("120") int total);
 
     @Name("Previous")
     MessageRef previous();
@@ -165,10 +169,10 @@ public interface PeoplePage {
     MessageRef source(@Arg("source") AccessSource source);
 
     @Name("Revoked")
-    MessageRef revoked(@Arg("at") Instant at);
+    MessageRef revoked(@Arg("at") @Example("2026-10-20T09:30:00Z") Instant at);
 
     @Name("Begins")
-    MessageRef begins(@Arg("at") Instant at);
+    MessageRef begins(@Arg("at") @Example("2026-10-31T18:00:00Z") Instant at);
 
     @Name("Running")
     MessageRef running();
@@ -180,43 +184,43 @@ public interface PeoplePage {
     MessageRef grantAccess();
 
     @Name("Grant title")
-    MessageRef grantTitle(@Arg("name") String name);
+    MessageRef grantTitle(@Arg("name") @Example("Alex") String name);
 
     @Name("Granted")
     MessageRef granted();
 
     @Name("Valid until")
-    MessageRef validUntil(@Arg("until") Instant until);
+    MessageRef validUntil(@Arg("until") @Example("2026-11-22T00:00:00Z") Instant until);
 
     @Name("Most days")
-    MessageRef mostDays(@Arg("most") int most);
+    MessageRef mostDays(@Arg("most") @Example("365") int most);
 
     @Name("Play time title")
     MessageRef playtimeTitle();
 
     @Name("Play time set")
-    MessageRef playtimeSet(@Arg("name") String name);
+    MessageRef playtimeSet(@Arg("name") @Example("Alex") String name);
 
     @Name("Play time from")
-    MessageRef playtimeFrom(@Arg("time") Duration time);
+    MessageRef playtimeFrom(@Arg("time") @Example("PT12H5M") Duration time);
 
     @Name("Aura title")
     MessageRef auraTitle();
 
     @Name("Aura set")
-    MessageRef auraSet(@Arg("name") String name, @Arg("aura") int aura);
+    MessageRef auraSet(@Arg("name") @Example("Alex") String name, @Arg("aura") @Example("250") int aura);
 
     @Name("Aura now")
-    MessageRef auraNow(@Arg("aura") int aura);
+    MessageRef auraNow(@Arg("aura") @Example("250") int aura);
 
     @Name("Spins title")
     MessageRef spinsTitle();
 
     @Name("Spins set")
-    MessageRef spinsSet(@Arg("name") String name, @Arg("spins") int spins);
+    MessageRef spinsSet(@Arg("name") @Example("Alex") String name, @Arg("spins") @Example("3") int spins);
 
     @Name("Spins now")
-    MessageRef spinsNow(@Arg("spins") int spins);
+    MessageRef spinsNow(@Arg("spins") @Example("3") int spins);
 
     @Name("Hours")
     MessageRef hours();
@@ -226,7 +230,9 @@ public interface PeoplePage {
 
     @Name("Counted")
     MessageRef counted(
-            @Arg("counted") Duration counted, @Arg("becoming") Duration becoming, @Arg("usable") boolean usable);
+            @Arg("counted") @Example("PT1H40M") Duration counted,
+            @Arg("becoming") @Example("PT2H") Duration becoming,
+            @Arg("usable") boolean usable);
 
     @Name("Unlink title")
     MessageRef unlinkTitle();
@@ -241,25 +247,25 @@ public interface PeoplePage {
     MessageRef unlinked();
 
     @Name("Pack title")
-    MessageRef packTitle(@Arg("exempted") boolean exempted, @Arg("name") String name);
+    MessageRef packTitle(@Arg("exempted") boolean exempted, @Arg("name") @Example("Alex") String name);
 
     @Name("Pack changed")
     MessageRef packChanged(@Arg("exempted") boolean exempted);
 
     @Name("Make admin title")
-    MessageRef makeAdminTitle(@Arg("name") String name);
+    MessageRef makeAdminTitle(@Arg("name") @Example("Alex") String name);
 
     @Name("Revoke admin title")
-    MessageRef revokeAdminTitle(@Arg("name") String name);
+    MessageRef revokeAdminTitle(@Arg("name") @Example("Alex") String name);
 
     @Name("Revoke admin note")
-    MessageRef revokeAdminNote(@Arg("branch") int branch);
+    MessageRef revokeAdminNote(@Arg("branch") @Example("1") int branch);
 
     @Name("No longer admin")
     MessageRef noLongerAdmin();
 
     @Name("Below too")
-    MessageRef belowToo(@Arg("count") int count);
+    MessageRef belowToo(@Arg("count") @Example("2") int count);
 
     @Name("Revoke title")
     MessageRef revokeTitle();
@@ -274,7 +280,7 @@ public interface PeoplePage {
     MessageRef noneRunning();
 
     @Name("Revoked for")
-    MessageRef revokedFor(@Arg("count") int count);
+    MessageRef revokedFor(@Arg("count") @Example("2") int count);
 
     @Name("Thrown out")
     MessageRef thrownOut();
@@ -292,13 +298,13 @@ public interface PeoplePage {
     MessageRef noEntry();
 
     @Name("Linked at")
-    MessageRef linkedAt(@Arg("at") Instant at);
+    MessageRef linkedAt(@Arg("at") @Example("2026-10-01T12:00:00Z") Instant at);
 
     @Name("Language")
     MessageRef language();
 
     @Name("Last changed")
-    MessageRef lastChanged(@Arg("at") Instant at);
+    MessageRef lastChanged(@Arg("at") @Example("2026-10-21T18:40:00Z") Instant at);
 
     @Name("No period")
     MessageRef noPeriod();
@@ -331,10 +337,10 @@ public interface PeoplePage {
     MessageRef mode(@Arg("mode") Mode mode);
 
     @Name("Inventory status")
-    MessageRef inventoryStatus(@Arg("status") Status status, @Arg("server") String server);
+    MessageRef inventoryStatus(@Arg("status") Status status, @Arg("server") @Example("smp") String server);
 
     @Name("Level")
-    MessageRef level(@Arg("level") int level);
+    MessageRef level(@Arg("level") @Example("30") int level);
 
     @Name("Armour and offhand")
     MessageRef armour();
@@ -349,14 +355,14 @@ public interface PeoplePage {
     MessageRef enderChest();
 
     @Name("Stack")
-    MessageRef stack(@Arg("item") String item, @Arg("amount") int amount);
+    MessageRef stack(@Arg("item") @Example("Diamond") String item, @Arg("amount") @Example("16") int amount);
 
     @Name("Remove stack")
-    MessageRef removeStack(@Arg("item") String item, @Arg("amount") int amount);
+    MessageRef removeStack(@Arg("item") @Example("Diamond") String item, @Arg("amount") @Example("16") int amount);
 
     @Name("Remove stack loss")
-    MessageRef removeStackLoss(@Arg("server") String server);
+    MessageRef removeStackLoss(@Arg("server") @Example("smp") String server);
 
     @Name("Stack removed")
-    MessageRef stackRemoved(@Arg("item") String item, @Arg("amount") int amount);
+    MessageRef stackRemoved(@Arg("item") @Example("Diamond") String item, @Arg("amount") @Example("16") int amount);
 }

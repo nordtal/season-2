@@ -58,7 +58,7 @@ public final class AdminLog {
             @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
             MessageRef concerns,
 
-            @Nullable String minecraft) {}
+            @Nullable @Example("Red_Fox") String minecraft) {}
 
     record Card(
             @Example(Mark.PREVIEW) String mark,
@@ -66,7 +66,7 @@ public final class AdminLog {
             @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
             MessageRef title) {}
 
-    record Pinged(Mention admin) {}
+    record Pinged(@Example("Kim") Mention admin) {}
 
     record Detail(
             @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")

@@ -22,45 +22,46 @@ import org.jspecify.annotations.Nullable;
 public enum Kind {
 
     /** Words as written, never markup. */
-    TEXT("text", "Nordtal"),
+    TEXT("text"),
 
     /** A number, grouped as the reader's language groups it unless the style is {@code plain}. */
-    NUMBER("number", "3"),
+    NUMBER("number"),
 
     /** A length of time: {@code long} by default, {@code short} as {@code 2h 5m}, {@code clock} as {@code 2:05:00}. */
-    DURATION("duration", "PT2H5M"),
+    DURATION("duration"),
 
     /** A moment in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}.
      * {@code relative} is Discord's countdown.
      * Every other target shows it as {@code datetime}.
      */
-    INSTANT("instant", "2026-10-03T18:40:00Z"),
+    INSTANT("instant"),
 
     /** An amount of money in the reader's language. */
-    MONEY("money", "300"),
+    MONEY("money"),
 
     /** Several values joined with {@code and}, or with {@code or} under that style. */
-    LIST("list", "Alex,Sam,Kim"),
+    LIST("list"),
 
     /** A player's name, with their hover card in Minecraft unless the style is {@code plain}. */
-    DISPLAY_NAME("name", "Alex"),
+    DISPLAY_NAME("name"),
 
     /** A Discord member. */
-    MENTION("mention", "Alex"),
+    MENTION("mention"),
 
     /** An item, advancement or entity of the game. */
-    ITEM("item", "item.minecraft.diamond"),
+    ITEM("item"),
 
     /** A glyph of the resource pack. */
-    GLYPH("glyph", "admin"),
+    GLYPH("glyph"),
 
     /** Yes or no, or one of a fixed set of states. {@code select} chooses on it. */
-    CHOICE("choice", "true"),
+    CHOICE("choice"),
 
     /** Another message, rendered for the same reader in the same target.
      * An editor writes it as the key of a message without values, as {@code bundle/key} or as the key alone.
+     * An example of a message that needs values, such as a size, is written as its words, which show as written.
      */
-    MESSAGE("message", "values.missing.text");
+    MESSAGE("message");
 
     private static final PlayerId EXAMPLE_PLAYER = PlayerId.of(new UUID(0L, 1L));
 
@@ -75,11 +76,9 @@ public enum Kind {
             MessageRef.class, MESSAGE);
 
     private final String token;
-    private final String example;
 
-    Kind(final String token, final String example) {
+    Kind(final String token) {
         this.token = token;
-        this.example = example;
     }
 
     /** Returns how a text names the kind, such as {@code duration}. */
@@ -98,9 +97,15 @@ public enum Kind {
         };
     }
 
-    /** Returns the example an attribute without its own example shows. */
-    public String defaultExample() {
-        return example;
+    /** Returns the values a {@code select} tells apart: enum constants, else true and false, else none. */
+    public static List<String> choices(final Class<?> type) {
+        if (type == boolean.class || type == Boolean.class) {
+            return List.of("true", "false");
+        }
+        final Object[] constants = type.getEnumConstants();
+        return constants == null
+                ? List.of()
+                : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
     public static Optional<Kind> byToken(final String token) {

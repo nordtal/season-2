@@ -27,7 +27,7 @@ public final class Replies {
     public record PrivateLine(
             @Example("🇬🇧") String flag,
             PlayerContext partner,
-            String admin,
+            @Example("Kim") String admin,
             @Example("See you at spawn") String message) {}
 
     public static final DocumentSpec<DocumentSpec.None> NOT_FROM_CONSOLE =

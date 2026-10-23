@@ -20,6 +20,7 @@ import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.DisplayName;
+import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,7 +36,7 @@ class MessageSpecsTest {
     interface TestMessages {
 
         @Name("Greeting")
-        MessageRef greeting(@Arg("player") String player);
+        MessageRef greeting(@Arg("player") @Example("Alex") String player);
 
         @Name("Duel")
         Duel duel();
@@ -49,7 +50,7 @@ class MessageSpecsTest {
         interface Duel {
 
             @Name("Won")
-            MessageRef won(@Arg("opponent") String opponent);
+            MessageRef won(@Arg("opponent") @Example("Sam") String opponent);
 
             @Name("Lost")
             MessageRef lost();
@@ -91,7 +92,9 @@ class MessageSpecsTest {
         interface Chat {
 
             @Name("Line")
-            MessageRef line(@Arg("sender") DisplayName sender, @Arg("message") String message);
+            MessageRef line(
+                    @Arg("sender") @Example("Alex") DisplayName sender,
+                    @Arg("message") @Example("See you at spawn") String message);
         }
     }
 
@@ -137,12 +140,12 @@ class MessageSpecsTest {
         assertEquals(
                 List.of(
                         new MessageSchema.Arg("sender", "name", null, "Alex", false),
-                        new MessageSchema.Arg("message", "text", null, "Nordtal", false)),
+                        new MessageSchema.Arg("message", "text", null, "See you at spawn", false)),
                 entries.get(8).args());
         assertTrue(MessageSchema.json(TestMessages.class)
                 .contains(
                         "{\"key\":\"greeting\",\"name\":\"Greeting\",\"args\":[{\"name\":\"player\",\"kind\":\"text\","
-                                + "\"example\":\"Nordtal\",\"action\":false}],"
+                                + "\"example\":\"Alex\",\"action\":false}],"
                                 + "\"section\":[],\"format\":\"MINIMESSAGE\",\"shown\":[\"CHAT\"]}"));
     }
 
@@ -170,15 +173,15 @@ class MessageSpecsTest {
     @Shown(Display.CHAT)
     interface Drifted {
 
-        MessageRef greeting(@Arg("name") String player);
+        MessageRef greeting(@Arg("name") @Example("Alex") String player);
 
         @Name("Lost")
         @Key("duel.lost")
-        MessageRef lost(@Arg("opponent") String opponent);
+        MessageRef lost(@Arg("opponent") @Example("Sam") String opponent);
 
         @Name("Chat line")
         @Key("chat.line")
-        MessageRef line(@Arg("sender") DisplayName sender, @Arg("other") String other);
+        MessageRef line(@Arg("sender") @Example("Alex") DisplayName sender, @Arg("other") @Example("Kim") String other);
     }
 
     @Test

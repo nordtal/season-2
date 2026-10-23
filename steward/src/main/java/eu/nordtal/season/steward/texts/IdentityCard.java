@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The texts of the two accounts of a person, collapsed and in the popover. */
 @Name("Identity")
@@ -36,7 +37,7 @@ public interface IdentityCard {
     MessageRef noMinecraft();
 
     @Name("Copy")
-    MessageRef copy(@Arg("what") String what);
+    MessageRef copy(@Arg("what") @Example("Discord ID") String what);
 
     @Name("Open person")
     MessageRef openPerson();

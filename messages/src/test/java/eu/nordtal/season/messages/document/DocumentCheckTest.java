@@ -16,9 +16,9 @@ class DocumentCheckTest {
         CLOSED
     }
 
-    record Summary(@Example("30") long days, Money price, boolean donating, Phase phase) {}
+    record Summary(@Example("30") long days, @Example("300") Money price, boolean donating, Phase phase) {}
 
-    record Tier(long days, Money price) {}
+    record Tier(@Example("30") long days, @Example("300") Money price) {}
 
     static final DocumentSpec<Summary> SUMMARY = DocumentSpec.message(
             "test",
@@ -40,11 +40,11 @@ class DocumentCheckTest {
               {"type": "ROW", "items": [{"slot": "confirm", "label": {"en": "Pay", "de": "Bezahlen"}}]}]}
             """;
 
-    record Wheel(long spins) {}
+    record Wheel(@Example("3") long spins) {}
 
-    record Target(String target, boolean active) {}
+    record Target(@Example("Harbour") String target, boolean active) {}
 
-    record Wanted(String item) {}
+    record Wanted(@Example("Diamond") String item) {}
 
     static final DocumentSpec<Wheel> MENU = DocumentSpec.menu(
             "test",

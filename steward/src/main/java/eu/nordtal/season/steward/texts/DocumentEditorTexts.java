@@ -4,6 +4,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The texts of the editor that opens beside a Discord document's card on the Translations page. */
 @Name("Document editor")
@@ -16,7 +17,7 @@ public interface DocumentEditorTexts {
     MessageRef add();
 
     @Name("A slot the code fills")
-    MessageRef slot(@Arg("slot") String slot);
+    MessageRef slot(@Arg("slot") @Example("welcome") String slot);
 
     @Name("Code mark")
     MessageRef code();
@@ -85,7 +86,7 @@ public interface DocumentEditorTexts {
     MessageRef language();
 
     @Name("Component count")
-    MessageRef components(@Arg("count") int count, @Arg("most") int most);
+    MessageRef components(@Arg("count") @Example("12") int count, @Arg("most") @Example("40") int most);
 
     @Name("Changed by an admin")
     MessageRef changed();
@@ -109,7 +110,7 @@ public interface DocumentEditorTexts {
     MessageRef discard();
 
     @Name("Saved")
-    MessageRef saved(@Arg("document") String document);
+    MessageRef saved(@Arg("document") @Example("rules") String document);
 
     @Name("Close")
     MessageRef close();
@@ -124,10 +125,10 @@ public interface DocumentEditorTexts {
     MessageRef live();
 
     @Name("Shared part mark")
-    MessageRef sharedPart(@Arg("name") String name);
+    MessageRef sharedPart(@Arg("name") @Example("footer") String name);
 
     @Name("Copy differs from its shared part")
-    MessageRef sharedPartDiffers(@Arg("name") String name);
+    MessageRef sharedPartDiffers(@Arg("name") @Example("footer") String name);
 
     @Name("Shared part menu")
     MessageRef sharedPartMenu();
@@ -136,13 +137,13 @@ public interface DocumentEditorTexts {
     MessageRef saveSharedPart();
 
     @Name("Update a shared part")
-    MessageRef updateSharedPart(@Arg("name") String name);
+    MessageRef updateSharedPart(@Arg("name") @Example("footer") String name);
 
     @Name("Detach from a shared part")
     MessageRef detachSharedPart();
 
     @Name("Insert a shared part")
-    MessageRef insertSharedPart(@Arg("name") String name);
+    MessageRef insertSharedPart(@Arg("name") @Example("footer") String name);
 
     @Name("Shared part name")
     MessageRef sharedPartName();
@@ -151,7 +152,7 @@ public interface DocumentEditorTexts {
     MessageRef sharedPartNameRule();
 
     @Name("Shared part exists")
-    MessageRef sharedPartExists(@Arg("name") String name);
+    MessageRef sharedPartExists(@Arg("name") @Example("footer") String name);
 
     @Name("Shared part unused")
     MessageRef sharedPartUnused();
@@ -160,7 +161,7 @@ public interface DocumentEditorTexts {
     MessageRef beforeAfter(@Arg("state") State state);
 
     @Name("Shared part saved")
-    MessageRef sharedPartSaved(@Arg("name") String name, @Arg("deleted") boolean deleted);
+    MessageRef sharedPartSaved(@Arg("name") @Example("footer") String name, @Arg("deleted") boolean deleted);
 
     @Name("Delete a shared part")
     MessageRef deleteSharedPart();

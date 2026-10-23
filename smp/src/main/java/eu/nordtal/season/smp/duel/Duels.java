@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -48,10 +49,10 @@ public final class Duels implements Arenas {
     }
 
     /** An interrupted duel moves no aura and shows no title. */
-    record Result(Outcome outcome, int aura) {}
+    record Result(Outcome outcome, @Example("25") int aura) {}
 
     /** The beat at zero seconds is the start of the fight. */
-    record Countdown(long seconds) {}
+    record Countdown(@Example("5") long seconds) {}
 
     static final DocumentSpec<DocumentSpec.None> WAITING =
             DocumentSpec.game("smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT);

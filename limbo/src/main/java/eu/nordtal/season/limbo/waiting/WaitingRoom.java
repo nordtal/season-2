@@ -7,6 +7,7 @@ import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -30,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 public final class WaitingRoom {
 
     /** How far the running update is; {@code counted} is false when the proxy sent no number. */
-    record Progress(boolean counted, long percent) {}
+    record Progress(boolean counted, @Example("75") long percent) {}
 
     static final DocumentSpec<DocumentSpec.None> PACK = screen("resource-pack");
     static final DocumentSpec<DocumentSpec.None> BACKEND = screen("server-not-up");

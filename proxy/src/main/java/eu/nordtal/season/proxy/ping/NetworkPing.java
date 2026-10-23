@@ -7,6 +7,7 @@ import com.velocitypowered.api.proxy.server.ServerPing;
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.proxy.launch.LaunchCountdown;
 import eu.nordtal.season.proxy.phase.PhaseWatch;
 import eu.nordtal.season.settings.network.PlayersSpec;
@@ -22,9 +23,9 @@ public final class NetworkPing {
             SeasonPhase phase,
             ServerListContext list,
             LaunchCountdown.Stage countdown,
-            long days,
-            long hours,
-            long minutes) {}
+            @Example("2") long days,
+            @Example("5") long hours,
+            @Example("40") long minutes) {}
 
     static final DocumentSpec<ServerList> SERVER_LIST =
             DocumentSpec.game("proxy", "server-list", "Server list", DocumentSpec.Shape.SERVER_LIST, ServerList.class);

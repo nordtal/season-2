@@ -15,6 +15,7 @@ import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Clock;
@@ -42,7 +43,7 @@ public final class HungerGamesManager {
     private static final CountdownPlan COUNTDOWN =
             CountdownPlan.at(60, 30, 20, 10, 5, 4, 3, 2, 1).fromTheStart();
 
-    record Seconds(long seconds) {}
+    record Seconds(@Example("10") long seconds) {}
 
     record Demoted(TeamContext team) {}
 

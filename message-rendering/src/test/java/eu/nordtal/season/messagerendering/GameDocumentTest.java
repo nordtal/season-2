@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
@@ -19,11 +20,11 @@ import org.junit.jupiter.api.Test;
 
 class GameDocumentTest {
 
-    record Wheel(long spins) {}
+    record Wheel(@Example("3") long spins) {}
 
-    record Target(String target, boolean active) {}
+    record Target(@Example("Harbour") String target, boolean active) {}
 
-    record Wanted(String item) {}
+    record Wanted(@Example("Diamond") String item) {}
 
     private static final Documents.Packaged MENU = new Documents.Packaged(
             DocumentSpec.menu(
@@ -46,7 +47,7 @@ class GameDocumentTest {
                       {"type": "LABEL", "slot": "left", "lines": [{"text": {"en": "{spins} left", "de": "{spins} übrig"}}]}]}
                     """));
 
-    record Online(long online, boolean full) {}
+    record Online(@Example("12") long online, boolean full) {}
 
     private static final DocumentSpec<Online> FOOTER =
             DocumentSpec.game("test", "footer", "Tab list", DocumentSpec.Shape.TAB_LIST, Online.class);
@@ -132,7 +133,7 @@ class GameDocumentTest {
         assertEquals("wait here", plain(shown.subtitle()));
     }
 
-    record Refill(Duration time, boolean pending) {}
+    record Refill(@Example("PT2M") Duration time, boolean pending) {}
 
     @Test
     void aBossBarIsItsShownLinesAsPlainTextOnOneLine() {

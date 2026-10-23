@@ -100,24 +100,24 @@ final class JdbiRunRecorder implements RunRecorder {
         return facts;
     }
 
-    /** Writes the stage of the report on the row of the run. */
+    /** Writes the stage of the report on the row of the run, on any schema since the column came. */
     void stage(final long run, final UpdateReport.Stage stage) {
-        when(() -> dao.stage(run, stage.name()));
+        dao.stage(run, stage.name());
     }
 
     /** Sets the stage of every failed run to {@code FAILED}. */
     void failedStages() {
-        when(dao::failedStages);
+        dao.failedStages();
     }
 
     /** Writes the services that a request names as not moving. */
     void named(final long run, final List<String> services) {
-        when(() -> dao.named(run, services.toArray(String[]::new)));
+        dao.named(run, services.toArray(String[]::new));
     }
 
     /** Marks the services that a run stops as moving. */
     void moving(final long run, final Collection<String> services) {
-        when(() -> dao.moving(run, services.toArray(String[]::new)));
+        dao.moving(run, services.toArray(String[]::new));
     }
 
     private void when(final Runnable write) {

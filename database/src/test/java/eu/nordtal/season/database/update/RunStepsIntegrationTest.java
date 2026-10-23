@@ -120,6 +120,21 @@ class RunStepsIntegrationTest {
     }
 
     @Test
+    void aRunAheadOfTheSchemaStillWritesItsServicesAndStage() {
+        final UpdateDirectory ahead = UpdateDirectory.using(dataSource, () -> false);
+        final long run = ahead.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO, List.of("smp"))
+                .id();
+        assertEquals(run, ahead.claimNext().orElseThrow().id());
+        ahead.startCountdown(run, Duration.ofSeconds(60), List.of("smp"));
+        ahead.progress(run, UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.STOPPING)));
+
+        assertEquals(
+                List.of("smp true"),
+                strings("SELECT service || ' ' || moving FROM run_service WHERE run = " + run));
+        assertEquals(List.of("STOPPING"), strings("SELECT stage FROM steward_inbox WHERE id = " + run));
+    }
+
+    @Test
     void theProxyAddsPlayersToTheLatestMoveAndNeverCountsMoreBackThanItMoved() {
         final long run =
                 updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO).id();

@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.game;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
@@ -19,6 +20,7 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -112,7 +114,10 @@ public final class Announcements {
 
     /** Returns why the bot did not post the line of {@code language}, if it did not. */
     static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
-        return posted(row, language).filter(posted -> !posted).map(posted -> SAID.notAnnounced(language));
+        final Locale locale = Locales.parse(language);
+        return posted(row, language)
+                .filter(posted -> !posted)
+                .map(posted -> SAID.notAnnounced(locale.getDisplayLanguage(locale)));
     }
 
     private static Optional<Boolean> posted(final Request<BotRequest> row, final String language) {

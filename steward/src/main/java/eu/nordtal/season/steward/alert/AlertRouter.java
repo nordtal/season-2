@@ -135,19 +135,16 @@ public final class AlertRouter {
         }
     }
 
-    /** Asks the bot to post the alert for the admins who want it there. An OK alert mentions nobody. */
+    /** Asks the bot to post the alert when an admin wants it there. It mentions the admin role unless it is OK. */
     private void post(
             final RaisedAlert raised, final AlertPreferences.Chosen chosen, final List<DiscordId> everyAdmin) {
         final Alert alert = raised.alert();
-        final List<DiscordId> wanting = everyAdmin.stream()
-                .filter(admin -> chosen.wants(admin, alert.type(), AlertChannel.DISCORD))
-                .toList();
-        if (wanting.isEmpty()) {
+        if (everyAdmin.stream().noneMatch(admin -> chosen.wants(admin, alert.type(), AlertChannel.DISCORD))) {
             return;
         }
         try {
             bot.submit(
-                    new BotRequest.PostAlert(raised.id(), alert.level() == Alert.Level.OK ? List.of() : wanting),
+                    new BotRequest.PostAlert(raised.id(), alert.level() != Alert.Level.OK),
                     Actor.STEWARD,
                     Schedule.within(BOT_PATIENCE));
         } catch (final RuntimeException failure) {

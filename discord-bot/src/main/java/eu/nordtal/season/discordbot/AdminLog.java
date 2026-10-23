@@ -5,6 +5,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.RaisedAlert;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -128,8 +130,17 @@ public final class AdminLog {
         }
     }
 
-    /** Posts the alert the request names, drawn from its entry. Returns false when there is no such entry. */
-    public boolean postAlert(final BotRequest.PostAlert request) {
+    /**
+     * Posts the alert the request names in place of the card of the failed run it reports, or as its answer.
+     * Returns false when there is nothing to post or no channel.
+     *
+     * @param role the admin role's id, or {@code null} while the guild has none
+     * @param runCards hands over the card of a failed run once, or {@code null}
+     */
+    public boolean postAlert(
+            final BotRequest.PostAlert request,
+            final @Nullable String role,
+            final LongFunction<@Nullable String> runCards) {
         final RaisedAlert raised = alerts.alert(request.entry()).orElse(null);
         if (raised == null) {
             log.warn("There is no alert {} to post", request.entry());
@@ -137,22 +148,38 @@ public final class AdminLog {
         }
         final Alert alert = raised.alert();
         final String link = stewardUrl.isBlank() ? null : stewardUrl + alert.path();
-        return send(card(documents, alert, request.mentions(), link), request.mentions());
+        final String pinged = request.mention() ? role : null;
+        final DocumentRenderer.Drawn card = card(documents, alert, pinged, link);
+        final String runCard =
+                alert.detail() instanceof final JournalDetail.RunFailed failed ? runCards.apply(failed.run()) : null;
+        final MessageChannel channel = channel();
+        if (runCard == null || channel == null) {
+            return send(card, pinged);
+        }
+        channel.deleteMessageById(runCard).queue(gone -> send(card, pinged), failure -> {
+            log.warn("Could not delete the run card {}, so the alert answers it", runCard, failure);
+            channel.sendMessage(pinging(card, pinged))
+                    .setMessageReference(runCard)
+                    .queue(
+                            success -> {},
+                            unsent -> log.error("Could not write to the admin channel: {}", card.text(), unsent));
+        });
+        return true;
     }
 
+    /** @param role the role the card mentions, or {@code null} for none */
     static DocumentRenderer.Drawn card(
             final DocumentRenderer documents,
             final Alert alert,
-            final List<DiscordId> mentions,
+            final @Nullable String role,
             final @Nullable String link) {
         return documents.render(
                 ALERT,
                 new Card(mark(alert.level()).symbol(), alert.title()),
                 Map.of(
                         "mentions",
-                        DocumentRenderer.FilledList.of(mentions.stream()
-                                .map(admin -> new Pinged(Mention.of(admin)))
-                                .toList()),
+                        DocumentRenderer.FilledList.of(
+                                role == null ? List.of() : List.of(new Pinged(Mention.role(DiscordId.of(role))))),
                         "lines",
                         DocumentRenderer.FilledList.of(
                                 alert.lines().stream().map(Detail::new).toList()),
@@ -179,7 +206,7 @@ public final class AdminLog {
         if (channel == null) {
             return;
         }
-        channel.sendMessage(pinging(card, List.of()))
+        channel.sendMessage(pinging(card, null))
                 .queue(
                         sent -> sentId.accept(sent.getId()),
                         failure -> log.error("Could not post a card to the admin channel", failure));
@@ -206,7 +233,7 @@ public final class AdminLog {
         } catch (final RuntimeException exception) {
             log.error("Could not write the journal entry for {} {}", line.action(), line.detail(), exception);
         }
-        send(card(documents, line), List.of());
+        send(card(documents, line), null);
     }
 
     public void show(final UUID entry) {
@@ -214,7 +241,7 @@ public final class AdminLog {
                 .ifPresentOrElse(
                         row -> send(
                                 card(documents, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line()),
-                                List.of()),
+                                null),
                         () -> log.error("Journal entry {} is gone, so its card was not posted", entry));
     }
 
@@ -256,23 +283,24 @@ public final class AdminLog {
         return channel;
     }
 
-    private boolean send(final DocumentRenderer.Drawn card, final List<DiscordId> admins) {
+    private boolean send(final DocumentRenderer.Drawn card, final @Nullable String role) {
         final MessageChannel channel = channel();
         if (channel == null) {
             log.warn("No admin channel, so this was not posted to Discord: {}", card.text());
             return false;
         }
-        channel.sendMessage(pinging(card, admins))
+        channel.sendMessage(pinging(card, role))
                 .queue(
                         success -> {},
                         failure -> log.error("Could not write to the admin channel: {}", card.text(), failure));
         return true;
     }
 
-    static MessageCreateData pinging(final DocumentRenderer.Drawn card, final List<DiscordId> admins) {
+    /** Returns the card's message, which notifies only {@code role}, or nobody when it is {@code null}. */
+    static MessageCreateData pinging(final DocumentRenderer.Drawn card, final @Nullable String role) {
         return MessageCreateBuilder.from(card.create())
                 .setAllowedMentions(List.of())
-                .mentionUsers(admins.stream().map(DiscordId::value).toList())
+                .mentionRoles(role == null ? List.of() : List.of(role))
                 .build();
     }
 }

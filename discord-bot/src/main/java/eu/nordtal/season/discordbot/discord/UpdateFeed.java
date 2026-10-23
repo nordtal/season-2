@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Posts a card in the admin channel, in English, for every update run that {@link #shown} admits.
  *
- * An edit notifies nobody, so steward's alert reports a failed run.
+ * An edit notifies nobody, so steward's alert reports a failed run and takes the place of its card.
  */
 @Slf4j
 public final class UpdateFeed {
@@ -116,6 +116,9 @@ public final class UpdateFeed {
     /** The runs in progress that have no card yet, by request id. */
     private final java.util.Set<Long> held = ConcurrentHashMap.newKeySet();
 
+    /** The card of each failed run, by request id, until its alert takes its place. */
+    private final ConcurrentHashMap<Long, String> failed = new ConcurrentHashMap<>();
+
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
     /** Set by every signal. A signal during a pass causes exactly one more pass. */
@@ -135,6 +138,11 @@ public final class UpdateFeed {
         this.documents = Objects.requireNonNull(documents, "documents");
     }
 
+    /** Returns the card of a failed run once, for the alert that takes its place, or {@code null}. */
+    public @Nullable String failedCard(final long run) {
+        return failed.remove(run);
+    }
+
     /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
     public void start() {
         try {
@@ -144,7 +152,7 @@ public final class UpdateFeed {
                 if (request.id() > mark || !shown(request)) {
                     continue;
                 }
-                board.post(card(request), messageId -> {});
+                board.post(card(request), messageId -> ended(request, messageId));
             }
             // A run in progress is registered, so tick() follows it.
             for (final UpdateRequest request : updates.since(0L)) {
@@ -231,10 +239,17 @@ public final class UpdateFeed {
         final boolean over = request.status().isFinished();
         board.post(card(request), messageId -> {
             if (over) {
+                ended(request, messageId);
                 return;
             }
             drawing.put(request.id(), new Drawn(messageId, request.result()));
         });
+    }
+
+    private void ended(final UpdateRequest request, final String messageId) {
+        if (request.status() == UpdateStatus.FAILED) {
+            failed.put(request.id(), messageId);
+        }
     }
 
     /** Reads the held runs again and posts each one that is shown now. */
@@ -296,6 +311,7 @@ public final class UpdateFeed {
             }
             if (request.status().isFinished()) {
                 drawing.remove(id);
+                ended(request, drawn.messageId());
             }
         }
     }

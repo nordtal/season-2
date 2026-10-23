@@ -126,7 +126,9 @@ public final class MessageJson {
             }
             case MENTION -> {
                 final Mention mention = (Mention) value;
-                yield Map.of("member", mention.member().value(), "name", mention.name());
+                yield mention.role()
+                        ? Map.of("member", mention.member().value(), "name", mention.name(), "role", true)
+                        : Map.of("member", mention.member().value(), "name", mention.name());
             }
             case ITEM -> {
                 final GameContent content = (GameContent) value;
@@ -173,7 +175,9 @@ public final class MessageJson {
                 case MENTION -> {
                     final Map<?, ?> mention = (Map<?, ?>) value;
                     yield new Mention(
-                            DiscordId.of(field(mention, "member", String.class)), field(mention, "name", String.class));
+                            DiscordId.of(field(mention, "member", String.class)),
+                            field(mention, "name", String.class),
+                            Boolean.TRUE.equals(mention.get("role")));
                 }
                 case ITEM -> {
                     final Map<?, ?> content = (Map<?, ?>) value;

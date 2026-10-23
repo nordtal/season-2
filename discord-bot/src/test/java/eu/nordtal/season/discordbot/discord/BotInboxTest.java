@@ -63,7 +63,7 @@ class BotInboxTest {
                 return !tag.equals("fr");
             },
             alert -> {
-                carriedOut.add("alert " + alert.entry() + " " + alert.mentions());
+                carriedOut.add("alert " + alert.entry() + " " + alert.mention());
                 return true;
             },
             booked -> carriedOut.add("told " + booked.payment()),
@@ -193,11 +193,11 @@ class BotInboxTest {
     }
 
     @Test
-    void anAlertIsPostedWithItsMentionsAndSaysItWentOut() {
+    void anAlertIsPostedWithItsMentionAndSaysItWentOut() {
         final UUID entry = UUID.fromString("00000000-0000-0000-0000-000000000042");
-        final String answer = answer(new BotRequest.PostAlert(entry, List.of(ADMIN)));
+        final String answer = answer(new BotRequest.PostAlert(entry, true));
 
-        assertEquals(List.of("alert " + entry + " [400000000000000001]"), carriedOut);
+        assertEquals(List.of("alert " + entry + " true"), carriedOut);
         assertEquals("{\"posted\":\"true\"}", answer);
     }
 

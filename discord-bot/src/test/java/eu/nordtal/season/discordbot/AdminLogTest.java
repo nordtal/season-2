@@ -66,7 +66,7 @@ class AdminLogTest {
         }
 
         @Override
-        public List<RaisedAlert> recent(final int limit) {
+        public List<RaisedAlert> alerts(final List<UUID> ids) {
             throw new UnsupportedOperationException();
         }
 
@@ -96,18 +96,18 @@ class AdminLogTest {
     }
 
     @Test
-    void anAlertPingsTheAdminsItNamesAndNobodyElse() {
-        final MessageCreateData sent = AdminLog.pinging(
-                card(List.of(DiscordId.of("400000000000000001")), LINK), List.of(DiscordId.of("400000000000000001")));
+    void anAlertPingsTheAdminRoleAndNoMember() {
+        final MessageCreateData sent = AdminLog.pinging(card(ROLE, LINK), ROLE);
 
-        assertTrue(sent.getAllowedMentions().isEmpty(), "no role, everyone or here ping: " + sent.getAllowedMentions());
-        assertEquals(java.util.Set.of("400000000000000001"), sent.getMentionedUsers());
+        assertTrue(sent.getAllowedMentions().isEmpty(), "no everyone or here ping: " + sent.getAllowedMentions());
+        assertEquals(java.util.Set.of(), sent.getMentionedUsers());
+        assertEquals(java.util.Set.of(ROLE), sent.getMentionedRoles());
     }
 
     @Test
     void aJournalCardNamesPeopleWithoutPingingThem() {
-        final MessageCreateData sent = AdminLog.pinging(
-                AdminLog.card(ADMIN, LinkFlow.lockedOut(DiscordId.of("400000000000000001"))), List.of());
+        final MessageCreateData sent =
+                AdminLog.pinging(AdminLog.card(ADMIN, LinkFlow.lockedOut(DiscordId.of("400000000000000001"))), null);
 
         assertTrue(
                 sent.getAllowedMentions().isEmpty(), sent.getAllowedMentions().toString());
@@ -156,11 +156,11 @@ class AdminLogTest {
     }
 
     @Test
-    void aRoutedAlertIsItsMentionsMarkTitleLinesAndLinkWithEveryValueEscaped() {
-        final DocumentRenderer.Drawn card = card(List.of(DiscordId.of("400000000000000002")), LINK);
+    void aRoutedAlertIsItsRoleMentionMarkTitleLinesAndLinkWithEveryValueEscaped() {
+        final DocumentRenderer.Drawn card = card(ROLE, LINK);
 
         assertEquals("""
-                <@400000000000000002>
+                <@&500000000000000001>
                 ## 🛑 smp\\_1 is not running
                 smp\\_1: Docker reports the state \\*gone\\*.""", card.text());
         final Button open =
@@ -172,7 +172,7 @@ class AdminLogTest {
     void anAlertWithoutAPageCarriesNoButton() {
         assertEquals(
                 List.of(),
-                MessageComponentTree.of(card(List.of(), null).components()).findAll(Button.class));
+                MessageComponentTree.of(card(null, null).components()).findAll(Button.class));
     }
 
     @Test
@@ -223,15 +223,17 @@ class AdminLogTest {
 
     private static final String LINK = "https://steward.example/services/smp_1";
 
+    private static final String ROLE = "500000000000000001";
+
     /** Draws a stopped service whose name and state need escaping. */
-    private static DocumentRenderer.Drawn card(final List<DiscordId> admins, final @Nullable String link) {
+    private static DocumentRenderer.Drawn card(final @Nullable String role, final @Nullable String link) {
         return AdminLog.card(
                 ADMIN,
                 new Alert(
                         JournalAction.SERVICE_DOWN,
                         Alert.Level.DOWN,
                         List.of(Measure.state(Measure.Gauge.CONTAINER_STATE, "smp_1", "*gone*"))),
-                admins,
+                role,
                 link);
     }
 }

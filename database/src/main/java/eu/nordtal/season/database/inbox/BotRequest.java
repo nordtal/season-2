@@ -91,17 +91,15 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Posts an alert into the admin channel and mentions the admins who chose Discord for its type.
-     * The bot draws the card from the alert's journal entry.
+     * Posts an alert into the admin channel. The bot draws the card from the alert's journal entry.
      *
      * @param entry the alert's journal entry
-     * @param mentions empty for an all-clear, which mentions nobody
+     * @param mention whether the card mentions the admin role, which an all-clear does not
      */
-    record PostAlert(UUID entry, List<DiscordId> mentions) implements BotRequest {
+    record PostAlert(UUID entry, boolean mention) implements BotRequest {
 
         public PostAlert {
             Objects.requireNonNull(entry, "entry");
-            mentions = List.copyOf(mentions);
         }
     }
 

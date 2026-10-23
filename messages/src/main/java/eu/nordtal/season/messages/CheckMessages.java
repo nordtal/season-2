@@ -69,8 +69,7 @@ public interface CheckMessages {
             MessageRef choiceInArgument(@Arg("at") @Example("14") int at);
 
             @Name("A placeholder ends on its dot")
-            MessageRef attributeMissing(
-                    @Arg("name") @Example("player") String name, @Arg("at") @Example("player") int at);
+            MessageRef attributeMissing(@Arg("name") @Example("player") String name, @Arg("at") @Example("14") int at);
 
             @Name("A comma is missing after the name")
             MessageRef commaAfterName(@Arg("at") @Example("14") int at);

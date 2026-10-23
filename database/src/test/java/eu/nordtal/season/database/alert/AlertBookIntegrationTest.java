@@ -107,8 +107,8 @@ class AlertBookIntegrationTest {
     void aFailedRunIsRaisedOnceAndShowsItsFailedAndWarnedSteps() throws SQLException {
         final AlertBook steward = AlertBook.using(database.dataSourceAs(DatabaseRole.STEWARD));
         final long run = Long.parseLong(strings("""
-                        INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)
-                        VALUES ('UPDATE', '{"services": []}', 'HOST', 'FAILED', now()) RETURNING id""").getFirst());
+                        INSERT INTO steward_inbox (kind, actor_kind, status, finished)
+                        VALUES ('UPDATE', 'HOST', 'FAILED', now()) RETURNING id""").getFirst());
         execute("""
                 INSERT INTO run_step (run, seq, step, service, finished, outcome, reason)
                 VALUES (%1$d, 1, 'STOP', 'smp', now(), 'DONE', NULL),

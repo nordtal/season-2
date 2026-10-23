@@ -15,8 +15,10 @@ interface AuditDao {
     String ENTRIES = """
             SELECT e.id, e.occurred, e.action, e.actor_kind, e.actor_id, e.subject, e.mc_uuid, e.service, e.run,
                    e.payment, p.reference, p.days AS ordered, p.matched_cents, p.matched_by,
-                   r.kind AS run_kind, ARRAY(SELECT jsonb_array_elements_text(r.payload -> 'services')) AS run_services,
-                   r.payload ->> 'archive' AS run_archive, r.payload ->> 'artifact' AS run_artifact,
+                   r.kind AS run_kind,
+                   ARRAY(SELECT s.service FROM run_service s WHERE s.run = r.id AND s.named ORDER BY s.service)
+                       AS run_services,
+                   rr.archive AS run_archive, rp.artifact AS run_artifact,
                    g.days AS grant_days, g.until AS grant_until, rv.grants, pt.seconds AS playtime_seconds,
                    ul.self_service, b.days AS booked_days, b.donation_cents, ph.from_phase, ph.to_phase, ph.reason,
                    la.opens, ss.starts, ss.moved_grants, k.label, k.unlocked, k.hold_seconds AS key_hold_seconds,
@@ -31,6 +33,8 @@ interface AuditDao {
             FROM journal_entry e
                      LEFT JOIN payment_request p ON p.id = e.payment
                      LEFT JOIN steward_inbox r ON r.id = e.run
+                     LEFT JOIN steward_restore rr ON rr.request = r.id
+                     LEFT JOIN steward_remove_plugin rp ON rp.request = r.id
                      LEFT JOIN journal_grant g ON g.entry = e.id
                      LEFT JOIN journal_revoke rv ON rv.entry = e.id
                      LEFT JOIN journal_playtime pt ON pt.entry = e.id

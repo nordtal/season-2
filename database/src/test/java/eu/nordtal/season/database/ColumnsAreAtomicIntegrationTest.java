@@ -33,14 +33,8 @@ class ColumnsAreAtomicIntegrationTest {
             "steward_session.webauthn_request");
 
     /** The composite columns still to normalize. */
-    private static final Set<String> SHRINKING = Set.of(
-            "bot_inbox.outcome",
-            "bot_inbox.payload",
-            "hunger_games_inbox.payload",
-            "smp_inbox.payload",
-            "steward_inbox.moving",
-            "steward_inbox.outcome",
-            "steward_inbox.payload");
+    private static final Set<String> SHRINKING =
+            Set.of("bot_inbox.outcome", "bot_inbox.payload", "hunger_games_inbox.payload", "smp_inbox.payload");
 
     /** The composite columns that hold a value read and written whole, never queried by part. */
     private static final Set<String> WHOLE =

@@ -36,21 +36,6 @@ interface UpdateDao {
     @SqlQuery("SELECT service FROM run_service WHERE run = :id AND named ORDER BY service")
     List<String> scope(@Bind("id") long id);
 
-    /**
-     * Returns the services a run's payload names, for a schema before the rows of its request.
-     * shortcut: reads the payload, which the next release drops with this query.
-     */
-    @SqlQuery("SELECT jsonb_array_elements_text(payload -> 'services') FROM steward_inbox WHERE id = :id")
-    List<String> payloadScope(@Bind("id") long id);
-
-    /** Returns the kind and payload of a run, for a schema before the rows of its request. */
-    @SqlQuery("SELECT kind, cast(payload AS text) AS payload FROM steward_inbox WHERE id = :id")
-    @RegisterConstructorMapper(Payload.class)
-    Optional<Payload> payload(@Bind("id") long id);
-
-    /** A run's kind and the JSON its request was before the rows of its kind. */
-    record Payload(String kind, String payload) {}
-
     /** Names the services a new request is for. Steward may insert them, but not update them. */
     @SqlUpdate("""
             INSERT INTO run_service (run, service, moving, named)
@@ -109,8 +94,7 @@ interface UpdateDao {
     @SqlQuery("""
             WITH updated AS (
                 UPDATE steward_inbox
-                SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision)),
-                    moving = :moving
+                SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision))
                 WHERE id = :id AND status = 'RUNNING'
                 RETURNING id
             ),

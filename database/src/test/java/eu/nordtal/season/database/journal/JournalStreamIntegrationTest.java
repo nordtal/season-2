@@ -284,8 +284,8 @@ class JournalStreamIntegrationTest {
     /** Writes a run that a person or the host asked for, finished unless pending or running, with its services. */
     private static long run(final String kind, final String status, final String person, final String... services) {
         final long id = Long.parseLong(strings("""
-                        INSERT INTO steward_inbox (kind, payload, actor_kind, actor_id, status, finished)
-                        VALUES ('%s', '{"services": []}', '%s', %s, '%s', now())
+                        INSERT INTO steward_inbox (kind, actor_kind, actor_id, status, finished)
+                        VALUES ('%s', '%s', %s, '%s', now())
                         RETURNING id
                         """.formatted(
                         kind, person == null ? "HOST" : "PERSON", person == null ? "NULL" : "'" + person + "'", status))

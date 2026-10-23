@@ -10,6 +10,7 @@ import { OnlineLine, useOnline } from "@/components/steward/online"
 import { MetricChart } from "@/components/steward/metric-chart"
 import { Stat, UsageBar } from "@/components/steward/stat"
 import { SkeletonText } from "@/components/steward/query-state"
+import { Panel } from "@/components/steward/panel"
 import { Button } from "@/components/ui/button"
 import { JournalStream } from "@/pages/journal"
 import { t } from "@/lib/texts"
@@ -229,12 +230,11 @@ function share(used: number, total: number | undefined): string {
 /** Shows the newest five items of the journal. */
 function ActionsPanel() {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold text-foreground">{t("steward.overview.latest-actions")}</h2>
+    <Panel title={t("steward.overview.latest-actions")}>
       <JournalStream q="" days={false} limit={5} paged={false} empty={t("steward.overview.nothing-recorded")} />
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
         <Link to="/journal">{t("steward.overview.whole-journal")}</Link>
       </Button>
-    </section>
+    </Panel>
   )
 }

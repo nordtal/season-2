@@ -8,6 +8,7 @@ import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { NETWORK, ServiceSettings } from "@/components/steward/settings"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
@@ -48,14 +49,13 @@ export function SeasonPage() {
         )}
       </QueryState>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-foreground">{t("steward.season.network")}</h2>
+      <Panel title={t("steward.season.network")}>
         <ServiceSettings
           service={NETWORK}
           file={search.file}
           onFile={(file, replace) => void navigate({ search: file ? { file } : {}, replace })}
         />
-      </section>
+      </Panel>
     </div>
   )
 }

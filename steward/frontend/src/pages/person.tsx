@@ -47,7 +47,7 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
   const payments = usePersonPayments(person.discordId)
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader title={personName(person)} actions={<PersonActions person={person} />} />
 
       <PersonStats person={person} people={people} now={now} />

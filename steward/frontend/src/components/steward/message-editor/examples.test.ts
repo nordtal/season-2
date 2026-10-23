@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import type { MessageArg } from "@/lib/api"
 
+import { argsOf } from "@/components/steward/document-fields"
+
 import { fillOf, sentOf } from "./examples"
 
 const what: MessageArg = {
@@ -52,6 +54,13 @@ describe("fillOf", () => {
     expect(fill("took", "clock")).toBe("2:00")
     expect(fill("subjects")).toBe("database dump and disk")
     expect(fill("subjects", "or")).toBe("database dump or disk")
+  })
+})
+
+describe("a document's values", () => {
+  it("show each example as its kind renders it, as a message's do", () => {
+    const args = argsOf({ left: { kind: "duration", example: "PT2M", exampleValue: { kind: "duration", value: 120 } } })
+    expect(fillOf(args, undefined, "en")("left")).toBe("2 minutes")
   })
 })
 

@@ -1,5 +1,6 @@
 package eu.nordtal.season.messages.document;
 
+import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.value.Kind;
@@ -16,11 +17,21 @@ import org.jspecify.annotations.Nullable;
  * @param kind the kind's token
  * @param example what a preview and the length check fill in
  * @param takes the keys a message value may take, else {@code null}
+ * @param exampleValue the example read as its kind, as {@code {kind, value}}, where Steward's editor shows it, else
+ *     {@code null}, which keeps it out of the declaration's hash
  */
-public record Value(String kind, String example, @Nullable List<String> takes) {
+public record Value(
+        String kind,
+        String example,
+        @Nullable List<String> takes,
+        @Nullable Object exampleValue) {
+
+    public Value(final String kind, final String example, final @Nullable List<String> takes) {
+        this(kind, example, takes, null);
+    }
 
     /** Returns the example as a value of its kind, or as the text it is where it does not read as one. */
-    public Object exampleValue() {
+    public Object readExample() {
         final Kind token = Kind.byToken(kind).orElse(Kind.TEXT);
         try {
             return token.example(example);
@@ -32,8 +43,16 @@ public record Value(String kind, String example, @Nullable List<String> takes) {
     /** Returns each declared value's example by name, what a preview fills in. */
     public static Map<String, Object> examples(final Map<String, Value> declared) {
         final Map<String, Object> examples = new LinkedHashMap<>();
-        declared.forEach((name, value) -> examples.put(name, value.exampleValue()));
+        declared.forEach((name, value) -> examples.put(name, value.readExample()));
         return examples;
+    }
+
+    /** Returns each value with its example read as its kind, as Steward's editor shows it. */
+    public static Map<String, Value> withExampleValues(final Map<String, Value> declared) {
+        final Map<String, Value> values = new LinkedHashMap<>();
+        declared.forEach((name, value) -> values.put(
+                name, new Value(value.kind, value.example, value.takes, MessageJson.typed(value.readExample()))));
+        return values;
     }
 
     /** Returns the values of a record's components by name, with a context expanded into its attributes. */

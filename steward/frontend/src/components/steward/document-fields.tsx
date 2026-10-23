@@ -27,6 +27,7 @@ import { choice, t } from "@/lib/texts"
 import { Failure } from "@/components/steward/query-state"
 import { ColourControl } from "@/components/steward/colour-control"
 import { Media } from "@/components/steward/message-editor/document-preview"
+import { fillOf } from "@/components/steward/message-editor/examples"
 import { RichField } from "@/components/steward/message-editor/rich-field"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -189,7 +190,7 @@ function GameVersion({
         onText={onSource}
         format="MINIMESSAGE"
         args={args}
-        fill={(name) => values[name]?.example ?? name}
+        fill={fillOf(args, undefined, language)}
         tones={syntax.data?.tones ?? {}}
         kinds={syntax.data?.kinds ?? {}}
         label={languageName(language)}
@@ -216,6 +217,7 @@ export function argsOf(values: Record<string, DocumentValue>): MessageArg[] {
     example: value.example,
     action: false,
     exampleWords: {},
+    exampleValue: value.exampleValue,
   }))
 }
 

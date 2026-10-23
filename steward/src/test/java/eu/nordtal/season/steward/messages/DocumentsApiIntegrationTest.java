@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.TestDatabase;
@@ -50,7 +51,8 @@ class DocumentsApiIntegrationTest {
     private static final String DECLARATIONS = """
             [{"namespace":"smp","name":"welcome","area":"Join","shape":"MESSAGE",
               "values":{"player":{"kind":"text","example":"Alex"}},
-              "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""";
+              "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}},
+                {"id":"rows","type":"LIST","required":false,"values":{"left":{"kind":"duration","example":"PT1M"}}}]}]""";
 
     private static final String WELCOME = """
             {"parts":[
@@ -135,6 +137,25 @@ class DocumentsApiIntegrationTest {
                         .getAsJsonObject("join.label")
                         .get("kind")
                         .getAsString());
+    }
+
+    @Test
+    void eachValueCarriesItsExampleReadAsItsKind() throws Exception {
+        final JsonObject view = view();
+
+        assertEquals(
+                JsonParser.parseString("{\"kind\":\"text\",\"value\":\"Alex\"}"),
+                view.getAsJsonObject("named").getAsJsonObject("player").get("exampleValue"));
+        assertEquals(
+                JsonParser.parseString("{\"kind\":\"duration\",\"value\":60}"),
+                view.getAsJsonObject("declaration")
+                        .getAsJsonArray("slots")
+                        .get(1)
+                        .getAsJsonObject()
+                        .getAsJsonObject("values")
+                        .getAsJsonObject("left")
+                        .get("exampleValue"));
+        assertEquals(packaged().hash(), view.get("hash").getAsString());
     }
 
     @Test

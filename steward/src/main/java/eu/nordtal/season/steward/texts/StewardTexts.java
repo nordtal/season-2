@@ -311,7 +311,7 @@ public interface StewardTexts {
             @Name("No such message")
             MessageRef noMessage(
                     @Arg("bundle") @Example("steward") String bundle,
-                    @Arg("key") @Example("answer.no-bundle") String key);
+                    @Arg("key") @Example("steward.answer.no-bundle") String key);
 
             @Name("Override refused")
             MessageRef overrideRefused(
@@ -324,7 +324,7 @@ public interface StewardTexts {
                     @Arg("language") @Example("Deutsch") String language);
 
             @Name("Nowhere to preview")
-            MessageRef noPreview(@Arg("key") @Example("answer.no-bundle") String key);
+            MessageRef noPreview(@Arg("key") @Example("steward.answer.no-bundle") String key);
 
             @Name("Draft not drawn")
             MessageRef draftUndrawable(

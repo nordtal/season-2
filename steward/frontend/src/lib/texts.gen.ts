@@ -1266,6 +1266,9 @@ export type TextArgs = {
   "steward.game.remove-it": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.spins-of": {
+    name: Arg["text"]
+  }
   "steward.game.start": {
     anyway: Arg["choice"]
   }

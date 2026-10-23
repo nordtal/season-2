@@ -68,10 +68,11 @@ const AWARDS = document("advancement-awards", [
     [
       entry("advancement", { label: "Advancement", value: "", refers: { to: "ADVANCEMENT", optional: false } }),
       number("aura", "Aura", "0"),
+      number("spins", "Spins", "0"),
     ],
     [
       { advancement: "minecraft:story/mine_stone", aura: "2" },
-      { advancement: "minecraft:story/smelt_iron", aura: "4" },
+      { advancement: "minecraft:story/smelt_iron", aura: "4", spins: "1" },
     ],
   ),
 ])
@@ -186,7 +187,7 @@ describe("chance", () => {
 })
 
 describe("game group editors", { timeout: 15_000 }, () => {
-  it("sums the awarded aura as it is edited, and saves the whole list", async () => {
+  it("sums the awarded aura and spins as they are edited, and saves the whole list", async () => {
     const puts = backend(AWARDS)
     draw(<AwardsEditor file="smp/advancement-awards" document={AWARDS} target={null} />)
 
@@ -194,14 +195,16 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(screen.getByText("6")).toBeTruthy()
     fireEvent.change(screen.getByRole("textbox", { name: "Acquire Hardware aura" }), { target: { value: "10" } })
     expect(screen.getByText("12")).toBeTruthy()
+    fireEvent.change(screen.getByRole("textbox", { name: "Acquire Hardware spins" }), { target: { value: "3" } })
+    expect(screen.getByText("3")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
     await waitFor(() => expect(puts).toHaveLength(1))
     expect(puts[0]).toMatchObject({
       changes: {
         "advancement-awards": [
-          { advancement: "minecraft:story/mine_stone", aura: "2" },
-          { advancement: "minecraft:story/smelt_iron", aura: "10" },
+          { advancement: "minecraft:story/mine_stone", aura: "2", spins: "0" },
+          { advancement: "minecraft:story/smelt_iron", aura: "10", spins: "3" },
         ],
       },
     })

@@ -5,9 +5,13 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.auth.Sessions;
+import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
@@ -104,5 +108,30 @@ public final class AlertRoutes {
         private @Nullable String channel;
         /** Boxed so that a missing field is a bad request, not false. */
         private @Nullable Boolean enabled;
+    }
+
+    /** Registers the alerts, an admin's preferences and the web push routes of {@code push}. */
+    public void register(final JavalinConfig cfg, final PushEndpoints push) {
+        cfg.routes.get("/api/web-push/public-key", push::publicKey, Gate.KEY_HELD);
+        cfg.routes.post(
+                "/api/web-push/subscribe",
+                push::subscribe,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.WEB_PUSH_SUBSCRIBE));
+        cfg.routes.delete(
+                "/api/web-push/subscribe",
+                push::unsubscribe,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.WEB_PUSH_UNSUBSCRIBE));
+        cfg.routes.get("/api/web-push/devices", push::devices, Gate.KEY_HELD);
+        cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_HELD, Journaled.as(JournalAction.WEB_PUSH_TEST));
+
+        cfg.routes.get("/api/alerts", this::current, Gate.KEY_HELD);
+        cfg.routes.get("/api/alerts/preferences", this::preferences, Gate.KEY_HELD);
+        cfg.routes.put(
+                "/api/alerts/preferences",
+                this::setPreference,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SET_ALERT_PREFERENCE));
     }
 }

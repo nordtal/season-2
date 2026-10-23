@@ -3,8 +3,10 @@ package eu.nordtal.season.steward.discord;
 import eu.nordtal.season.database.guild.GuildChannel;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import java.util.List;
 import java.util.Optional;
@@ -58,4 +60,9 @@ public final class DiscordApi {
      * @param type the Discord channel type
      */
     public record Pick(String id, String name, int type) {}
+
+    public void register(final JavalinConfig cfg) {
+        // With Discord unreachable the route answers available: false and a typed id, not a failure.
+        cfg.routes.get("/api/discord/channels", this::channels, Gate.KEY_HELD);
+    }
 }

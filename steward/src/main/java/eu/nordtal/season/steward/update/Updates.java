@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.update;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.JournalDetail;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunRecord;
@@ -14,10 +15,13 @@ import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.QueryLimit;
 import eu.nordtal.season.steward.auth.DiscordAuth;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
@@ -241,5 +245,14 @@ public final class Updates {
         /** For an update: true confirms that the update replaces builds made on the host. */
         @Nullable
         Boolean replaceLocal;
+    }
+
+    /** Registers the update runs. Steward's own /api/updates/available comes first, before /api/updates/{id}. */
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.get("/api/updates", this::list, Gate.KEY_HELD);
+        cfg.routes.get("/api/updates/active", this::active, Gate.KEY_HELD);
+        cfg.routes.get("/api/updates/{id}", this::lookup, Gate.KEY_HELD);
+        cfg.routes.post("/api/updates", this::ask, Gate.KEY_HELD, Journaled.as(JournalAction.REQUEST_RUN));
+        cfg.routes.post("/api/updates/cancel", this::cancel, Gate.KEY_HELD, Journaled.as(JournalAction.CANCEL_RUN));
     }
 }

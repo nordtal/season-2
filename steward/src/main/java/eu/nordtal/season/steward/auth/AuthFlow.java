@@ -147,4 +147,11 @@ public final class AuthFlow {
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
+
+    /** Ends the session of the caller and removes its cookie. */
+    public void logout(final Context ctx) {
+        sessions.end(ctx.cookie(Sessions.COOKIE));
+        ctx.removeCookie(Sessions.COOKIE, "/");
+        ctx.status(204);
+    }
 }

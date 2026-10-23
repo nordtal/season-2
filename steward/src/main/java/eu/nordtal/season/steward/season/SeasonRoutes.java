@@ -3,9 +3,12 @@ package eu.nordtal.season.steward.season;
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.steward.auth.DiscordAuth;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
@@ -100,5 +103,11 @@ public final class SeasonRoutes {
 
         @Nullable
         String at;
+    }
+
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.post("/api/season/phase", this::phase, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/season/date", this::date, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.get("/api/season", this::summary, Gate.KEY_HELD);
     }
 }

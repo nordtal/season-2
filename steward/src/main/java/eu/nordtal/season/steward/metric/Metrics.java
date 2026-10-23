@@ -1,7 +1,9 @@
 package eu.nordtal.season.steward.metric;
 
 import eu.nordtal.season.database.metric.MetricPoint;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.data.Data;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Clock;
@@ -39,5 +41,9 @@ public final class Metrics {
         final Instant now = clock.instant();
         final Instant from = now.minus(Duration.ofMinutes(minutes));
         ctx.json(new Curve(subject, metric, from, data.metrics().range(subject, metric, from, now)));
+    }
+
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.get("/api/metrics", this::range, Gate.KEY_HELD);
     }
 }

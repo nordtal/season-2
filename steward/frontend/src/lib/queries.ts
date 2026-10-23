@@ -359,8 +359,8 @@ export function useGameAction() {
 }
 
 /**
- * Pends until the bot has answered every language, calls `onPosted` with each language it posted and its text, and fails with the reason of
- * the first that it did not post.
+ * Waits until the bot has answered every language.
+ * It calls `onPosted` with each language the bot posted and its text. It fails with the reason of the first it did not post.
  */
 export function useSendAnnouncement(onPosted: (tag: string, text: string) => void) {
   const client = useQueryClient()

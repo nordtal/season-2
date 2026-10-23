@@ -270,7 +270,7 @@ export function NodeList<L>({
                   : list
                     ? "flex flex-col"
                     : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
-                // Under a branch, a leaf's text and a card's edge start at the branch's name; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
+                // Under a branch, a leaf's text and a card's edge start at the branch's name. The first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
                 depth > 0 && !list && (cards ? "pl-4" : "pl-8"),
               )}
               // The list's whole indent, each branch's pl-4 and the cards' own, which a stacked card steps back out of to take the page's width.

@@ -199,7 +199,7 @@ function filled(
 }
 
 /**
- * Returns a value as a placeholder in the given style draws it; a bare value takes the kind its form declares.
+ * Returns a value as a placeholder in the given style draws it. A bare value takes the kind its form declares.
  * `words` writes it in a preview's language, else in the page's own.
  */
 export function valueText(raw: unknown, style?: string, words?: Words): string {

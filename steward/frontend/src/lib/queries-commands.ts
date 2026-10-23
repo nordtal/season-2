@@ -10,6 +10,8 @@ function commandRunQuery(id: string) {
     queryKey: keys.commandRun(id),
     queryFn: () => api<CommandRun>(`/api/commands/${id}`),
     meta: { topics: ["REQUESTS"] satisfies Topic[] },
+    // A mutation waits on this while its tab may be in the background.
+    refetchIntervalInBackground: true,
     refetchInterval: (query) => {
       /** A failed read stops the reconciliation. */
       if (query.state.error) return false

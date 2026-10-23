@@ -180,17 +180,14 @@ export function PlaytimeDialog({
       action={t("steward.form.save")}
       disabled={!usable || write.isPending}
       act={() => {
-        write.mutate(
-          { discordId: person.discordId, seconds },
-          {
-            onSuccess: () => {
-              toast.success(t("steward.people.playtime-set", { name: personName(person) }), {
-                description: t("steward.people.playtime-from", { time: seconds }),
-              })
-            },
-            onError: (error) => {
-              toast.error(t("steward.people.playtime-not-written"), { description: String(error) })
-            },
+        return write.mutateAsync({ discordId: person.discordId, seconds }).then(
+          () => {
+            toast.success(t("steward.people.playtime-set", { name: personName(person) }), {
+              description: t("steward.people.playtime-from", { time: seconds }),
+            })
+          },
+          (error) => {
+            toast.error(t("steward.people.playtime-not-written"), { description: String(error) })
           },
         )
       }}
@@ -264,8 +261,8 @@ export function UnlinkDialog({
       destructive
       disabled={unlink.isPending}
       act={() => {
-        unlink.mutate(person.discordId, {
-          onSuccess: (result) => {
+        return unlink.mutateAsync(person.discordId).then(
+          (result) => {
             if (!result.unlinked) {
               toast.warning(t("steward.people.nothing-to-unlink"), {
                 description: personToast(t("steward.people.none-linked"), person.discordId),
@@ -274,10 +271,10 @@ export function UnlinkDialog({
             }
             toast.success(personToast(t("steward.people.unlinked"), person.discordId))
           },
-          onError: (error) => {
+          (error) => {
             toast.error(t("steward.people.not-unlinked"), { description: String(error) })
           },
-        })
+        )
       }}
     />
   )
@@ -307,14 +304,14 @@ export function PackExemptionDialog({
       action={t("steward.people.pack", { exempted })}
       disabled={change.isPending}
       act={() => {
-        change.mutate(person.discordId, {
-          onSuccess: () => {
+        return change.mutateAsync(person.discordId).then(
+          () => {
             toast.success(personToast(t("steward.people.pack-changed", { exempted }), person.discordId))
           },
-          onError: (error) => {
+          (error) => {
             toast.error(t("steward.people.nothing-changed"), { description: String(error) })
           },
-        })
+        )
       }}
     />
   )
@@ -341,14 +338,14 @@ export function MakeAdminDialog({
       action={t("steward.people.make-admin")}
       disabled={grant.isPending}
       act={() => {
-        grant.mutate(person.discordId, {
-          onSuccess: () => {
+        return grant.mutateAsync(person.discordId).then(
+          () => {
             toast.success(personToast(t("steward.people.admin"), person.discordId))
           },
-          onError: (error) => {
+          (error) => {
             toast.error(t("steward.people.not-made-admin"), { description: String(error) })
           },
-        })
+        )
       }}
     />
   )
@@ -377,8 +374,8 @@ export function RevokeAdminDialog({
       destructive
       disabled={revoke.isPending}
       act={() => {
-        revoke.mutate(person.discordId, {
-          onSuccess: (result) => {
+        return revoke.mutateAsync(person.discordId).then(
+          (result) => {
             toast.success(
               personToast(t("steward.people.no-longer-admin"), person.discordId),
               result.removed.length > 1
@@ -386,10 +383,10 @@ export function RevokeAdminDialog({
                 : undefined,
             )
           },
-          onError: (error) => {
+          (error) => {
             toast.error(t("steward.people.not-revoked"), { description: String(error) })
           },
-        })
+        )
       }}
     />
   )
@@ -427,8 +424,8 @@ export function RevokeDialog({
       destructive
       disabled={revoke.isPending}
       act={() => {
-        revoke.mutate(person.discordId, {
-          onSuccess: (result) => {
+        return revoke.mutateAsync(person.discordId).then(
+          (result) => {
             /** Zero means that the run had already ended or somebody else revoked it. */
             if (result.revoked === 0) {
               toast.warning(t("steward.people.nothing-to-revoke"), {
@@ -438,10 +435,10 @@ export function RevokeDialog({
             }
             toast.success(personToast(t("steward.people.revoked-for", { count: result.revoked }), person.discordId))
           },
-          onError: (error) => {
+          (error) => {
             toast.error(t("steward.people.not-revoked"), { description: String(error) })
           },
-        })
+        )
       }}
     >
       <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-sm text-warning">

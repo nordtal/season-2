@@ -24,7 +24,8 @@ export function Loading({ rows = 5, label }: { rows?: number; label?: string }) 
 
 export function Empty({ title, note, action }: { title: string; note?: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border px-6 py-10 text-center">
+    // Inside a card the card is the frame, so the dashed one goes.
+    <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border px-6 py-10 text-center in-data-[slot=card]:border-none">
       <TrayIcon className="size-5 text-muted-foreground" aria-hidden />
       <div className="flex flex-col gap-1">
         <p className="text-sm font-medium">{title}</p>

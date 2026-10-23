@@ -335,8 +335,7 @@ class UpdateDirectoryIntegrationTest {
         // Past the directory, as the host installer writes. The unique index is the one-run rule.
         final SQLException second = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO steward_inbox (kind, payload, actor_kind)"
-                        + " VALUES ('START', '{\"services\": []}', 'HOST')"));
+                () -> executeChecked("INSERT INTO steward_inbox (kind, actor_kind) VALUES ('START', 'HOST')"));
         assertTrue(second.getMessage().contains("steward_inbox_one_open"), second.getMessage());
     }
 
@@ -694,26 +693,23 @@ class UpdateDirectoryIntegrationTest {
     void theCheckConstraintsRefuseValuesNoBuildCanRead() {
         final SQLException kind = assertThrows(
                 SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('REPORT', '{\"services\": []}', 'HOST')"));
+                () -> executeChecked("INSERT INTO steward_inbox (kind, actor_kind) VALUES ('REPORT', 'HOST')"));
         assertTrue(kind.getMessage().contains("steward_inbox_kind_check"), kind.getMessage());
 
         final SQLException status = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)"
-                        + " VALUES ('UPDATE', '{\"services\": []}', 'HOST', 'MAYBE', now())"));
+                () -> executeChecked("INSERT INTO steward_inbox (kind, actor_kind, status, finished)"
+                        + " VALUES ('UPDATE', 'HOST', 'MAYBE', now())"));
         assertTrue(status.getMessage().contains("steward_inbox_status_check"), status.getMessage());
 
         final SQLException actor = assertThrows(
                 SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'DISCORD')"));
+                () -> executeChecked("INSERT INTO steward_inbox (kind, actor_kind) VALUES ('UPDATE', 'DISCORD')"));
         assertTrue(actor.getMessage().contains("steward_inbox_actor_kind_check"), actor.getMessage());
 
         final SQLException unnamed = assertThrows(
                 SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'PERSON')"));
+                () -> executeChecked("INSERT INTO steward_inbox (kind, actor_kind) VALUES ('UPDATE', 'PERSON')"));
         assertTrue(unnamed.getMessage().contains("steward_inbox_actor_id_iff_person"), unnamed.getMessage());
 
         assertFalse(updates.claimNext().isPresent(), "none of the four got in");

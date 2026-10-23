@@ -5,7 +5,6 @@ import static eu.nordtal.season.database.DatabaseMessages.MESSAGES;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
-import eu.nordtal.season.database.DatabaseJson;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Outcome;
@@ -33,14 +32,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     private final JdbiRunRecorder recorder;
     private final RunStepDao steps;
     private final Inbox<StewardRequest> inbox;
-    private final BooleanSupplier current;
 
     JdbiUpdateDirectory(final DataSource dataSource, final BooleanSupplier current) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.jdbi = Jdbis.over(dataSource);
         this.dao = jdbi.onDemand(UpdateDao.class);
         this.steps = jdbi.onDemand(RunStepDao.class);
-        this.current = current;
         this.recorder = new JdbiRunRecorder(dataSource, Objects.requireNonNull(current, "current"));
         this.inbox = Inbox.over(dataSource, StewardRequest.TABLE);
     }
@@ -113,7 +110,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public List<String> scopeOf(final long id) {
-        return current.getAsBoolean() ? dao.scope(id) : dao.payloadScope(id);
+        return dao.scope(id);
     }
 
     @Override
@@ -133,21 +130,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<StewardRequest> requestOf(final long id) {
-        if (current.getAsBoolean()) {
-            return inbox.find(id).map(Request::payload);
-        }
-        // shortcut: a schema before the rows of a request still holds it as JSON; the next release drops this.
-        return dao.payload(id).map(row -> DatabaseJson.decode(row.payload(), kindClass(row.kind())));
-    }
-
-    private static Class<? extends StewardRequest> kindClass(final String kind) {
-        for (final Class<?> type : StewardRequest.class.getPermittedSubclasses()) {
-            final Class<? extends StewardRequest> request = type.asSubclass(StewardRequest.class);
-            if (StewardRequest.TABLE.kindOf(request).equals(kind)) {
-                return request;
-            }
-        }
-        throw new IllegalStateException("steward_inbox holds a kind this build does not know: " + kind);
+        return inbox.find(id).map(Request::payload);
     }
 
     @Override

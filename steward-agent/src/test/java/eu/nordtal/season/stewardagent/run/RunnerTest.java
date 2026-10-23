@@ -121,20 +121,21 @@ class RunnerTest {
     /**
      * A one-shot is a release ahead of the schema until its run migrates, so it writes no table the database lacks.
      *
-     * The database is at the newest migration of 0.55.0, the release before the rows of a request.
+     * The database is at the newest migration of 0.56.0, the release before this one.
      */
     @Test
     void aRunOnTheSchemaBeforeItsOwnMigrationWritesNoTableThatIsNotThereYet() {
         database.close();
         final TestDatabase older = TestDatabase.empty();
-        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "88");
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "91");
         open(older);
 
-        // The previous release asked for the run, as JSON in the payload.
+        // The previous release asked for the run as its kind and the services it names.
         try (var connection = older.dataSource().getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("INSERT INTO steward_inbox (kind, actor_kind, payload)"
-                    + " VALUES ('RESTART', 'HOST', '{\"services\": [\"smp\"]}')");
+            statement.execute("WITH asked AS (INSERT INTO steward_inbox (kind, actor_kind) VALUES ('RESTART', 'HOST')"
+                    + " RETURNING id) INSERT INTO run_service (run, service, moving, named) SELECT id, 'smp', false, true"
+                    + " FROM asked");
         } catch (final java.sql.SQLException e) {
             throw new IllegalStateException(e);
         }

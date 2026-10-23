@@ -250,6 +250,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "bundle", "element", "layout", "part");
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "position");
         }
+        // A run's report, its request as JSON and the services it stops, which the proxy reads from run rows.
+        listed(unused, "0.56.0", "nordtal_proxy", "SELECT", "steward_inbox", "outcome", "payload", "moving");
         return Map.copyOf(unused);
     }
 

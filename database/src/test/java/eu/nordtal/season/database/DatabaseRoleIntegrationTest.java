@@ -58,8 +58,10 @@ class DatabaseRoleIntegrationTest {
             // The bot draws the card of an entry that steward wrote.
             cases.add(new Case(
                     role,
-                    "SELECT e.id, b.days, r.payload, p.reference FROM journal_entry e"
+                    "SELECT e.id, b.days, r.kind, s.service, rr.archive, rp.artifact, p.reference FROM journal_entry e"
                             + " LEFT JOIN journal_booking b ON b.entry = e.id LEFT JOIN steward_inbox r ON r.id = e.run"
+                            + " LEFT JOIN run_service s ON s.run = r.id LEFT JOIN steward_restore rr ON rr.request = r.id"
+                            + " LEFT JOIN steward_remove_plugin rp ON rp.request = r.id"
                             + " LEFT JOIN payment_request p ON p.id = e.payment WHERE false",
                     journals));
             cases.add(mayNot(role, "UPDATE journal_entry SET subject = subject WHERE false"));
@@ -92,9 +94,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM hg_game"),
                 may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE smp_player SET aura = 0 WHERE false"),
-                may(
-                        DatabaseRole.STEWARD,
-                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'HOST')"),
+                may(DatabaseRole.STEWARD, "INSERT INTO steward_inbox (kind, actor_kind) VALUES ('UPDATE', 'HOST')"),
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM steward_inbox WHERE false"),
                 mayNot(
                         DatabaseRole.STEWARD,

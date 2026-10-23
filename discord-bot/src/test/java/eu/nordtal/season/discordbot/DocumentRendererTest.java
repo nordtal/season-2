@@ -97,6 +97,15 @@ class DocumentRendererTest {
     }
 
     @Test
+    void aPreviewDrawsEachMessageOfAListExampleAsTheTextItsKeyNames() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("no build yet"), drawn);
+        assertFalse(drawn.contains("admin/run.no-build"), drawn);
+    }
+
+    @Test
     void everyPackagedDocumentHasAPreviewInItsShape() {
         final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
         for (final Documents.Packaged each : Documents.packaged(

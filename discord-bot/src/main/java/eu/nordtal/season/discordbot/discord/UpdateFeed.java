@@ -82,7 +82,9 @@ public final class UpdateFeed {
             @Example(Mark.PREVIEW) String mark,
             @Example("smp") String service,
             @Takes("admin/run.step-kind") MessageRef state,
-            @Example("admin/run.no-build") List<MessageRef> changes) {}
+
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            List<MessageRef> changes) {}
 
     record Failure(
             boolean named,

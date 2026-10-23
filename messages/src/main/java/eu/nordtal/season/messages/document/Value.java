@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param kind the kind's token
  * @param example what a preview and the length check fill in
- * @param takes the keys a message value may take, else {@code null}
+ * @param takes the keys a message value, or each item of a list of messages, may take, else {@code null}
  * @param exampleValue the example read as its kind, as {@code {kind, value}}, where Steward's editor shows it, else
  *     {@code null}, which keeps it out of the declaration's hash
  */
@@ -34,7 +34,7 @@ public record Value(
     public Object readExample() {
         final Kind token = Kind.byToken(kind).orElse(Kind.TEXT);
         try {
-            return token.example(example);
+            return token.example(example, takes != null);
         } catch (final RuntimeException unreadable) {
             return example;
         }

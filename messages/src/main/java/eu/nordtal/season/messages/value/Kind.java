@@ -162,6 +162,13 @@ public enum Kind {
         };
     }
 
+    /** Returns a value of this kind from an example, each item of a list read as a message where {@code messages}. */
+    public Object example(final String text, final boolean messages) {
+        return this == LIST && messages
+                ? Arrays.stream(text.split(",", -1)).map(MESSAGE::example).toList()
+                : example(text);
+    }
+
     /** Returns whether {@code text} is written as a message key, {@code key} or {@code bundle/key}; words are not. */
     public static boolean namesMessage(final String text) {
         return MESSAGE_KEY.matcher(text).matches();

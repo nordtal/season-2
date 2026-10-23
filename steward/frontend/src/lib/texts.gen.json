@@ -686,6 +686,7 @@
     "steward.backups.missing": [["missing from the disk"]],
     "steward.backups.next": [["Next"]],
     "steward.backups.no-archive": [["This run wrote no archive"]],
+    "steward.backups.no-archive-yet": [["This run has written no archive yet"]],
     "steward.backups.no-clock": [["no nightly clock"]],
     "steward.backups.no-run": [["No backup run yet"]],
     "steward.backups.none": [["none"]],

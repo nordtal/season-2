@@ -138,7 +138,7 @@ final class JdbiJournalStream implements JournalStream {
 
     private static void bind(final Query query, final String name, final Term term) {
         switch (term.kind()) {
-            case ACTION -> query.bindArray(name, String.class, term.values());
+            case ACTION -> query.bindArray(name, String.class, term.values()).bind(name + "_word", term.word());
             case DAYS -> query.bind(name, Integer.parseInt(term.values().getFirst()));
             default -> query.bind(name, term.values().getFirst());
         }
@@ -156,8 +156,7 @@ final class JdbiJournalStream implements JournalStream {
             case UUID ->
                 "e.mc_uuid = cast(" + value + " AS uuid) OR e.subject IN " + PEOPLE_LINKED.formatted(name)
                         + " OR e.actor_id IN " + PEOPLE_LINKED.formatted(name);
-            case NAME ->
-                "e.subject IN " + PEOPLE_NAMED.formatted(name) + " OR e.actor_id IN " + PEOPLE_NAMED.formatted(name);
+            case NAME -> named(name);
             case DAYS -> "coalesce(g.days, b.days) >= " + value;
             case SERVICE ->
                 "e.service = " + value
@@ -169,8 +168,13 @@ final class JdbiJournalStream implements JournalStream {
             case RUN_KIND -> "r.kind = " + value;
             case RUN_STATUS -> "r.status = " + value;
             case GAUGE -> "EXISTS (SELECT 1 FROM alert_measure m WHERE m.entry = e.id AND m.gauge = " + value + ")";
-            case ACTION -> "e.action = ANY(" + value + ")";
+            // A word in an action label may also start a name: "Ti" finds Till as well as "Set playtime".
+            case ACTION -> "e.action = ANY(" + value + ") OR " + named(name + "_word");
         };
+    }
+
+    private static String named(final String name) {
+        return "e.subject IN " + PEOPLE_NAMED.formatted(name) + " OR e.actor_id IN " + PEOPLE_NAMED.formatted(name);
     }
 
     /** Returns the clause that keeps a run {@code r} that matches the term bound as {@code name}. */
@@ -187,7 +191,8 @@ final class JdbiJournalStream implements JournalStream {
             case RUN_STATUS -> "r.status = " + value;
             // A run stands for the entry that asked for it and for the alert of its failure.
             case ACTION ->
-                "'REQUEST_RUN' = ANY(" + value + ") OR 'RUN_FAILED' = ANY(" + value + ") AND r.status = 'FAILED'";
+                "'REQUEST_RUN' = ANY(" + value + ") OR 'RUN_FAILED' = ANY(" + value + ") AND r.status = 'FAILED'"
+                        + " OR r.actor_id IN " + PEOPLE_NAMED.formatted(name + "_word");
         };
     }
 

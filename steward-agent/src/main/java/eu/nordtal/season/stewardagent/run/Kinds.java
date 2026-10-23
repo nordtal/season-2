@@ -55,7 +55,6 @@ final class Kinds {
 
     static Planned update(
             final Runner runner, final UpdateRequest request, final Consumer<RunStage> progress, final Steps record) {
-        progress.accept(RunStage.RESOLVING);
         final Steps.Step resolving = record.begin(RunStep.Kind.RESOLVE);
         // The image check belongs in the plan that a person confirms.
         final ImageResult images = runner.containers.images();

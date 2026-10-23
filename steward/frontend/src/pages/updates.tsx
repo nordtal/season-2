@@ -5,7 +5,7 @@ import { cn } from "cn"
 import { toast } from "sonner"
 
 import type { AvailableChange, Run } from "@/lib/api"
-import { LOCALE, count, dateTime, relative } from "@/lib/format"
+import { LOCALE, count, dateTime, relative, NO_VALUE } from "@/lib/format"
 import { message, t } from "@/lib/texts"
 import { versionJump } from "@/lib/version-jump"
 import { useAvailable, useRefreshAvailable, useRuns, useSchedule } from "@/lib/queries"
@@ -137,7 +137,7 @@ function Jump({ change }: { change: AvailableChange }) {
   }
   return (
     <span className="text-xs" title={change.reason ? message(change.reason) : undefined}>
-      {change.installed ?? "\u2013"}
+      {change.installed ?? NO_VALUE}
     </span>
   )
 }

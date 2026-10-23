@@ -1,4 +1,5 @@
 import type { NetworkMap } from "@/lib/api"
+import { NO_VALUE } from "@/lib/format"
 
 /**
  * The boxes are the served service names plus {@link INGRESS}, which is drawn apart because it is no container.
@@ -92,7 +93,7 @@ export function layoutFaults(placed: readonly string[], names: readonly string[]
 
 /** The `#` keeps a short all-digit hex from reading as a number next to the drift mark. */
 export function imageTag(image: string | undefined): string {
-  if (!image) return "\u2013"
+  if (!image) return NO_VALUE
   const [reference, digest] = image.split("@")
   if (reference.startsWith("sha256:")) {
     return `#${reference.slice("sha256:".length, "sha256:".length + 7)}`

@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import { bytes, count, percent, relative } from "@/lib/format"
+import { bytes, count, percent, relative, NO_VALUE } from "@/lib/format"
 import type { Alert } from "@/lib/api"
 import { useAlerts, useBackups, useHost, useMetrics, useServices } from "@/lib/queries"
 import { NetworkPanel } from "@/components/steward/network/view"
@@ -80,7 +80,7 @@ function MetricRow() {
             ? (unreadable ??
               (host.data.memoryTotalBytes
                 ? t("steward.overview.used-of", { used: bytes(usedMemory), total: bytes(host.data.memoryTotalBytes) })
-                : "\u2013"))
+                : NO_VALUE))
             : WAITING_HINT
         }
         points={memory.data?.points}
@@ -95,7 +95,7 @@ function MetricRow() {
             ? undefined
             : host.data.diskTotalBytes
               ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
-              : "\u2013"
+              : NO_VALUE
         }
         hint={
           host.data
@@ -105,7 +105,7 @@ function MetricRow() {
                     used: bytes(host.data.diskUsedBytes),
                     total: bytes(host.data.diskTotalBytes),
                   })
-                : "\u2013"))
+                : NO_VALUE))
             : WAITING_HINT
         }
       >
@@ -156,7 +156,7 @@ function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boo
       return (
         <MetricTile
           label={t("steward.overview.issues")}
-          value={"\u2013"}
+          value={NO_VALUE}
           tone="warn"
           hint={t("steward.overview.unreadable")}
         />
@@ -212,11 +212,11 @@ function MetricTile({
 }
 
 function cores(cpus: number | undefined): string {
-  return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
+  return cpus === undefined ? NO_VALUE : t("steward.overview.cores", { count: cpus })
 }
 
 function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number }) {
-  if (!host.memoryTotalBytes) return "\u2013"
+  if (!host.memoryTotalBytes) return NO_VALUE
   return share(host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0), host.memoryTotalBytes)
 }
 

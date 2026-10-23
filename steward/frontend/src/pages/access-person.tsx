@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { adminsBelow } from "@/lib/admin-tree"
 import type { Person } from "@/lib/api"
-import { splitPlaytime } from "@/lib/format"
+import { splitPlaytime, NO_VALUE } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import {
   useGrantAccess,
@@ -451,7 +451,7 @@ export function RoleBadges({
         </StatusBadge>
       ) : null}
       {!person.donor && !person.admin && !person.packExemptAt ? (
-        <span className="text-xs text-muted-foreground">{"\u2013"}</span>
+        <span className="text-xs text-muted-foreground">{NO_VALUE}</span>
       ) : null}
     </div>
   )

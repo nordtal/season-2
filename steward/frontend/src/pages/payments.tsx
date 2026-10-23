@@ -12,7 +12,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Payment } from "@/lib/api"
-import { count, date, euros, time } from "@/lib/format"
+import { count, date, euros, time, NO_VALUE } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePayments, usePeople, useSettle } from "@/lib/queries"
@@ -84,7 +84,7 @@ function SettleAction({ reference }: { reference: string }) {
 
 /** The day, and the clock under it, so the column stays narrow. */
 function Moment({ at }: { at?: string }) {
-  if (!at) return <>{"\u2013"}</>
+  if (!at) return <>{NO_VALUE}</>
   return (
     <time dateTime={at} className="flex flex-col">
       <span>{date(at)}</span>
@@ -200,7 +200,7 @@ export function PaymentsTable({
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground" title={t("steward.payments.no-tab")}>
-              {"\u2013"}
+              {NO_VALUE}
             </span>
           )}
           {payment.status === "OPEN" ? <SettleAction reference={payment.reference} /> : null}

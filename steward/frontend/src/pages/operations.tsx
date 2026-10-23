@@ -4,7 +4,7 @@ import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { Run } from "@/lib/api"
-import { dateTime, parseInstant, relative } from "@/lib/format"
+import { dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
 import { choice, span, t } from "@/lib/texts"
@@ -86,7 +86,7 @@ export function savedCount(run: Run): number {
 
 /** Returns what a run did, one fact per line, counted out of its steps. */
 export function summaryOf(run: Run): string[] {
-  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
+  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : NO_VALUE]
   if (run.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
 
   const parts: string[] = []

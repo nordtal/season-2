@@ -1,7 +1,7 @@
 import { useParams } from "@tanstack/react-router"
 
 import type { Grant, Person } from "@/lib/api"
-import { count, dateTime } from "@/lib/format"
+import { count, dateTime, NO_VALUE } from "@/lib/format"
 import { choice, span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { useGrants, usePeople, usePersonPayments } from "@/lib/queries"
@@ -202,7 +202,7 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                       className="text-xs text-muted-foreground"
                       title={t("steward.people.request-gone", { source: choice(row.source) })}
                     >
-                      {"\u2013"}
+                      {NO_VALUE}
                     </span>
                   ),
               },

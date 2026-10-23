@@ -32,11 +32,6 @@ export async function rowFor(name: string): Promise<HTMLElement> {
   return assertElement(first?.closest("tr") ?? null, `a <tr> for ${name}`)
 }
 
-/** Reads a toast's description back as a string, since sonner types it as arbitrary React content. */
-export function toastDescription(description: unknown): string {
-  return typeof description === "string" ? description : ""
-}
-
 /** Opens a row's actions popover when it has one, behind a button named "Actions for …". */
 export async function openActions(name: string): Promise<HTMLElement> {
   const row = await rowFor(name)

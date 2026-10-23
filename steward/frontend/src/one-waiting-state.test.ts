@@ -41,10 +41,6 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "The dialogs' hooks are mutations. usePeople and useMe only decide whether Revoke admin is offered, and the" +
       " pages that draw a person wait for the roster before they do.",
   ],
-  [
-    "components/steward/group-form.tsx",
-    "Hooks over a settings group and a day picker; the dialogs that call them draw the wait.",
-  ],
   ["app/security-key.tsx", "useRegisterKey is a mutation. Nothing here is read."],
   [
     "components/steward/message-editor/rich-field.tsx",
@@ -78,14 +74,9 @@ const FLAT_BARS_ALLOWED = new Map<string, string>([
       " known which run it is. The card holds its height instead.",
   ],
   [
-    "pages/backup-dialogs.tsx",
-    "Destination and schedule are forms whose field set comes from steward's own config" +
-      " document. A form cannot draw fields it does not know the names of yet.",
-  ],
-  [
-    "pages/updates.tsx",
-    "The update schedule is the same kind of form as the backup one: its fields come from the" +
-      " steward's own config document.",
+    "components/steward/group-form.tsx",
+    "The schedule dialog is a form whose fields come from the groups it edits. A form cannot draw" +
+      " fields it does not know the names of yet.",
   ],
 ])
 

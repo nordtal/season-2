@@ -10,6 +10,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { errorMessage } from "@/lib/api"
 import { continuesPrevious, parseLogLine } from "@/lib/log-line"
 import type { Level, ParsedLine } from "@/lib/log-line"
 import { complete, suggest } from "@/lib/command-tree"
@@ -399,7 +400,7 @@ function ConsoleLine({ name }: { name: string }) {
             setCommand("")
           },
           onError: (error) => {
-            toast.error(t("steward.service-page.not-sent"), { description: String(error) })
+            toast.error(t("steward.service-page.not-sent"), { description: errorMessage(error) })
           },
         })
       }}

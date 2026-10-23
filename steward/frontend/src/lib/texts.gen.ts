@@ -1025,7 +1025,6 @@ export type TextArgs = {
     status: Arg["choice"]
   }
   "steward.backup-settings.no-at": Record<string, never>
-  "steward.backup-settings.no-days": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
@@ -1173,6 +1172,7 @@ export type TextArgs = {
     status: Arg["number"]
   }
   "steward.failure.log-lost": Record<string, never>
+  "steward.failure.not-done": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
   "steward.failure.smp-failed": Record<string, never>
@@ -1183,7 +1183,6 @@ export type TextArgs = {
   "steward.form.changed": {
     count: Arg["number"]
   }
-  "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
   "steward.form.discard": Record<string, never>
@@ -1675,7 +1674,6 @@ export type TextArgs = {
     was: Arg["text"]
   }
   "steward.payments.nothing-booked": Record<string, never>
-  "steward.payments.nothing-settled": Record<string, never>
   "steward.payments.only-overdue": Record<string, never>
   "steward.payments.open": Record<string, never>
   "steward.payments.overdue": Record<string, never>
@@ -1716,7 +1714,6 @@ export type TextArgs = {
   "steward.people.admins": Record<string, never>
   "steward.people.armour": Record<string, never>
   "steward.people.aura": Record<string, never>
-  "steward.people.aura-not-written": Record<string, never>
   "steward.people.aura-now": {
     aura: Arg["number"]
   }
@@ -1814,15 +1811,10 @@ export type TextArgs = {
   "steward.people.nobody": Record<string, never>
   "steward.people.none-linked": Record<string, never>
   "steward.people.none-running": Record<string, never>
-  "steward.people.not-granted": Record<string, never>
   "steward.people.not-linked": Record<string, never>
   "steward.people.not-linked-tip": {
     paid: Arg["choice"]
   }
-  "steward.people.not-made-admin": Record<string, never>
-  "steward.people.not-revoked": Record<string, never>
-  "steward.people.not-unlinked": Record<string, never>
-  "steward.people.nothing-changed": Record<string, never>
   "steward.people.nothing-to-revoke": Record<string, never>
   "steward.people.nothing-to-unlink": Record<string, never>
   "steward.people.online": Record<string, never>
@@ -1845,7 +1837,6 @@ export type TextArgs = {
   "steward.people.playtime-from": {
     time: Arg["duration"]
   }
-  "steward.people.playtime-not-written": Record<string, never>
   "steward.people.playtime-set": {
     name: Arg["text"]
   }
@@ -1895,7 +1886,6 @@ export type TextArgs = {
   }
   "steward.people.source-column": Record<string, never>
   "steward.people.spins": Record<string, never>
-  "steward.people.spins-not-written": Record<string, never>
   "steward.people.spins-now": {
     spins: Arg["number"]
   }

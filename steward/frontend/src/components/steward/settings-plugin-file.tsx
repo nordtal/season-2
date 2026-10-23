@@ -96,7 +96,7 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
       {/* The anchor BackToTop watches: the editor below is too tall to leave the view. */}
       <div ref={top} aria-hidden className="-mb-3" />
       {file.writable ? null : <p className="text-sm text-muted-foreground">{t("steward.settings.read-only")}</p>}
-      {save.error ? <Failure error={save.error} /> : null}
+      {save.error ? <Failure error={save.error} write /> : null}
       <CodeEditor
         path={file.path}
         label={label}

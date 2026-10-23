@@ -188,9 +188,6 @@ public interface PeoplePage {
     @Name("Valid until")
     MessageRef validUntil(@Arg("until") Instant until);
 
-    @Name("Not granted")
-    MessageRef notGranted();
-
     @Name("Most days")
     MessageRef mostDays(@Arg("most") int most);
 
@@ -203,9 +200,6 @@ public interface PeoplePage {
     @Name("Play time from")
     MessageRef playtimeFrom(@Arg("time") Duration time);
 
-    @Name("Play time not written")
-    MessageRef playtimeNotWritten();
-
     @Name("Aura title")
     MessageRef auraTitle();
 
@@ -215,9 +209,6 @@ public interface PeoplePage {
     @Name("Aura now")
     MessageRef auraNow(@Arg("aura") int aura);
 
-    @Name("Aura not written")
-    MessageRef auraNotWritten();
-
     @Name("Spins title")
     MessageRef spinsTitle();
 
@@ -226,9 +217,6 @@ public interface PeoplePage {
 
     @Name("Spins now")
     MessageRef spinsNow(@Arg("spins") int spins);
-
-    @Name("Spins not written")
-    MessageRef spinsNotWritten();
 
     @Name("Hours")
     MessageRef hours();
@@ -252,23 +240,14 @@ public interface PeoplePage {
     @Name("Unlinked")
     MessageRef unlinked();
 
-    @Name("Not unlinked")
-    MessageRef notUnlinked();
-
     @Name("Pack title")
     MessageRef packTitle(@Arg("exempted") boolean exempted, @Arg("name") String name);
 
     @Name("Pack changed")
     MessageRef packChanged(@Arg("exempted") boolean exempted);
 
-    @Name("Nothing changed")
-    MessageRef nothingChanged();
-
     @Name("Make admin title")
     MessageRef makeAdminTitle(@Arg("name") String name);
-
-    @Name("Not made admin")
-    MessageRef notMadeAdmin();
 
     @Name("Revoke admin title")
     MessageRef revokeAdminTitle(@Arg("name") String name);
@@ -281,9 +260,6 @@ public interface PeoplePage {
 
     @Name("Below too")
     MessageRef belowToo(@Arg("count") int count);
-
-    @Name("Not revoked")
-    MessageRef notRevoked();
 
     @Name("Revoke title")
     MessageRef revokeTitle();

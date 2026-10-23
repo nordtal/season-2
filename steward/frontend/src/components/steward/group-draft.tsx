@@ -147,7 +147,7 @@ export function GroupEditor({
   return (
     <div className="flex flex-col gap-3">
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
-      {save.error ? <Failure error={save.error} /> : null}
+      {save.error ? <Failure error={save.error} write /> : null}
       {children(draft, set)}
       <PinnedRow>
         <SaveDraft

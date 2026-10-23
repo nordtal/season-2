@@ -85,7 +85,7 @@ export function DraftForm({
       matches={configLeafMatches}
       notice={notice}
       target={target}
-      above={save.error ? <Failure error={save.error} /> : null}
+      above={save.error ? <Failure error={save.error} write /> : null}
       renderLeaf={(leaf, highlight) =>
         leaf.value.kind === "entry" ? (
           field(leaf.value.entry, highlight)

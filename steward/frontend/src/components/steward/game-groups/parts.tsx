@@ -90,6 +90,7 @@ export function RemoveButton({ name, disabled, onRemove }: { name: string; disab
       title={t("steward.game.remove-ask", { name })}
       cancel={t("steward.game.keep")}
       action={t("steward.game.remove-it")}
+      destructive
       act={onRemove}
     />
   )

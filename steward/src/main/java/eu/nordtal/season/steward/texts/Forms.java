@@ -14,9 +14,6 @@ public interface Forms {
     @Name("Changed")
     MessageRef changed(@Arg("count") int count);
 
-    @Name("Changed meanwhile")
-    MessageRef changedMeanwhile();
-
     @Name("Days")
     MessageRef days();
 

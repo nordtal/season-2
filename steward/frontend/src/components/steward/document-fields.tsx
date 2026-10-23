@@ -92,7 +92,7 @@ export function ImageField({
           }}
         />
       </div>
-      {upload.error ? <Failure error={upload.error} /> : null}
+      {upload.error ? <Failure error={upload.error} write /> : null}
     </div>
   )
 }

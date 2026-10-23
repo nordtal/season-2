@@ -79,7 +79,7 @@ const WAITING_KEYS = [0, 1]
 export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   const { keys } = state
   const onlyOneAndItIsPhysical = keys.length === 1 && keys[0].backedUp === false
-  const failure = state.add.error ?? state.rename.error ?? state.remove.error
+  const failure = state.add.error ?? state.rename.error
 
   return (
     <div className="flex flex-col gap-1">
@@ -201,8 +201,8 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               </p>
             ) : null}
 
-            <ResponsiveDialogFooter className="gap-2 sm:gap-2">
-              <Button type="button" variant="ghost" onClick={state.closeAdding}>
+            <ResponsiveDialogFooter>
+              <Button type="button" variant="outline" onClick={state.closeAdding}>
                 {t("steward.form.cancel")}
               </Button>
               <Button type="submit" disabled={add.isPending}>
@@ -244,8 +244,8 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               </p>
             ) : null}
 
-            <ResponsiveDialogFooter className="gap-2 sm:gap-2">
-              <Button type="button" variant="ghost" onClick={state.closeRenaming}>
+            <ResponsiveDialogFooter>
+              <Button type="button" variant="outline" onClick={state.closeRenaming}>
                 {t("steward.form.cancel")}
               </Button>
               <Button type="submit" disabled={rename.isPending || !state.newLabel.trim()}>
@@ -264,10 +264,8 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         description={t("steward.keys.remove-note")}
         cancel={t("steward.keys.keep-it")}
         action={t("steward.keys.remove-it")}
-        act={() => {
-          const key = state.removing
-          if (key) remove.mutate(key.id)
-        }}
+        destructive
+        act={() => (state.removing ? remove.mutateAsync(state.removing.id) : undefined)}
       />
     </>
   )

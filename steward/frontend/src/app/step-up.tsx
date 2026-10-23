@@ -157,10 +157,10 @@ export function StepUp() {
           </form>
         ) : null}
 
-        <ResponsiveDialogFooter className="gap-2 sm:gap-2">
+        <ResponsiveDialogFooter>
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={busy}
             onClick={() => settle(new Error(t("steward.keys.not-held")))}
           >

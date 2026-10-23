@@ -72,7 +72,7 @@ export function AnnouncementForm() {
             </div>
           ))}
         </div>
-        {send.error && !asking ? <Failure error={send.error} /> : null}
+        {send.error && !asking ? <Failure error={send.error} write /> : null}
         {sent ? (
           <div className="flex flex-col gap-2">
             {Object.entries(sent).map(([tag, id]) => (

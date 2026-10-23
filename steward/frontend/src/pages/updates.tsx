@@ -1,36 +1,25 @@
-import { useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowRightIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "cn"
 import { toast } from "sonner"
 
-import type { AvailableChange, ConfigChanges, Run } from "@/lib/api"
-import { ApiError } from "@/lib/api"
+import type { AvailableChange, Run } from "@/lib/api"
 import { LOCALE, count, dateTime, relative } from "@/lib/format"
 import { message, t } from "@/lib/texts"
 import { versionJump } from "@/lib/version-jump"
-import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
-import { ScalarControl } from "@/components/steward/config-controls"
+import { useAvailable, useRefreshAvailable, useRuns, useSchedule } from "@/lib/queries"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { RunSteps } from "@/components/steward/run-steps"
 import { Stat } from "@/components/steward/stat"
 import { AvailableBadge, RunStatus, runKind } from "@/components/steward/status"
-import { Empty, Failure, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@/components/ui/responsive-dialog"
 import { DataTable } from "@/components/steward/data-table"
 import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable, summaryOf } from "@/pages/operations"
-import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from "@/components/steward/group-form"
+import { ScheduleDialog } from "@/components/steward/group-form"
 
 /**
  * The updates page: a header, three numbers and the lists. `update.at` is empty by default and schedules the same request that the button writes.
@@ -44,7 +33,7 @@ export function UpdatesPage() {
         title={t("steward.updates.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ScheduleDialog />
+            <ScheduleDialog job="update" empty={t("steward.updates.no-section")} noDay={t("steward.updates.no-day")} />
             <Button
               type="button"
               variant="outline"
@@ -173,7 +162,7 @@ function Available() {
 
   return (
     <Panel title={t("steward.updates.available")}>
-      {refresh.error ? <Failure error={refresh.error} /> : null}
+      {refresh.error ? <Failure error={refresh.error} write /> : null}
       <QueryState
         query={available}
         empty={{ title: t("steward.updates.nothing-to-install") }}
@@ -334,110 +323,5 @@ function Runs() {
         )}
       </QueryState>
     </Panel>
-  )
-}
-
-const SCHEDULE_KEYS = ["update.at"] as const
-
-/** A list kept apart from the scalar draft, as on Backups. */
-const DAYS_KEY = "update.days"
-
-/**
- * Sets when an update runs on its own. An empty time, the default, is no schedule. Steward re-reads its file after a save.
- */
-function ScheduleDialog() {
-  const { file, document, pending } = useStewardConfig()
-  const save = useSaveConfig(file ?? "")
-  const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
-
-  const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
-  const [lastDocument, setLastDocument] = useState(document)
-  if (lastDocument !== document) {
-    setLastDocument(document)
-    setPickedDays(undefined)
-  }
-
-  const daysEntry = entryAt(document, DAYS_KEY)
-  const fileDays = chosenDays(daysEntry?.items)
-  const days = pickedDays ?? fileDays
-  const daysChanged = pickedDays !== undefined && pickedDays.join() !== fileDays.join()
-  const allChanges: ConfigChanges = daysChanged ? { ...changes, [DAYS_KEY]: days } : changes
-  const allChanged = changed + (daysChanged ? 1 : 0)
-  const at = draft["update.at"] ?? entryAt(document, "update.at")?.value ?? ""
-
-  return (
-    <ResponsiveDialog>
-      <ResponsiveDialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <TERM_ICON.schedule />
-          {t("steward.form.schedule")}
-        </Button>
-      </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent aria-describedby={undefined}>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("steward.form.schedule")}</ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
-
-        {pending ? (
-          <Loading rows={3} />
-        ) : !document || entries.length === 0 ? (
-          <Empty title={t("steward.updates.no-section")} />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("steward.form.days")}</Label>
-              <DayPicker
-                days={days}
-                disabled={!daysEntry || !document.writable || save.isPending}
-                onChange={setPickedDays}
-              />
-              {at.trim() !== "" && days.length === 0 ? (
-                <p className="text-xs text-destructive">{t("steward.updates.no-day")}</p>
-              ) : null}
-            </div>
-
-            {entries.map((entry) => (
-              <div key={entry.path} className="flex flex-col gap-1.5">
-                <Label htmlFor={entry.path}>{entry.label || entry.key}</Label>
-                <ScalarControl
-                  id={entry.path}
-                  entry={entry}
-                  value={draft[entry.path] ?? entry.value ?? ""}
-                  disabled={!document.writable || save.isPending}
-                  onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
-                />
-              </div>
-            ))}
-
-            <div className="flex items-center gap-3">
-              <Button
-                disabled={allChanged === 0 || !document.writable || save.isPending}
-                onClick={() =>
-                  save.mutate(
-                    { revision: document.revision, changes: allChanges },
-                    {
-                      onSuccess: () => toast.success(t("steward.form.schedule-saved")),
-                      onError: (failure) =>
-                        toast.error(
-                          failure instanceof ApiError && failure.status === 409
-                            ? t("steward.form.changed-meanwhile")
-                            : String(failure),
-                        ),
-                    },
-                  )
-                }
-              >
-                {t("steward.form.save")}
-              </Button>
-              {allChanged > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">
-                  {t("steward.form.changed", { count: allChanged })}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
   )
 }

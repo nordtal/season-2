@@ -248,21 +248,21 @@ export function SharedPartDialog({
               }
             </QueryState>
           )}
-          {save.error ? <Failure error={save.error} /> : null}
+          {save.error ? <Failure error={save.error} write /> : null}
         </div>
         <ResponsiveDialogFooter>
           {part.shared && exists ? (
             <Button
               type="button"
-              variant="outline"
-              className="text-destructive sm:mr-auto"
+              variant="destructive"
+              className="sm:mr-auto"
               disabled={!writable || save.isPending}
               onClick={() => submit(null)}
             >
               {t("steward.document-editor.delete-shared-part")}
             </Button>
           ) : null}
-          <Button ref={cancel} type="button" variant="ghost" onClick={onClose}>
+          <Button ref={cancel} type="button" variant="outline" onClick={onClose}>
             {t("steward.form.cancel")}
           </Button>
           <Button

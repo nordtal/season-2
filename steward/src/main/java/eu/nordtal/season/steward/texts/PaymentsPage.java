@@ -37,9 +37,6 @@ public interface PaymentsPage {
     @Name("Nothing booked")
     MessageRef nothingBooked();
 
-    @Name("Nothing settled")
-    MessageRef nothingSettled();
-
     @Name("A request's state")
     MessageRef state(@Arg("status") PaymentRequestStatus status);
 

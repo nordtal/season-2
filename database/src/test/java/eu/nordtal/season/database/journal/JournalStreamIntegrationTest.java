@@ -224,9 +224,11 @@ class JournalStreamIntegrationTest {
         about(JournalAction.LINK, ALICE);
         about(JournalAction.GRANT_ACCESS, ALICE);
         about(JournalAction.GRANT_ACCESS, BOB);
+        final long run = run("RESTART", "DONE", ALICE);
+        run("RESTART", "DONE", BOB);
 
         assertEquals(
-                List.of("entry GRANT_ACCESS", "entry GRANT_ACCESS", "entry LINK"),
+                List.of("run " + run, "entry GRANT_ACCESS", "entry GRANT_ACCESS", "entry LINK"),
                 shown(List.of(new Term(Kind.ACTION, "al", List.of("GRANT_ACCESS")))));
     }
 

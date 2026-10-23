@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.config;
 
+import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -155,6 +156,7 @@ public interface WebSpec {
         @Name("Root's Discord ID")
         @Key("root-id")
         @Explain("May become root while nobody is an admin. Empty means nobody.")
+        @Refers(value = Refers.To.DISCORD_USER, optional = true)
         default String rootId() {
             return "";
         }

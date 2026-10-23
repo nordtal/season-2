@@ -12,6 +12,7 @@ import eu.nordtal.season.messages.document.Document;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,7 +147,7 @@ class MessageBundlesTest {
                 List.of(
                         new MessageArg("opponent", "name", null, false, "Alex", false),
                         new MessageArg("rematch", null, null, false, null, true)),
-                won.args());
+                withoutValues(won.args()));
         assertEquals(Arrays.asList("Duels", null), won.section());
         assertNull(entry(bundle, "a.typo").name());
     }
@@ -189,7 +190,7 @@ class MessageBundlesTest {
                         new MessageArg("count", "number", null, false, "3", false),
                         new MessageArg("server.name", "text", "service", true, "smp", false),
                         new MessageArg("season.number", "number", "season", true, "2", false)),
-                won.args());
+                withoutValues(won.args()));
         assertEquals("MINIMESSAGE", won.format());
         assertEquals(List.of("TITLE", "DISCORD_BUTTON"), won.shown());
         assertEquals(80, won.limit());
@@ -231,10 +232,80 @@ class MessageBundlesTest {
                                 false,
                                 "restart.what.network",
                                 false,
-                                Map.of("en", "The network", "de", "Das Netzwerk")),
-                        new MessageArg("count", "number", null, false, "10", false)),
+                                null,
+                                Map.of(
+                                        "kind",
+                                        "message",
+                                        "value",
+                                        Map.of("key", "restart.what.network", "args", Map.of()))),
+                        new MessageArg("count", "number", null, false, "10", false)
+                                .withExample(Map.of("kind", "number", "value", new BigDecimal("10")))),
                 update.args(),
-                "the editor previews the nested message as its words and still sends the server its key");
+                "the editor is sent the nested message as its key, which it looks up in the edited language");
+    }
+
+    private static final String EXAMPLES_SCHEMA = """
+            {"bundle": "admin", "messages": [
+              {"key": "archive.saved", "name": "Archive saved", "format": "MINIMESSAGE", "shown": ["CHAT"],
+               "section": [],
+               "args": [{"name": "size", "kind": "message", "example": "1.2 GiB", "action": false},
+                        {"name": "took", "kind": "duration", "example": "PT2M", "action": false},
+                        {"name": "subjects", "kind": "list", "example": "database dump,disk", "action": false},
+                        {"name": "when", "kind": "instant", "example": "not a time", "action": false},
+                        {"name": "changes", "kind": "list", "example": "run.change-image,run.change-jar",
+                         "action": false, "takes": ["run.change-image", "run.change-jar"]}]}
+            ], "contexts": {}, "globals": []}
+            """;
+
+    @Test
+    void anExampleIsSentReadAsItsKindAndOneThatDoesNotReadSendsNone() throws IOException {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/admin/en.properties",
+                        "archive.saved={size} in {took}: {subjects} at {when}, {changes}\n",
+                        "messages/admin/schema.json",
+                        EXAMPLES_SCHEMA));
+        final List<MessageArg> args = entry(
+                        MessageBundles.read(
+                                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"))),
+                        "archive.saved")
+                .args();
+
+        assertEquals(
+                Arrays.asList(
+                        Map.of("kind", "text", "value", "1.2 GiB"),
+                        Map.of("kind", "duration", "value", 120L),
+                        Map.of(
+                                "kind",
+                                "list",
+                                "value",
+                                List.of(
+                                        Map.of("kind", "text", "value", "database dump"),
+                                        Map.of("kind", "text", "value", "disk"))),
+                        null,
+                        Map.of(
+                                "kind",
+                                "list",
+                                "value",
+                                List.of(
+                                        Map.of(
+                                                "kind",
+                                                "message",
+                                                "value",
+                                                Map.of("key", "run.change-image", "args", Map.of())),
+                                        Map.of(
+                                                "kind",
+                                                "message",
+                                                "value",
+                                                Map.of("key", "run.change-jar", "args", Map.of()))))),
+                args.stream().map(MessageArg::exampleValue).toList());
+        assertEquals(
+                List.of("run.change-image", "run.change-jar"), args.getLast().takes());
+    }
+
+    private static List<MessageArg> withoutValues(final List<MessageArg> args) {
+        return args.stream().map(arg -> arg.withExample(null)).toList();
     }
 
     @Test

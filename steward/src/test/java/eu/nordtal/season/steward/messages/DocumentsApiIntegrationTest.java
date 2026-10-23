@@ -8,11 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.document.DocumentStore;
-import eu.nordtal.season.database.inbox.MessagePreview;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
@@ -36,7 +37,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,8 @@ class DocumentsApiIntegrationTest {
     private static final String DECLARATIONS = """
             [{"namespace":"smp","name":"welcome","area":"Join","shape":"MESSAGE",
               "values":{"player":{"kind":"text","example":"Alex"}},
-              "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""";
+              "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}},
+                {"id":"rows","type":"LIST","required":false,"values":{"left":{"kind":"duration","example":"PT1M"}}}]}]""";
 
     private static final String WELCOME = """
             {"parts":[
@@ -67,7 +68,7 @@ class DocumentsApiIntegrationTest {
     private DocumentStore store;
 
     /** The preview of the last {@code POST /api/document-preview}. */
-    private MessagePreview previewed;
+    private DocumentPreview previewed;
 
     @BeforeEach
     void start() throws IOException {
@@ -136,6 +137,25 @@ class DocumentsApiIntegrationTest {
                         .getAsJsonObject("join.label")
                         .get("kind")
                         .getAsString());
+    }
+
+    @Test
+    void eachValueCarriesItsExampleReadAsItsKind() throws Exception {
+        final JsonObject view = view();
+
+        assertEquals(
+                JsonParser.parseString("{\"kind\":\"text\",\"value\":\"Alex\"}"),
+                view.getAsJsonObject("named").getAsJsonObject("player").get("exampleValue"));
+        assertEquals(
+                JsonParser.parseString("{\"kind\":\"duration\",\"value\":60}"),
+                view.getAsJsonObject("declaration")
+                        .getAsJsonArray("slots")
+                        .get(1)
+                        .getAsJsonObject()
+                        .getAsJsonObject("values")
+                        .getAsJsonObject("left")
+                        .get("exampleValue"));
+        assertEquals(packaged().hash(), view.get("hash").getAsString());
     }
 
     @Test
@@ -458,11 +478,11 @@ class DocumentsApiIntegrationTest {
         send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
 
         assertEquals(
-                MessagePreview.of(
+                new DocumentPreview(
+                        "de",
                         new Documents.Packaged(
                                 Documents.decode(DECLARATIONS).getFirst(),
-                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}"))),
-                        "de"),
+                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}")))),
                 previewed);
     }
 
@@ -479,9 +499,7 @@ class DocumentsApiIntegrationTest {
         send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
 
         assertEquals(Display.TAB_LIST, previewed.shown());
-        assertEquals(
-                "tab-footer",
-                Objects.requireNonNull(previewed.document()).declaration().name());
+        assertEquals("tab-footer", previewed.document().declaration().name());
     }
 
     @Test

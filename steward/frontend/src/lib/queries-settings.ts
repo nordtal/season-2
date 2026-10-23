@@ -7,6 +7,7 @@ import {
   isGlyphInfoList,
   type ConfigChanges,
   type ConfigDocument,
+  type ConfigSaved,
   type ConfigLocation,
   type Document,
   type DocumentDeclaration,
@@ -59,12 +60,12 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`, {
+      api<ConfigSaved>(`/api/setting-groups/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
-    onSuccess: (document) => {
-      client.setQueryData(keys.config(file), document)
+    onSuccess: (saved) => {
+      client.setQueryData(keys.config(file), saved.document)
       void client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {

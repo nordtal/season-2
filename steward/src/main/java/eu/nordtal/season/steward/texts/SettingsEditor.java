@@ -3,10 +3,20 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
 /** The texts of the settings and translations editor for files, fields, texts, and the list and reference controls. */
 @Name("Settings")
 public interface SettingsEditor {
+
+    @Name("Applies after a restart")
+    MessageRef appliesAfterRestart();
+
+    @Name("Applies on save")
+    MessageRef appliesOnSave();
+
+    @Name("Plugin files")
+    MessageRef pluginFiles();
 
     @Name("Files")
     MessageRef files();
@@ -45,13 +55,28 @@ public interface SettingsEditor {
     MessageRef backToTop();
 
     @Name("Texts saved")
-    MessageRef textsSaved(@Arg("count") int count);
+    MessageRef textsSaved(@Arg("count") @Example("3") int count);
 
     @Name("Settings saved")
-    MessageRef settingsSaved(@Arg("count") int count);
+    MessageRef settingsSaved(@Arg("count") @Example("3") int count);
+
+    @Name("Not of the field's type")
+    MessageRef notOfType(@Arg("expected") StewardTexts.Expected expected);
+
+    @Name("Fields that hold a wrong value")
+    MessageRef invalidFields(@Arg("count") @Example("2") int count);
+
+    @Name("Not saved yet")
+    MessageRef notSaved();
+
+    @Name("No worlds reported")
+    MessageRef noWorlds(@Arg("service") @Example("smp") String service);
+
+    @Name("No game data published")
+    MessageRef noGameData();
 
     @Name("File saved")
-    MessageRef fileSaved(@Arg("file") String file);
+    MessageRef fileSaved(@Arg("file") @Example("server.properties") String file);
 
     @Name("Not in bundle")
     MessageRef notInBundle();
@@ -66,10 +91,7 @@ public interface SettingsEditor {
     MessageRef overridden();
 
     @Name("Refused")
-    MessageRef refused(@Arg("problem") String problem);
-
-    @Name("Restart needed")
-    MessageRef restartNeeded();
+    MessageRef refused(@Arg("problem") @Example("view-distance must be between 2 and 32") String problem);
 
     @Name("Environment override")
     MessageRef envOverride();
@@ -78,7 +100,7 @@ public interface SettingsEditor {
     MessageRef envOverrideTip();
 
     @Name("Entry")
-    MessageRef entry(@Arg("index") int index);
+    MessageRef entry(@Arg("index") @Example("2") int index);
 
     @Name("Choose one")
     MessageRef chooseOne();
@@ -99,7 +121,7 @@ public interface SettingsEditor {
     MessageRef emptyList();
 
     @Name("Remove entry")
-    MessageRef removeEntry(@Arg("index") int index);
+    MessageRef removeEntry(@Arg("index") @Example("2") int index);
 
     @Name("Add entry")
     MessageRef addEntry();
@@ -126,19 +148,19 @@ public interface SettingsEditor {
     MessageRef cannotRemove();
 
     @Name("Entry cannot be removed")
-    MessageRef entryCannotRemove(@Arg("index") int index);
+    MessageRef entryCannotRemove(@Arg("index") @Example("2") int index);
 
     @Name("Remove")
-    MessageRef remove(@Arg("what") String what);
+    MessageRef remove(@Arg("what") @Example("Diamond") String what);
 
     @Name("Incomplete")
-    MessageRef incomplete(@Arg("missing") String missing);
+    MessageRef incomplete(@Arg("missing") @Example("the name") String missing);
 
     @Name("Add to")
-    MessageRef addTo(@Arg("what") String what);
+    MessageRef addTo(@Arg("what") @Example("Rewards") String what);
 
     @Name("Remove question")
-    MessageRef removeAsk(@Arg("title") String title);
+    MessageRef removeAsk(@Arg("title") @Example("Diamond") String title);
 
     @Name("Remove entry question")
     MessageRef removeEntryAsk();
@@ -153,7 +175,7 @@ public interface SettingsEditor {
     MessageRef none();
 
     @Name("Search in")
-    MessageRef searchIn(@Arg("what") String what);
+    MessageRef searchIn(@Arg("what") @Example("Rewards") String what);
 
     @Name("Search")
     MessageRef search();
@@ -177,5 +199,5 @@ public interface SettingsEditor {
     MessageRef add();
 
     @Name("Undo an entry")
-    MessageRef undoEntry(@Arg("what") String what);
+    MessageRef undoEntry(@Arg("what") @Example("Diamond") String what);
 }

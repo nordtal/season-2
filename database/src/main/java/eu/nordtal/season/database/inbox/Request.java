@@ -14,7 +14,9 @@ import org.jspecify.annotations.Nullable;
  * @param kind the kind name, as {@link InboxTable#kindOf} spells it
  * @param scheduledFor when the consumer may claim it. Never moves
  * @param expires when an unclaimed row stops waiting, null for never
- * @param outcome the answer of the consumer as JSON, null until written
+ * @param outcome the answer of the consumer as JSON, null until written and in a table without its outcome column
+ * @param answer the typed answer of a done row kind that has one, else null
+ * @param refused the refusal of a {@link InboxStatus#REFUSED} row, else null
  */
 public record Request<P>(
         long id,
@@ -27,7 +29,9 @@ public record Request<P>(
         @Nullable Instant expires,
         @Nullable Instant started,
         @Nullable Instant finished,
-        @Nullable String outcome) {
+        @Nullable String outcome,
+        @Nullable Object answer,
+        @Nullable Refusal refused) {
 
     public Request {
         Objects.requireNonNull(kind, "kind");
@@ -42,10 +46,13 @@ public record Request<P>(
         return outcome == null ? Optional.empty() : Optional.ofNullable(DatabaseJson.decode(outcome, type));
     }
 
+    /** Returns the typed answer of a done row, or empty if it has none of that type. */
+    public <A> Optional<A> answer(final Class<A> type) {
+        return type.isInstance(answer) ? Optional.of(type.cast(answer)) : Optional.empty();
+    }
+
     /** Returns the refusal of a {@link InboxStatus#REFUSED} row, or empty for any other. */
     public Optional<Refusal> refusal() {
-        return status == InboxStatus.REFUSED && outcome != null
-                ? Optional.of(StoredRefusal.read(outcome))
-                : Optional.empty();
+        return Optional.ofNullable(refused);
     }
 }

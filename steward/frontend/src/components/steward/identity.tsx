@@ -101,11 +101,28 @@ export function PersonIdentity(props: PersonIdentityProps) {
   const closed =
     props.face === "minecraft" ? (
       minecraftFace
-    ) : props.face === "both" && props.mcUuid ? (
+    ) : props.face === "both" ? (
       <>
-        <span className="inline-flex min-w-0 items-center gap-2">{discordFace}</span>
-        {/* The account in the game is the second of the two, so it is quieter than the person's name. */}
-        <span className="ml-1 inline-flex min-w-0 items-center gap-1.5 opacity-80">{minecraftFace}</span>
+        {/* The head overlaps the picture's corner, so the two take the height of one. */}
+        <span className="relative shrink-0">
+          <DiscordAvatar url={props.discordAvatarUrl} name={name.text} size="size-8" />
+          {props.mcUuid ? (
+            <span className="absolute -right-1 -bottom-1 rounded-sm ring-2 ring-background">
+              <MinecraftHead mcUuid={props.mcUuid} baseUrl={props.avatarBaseUrl} size="size-4" />
+            </span>
+          ) : null}
+        </span>
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className={"truncate font-medium " + (name.text ? "text-foreground" : "text-muted-foreground italic")}>
+            {name.text ?? t("steward.identity.no-discord-name")}
+          </span>
+          {/* The account in the game is the second of the two, so it is quieter than the person's name. */}
+          {props.mcUuid ? (
+            <span className="truncate text-xs text-muted-foreground">
+              {props.mcName ?? t("steward.identity.no-name")}
+            </span>
+          ) : null}
+        </span>
       </>
     ) : (
       discordFace

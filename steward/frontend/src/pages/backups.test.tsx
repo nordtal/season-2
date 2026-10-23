@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Person } from "@/lib/api"
 import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
-import { changesOf } from "@/lib/query-fixtures"
+import { changesOf, configSaved } from "@/lib/query-fixtures"
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -47,7 +48,6 @@ function stewardConfig() {
     readable: true,
     writable: true,
     revision: "rev-1",
-    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       /** A LIST key with two days, so the file's value differs from the default of all seven. */
@@ -75,7 +75,6 @@ function runsConfig() {
     readable: true,
     writable: true,
     revision: "rev-9",
-    restartRequired: false,
     entries: [
       entry({
         path: "backup.retention.daily",
@@ -159,6 +158,7 @@ function person(over: Partial<Person> = {}): Person {
     locale: "en",
     updated: "2026-09-17T00:00:00Z",
     accessActive: true,
+    online: false,
     aura: 0,
     spins: 0,
     ...over,
@@ -170,45 +170,60 @@ function backend(
     config?: unknown
     put?: (body: unknown) => Response
     putRuns?: (body: unknown) => Response
-    runs?: unknown[]
+    runs?: { id: number }[]
+    /** The runs only `/api/updates/{id}` answers, as an old one beyond the list's limit. */
+    one?: { id: number }[]
     backups?: unknown[]
+    backupsDown?: boolean
     people?: Person[]
+    /** steward-agent has not published its runs group yet. */
+    noRuns?: boolean
   } = {},
 ) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/setting-groups") {
       return json(200, [
         { service: "steward", name: "steward", path: FILE, label: "", live: true, readable: true, writable: true },
-        {
-          service: "steward-agent",
-          name: "runs",
-          path: RUNS_FILE,
-          label: "",
-          live: true,
-          readable: true,
-          writable: true,
-        },
+        ...(over.noRuns
+          ? []
+          : [
+              {
+                service: "steward-agent",
+                name: "runs",
+                path: RUNS_FILE,
+                label: "",
+                live: true,
+                readable: true,
+                writable: true,
+              },
+            ]),
       ])
     }
     if (url === `/api/setting-groups/${RUNS_FILE}`) {
       if (init?.method === "PUT") {
-        return (over.putRuns ?? (() => json(200, runsConfig())))(JSON.parse(init?.body ?? ""))
+        return (over.putRuns ?? (() => json(200, configSaved(runsConfig()))))(JSON.parse(init?.body ?? ""))
       }
       return json(200, runsConfig())
     }
     if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") {
-        return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
+        return (over.put ?? (() => json(200, configSaved(stewardConfig()))))(JSON.parse(init?.body ?? ""))
       }
       return json(200, over.config ?? stewardConfig())
     }
     if (url === "/api/backups") {
+      if (over.backupsDown) return json(500, { error: "The catalogue is not readable." })
       return json(200, over.backups ?? [backup()])
     }
     if (url.startsWith("/api/backups/") && init?.method === "POST") {
       return json(202, { id: 7, kind: "RESTORE", archive: url })
     }
-    if (url.startsWith("/api/updates")) return json(200, over.runs ?? [run()])
+    const one = /^\/api\/updates\/(\d+)$/.exec(url)
+    if (one) {
+      const found = (over.one ?? over.runs ?? [run()]).find((candidate) => String(candidate.id) === one[1])
+      return found ? json(200, found) : json(404, { error: `There is no request ${one[1]}.` })
+    }
+    if (url.startsWith("/api/updates?")) return json(200, over.runs ?? [run()])
     if (url === "/api/schedule") {
       return json(200, { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null })
     }
@@ -232,7 +247,9 @@ function draw() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
   return { history }
@@ -242,17 +259,22 @@ function drawDetail(id: string) {
   const root = createRootRoute()
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: BackupRunDetailPage }),
+    createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
   ])
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [`/operations/backups/${id}`] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
+  return router
 }
 
 afterEach(() => {
@@ -274,6 +296,16 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     expect(daily.value).toBe("14")
   })
 
+  it("draws steward's own fields while steward-agent has not published its runs group", async () => {
+    vi.stubGlobal("fetch", backend({ noRuns: true }))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+
+    expect(asInput(await screen.findByLabelText("At")).value).toBe("04:45")
+    expect(screen.queryByLabelText("Daily")).toBeNull()
+  })
+
   it("saves a retention change into the runs group and leaves steward's own group alone", async () => {
     let toRuns: unknown
     let toSteward: unknown
@@ -282,11 +314,11 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
       backend({
         put: (body) => {
           toSteward = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
         putRuns: (body) => {
           toRuns = body
-          return json(200, runsConfig())
+          return json(200, configSaved(runsConfig()))
         },
       }),
     )
@@ -319,7 +351,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
       backend({
         put: (body) => {
           sent = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
       }),
     )
@@ -525,11 +557,102 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(screen.queryByLabelText(/^Download /)).toBeNull()
   })
 
+  it("leads back to Backups as the update run's page leads back to Updates", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ steps: [] })], backups: [] }))
+    drawDetail("41")
+
+    const back = await screen.findByRole("link", { name: "All backups" })
+    expect(back.getAttribute("href")).toBe("/operations/backups")
+  })
+
   it("says so when no run matches the id, rather than drawing an empty page", async () => {
     vi.stubGlobal("fetch", backend({ runs: [] }))
     drawDetail("999")
 
-    expect(await screen.findByText("No such run")).toBeTruthy()
+    expect(await screen.findByText(/There is no request 999/)).toBeTruthy()
+  })
+
+  it("reads its one run by id, so a run older than the list's limit has its page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [],
+        one: [
+          run({ id: 3, steps: [saving("nordtal-s2_mc-smp", [archive("nordtal-s2_mc-smp-20250101T044500Z.tar.zst")])] }),
+        ],
+        backups: [],
+      }),
+    )
+    drawDetail("3")
+
+    expect(await screen.findByText("nordtal-s2_mc-smp-20250101T044500Z.tar.zst")).toBeTruthy()
+  })
+
+  it("draws a running backup's stages and steps as the update run's page does", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [
+          run({
+            status: "RUNNING",
+            stage: "BACKING_UP",
+            finished: null,
+            steps: [saving("nordtal-s2_mc-smp", [archive("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")])],
+          }),
+        ],
+        backups: [],
+      }),
+    )
+    drawDetail("41")
+
+    const current = await screen.findByText("Backing up", { selector: "[aria-current='step'] *" })
+    expect(current).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Report" })).toBeTruthy()
+    expect(screen.getByText("Save a volume")).toBeTruthy()
+  })
+
+  it("says a run that saved archives without catalogue rows wrote archives the catalogue does not list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [run({ status: "DONE", stage: "DONE", steps: [saving("nordtal-s2_mc-smp", [])] })],
+        backups: [],
+      }),
+    )
+    drawDetail("41")
+
+    expect(await screen.findByText("This run wrote archives that the catalogue does not list")).toBeTruthy()
+  })
+
+  it("says a running backup has written no archive yet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ runs: [run({ status: "RUNNING", stage: "PLANNED", finished: null, steps: [] })], backups: [] }),
+    )
+    drawDetail("41")
+
+    expect(await screen.findByText("This run has written no archive yet")).toBeTruthy()
+  })
+
+  it("says a run whose saves all failed wrote no archive", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run()], backups: [] }))
+    drawDetail("41")
+
+    expect(await screen.findByText("This run wrote no archive")).toBeTruthy()
+  })
+
+  it("names a failed catalogue in the archives panel instead of waiting on it", async () => {
+    vi.stubGlobal("fetch", backend({ backupsDown: true }))
+    drawDetail("41")
+
+    expect(await screen.findByText(/The catalogue is not readable/)).toBeTruthy()
+  })
+
+  it("sends a run of another kind to its page under Updates", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ kind: "RESTART", steps: [] })], backups: [] }))
+    const router = drawDetail("41")
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/operations/updates/41"))
   })
 })
 

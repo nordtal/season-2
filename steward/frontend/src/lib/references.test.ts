@@ -32,6 +32,7 @@ const GAME: GameData = {
       { id: "minecraft:story/hidden_helper", parent: "minecraft:story/root" },
     ],
   },
+  worlds: {},
   tags: { item: [{ id: "minecraft:logs", values: ["minecraft:oak_log", "minecraft:spruce_log"] }] },
   icons: { url: "/icons.png", columns: 32, slots: { "minecraft:oak_log": 0, "minecraft:zombie_spawn_egg": 1 } },
 }

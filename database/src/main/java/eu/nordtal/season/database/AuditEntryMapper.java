@@ -35,6 +35,7 @@ import eu.nordtal.season.database.JournalDetail.SettingsSaved;
 import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.JournalDetail.SmpStartSet;
 import eu.nordtal.season.database.JournalDetail.SpinsSet;
+import eu.nordtal.season.database.JournalDetail.StackRemoved;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -72,6 +73,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 JournalDetail.line(action, detail(action, rs)));
     }
 
+    // An alert throws: the journal's queries leave alerts out, which the alert book reads.
     private static @Nullable JournalDetail detail(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
             case GRANT_ACCESS,
@@ -79,6 +81,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     SET_PLAYTIME,
                     SET_AURA,
                     SET_SPINS,
+                    REMOVE_STACK,
                     UNLINK,
                     SETTLE,
                     REVOKE_ADMIN,
@@ -112,6 +115,23 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     WEB_PUSH_UNSUBSCRIBE,
                     START_GAME,
                     LINK_CODES_EXHAUSTED -> null;
+            case SERVICE_DOWN,
+                    BACKUP_STALE,
+                    DISK_FULL,
+                    MEMORY_FULL,
+                    IMAGE_DRIFT,
+                    PACK_DEAD,
+                    RUN_FAILED,
+                    PAYMENT_NEEDS_LOOK,
+                    LINK_REFUSED,
+                    LINK_FAILED,
+                    PURCHASE_FAILED,
+                    DM_NOT_DELIVERED,
+                    ROLE_NOT_CHANGED,
+                    ROLE_AMBIGUOUS,
+                    ROLE_NOT_CREATED,
+                    LOCK_NOT_KEPT,
+                    LOCK_WITHOUT_CHANNEL -> throw new IllegalArgumentException(action + " is an alert");
         };
     }
 
@@ -136,6 +156,10 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
             case SET_SPINS -> {
                 final Integer spins = rs.getObject("spins", Integer.class);
                 yield spins == null ? null : new SpinsSet(spins);
+            }
+            case REMOVE_STACK -> {
+                final String item = rs.getString("removed_item");
+                yield item == null ? null : new StackRemoved(item, rs.getInt("removed_amount"));
             }
             case UNLINK -> {
                 final Boolean selfService = rs.getObject("self_service", Boolean.class);

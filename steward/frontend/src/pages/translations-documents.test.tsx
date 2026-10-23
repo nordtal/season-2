@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDraft, DocumentPart, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
-import { words } from "@/lib/query-fixtures"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
 
@@ -219,7 +218,8 @@ function unfold(editor: HTMLElement): HTMLElement {
   return within(editor).getByDisplayValue("Access")
 }
 
-describe("an open document", () => {
+// Fifteen seconds, because an open editor draws every part with its pickers, which takes close to five on CI.
+describe("an open document", { timeout: 15_000 }, () => {
   it("opens its editor in its card, with the component count and a lock on what the code requires", async () => {
     serve()
     draw(<Page />)
@@ -339,16 +339,17 @@ describe("an open document", () => {
           asked.push(body)
           return "bot:7"
         },
-        commands: { "bot:7": { id: "bot:7", status: "DONE", result: words("Sent to you in Discord.") } },
+        commands: { "bot:7": { id: "bot:7", status: "DONE" } },
       }),
     )
     draw(<Page />)
 
     const editor = await openContribution()
     fireEvent.change(unfold(editor), { target: { value: "Support" } })
-    fireEvent.click(within(editor).getByRole("button", { name: "Send it to me in Discord" }))
+    const send = within(editor).getByRole("button", { name: "Send it to me in Discord" })
+    fireEvent.click(send)
 
-    expect(await within(editor).findByText("Sent to you in Discord.")).toBeTruthy()
+    await waitFor(() => expect(within(send).getByRole("status").textContent).toBe("Done"))
     expect(asked).toHaveLength(1)
     expect(asked[0]).toMatchObject({ declaration: { name: "contribution" }, language: "en" })
     expect(JSON.stringify(asked[0])).toContain('"en":"Support"')
@@ -451,6 +452,91 @@ describe("an open document", () => {
     },
   )
 
+  it("lines every card up with its branch's name, and stacked, with the tree's edge, open or closed", async () => {
+    const title = view(
+      { namespace: "smp", name: "duel-result-title", area: "Duels", shape: "TITLE", values: {} },
+      { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }] }] },
+      { game: true, services: ["smp"] },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Duels")
+    const card = await screen.findByRole("article", { name: "Duel result title" })
+    // jsdom has no layout: two branches deep, the list's indent is two branch steps and the step to the branch's name.
+    const leaves = card.parentElement!.parentElement!
+    expect(leaves.className).toMatch(/\bpl-4\b/)
+    expect(leaves.style.getPropertyValue("--list-indent")).toBe("3rem")
+    expect(card.className).toMatch(/max-lg:-ml-\(--list-indent\)/)
+    within(card).getByRole("button", { name: "Duel result title" }).click()
+    await screen.findByRole("region", { name: "Duel result title" })
+    const opened = screen.getByRole("article", { name: "Duel result title" })
+    expect(opened.className).toMatch(/max-lg:-ml-\(--list-indent\)/)
+    const part = within(opened).getByRole("button", { expanded: true, name: /Text/ }).closest("div.rounded-md")
+    expect(part?.className).toMatch(/\bborder\b/)
+  })
+
+  it("names the part's and the line's condition apart and keeps the source switch in the field's toolbar", async () => {
+    const title = view(
+      {
+        namespace: "smp",
+        name: "duel-result-title",
+        area: "Duels",
+        shape: "TITLE",
+        values: { aura: { kind: "number", example: "3" } },
+      },
+      { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }] }] },
+      { game: true, services: ["smp"], named: { aura: { kind: "number", example: "3" } } },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Duels")
+    within(await screen.findByRole("article", { name: "Duel result title" }))
+      .getByRole("button", { name: "Duel result title" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Duel result title" })
+    expect(within(editor).getByText("Part shown when")).toBeTruthy()
+    expect(within(editor).getByText("Line shown when")).toBeTruthy()
+    const toolbar = within(editor).getByRole("toolbar")
+    expect(within(toolbar).getByRole("button", { name: "Source" })).toBeTruthy()
+    expect(within(toolbar).getByRole("button", { name: "As it looks" })).toBeTruthy()
+  })
+
+  it("offers a menu item line's condition the item's own values beside the document's", async () => {
+    const grave = view(
+      {
+        namespace: "smp",
+        name: "grave",
+        area: "Graves",
+        shape: "MENU",
+        values: { loot: { kind: "number", example: "3" } },
+        slots: [{ id: "owner", type: "ITEM", required: true, values: { known: { kind: "boolean", example: "true" } } }],
+      },
+      { parts: [{ type: "ITEM", slot: "owner", lines: [{ text: { en: "Owner" }, when: "known" }] }] },
+      { game: true, services: ["smp"], named: { loot: { kind: "number", example: "3" } } },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([grave]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Graves")
+    within(await screen.findByRole("article", { name: "Grave" }))
+      .getByRole("button", { name: "Grave" })
+      .click()
+    const editor = await screen.findByRole("region", { name: "Grave" })
+    if (!within(editor).queryByText("Line shown when")) {
+      fireEvent.click(within(editor).getByRole("button", { expanded: false, name: /Item/ }))
+    }
+    const [mode, value] = within(editor).getAllByRole("combobox", { name: "Line shown when" })
+    expect(mode.textContent).toBe("is set")
+    expect(value.textContent).toBe("known")
+    fireEvent.keyDown(value, { key: "Enter" })
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["loot", "known"])
+  })
+
   it("shows a game draft as it stands to the admin's player in game", async () => {
     const asked: unknown[] = []
     vi.stubGlobal(
@@ -462,7 +548,7 @@ describe("an open document", () => {
           asked.push(body)
           return "smp:8"
         },
-        commands: { "smp:8": { id: "smp:8", status: "DONE", result: words("Shown to your player.") } },
+        commands: { "smp:8": { id: "smp:8", status: "DONE" } },
       }),
     )
     draw(<Page />)
@@ -474,9 +560,10 @@ describe("an open document", () => {
       .click()
     const editor = await screen.findByRole("region", { name: "Tab footer" })
     expect(within(editor).queryByRole("button", { name: "Send it to me in Discord" })).toBeNull()
-    fireEvent.click(within(editor).getByRole("button", { name: "Show it to my player in game" }))
+    const show = within(editor).getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
 
-    expect(await within(editor).findByText("Shown to your player.")).toBeTruthy()
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     expect(asked[0]).toMatchObject({ declaration: { name: "tab-footer", shape: "TAB_LIST" }, language: "en" })
   })
 
@@ -586,6 +673,44 @@ describe("an open document", () => {
     expect(within(card).getByText("Release changed")).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
+  })
+
+  it("names each change a release made to the saved document", async () => {
+    const written = { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Old access" } }] }] }
+    const adapted = [
+      { change: "SLOT_ADDED" as const, subject: "buy" },
+      { change: "SLOT_REMOVED" as const, subject: "refund" },
+    ]
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written, outdated: true, adapted }, modal]),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const changes = within(await openContribution()).getByRole("list", { name: "Adapted to the release" })
+    expect(within(changes).getByText("Code element added at the end")).toBeTruthy()
+    expect(within(changes).getByText("buy")).toBeTruthy()
+    expect(within(changes).getByText("Code element removed")).toBeTruthy()
+    expect(within(changes).getByText("refund")).toBeTruthy()
+  })
+
+  it("says that the packaged document shows, and why, when a release set the saved one aside", async () => {
+    const adapted = [{ change: "SET_ASIDE" as const, subject: "The slot buy is not placed." }]
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([{ ...contribution, written: contribution.packaged, outdated: true, adapted }, modal]),
+        render: rendered,
+      }),
+    )
+    draw(<Page />)
+
+    const changes = within(await openContribution()).getByRole("list", { name: "Adapted to the release" })
+    expect(within(changes).getByText("Set aside, the packaged document shows")).toBeTruthy()
+    expect(within(changes).getByText("The slot buy is not placed.")).toBeTruthy()
   })
 })
 

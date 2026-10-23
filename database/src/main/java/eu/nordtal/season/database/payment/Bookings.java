@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.payment;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessGrant;
@@ -11,6 +12,7 @@ import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Objects;
 import java.util.Optional;
@@ -70,8 +72,8 @@ public final class Bookings {
     /** How one booking ended. */
     public sealed interface Booking {
 
-        /** Booked and committed. The bot is told with this. */
-        record Booked(BotRequest.PaymentBooked told) implements Booking {}
+        /** Booked and committed. The bot tells the payer this. */
+        record Booked(BookedPayment told) implements Booking {}
 
         /** The request was not open, so nothing was written. */
         record NotOpen() implements Booking {}
@@ -121,7 +123,7 @@ public final class Bookings {
                 Grants.markDonor(handle, open.discordId());
             }
             final UUID entry = Journal.write(handle, journalLine(open, arrival, settlement, by));
-            final BotRequest.PaymentBooked told = new BotRequest.PaymentBooked(
+            final BookedPayment told = new BookedPayment(
                     open.id(),
                     open.discordId(),
                     open.reference(),
@@ -132,9 +134,41 @@ public final class Bookings {
                     grant.validFrom(),
                     grant.validUntil(),
                     entry);
-            bot.submitWithin(handle, told, by);
+            bot.submitWithin(handle, new BotRequest.PaymentBooked(open.id(), entry), by, Schedule.NOW);
             return new Booking.Booked(told);
         });
+    }
+
+    /**
+     * Reads what a booking gave its payer back from the payment request, its grant and the journal entry.
+     * The order's total is what the payer was asked for, so less money than that was a downgrade.
+     */
+    public BookedPayment told(final BotRequest.PaymentBooked booked) {
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                        SELECT p.discord_id, p.reference, b.days, b.donation_cents,
+                               coalesce(p.matched_cents < p.amount_cents, false) AS downgraded,
+                               p.matched_cents, g.valid_from, g.valid_until
+                        FROM payment_request p
+                        JOIN access_grant g ON g.payment_request_id = p.id
+                        JOIN journal_booking b ON b.entry = :entry
+                        WHERE p.id = :payment
+                        """)
+                .bind("payment", booked.payment())
+                .bind("entry", booked.entry())
+                .map((row, context) -> new BookedPayment(
+                        booked.payment(),
+                        DiscordId.of(row.getString("discord_id")),
+                        row.getString("reference"),
+                        row.getInt("days"),
+                        row.getInt("donation_cents"),
+                        row.getBoolean("downgraded"),
+                        row.getObject("matched_cents", Integer.class),
+                        row.getTimestamp("valid_from").toInstant(),
+                        row.getTimestamp("valid_until").toInstant(),
+                        booked.entry()))
+                .findOne()
+                .orElseThrow(() -> new IllegalStateException(
+                        "payment " + booked.payment() + " has no booking with entry " + booked.entry())));
     }
 
     private static AuditLine journalLine(

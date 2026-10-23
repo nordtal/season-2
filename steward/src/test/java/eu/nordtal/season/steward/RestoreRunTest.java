@@ -41,8 +41,9 @@ class RestoreRunTest extends WebTestSupport {
         assertEquals(202, asked.statusCode(), asked.body());
         assertEquals(
                 1,
-                count("select count(*) from steward_inbox where kind = 'RESTORE' and status = 'PENDING'"
-                        + " and payload ->> 'archive' = '" + ARCHIVE + "' and actor_id = '1'"));
+                count("select count(*) from steward_inbox join steward_restore on request = id"
+                        + " where kind = 'RESTORE' and status = 'PENDING'"
+                        + " and archive = '" + ARCHIVE + "' and actor_id = '1'"));
     }
 
     @Test

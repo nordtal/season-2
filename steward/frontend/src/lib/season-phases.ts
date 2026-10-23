@@ -1,3 +1,5 @@
+import { NO_VALUE } from "@/lib/format"
+
 /**
  * The five phases of `eu.nordtal.season.common.SeasonPhase`, held against it by `season-phases.test.ts`.
  */
@@ -11,7 +13,7 @@ export interface SeasonPhaseInfo {
 }
 
 export const SEASON_PHASES: SeasonPhaseInfo[] = [
-  { name: "PRE_LAUNCH", where: "\u2014" },
+  { name: "PRE_LAUNCH", where: NO_VALUE },
   { name: "PRE_EVENT", where: "hunger-games" },
   { name: "START_EVENT", where: "hunger-games" },
   { name: "SMP", where: "smp" },

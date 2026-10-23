@@ -3,15 +3,13 @@ package eu.nordtal.season.papercommon.chat;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.messagerendering.ToneColours;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Palette;
-import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Sent;
@@ -22,7 +20,6 @@ import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.PreviewMenu;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.time.Duration;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -47,41 +44,56 @@ public final class Previews {
 
     private final Function<UUID, @Nullable Player> online;
     private final MessageRenderer renderer;
+    private final Function<String, Palette> colours;
     private final Scheduler main;
 
     private final Map<UUID, List<Pill>> bars = new ConcurrentHashMap<>();
 
-    /** @param main runs on the server's main thread, where a window opens and a drafted boss bar ends */
+    /**
+     * @param colours the palette of a service by name, as its settings name the colours
+     * @param main runs on the server's main thread, where a window opens and a drafted boss bar ends
+     */
     public Previews(
-            final Function<UUID, @Nullable Player> online, final MessageRenderer renderer, final Scheduler main) {
+            final Function<UUID, @Nullable Player> online,
+            final MessageRenderer renderer,
+            final Function<String, Palette> colours,
+            final Scheduler main) {
         this.online = Objects.requireNonNull(online, "online");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
+        this.colours = Objects.requireNonNull(colours, "colours");
         this.main = Objects.requireNonNull(main, "main");
     }
 
+    /** Shows a key's text with the values an admin gave, the rest filled from the key's schema here. */
     public Answer show(final PlayerId player, final MessagePreview preview) {
         final Player reader = online.apply(player.value());
         if (reader == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
         final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
-        final Documents.Packaged document = preview.document();
-        if (document != null) {
-            show(reader, GameDocument.example(renderer, document, viewer), document);
-            return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
-        }
-        final MessageRef message = Objects.requireNonNull(preview.message(), "message");
-        final String drafted = Objects.requireNonNull(preview.text(), "text");
         // The key's own service paints the text, and that need not be this server.
-        final Component text = preview.colours().isEmpty()
-                ? renderer.format(viewer, message, drafted)
-                : renderer.format(viewer, message, drafted, paletteOf(preview.colours()));
+        final Component text = renderer.format(
+                viewer,
+                renderer.raw().example(preview.key(), preview.given()),
+                preview.text(),
+                colours.apply(preview.service()));
         switch (preview.shown()) {
             case TITLE -> reader.showTitle(Title.title(Lines.joined(text), Component.empty()));
             case SUBTITLE -> reader.showTitle(Title.title(Component.empty(), Lines.joined(text)));
             case ACTION_BAR -> reader.sendActionBar(Lines.joined(text));
             default -> reader.sendMessage(text);
         }
+        return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
+    }
+
+    /** Shows a drafted game document, every value at its example. */
+    public Answer show(final PlayerId player, final DocumentPreview preview) {
+        final Player reader = online.apply(player.value());
+        if (reader == null) {
+            return Answer.refused(ServerRefusal.NOT_HERE.with());
+        }
+        final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
+        show(reader, GameDocument.example(renderer, preview.document(), viewer), preview.document());
         return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
@@ -121,17 +133,5 @@ public final class Previews {
 
     private static Component orEmpty(final @Nullable Component component) {
         return component == null ? Component.empty() : component;
-    }
-
-    /** Returns the tones as a palette. A missing or unreadable tone keeps its default. */
-    private static Palette paletteOf(final Map<String, String> colours) {
-        final Map<Tone, String> declared = new EnumMap<>(Tone.class);
-        for (final Tone tone : Tone.values()) {
-            final String hex = colours.get(tone.tag());
-            if (hex != null) {
-                declared.put(tone, hex);
-            }
-        }
-        return ToneColours.parse(declared, unreadable -> {});
     }
 }

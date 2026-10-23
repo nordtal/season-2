@@ -4,14 +4,14 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 
-/** {@link Scheduler#serial()}: runs one task at a time. */
-final class SerialLane implements Executor {
+/** {@link Scheduler#serial()}: runs one task at a time on {@code threads}. */
+public final class SerialLane implements Executor {
 
     private final Executor threads;
     private final Queue<Runnable> waiting = new ArrayDeque<>();
     private boolean running;
 
-    SerialLane(final Executor threads) {
+    public SerialLane(final Executor threads) {
         this.threads = threads;
     }
 

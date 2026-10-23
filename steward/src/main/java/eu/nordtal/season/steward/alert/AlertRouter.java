@@ -6,18 +6,24 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.database.alert.Measure;
+import eu.nordtal.season.database.alert.Measure.Gauge;
 import eu.nordtal.season.database.alert.RaisedAlert;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Schedule;
+import eu.nordtal.season.database.payment.TabRefusal;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.steward.push.PushSender;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import java.time.Duration;
@@ -25,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -38,15 +45,16 @@ public final class AlertRouter {
 
     static final Duration BOT_PATIENCE = Duration.ofHours(1);
 
+    private static final DiscordId SAMPLE_MEMBER = DiscordId.of("100000000000000001");
+
     private static final Logger log = LoggerFactory.getLogger(AlertRouter.class);
 
     private final AlertBook book;
     private final AlertPreferences preferences;
     private final Supplier<List<DiscordId>> admins;
     private final Inbox<BotRequest> bot;
-    private final @Nullable PushSubscriptions subscriptions;
+    private final PushSubscriptions subscriptions;
     private final @Nullable PushSender sender;
-    private final String publicUrl;
     private final Messages texts;
 
     /** @param sender null without a VAPID keypair, so the admin channel is the only channel */
@@ -55,9 +63,8 @@ public final class AlertRouter {
             final AlertPreferences preferences,
             final Supplier<List<DiscordId>> admins,
             final Inbox<BotRequest> bot,
-            final @Nullable PushSubscriptions subscriptions,
+            final PushSubscriptions subscriptions,
             final @Nullable PushSender sender,
-            final String publicUrl,
             final Messages texts) {
         this.book = Objects.requireNonNull(book, "book");
         this.preferences = Objects.requireNonNull(preferences, "preferences");
@@ -65,7 +72,6 @@ public final class AlertRouter {
         this.bot = Objects.requireNonNull(bot, "bot");
         this.subscriptions = subscriptions;
         this.sender = sender;
-        this.publicUrl = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
         this.texts = Objects.requireNonNull(texts, "texts");
     }
 
@@ -81,12 +87,11 @@ public final class AlertRouter {
             return;
         }
         final AlertPreferences.Chosen chosen = preferences.all();
-        final List<PushSubscriptions.Subscription> browsers =
-                subscriptions == null || sender == null ? List.of() : subscriptions.all();
+        final List<PushSubscriptions.Subscription> browsers = sender == null ? List.of() : subscriptions.all();
         final List<DiscordId> everyAdmin = admins.get();
         for (final RaisedAlert one : raised) {
             push(one.alert(), chosen, browsers);
-            post(one.alert(), chosen, everyAdmin);
+            post(one, chosen, everyAdmin);
         }
     }
 
@@ -100,10 +105,10 @@ public final class AlertRouter {
 
     /** Sends a sample of {@code type} to one browser. Returns null without a VAPID keypair. */
     public @Nullable Delivery sendSample(final PushSubscriptions.Subscription subscription, final AlertType type) {
-        if (sender == null || subscriptions == null) {
+        if (sender == null) {
             return null;
         }
-        final PushSender.Result result = send(subscription, payloadOf(sample(type)));
+        final PushSender.Result result = send(subscription, payloadOf(sample(type.action())));
         if (result == PushSender.Result.EXPIRED) {
             subscriptions.expired(subscription.endpoint());
             return Delivery.GONE;
@@ -121,30 +126,24 @@ public final class AlertRouter {
                 continue;
             }
             switch (send(subscription, payload)) {
-                case SENT -> Objects.requireNonNull(subscriptions).touchSent(subscription.endpoint());
+                case SENT -> subscriptions.touchSent(subscription.endpoint());
                 // A 404 or 410 means the subscription is dead, so the row is removed.
-                case EXPIRED -> Objects.requireNonNull(subscriptions).expired(subscription.endpoint());
+                case EXPIRED -> subscriptions.expired(subscription.endpoint());
                 case FAILED -> log.warn("push to {} failed (not a 404/410)", subscription.endpoint());
             }
         }
     }
 
-    /** Asks the bot to post the alert for the admins who want it there. An OK alert mentions nobody. */
-    private void post(final Alert alert, final AlertPreferences.Chosen chosen, final List<DiscordId> everyAdmin) {
-        final List<DiscordId> wanting = everyAdmin.stream()
-                .filter(admin -> chosen.wants(admin, alert.type(), AlertChannel.DISCORD))
-                .toList();
-        if (wanting.isEmpty()) {
+    /** Asks the bot to post the alert when an admin wants it there. It mentions the admin role unless it is OK. */
+    private void post(
+            final RaisedAlert raised, final AlertPreferences.Chosen chosen, final List<DiscordId> everyAdmin) {
+        final Alert alert = raised.alert();
+        if (everyAdmin.stream().noneMatch(admin -> chosen.wants(admin, alert.type(), AlertChannel.DISCORD))) {
             return;
         }
         try {
             bot.submit(
-                    new BotRequest.PostAlert(
-                            alert.level(),
-                            alert.title(),
-                            alert.detail(),
-                            publicUrl + alert.path(),
-                            alert.level() == Alert.Level.OK ? List.of() : wanting),
+                    new BotRequest.PostAlert(raised.id(), alert.level() != Alert.Level.OK),
                     Actor.STEWARD,
                     Schedule.within(BOT_PATIENCE));
         } catch (final RuntimeException failure) {
@@ -176,36 +175,70 @@ public final class AlertRouter {
         return Json.encode(body);
     }
 
-    static Alert sample(final AlertType type) {
-        return switch (type) {
-            case SERVICE ->
-                new Alert(type, Alert.Level.DOWN, "smp", TEXTS.alert().notRunning("smp"), "/services/smp");
-            case BACKUP ->
-                new Alert(type, Alert.Level.DOWN, "database dump", TEXTS.alert().noDump(), "/operations/backups");
-            case DISK -> new Alert(type, Alert.Level.WARN, "disk", TEXTS.alert().disk(91), "/");
-            case MEMORY ->
-                new Alert(type, Alert.Level.WARN, "memory", TEXTS.alert().memory(93), "/");
-            case DRIFT ->
-                new Alert(type, Alert.Level.WARN, "registry", TEXTS.alert().notCompared(), "/operations/updates");
-            case PACK ->
-                new Alert(
-                        type, Alert.Level.DOWN, StackAlerts.PACK, TEXTS.alert().deadPack(), StackAlerts.PROXY_PAGE);
-            case RUN ->
-                new Alert(
-                        type,
+    /** Returns a sample of an alert's action, with every value it can show. */
+    public static Alert sample(final JournalAction action) {
+        return switch (action) {
+            case SERVICE_DOWN ->
+                measured(action, Alert.Level.DOWN, Measure.state(Gauge.CONTAINER_STATE, "smp", "exited"));
+            case BACKUP_STALE ->
+                measured(action, Alert.Level.DOWN, new Measure(Gauge.BACKUP_AGE_HOURS, Alert.DUMP, null, 26.0, null));
+            case DISK_FULL -> measured(action, Alert.Level.WARN, Measure.against(Gauge.DISK_PERCENT, "disk", 91, 85));
+            case MEMORY_FULL ->
+                measured(action, Alert.Level.WARN, Measure.against(Gauge.MEMORY_PERCENT, "memory", 93, 90));
+            case IMAGE_DRIFT -> measured(action, Alert.Level.WARN, Measure.state(Gauge.OLDER_IMAGE, "smp", null));
+            case PACK_DEAD ->
+                measured(
+                        action,
                         Alert.Level.DOWN,
-                        "update",
-                        TEXTS.run().title(UpdateKind.UPDATE, UpdateReport.Stage.FAILED),
-                        "/operations/updates");
-            case PAYMENT ->
-                new Alert(type, Alert.Level.DOWN, "payment", TEXTS.alert().payment(), "/payments");
-            case BOT ->
-                new Alert(
-                        type,
-                        Alert.Level.WARN,
-                        "access role",
-                        TEXTS.alert().roleNotChanged(DiscordRole.ACCESS, true),
-                        "/access");
+                        Measure.state(Gauge.PACK, StackAlerts.PACK, "https://nordtal.eu/pack.zip"));
+            case RUN_FAILED ->
+                event(
+                        action,
+                        new JournalDetail.RunFailed(
+                                42L,
+                                UpdateKind.UPDATE,
+                                List.of(new JournalDetail.FailedStep(
+                                        RunStep.Kind.START,
+                                        "smp",
+                                        RunStep.Outcome.FAILED,
+                                        RunStep.Reason.NOT_HEALTHY))));
+            case PAYMENT_NEEDS_LOOK ->
+                event(
+                        action,
+                        new JournalDetail.PaymentFlagged(
+                                JournalDetail.PaymentFlagged.Problem.UNKNOWN_REFERENCE,
+                                42,
+                                Money.euroCents(500),
+                                "NT-ABC123",
+                                null,
+                                null));
+            case LINK_REFUSED ->
+                event(action, new JournalDetail.LinkRefused(new UUID(0, 42), "NT-ABC123", TabRefusal.UNREACHABLE));
+            case LINK_FAILED, PURCHASE_FAILED ->
+                event(action, new JournalDetail.MemberFailed(SAMPLE_MEMBER, "Unknown Member"));
+            case DM_NOT_DELIVERED -> event(action, new JournalDetail.MemberFailed(SAMPLE_MEMBER, null));
+            case ROLE_NOT_CHANGED ->
+                event(
+                        action,
+                        new JournalDetail.RoleNotChanged(
+                                DiscordRole.ACCESS, true, SAMPLE_MEMBER, "Missing Permissions"));
+            case ROLE_AMBIGUOUS -> event(action, new JournalDetail.RoleNamed("Access", null));
+            case ROLE_NOT_CREATED -> event(action, new JournalDetail.RoleNamed("Access", "Missing Permissions"));
+            case LOCK_NOT_KEPT ->
+                event(
+                        action,
+                        new JournalDetail.ChannelsNotClosed(
+                                List.of(new JournalDetail.ChannelFailure("general", "Missing Access"))));
+            case LOCK_WITHOUT_CHANNEL -> new Alert(action, Alert.Level.WARN, List.of());
+            default -> throw new IllegalArgumentException(action + " is no alert");
         };
+    }
+
+    private static Alert measured(final JournalAction action, final Alert.Level level, final Measure measure) {
+        return new Alert(action, level, List.of(measure));
+    }
+
+    private static Alert event(final JournalAction action, final JournalDetail detail) {
+        return new Alert(action, action == JournalAction.RUN_FAILED ? Alert.Level.DOWN : Alert.Level.WARN, detail);
     }
 }

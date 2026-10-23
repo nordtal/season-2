@@ -8,8 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.common.http.HttpFailure;
-import eu.nordtal.season.database.DatabaseText;
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.stewardagent.Told;
@@ -69,7 +68,7 @@ class ResolverTest {
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
-                .serving("/projects/velocity/versions/4.2.0/builds", "fill-velocity-4.2.0.json")
+                .serving("/projects/velocity/versions/4.3.0/builds", "fill-velocity-4.3.0.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
 
@@ -79,7 +78,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // 4.0.0 names the 4.x line, and 4.2.0 is the version the proxy plugin is compiled against.
+        // 4.0.0 names the 4.x line, and 4.3.0 is the version the proxy plugin is compiled against.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(
                 List.of(),
@@ -94,11 +93,11 @@ class ResolverTest {
         // The run must not fail when one release of the same family is added.
         http.answering("/projects/velocity", """
                 {"project":{"id":"velocity","name":"Velocity"},
-                 "versions":{"4.0.0":["4.3.0-SNAPSHOT","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
+                 "versions":{"4.0.0":["4.4.0-SNAPSHOT","4.4.0","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
                 """);
-        http.answering("/projects/velocity/versions/4.3.0/builds", """
+        http.answering("/projects/velocity/versions/4.4.0/builds", """
                 [{"id":31,"channel":"STABLE","time":"2026-09-08T00:00:00Z","downloads":{
-                   "server:default":{"name":"velocity-4.3.0-31.jar","url":"https://x/31",
+                   "server:default":{"name":"velocity-4.4.0-31.jar","url":"https://x/31",
                                      "checksums":{"sha256":"dd"}}}}]
                 """);
 
@@ -108,18 +107,19 @@ class ResolverTest {
         assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
         assertEquals(
-                "velocity-4.3.0-31.jar",
+                "velocity-4.4.0-31.jar",
                 changeFor(plan, "proxy", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
         // A key with typed values, so every surface words it in its reader's language and target.
         assertEquals("report.velocity-ahead", plan.notes().getFirst().key());
         final String note = Told.english(plan.notes().getFirst());
-        assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
-        assertTrue(
-                Told.notes(PlanReport.of(plan)).contains("SOURCES WARNING -: " + note),
-                "the note is decided by the resolver and drawn by PlanReport - a report that drops"
-                        + " it is a version skew nobody is told about");
+        assertTrue(note.contains("4.4.0") && note.contains(Platform.VELOCITY_API), note);
+        assertEquals(
+                List.of(new Work.Finding(null, RunStep.Outcome.WARNING, RunStep.Reason.VELOCITY_AHEAD)),
+                Work.of(plan).about(null),
+                "the note is decided by the resolver and written as a step - a run that drops it is a version"
+                        + " skew nobody is told about");
     }
 
     @Test
@@ -207,15 +207,14 @@ class ResolverTest {
         assertFalse(plan.hasWork(), Told.plan(plan));
         assertFalse(plan.hasMissing(), Told.plan(plan));
 
-        final UpdateReport report = PlanReport.of(plan);
-        assertFalse(report.isWork(), report.toString());
-        assertEquals(UpdateReport.State.UNCHANGED, report.line("smp").state(), report.toString());
-        assertTrue(
-                report.line("smp").changes().stream()
-                        .anyMatch(entry -> entry.artefact().equals("coreprotect")
-                                && entry.state() == UpdateReport.Change.State.UNSUPPORTED),
-                "the artefact has to stay NAMED while it waits - one dropped from the report is one"
-                        + " somebody has to remember: " + report);
+        final Work work = Work.of(plan);
+        assertFalse(work.isWork(), Told.plan(plan));
+        assertEquals(List.of(), work.about("smp"), Told.plan(plan));
+        assertEquals(
+                Change.Status.UNSUPPORTED,
+                statusOf(plan, "smp", "coreprotect"),
+                "the artefact has to stay named while it waits - one dropped from the plan is one somebody has"
+                        + " to remember: " + Told.plan(plan));
     }
 
     @Test
@@ -262,8 +261,8 @@ class ResolverTest {
         assertNotNull(change.wanted());
         assertEquals("smp-0.1.0.jar", change.wanted().fileName());
         assertTrue(
-                PlanReport.of(plan).line("smp").changes().contains(new UpdateReport.Change("smp", "0.0.9", "0.1.0")),
-                "the report tells the jump of the two files: " + Told.plan(plan));
+                Work.of(plan).of("smp").contains(new RunStep.Change("smp", "0.0.9", "0.1.0", null)),
+                "the steps tell the jump of the two files: " + Told.plan(plan));
     }
 
     @Test
@@ -327,7 +326,10 @@ class ResolverTest {
 
         assertTrue(plan.hasFailures());
         assertEquals(Change.Status.MOUNT_MISSING, statusOf(plan, "smp", "smp"));
-        assertEquals(UpdateReport.State.FAILED, PlanReport.of(plan).line("smp").state(), Told.plan(plan));
+        assertEquals(
+                List.of(new Work.Finding("smp", RunStep.Outcome.FAILED, RunStep.Reason.SOURCE_FAILED)),
+                Work.of(plan).about("smp"),
+                Told.plan(plan));
     }
 
     @Test
@@ -375,10 +377,9 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "SomeoneElsesPlugin-1.0.0.jar")), plan.unclaimed());
-        assertTrue(
-                Told.notes(PlanReport.of(plan))
-                        .contains("SOURCES WARNING smp: also holds SomeoneElsesPlugin-1.0.0.jar,"
-                                + " which the plan does not use"),
+        assertEquals(
+                List.of(new Work.Finding("smp", RunStep.Outcome.WARNING, RunStep.Reason.UNCLAIMED)),
+                Work.of(plan).about("smp"),
                 Told.plan(plan));
     }
 
@@ -478,10 +479,10 @@ class ResolverTest {
         assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Told.plan(plan));
         assertEquals(PACK_SHA1, pack.installed());
         assertFalse(pack.status().isFailure(), Told.plan(plan));
-        final UpdateReport report = PlanReport.of(plan);
-        assertTrue(
-                Told.notes(report).stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
-                "the missing pack is a note in the report: " + report);
+        assertEquals(
+                List.of(new Work.Finding("proxy", RunStep.Outcome.WARNING, RunStep.Reason.NOT_IN_RELEASE)),
+                Work.of(plan).about("proxy"),
+                "the missing pack is a warning of the run: " + Told.plan(plan));
     }
 
     @Test
@@ -534,11 +535,12 @@ class ResolverTest {
         assertEquals(
                 Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
 
-        final UpdateReport report = PlanReport.of(plan);
-        assertEquals(UpdateReport.State.PLANNED, report.line("smp").state(), report.toString());
-        assertTrue(
-                Told.notes(report).stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
-                "the missing jar is a warning in the report: " + report);
+        final Work work = Work.of(plan);
+        assertTrue(work.moving().contains("smp"), Told.plan(plan));
+        assertEquals(
+                List.of(new Work.Finding("smp", RunStep.Outcome.WARNING, RunStep.Reason.NOT_IN_RELEASE)),
+                work.about("smp"),
+                "the missing jar is a warning of the run: " + Told.plan(plan));
     }
 
     @Test
@@ -548,10 +550,12 @@ class ResolverTest {
                 "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "other-0.1.0.jar"));
 
-        final UpdateReport report = PlanReport.of(resolve());
+        final Work work = Work.of(resolve());
 
-        assertFalse(report.line("smp").isMoving(), report.toString());
-        assertEquals(UpdateReport.State.UNCHANGED, report.line("smp").state(), report.toString());
+        assertFalse(work.moving().contains("smp"), work.toString());
+        assertTrue(
+                work.about("smp").stream().noneMatch(found -> found.outcome() == RunStep.Outcome.FAILED),
+                work.toString());
     }
 
     @Test
@@ -562,17 +566,19 @@ class ResolverTest {
                 "/project/Lu3KuzdV/version",
                 new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
-        final UpdateReport report = PlanReport.of(resolve());
+        final UpdatePlan plan = resolve();
+        final Work work = Work.of(plan);
 
-        // Applier skips the SMP over the outage: its line stays FAILED, and a sources record says what was held back.
-        assertEquals(UpdateReport.State.FAILED, report.line("smp").state(), report.toString());
-        assertFalse(report.line("smp").isMoving(), report.toString());
-        final String held = report.notes().stream()
-                .filter(note -> "smp".equals(note.service()))
-                .map(note -> note.step() + ": " + DatabaseText.english(note.what()))
-                .findFirst()
-                .orElseThrow();
-        assertTrue(held.startsWith("SOURCES: ") && held.contains("packetevents"), held);
+        // Applier skips the SMP over the outage: its resolve step fails, and the plan names what was held back.
+        assertEquals(
+                List.of(new Work.Finding("smp", RunStep.Outcome.FAILED, RunStep.Reason.SOURCE_FAILED)),
+                work.about("smp"),
+                Told.plan(plan));
+        assertFalse(work.moving().contains("smp"), Told.plan(plan));
+        assertTrue(changeFor(plan, "smp", "coreprotect").status().isFailure(), Told.plan(plan));
+        assertEquals(
+                Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status(), Told.plan(plan));
+        assertTrue(work.of("smp").isEmpty(), "the outdated packetevents is held back with the rest: " + work);
     }
 
     @Test
@@ -584,10 +590,10 @@ class ResolverTest {
                 new HttpFailure(
                         URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
 
-        final UpdateReport report = PlanReport.of(resolve());
+        final Work work = Work.of(resolve());
 
-        // The applier installs plugins beside a paper row it could not check, so the line says it moves.
-        assertTrue(report.line("smp").isMoving(), report.toString());
+        // The applier installs plugins beside a paper row it could not check, so the SMP still moves.
+        assertTrue(work.moving().contains("smp"), work.toString());
     }
 
     @Test
@@ -617,7 +623,7 @@ class ResolverTest {
     private void installCurrentEverything() throws IOException {
         write("proxy", "plugins/proxy-0.1.0.jar");
         write("proxy", "plugins/voicechat-velocity-2.6.18.jar");
-        write("proxy", ".server/velocity-4.2.0-30.jar");
+        write("proxy", ".server/velocity-4.3.0-44.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");

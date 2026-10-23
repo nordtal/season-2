@@ -197,7 +197,9 @@ final class SmpStart {
                 .registerEvents(
                         new AdvancementListener(
                                 plugin,
+                                plugin.jdbi(),
                                 plugin.aura,
+                                new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
                                 plugin.engine,
                                 plugin.identities(),
                                 plugin.awardSettings.get(),

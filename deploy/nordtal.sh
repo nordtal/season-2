@@ -21,10 +21,10 @@
 #   ./nordtal.sh --no-self-update      run this file as it is, without fetching the copy of the release
 #
 # When steward-agent runs and is healthy, a deploy is an update run like any other: the script
-# writes the request and waits for the report. An install, or a stack whose agent is down or
+# writes the request and waits for the run to end. An install, or a stack whose agent is down or
 # unhealthy, gets the `up` command of the agent instead. That command repairs the stack.
 #
-# `update` asks steward-agent for a run, as the buttons of Steward do, and waits for its report:
+# `update` asks steward-agent for a run, as the buttons of Steward do, and waits for it to end:
 #
 #   ./nordtal.sh update                update the whole network: install what is new, restart what needs it
 #   ./nordtal.sh update --restart      restart everything, install nothing
@@ -1177,7 +1177,7 @@ cmd_update() {
 
     # The run stopped before it moved anything, because it would have replaced a build made on this host.
     if [[ ! -t 0 ]]; then
-        die "request $id stopped before replacing the builds made on this host that its report names.
+        die "request $id stopped before replacing the builds made on this host that its steps name.
        Nothing was stopped. There is no terminal here to ask, so once they may go:
        ./nordtal.sh update --replace-local"
     fi
@@ -1972,7 +1972,7 @@ fi
 # 7 · The deployment itself
 # A healthy agent gets a request, and the update run installs the newest release as the button of
 # Steward does: a temporary container takes over, the migration runs while the servers are down,
-# and the report lands in the inbox.
+# and each step lands in the run's rows.
 agent_healthy=false
 grep -qxF "${PROJECT}-steward-agent-1" \
     <<<"$(docker ps --filter health=healthy --format '{{.Names}}')" && agent_healthy=true

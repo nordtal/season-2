@@ -82,19 +82,19 @@ describe("a Minecraft text", () => {
   })
 })
 
-function drawn(text: string, examples: Record<string, string>, format: Format = "MINIMESSAGE"): Run[] {
+function drawn(text: string, examples: Record<string, unknown>, format: Format = "MINIMESSAGE"): Run[] {
   return branchesOf(read(text, format), format, TONES, (name) => examples[name] ?? name)
 }
 
 describe("a plural or a choice as a preview draws it", () => {
   it("draws the plural's case its example's number picks, an exact one before its category", () => {
     const text = "{n, plural, =0 {none} one {# file} other {# files}} left"
-    expect(drawn(text, { n: "0" })).toEqual([{ kind: "text", text: "none left", style: {} }])
-    expect(drawn(text, { n: "1" })).toEqual([
+    expect(drawn(text, { n: 0 })).toEqual([{ kind: "text", text: "none left", style: {} }])
+    expect(drawn(text, { n: 1 })).toEqual([
       { kind: "placeholder", name: "n", k: "number", style: {} },
       { kind: "text", text: " file left", style: {} },
     ])
-    expect(drawn(text, { n: "3" })).toEqual([
+    expect(drawn(text, { n: 3 })).toEqual([
       { kind: "placeholder", name: "n", k: "number", style: {} },
       { kind: "text", text: " files left", style: {} },
     ])
@@ -113,7 +113,7 @@ describe("a plural or a choice as a preview draws it", () => {
   })
 
   it("keeps the style around the case and the tags inside it", () => {
-    expect(drawn("<gray>{n, plural, one {<bold>#</bold> file} other {# files}}</gray>", { n: "1" })).toEqual([
+    expect(drawn("<gray>{n, plural, one {<bold>#</bold> file} other {# files}}</gray>", { n: 1 })).toEqual([
       { kind: "placeholder", name: "n", k: "number", style: { colour: "gray", bold: true } },
       { kind: "text", text: " file", style: { colour: "gray" } },
     ])
@@ -121,14 +121,14 @@ describe("a plural or a choice as a preview draws it", () => {
 
   it("draws a choice inside a case, where a # still stands for the plural's number", () => {
     const text = "{n, plural, one {one} other {{kind, select, log {# logs} other {# items}}}}"
-    expect(drawn(text, { n: "4", kind: "log" })).toEqual([
+    expect(drawn(text, { n: 4, kind: "log" })).toEqual([
       { kind: "placeholder", name: "n", k: "number", style: {} },
       { kind: "text", text: " logs", style: {} },
     ])
   })
 
   it("draws a Discord text's case with its markdown", () => {
-    expect(drawn("{n, plural, one {**#** file} other {# files}}", { n: "1" }, "DISCORD_MARKDOWN")).toEqual([
+    expect(drawn("{n, plural, one {**#** file} other {# files}}", { n: 1 }, "DISCORD_MARKDOWN")).toEqual([
       { kind: "placeholder", name: "n", k: "number", style: { bold: true } },
       { kind: "text", text: " file", style: {} },
     ])

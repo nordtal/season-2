@@ -7,7 +7,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** A wheel prize and a duel loadout entry both use WheelPrizeSpec. */
+/** A prize the wheel lands on with a chance of its weight over the pool's total weight. */
 @ConfigSpec
 public interface WheelPrizeSpec {
 

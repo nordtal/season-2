@@ -89,7 +89,8 @@ public final class MessageJson {
         return args;
     }
 
-    private static @Nullable Map<String, Object> typed(final Object value) {
+    /** Returns {@code {kind, value}}, or {@code null} for a value of no kind. */
+    public static @Nullable Map<String, Object> typed(final Object value) {
         final Kind kind = Kind.ofValue(value).orElse(null);
         if (kind == null) {
             return null;
@@ -126,7 +127,9 @@ public final class MessageJson {
             }
             case MENTION -> {
                 final Mention mention = (Mention) value;
-                yield Map.of("member", mention.member().value(), "name", mention.name());
+                yield mention.role()
+                        ? Map.of("member", mention.member().value(), "name", mention.name(), "role", true)
+                        : Map.of("member", mention.member().value(), "name", mention.name());
             }
             case ITEM -> {
                 final GameContent content = (GameContent) value;
@@ -173,7 +176,9 @@ public final class MessageJson {
                 case MENTION -> {
                     final Map<?, ?> mention = (Map<?, ?>) value;
                     yield new Mention(
-                            DiscordId.of(field(mention, "member", String.class)), field(mention, "name", String.class));
+                            DiscordId.of(field(mention, "member", String.class)),
+                            field(mention, "name", String.class),
+                            Boolean.TRUE.equals(mention.get("role")));
                 }
                 case ITEM -> {
                     final Map<?, ?> content = (Map<?, ?>) value;

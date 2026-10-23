@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdatesPage } from "@/pages/updates"
 import { runPath } from "@/lib/run-path"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { changesOf } from "@/lib/query-fixtures"
+import { changesOf, configSaved, words } from "@/lib/query-fixtures"
 
 /**
  * The Updates page saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
@@ -47,7 +48,6 @@ function stewardConfig() {
     readable: true,
     writable: true,
     revision: "rev-1",
-    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       entry({ path: "backup.days", key: "days", label: "Days", kind: "LIST", value: undefined, items: ["MONDAY"] }),
@@ -90,7 +90,8 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
       ])
     }
     if (url === `/api/setting-groups/${FILE}`) {
-      if (init?.method === "PUT") return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
+      if (init?.method === "PUT")
+        return (over.put ?? (() => json(200, configSaved(stewardConfig()))))(JSON.parse(init?.body ?? ""))
       return json(200, stewardConfig())
     }
     if (url.startsWith("/api/updates/available")) {
@@ -163,7 +164,7 @@ describe("UpdatesPage - its own schedule", () => {
       backend({
         put: (body) => {
           sent = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
       }),
     )
@@ -181,6 +182,39 @@ describe("UpdatesPage - its own schedule", () => {
 
     await waitFor(() => expect(sent).toBeTruthy())
     expect(changesOf(sent)).toEqual({ "update.days": ["WEDNESDAY", "SUNDAY"] })
+  })
+
+  it("closes once the save is stored and says how the service applies it", async () => {
+    const info = vi.spyOn(toast, "info")
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        put: () =>
+          json(200, { ...stewardConfig(), reload: { status: "RESTART_REQUIRED", message: words("Restart steward.") } }),
+      }),
+    )
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Wed" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(info).toHaveBeenCalledWith("Schedule saved.", { description: "Restart steward." }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    info.mockRestore()
+  })
+
+  it("keeps the dialog open and shows a refused save in it", async () => {
+    vi.stubGlobal("fetch", backend({ put: () => json(409, { error: "steward/steward changed since it was read." }) }))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Wed" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    const dialog = await screen.findByRole("dialog")
+    await waitFor(() => expect(dialog.textContent).toContain("steward/steward changed since it was read."))
+    expect(within(dialog).getByRole("alert").textContent).toContain("This was not done.")
   })
 
   it("says there is no schedule when the update clock is off", async () => {

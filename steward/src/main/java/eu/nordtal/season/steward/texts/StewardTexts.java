@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -34,8 +35,6 @@ public interface StewardTexts {
         Answer answer();
 
         Said said();
-
-        AlertsPage alerts();
 
         JournalPage journal();
 
@@ -90,13 +89,16 @@ public interface StewardTexts {
             MessageRef state(@Arg("state") ServiceWord state);
 
             @Name("Docker's word")
-            MessageRef dockerState(@Arg("state") String state);
+            MessageRef dockerState(@Arg("state") @Example("restarting") String state);
 
             @Name("Held down")
-            MessageRef heldSince(@Arg("since") Instant since, @Arg("state") String state);
+            MessageRef heldSince(
+                    @Arg("since") @Example("2026-10-23T18:40:00Z") Instant since,
+                    @Arg("state") @Example("exited") String state);
 
             @Name("How a one-shot ended")
-            MessageRef exited(@Arg("code") int code, @Arg("at") Instant at);
+            MessageRef exited(
+                    @Arg("code") @Example("137") int code, @Arg("at") @Example("2026-10-23T18:40:00Z") Instant at);
 
             @Name("Failing healthcheck")
             MessageRef unhealthy();
@@ -105,7 +107,7 @@ public interface StewardTexts {
             MessageRef starting();
 
             @Name("Healthcheck")
-            MessageRef health(@Arg("health") String health);
+            MessageRef health(@Arg("health") @Example("unhealthy") String health);
 
             @Name("No healthcheck")
             MessageRef noHealth();
@@ -151,7 +153,7 @@ public interface StewardTexts {
             MessageRef notAMember();
 
             @Name("Too many grants this hour")
-            MessageRef grantsPerHour(@Arg("count") int count);
+            MessageRef grantsPerHour(@Arg("count") @Example("10") int count);
 
             @Name("Revoking oneself")
             MessageRef self();
@@ -168,20 +170,17 @@ public interface StewardTexts {
             @Name("Nobody by that id")
             MessageRef unknownPerson();
 
-            @Name("No database")
-            MessageRef noDatabase(@Arg("kept") Kept kept);
-
             @Name("No sources")
             MessageRef noSources();
 
             @Name("No such request")
-            MessageRef noRequest(@Arg("request") String request);
+            MessageRef noRequest(@Arg("request") @Example("42") String request);
 
             @Name("No such announcement")
-            MessageRef noAnnouncement(@Arg("announcement") long announcement);
+            MessageRef noAnnouncement(@Arg("announcement") @Example("7") long announcement);
 
             @Name("No such bundle")
-            MessageRef noBundle(@Arg("bundle") String bundle);
+            MessageRef noBundle(@Arg("bundle") @Example("smp-chat") String bundle);
 
             @Name("Not the JSON taken")
             MessageRef notJson();
@@ -190,7 +189,7 @@ public interface StewardTexts {
             MessageRef empty();
 
             @Name("Empty announcement text")
-            MessageRef emptyText(@Arg("language") String language);
+            MessageRef emptyText(@Arg("language") @Example("Deutsch") String language);
 
             @Name("Countdown over")
             MessageRef tooLate();
@@ -229,10 +228,10 @@ public interface StewardTexts {
             MessageRef codeTaken();
 
             @Name("Too many codes")
-            MessageRef tooManyCodes(@Arg("until") Instant until);
+            MessageRef tooManyCodes(@Arg("until") @Example("2026-10-23T18:55:00Z") Instant until);
 
             @Name("Sign-in not configured")
-            MessageRef signInUnconfigured(@Arg("missing") String missing);
+            MessageRef signInUnconfigured(@Arg("missing") @Example("STEWARD_DISCORD_CLIENT_ID") String missing);
 
             @Name("Sign-in from elsewhere")
             MessageRef signInElsewhere();
@@ -244,19 +243,21 @@ public interface StewardTexts {
             MessageRef notInGuild();
 
             @Name("In the guild, not an admin")
-            MessageRef notAnAdmin(@Arg("name") String name);
+            MessageRef notAnAdmin(@Arg("name") @Example("Alex") String name);
 
             @Name("Discord refused the sign-in")
-            MessageRef signInRefused(@Arg("status") int status, @Arg("uri") String uri);
+            MessageRef signInRefused(
+                    @Arg("status") @Example("400") int status,
+                    @Arg("uri") @Example("https://steward.nordtal.eu/auth/discord") String uri);
 
             @Name("No access token")
             MessageRef noAccessToken();
 
             @Name("Discord answered")
-            MessageRef discordAnswered(@Arg("status") int status);
+            MessageRef discordAnswered(@Arg("status") @Example("429") int status);
 
             @Name("Discord unreachable")
-            MessageRef discordUnreachable(@Arg("error") String error);
+            MessageRef discordUnreachable(@Arg("error") @Example("Connection refused") String error);
 
             @Name("Interrupted")
             MessageRef interrupted();
@@ -265,71 +266,93 @@ public interface StewardTexts {
             MessageRef agentUnconfigured();
 
             @Name("No such service")
-            MessageRef noService(@Arg("service") String service);
+            MessageRef noService(@Arg("service") @Example("smp") String service);
 
             @Name("No such settings group")
-            MessageRef noSettings(@Arg("service") String service, @Arg("group") String group);
+            MessageRef noSettings(
+                    @Arg("service") @Example("smp") String service, @Arg("group") @Example("chat") String group);
 
             @Name("No such setting")
-            MessageRef noSetting(@Arg("group") String group, @Arg("path") String path);
+            MessageRef noSetting(
+                    @Arg("group") @Example("chat") String group, @Arg("path") @Example("format.join") String path);
 
             @Name("Settings changed meanwhile")
-            MessageRef settingsChanged(@Arg("service") String service, @Arg("group") String group);
+            MessageRef settingsChanged(
+                    @Arg("service") @Example("smp") String service, @Arg("group") @Example("chat") String group);
 
             @Name("Settings refused by the server")
-            MessageRef settingsRefused(@Arg("refusal") String refusal);
+            MessageRef settingsRefused(
+                    @Arg("refusal") @Example("view-distance must be between 2 and 32") String refusal);
 
             @Name("A secret setting")
-            MessageRef secretSetting(@Arg("path") String path);
+            MessageRef secretSetting(@Arg("path") @Example("bank.key") String path);
 
             @Name("A setting of another type")
             MessageRef notOfType(
-                    @Arg("path") String path, @Arg("expected") Expected expected, @Arg("text") String text);
+                    @Arg("path") @Example("view-distance") String path,
+                    @Arg("expected") Expected expected,
+                    @Arg("text") @Example("far") String text);
 
             @Name("A section that has to stay")
-            MessageRef keepSection(@Arg("path") String path, @Arg("field") String field, @Arg("value") String value);
+            MessageRef keepSection(
+                    @Arg("path") @Example("rewards") String path,
+                    @Arg("field") @Example("name") String field,
+                    @Arg("value") @Example("Diamond") String value);
 
             @Name("No such backup")
-            MessageRef noBackup(@Arg("backup") String backup);
+            MessageRef noBackup(@Arg("backup") @Example("17") String backup);
 
             @Name("Backup not finished")
-            MessageRef backupUnfinished(@Arg("backup") String backup);
+            MessageRef backupUnfinished(@Arg("backup") @Example("nordtal-20261020-0400.dump") String backup);
 
             @Name("Restore not confirmed")
-            MessageRef confirmRestore(@Arg("replaces") String replaces);
+            MessageRef confirmRestore(@Arg("replaces") @Example("smp-world") String replaces);
 
             @Name("No such message")
-            MessageRef noMessage(@Arg("bundle") String bundle, @Arg("key") String key);
+            MessageRef noMessage(
+                    @Arg("bundle") @Example("steward") String bundle,
+                    @Arg("key") @Example("steward.answer.no-bundle") String key);
 
             @Name("Override refused")
-            MessageRef overrideRefused(@Arg("key") String key, @Arg("language") String language);
+            MessageRef overrideRefused(
+                    @Arg("key") @Example("steward.answer.no-bundle") String key,
+                    @Arg("language") @Example("Deutsch") String language);
 
             @Name("Preview refused")
-            MessageRef previewRefused(@Arg("key") String key, @Arg("language") String language);
+            MessageRef previewRefused(
+                    @Arg("key") @Example("steward.answer.no-bundle") String key,
+                    @Arg("language") @Example("Deutsch") String language);
 
             @Name("Nowhere to preview")
-            MessageRef noPreview(@Arg("key") String key);
+            MessageRef noPreview(@Arg("key") @Example("steward.answer.no-bundle") String key);
 
             @Name("Draft not drawn")
-            MessageRef draftUndrawable(@Arg("document") String document, @Arg("reason") String reason);
+            MessageRef draftUndrawable(
+                    @Arg("document") @Example("rules") String document,
+                    @Arg("reason") @Example("an embed holds at most 25 fields") String reason);
 
             @Name("No such document")
-            MessageRef noDocument(@Arg("namespace") String namespace, @Arg("name") String name);
+            MessageRef noDocument(
+                    @Arg("namespace") @Example("bot") String namespace, @Arg("name") @Example("rules") String name);
 
             @Name("Document refused")
-            MessageRef documentRefused(@Arg("document") String document, @Arg("problem") String problem);
+            MessageRef documentRefused(
+                    @Arg("document") @Example("rules") String document,
+                    @Arg("problem") @Example("the title is empty") String problem);
 
             @Name("Shared part name refused")
-            MessageRef sharedPartName(@Arg("name") String name);
+            MessageRef sharedPartName(@Arg("name") @Example("Footer") String name);
 
             @Name("Draft not sent")
-            MessageRef draftRefused(@Arg("document") String document, @Arg("problem") String problem);
+            MessageRef draftRefused(
+                    @Arg("document") @Example("rules") String document,
+                    @Arg("problem") @Example("the title is empty") String problem);
 
             @Name("Draft not a message")
-            MessageRef draftNotMessage(@Arg("document") String document);
+            MessageRef draftNotMessage(@Arg("document") @Example("rules") String document);
 
             @Name("Image refused")
-            MessageRef imageRefused(@Arg("mebibytes") int mebibytes);
+            MessageRef imageRefused(@Arg("mebibytes") @Example("8") int mebibytes);
 
             @Name("No player to preview to")
             MessageRef previewUnlinked();
@@ -338,19 +361,29 @@ public interface StewardTexts {
             MessageRef previewOffline();
 
             @Name("Grant too long")
-            MessageRef grantDays(@Arg("most") int most);
+            MessageRef grantDays(@Arg("most") @Example("365") int most);
 
             @Name("Play time out of range")
-            MessageRef playtimeRange(@Arg("most") Duration most);
+            MessageRef playtimeRange(@Arg("most") @Example("PT2400H") Duration most);
 
             @Name("Aura out of range")
-            MessageRef auraRange(@Arg("most") int most);
+            MessageRef auraRange(@Arg("most") @Example("10000") int most);
 
             @Name("Spins out of range")
-            MessageRef spinsRange(@Arg("most") int most);
+            MessageRef spinsRange(@Arg("most") @Example("100") int most);
+
+            @Name("Player not linked")
+            MessageRef inventoryUnlinked();
+
+            @Name("Inventory held elsewhere")
+            MessageRef inventoryHeld(@Arg("server") @Example("smp") String server);
+
+            @Name("Server did not answer")
+            MessageRef serverSilent(@Arg("server") @Example("smp") String server);
 
             @Name("Announcement too long")
-            MessageRef tooLong(@Arg("language") String language, @Arg("most") int most);
+            MessageRef tooLong(
+                    @Arg("language") @Example("Deutsch") String language, @Arg("most") @Example("2000") int most);
 
             @Name("Web push not configured")
             MessageRef pushUnconfigured();
@@ -365,7 +398,7 @@ public interface StewardTexts {
             MessageRef pushNotAccepted();
 
             @Name("Key name length")
-            MessageRef keyName(@Arg("most") int most);
+            MessageRef keyName(@Arg("most") @Example("64") int most);
 
             @Name("Ceremony from an older Steward")
             MessageRef ceremonyStale(@Arg("registration") boolean registration);
@@ -377,7 +410,9 @@ public interface StewardTexts {
             MessageRef ceremonyOtherAccount(@Arg("registration") boolean registration);
 
             @Name("Key refused")
-            MessageRef keyRefused(@Arg("registration") boolean registration, @Arg("why") String why);
+            MessageRef keyRefused(
+                    @Arg("registration") boolean registration,
+                    @Arg("why") @Example("the key is already registered") String why);
 
             @Name("Key not accepted")
             MessageRef keyNotAccepted();
@@ -389,19 +424,18 @@ public interface StewardTexts {
 
             @Name("A setting saved")
             MessageRef setting(
-                    @Arg("network") boolean network, @Arg("service") String service, @Arg("live") boolean live);
+                    @Arg("network") boolean network,
+                    @Arg("service") @Example("smp") String service,
+                    @Arg("live") boolean live);
 
             @Name("A setting saved unchecked")
-            MessageRef settingUnchecked(@Arg("service") String service, @Arg("live") boolean live);
+            MessageRef settingUnchecked(@Arg("service") @Example("smp") String service, @Arg("live") boolean live);
 
             @Name("A message saved")
             MessageRef message();
 
-            @Name("An announcement's line")
-            MessageRef announced(@Arg("posted") boolean posted, @Arg("language") String language);
-
-            @Name("A preview sent")
-            MessageRef previewSent();
+            @Name("An announcement's line not posted")
+            MessageRef notAnnounced(@Arg("language") @Example("Deutsch") String language);
 
             @Name("No guild id")
             MessageRef noGuildId();
@@ -413,24 +447,16 @@ public interface StewardTexts {
             MessageRef guildNotListed();
 
             @Name("A service's own words")
-            MessageRef words(@Arg("text") String text);
+            MessageRef words(@Arg("text") @Example("The End opens tonight at eight.") String text);
         }
     }
 
-    /** The type of a setting value. */
+    /** The type of a setting value. A game's key is a text the settings form checks by its shape. */
     enum Expected {
         INTEGER,
         DECIMAL,
-        BOOLEAN
-    }
-
-    /** The kinds of data that Steward keeps in its database. */
-    enum Kept {
-        ALERTS,
-        PREFERENCES,
-        SETTINGS,
-        PLUGINS,
-        OVERRIDES
+        BOOLEAN,
+        KEY
     }
 
     /** The words of a service's badge and dot: Docker states and health states. */

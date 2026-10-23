@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigReference, GameData, GuildList } from "@/lib/api"
 import { queryResult, words } from "@/lib/query-fixtures"
-import { ReferencePicker } from "@/components/steward/reference-picker"
+import { ReferencePicker, SettingsService } from "@/components/steward/reference-picker"
 
 const GAME: GameData = {
   version: "26.2",
@@ -23,6 +23,7 @@ const GAME: GameData = {
       },
     ],
   },
+  worlds: { smp: ["world-nordtal", "world-nether"] },
 }
 
 let game: GameData | undefined = GAME
@@ -42,19 +43,21 @@ vi.mock("@/lib/queries", () => ({
 
 const ITEM: ConfigReference = { to: "ITEM", optional: false }
 
-function draw(reference: ConfigReference, values: string[], multi: boolean) {
+function draw(reference: ConfigReference, values: string[], multi: boolean, service = "smp") {
   const onChange = vi.fn<(values: string[]) => void>()
   render(
-    <ReferencePicker
-      id="field"
-      label="Items"
-      reference={reference}
-      values={values}
-      multi={multi}
-      disabled={false}
-      typed={<p>typed</p>}
-      onChange={onChange}
-    />,
+    <SettingsService value={service}>
+      <ReferencePicker
+        id="field"
+        label="Items"
+        reference={reference}
+        values={values}
+        multi={multi}
+        disabled={false}
+        typed={<p>typed</p>}
+        onChange={onChange}
+      />
+    </SettingsService>,
   )
   return onChange
 }
@@ -116,6 +119,26 @@ describe("ReferencePicker", () => {
     fireEvent.click(screen.getByRole("button", { name: /admin-log/ }))
     fireEvent.click(await screen.findByRole("option", { name: "none" }))
     expect(cleared).toHaveBeenLastCalledWith([])
+  })
+
+  it("picks a world from those the setting's own server reported, and marks a stored name it did not", async () => {
+    const onChange = draw({ to: "WORLD", optional: false }, ["world-gone"], false)
+
+    expect(screen.getByRole("button", { name: /world-gone/ }).querySelector("svg")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: /world-gone/ }))
+    const options = await screen.findAllByRole("option")
+    expect(options.map((option) => option.textContent)).toEqual(
+      expect.arrayContaining(["world-nordtal", "world-nether"]),
+    )
+    expect(options.some((option) => option.textContent === "limbo")).toBe(false)
+    fireEvent.click(screen.getByRole("option", { name: "world-nether" }))
+    expect(onChange).toHaveBeenLastCalledWith(["world-nether"])
+  })
+
+  it("types a world while its server has reported none", () => {
+    draw({ to: "WORLD", optional: false }, [], false, "limbo")
+
+    expect(screen.getByText("typed")).toBeTruthy()
   })
 
   it("offers none of the entries its schema leaves out", async () => {

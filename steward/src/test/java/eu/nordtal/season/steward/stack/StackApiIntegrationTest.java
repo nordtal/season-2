@@ -25,13 +25,13 @@ import org.junit.jupiter.api.Test;
 /** Tests the stack routes over HTTP against the real routes of the agent, with status codes and JSON shape. */
 class StackApiIntegrationTest {
 
-    private static final int PORT = 18082;
     private static final Gson GSON = new Gson();
 
     private static Path scratch;
     private static AgentStandIn agent;
     private static StackApi api;
     private static Javalin server;
+    private static int port;
     private static HttpClient http;
 
     @BeforeAll
@@ -40,7 +40,9 @@ class StackApiIntegrationTest {
         scratch = java.nio.file.Files.createTempDirectory(Path.of("/tmp"), "stack");
         agent = new AgentStandIn(scratch, 0, config -> {});
         api = StackServer.api(agent);
-        server = StackServer.start(api, PORT);
+        // Any free port, so two builds on one host never collide.
+        server = StackServer.start(api, 0);
+        port = server.port();
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
@@ -99,7 +101,7 @@ class StackApiIntegrationTest {
 
         final HttpResponse<java.io.InputStream> follow = http.send(
                 HttpRequest.newBuilder(
-                                URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=0"))
+                                URI.create("http://127.0.0.1:" + port + "/api/services/" + name + "/logs?tail=0"))
                         .header("Accept", "text/event-stream")
                         .GET()
                         .build(),
@@ -231,7 +233,7 @@ class StackApiIntegrationTest {
         try {
             final HttpResponse<byte[]> response = http.send(
                     HttpRequest.newBuilder()
-                            .uri(URI.create("http://127.0.0.1:" + PORT + "/api/backups/" + name + "/download"))
+                            .uri(URI.create("http://127.0.0.1:" + port + "/api/backups/" + name + "/download"))
                             .GET()
                             .build(),
                     HttpResponse.BodyHandlers.ofByteArray());
@@ -288,7 +290,7 @@ class StackApiIntegrationTest {
     private static HttpResponse<String> raw(final String path) throws Exception {
         return http.send(
                 HttpRequest.newBuilder()
-                        .uri(URI.create("http://127.0.0.1:" + PORT + path))
+                        .uri(URI.create("http://127.0.0.1:" + port + path))
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
@@ -296,7 +298,7 @@ class StackApiIntegrationTest {
     private static HttpResponse<String> post(final String path, final String body) throws Exception {
         return http.send(
                 HttpRequest.newBuilder()
-                        .uri(URI.create("http://127.0.0.1:" + PORT + path))
+                        .uri(URI.create("http://127.0.0.1:" + port + path))
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(body))
                         .build(),

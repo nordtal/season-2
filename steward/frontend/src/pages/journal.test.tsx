@@ -1,45 +1,14 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { JournalPage } from "@/pages/journal"
+import type { Actor, Alert, JournalItem } from "@/lib/api"
+import { JournalPage, edges, lasted } from "@/pages/journal"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
-import { assertElement, backend, draw } from "@/pages/access.fixtures"
+import { backend, draw, journalPage } from "@/pages/access.fixtures"
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-})
-
-/** A line's values may run long, so they wrap while every other cell stays `whitespace-nowrap`. */
-describe("JournalPage - Detail is running text, not a field", () => {
-  it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
-    const LONG_DETAIL = "30 days granted by hm.ally from the admin panel; the Minecraft account was linked beforehand"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        journal: () => [
-          {
-            id: "j1",
-            occurred: "2026-09-18T09:00:00Z",
-            action: "GRANT_ACCESS",
-            actor: { kind: "PERSON", person: "214906139328839681" },
-            subject: "214906139328839681",
-            line: {
-              key: "journal.console",
-              args: { service: { kind: "text", value: "smp" }, command: { kind: "text", value: LONG_DETAIL } },
-            },
-          },
-        ],
-      }),
-    )
-    draw(<JournalPage />)
-
-    const cell = assertElement(
-      (await screen.findByText(`Typed "${LONG_DETAIL}" into the console of smp.`)).closest("td"),
-      "a <td> for the detail",
-    )
-    expect(cell.className).not.toMatch(/(^|\s)whitespace-nowrap(\s|$)/)
-  })
 })
 
 /** Somebody the roster no longer knows is named as such. */
@@ -146,85 +115,198 @@ describe("JournalPage - profiles, never user ids", () => {
   })
 })
 
-/** On a phone an entry is its time and action, plus what they do not already say. */
-async function off(detail: string | RegExp): Promise<string[]> {
-  return [...assertElement((await screen.findByText(detail)).closest("tr"), "a row").querySelectorAll("td")]
-    .filter((cell) => cell.getAttribute("data-phone") === "off")
-    .map((cell) => cell.getAttribute("data-label") ?? "action")
+const ALERT: Omit<Alert, "level"> = {
+  type: "service",
+  subject: "smp",
+  title: { key: "alert.not-running", args: { service: { kind: "text", value: "smp" } } },
+  detail: [],
+  measured: [{ gauge: "CONTAINER_STATE", subject: "smp", state: "exited" }],
+  path: "/services/smp",
+}
+const STEWARD: Actor = { kind: "STEWARD" }
+
+/** An outage of smp from 09:00 to 09:42 with a console line during it, newest first. */
+const OUTAGE = (): JournalItem[] => [
+  {
+    key: "e3",
+    occurred: "2026-09-18T09:42:00Z",
+    actor: STEWARD,
+    // An all-clear names its action, not the subject the alert measured.
+    alert: {
+      ...ALERT,
+      level: "ok",
+      subject: "services",
+      measured: [],
+      title: { key: "alert.clear", args: { type: { kind: "text", value: "service" } } },
+    },
+    opened: "2026-09-18T09:00:00Z",
+  },
+  {
+    key: "e2",
+    occurred: "2026-09-18T09:10:00Z",
+    actor: { kind: "HOST" },
+    entry: {
+      id: "e2",
+      occurred: "2026-09-18T09:10:00Z",
+      action: "CONSOLE",
+      actor: { kind: "HOST" },
+      line: {
+        key: "journal.console",
+        args: { service: { kind: "text", value: "smp" }, command: { kind: "text", value: "list" } },
+      },
+    },
+  },
+  { key: "e1", occurred: "2026-09-18T09:00:00Z", actor: STEWARD, alert: { ...ALERT, level: "down" } },
+]
+
+function edge(key: string): string | null | undefined {
+  return document.querySelector(`[data-key='${key}']`)?.getAttribute("data-edge")
 }
 
-describe("JournalPage - the phone card says each thing once", () => {
-  it("leaves out a detail without values and a concerned person who is the actor", async () => {
+describe("JournalPage - an alert's span", () => {
+  it("draws the alert's edge along the entries while it is open, and the all-clear says how long it lasted", async () => {
+    vi.stubGlobal("fetch", backend({ stream: OUTAGE }))
+    draw(<JournalPage />)
+
+    expect(await screen.findByText("after 42 min")).toBeTruthy()
+    expect([edge("e3"), edge("e2"), edge("e1")]).toEqual(["ok", "down", "down"])
+  })
+
+  it("leaves the entries before and after an outage without an edge", () => {
+    const before: JournalItem = { key: "e0", occurred: "2026-09-18T08:00:00Z", actor: { kind: "STEWARD" } }
+    const after: JournalItem = { key: "e4", occurred: "2026-09-18T10:00:00Z", actor: { kind: "STEWARD" } }
+    expect(edges([after, ...OUTAGE(), before])).toEqual([undefined, "ok", "down", "down", undefined])
+  })
+
+  it("says hours once an alert lasted an hour or more", () => {
+    expect(lasted("2026-09-18T09:00:00Z", "2026-09-18T10:05:00Z")).toBe("after 1 h 5 min")
+  })
+})
+
+describe("JournalPage - a run is one row that links to its page", () => {
+  it("draws the run's kind, status, services and why it failed", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        journal: () => [
+        stream: () => [
           {
-            id: "j5",
+            key: "r0000000000000000042",
             occurred: "2026-09-18T09:00:00Z",
-            action: "START_GAME",
-            actor: { kind: "PERSON", person: "214906139328839681" },
-            line: { key: "journal.start-game" },
+            actor: STEWARD,
+            run: {
+              id: 42,
+              kind: "UPDATE",
+              status: "FAILED",
+              services: ["smp"],
+              why: [{ key: "alert.words", args: { text: { kind: "text", value: "pull failed" } } }],
+            },
           },
-          {
-            id: "j6",
-            occurred: "2026-09-18T09:01:00Z",
-            action: "WEB_PUSH_UNSUBSCRIBE",
-            actor: { kind: "PERSON", person: "214906139328839681" },
-            subject: "214906139328839681",
-            line: { key: "journal.web-push-unsubscribe" },
-          },
-          ...JOURNAL_ENTRIES(),
         ],
       }),
     )
     draw(<JournalPage />)
 
-    expect(await off("Started the Hunger Games.")).toEqual(["Concerns", "Detail"])
-    expect(await off("Push alerts off for this browser.")).toEqual(["Concerns", "Detail"])
-    expect(await off(/^Granted 30 days of access until /)).toEqual([])
+    const link = await screen.findByRole("link", { name: "Update" })
+    expect(link.getAttribute("href")).toBe("/operations/updates/42")
+    expect(screen.getByText("pull failed")).toBeTruthy()
+    expect(screen.getAllByText("failed").length).toBeGreaterThan(0)
   })
 })
 
-describe("JournalPage - the subject is an exact id, asked for on Enter", () => {
-  it("asks for the typed id only once Enter is pressed, and for every entry again once it is cleared", async () => {
-    const fetched = backend({ journal: JOURNAL_ENTRIES })
-    vi.stubGlobal("fetch", fetched)
+describe("JournalPage - a backup run", () => {
+  it("links to its page under Backups", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        stream: () => [
+          {
+            key: "r0000000000000000249",
+            occurred: "2026-10-23T03:00:00Z",
+            actor: STEWARD,
+            run: { id: 249, kind: "BACKUP", status: "DONE", services: [], why: [] },
+          },
+        ],
+      }),
+    )
     draw(<JournalPage />)
-    const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
 
-    const field = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Discord id concerned" })
-    fireEvent.change(field, { target: { value: "300000000000000002" } })
-    await screen.findAllByText("Access granted")
-    expect(asked().some((url) => url.includes("subject="))).toBe(false)
+    const link = await screen.findByRole("link", { name: "Backup" })
+    expect(link.getAttribute("href")).toBe("/operations/backups/249")
+  })
+})
 
+describe("JournalPage - open now", () => {
+  it("lists what is open with its level, and says nothing is open otherwise", async () => {
+    const fetched = backend({})
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) =>
+      url === "/api/alerts"
+        ? new Response(
+            JSON.stringify({ checkedAt: "2026-09-18T09:30:00Z", level: "down", alerts: [{ ...ALERT, level: "down" }] }),
+            {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            },
+          )
+        : fetched(url, init),
+    )
+    draw(<JournalPage />)
+
+    expect(await screen.findByRole("link", { name: "smp is not running" })).toBeTruthy()
+    expect(document.querySelector("[data-alert='down']")).toBeTruthy()
+  })
+
+  it("says nothing is open when nothing is", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw(<JournalPage />)
+    expect(await screen.findByText("Nothing open")).toBeTruthy()
+  })
+})
+
+describe("JournalPage - one search field", () => {
+  it("asks for the typed words once Enter is pressed and shows how the server read them", async () => {
+    const fetched = backend({ journal: JOURNAL_ENTRIES })
+    const asked: string[] = []
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      asked.push(url)
+      if (url.startsWith("/api/journal?") && url.includes("q=")) {
+        const terms = [
+          { kind: "PAYMENT", word: "nt-abcdef", values: ["NT-ABCDEF"] },
+          { kind: "DAYS", word: "30d", values: ["30"] },
+        ]
+        return new Response(JSON.stringify({ items: [], terms }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return fetched(url, init)
+    })
+    draw(<JournalPage />)
+
+    const field = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Search the journal" })
+    fireEvent.change(field, { target: { value: " nt-abcdef 30d " } })
+    expect(asked.some((url) => url.includes("q="))).toBe(false)
     fireEvent.submit(field)
-    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&subject=300000000000000002"))
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear the search" }))
-    expect(field.value).toBe("")
-    expect(screen.queryByRole("button", { name: "Clear the search" })).toBeNull()
+    await waitFor(() => expect(asked).toContain("/api/journal?limit=50&q=nt-abcdef+30d"))
+    expect(await screen.findByText("NT-ABCDEF")).toBeTruthy()
+    expect(screen.getByText("30 days or more")).toBeTruthy()
   })
-})
 
-describe("JournalPage - the filters ask for a payment reference and the least days on Enter", () => {
-  it("asks for the typed reference and the days at least, each once Enter is pressed", async () => {
-    const fetched = backend({ journal: JOURNAL_ENTRIES })
-    vi.stubGlobal("fetch", fetched)
+  it("asks for the next page after the last one's cursor", async () => {
+    const fetched = backend({})
+    const asked: string[] = []
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      asked.push(url)
+      if (url === "/api/journal?limit=50") {
+        return new Response(JSON.stringify({ ...journalPage(JOURNAL_ENTRIES()), next: "2026-09-18T09:00:00Z_ej1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return fetched(url, init)
+    })
     draw(<JournalPage />)
-    const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
 
-    fireEvent.click(await screen.findByRole("button", { name: "Filters" }))
-    const reference = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Payment reference" })
-    fireEvent.change(reference, { target: { value: " NT-ABCD " } })
-    fireEvent.submit(reference)
-    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&reference=NT-ABCD"))
-
-    const days = screen.getByRole<HTMLInputElement>("searchbox", { name: "Days granted, at least" })
-    fireEvent.change(days, { target: { value: "30" } })
-    expect(asked().some((url) => url.includes("minDays="))).toBe(false)
-    fireEvent.submit(days)
-    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&reference=NT-ABCD&minDays=30"))
-    expect(screen.getByRole("button", { name: "Filters 2" })).toBeTruthy()
+    fireEvent.click(await screen.findByRole("button", { name: "Older entries" }))
+    await waitFor(() => expect(asked).toContain("/api/journal?limit=50&after=2026-09-18T09%3A00%3A00Z_ej1"))
   })
 })

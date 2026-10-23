@@ -6,6 +6,7 @@ import { PLAN } from "./plan"
 import { NetworkTable } from "./table"
 import { layoutFaults, topologyOf } from "./topology"
 import { QueryState } from "@/components/steward/query-state"
+import { Panel } from "@/components/steward/panel"
 import { t } from "@/lib/texts"
 
 const PLANNED = allSpots(place(PLAN, PLAN.minWidth)).map((spot) => spot.id)
@@ -18,8 +19,7 @@ export function NetworkPanel() {
   const narrow = useIsMobile()
 
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-lg font-semibold text-foreground">{t("steward.network.title")}</h2>
+    <Panel title={t("steward.network.title")} className="min-w-0">
       {/* The sidebar reads the same query at start, so the placeholder bars show on a cold load only. */}
       <QueryState
         query={query}
@@ -37,6 +37,6 @@ export function NetworkPanel() {
           )
         }}
       </QueryState>
-    </section>
+    </Panel>
   )
 }

@@ -1,11 +1,11 @@
 package eu.nordtal.season.steward.texts;
 
-import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 
-/** The texts of the game panels: the Hunger Games round, the request outcome and the milestone track. */
+/** The texts of the game panels: the Hunger Games round, the milestones and the game settings. */
 @Name("Games")
 public interface GameTexts {
 
@@ -16,7 +16,7 @@ public interface GameTexts {
     MessageRef noRound();
 
     @Name("Registered")
-    MessageRef registered(@Arg("count") int count);
+    MessageRef registered(@Arg("count") @Example("14") int count);
 
     @Name("Counting down")
     MessageRef countingDown();
@@ -36,9 +36,6 @@ public interface GameTexts {
     @Name("Start")
     MessageRef start(@Arg("anyway") boolean anyway);
 
-    @Name("Outcome")
-    MessageRef outcome(@Arg("status") InboxStatus status);
-
     @Name("Track")
     MessageRef track();
 
@@ -52,13 +49,13 @@ public interface GameTexts {
     MessageRef allMilestones();
 
     @Name("Unlock question")
-    MessageRef unlockAsk(@Arg("name") String name);
+    MessageRef unlockAsk(@Arg("name") @Example("The Nether") String name);
 
     @Name("Unlock")
     MessageRef unlock();
 
     @Name("Unlocked")
-    MessageRef unlocked(@Arg("at") String at);
+    MessageRef unlocked(@Arg("at") @Example("23 Oct 2026") String at);
 
     @Name("Active")
     MessageRef active();
@@ -67,19 +64,19 @@ public interface GameTexts {
     MessageRef locked();
 
     @Name("Tasks")
-    MessageRef tasks(@Arg("finished") int finished, @Arg("total") int total);
+    MessageRef tasks(@Arg("finished") @Example("2") int finished, @Arg("total") @Example("5") int total);
 
     @Name("Progress")
-    MessageRef progress(@Arg("name") String name);
+    MessageRef progress(@Arg("name") @Example("The Nether") String name);
 
     @Name("Done at")
-    MessageRef doneAt(@Arg("at") String at);
+    MessageRef doneAt(@Arg("at") @Example("23 Oct 2026") String at);
 
     @Name("Complete question")
-    MessageRef completeAsk(@Arg("name") String name);
+    MessageRef completeAsk(@Arg("name") @Example("Mine 64 diamonds") String name);
 
     @Name("Complete note")
-    MessageRef completeNote(@Arg("amount") int amount, @Arg("target") int target);
+    MessageRef completeNote(@Arg("amount") @Example("40") int amount, @Arg("target") @Example("64") int target);
 
     @Name("Complete")
     MessageRef complete();
@@ -91,7 +88,7 @@ public interface GameTexts {
     MessageRef milestone();
 
     @Name("Remove question")
-    MessageRef removeAsk(@Arg("name") String name);
+    MessageRef removeAsk(@Arg("name") @Example("Mine 64 diamonds") String name);
 
     @Name("Keep")
     MessageRef keep();
@@ -100,8 +97,50 @@ public interface GameTexts {
     MessageRef removeIt();
 
     @Name("Move up")
-    MessageRef moveUp(@Arg("name") String name);
+    MessageRef moveUp(@Arg("name") @Example("Mine 64 diamonds") String name);
 
     @Name("Move down")
-    MessageRef moveDown(@Arg("name") String name);
+    MessageRef moveDown(@Arg("name") @Example("Mine 64 diamonds") String name);
+
+    @Name("Advancement")
+    MessageRef advancement();
+
+    @Name("Item")
+    MessageRef item();
+
+    @Name("Prize")
+    MessageRef prize();
+
+    @Name("Region")
+    MessageRef region();
+
+    @Name("Total weight")
+    MessageRef totalWeight(@Arg("total") @Example("100") int total);
+
+    @Name("Chance")
+    MessageRef chance();
+
+    @Name("Aura of")
+    MessageRef auraOf(@Arg("name") @Example("The Nether") String name);
+
+    @Name("Spins of")
+    MessageRef spinsOf(@Arg("name") @Example("The Nether") String name);
+
+    @Name("Arena")
+    MessageRef arena();
+
+    @Name("Duel types")
+    MessageRef duelTypes();
+
+    @Name("Platform")
+    MessageRef platform();
+
+    @Name("Loadout")
+    MessageRef loadout();
+
+    @Name("Min")
+    MessageRef min();
+
+    @Name("Max")
+    MessageRef max();
 }

@@ -3,7 +3,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { ApiError } from "@/lib/api"
+import { ApiError, errorMessage } from "@/lib/api"
 import type { AvailableChange, PluginHit, ServicePlugin } from "@/lib/api"
 import { count } from "@/lib/format"
 import {
@@ -425,7 +425,7 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
               toast.success(t("steward.service-page.plugin-added", { title: hit.title }), {
                 description: t("steward.service-page.arrives", { file: answer.fileName }),
               }),
-            onError: (error) => toast.error(t("steward.service-page.not-added"), { description: String(error) }),
+            onError: (error) => toast.error(t("steward.service-page.not-added"), { description: errorMessage(error) }),
           },
         )
       }

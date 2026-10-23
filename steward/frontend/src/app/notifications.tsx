@@ -21,18 +21,23 @@ import {
   useWebPushSubscription,
 } from "@/lib/queries"
 import { keys } from "@/lib/query-keys"
-import { Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Failure, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { ChangedCount } from "@/components/steward/group-form"
+import { announceSave } from "@/lib/announce-save"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   ResponsiveDialog,
+  ResponsiveDialogClose,
   ResponsiveDialogContent,
+  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { Switch } from "@/components/ui/switch"
 import { runs, t } from "@/lib/texts"
+import { NO_VALUE } from "@/lib/format"
 
 /**
  * The dialog is mounted outside the popover, like `SecurityKeyDialogs`, because a popover unmounts its dialog on the first outside click.
@@ -96,8 +101,17 @@ export function useNotificationActions() {
 }
 
 export function NotificationsDialog({ state }: { state: NotificationActions }) {
+  const thresholds = useThresholds(state)
+
   return (
-    <ResponsiveDialog open={state.open} onOpenChange={state.setOpen}>
+    <ResponsiveDialog
+      open={state.open}
+      onOpenChange={(open) => {
+        if (thresholds.save.isPending) return
+        if (!open) thresholds.reset()
+        state.setOpen(open)
+      }}
+    >
       {/* Only `sm:max-w-md`: below it a sheet is as wide as the phone, and no row may widen it. */}
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
@@ -108,12 +122,33 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
           {state.supported ? (
             <ThisDevice state={state} />
           ) : (
-            <p className="text-sm text-muted-foreground">{t("steward.notifications.no-push")}</p>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{t("steward.notifications.this-device")}</span>
+              <span className="text-xs text-muted-foreground">{t("steward.notifications.no-push")}</span>
+            </div>
           )}
           <Types state={state} />
-          <Thresholds state={state} />
+          <Thresholds state={state} thresholds={thresholds} />
           {state.supported ? <Devices state={state} /> : null}
         </div>
+
+        {thresholds.writable ? (
+          <ResponsiveDialogFooter>
+            <ChangedCount count={thresholds.count} />
+            <ResponsiveDialogClose asChild>
+              <Button type="button" variant="outline" disabled={thresholds.save.isPending}>
+                {t("steward.form.cancel")}
+              </Button>
+            </ResponsiveDialogClose>
+            <Button
+              type="button"
+              disabled={thresholds.count === 0 || thresholds.save.isPending}
+              onClick={() => void thresholds.submit()}
+            >
+              {thresholds.save.isPending ? t("steward.form.saving") : t("steward.form.save")}
+            </Button>
+          </ResponsiveDialogFooter>
+        ) : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
@@ -209,7 +244,7 @@ const ALERTS_SERVICE = "steward"
 const ALERTS_FILE = "alerts"
 
 /** Steward applies the numbers at its next reading. A stale revision is refused with a 409. */
-function Thresholds({ state }: { state: NotificationActions }) {
+function useThresholds(state: NotificationActions) {
   const client = useQueryClient()
   const configs = useConfigs(state.open)
   const file = configs.data?.find((location) => location.service === ALERTS_SERVICE && location.name === ALERTS_FILE)
@@ -232,16 +267,47 @@ function Thresholds({ state }: { state: NotificationActions }) {
       changes[row.path] = typed.trim()
     }
   }
-  const pending = Object.keys(changes).length > 0
+  const count = Object.keys(changes).length
 
-  if (!writable) {
-    return (
-      <ReadOnlyThresholds
-        rows={rows}
-        waiting={configs.isPending || document.isPending}
-        onLeave={() => state.setOpen(false)}
-      />
-    )
+  return {
+    rows,
+    writable,
+    waiting: configs.isPending || document.isPending,
+    edited,
+    setEdited,
+    count,
+    save,
+    reset: () => {
+      setEdited({})
+      save.reset()
+    },
+    submit: async () => {
+      if (!parsed) return
+      try {
+        const saved = await save.mutateAsync({ revision: parsed.revision, changes })
+        setEdited({})
+        /** The alerts query is a different cache entry from the group that was just saved. */
+        void client.invalidateQueries({ queryKey: keys.alerts })
+        announceSave(t("steward.settings.settings-saved", { count }), saved.reload)
+        state.setOpen(false)
+      } catch {
+        /** The failed mutation's error is drawn in the dialog. */
+      }
+    },
+  }
+}
+
+function Thresholds({
+  state,
+  thresholds,
+}: {
+  state: NotificationActions
+  thresholds: ReturnType<typeof useThresholds>
+}) {
+  const { rows, edited, setEdited, save } = thresholds
+
+  if (!thresholds.writable) {
+    return <ReadOnlyThresholds rows={rows} waiting={thresholds.waiting} onLeave={() => state.setOpen(false)} />
   }
 
   return (
@@ -262,6 +328,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
                 /** Three digits wide, so the row fits a 390px sheet. */
                 className="h-8 w-16 text-right"
                 value={edited[row.path] ?? row.entry?.value ?? ""}
+                disabled={save.isPending}
                 onChange={(event) => setEdited((before) => ({ ...before, [row.path]: event.target.value }))}
               />
               <span className="w-6 text-xs text-muted-foreground">{row.unit}</span>
@@ -269,35 +336,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={!pending || save.isPending || !parsed}
-          onClick={() => {
-            if (!parsed) return
-            save.mutate(
-              { revision: parsed.revision, changes },
-              {
-                onSuccess: () => {
-                  setEdited({})
-                  /**
-                   * The alerts query is a different cache entry from the group that was just saved.
-                   */
-                  void client.invalidateQueries({ queryKey: keys.alerts })
-                },
-              },
-            )
-          }}
-        >
-          {save.isPending ? t("steward.form.saving") : t("steward.form.save")}
-        </Button>
-      </div>
-      {save.error ? (
-        <p role="alert" className="text-xs break-words text-destructive">
-          {save.error.message}
-        </p>
-      ) : null}
+      {save.error ? <Failure error={save.error} write /> : null}
     </div>
   )
 }
@@ -335,7 +374,7 @@ function ReadOnlyThresholds({
             <li key={row.key} className="flex items-center justify-between gap-2 py-1">
               <span className="min-w-0 truncate text-sm">{row.label()}</span>
               <span className="shrink-0 text-sm text-muted-foreground">
-                {row.entry?.value ?? "\u2014"} {row.unit}
+                {row.entry?.value ?? NO_VALUE} {row.unit}
               </span>
             </li>
           ))}
@@ -389,7 +428,7 @@ function Devices({ state }: { state: NotificationActions }) {
           ))}
         </ul>
       ) : devices.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("steward.notifications.no-device")}</p>
+        <p className="text-xs text-muted-foreground">{t("steward.notifications.no-device")}</p>
       ) : (
         <ul className="flex flex-col">
           {devices.map((device) => (

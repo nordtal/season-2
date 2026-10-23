@@ -63,7 +63,6 @@ function PluginForm({
     readable: file.readable,
     writable: file.writable,
     revision: view.revision,
-    restartRequired: true,
     entries,
   }
   return <DraftForm file={id} document={document} target={target} save={save} />
@@ -77,8 +76,7 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
   const { file } = view
   const save = useSavePluginFile(file.service, file.plugin, file.path)
   const draft = useDraft(id, isTextDraft).text
-  const top = useRef<HTMLParagraphElement>(null)
-  const notice = file.writable ? t("steward.settings.restart-needed") : t("steward.settings.read-only")
+  const top = useRef<HTMLDivElement>(null)
 
   function submit() {
     if (draft === undefined) return
@@ -87,7 +85,7 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
       {
         onSuccess: (saved) => {
           clearDraft(id)
-          announceSave(t("steward.settings.file-saved", { file: label }), saved.reload, label)
+          announceSave(t("steward.settings.file-saved", { file: label }), saved.reload)
         },
       },
     )
@@ -95,10 +93,10 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
 
   return (
     <div className="flex flex-col gap-3">
-      <p ref={top} className="text-sm text-muted-foreground">
-        {notice}
-      </p>
-      {save.error ? <Failure error={save.error} /> : null}
+      {/* The anchor BackToTop watches: the editor below is too tall to leave the view. */}
+      <div ref={top} aria-hidden className="-mb-3" />
+      {file.writable ? null : <p className="text-sm text-muted-foreground">{t("steward.settings.read-only")}</p>}
+      {save.error ? <Failure error={save.error} write /> : null}
       <CodeEditor
         path={file.path}
         label={label}

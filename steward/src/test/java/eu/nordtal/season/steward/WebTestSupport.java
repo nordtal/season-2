@@ -1,7 +1,6 @@
 package eu.nordtal.season.steward;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -39,6 +38,13 @@ abstract class WebTestSupport extends WebFixture {
         }
     }
 
+    static void sql(final String statement) throws Exception {
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
+                var run = connection.createStatement()) {
+            run.execute(statement);
+        }
+    }
+
     static long count(final String sql) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement();
@@ -62,10 +68,15 @@ abstract class WebTestSupport extends WebFixture {
     }
 
     static JsonObject newestJournalRow(final String action) throws Exception {
-        final JsonArray journal =
-                GSON.fromJson(get("/api/journal?action=" + action).body(), JsonArray.class);
-        assertFalse(journal.isEmpty(), "nothing was journalled as " + action);
-        return journal.get(0).getAsJsonObject();
+        final JsonArray items = GSON.fromJson(get("/api/journal?limit=200").body(), JsonObject.class)
+                .getAsJsonArray("items");
+        return items.asList().stream()
+                .map(item -> item.getAsJsonObject().get("entry"))
+                .filter(entry -> entry != null && entry.isJsonObject())
+                .map(entry -> entry.getAsJsonObject())
+                .filter(entry -> action.equals(entry.get("action").getAsString()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("nothing was journalled as " + action));
     }
 
     static void holdTheKey(final HttpClient browser, final TestAuthenticator key) throws Exception {

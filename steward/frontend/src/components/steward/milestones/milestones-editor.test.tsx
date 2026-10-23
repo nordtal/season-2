@@ -9,6 +9,7 @@ import { customEditor } from "@/components/steward/config-editors"
 import { MilestonesEditor } from "@/components/steward/milestones/milestones-editor"
 import { moved } from "@/components/steward/milestones/model"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { configSaved } from "@/lib/query-fixtures"
 
 const FILE = "smp/milestones"
 
@@ -139,7 +140,6 @@ const DOCUMENT: ConfigDocument = {
   readable: true,
   writable: true,
   revision: "r1",
-  restartRequired: false,
   entries: [
     entry("milestones", {
       kind: "SECTIONS",
@@ -256,7 +256,7 @@ function backend() {
     vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
       if (init?.method === "PUT") {
         saved.push(JSON.parse(init.body ?? ""))
-        return new Response(JSON.stringify(DOCUMENT), {
+        return new Response(JSON.stringify(configSaved(DOCUMENT)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         })

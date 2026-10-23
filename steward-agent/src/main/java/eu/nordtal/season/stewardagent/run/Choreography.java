@@ -1,11 +1,7 @@
 package eu.nordtal.season.stewardagent.run;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport.Note;
-import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
@@ -54,7 +50,7 @@ final class Choreography {
     private final Map<String, Steps.Step> comingUp = new LinkedHashMap<>();
 
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
-        this(containers, occupancy, clock, Steps.NONE);
+        this(containers, occupancy, clock, Steps.none());
     }
 
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock, final Steps record) {
@@ -80,12 +76,12 @@ final class Choreography {
     /**
      * Starts every standby this run needs and waits until each one is healthy, stopping them all on failure.
      *
-     * @return a window that {@link Window#opened() opened}, or one with the note of the refusal
+     * @return a window that {@link Window#opened() opened}, or a refused one whose steps say why
      */
     Window open(final Collection<String> moving) {
         final List<String> wanted = standbysFor(containers.topology(), moving);
         if (wanted.isEmpty()) {
-            return new Window(List.of(), List.of());
+            return new Window(List.of(), true);
         }
 
         for (final String standby : wanted) {
@@ -94,28 +90,26 @@ final class Choreography {
             final RedeployResult made = containers.standby(standby);
             if (!made.triggered()) {
                 up.failed(RunStep.Reason.REFUSED);
-                return refuse(List.of(Note.failed(Step.STANDBY, TEXTS.report().standbyNotStarted(made.message()))
-                        .on(standby)));
+                return refuse();
             }
             standing.add(standby);
             comingUp.put(standby, up);
         }
 
-        final List<Note> late = waitHealthy(wanted);
-        return late.isEmpty() ? new Window(List.copyOf(standing), List.of()) : refuse(late);
+        return waitHealthy(wanted) ? new Window(List.copyOf(standing), true) : refuse();
     }
 
-    private Window refuse(final List<Note> why) {
+    private Window refuse() {
         close();
-        return new Window(List.of(), why);
+        return new Window(List.of(), false);
     }
 
     /**
      * Waits until the standbys are healthy or the patience ends.
      *
-     * @return one note per standby that did not come up
+     * @return whether every standby came up
      */
-    private List<Note> waitHealthy(final List<String> standbys) {
+    private boolean waitHealthy(final List<String> standbys) {
         final List<String> pending = new ArrayList<>(standbys);
         final Instant deadline = clock.now().plus(STANDBY_HEALTHY_WITHIN);
         while (true) {
@@ -129,25 +123,15 @@ final class Choreography {
                 }
             }
             if (pending.isEmpty()) {
-                return List.of();
+                return true;
             }
             if (!clock.now().isBefore(deadline)) {
                 pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY));
-                return pending.stream()
-                        .map(standby -> Note.failed(
-                                        Step.STANDBY,
-                                        TEXTS.report()
-                                                .standbysUnhealthy(
-                                                        STANDBY_HEALTHY_WITHIN.toMinutes(),
-                                                        UpdateRun.seen(seen, standby)
-                                                                .said()))
-                                .on(standby))
-                        .toList();
+                return false;
             }
             if (!clock.sleep(STANDBY_HEALTH_POLL)) {
                 pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.INTERRUPTED));
-                return Note.failed(Step.STANDBY, TEXTS.report().standbysInterrupted())
-                        .each(List.copyOf(pending));
+                return false;
             }
         }
     }
@@ -163,7 +147,7 @@ final class Choreography {
      * Waits until nobody is on the services about to stop, for at most {@link #EMPTY_CAP}.
      *
      * @param moving the services this run stops
-     * @return how the wait ended, with the notes for the report when the run stops them with players on
+     * @return how the wait ended
      */
     Left waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
@@ -191,31 +175,13 @@ final class Choreography {
                 return Left.EMPTY;
             }
             if (!now.isBefore(deadline)) {
-                return new Left(
-                        stoppedAnyway(occupied, unknown),
-                        occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
+                log.warn("Stopping with players still on {} and no count from {}", occupied, unknown);
+                return new Left(occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
             }
             if (!clock.sleep(EMPTY_POLL)) {
-                return new Left(
-                        Note.warning(Step.PLAYERS, TEXTS.report().evacuationInterrupted())
-                                .each(watched),
-                        RunStep.Reason.INTERRUPTED);
+                return new Left(RunStep.Reason.INTERRUPTED);
             }
         }
-    }
-
-    /**
-     * Returns the notes for a wait that hit the cap, which tell players still on a service from no answer.
-     */
-    static List<Note> stoppedAnyway(final Map<String, Integer> occupied, final List<String> unknown) {
-        final List<Note> said = new ArrayList<>();
-        for (final Map.Entry<String, Integer> on : occupied.entrySet()) {
-            said.add(Note.warning(Step.PLAYERS, TEXTS.report().stoppedWithPlayers(on.getValue(), EMPTY_CAP.toSeconds()))
-                    .on(on.getKey()));
-        }
-        said.addAll(Note.warning(Step.PLAYERS, TEXTS.report().playersUnknown(EMPTY_CAP.toSeconds()))
-                .each(unknown));
-        return List.copyOf(said);
     }
 
     private boolean canCarryPlayers(final String service) {
@@ -225,13 +191,9 @@ final class Choreography {
     /**
      * Stops every standby this run started once it is empty, idempotently, at every exit.
      *
-     * @return one note per standby, empty when this run opened no window
+     * Its steps say how each went.
      */
-    List<Note> close() {
-        if (standing.isEmpty()) {
-            return List.of();
-        }
-        final List<Note> said = new ArrayList<>();
+    void close() {
         for (final String standby : List.copyOf(standing)) {
             final Steps.Step down = record.begin(RunStep.Kind.STANDBY_DOWN, standby);
             final Drained waited = waitDrained(standby);
@@ -241,8 +203,6 @@ final class Choreography {
                     : null;
             if (id == null) {
                 down.failed(RunStep.Reason.NO_CONTAINER);
-                said.add(Note.failed(Step.STANDBY, TEXTS.report().standbyNoContainer())
-                        .on(standby));
                 standing.remove(standby);
                 continue;
             }
@@ -250,25 +210,17 @@ final class Choreography {
             standing.remove(standby);
             // The install mirrored its service's plugins into it as root while it ran.
             containers.handOverMounts(standby);
-            final Note note;
             if (!stopped.triggered()) {
                 down.failed(RunStep.Reason.REFUSED);
-                note = Note.failed(Step.STANDBY, TEXTS.report().standbyNotStopped(stopped.message()));
             } else if (waited == null) {
                 down.done();
-                note = Note.done(Step.STANDBY, TEXTS.report().standbyStopped());
             } else if (waited.interrupted()) {
                 down.warned(RunStep.Reason.INTERRUPTED);
-                note = Note.warning(Step.STANDBY, TEXTS.report().standbyStoppedInterrupted(waited.players()));
             } else {
+                log.warn("Stopped the standby {} with {} players still on it", standby, waited.players());
                 down.warned(RunStep.Reason.PLAYERS_STAYED);
-                note = Note.warning(
-                        Step.STANDBY,
-                        TEXTS.report().standbyStoppedWithPlayers(waited.players(), STANDBY_DRAINS_WITHIN.toSeconds()));
             }
-            said.add(note.on(standby));
         }
-        return said;
     }
 
     /**
@@ -304,13 +256,9 @@ final class Choreography {
      * What {@link #open} decided.
      *
      * @param standbys the services started for this run
-     * @param refusal why the run must not go on, empty when it may
+     * @param opened whether the run may go on
      */
-    record Window(List<String> standbys, List<Note> refusal) {
-
-        boolean opened() {
-            return refusal.isEmpty();
-        }
+    record Window(List<String> standbys, boolean opened) {
 
         boolean isEmpty() {
             return standbys.isEmpty();
@@ -320,16 +268,11 @@ final class Choreography {
     /**
      * How the wait for the players ended.
      *
-     * @param notes the report text, empty when everybody left in time
      * @param reason why the run stopped them anyway, {@code null} when they were gone
      */
-    record Left(List<Note> notes, RunStep.@Nullable Reason reason) {
+    record Left(RunStep.@Nullable Reason reason) {
 
-        static final Left EMPTY = new Left(List.of(), null);
-
-        Left {
-            notes = List.copyOf(notes);
-        }
+        static final Left EMPTY = new Left(null);
 
         RunStep.Outcome outcome() {
             return reason == null ? RunStep.Outcome.DONE : RunStep.Outcome.WARNING;

@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
@@ -31,7 +32,7 @@ import org.bukkit.plugin.Plugin;
  */
 public final class NpcListener implements Listener {
 
-    record Accepted(long amount) {}
+    record Accepted(@Example("16") long amount) {}
 
     static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE =
             DocumentSpec.game("smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT);

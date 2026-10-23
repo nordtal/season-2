@@ -8,10 +8,16 @@ import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
+import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.Database;
+import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
+import eu.nordtal.season.settings.DistancesSpec;
+import eu.nordtal.season.settings.Environment;
+import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.steward.alert.Thresholds;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.SecondFactor;
@@ -21,8 +27,13 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
+import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
+import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
+import eu.nordtal.season.stewardagent.plan.UpdatePlan;
+import eu.nordtal.season.stewardagent.run.PlanView;
+import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
@@ -34,6 +45,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Matcher;
@@ -54,12 +67,16 @@ public final class StewardPreview {
 
     private static final String DUMP_OWNER = "nordtal";
 
-    /** A one-shot that ran and a standby at rest, beside the stand-in's smp, so their pages show. */
+    /**
+     * A one-shot that ran, a standby at rest and Steward itself, beside the stand-in's smp, so their pages show.
+     * Steward and smp carry the section label that lists them in the navigation, as compose.yml does.
+     */
     private static final com.google.gson.JsonObject RESTING =
             com.google.gson.JsonParser.parseString("""
                     {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
                      "proxy-standby": {"image": "ghcr.io/nordtal/minecraft:latest", "restart": "unless-stopped",
-                       "labels": {"eu.nordtal.standby-of": "proxy"}}}
+                       "labels": {"eu.nordtal.standby-of": "proxy"}},
+                     "steward": {"image": "ghcr.io/nordtal/steward:latest", "labels": {"eu.nordtal.section": "Steward"}}}
                     """).getAsJsonObject();
 
     private static final String PREVIEW_TOTP_KEY = previewTotpKey();
@@ -80,18 +97,75 @@ public final class StewardPreview {
      */
     public static void main(final String[] args) throws Exception {
         final Options options = Options.of(args);
+        try (Running preview = start(options)) {
+            System.out.println("Steward preview on " + preview.base() + ", signed in as " + ADMIN_NAME + " (" + ADMIN
+                    + "). Cookie " + Sessions.COOKIE + "=" + preview.session() + ", Playwright state in "
+                    + options.state().toAbsolutePath() + ". Stop it to throw everything away.");
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> forget(options.state()), "preview-shutdown"));
+            new CountDownLatch(1).await();
+        }
+    }
+
+    /**
+     * The preview while it serves; closing it stops everything it started and deletes its scratch directory.
+     *
+     * @param volumes the stand-in agent's volumes, one directory per service
+     */
+    record Running(String base, String session, Path volumes, Deque<AutoCloseable> started) implements AutoCloseable {
+
+        @Override
+        public void close() throws Exception {
+            closeAll(started);
+        }
+    }
+
+    /** Closes the newest first, then throws the first failure with the others suppressed. */
+    private static void closeAll(final Deque<AutoCloseable> started) throws Exception {
+        Exception failed = null;
+        while (!started.isEmpty()) {
+            try {
+                started.pop().close();
+            } catch (final Exception e) {
+                if (failed == null) {
+                    failed = e;
+                } else {
+                    failed.addSuppressed(e);
+                }
+            }
+        }
+        if (failed != null) {
+            throw failed;
+        }
+    }
+
+    /** Starts the preview, signed in, and writes the Playwright state; the caller closes what it returns. */
+    static Running start(final Options options) throws Exception {
         // Deleted until this run is signed in, so a waiting reader never gets the cookie of the last run.
         Files.deleteIfExists(options.state());
         final Path scratch = Files.createTempDirectory("steward-preview");
-        final TestDatabase postgres =
-                options.dump() == null ? TestDatabase.fresh() : TestDatabase.restored(options.dump(), DUMP_OWNER);
-        try (Database database = Database.open(asSteward(postgres), "steward-preview");
-                ProcessScheduler scheduler = new ProcessScheduler(
-                        "steward-preview", failure -> System.err.println("A task failed: " + failure));
-                AgentStandIn agent = new AgentStandIn(
-                        scratch, 0, cfg -> pluginFiles(cfg, scratch.resolve("volumes")), servicesOf(options.jars()));
-                StandInDiscord discord = new StandInDiscord()) {
+        final Deque<AutoCloseable> started = new ArrayDeque<>();
+        started.push(() -> deleteTree(scratch));
+        try {
+            final TestDatabase postgres =
+                    options.dump() == null ? TestDatabase.fresh() : TestDatabase.restored(options.dump(), DUMP_OWNER);
+            if (options.dump() == null) {
+                publishServerGroups(postgres);
+            }
+            final Database database = push(started, Database.open(asSteward(postgres), "steward-preview"));
+            final ProcessScheduler scheduler = push(
+                    started,
+                    new ProcessScheduler(
+                            "steward-preview", failure -> System.err.println("A task failed: " + failure)));
+            final AgentStandIn agent = push(
+                    started,
+                    new AgentStandIn(
+                            scratch,
+                            0,
+                            cfg -> standInRoutes(cfg, scratch.resolve("volumes")),
+                            servicesOf(options.jars())));
+            final StandInDiscord discord = push(started, new StandInDiscord());
             furnish(agent);
+            furnishWhatIsNeverListed(agent.volumes.resolve("smp/plugins"));
             final Path jars = options.jars();
             if (jars != null) {
                 copyJars(jars, agent.configs);
@@ -114,27 +188,69 @@ public final class StewardPreview {
                     Clock.systemUTC(),
                     scheduler);
             web.start(options.port());
-            try (SignalHub signals = signalsOf(asSteward(postgres))) {
-                web.listen(signals);
-                signals.start();
-                admit(data, discord);
-                final String session = signIn(config.publicUrl());
-                // The key counts as just held while this runs, so no change asks for it again.
-                final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
-                scheduler.every(
-                        Duration.ZERO,
-                        Duration.ofMinutes(1),
-                        () -> sessions.markVerified(session, SecondFactor.StepUpLength.DEFAULT.length()));
-                writeState(options.state(), session);
-                System.out.println("Steward preview on " + config.publicUrl() + ", signed in as " + ADMIN_NAME
-                        + " (" + ADMIN + "). Cookie " + Sessions.COOKIE + "=" + session + ", Playwright state in "
-                        + options.state().toAbsolutePath() + ". Stop it to throw everything away.");
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> forget(options.state()), "preview-shutdown"));
-                new CountDownLatch(1).await();
-            } finally {
-                web.stop();
+            started.push(web::stop);
+            final SignalHub signals = push(started, signalsOf(asSteward(postgres)));
+            web.listen(signals);
+            signals.start();
+            final String session = signInAdmin(data, discord, config.publicUrl(), scheduler);
+            writeState(options.state(), session);
+            return new Running(config.publicUrl(), session, agent.volumes, started);
+        } catch (final Exception e) {
+            throw closedAfter(started, e);
+        }
+    }
+
+    /** Closes what a failed start had started and returns its failure, with any failure to close added. */
+    private static Exception closedAfter(final Deque<AutoCloseable> started, final Exception failure) {
+        try {
+            closeAll(started);
+        } catch (final Exception alsoFailed) {
+            failure.addSuppressed(alsoFailed);
+        }
+        return failure;
+    }
+
+    /** Admits the invented admin, signs in and returns the session, whose key counts as just held while this runs. */
+    private static String signInAdmin(
+            final Data data, final StandInDiscord discord, final String publicUrl, final ProcessScheduler scheduler)
+            throws Exception {
+        admit(data, discord);
+        final String session = signIn(publicUrl);
+        final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
+        scheduler.every(
+                Duration.ZERO,
+                Duration.ofMinutes(1),
+                () -> sessions.markVerified(session, SecondFactor.StepUpLength.DEFAULT.length()));
+        return session;
+    }
+
+    private static <T extends AutoCloseable> T push(final Deque<AutoCloseable> started, final T resource) {
+        started.push(resource);
+        return resource;
+    }
+
+    private static void deleteTree(final Path root) throws IOException {
+        try (Stream<Path> paths = Files.walk(root)) {
+            for (final Path path :
+                    paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
             }
         }
+    }
+
+    /**
+     * Publishes smp's {@code distances} group and steward-agent's {@code runs} group as each does at its start.
+     *
+     * smp's settings tab then has a Nordtal group, and the backup schedule dialog has its retention fields.
+     */
+    private static void publishServerGroups(final TestDatabase postgres) throws Exception {
+        AgentSettings.runs(AgentSettings.stored(postgres.dataSource(), LoggerFactory.getLogger(StewardPreview.class)));
+        DatabaseSettings.over(
+                        SettingStore.using(postgres.dataSourceAs(DatabaseRole.SMP)),
+                        "smp",
+                        new Environment("NONE", "distances", variable -> null),
+                        LoggerFactory.getLogger(StewardPreview.class))
+                .load(Group.of("distances", DistancesSpec.class));
     }
 
     /** Gives the stand-in agent the stopped containers and the jars that the preview shows. */
@@ -145,10 +261,11 @@ public final class StewardPreview {
                 agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
                 "{\"id\": \"smp\", \"local\": true}",
                 java.util.Map.of());
-        // smp's descriptor sits where the agent reads it, so the editor draws the track that smp's jar names.
+        // smp's descriptor sits where the agent reads it, so Steward draws each group with the editor smp's jar names.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
-                "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}",
+                "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\", \"advancement-awards\": "
+                        + "\"advancement-awards\", \"wheel\": \"wheel\", \"duels\": \"duels\"}}",
                 java.util.Map.of());
         final Path plugins = agent.volumes.resolve("smp/plugins");
         write(plugins.resolve("CoreProtect/config.yml"), """
@@ -198,43 +315,97 @@ public final class StewardPreview {
         write(plugins.resolve("bStats/notes.txt"), "Opened as text: no form for a .txt file.\n");
     }
 
+    /**
+     * Writes what the settings tab never lists: Nordtal's own folders and each kind of file a plugin folder must hide.
+     *
+     * {@code SettingsPageEndToEndTest} holds the page to listing none of them.
+     */
+    private static void furnishWhatIsNeverListed(final Path plugins) throws IOException {
+        write(plugins.resolve("smp/config.yml"), "spawn: world\n");
+        write(plugins.resolve("smp/name-tags.yml"), "admin: red\n");
+        write(plugins.resolve("smp/colours.yml"), "brand: blue\n");
+        write(plugins.resolve("smp/translations/en.properties"), "greeting=Hello\n");
+        write(plugins.resolve("DisplayTags/config.yml"), "tags: []\n");
+        final Path coreProtect = plugins.resolve("CoreProtect");
+        write(coreProtect.resolve("config.schema.json"), "{}\n");
+        write(coreProtect.resolve("config.yml.bak"), "use-mysql: true\n");
+        write(coreProtect.resolve("tmp/cache.yml"), "cached: true\n");
+        write(coreProtect.resolve("logs/latest.txt"), "started\n");
+        write(coreProtect.resolve("language.yml"), "rollback: Rollback\n");
+        write(coreProtect.resolve("database.yml"), "binary\0data\n");
+        write(coreProtect.resolve("big.yml"), "#".repeat(1024 * 1024) + "\n");
+        write(coreProtect.resolve("addon.jar"), "not a config\n");
+        Files.createSymbolicLink(coreProtect.resolve("link.yml"), coreProtect.resolve("config.yml"));
+    }
+
     private static void write(final Path file, final String text) throws IOException {
         Files.createDirectories(file.getParent());
         Files.writeString(file, text);
     }
 
-    /** The third-party plugins on smp whose files the settings tab lists: a single file, a tree, no icon, no jar. */
+    /**
+     * The third-party plugins on smp whose files the settings tab lists.
+     *
+     * CoreProtect is preinstalled; Chunky is added, with one file and no icon; LuckPerms is added and holds a tree.
+     * bStats is a folder no jar claims.
+     */
     private static final List<AgentWire.Plugin> PLUGINS = List.of(
             plugin(
                     "CoreProtect",
+                    AgentWire.PluginGroup.PREINSTALLED,
                     "https://cdn.modrinth.com/data/Lu3KuzdV/b2c4b7b0033ab09cc166f2848003ef3a02c70a83.png"),
             plugin(
                     "LuckPerms",
+                    AgentWire.PluginGroup.ADDED,
                     "https://cdn.modrinth.com/data/Vebnzrzj/90943902cc650e95b167265b8f2d7c893f82c8f4_96.webp"),
-            plugin("Chunky", null));
+            plugin("Chunky", AgentWire.PluginGroup.ADDED, null),
+            plugin("smp", AgentWire.PluginGroup.NORDTAL, null));
 
-    private static AgentWire.Plugin plugin(final String name, final @org.jspecify.annotations.Nullable String icon) {
+    private static AgentWire.Plugin plugin(
+            final String name,
+            final AgentWire.PluginGroup group,
+            final @org.jspecify.annotations.Nullable String icon) {
         return new AgentWire.Plugin(
-                name,
-                AgentWire.PluginGroup.ADDED,
-                null,
-                true,
-                true,
-                null,
-                null,
-                "1.0.0",
-                null,
-                name,
-                null,
-                null,
-                null,
-                null,
-                icon,
-                null);
+                name, group, null, true, true, null, null, "1.0.0", null, name, null, null, null, null, icon, null);
     }
 
-    /** Serves the plugin files of {@code volumes}, the stand-in's own, which {@link #furnish} fills. */
-    private static void pluginFiles(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
+    /** What the stand-in agent answers for the plan: smp behind the release, its server jar and the pack current. */
+    private static final UpdatePlan PLAN = new UpdatePlan(
+            Clock.systemUTC().instant(),
+            "v0.18.0",
+            false,
+            List.of(
+                    new Change(
+                            Topology.SMP,
+                            Topology.SMP,
+                            Change.Status.OUTDATED,
+                            "smp-0.17.0.jar",
+                            remote(Topology.SMP, "0.18.0", "smp-0.18.0.jar"),
+                            null),
+                    new Change(
+                            Topology.SMP,
+                            Topology.PAPER,
+                            Change.Status.UP_TO_DATE,
+                            "paper-1.21.10-130.jar",
+                            remote(Topology.PAPER, "1.21.10-130", "paper-1.21.10-130.jar"),
+                            null),
+                    new Change(
+                            null,
+                            Topology.RESOURCE_PACK,
+                            Change.Status.UP_TO_DATE,
+                            "3f2a9c1",
+                            remote(Topology.RESOURCE_PACK, "v0.18.0", "nordtal-pack.zip"),
+                            null)),
+            List.of(),
+            List.of());
+
+    private static RemoteFile remote(final String artifact, final String version, final String fileName) {
+        return new RemoteFile(artifact, version, fileName, URI.create("https://example.invalid/" + fileName), null);
+    }
+
+    /** Serves {@link #PLAN} and the plugin files of {@code volumes}, which {@link #furnish} fills. */
+    private static void standInRoutes(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
+        cfg.routes.get(AgentWire.PLAN, ctx -> ctx.json(PlanView.of(PLAN)));
         final PluginFiles files =
                 new PluginFiles(service -> new AgentWire.Plugins(service, "paper", "1.21.10", true, PLUGINS), volumes);
         cfg.routes.get(AgentWire.PLUGIN_FILES, files::list);
@@ -242,13 +413,16 @@ public final class StewardPreview {
         cfg.routes.post(AgentWire.PLUGIN_FILE, files::save);
     }
 
-    /** {@link #RESTING}, and each service of {@code jars} that the compose.yml of the stand-in does not name yet. */
+    /** {@link #RESTING}, smp with its section label, and each service of {@code jars} that compose.yml lacks. */
     private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars) throws IOException {
         final JsonObject services = RESTING.deepCopy();
+        final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
+        final JsonObject smp = named.getAsJsonObject("smp").deepCopy();
+        smp.getAsJsonObject("labels").addProperty("eu.nordtal.section", "Paper");
+        services.add("smp", smp);
         if (jars == null) {
             return services;
         }
-        final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
         try (Stream<Path> listed = Files.list(jars)) {
             for (final Path directory : listed.filter(Files::isDirectory).toList()) {
                 final String service = directory.getFileName().toString();
@@ -456,7 +630,7 @@ public final class StewardPreview {
 
     private static final String USAGE = "usage: [--port N] [--dump FILE] [--state FILE] [--jars DIR]";
 
-    private record Options(
+    record Options(
             int port,
             @org.jspecify.annotations.Nullable Path dump,
             Path state,

@@ -2,10 +2,11 @@ package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
+import eu.nordtal.season.stewardagent.plan.Work;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -21,10 +22,7 @@ class LocalBuildsTest {
 
     @Test
     void anImageBuiltHereGoesWhenItsContainerIsMadeAgainAndStaysOtherwise() {
-        final UpdateReport stewardMoves = UpdateReport.at(UpdateReport.Stage.RESOLVING)
-                .with(UpdateReport.at(UpdateReport.Stage.RESOLVING)
-                        .line("steward")
-                        .with(new UpdateReport.Change("steward", "0.16.0", "0.17.0")));
+        final Work stewardMoves = nothing().with("steward", new RunStep.Change("steward", "0.16.0", "0.17.0", null));
 
         assertEquals(List.of("steward"), replaced(plan(), stewardMoves, List.of(), false, List.of(), List.of()));
         assertEquals(List.of(), replaced(plan(), nothing(), List.of(), false, List.of(), List.of()));
@@ -73,7 +71,7 @@ class LocalBuildsTest {
 
     private static List<String> replaced(
             final UpdatePlan plan,
-            final UpdateReport planned,
+            final Work planned,
             final List<String> renewed,
             final boolean newer,
             final List<String> scope,
@@ -81,8 +79,8 @@ class LocalBuildsTest {
         return LocalBuilds.replaced(IMAGES, plan, planned, renewed, newer, scope, held);
     }
 
-    private static UpdateReport nothing() {
-        return UpdateReport.at(UpdateReport.Stage.RESOLVING);
+    private static Work nothing() {
+        return new Work(Map.of(), List.of());
     }
 
     private static UpdatePlan plan(final Change... changes) {

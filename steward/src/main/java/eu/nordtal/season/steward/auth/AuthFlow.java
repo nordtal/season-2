@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,33 +31,21 @@ public final class AuthFlow {
 
     private final WebSpec config;
     private final DiscordAuth discord;
-    private final @Nullable Data data;
-    private final @Nullable Sessions sessions;
-    private final @Nullable AdminTree admins;
+    private final Data data;
+    private final Sessions sessions;
+    private final AdminTree admins;
 
     public AuthFlow(
             final WebSpec config,
             final DiscordAuth discord,
-            final @Nullable Data data,
-            final @Nullable Sessions sessions,
-            final @Nullable AdminTree admins) {
+            final Data data,
+            final Sessions sessions,
+            final AdminTree admins) {
         this.config = config;
         this.discord = discord;
         this.data = data;
         this.sessions = sessions;
         this.admins = admins;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
-    }
-
-    private Sessions sessions() {
-        return Objects.requireNonNull(sessions, "this route needs sessions, which this instance has none of");
-    }
-
-    private AdminTree admins() {
-        return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
     }
 
     /** An empty admin tree without {@code discord.root-id} counts as missing. */
@@ -67,9 +54,7 @@ public final class AuthFlow {
     }
 
     private Optional<String> rootUnclaimable() {
-        if (admins == null
-                || !config.discord().rootId().isBlank()
-                || !admins().admins().isEmpty()) {
+        if (!config.discord().rootId().isBlank() || !admins.admins().isEmpty()) {
             return Optional.empty();
         }
         return Optional.of("discord.root-id (nobody is an admin yet)");
@@ -81,13 +66,13 @@ public final class AuthFlow {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
         final String state = random();
-        setSessionCookie(ctx, sessions().begin(state), Sessions.SIGN_IN_WINDOW);
+        setSessionCookie(ctx, sessions.begin(state), Sessions.SIGN_IN_WINDOW);
         ctx.redirect(discord.authorizeUrl(state).toString());
     }
 
     public void callback(final Context ctx) {
         final String started = ctx.cookie(Sessions.COOKIE);
-        final Optional<String> expected = sessions().consumeState(started);
+        final Optional<String> expected = sessions.consumeState(started);
         final String state = ctx.queryParam("state");
         if (expected.isEmpty() || !expected.get().equals(state)) {
             throw new RequestRefused(400, ANSWER.signInElsewhere());
@@ -103,34 +88,33 @@ public final class AuthFlow {
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
         // An empty admin tree lets only the {@code discord.root-id} account claim root.
         final String signingIn = who.id();
-        if (admins == null || !(admins().isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
+        if (!(admins.isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
         // A new session id prevents session fixation.
-        final String id = sessions().signIn(DiscordId.of(who.id()), who.name());
-        sessions().end(started);
+        final String id = sessions.signIn(DiscordId.of(who.id()), who.name());
+        sessions.end(started);
         setSessionCookie(ctx, id, lifetime());
         ctx.redirect("/");
     }
 
     private boolean claimRoot(final DiscordAuth.Account who) {
-        if (!who.id().equals(config.discord().rootId().strip())
-                || !admins().claimRootIfNobody(DiscordId.of(who.id()))) {
+        if (!who.id().equals(config.discord().rootId().strip()) || !admins.claimRootIfNobody(DiscordId.of(who.id()))) {
             return false;
         }
         log.warn(
                 "{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
                 who.name(),
                 who.id());
-        data().audit().record(AuditLine.about(JournalAction.ADMIN_ROOT, who.actor(), DiscordId.of(who.id()), null));
+        data.audit().record(AuditLine.about(JournalAction.ADMIN_ROOT, who.actor(), DiscordId.of(who.id()), null));
         return true;
     }
 
     /** A failure is logged and not thrown. */
     public void sweepSessions() {
         try {
-            sessions().sweep();
+            sessions.sweep();
         } catch (RuntimeException e) {
             log.warn("could not sweep expired sessions - trying again in {}: {}", SWEEP, e.toString());
         }
@@ -162,5 +146,12 @@ public final class AuthFlow {
         final byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** Ends the session of the caller and removes its cookie. */
+    public void logout(final Context ctx) {
+        sessions.end(ctx.cookie(Sessions.COOKIE));
+        ctx.removeCookie(Sessions.COOKIE, "/");
+        ctx.status(204);
     }
 }

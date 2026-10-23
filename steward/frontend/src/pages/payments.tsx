@@ -1,10 +1,18 @@
-import { ArrowSquareOutIcon } from "@phosphor-icons/react"
+import {
+  ArrowSquareOutIcon,
+  CalendarXIcon,
+  CheckCircleIcon,
+  ClockCountdownIcon,
+  ProhibitIcon,
+  SwapIcon,
+} from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Payment } from "@/lib/api"
-import { count, date, euros, time } from "@/lib/format"
+import { count, date, euros, time, NO_VALUE } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePayments, usePeople, useSettle } from "@/lib/queries"
@@ -15,9 +23,17 @@ import { FilterBar, FilterChoice, FilterMenu, FilterOption, SearchField } from "
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
-import { StatusBadge, type Tone } from "@/components/steward/status"
+import { StatusBadge, Tip, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
+
+const STATUS_ICON: Record<Payment["status"], Icon> = {
+  OPEN: ClockCountdownIcon,
+  PAID: CheckCircleIcon,
+  EXPIRED: CalendarXIcon,
+  CANCELLED: ProhibitIcon,
+  SUPERSEDED: SwapIcon,
+}
 
 /**
  * Settles the one OPEN request of this row by hand. The bot books it as if bunq had reported it.
@@ -41,39 +57,34 @@ function SettleAction({ reference }: { reference: string }) {
       title={t("steward.payments.settle-ask")}
       description={t("steward.payments.settle-note", { reference })}
       action={t("steward.payments.settle")}
-      act={() => {
-        settle.mutate(reference, {
-          onSuccess: (result) => {
-            if (result.outcome === "BOOKED") {
-              toast.success(t("steward.payments.settled", { reference }), {
-                description: t("steward.payments.settled-note", { days: result.days ?? 0, until: result.until ?? "" }),
-              })
-            } else if (result.outcome === "NOT_OPEN") {
-              toast.warning(t("steward.payments.not-open", { reference }), {
-                description: t("steward.payments.not-open-note", {
-                  was: result.was
-                    ? t("steward.payments.state", { status: choice(result.was) })
-                    : t("steward.payments.state", { status: choice("PAID") }),
-                }),
-              })
-            } else {
-              toast.warning(t("steward.payments.no-payment", { reference }), {
-                description: t("steward.payments.nothing-booked"),
-              })
-            }
-          },
-          onError: (error) => {
-            toast.error(t("steward.payments.nothing-settled"), { description: String(error) })
-          },
+      act={() =>
+        settle.mutateAsync(reference).then((result) => {
+          if (result.outcome === "BOOKED") {
+            toast.success(t("steward.payments.settled", { reference }), {
+              description: t("steward.payments.settled-note", { days: result.days ?? 0, until: result.until ?? "" }),
+            })
+          } else if (result.outcome === "NOT_OPEN") {
+            toast.warning(t("steward.payments.not-open", { reference }), {
+              description: t("steward.payments.not-open-note", {
+                was: result.was
+                  ? t("steward.payments.state", { status: choice(result.was) })
+                  : t("steward.payments.state", { status: choice("PAID") }),
+              }),
+            })
+          } else {
+            toast.warning(t("steward.payments.no-payment", { reference }), {
+              description: t("steward.payments.nothing-booked"),
+            })
+          }
         })
-      }}
+      }
     />
   )
 }
 
 /** The day, and the clock under it, so the column stays narrow. */
 function Moment({ at }: { at?: string }) {
-  if (!at) return <>{"\u2013"}</>
+  if (!at) return <>{NO_VALUE}</>
   return (
     <time dateTime={at} className="flex flex-col">
       <span>{date(at)}</span>
@@ -101,12 +112,13 @@ export function PaymentsTable({
 }) {
   const columns: Column<Payment>[] = [
     {
-      // `Created` sits in the `Reference` title and `Donation` under `Amount`.
+      // `Created` sits in the `Reference` hint and `Donation` under `Amount`.
       head: t("steward.payments.reference"),
       phone: { line: 1, side: "start" },
       className: "font-mono font-medium",
-      title: (payment) => t("steward.payments.created", { at: payment.created }),
-      render: (payment) => payment.reference,
+      render: (payment) => (
+        <Tip content={t("steward.payments.created", { at: payment.created })}>{payment.reference}</Tip>
+      ),
     },
     ...(person
       ? [
@@ -140,9 +152,9 @@ export function PaymentsTable({
         <div className="flex flex-col items-end">
           <span>{euros(payment.amountCents)}</span>
           {payment.donationCents > 0 ? (
-            <span className="text-xs text-muted-foreground" title={t("steward.payments.donation")}>
+            <Tip content={t("steward.payments.donation")} className="text-xs text-muted-foreground">
               +{euros(payment.donationCents)}
-            </span>
+            </Tip>
           ) : null}
         </div>
       ),
@@ -182,15 +194,15 @@ export function PaymentsTable({
         <div className="flex items-center justify-end gap-1">
           {payment.shareUrl ? (
             <Button asChild variant="ghost" size="sm">
-              <a href={payment.shareUrl} target="_blank" rel="noreferrer" title={payment.shareUrl}>
+              <a href={payment.shareUrl} target="_blank" rel="noreferrer">
                 <ArrowSquareOutIcon aria-hidden />
                 {t("steward.payments.tab")}
               </a>
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground" title={t("steward.payments.no-tab")}>
-              {"\u2013"}
-            </span>
+            <Tip content={t("steward.payments.no-tab")} className="text-xs text-muted-foreground">
+              {NO_VALUE}
+            </Tip>
           )}
           {payment.status === "OPEN" ? <SettleAction reference={payment.reference} /> : null}
         </div>
@@ -262,7 +274,7 @@ export function PaymentsPage() {
                 <FilterBar>
                   <SearchField value={needle} onValueChange={setNeedle} label={t("steward.payments.filter")} />
                   <FilterMenu active={(status === "" ? 0 : 1) + (onlyOverdue ? 1 : 0)}>
-                    <FilterOption pressed={onlyOverdue} onPressedChange={setOnlyOverdue}>
+                    <FilterOption icon={TERM_ICON.warning} pressed={onlyOverdue} onPressedChange={setOnlyOverdue}>
                       {t("steward.payments.only-overdue")}
                     </FilterOption>
                     <FilterChoice
@@ -272,6 +284,7 @@ export function PaymentsPage() {
                       options={present.map((value) => ({
                         value,
                         label: t("steward.payments.state", { status: choice(value) }),
+                        icon: STATUS_ICON[value],
                       }))}
                     />
                   </FilterMenu>

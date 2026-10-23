@@ -3,7 +3,6 @@ package eu.nordtal.season.database.update;
 import eu.nordtal.season.database.Jdbis;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +83,7 @@ final class JdbiRunRecorder implements RunRecorder {
                             pruned.getOrDefault(row.id(), List.of()));
                 })
                 .toList();
-        return new RunRecord(dao.stage(run).map(UpdateReport.Stage::valueOf).orElse(null), steps);
+        return new RunRecord(dao.stage(run).map(RunStage::valueOf).orElse(null), steps);
     }
 
     private static RunStep.Archive archive(final RunStepDao.ArchiveRow row) {
@@ -100,24 +99,10 @@ final class JdbiRunRecorder implements RunRecorder {
         return facts;
     }
 
-    /** Writes the stage of the report on the row of the run. */
-    void stage(final long run, final UpdateReport.Stage stage) {
-        when(() -> dao.stage(run, stage.name()));
-    }
-
-    /** Sets the stage of every failed run to {@code FAILED}. */
-    void failedStages() {
-        when(dao::failedStages);
-    }
-
-    /** Writes the services that a request names as not moving. */
-    void named(final long run, final List<String> services) {
-        when(() -> dao.named(run, services.toArray(String[]::new)));
-    }
-
-    /** Marks the services that a run stops as moving. */
-    void moving(final long run, final Collection<String> services) {
-        when(() -> dao.moving(run, services.toArray(String[]::new)));
+    /** Sets the stage of every failed run to {@code FAILED} and ends its open steps as interrupted. */
+    void failed() {
+        dao.failedStages();
+        when(dao::interrupted);
     }
 
     private void when(final Runnable write) {

@@ -4,6 +4,7 @@ import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Instant;
 
 /** The texts of the notifications dialog: this device, the alert types, the thresholds and the devices. */
@@ -47,7 +48,8 @@ public interface NotificationsPanel {
     MessageRef discord();
 
     @Name("By channel")
-    MessageRef byChannel(@Arg("type") String type, @Arg("channel") String channel);
+    MessageRef byChannel(
+            @Arg("type") @Example("Payments") String type, @Arg("channel") @Example("Push") String channel);
 
     @Name("Tell me when")
     MessageRef tellMeWhen();
@@ -62,7 +64,8 @@ public interface NotificationsPanel {
     MessageRef newestBackup();
 
     @Name("Read only")
-    MessageRef readOnly(@Arg("group") String group, @Arg("service") String service);
+    MessageRef readOnly(
+            @Arg("group") @Example("Web Push") String group, @Arg("service") @Example("steward") String service);
 
     @Name("Devices")
     MessageRef devices();
@@ -77,17 +80,17 @@ public interface NotificationsPanel {
     MessageRef thisOne();
 
     @Name("Last notified")
-    MessageRef lastNotified(@Arg("at") Instant at);
+    MessageRef lastNotified(@Arg("at") @Example("2026-10-23T17:10:00Z") Instant at);
 
     @Name("Added")
-    MessageRef added(@Arg("at") Instant at);
+    MessageRef added(@Arg("at") @Example("2026-10-01T12:00:00Z") Instant at);
 
     @Name("Send test")
-    MessageRef sendTest(@Arg("name") String name);
+    MessageRef sendTest(@Arg("name") @Example("Firefox on Android") String name);
 
     @Name("Test notifications")
     MessageRef testNotifications();
 
     @Name("Remove device")
-    MessageRef removeDevice(@Arg("name") String name);
+    MessageRef removeDevice(@Arg("name") @Example("Firefox on Android") String name);
 }

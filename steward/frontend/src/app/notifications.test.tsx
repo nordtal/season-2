@@ -5,7 +5,7 @@ import { afterEach, assert, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
 import { asButton, asElement, asInput } from "@/lib/test-elements"
-import { stringChangesOf } from "@/lib/query-fixtures"
+import { stringChangesOf, configSaved } from "@/lib/query-fixtures"
 
 /** `@/lib/push` is mocked, because `push.test.ts` tests it against a fake service worker. */
 vi.mock("@/lib/push", () => ({
@@ -57,7 +57,6 @@ function alertsFile(values: Record<string, string> = {}) {
     readable: true,
     writable: true,
     revision: "rev-1",
-    restartRequired: false,
     entries: [
       entry("disk-percent", "disk-percent", value("disk-percent", "85")),
       entry("memory-percent", "memory-percent", value("memory-percent", "90")),
@@ -137,7 +136,7 @@ function backend(
       if (url === `/api/setting-groups/${ALERTS}`) {
         if (method === "PUT") {
           const changes = stringChangesOf(body)
-          return json(200, { ...alertsFile(changes), revision: "rev-2", restartRequired: false })
+          return json(200, configSaved({ ...alertsFile(changes), revision: "rev-2" }))
         }
         return json(200, { ...alertsFile(), writable: over.writable ?? true })
       }

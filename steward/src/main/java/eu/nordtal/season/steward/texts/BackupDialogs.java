@@ -10,9 +10,6 @@ public interface BackupDialogs {
     @Name("No time")
     MessageRef noAt();
 
-    @Name("No days")
-    MessageRef noDays();
-
     @Name("No night")
     MessageRef noNight();
 

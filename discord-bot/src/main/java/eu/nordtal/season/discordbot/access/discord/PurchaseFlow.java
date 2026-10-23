@@ -1,10 +1,9 @@
 package eu.nordtal.season.discordbot.access.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.TabRefusal;
@@ -45,7 +44,7 @@ import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
 
-    record Option(@Example("30") long days, Money price) {}
+    record Option(@Example("30") long days, @Example("500") Money price) {}
 
     /**
      * @param price    the price of the days alone
@@ -54,13 +53,18 @@ public final class PurchaseFlow extends ListenerAdapter {
      * @param amount   the donation the button offers
      */
     record Summary(
-            @Example("30") long days, Money price, Money donation, Money total, boolean donating, Money amount) {}
+            @Example("30") long days,
+            @Example("500") Money price,
+            @Example("100") Money donation,
+            @Example("600") Money total,
+            boolean donating,
+            @Example("600") Money amount) {}
 
     record Link(
-            Money total,
+            @Example("600") Money total,
             @Example("https://bunq.me/t/example") String url,
             @Example("NT-A1B2C3") String reference,
-            Instant until) {}
+            @Example("2026-10-24T18:00:00Z") Instant until) {}
 
     static final DocumentSpec<DocumentSpec.None> CHOOSE = DocumentSpec.message(
             StoredDocuments.NAMESPACE, "purchase-choose", "Purchase", Slot.select("days", Option.class));
@@ -274,12 +278,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             case REFUSED -> {
                 final TabRefusal refusal = Objects.requireNonNull(request.tabRefusal());
                 admin.alert(new Alert(
-                        AlertType.PAYMENT,
+                        JournalAction.LINK_REFUSED,
                         Alert.Level.DOWN,
-                        "purchase",
-                        TEXTS.alert().linkRefused(),
-                        List.of(TEXTS.alert().refused(request.reference(), refusal)),
-                        "/payments"));
+                        new JournalDetail.LinkRefused(request.id(), request.reference(), refusal)));
                 edit(
                         hook,
                         documents.reply(
@@ -347,12 +348,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);
         admin.alert(new Alert(
-                AlertType.PAYMENT,
+                JournalAction.PURCHASE_FAILED,
                 Alert.Level.DOWN,
-                "purchase",
-                TEXTS.alert().purchaseFailed(),
-                List.of(TEXTS.alert().failedFor(LinkFlow.member(event.getUser()), String.valueOf(exception))),
-                "/payments"));
+                new JournalDetail.MemberFailed(DiscordId.of(event.getUser().getId()), String.valueOf(exception))));
         event.getHook()
                 .editOriginal(documents.reply(locale, Replies.PURCHASE_FAILED).edit())
                 .queue();

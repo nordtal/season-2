@@ -13,12 +13,14 @@ import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentGateway;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tiers;
@@ -57,7 +59,6 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
-import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -70,8 +71,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -161,7 +160,7 @@ public class AccessBot implements AutoCloseable {
                     loadCoreServices(accessConfig, network, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
-            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
+            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases, botConfig.stewardUrl());
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.documents(), wiring);
 
             this.signals = finishStartup(
@@ -201,6 +200,7 @@ public class AccessBot implements AutoCloseable {
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());
 
+        final Bookings booked = new Bookings(database.dataSource());
         // Last, because it refreshes on connect and uses JDA.
         final SignalHub hub = listen(
                 databaseConfig,
@@ -213,8 +213,10 @@ public class AccessBot implements AutoCloseable {
                         wiring.inboxEffects(),
                         (tag, message) -> wiring.announcements()
                                 .post(tag, locale -> core.messages().format(locale, message)),
-                        wiring.admin()::postAlert,
-                        wiring.bookings()::tell,
+                        alert -> wiring.admin()
+                                .postAlert(alert, wiring.adminRole().id(), updateFeed::failedCard),
+                        payment -> wiring.bookings().tell(booked.told(payment)),
+                        previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)),
                         previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)))),
                 wiring.adminRole(),
                 core.messages(),
@@ -229,18 +231,21 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    /** Draws an admin's preview as members receive it: a key's text, or a whole document. */
+    /** Draws an admin's text as members receive it, the values not given filled from the key's schema. */
     private static MessageCreateData previewed(final CoreServices core, final BotRequest.PreviewMessage previewed) {
         final MessagePreview preview = previewed.preview();
-        final Locale language = Locales.parse(preview.language());
-        final Documents.Packaged document = preview.document();
-        return document == null
-                ? MessageCreateData.fromContent(core.messages()
-                        .format(
-                                language,
-                                Objects.requireNonNull(preview.message(), "message"),
-                                Objects.requireNonNull(preview.text(), "text")))
-                : core.renderer().message(document, List.of(core.languages().locales()), language);
+        final DiscordRenderer messages = core.messages();
+        return MessageCreateData.fromContent(messages.format(
+                Locales.parse(preview.language()),
+                messages.raw().example(preview.key(), preview.given()),
+                preview.text()));
+    }
+
+    /** Draws an admin's drafted document as members receive it. */
+    private static MessageCreateData previewed(final CoreServices core, final BotRequest.PreviewDocument previewed) {
+        final DocumentPreview preview = previewed.preview();
+        return core.renderer()
+                .message(preview.document(), List.of(core.languages().locales()), Locales.parse(preview.language()));
     }
 
     private CoreServices loadCoreServices(
@@ -284,13 +289,18 @@ public class AccessBot implements AutoCloseable {
     }
 
     private DiscordWiring wireDiscord(
-            final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
+            final JDA jda,
+            final AccessSpec accessConfig,
+            final CoreServices core,
+            final PhaseDirectory phases,
+            final String stewardUrl) {
         final AdminLog admin = new AdminLog(
                 jda,
                 accessConfig,
                 AuditDirectory.using(database.dataSource()),
                 AlertBook.using(database.dataSource()),
-                core.renderer());
+                core.renderer(),
+                stewardUrl);
         // A period sold while season_phase.smp_start is NULL starts at the sale, not at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);

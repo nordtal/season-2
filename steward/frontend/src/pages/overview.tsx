@@ -2,17 +2,17 @@ import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import { bytes, count, percent, relative } from "@/lib/format"
+import { bytes, count, percent, relative, NO_VALUE } from "@/lib/format"
 import type { Alert } from "@/lib/api"
-import { useNow } from "@/lib/use-now"
-import { useActions, useAlerts, useBackups, useHost, useMetrics, useServices } from "@/lib/queries"
-import { ActionRow } from "@/components/steward/actions"
+import { useAlerts, useBackups, useHost, useMetrics, useServices } from "@/lib/queries"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
 import { MetricChart } from "@/components/steward/metric-chart"
 import { Stat, UsageBar } from "@/components/steward/stat"
-import { QueryState, SkeletonText } from "@/components/steward/query-state"
+import { SkeletonText } from "@/components/steward/query-state"
+import { Panel } from "@/components/steward/panel"
 import { Button } from "@/components/ui/button"
+import { JournalStream } from "@/pages/journal"
 import { t } from "@/lib/texts"
 
 /**
@@ -23,6 +23,8 @@ export function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The players line heads the page on screen. */}
+      <h1 className="sr-only">{t("steward.shell.page", { page: "overview" })}</h1>
       <OnlineLine online={online} />
 
       <MetricRow />
@@ -81,7 +83,7 @@ function MetricRow() {
             ? (unreadable ??
               (host.data.memoryTotalBytes
                 ? t("steward.overview.used-of", { used: bytes(usedMemory), total: bytes(host.data.memoryTotalBytes) })
-                : "\u2013"))
+                : NO_VALUE))
             : WAITING_HINT
         }
         points={memory.data?.points}
@@ -96,7 +98,7 @@ function MetricRow() {
             ? undefined
             : host.data.diskTotalBytes
               ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
-              : "\u2013"
+              : NO_VALUE
         }
         hint={
           host.data
@@ -106,7 +108,7 @@ function MetricRow() {
                     used: bytes(host.data.diskUsedBytes),
                     total: bytes(host.data.diskTotalBytes),
                   })
-                : "\u2013"))
+                : NO_VALUE))
             : WAITING_HINT
         }
       >
@@ -134,7 +136,7 @@ function MetricRow() {
         hint={!services.data ? WAITING_HINT : outdated.map((service) => service.service).join(", ")}
       />
 
-      <Link to="/alerts" className="flex min-w-0 flex-col gap-1.5">
+      <Link to="/journal" className="flex min-w-0 flex-col gap-1.5">
         <IssuesTile
           alerts={alerts.data?.alerts ?? []}
           waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === undefined)}
@@ -157,7 +159,7 @@ function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boo
       return (
         <MetricTile
           label={t("steward.overview.issues")}
-          value={"\u2013"}
+          value={NO_VALUE}
           tone="warn"
           hint={t("steward.overview.unreadable")}
         />
@@ -213,11 +215,11 @@ function MetricTile({
 }
 
 function cores(cpus: number | undefined): string {
-  return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
+  return cpus === undefined ? NO_VALUE : t("steward.overview.cores", { count: cpus })
 }
 
 function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number }) {
-  if (!host.memoryTotalBytes) return "\u2013"
+  if (!host.memoryTotalBytes) return NO_VALUE
   return share(host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0), host.memoryTotalBytes)
 }
 
@@ -225,40 +227,14 @@ function share(used: number, total: number | undefined): string {
   return total ? percent((used / total) * 100, 0) : bytes(used)
 }
 
-/** The length that `useActions(5)` settles at once the season is running. */
-const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
-
-/**
- * Shows the latest actions. Every actor is drawn through `Entity` and never as a raw snowflake.
- */
+/** Shows the newest five items of the journal. */
 function ActionsPanel() {
-  const actions = useActions(5)
-  const now = useNow()
-
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold text-foreground">{t("steward.overview.latest-actions")}</h2>
-      <QueryState
-        query={actions}
-        isEmpty={(list) => list.length === 0}
-        empty={{ title: t("steward.overview.nothing-recorded") }}
-      >
-        {(list) => (
-          <ul className="flex flex-col">
-            {(list ?? WAITING_ACTIONS).map((action, index) => (
-              <ActionRow
-                /** The feed has no id of its own, and the list is never reordered here. */
-                key={index}
-                action={action}
-                now={now}
-              />
-            ))}
-          </ul>
-        )}
-      </QueryState>
+    <Panel title={t("steward.overview.latest-actions")}>
+      <JournalStream q="" days={false} limit={5} paged={false} empty={t("steward.overview.nothing-recorded")} />
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
         <Link to="/journal">{t("steward.overview.whole-journal")}</Link>
       </Button>
-    </section>
+    </Panel>
   )
 }

@@ -2,7 +2,7 @@ package eu.nordtal.season.stewardagent.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.net.URI;
 import java.time.Instant;
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The version jump in a report, held to the same table as {@code version-jump.test.ts}.
  *
- * The second half checks that {@link PlanReport} puts the pair into the report.
+ * The second half checks that {@link Work} puts the pair into the steps.
  */
 class VersionPairTest {
 
@@ -72,12 +72,11 @@ class VersionPairTest {
     }
 
     @Test
-    void theReportCarriesTheJumpNotTheInstalledFilename() {
-        final UpdateReport report = PlanReport.of(plan(new Change(
+    void theWorkCarriesTheJumpNotTheInstalledFilename() {
+        final Work work = Work.of(plan(new Change(
                 "smp", "smp", Change.Status.OUTDATED, "smp-0.9.3.jar", file("smp", "0.9.4", "smp-0.9.4.jar"), null)));
 
-        final UpdateReport.Change change =
-                report.services().getFirst().changes().getFirst();
+        final RunStep.Change change = work.of("smp").getFirst();
         assertEquals("0.9.3", change.from());
         assertEquals("0.9.4", change.to());
     }
@@ -85,7 +84,7 @@ class VersionPairTest {
     @Test
     void thePublishedVersionIsUsedWhenTheTwoNamesDoNotComeApart() {
         // The hash stays, because the source published it.
-        final UpdateReport report = PlanReport.of(plan(new Change(
+        final Work work = Work.of(plan(new Change(
                 "proxy",
                 "resource-pack",
                 Change.Status.OUTDATED,
@@ -93,8 +92,7 @@ class VersionPairTest {
                 file("resource-pack", "0.9.4", "nordtal-resource-pack-0.9.4.zip"),
                 null)));
 
-        final UpdateReport.Change change =
-                report.services().getFirst().changes().getFirst();
+        final RunStep.Change change = work.of("proxy").getFirst();
         assertEquals("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", change.from());
         assertEquals("0.9.4", change.to());
     }

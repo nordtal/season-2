@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 
 /**
@@ -32,49 +33,55 @@ public interface CheckMessages {
         interface Syntax {
 
             @Name("A closing brace closes nothing")
-            MessageRef closesNothing(@Arg("at") int at);
+            MessageRef closesNothing(@Arg("at") @Example("14") int at);
 
             @Name("A case is never closed")
-            MessageRef caseNeverClosed(@Arg("at") int at);
+            MessageRef caseNeverClosed(@Arg("at") @Example("14") int at);
 
             @Name("An opening brace opens nothing")
-            MessageRef opensNothing(@Arg("at") int at);
+            MessageRef opensNothing(@Arg("at") @Example("14") int at);
 
             @Name("A placeholder misses its kind")
-            MessageRef kindMissing(@Arg("name") String name, @Arg("at") int at);
+            MessageRef kindMissing(@Arg("name") @Example("count") String name, @Arg("at") @Example("14") int at);
 
             @Name("A placeholder misses its style")
-            MessageRef styleMissing(@Arg("name") String name, @Arg("kind") String kind, @Arg("at") int at);
+            MessageRef styleMissing(
+                    @Arg("name") @Example("count") String name,
+                    @Arg("kind") @Example("number") String kind,
+                    @Arg("at") @Example("14") int at);
 
             @Name("A plural or select is never closed")
-            MessageRef choiceNeverClosed(@Arg("name") String name, @Arg("at") int at);
+            MessageRef choiceNeverClosed(@Arg("name") @Example("count") String name, @Arg("at") @Example("14") int at);
 
             @Name("A case has no name")
-            MessageRef caseUnnamed(@Arg("name") String name, @Arg("at") int at);
+            MessageRef caseUnnamed(@Arg("name") @Example("count") String name, @Arg("at") @Example("14") int at);
 
             @Name("A case is written twice")
-            MessageRef caseTwice(@Arg("name") String name, @Arg("case") String key, @Arg("at") int at);
+            MessageRef caseTwice(
+                    @Arg("name") @Example("count") String name,
+                    @Arg("case") @Example("one") String key,
+                    @Arg("at") @Example("14") int at);
 
             @Name("A plural or select misses its other case")
-            MessageRef otherMissing(@Arg("name") String name, @Arg("at") int at);
+            MessageRef otherMissing(@Arg("name") @Example("count") String name, @Arg("at") @Example("14") int at);
 
             @Name("A plural or select stands in a tag's argument")
-            MessageRef choiceInArgument(@Arg("at") int at);
+            MessageRef choiceInArgument(@Arg("at") @Example("14") int at);
 
             @Name("A placeholder ends on its dot")
-            MessageRef attributeMissing(@Arg("name") String name, @Arg("at") int at);
+            MessageRef attributeMissing(@Arg("name") @Example("player") String name, @Arg("at") @Example("14") int at);
 
             @Name("A comma is missing after the name")
-            MessageRef commaAfterName(@Arg("at") int at);
+            MessageRef commaAfterName(@Arg("at") @Example("14") int at);
 
             @Name("A comma is missing before the cases")
-            MessageRef commaBeforeCases(@Arg("at") int at);
+            MessageRef commaBeforeCases(@Arg("at") @Example("14") int at);
 
             @Name("A placeholder is not closed")
-            MessageRef valueNotClosed(@Arg("name") String name, @Arg("at") int at);
+            MessageRef valueNotClosed(@Arg("name") @Example("count") String name, @Arg("at") @Example("14") int at);
 
             @Name("A case is not opened")
-            MessageRef caseNotOpened(@Arg("case") String key, @Arg("at") int at);
+            MessageRef caseNotOpened(@Arg("case") @Example("one") String key, @Arg("at") @Example("14") int at);
         }
 
         Value value();
@@ -83,35 +90,50 @@ public interface CheckMessages {
         interface Value {
 
             @Name("Nothing the message offers")
-            MessageRef unknown(@Arg("name") String name, @Arg("offered") List<String> offered);
+            MessageRef unknown(
+                    @Arg("name") @Example("name") String name,
+                    @Arg("offered") @Example("count,player") List<String> offered);
 
             @Name("No such kind")
-            MessageRef noKind(@Arg("name") String name, @Arg("kind") String kind, @Arg("kinds") List<String> kinds);
+            MessageRef noKind(
+                    @Arg("name") @Example("count") String name,
+                    @Arg("kind") @Example("amount") String kind,
+                    @Arg("kinds") @Example("number,duration,money") List<String> kinds);
 
             @Name("Another kind")
-            MessageRef otherKind(@Arg("name") String name, @Arg("kind") String kind, @Arg("written") String written);
+            MessageRef otherKind(
+                    @Arg("name") @Example("name") String name,
+                    @Arg("kind") @Example("text") String kind,
+                    @Arg("written") @Example("number") String written);
 
             @Name("No such style")
             MessageRef noStyle(
-                    @Arg("name") String name,
-                    @Arg("style") String style,
-                    @Arg("kind") String kind,
-                    @Arg("styles") List<String> styles);
+                    @Arg("name") @Example("count") String name,
+                    @Arg("style") @Example("long") String style,
+                    @Arg("kind") @Example("number") String kind,
+                    @Arg("styles") @Example("plain") List<String> styles);
 
             @Name("A kind without styles")
-            MessageRef styleless(@Arg("name") String name, @Arg("style") String style, @Arg("kind") String kind);
+            MessageRef styleless(
+                    @Arg("name") @Example("name") String name,
+                    @Arg("style") @Example("plain") String style,
+                    @Arg("kind") @Example("text") String kind);
 
             @Name("A plural on something else")
-            MessageRef pluralOn(@Arg("name") String name, @Arg("kind") String kind);
+            MessageRef pluralOn(@Arg("name") @Example("name") String name, @Arg("kind") @Example("text") String kind);
 
             @Name("A select on something else")
-            MessageRef selectOn(@Arg("name") String name, @Arg("kind") String kind);
+            MessageRef selectOn(
+                    @Arg("name") @Example("count") String name, @Arg("kind") @Example("number") String kind);
 
             @Name("No plural category")
-            MessageRef pluralCase(@Arg("name") String name, @Arg("case") String key, @Arg("cases") List<String> cases);
+            MessageRef pluralCase(
+                    @Arg("name") @Example("count") String name,
+                    @Arg("case") @Example("several") String key,
+                    @Arg("cases") @Example("zero,one,two,few,many,other") List<String> cases);
 
             @Name("A value never shown")
-            MessageRef unshown(@Arg("role") String role);
+            MessageRef unshown(@Arg("role") @Example("player") String role);
         }
 
         Tag tag();
@@ -120,40 +142,48 @@ public interface CheckMessages {
         interface Tag {
 
             @Name("A tag never closed")
-            MessageRef neverClosed(@Arg("tag") String tag);
+            MessageRef neverClosed(@Arg("tag") @Example("bold") String tag);
 
             @Name("A colour in a packaged text")
-            MessageRef packagedColour(@Arg("tag") String tag, @Arg("tones") List<String> tones);
+            MessageRef packagedColour(
+                    @Arg("tag") @Example("red") String tag,
+                    @Arg("tones") @Example("neutral,good,bad,warn") List<String> tones);
 
             @Name("No such tag")
-            MessageRef unknown(@Arg("tag") String tag);
+            MessageRef unknown(@Arg("tag") @Example("blink") String tag);
 
             @Name("No such action")
-            MessageRef unknownAction(@Arg("action") String action, @Arg("actions") List<String> actions);
+            MessageRef unknownAction(
+                    @Arg("action") @Example("open") String action,
+                    @Arg("actions") @Example("join,leave") List<String> actions);
 
             @Name("A value in an argument that takes none")
-            MessageRef valueInArgument(@Arg("name") String name, @Arg("tag") String tag);
+            MessageRef valueInArgument(
+                    @Arg("name") @Example("name") String name, @Arg("tag") @Example("click") String tag);
 
             @Name("A value in an argument without quotes")
-            MessageRef unquotedValue(@Arg("name") String name, @Arg("tag") String tag);
+            MessageRef unquotedValue(
+                    @Arg("name") @Example("url") String name, @Arg("tag") @Example("click") String tag);
 
             @Name("A closing tag closes nothing")
-            MessageRef closesNothing(@Arg("tag") String tag);
+            MessageRef closesNothing(@Arg("tag") @Example("bold") String tag);
 
             @Name("A link shows its address")
-            MessageRef linkShowsAddress(@Arg("name") String name);
+            MessageRef linkShowsAddress(@Arg("name") @Example("url") String name);
 
             @Name("A line break on one line")
-            MessageRef lineBreakOnOneLine(@Arg("tag") String tag);
+            MessageRef lineBreakOnOneLine(@Arg("tag") @Example("newline") String tag);
 
             @Name("A closing tag closes the wrong one")
-            MessageRef closesOther(@Arg("tag") String tag, @Arg("open") String open);
+            MessageRef closesOther(
+                    @Arg("tag") @Example("bold") String tag, @Arg("open") @Example("italic") String open);
         }
 
         @Name("Another word for a game term")
-        MessageRef synonym(@Arg("word") String word, @Arg("term") String term);
+        MessageRef synonym(
+                @Arg("word") @Example("membership") String word, @Arg("term") @Example("access") String term);
 
         @Name("Too long")
-        MessageRef tooLong(@Arg("length") int length, @Arg("limit") int limit);
+        MessageRef tooLong(@Arg("length") @Example("64") int length, @Arg("limit") @Example("48") int limit);
     }
 }

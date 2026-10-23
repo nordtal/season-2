@@ -11,6 +11,7 @@ import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
@@ -33,23 +34,30 @@ public final class SmpAdmin {
 
     public record Who(PlayerContext player) {}
 
-    public record AuraSet(long aura) {}
+    public record AuraSet(@Example("250") long aura) {}
 
-    public record SpinsSet(long spins) {}
+    public record SpinsSet(@Example("3") long spins) {}
 
-    public record Milestone(String key) {}
+    public record Milestone(@Example("the-nether") String key) {}
 
-    public record Objective(String key, MilestoneContext milestone) {}
+    public record Objective(@Example("mine-diamonds") String key, MilestoneContext milestone) {}
 
     public record Linked(PlayerContext player, DiscordMemberContext discord) {}
 
-    public record Until(Instant until) {}
+    public record Until(@Example("2026-11-22T18:00:00Z") Instant until) {}
 
-    public record Since(Instant since) {}
+    public record Since(@Example("2026-10-24T18:00:00Z") Instant since) {}
 
-    public record Payment(String reference, long days, Money amount, Instant since) {}
+    public record Payment(
+            @Example("NT-A1B2C3") String reference,
+            @Example("30") long days,
+            @Example("500") Money amount,
+            @Example("2026-10-24T18:00:00Z") Instant since) {}
 
-    public record PaymentUnstarted(String reference, long days, Instant since) {}
+    public record PaymentUnstarted(
+            @Example("NT-A1B2C3") String reference,
+            @Example("30") long days,
+            @Example("2026-10-31T18:00:00Z") Instant since) {}
 
     public static final DocumentSpec<DocumentSpec.None> PLAYER_OFFLINE =
             admin("player-offline", DocumentSpec.None.class);

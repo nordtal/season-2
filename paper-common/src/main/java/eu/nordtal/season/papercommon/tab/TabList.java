@@ -3,6 +3,7 @@ package eu.nordtal.season.papercommon.tab;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.settings.network.PlayersSpec;
 import java.util.Locale;
 import java.util.Objects;
@@ -18,7 +19,8 @@ import org.bukkit.entity.Player;
 public final class TabList {
 
     /** The players online and the network's limit, which a counting footer shows. */
-    public record Counted(long online, long max) {}
+    public record Counted(
+            @Example("12") long online, @Example("100") long max) {}
 
     public static final DocumentSpec<DocumentSpec.None> HEADER =
             DocumentSpec.game("paper-common", "tab-header", "Tab list", DocumentSpec.Shape.TAB_LIST);

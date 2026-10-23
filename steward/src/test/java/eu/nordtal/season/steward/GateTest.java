@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.steward.auth.Gate;
-import io.javalin.Javalin;
 import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
 import io.javalin.security.Roles;
@@ -16,26 +15,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Fails the build on a route without a decision, using the routes the real service registered. */
-class GateTest {
-
-    private static Javalin app;
-
-    @BeforeAll
-    static void start() {
-        app = RouteTable.start();
-    }
-
-    @AfterAll
-    static void stop() {
-        if (app != null) {
-            app.stop();
-        }
-    }
+class GateTest extends WebFixture {
 
     @Test
     void everyRouteCarriesExactlyOneDecision() {
@@ -83,6 +66,7 @@ class GateTest {
             Map.entry("DELETE /api/authenticator", Gate.KEY_FRESH),
             // These routes grant access or money, or cut a link only the player can redo.
             Map.entry("POST /api/access/grant", Gate.KEY_FRESH),
+            Map.entry("POST /api/people/{id}/inventories/remove", Gate.KEY_FRESH),
             Map.entry("POST /api/access/unlink", Gate.KEY_FRESH),
             Map.entry("POST /api/access/settle", Gate.KEY_FRESH),
             // These changes cannot be undone: the season moving on, game progress, a public message.

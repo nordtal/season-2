@@ -1,5 +1,6 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
+import { CheckIcon } from "@phosphor-icons/react"
 
 import type { GuildList } from "@/lib/api"
 import {
@@ -10,10 +11,10 @@ import {
 } from "@/lib/announcement-targets"
 import { t } from "@/lib/texts"
 import { languageName } from "@/lib/language-names"
-import { useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { RequestOutcome } from "@/components/steward/game-actions"
-import { Failure, SkeletonText } from "@/components/steward/query-state"
+import { RequestIcon } from "@/components/steward/game-actions"
+import { Failure } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,15 +28,19 @@ const MAX_LENGTH = 2000
 export function AnnouncementForm() {
   const file = useConfig(ACCESS_FILE)
   const channels = useGuildChannels()
-  const send = useSendAnnouncement()
-  const targets = announcementTargets(file.data)
-  const tags = targets?.languages.map((language) => language.tag) ?? FALLBACK_LANGUAGES
-
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [asking, setAsking] = useState(false)
-  const [sent, setSent] = useState<Record<string, string> | null>(null)
+  /** The text each language went out with, so a retry sends only the others. */
+  const [posted, setPosted] = useState<Record<string, string>>({})
+  /** Whether the last send failed, so the pills name which languages went out. */
+  const [failed, setFailed] = useState(false)
 
   const text = (tag: string) => texts[tag] ?? ""
+  const send = useSendAnnouncement((tag, sent) => setPosted((current) => ({ ...current, [tag]: sent })))
+  const targets = announcementTargets(file.data)
+  const tags = targets?.languages.map((language) => language.tag) ?? FALLBACK_LANGUAGES
+  const unposted = tags.filter((tag) => posted[tag] !== text(tag).trim())
+
   const complete = tags.every((tag) => text(tag).trim() !== "" && text(tag).trim().length <= MAX_LENGTH)
 
   return (
@@ -61,7 +66,7 @@ export function AnnouncementForm() {
                 aria-invalid={text(tag).trim().length > MAX_LENGTH || undefined}
                 onChange={(event) => {
                   setTexts((current) => ({ ...current, [tag]: event.target.value }))
-                  setSent(null)
+                  send.reset()
                 }}
               />
               {text(tag).trim().length > MAX_LENGTH ? (
@@ -72,16 +77,21 @@ export function AnnouncementForm() {
             </div>
           ))}
         </div>
-        {send.error && !asking ? <Failure error={send.error} /> : null}
-        {sent ? (
-          <div className="flex flex-col gap-2">
-            {Object.entries(sent).map(([tag, id]) => (
-              <SentLine key={id} tag={tag} id={id} />
-            ))}
-          </div>
-        ) : null}
+        {asking ? null : (
+          <>
+            {failed ? <PostedLanguages tags={tags} unposted={unposted} /> : null}
+            {send.error ? <Failure error={send.error} write /> : null}
+          </>
+        )}
         <div className="flex justify-end">
-          <Button type="button" disabled={!complete} onClick={() => setAsking(true)}>
+          <Button
+            type="button"
+            aria-label={t("steward.announcements.send")}
+            aria-invalid={send.isError || undefined}
+            disabled={!complete || unposted.length === 0 || send.isPending}
+            onClick={() => setAsking(true)}
+          >
+            <RequestIcon request={send} />
             {t("steward.announcements.send")}
           </Button>
         </div>
@@ -91,17 +101,40 @@ export function AnnouncementForm() {
         open={asking}
         onOpenChange={setAsking}
         title={t("steward.announcements.ask")}
-        description={t("steward.announcements.where", { languages: tags.length })}
+        description={t("steward.announcements.where", { languages: unposted.length })}
         action={t("steward.announcements.send")}
-        acting={t("steward.form.sending")}
+        acting={t("steward.form.waiting")}
         act={() =>
-          send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))).then((answer) => {
-            setSent(answer.ids)
-            setTexts({})
+          send.mutateAsync(Object.fromEntries(unposted.map((tag) => [tag, text(tag).trim()])), {
+            onSettled: (_, error) => setFailed(error !== null),
           })
         }
-      />
+      >
+        {failed ? <PostedLanguages tags={tags} unposted={unposted} /> : null}
+      </AskThenAct>
     </Card>
+  )
+}
+
+/** One pill per language when some languages are posted and others are not. Nothing shows when none or all are posted. */
+function PostedLanguages({ tags, unposted }: { tags: string[]; unposted: string[] }) {
+  if (unposted.length === 0 || unposted.length === tags.length) return null
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {tags.map((tag) => {
+        const missing = unposted.includes(tag)
+        return (
+          <li key={tag}>
+            <Badge variant="outline" className={missing ? "text-destructive" : undefined}>
+              {missing ? <TERM_ICON.failed aria-hidden /> : <CheckIcon aria-hidden />}
+              {t(missing ? "steward.announcements.not-posted" : "steward.announcements.posted", {
+                language: languageName(tag),
+              })}
+            </Badge>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -132,16 +165,5 @@ function Destination({
       <TERM_ICON.textChannel aria-hidden className="shrink-0" />
       <span className="truncate">{name ?? channel}</span>
     </span>
-  )
-}
-
-function SentLine({ tag, id }: { tag: string; id: string }) {
-  const run = useCommandRun(id)
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-muted-foreground">{languageName(tag)}</span>
-      {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
-      {run.data ? <RequestOutcome run={run.data} /> : <SkeletonText width="medium" />}
-    </div>
   )
 }

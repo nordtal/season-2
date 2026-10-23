@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { cn } from "cn"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
-import { bytes, dateTime, percent, relative } from "@/lib/format"
+import { bytes, dateTime, percent, relative, NO_VALUE } from "@/lib/format"
 import { useConfigs, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
@@ -318,7 +318,7 @@ export function ServiceHead({
             service.startedAt ? (
               since(service.startedAt)
             ) : (
-              "\u2013"
+              NO_VALUE
             )
           ) : (
             <SkeletonText width="short" className="h-[1lh]" />

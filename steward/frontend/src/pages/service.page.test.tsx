@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ServicePage, offline, serviceSearch } from "@/pages/service"
 import type { Run } from "@/lib/api"
 import { asButton } from "@/lib/test-elements"
-import { urlOf } from "@/lib/query-fixtures"
+import { urlOf, wideScreen } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -299,22 +299,6 @@ describe("offline", () => {
 })
 
 function noop(): void {}
-
-/**
- * A desktop-wide `matchMedia`: every `min-width` query matches and every `max-width` one does not.
- */
-function wideScreen() {
-  vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: query.includes("min-width"),
-    media: query,
-    onchange: null,
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {},
-    dispatchEvent: () => false,
-  }))
-}
 
 describe("ServicePage - the actions arrive together", () => {
   it("draws no action button until the service is known, and a skeleton in each place", async () => {

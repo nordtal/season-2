@@ -2,12 +2,14 @@ package eu.nordtal.season.messages;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.spec.MessageSpecCheck;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.value.GameContent;
+import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.io.IOException;
 import java.net.URL;
@@ -140,6 +142,12 @@ class ValueKindsTest {
     void aMessageInAMessageSurvivesTheWire() {
         final MessageRef sent = KINDS.next(KINDS.days(3));
         assertEquals("Next: 3 days.", en(MessageJson.decode(MessageJson.encode(sent))));
+    }
+
+    @Test
+    void aRoleMentionStaysARoleOnTheWire() {
+        final Map<String, Object> sent = Map.of("who", Mention.role(DiscordId.of("500000000000000001")));
+        assertEquals(sent, MessageJson.decodeArgs(MessageJson.encodeArgs(sent)));
     }
 
     @Test

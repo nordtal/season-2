@@ -1,12 +1,9 @@
 package eu.nordtal.season.steward.alert;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.Measure.Gauge;
-import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.database.audit.JournalAction;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,12 +26,7 @@ public final class StackAlerts {
 
     static final String PACK = "resource pack";
 
-    static final String PROXY_PAGE = "/services/proxy";
-
-    private static final String DUMP = "database dump";
-    private static final String OFFSITE = "offsite copy";
-    private static final String BACKUPS_PAGE = "/operations/backups";
-    private static final String UPDATES_PAGE = "/operations/updates";
+    private static final String DUMP = Alert.DUMP;
     private static final double MILLIS_PER_HOUR = 3_600_000d;
 
     /** A restart this long ago no longer counts as a loop, until the next one. */
@@ -56,12 +48,7 @@ public final class StackAlerts {
     private static void services(
             final List<StackReading.Service> services, final Instant now, final List<Alert> alerts) {
         if (services.isEmpty()) {
-            alerts.add(new Alert(
-                    AlertType.SERVICE,
-                    Alert.Level.WARN,
-                    "services",
-                    TEXTS.alert().noServices(),
-                    UPDATES_PAGE));
+            alerts.add(new Alert(JournalAction.SERVICE_DOWN, Alert.Level.WARN, List.of()));
             return;
         }
         for (final StackReading.Service service : services) {
@@ -69,32 +56,16 @@ public final class StackAlerts {
                 restarting(service, now, alerts);
                 continue;
             }
-            final boolean running = "running".equals(service.state());
             final Integer exitCode = service.exitCode();
-            final MessageRef title;
-            final MessageRef detail;
             final Measure measured;
-            if (running) {
-                title = TEXTS.alert().unhealthy(service.name());
-                detail = TEXTS.alert().healthFails();
+            if ("running".equals(service.state())) {
                 measured = Measure.state(Gauge.HEALTH, service.name(), service.health());
             } else if (service.purpose() == StackReading.Purpose.ONCE && exitCode != null) {
-                title = TEXTS.alert().failedOnce(service.name(), exitCode);
-                detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
                 measured = Measure.of(Gauge.EXIT_CODE, service.name(), exitCode);
             } else {
-                title = TEXTS.alert().notRunning(service.name());
-                detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
-                measured = Measure.state(Gauge.CONTAINER_STATE, service.name(), service.state());
+                measured = Measure.state(Gauge.CONTAINER_STATE, service.name(), String.valueOf(service.state()));
             }
-            alerts.add(new Alert(
-                    AlertType.SERVICE,
-                    Alert.Level.DOWN,
-                    service.name(),
-                    title,
-                    List.of(detail),
-                    List.of(measured),
-                    "/services/" + service.name()));
+            alerts.add(new Alert(JournalAction.SERVICE_DOWN, Alert.Level.DOWN, List.of(measured)));
         }
     }
 
@@ -108,13 +79,9 @@ public final class StackAlerts {
             return;
         }
         alerts.add(new Alert(
-                AlertType.SERVICE,
+                JournalAction.SERVICE_DOWN,
                 Alert.Level.WARN,
-                service.name(),
-                TEXTS.alert().restarting(service.name(), service.restarts()),
-                List.of(TEXTS.alert().restartedByDocker()),
-                List.of(Measure.of(Gauge.RESTARTS, service.name(), service.restarts())),
-                "/services/" + service.name()));
+                List.of(Measure.of(Gauge.RESTARTS, service.name(), service.restarts()))));
     }
 
     /**
@@ -146,37 +113,25 @@ public final class StackAlerts {
                 .toList();
         if (!outdated.isEmpty()) {
             alerts.add(new Alert(
-                    AlertType.DRIFT,
+                    JournalAction.IMAGE_DRIFT,
                     Alert.Level.WARN,
-                    String.join(", ", outdated),
-                    TEXTS.alert().olderImage(outdated, outdated.size()),
-                    List.of(),
                     outdated.stream()
                             .map(service -> Measure.state(Gauge.OLDER_IMAGE, service, null))
-                            .toList(),
-                    UPDATES_PAGE));
+                            .toList()));
         }
         final String problem = reading.registryProblem();
         if (problem != null) {
-            alerts.add(alert(
-                    AlertType.DRIFT,
+            alerts.add(new Alert(
+                    JournalAction.IMAGE_DRIFT,
                     Alert.Level.WARN,
-                    "registry",
-                    TEXTS.alert().notCompared(),
-                    TEXTS.alert().words(problem),
-                    UPDATES_PAGE));
+                    List.of(Measure.state(Gauge.REGISTRY, "registry", problem))));
         }
     }
 
     private static void pack(final @Nullable String deadPack, final List<Alert> alerts) {
         if (deadPack != null) {
-            alerts.add(alert(
-                    AlertType.PACK,
-                    Alert.Level.DOWN,
-                    PACK,
-                    TEXTS.alert().deadPack(),
-                    TEXTS.alert().offeredPack(deadPack),
-                    PROXY_PAGE));
+            alerts.add(new Alert(
+                    JournalAction.PACK_DEAD, Alert.Level.DOWN, List.of(Measure.state(Gauge.PACK, PACK, deadPack))));
         }
     }
 
@@ -186,17 +141,11 @@ public final class StackAlerts {
      */
     private static void backups(
             final StackReading reading, final Thresholds thresholds, final Instant now, final List<Alert> alerts) {
-        final List<StackReading.Archive> archives = reading.archives();
-        final List<StackReading.Archive> finished =
-                archives.stream().filter(archive -> !archive.partial()).toList();
+        final List<StackReading.Archive> finished = reading.archives().stream()
+                .filter(archive -> !archive.partial())
+                .toList();
         if (finished.isEmpty()) {
-            alerts.add(new Alert(
-                    AlertType.BACKUP,
-                    Alert.Level.DOWN,
-                    "backups",
-                    TEXTS.alert().noBackup(),
-                    archives.isEmpty() ? List.of() : List.of(TEXTS.alert().onlyStarted()),
-                    BACKUPS_PAGE));
+            alerts.add(missing(Alert.Level.DOWN, Alert.BACKUPS, thresholds));
             return;
         }
         final Map<String, Instant> newest = new LinkedHashMap<>();
@@ -208,19 +157,11 @@ public final class StackAlerts {
             }
         }
         if (!newest.containsKey(DUMP)) {
-            alerts.add(alert(
-                    AlertType.BACKUP,
-                    Alert.Level.DOWN,
-                    DUMP,
-                    TEXTS.alert().noDump(),
-                    TEXTS.alert().dumpMatters(),
-                    BACKUPS_PAGE));
+            alerts.add(missing(Alert.Level.DOWN, DUMP, thresholds));
         }
         for (final String volume : reading.backupVolumes()) {
             if (!newest.containsKey(volume)) {
-                final String name = volumeName(volume);
-                alerts.add(new Alert(
-                        AlertType.BACKUP, Alert.Level.DOWN, name, TEXTS.alert().noArchive(name), BACKUPS_PAGE));
+                alerts.add(missing(Alert.Level.DOWN, volumeName(volume), thresholds));
             }
         }
         offsite(finished, thresholds, now, alerts);
@@ -243,14 +184,12 @@ public final class StackAlerts {
             return;
         }
         if (DUMP.equals(series)) {
-            alerts.add(old(Alert.Level.DOWN, DUMP, TEXTS.alert().oldDump((long) hours), hours, thresholds));
+            alerts.add(old(Alert.Level.DOWN, DUMP, hours, thresholds));
             return;
         }
-        final String volume = volumeName(series);
         alerts.add(old(
                 serviceDown(reading, series) ? Alert.Level.DOWN : Alert.Level.WARN,
-                volume,
-                TEXTS.alert().oldArchive(volume, (long) hours),
+                volumeName(series),
                 hours,
                 thresholds));
     }
@@ -267,30 +206,30 @@ public final class StackAlerts {
                 .max(Comparator.naturalOrder())
                 .orElse(null);
         if (newest == null) {
-            alerts.add(new Alert(
-                    AlertType.BACKUP, Alert.Level.WARN, OFFSITE, TEXTS.alert().noOffsite(), BACKUPS_PAGE));
+            alerts.add(missing(Alert.Level.WARN, Alert.OFFSITE, thresholds));
             return;
         }
         final double hours = Duration.between(newest, now).toMillis() / MILLIS_PER_HOUR;
         if (hours > thresholds.backupAgeHours()) {
-            alerts.add(old(Alert.Level.DOWN, OFFSITE, TEXTS.alert().oldOffsite((long) hours), hours, thresholds));
+            alerts.add(old(Alert.Level.DOWN, Alert.OFFSITE, hours, thresholds));
         }
     }
 
     private static Alert old(
-            final Alert.Level level,
-            final String subject,
-            final MessageRef title,
-            final double hours,
-            final Thresholds thresholds) {
+            final Alert.Level level, final String subject, final double hours, final Thresholds thresholds) {
         return new Alert(
-                AlertType.BACKUP,
+                JournalAction.BACKUP_STALE,
                 level,
-                subject,
-                title,
-                List.of(TEXTS.alert().permittedAge(thresholds.backupAgeHours())),
-                List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, subject, hours, thresholds.backupAgeHours())),
-                BACKUPS_PAGE);
+                List.of(Measure.against(Gauge.BACKUP_AGE_HOURS, subject, hours, thresholds.backupAgeHours())));
+    }
+
+    /** Returns the alert of a backup series without a finished file: an age without a value. */
+    private static Alert missing(final Alert.Level level, final String subject, final Thresholds thresholds) {
+        return new Alert(
+                JournalAction.BACKUP_STALE,
+                level,
+                List.of(new Measure(
+                        Gauge.BACKUP_AGE_HOURS, subject, null, (double) thresholds.backupAgeHours(), null)));
     }
 
     /** Adds a WARN alert for disk or memory at or over its threshold. */
@@ -302,26 +241,16 @@ public final class StackAlerts {
         final double disk = share(host.diskUsed(), host.diskTotal());
         if (disk >= thresholds.diskPercent()) {
             alerts.add(new Alert(
-                    AlertType.DISK,
+                    JournalAction.DISK_FULL,
                     Alert.Level.WARN,
-                    "disk",
-                    TEXTS.alert().disk(Math.round(disk)),
-                    List.of(TEXTS.alert().threshold(thresholds.diskPercent())),
-                    List.of(Measure.against(Gauge.DISK_PERCENT, "disk", disk, thresholds.diskPercent())),
-                    "/"));
+                    List.of(Measure.against(Gauge.DISK_PERCENT, "disk", disk, thresholds.diskPercent()))));
         }
         final double memory = share(host.memoryTotal() - host.memoryAvailable(), host.memoryTotal());
         if (memory >= thresholds.memoryPercent()) {
             alerts.add(new Alert(
-                    AlertType.MEMORY,
+                    JournalAction.MEMORY_FULL,
                     Alert.Level.WARN,
-                    "memory",
-                    TEXTS.alert().memory(Math.round(memory)),
-                    List.of(
-                            TEXTS.alert().threshold(thresholds.memoryPercent()),
-                            TEXTS.alert().noLimit()),
-                    List.of(Measure.against(Gauge.MEMORY_PERCENT, "memory", memory, thresholds.memoryPercent())),
-                    "/"));
+                    List.of(Measure.against(Gauge.MEMORY_PERCENT, "memory", memory, thresholds.memoryPercent()))));
         }
     }
 
@@ -345,15 +274,5 @@ public final class StackAlerts {
 
     private static double share(final long part, final long whole) {
         return whole <= 0 ? 0 : (double) part / whole * 100;
-    }
-
-    private static Alert alert(
-            final AlertType type,
-            final Alert.Level level,
-            final String subject,
-            final MessageRef title,
-            final MessageRef detail,
-            final String path) {
-        return new Alert(type, level, subject, title, List.of(detail), path);
     }
 }

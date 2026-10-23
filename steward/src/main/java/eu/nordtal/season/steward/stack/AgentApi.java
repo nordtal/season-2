@@ -2,7 +2,9 @@ package eu.nordtal.season.steward.stack;
 
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import org.jspecify.annotations.Nullable;
 
@@ -30,5 +32,9 @@ public final class AgentApi {
             return;
         }
         ctx.json(new AgentState(true, null, agent.isReachable()));
+    }
+
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.get("/api/agent", this::state, Gate.KEY_HELD);
     }
 }

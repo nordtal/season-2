@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, render, screen, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdateRunPage } from "@/pages/operations"
@@ -38,13 +38,13 @@ const STEPS = [
   },
 ]
 
-function backend(steps: unknown = STEPS, stage = "DONE"): typeof fetch {
+function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeof fetch {
   const impl: typeof fetch = async (input) => {
     const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
       return json(200, {
         id: 79,
-        kind: "UPDATE",
+        kind,
         status: "DONE",
         actorKind: "HOST",
         actorId: "",
@@ -63,6 +63,11 @@ function backend(steps: unknown = STEPS, stage = "DONE"): typeof fetch {
   return vi.fn<typeof fetch>(impl)
 }
 
+/** Returns whether the stage trail draws a tick before the stage. */
+function ticked(stage: string): boolean {
+  return screen.getByText(stage, { selector: "span" }).querySelector("svg") !== null
+}
+
 function draw() {
   const root = createRootRoute()
   const routeTree = root.addChildren([
@@ -72,6 +77,7 @@ function draw() {
       component: UpdateRunPage,
     }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates", component: () => null }),
+    createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: () => null }),
   ])
   const router = createRouter({
     routeTree,
@@ -79,13 +85,14 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return router
 }
 
 afterEach(() => {
@@ -129,6 +136,42 @@ describe("a run's steps read as Steward words them", () => {
     expect(await screen.findByText("the tool failed")).toBeTruthy()
     expect(screen.getByText("exit code 2")).toBeTruthy()
     expect(screen.getByText("Dump the database")).toBeTruthy()
+  })
+
+  it("sends a backup run to its page under Backups", async () => {
+    vi.stubGlobal("fetch", backend([], "DONE", "BACKUP"))
+    const router = draw()
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/operations/backups/79"))
+  })
+
+  it("ticks only the stages a finished run of its kind writes", async () => {
+    vi.stubGlobal("fetch", backend(STEPS, "DONE", "RECREATE"))
+    draw()
+
+    await screen.findByText("Stopping", { selector: "span" })
+    expect(ticked("Planned")).toBe(true)
+    expect(ticked("Stopping")).toBe(true)
+    expect(ticked("Resolving")).toBe(false)
+    expect(ticked("Backing up")).toBe(false)
+  })
+
+  it("ticks only the stages a running run of its kind has walked", async () => {
+    vi.stubGlobal("fetch", backend([], "STOPPING", "RECREATE"))
+    draw()
+
+    await screen.findByText("Planned", { selector: "span" })
+    expect(ticked("Planned")).toBe(true)
+    expect(ticked("Resolving")).toBe(false)
+  })
+
+  it("ticks no backup on a finished update", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+
+    await screen.findByText("Installing", { selector: "span" })
+    expect(ticked("Installing")).toBe(true)
+    expect(ticked("Backing up")).toBe(false)
   })
 
   it("says there is no report yet while a run has no step", async () => {

@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { adminsBelow } from "@/lib/admin-tree"
 import type { Person } from "@/lib/api"
-import { splitPlaytime } from "@/lib/format"
+import { splitPlaytime, NO_VALUE } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import {
   useGrantAccess,
@@ -24,6 +24,7 @@ import { Entity } from "@/components/steward/entity"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { AuraDialog, SpinsDialog } from "@/pages/person-smp"
 import { StatusBadge, type Tone } from "@/components/steward/status"
+import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,69 +61,38 @@ function personToast(label: string, discordId: string): ReactNode {
 const MOST_DAYS = 365
 
 /**
- * Grants access. The bot writes a period with the source ADMIN, gives the role and tells the person. A period is appended behind a running one and starts no earlier than the SMP launch. An unknown id makes an account.
+ * Grants a person access. The bot writes a period with the source ADMIN, gives the role and tells the person. A period is appended behind a running one and starts no earlier than the SMP launch.
  */
 export function GrantDialog({
   person,
   open,
   onOpenChange,
 }: {
-  person?: Person
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-} = {}) {
+  person: Person
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const grant = useGrantAccess()
-  const [discordId, setDiscordId] = useState(person?.discordId ?? "")
   const [days, setDays] = useState("30")
   const parsedDays = Number.parseInt(days, 10)
-  const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0 && parsedDays <= MOST_DAYS
+  const usable = Number.isFinite(parsedDays) && parsedDays > 0 && parsedDays <= MOST_DAYS
 
   return (
     <AskThenAct
       open={open}
       onOpenChange={onOpenChange}
-      trigger={
-        open === undefined ? (
-          <Button type="button">
-            <TERM_ICON.grantAccess aria-hidden />
-            {t("steward.people.grant-access")}
-          </Button>
-        ) : null
-      }
-      title={t("steward.people.grant-title")}
+      title={t("steward.people.grant-title", { name: personName(person) })}
       action={t("steward.people.grant")}
       disabled={!usable || grant.isPending}
       act={() => {
-        grant.mutate(
-          { discordId: discordId.trim(), days: parsedDays },
-          {
-            onSuccess: (written, asked) => {
-              toast.success(personToast(t("steward.people.granted"), asked.discordId), {
-                description: t("steward.people.valid-until", { until: written.until }),
-              })
-              setDiscordId(person?.discordId ?? "")
-            },
-            onError: (error) => {
-              toast.error(t("steward.people.not-granted"), { description: String(error) })
-            },
-          },
-        )
+        return grant.mutateAsync({ discordId: person.discordId, days: parsedDays }).then((written) => {
+          toast.success(personToast(t("steward.people.granted"), person.discordId), {
+            description: t("steward.people.valid-until", { until: written.until }),
+          })
+        })
       }}
     >
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="grant-discord-id">{t("steward.people.discord-id")}</Label>
-          <Input
-            id="grant-discord-id"
-            value={discordId}
-            onChange={(event) => setDiscordId(event.target.value)}
-            placeholder={t("steward.people.id-example")}
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            inputMode="numeric"
-          />
-        </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="grant-days">{t("steward.form.days")}</Label>
           <Input
@@ -180,19 +150,11 @@ export function PlaytimeDialog({
       action={t("steward.form.save")}
       disabled={!usable || write.isPending}
       act={() => {
-        write.mutate(
-          { discordId: person.discordId, seconds },
-          {
-            onSuccess: () => {
-              toast.success(t("steward.people.playtime-set", { name: personName(person) }), {
-                description: t("steward.people.playtime-from", { time: seconds }),
-              })
-            },
-            onError: (error) => {
-              toast.error(t("steward.people.playtime-not-written"), { description: String(error) })
-            },
-          },
-        )
+        return write.mutateAsync({ discordId: person.discordId, seconds }).then(() => {
+          toast.success(t("steward.people.playtime-set", { name: personName(person) }), {
+            description: t("steward.people.playtime-from", { time: seconds }),
+          })
+        })
       }}
     >
       <div className="flex flex-col gap-1.5">
@@ -264,19 +226,14 @@ export function UnlinkDialog({
       destructive
       disabled={unlink.isPending}
       act={() => {
-        unlink.mutate(person.discordId, {
-          onSuccess: (result) => {
-            if (!result.unlinked) {
-              toast.warning(t("steward.people.nothing-to-unlink"), {
-                description: personToast(t("steward.people.none-linked"), person.discordId),
-              })
-              return
-            }
-            toast.success(personToast(t("steward.people.unlinked"), person.discordId))
-          },
-          onError: (error) => {
-            toast.error(t("steward.people.not-unlinked"), { description: String(error) })
-          },
+        return unlink.mutateAsync(person.discordId).then((result) => {
+          if (!result.unlinked) {
+            toast.warning(t("steward.people.nothing-to-unlink"), {
+              description: personToast(t("steward.people.none-linked"), person.discordId),
+            })
+            return
+          }
+          toast.success(personToast(t("steward.people.unlinked"), person.discordId))
         })
       }}
     />
@@ -307,13 +264,8 @@ export function PackExemptionDialog({
       action={t("steward.people.pack", { exempted })}
       disabled={change.isPending}
       act={() => {
-        change.mutate(person.discordId, {
-          onSuccess: () => {
-            toast.success(personToast(t("steward.people.pack-changed", { exempted }), person.discordId))
-          },
-          onError: (error) => {
-            toast.error(t("steward.people.nothing-changed"), { description: String(error) })
-          },
+        return change.mutateAsync(person.discordId).then(() => {
+          toast.success(personToast(t("steward.people.pack-changed", { exempted }), person.discordId))
         })
       }}
     />
@@ -341,13 +293,8 @@ export function MakeAdminDialog({
       action={t("steward.people.make-admin")}
       disabled={grant.isPending}
       act={() => {
-        grant.mutate(person.discordId, {
-          onSuccess: () => {
-            toast.success(personToast(t("steward.people.admin"), person.discordId))
-          },
-          onError: (error) => {
-            toast.error(t("steward.people.not-made-admin"), { description: String(error) })
-          },
+        return grant.mutateAsync(person.discordId).then(() => {
+          toast.success(personToast(t("steward.people.admin"), person.discordId))
         })
       }}
     />
@@ -377,18 +324,13 @@ export function RevokeAdminDialog({
       destructive
       disabled={revoke.isPending}
       act={() => {
-        revoke.mutate(person.discordId, {
-          onSuccess: (result) => {
-            toast.success(
-              personToast(t("steward.people.no-longer-admin"), person.discordId),
-              result.removed.length > 1
-                ? { description: t("steward.people.below-too", { count: result.removed.length - 1 }) }
-                : undefined,
-            )
-          },
-          onError: (error) => {
-            toast.error(t("steward.people.not-revoked"), { description: String(error) })
-          },
+        return revoke.mutateAsync(person.discordId).then((result) => {
+          toast.success(
+            personToast(t("steward.people.no-longer-admin"), person.discordId),
+            result.removed.length > 1
+              ? { description: t("steward.people.below-too", { count: result.removed.length - 1 }) }
+              : undefined,
+          )
         })
       }}
     />
@@ -404,8 +346,8 @@ export function RevokeDialog({
   onOpenChange,
 }: {
   person: Person
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const revoke = useRevokeAccess()
 
@@ -413,41 +355,28 @@ export function RevokeDialog({
     <AskThenAct
       open={open}
       onOpenChange={onOpenChange}
-      trigger={
-        open === undefined ? (
-          <Button type="button" variant="ghost" size="sm" className="text-destructive">
-            <TERM_ICON.revokeAccess aria-hidden />
-            {t("steward.people.revoke")}
-          </Button>
-        ) : null
-      }
       title={t("steward.people.revoke-title")}
       description={t("steward.people.revoke-note")}
       action={t("steward.people.revoke")}
       destructive
       disabled={revoke.isPending}
       act={() => {
-        revoke.mutate(person.discordId, {
-          onSuccess: (result) => {
-            /** Zero means that the run had already ended or somebody else revoked it. */
-            if (result.revoked === 0) {
-              toast.warning(t("steward.people.nothing-to-revoke"), {
-                description: personToast(t("steward.people.none-running"), person.discordId),
-              })
-              return
-            }
-            toast.success(personToast(t("steward.people.revoked-for", { count: result.revoked }), person.discordId))
-          },
-          onError: (error) => {
-            toast.error(t("steward.people.not-revoked"), { description: String(error) })
-          },
+        return revoke.mutateAsync(person.discordId).then((result) => {
+          /** Zero means that the run had already ended or somebody else revoked it. */
+          if (result.revoked === 0) {
+            toast.warning(t("steward.people.nothing-to-revoke"), {
+              description: personToast(t("steward.people.none-running"), person.discordId),
+            })
+            return
+          }
+          toast.success(personToast(t("steward.people.revoked-for", { count: result.revoked }), person.discordId))
         })
       }}
     >
-      <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-sm text-warning">
-        <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
-        {t("steward.people.thrown-out")}
-      </p>
+      <Alert variant="warning" role="note">
+        <TERM_ICON.warning aria-hidden />
+        <AlertTitle>{t("steward.people.thrown-out")}</AlertTitle>
+      </Alert>
     </AskThenAct>
   )
 }
@@ -455,12 +384,12 @@ export function RevokeDialog({
 /**
  * Shows `accessActive` (the login decision) and `accessUntil` (the latest period, revoked ones included), so revoked access does not look like none ever bought.
  */
-export function AccessBadge({ person, now }: { person: Person; now: number }) {
+export function AccessBadge({ person, now, tip = true }: { person: Person; now: number; tip?: boolean }) {
   const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
 
   if (person.accessActive) {
     return (
-      <StatusBadge tone="ok" tipContent={t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
+      <StatusBadge tone="ok" tipContent={tip && t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
         {t("steward.people.active-until", { until: person.accessUntil ?? "" })}
       </StatusBadge>
     )
@@ -470,13 +399,16 @@ export function AccessBadge({ person, now }: { person: Person; now: number }) {
   }
   if (until > now) {
     return (
-      <StatusBadge tone="down" tipContent={t("steward.people.no-access-tip", { until: person.accessUntil ?? "" })}>
+      <StatusBadge
+        tone="down"
+        tipContent={tip && t("steward.people.no-access-tip", { until: person.accessUntil ?? "" })}
+      >
         {t("steward.people.no-access")}
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone="idle" tipContent={t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
+    <StatusBadge tone="idle" tipContent={tip && t("steward.people.exact-tip", { at: person.accessUntil ?? "" })}>
       {t("steward.people.expired", { at: person.accessUntil ?? "" })}
     </StatusBadge>
   )
@@ -520,7 +452,7 @@ export function RoleBadges({
         </StatusBadge>
       ) : null}
       {!person.donor && !person.admin && !person.packExemptAt ? (
-        <span className="text-xs text-muted-foreground">{"\u2013"}</span>
+        <span className="text-xs text-muted-foreground">{NO_VALUE}</span>
       ) : null}
     </div>
   )
@@ -619,7 +551,7 @@ function rowActions(
     node: (
       <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
         <TERM_ICON.grantAccess aria-hidden />
-        {t("steward.people.grant")}
+        {t("steward.people.grant-access")}
       </Button>
     ),
   })
@@ -658,7 +590,7 @@ function rowActions(
     actions.push({
       key: "revoke",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onRevoke}>
           <TERM_ICON.revokeAccess aria-hidden />
           {t("steward.people.revoke")}
         </Button>
@@ -670,7 +602,7 @@ function rowActions(
     actions.push({
       key: "unlink",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onUnlink}>
           <TERM_ICON.unlink aria-hidden />
           {t("steward.people.unlink")}
         </Button>
@@ -694,7 +626,7 @@ function rowActions(
     actions.push({
       key: "revoke-admin",
       node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
+        <Button type="button" variant="destructive" size="sm" onClick={on.onRevokeAdmin}>
           <TERM_ICON.revokeAdmin aria-hidden />
           {t("steward.people.revoke-admin")}
         </Button>

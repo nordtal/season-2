@@ -3,6 +3,7 @@
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.RepositoryRootTestInputs
 import org.gradle.accessors.dm.LibrariesForLibs
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.process.CommandLineArgumentProvider
 
 plugins {
@@ -47,6 +48,8 @@ val resourcePackFiles =
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    // A failed test prints its message, so a CI log says why without the report.
+    testLogging.exceptionFormat = TestExceptionFormat.FULL
     inputs
         .files(repositoryRootTestInputs.files)
         .withPropertyName("repositoryRootTestInputs")

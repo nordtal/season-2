@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetDrafts } from "@/lib/drafts"
-import { words } from "@/lib/query-fixtures"
 import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
 
 afterEach(() => {
@@ -27,7 +26,7 @@ function threePlaces(sent: unknown[]) {
             name: "Welcome",
             shown: ["CHAT", "DISCORD_MESSAGE", "STEWARD"],
             limit: 2000,
-            args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false, exampleWords: {} }],
+            args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false }],
           },
           { previews: { CHAT: "GAME", DISCORD_MESSAGE: "DISCORD" } },
         ),
@@ -40,7 +39,7 @@ function threePlaces(sent: unknown[]) {
           return "smp:7"
         },
         commands: {
-          "smp:7": { id: "smp:7", status: "DONE", result: words("Shown to your player in game.") },
+          "smp:7": { id: "smp:7", status: "DONE" },
         },
       },
     ),
@@ -53,7 +52,7 @@ describe("the previews", () => {
     threePlaces(bodies)
     draw(<Page />)
     await open(/^In game/)
-    await open(/^Steward & Admin/)
+    await open(/^Steward and admin/)
     await openKey("Page")
     expect(screen.getAllByRole("figure").map((figure) => figure.getAttribute("aria-label"))).toEqual(["Steward"])
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
@@ -69,8 +68,9 @@ describe("the previews", () => {
     expect(screen.getByText("9/2000")).toBeTruthy()
 
     const chat = screen.getByRole("figure", { name: "Chat" })
-    fireEvent.click(within(chat).getByRole("button", { name: "Show it to my player in game" }))
-    await within(chat).findByText("Shown to your player in game.")
+    const show = within(chat).getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     fireEvent.click(
       within(screen.getByRole("figure", { name: "Discord message" })).getByRole("button", {
         name: "Send it to me in Discord",
@@ -141,14 +141,23 @@ describe("the previews", () => {
             key: "state",
             name: "Service state",
             shown: ["STEWARD"],
-            args: [{ name: "state", kind: "choice", global: false, example: "true", action: false, exampleWords: {} }],
+            args: [{ name: "state", kind: "choice", global: false, example: "true", action: false }],
           }),
           text({
             texts: { en: ["{count, plural, one {# player} other {# players}} online"] },
             key: "online",
             name: "Online",
             shown: ["STEWARD"],
-            args: [{ name: "count", kind: "number", global: false, example: "1", action: false, exampleWords: {} }],
+            args: [
+              {
+                name: "count",
+                kind: "number",
+                global: false,
+                example: "1",
+                action: false,
+                exampleValue: { kind: "number", value: 1 },
+              },
+            ],
           }),
         ]),
       ),
@@ -181,7 +190,7 @@ describe("the previews", () => {
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
   })
 
-  it("shows a nested message as its words, and sends the server its key", async () => {
+  it("shows a nested message as its words in the edited language, and sends the server its key", async () => {
     const bodies: unknown[] = []
     vi.stubGlobal(
       "fetch",
@@ -200,12 +209,13 @@ describe("the previews", () => {
                   global: false,
                   example: "restart.what.network",
                   action: false,
-                  exampleWords: { en: "The network" },
+                  exampleValue: { kind: "message", value: { key: "restart.what.network", args: {} } },
                 },
               ],
             },
             { previews: { CHAT: "GAME" } },
           ),
+          text({ texts: { en: ["The network"] }, key: "restart.what.network", name: "Network", bundle: "restart" }),
         ]),
         undefined,
         {
@@ -214,7 +224,7 @@ describe("the previews", () => {
             return "smp:3"
           },
           commands: {
-            "smp:3": { id: "smp:3", status: "DONE", result: words("Shown to your player in game.") },
+            "smp:3": { id: "smp:3", status: "DONE" },
           },
         },
       ),
@@ -224,9 +234,10 @@ describe("the previews", () => {
 
     expect(await screen.findByText("The network")).toBeTruthy()
     expect(screen.queryByText("restart.what.network")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
+    const show = screen.getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
 
-    await screen.findByText("Shown to your player in game.")
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     expect(bodies).toEqual([
       {
         bundle: "smp/smp",

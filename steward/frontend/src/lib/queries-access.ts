@@ -1,66 +1,34 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 
 import {
   api,
-  type AccessRequestRun,
   type AdminGranted,
   type AdminRevoked,
-  type CommandAsked,
-  type CommandRun,
   type Exempted,
   type Settled,
   type Grant,
-  type JournalEntry,
+  type JournalPage,
   type Payment,
   type Person,
+  type PlayerInventories,
+  type StackRemoval,
 } from "@/lib/api"
-import { live, nextChange } from "@/lib/live"
-import { keys, type JournalFilter } from "@/lib/query-keys"
-import { message, t } from "@/lib/texts"
+import { live } from "@/lib/live"
+import { askUntilDone } from "@/lib/queries-commands"
+import { keys } from "@/lib/query-keys"
 
 /**
- * Asks the bot for an access change and reads its row again until the request is final. Only the bot can apply the role, send the direct message and post the admin note.
+ * Asks the bot for an access change and answers its typed answer. Only the bot can apply the role, send the direct
+ * message and post the admin note.
  */
-async function askTheBot(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const asked = await api<AccessRequestRun>(path, { method: "POST", body })
-  for (;;) {
-    const change = nextChange("REQUESTS")
-    try {
-      const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
-      if (row.status === "DONE") return row.result ?? {}
-      if (row.status === "FAILED") {
-        const said = row.result?.error
-        throw new Error(typeof said === "string" ? said : t("steward.failure.bot-failed"))
-      }
-      if (row.status === "EXPIRED") {
-        // EXPIRED means that the bot never picked the row up.
-        throw new Error(t("steward.failure.bot-silent"))
-      }
-      await change.arrived
-    } finally {
-      change.stop()
-    }
-  }
+async function askTheBot(client: QueryClient, path: string, body: unknown): Promise<Record<string, unknown>> {
+  const run = await askUntilDone(client, path, body)
+  return run.answer ?? {}
 }
 
-/** Asks the SMP for a change of one person and reads its row again until the request is final. */
-async function askTheSmp(path: string, body: unknown): Promise<void> {
-  const asked = await api<CommandAsked>(path, { method: "POST", body })
-  for (;;) {
-    const change = nextChange("REQUESTS")
-    try {
-      const row = await api<CommandRun>(`/api/commands/${asked.id}`)
-      if (row.status === "DONE") return
-      if (row.status === "REFUSED" || row.status === "FAILED" || row.status === "CANCELLED") {
-        throw new Error(row.result ? message(row.result) : t("steward.failure.smp-failed"))
-      }
-      // EXPIRED means that the SMP never picked the row up.
-      if (row.status === "EXPIRED") throw new Error(t("steward.failure.smp-silent"))
-      await change.arrived
-    } finally {
-      change.stop()
-    }
-  }
+/** Asks the SMP for a change of one person. */
+async function askTheSmp(client: QueryClient, path: string, body: unknown): Promise<void> {
+  await askUntilDone(client, path, body)
 }
 
 export function usePeople(enabled = true) {
@@ -104,6 +72,28 @@ export function usePersonPayments(discordId: string) {
   })
 }
 
+/** Each read asks the server that holds the player for a fresh copy, so it does not follow window focus. */
+export function useInventories(discordId: string) {
+  return useQuery({
+    queryKey: keys.inventories(discordId),
+    queryFn: () => api<PlayerInventories>(`/api/people/${encodeURIComponent(discordId)}/inventories`),
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useRemoveStack(discordId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (removal: StackRemoval) =>
+      api<void>(`/api/people/${encodeURIComponent(discordId)}/inventories/remove`, { method: "POST", body: removal }),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.inventories(discordId) }),
+        client.invalidateQueries({ queryKey: ["journal"] }),
+      ]),
+  })
+}
+
 export function useGrants(discordId: string | null) {
   return useQuery({
     queryKey: keys.grants(discordId ?? ""),
@@ -113,18 +103,19 @@ export function useGrants(discordId: string | null) {
   })
 }
 
-export function useJournal(filter: JournalFilter, enabled = true) {
-  return useQuery({
-    queryKey: keys.journal(filter),
-    queryFn: () => {
-      const query = new URLSearchParams({ limit: "200" })
-      if (filter.action) query.set("action", filter.action)
-      if (filter.subject) query.set("subject", filter.subject)
-      if (filter.reference) query.set("reference", filter.reference)
-      if (filter.minDays) query.set("minDays", filter.minDays)
-      return api<JournalEntry[]>(`/api/journal?${query}`)
+/** The journal's stream under the query `q`, one page of `limit` items at a time, newest first. */
+export function useJournal(q: string, limit = 50, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: keys.journal(q, limit),
+    queryFn: ({ pageParam }) => {
+      const query = new URLSearchParams({ limit: String(limit) })
+      if (q.trim() !== "") query.set("q", q.trim())
+      if (pageParam) query.set("after", pageParam)
+      return api<JournalPage>(`/api/journal?${query}`)
     },
-    ...live("JOURNAL"),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.next,
+    ...live("JOURNAL", "RUNS"),
     enabled,
   })
 }
@@ -140,7 +131,7 @@ export function useGrantAccess() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (grant: { discordId: string; days: number }) => {
-      const result = await askTheBot("/api/access/grant", grant)
+      const result = await askTheBot(client, "/api/access/grant", grant)
       return { until: typeof result.until === "string" ? result.until : "" }
     },
     onSettled: () => afterAccessChange(client),
@@ -151,7 +142,7 @@ export function useRevokeAccess() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (discordId: string) => {
-      const result = await askTheBot("/api/access/revoke", { discordId })
+      const result = await askTheBot(client, "/api/access/revoke", { discordId })
       return { revoked: Number(result.revoked ?? 0) }
     },
     onSettled: () => afterAccessChange(client),
@@ -162,8 +153,8 @@ export function useUnlink() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (discordId: string) => {
-      const result = await askTheBot("/api/access/unlink", { discordId })
-      return { unlinked: result.unlinked === "true" }
+      const result = await askTheBot(client, "/api/access/unlink", { discordId })
+      return { unlinked: result.unlinked === true }
     },
     onSettled: () => afterAccessChange(client),
   })
@@ -234,7 +225,7 @@ export function useSetAura() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ discordId, aura }: { discordId: string; aura: number }) =>
-      askTheSmp(`/api/people/${discordId}/aura`, { aura }),
+      askTheSmp(client, `/api/people/${discordId}/aura`, { aura }),
     onSettled: () => afterAccessChange(client),
   })
 }
@@ -243,7 +234,7 @@ export function useSetSpins() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ discordId, spins }: { discordId: string; spins: number }) =>
-      askTheSmp(`/api/people/${discordId}/spins`, { spins }),
+      askTheSmp(client, `/api/people/${discordId}/spins`, { spins }),
     onSettled: () => afterAccessChange(client),
   })
 }
@@ -252,8 +243,8 @@ export function useSetPlaytime() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async ({ discordId, seconds }: { discordId: string; seconds: number }) => {
-      const result = await askTheBot(`/api/people/${discordId}/playtime`, { seconds })
-      return { discordId, seconds: Number(result.seconds ?? seconds) }
+      await askTheBot(client, `/api/people/${discordId}/playtime`, { seconds })
+      return { discordId, seconds }
     },
     onSettled: () => afterAccessChange(client),
   })

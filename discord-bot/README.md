@@ -108,7 +108,9 @@ of `:messages`. `:architecture` refuses `Messages.format` in this module.
 - The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page renders
   too. `AdminLog.record` writes a journal line, and the card is the same message rendered here, so the
   journal and the card cannot differ. Steward writes a booking's line with the booking, and it reaches the
-  bot in the request it reacts to. A mention in a card names someone without a ping. Only an alert's admins
-  are pinged.
+  bot in the request it reacts to. A mention in a card names someone without a ping. Only an alert pings,
+  and it pings the admin role. The alert of a failed run takes the place of the run's card, or answers it
+  when that card cannot be deleted.
 - The bot's own bundle holds only what a member reads, in every language. A server or Steward writes an
-  announcement as messages of `:database`'s bundle, and the bot renders it in each channel's language.
+  announcement as a row per language with the admin's words or the milestone's name, and the bot renders it
+  from `:database`'s bundle in each channel's language and answers on the same row whether it was posted.

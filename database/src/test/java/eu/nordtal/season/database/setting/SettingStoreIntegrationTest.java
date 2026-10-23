@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -87,5 +88,31 @@ class SettingStoreIntegrationTest {
         assertEquals(
                 List.of(new SettingStore.Value("smp", "milestones", "track", "[1]")),
                 SettingStore.using(database.dataSourceAs(DatabaseRole.PROXY)).overrides(Set.of("smp")));
+    }
+
+    @Test
+    void aListOfObjectsIsStoredAsOneRowPerValueAndReadsBackWhole() {
+        final TestDatabase database = TestDatabase.fresh();
+        final SettingStore store = SettingStore.using(database.dataSource());
+        final String languages = "[{\"tag\": \"en\", \"live\": true, \"items\": [], \"weight\": 1.50, \"note\": null},"
+                + " {\"tag\": \"de\", \"live\": false, \"items\": [\"A\", \"B\"], \"weight\": 30, \"note\": {}}]";
+
+        assertTrue(store.change("discord-bot", "access", Map.of("languages", languages), ADMIN, held -> true));
+
+        assertEquals(
+                List.of(new SettingStore.Value(
+                        "discord-bot",
+                        "access",
+                        "languages",
+                        "[{\"tag\": \"en\", \"live\": true, \"note\": null, \"items\": [], \"weight\": 1.50},"
+                                + " {\"tag\": \"de\", \"live\": false, \"note\": {}, \"items\": [\"A\", \"B\"],"
+                                + " \"weight\": 30}]")),
+                store.overrides(Set.of("discord-bot")));
+        // The list, two objects, ten fields and two entries of the second list.
+        final int rows = Jdbi.create(database.dataSource())
+                .withHandle(handle -> handle.createQuery("SELECT count(*) FROM setting_override_node")
+                        .mapTo(Integer.class)
+                        .one());
+        assertEquals(15, rows);
     }
 }

@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -35,16 +34,12 @@ public final class GameActions {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    private final @Nullable DataSource dataSource;
+    private final DataSource dataSource;
     private final CommandApi commands;
 
-    public GameActions(final @Nullable DataSource dataSource, final CommandApi commands) {
+    public GameActions(final DataSource dataSource, final CommandApi commands) {
         this.dataSource = dataSource;
         this.commands = commands;
-    }
-
-    private DataSource dataSource() {
-        return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
     }
 
     /** {@code GET /api/smp/track} answers every milestone with its state and objectives. */
@@ -77,7 +72,7 @@ public final class GameActions {
 
     public SmpTrack readTrack() {
         final Map<String, SmpMilestone> milestones = new LinkedHashMap<>();
-        try (Connection connection = dataSource().getConnection();
+        try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT milestone.key AS milestone, milestone.state, milestone.unlocked,
                             objective.key, objective.type, objective.amount, objective.target,
@@ -192,7 +187,7 @@ public final class GameActions {
     }
 
     /** Returns the person the path names, refusing an id that names nobody. */
-    private DiscordId person(final Context ctx) {
+    DiscordId person(final Context ctx) {
         final String id = ctx.pathParam("id").trim();
         try {
             if (exists("SELECT 1 FROM discord_user WHERE discord_id = ?", id)) {
@@ -234,7 +229,7 @@ public final class GameActions {
 
     /** Returns the open round. Its state is the game's state while a game runs, else {@code REGISTRATION}. */
     public HungerGamesRound readRound() {
-        try (Connection connection = dataSource().getConnection();
+        try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT coalesce(game.state, CASE round.state WHEN 'OPEN' THEN 'REGISTRATION' ELSE round.state END)
                                 AS state,
@@ -290,7 +285,7 @@ public final class GameActions {
     }
 
     private Optional<String> activeMilestone() {
-        try (Connection connection = dataSource().getConnection();
+        try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement =
                         connection.prepareStatement("SELECT key FROM smp_milestone WHERE state = 'ACTIVE'");
                 ResultSet rows = statement.executeQuery()) {
@@ -301,7 +296,7 @@ public final class GameActions {
     }
 
     private boolean exists(final String sql, final String parameter) {
-        try (Connection connection = dataSource().getConnection();
+        try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, parameter);
             try (ResultSet rows = statement.executeQuery()) {

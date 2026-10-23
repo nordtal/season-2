@@ -16,20 +16,34 @@ import org.jspecify.annotations.Nullable;
 @Notifies(Channel.UPDATE)
 interface UpdateDao {
 
+    /** Selects a run with the services it stops, which {@link UpdateRequestMapper} reads. */
+    String RUN = """
+            SELECT id, kind, status, actor_kind, actor_id, requested, scheduled_for, countdown_end, started, finished,
+                   stage, array(SELECT s.service FROM run_service s WHERE s.run = r.id AND s.moving ORDER BY s.service)
+                              AS moving
+            FROM steward_inbox r
+            """;
+
     /** Returns the oldest pending or running run, which refuses a new one. */
-    @SqlQuery("""
-            SELECT * FROM steward_inbox
+    @SqlQuery(RUN + """
             WHERE status IN ('PENDING', 'RUNNING')
             ORDER BY id
             LIMIT 1
             """)
     Optional<UpdateRequest> open();
 
-    /** Returns the services of a run, empty for a whole-network run and for no row. */
-    @SqlQuery("SELECT jsonb_array_elements_text(payload -> 'services') FROM steward_inbox WHERE id = :id")
-    List<String> services(@Bind("id") long id);
+    /** Returns the services a run's request names, empty for a whole-network run and for no row. */
+    @SqlQuery("SELECT service FROM run_service WHERE run = :id AND named ORDER BY service")
+    List<String> scope(@Bind("id") long id);
 
-    @SqlQuery("SELECT * FROM steward_inbox WHERE id = :id")
+    /** Names the services a new request is for. Steward may insert them, but not update them. */
+    @SqlUpdate("""
+            INSERT INTO run_service (run, service, moving, named)
+            SELECT :run, service, false, true FROM unnest(cast(:services AS text[])) AS named (service)
+            """)
+    void named(@Bind("run") long run, @Bind("services") String[] services);
+
+    @SqlQuery(RUN + "WHERE id = :id")
     Optional<UpdateRequest> find(@Bind("id") long id);
 
     /**
@@ -37,18 +51,17 @@ interface UpdateDao {
      *
      * @param id the last one already seen. 0 for everything
      */
-    @SqlQuery("SELECT * FROM steward_inbox WHERE id > :id ORDER BY id")
+    @SqlQuery(RUN + "WHERE id > :id ORDER BY id")
     java.util.List<UpdateRequest> since(@Bind("id") long id);
 
-    @SqlQuery("SELECT * FROM steward_inbox ORDER BY id DESC LIMIT :limit")
+    @SqlQuery(RUN + "ORDER BY id DESC LIMIT :limit")
     java.util.List<UpdateRequest> recent(@Bind("limit") int limit);
 
     @SqlQuery("SELECT coalesce(max(id), 0) FROM steward_inbox")
     long latestId();
 
     /** Returns every request that reached a terminal state in the last {@code seconds}. */
-    @SqlQuery("""
-            SELECT * FROM steward_inbox
+    @SqlQuery(RUN + """
             WHERE finished IS NOT NULL
               AND finished > now() - make_interval(secs => cast(:seconds AS double precision))
             ORDER BY id
@@ -56,40 +69,64 @@ interface UpdateDao {
     java.util.List<UpdateRequest> finishedWithin(@Bind("seconds") long seconds);
 
     /**
-     * Returns every {@code BACKUP} that reached {@code DONE} in the window, newest first.
-     * The caller parses each report and stops at the first that proves a file was saved.
+     * Returns the newest {@code BACKUP} that reached {@code DONE} in the window and saved an archive.
      *
      * @param seconds how far back to look, by the database's clock
      */
-    @SqlQuery("""
-            SELECT * FROM steward_inbox
+    @SqlQuery(RUN + """
             WHERE kind = 'BACKUP'
               AND status = 'DONE'
               AND finished IS NOT NULL
               AND finished > now() - make_interval(secs => cast(:seconds AS double precision))
+              AND EXISTS (SELECT 1 FROM backup_archive a JOIN run_step s ON s.id = a.saved_by WHERE s.run = r.id)
             ORDER BY finished DESC, id DESC
+            LIMIT 1
             """)
-    java.util.List<UpdateRequest> backupsDoneWithin(@Bind("seconds") long seconds);
+    Optional<UpdateRequest> lastSavingBackup(@Bind("seconds") long seconds);
 
     /**
-     * Starts and announces the countdown on a claimed request, only while it is {@code RUNNING}.
+     * Starts and announces the countdown on a claimed {@code RUNNING} request, with its moving services.
+     * The services are marked in the same statement, so the proxy reads them once it wakes.
      *
      * @param moving the services the run stops, which the proxy moves players off when the countdown ends
-     * @return the row with its {@code countdown_end}, or empty if it was withdrawn
+     * @return the id, or empty if it was withdrawn
      */
     @SqlQuery("""
             WITH updated AS (
                 UPDATE steward_inbox
-                SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision)),
-                    moving = :moving
+                SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision))
                 WHERE id = :id AND status = 'RUNNING'
-                RETURNING *
+                RETURNING id
+            ),
+            marked AS (
+                INSERT INTO run_service (run, service, moving)
+                SELECT updated.id, stopped.service, true
+                FROM updated, unnest(cast(:moving AS text[])) AS stopped (service)
+                ON CONFLICT (run, service) DO UPDATE SET moving = true
             )
-            SELECT updated.*, pg_notify(:channel, '') AS notified
-            FROM updated
+            SELECT updated.id, pg_notify(:channel, '') AS notified FROM updated
             """)
-    Optional<UpdateRequest> startCountdown(
-            @Bind("id") long id, @Bind("seconds") long seconds, @Bind("moving") String[] moving);
+    Optional<Long> startCountdown(@Bind("id") long id, @Bind("seconds") long seconds, @Bind("moving") String[] moving);
+
+    /**
+     * Writes and announces the stage of a running request.
+     *
+     * @return the id, or empty if it is not running
+     */
+    @SqlQuery("""
+            WITH staged AS (
+                UPDATE steward_inbox SET stage = :stage WHERE id = :id AND status = 'RUNNING' RETURNING id
+            )
+            SELECT staged.id, pg_notify(:channel, '') AS notified FROM staged
+            """)
+    Optional<Long> progress(@Bind("id") long id, @Bind("stage") String stage);
+
+    /** Writes and announces the stage of a run that steward-agent records already settled. */
+    @SqlQuery("""
+            WITH staged AS (UPDATE steward_inbox SET stage = :stage WHERE id = :id RETURNING id)
+            SELECT staged.id, pg_notify(:channel, '') AS notified FROM staged
+            """)
+    Optional<Long> recorded(@Bind("id") long id, @Bind("stage") String stage);
 
     /**
      * Ends the countdown atomically. The row lock decides a race with a cancel at zero.
@@ -111,8 +148,7 @@ interface UpdateDao {
      * Returns the earliest outage counting down: a pending row to its schedule, a running one to its countdown.
      * An integration test holds the kind list against {@link UpdateKind#stopsServers()}.
      */
-    @SqlQuery("""
-            SELECT * FROM steward_inbox
+    @SqlQuery(RUN + """
             WHERE kind <> 'START'
               AND ((status = 'PENDING' AND scheduled_for > now())
                    OR (status = 'RUNNING' AND countdown_end > now()))
@@ -125,8 +161,7 @@ interface UpdateDao {
      * Returns the run that is happening now: claimed, not counting down, servers going down.
      * Any kind counts, as a backup stops the same servers as an update.
      */
-    @SqlQuery("""
-            SELECT * FROM steward_inbox
+    @SqlQuery(RUN + """
             WHERE status = 'RUNNING'
               AND (countdown_end IS NULL OR countdown_end <= now())
             ORDER BY id
@@ -136,7 +171,7 @@ interface UpdateDao {
 
     /**
      * Withdraws the running countdown. {@code SKIP LOCKED} makes a cancel that races the commit answer empty.
-     * A report it held moves to {@code CANCELLED}. The journal line says who cancelled.
+     * Its stage becomes {@code CANCELLED}. The journal line says who cancelled.
      */
     @SqlQuery("""
             WITH cancellable AS (
@@ -153,17 +188,13 @@ interface UpdateDao {
             ),
             cancelled AS (
                 UPDATE steward_inbox
-                SET status = 'CANCELLED', finished = now(),
-                    outcome = CASE WHEN jsonb_typeof(outcome) = 'object'
-                                   THEN jsonb_set(outcome, '{stage}', '"CANCELLED"')
-                                   ELSE jsonb_build_object('stage', 'CANCELLED', 'services', '[]'::jsonb,
-                                                           'notes', '[]'::jsonb) END
+                SET status = 'CANCELLED', finished = now(), stage = 'CANCELLED'
                 WHERE id IN (SELECT id FROM cancellable)
-                RETURNING *
+                RETURNING id
             )
-            SELECT cancelled.*, pg_notify(:channel, '') AS notified FROM cancelled
+            SELECT cancelled.id, pg_notify(:channel, '') AS notified FROM cancelled
             """)
-    Optional<UpdateRequest> cancelCountdown();
+    Optional<Long> cancelCountdown();
 
     /** Names the container that runs a running request. Zero rows if it is not running. */
     @SqlUpdate("UPDATE steward_inbox SET runner = :runner WHERE id = :id AND status = 'RUNNING'")

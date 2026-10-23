@@ -38,6 +38,11 @@ export class ApiError extends Error {
   }
 }
 
+/** The sentence a person reads for a failure, without the class name `String(error)` puts in front. */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /**
  * A handler resolves once the key is held and rejects otherwise. With no handler installed, a 403 stays a 403.
  */

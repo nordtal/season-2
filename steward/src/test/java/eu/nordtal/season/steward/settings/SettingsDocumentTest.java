@@ -37,7 +37,7 @@ class SettingsDocumentTest {
     private static final Map<String, String> NAMES = Map.of("example.kind.counted", "Counted");
 
     private static SettingsDocument.Entry entry(final SettingsDocument document, final String path) {
-        return document.document(null).entries().stream()
+        return document.document().entries().stream()
                 .filter(entry -> path.equals(entry.path()))
                 .findFirst()
                 .orElseThrow();
@@ -60,7 +60,7 @@ class SettingsDocumentTest {
 
         assertEquals(
                 List.of("max-players", "motd", "allowlist", "prizes", "stages", "token"),
-                document.document(null).entries().stream()
+                document.document().entries().stream()
                         .map(SettingsDocument.Entry::path)
                         .toList());
         assertEquals(
@@ -115,6 +115,27 @@ class SettingsDocumentTest {
         assertEquals("COUNTED", templateField(document, "kind").value());
         assertEquals("", templateField(document, "key").value());
         assertEquals(List.of(), templateField(document, "subjects").items());
+    }
+
+    @Test
+    void aFieldItsStoredSectionLacksShowsItsDefaultAsNotSavedYet() throws Exception {
+        store.set("smp", "example", "stages", "[{\"key\":\"first\"}]");
+
+        final List<SettingsDocument.Entry> stage =
+                Objects.requireNonNull(entry(document(), "stages").sections()).getFirst();
+        final SettingsDocument.Entry kind = stage.stream()
+                .filter(field -> "kind".equals(field.key()))
+                .findFirst()
+                .orElseThrow();
+        final SettingsDocument.Entry key = stage.stream()
+                .filter(field -> "key".equals(field.key()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("COUNTED", kind.value());
+        assertFalse(kind.filled());
+        assertEquals("first", key.value());
+        assertTrue(key.filled());
     }
 
     private static SettingsDocument.Entry templateField(final SettingsDocument document, final String key) {
@@ -179,9 +200,9 @@ class SettingsDocumentTest {
 
     @Test
     void aSaveOnAStaleRevisionWritesNothing() throws Exception {
-        final String read = document().document(null).revision();
+        final String read = document().document().revision();
         store.set("smp", "example", "motd", "changed in between");
-        final String now = document().document(null).revision();
+        final String now = document().document().revision();
 
         final boolean written = store.change(
                 "smp",

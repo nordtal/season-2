@@ -76,17 +76,15 @@ class DocumentRendererTest {
         assertEquals(List.of(), wrong);
     }
 
-    /** The preview once drew a price of 300 cents as "+300" and a tier as "30 days30". */
     @Test
     void aPreviewWritesEachExampleAsTheBotWritesItsValue() {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("\\n**€3.00** 30 days\""), drawn);
-        assertTrue(drawn.contains("+€3.00 →"), drawn);
+        assertTrue(drawn.contains("\\n**€5.00** 30 days\""), drawn);
+        assertTrue(drawn.contains("+€5.00 →"), drawn);
     }
 
-    /** The preview once drew a message's example as its key, admin/run.no-build. */
     @Test
     void aPreviewDrawsAMessageExampleAsTheTextItsKeyNames() {
         final String drawn = StoredDocumentsStandIn.renderer()
@@ -94,6 +92,23 @@ class DocumentRendererTest {
 
         assertTrue(drawn.contains("no build yet"), drawn);
         assertFalse(drawn.contains("admin/run.no-build"), drawn);
+    }
+
+    @Test
+    void aPreviewDrawsEachMessageOfAListExampleAsTheTextItsKeyNames() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("no build yet"), drawn);
+        assertFalse(drawn.contains("admin/run.no-build"), drawn);
+    }
+
+    @Test
+    void aPreviewFillsANestedMessageWithItsOwnExamples() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertFalse(drawn.contains("?"), drawn);
     }
 
     @Test

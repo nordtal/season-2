@@ -2,7 +2,7 @@
  * The web target. It renders every text that Steward's page shows from the trees Steward parsed. The validator is Java's, and `messages/src/test/resources/web-target.json` holds both sides to one result.
  */
 import { api } from "@/lib/api"
-import { LOCALE, date, dateTime, money, parseInstant, relative, time } from "@/lib/format"
+import { LOCALE, date, dateTime, money, parseInstant, relative, time, NO_VALUE } from "@/lib/format"
 import packaged from "@/lib/texts.gen.json"
 import type { TextArgs } from "@/lib/texts.gen"
 
@@ -14,6 +14,9 @@ export type TextNode =
   | { tag: string; shape: string; args: TextNode[][] }
 
 export type Texts = Record<string, TextNode[][]>
+
+/** What a value is written in: a locale's formats and the `values.*` words of its language. */
+export type Words = { locale: string; texts: Texts }
 
 export type Typed =
   | { kind: "text"; value: string }
@@ -87,7 +90,16 @@ const KINDS = new Set<string>([
 
 const LINE_BREAKS = new Set(["newline", "br"])
 
-const NUMBER = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 })
+const NUMBERS = new Map<string, Intl.NumberFormat>()
+
+function numberOf(value: number, locale: string): string {
+  let format = NUMBERS.get(locale)
+  if (format === undefined) {
+    format = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
+    NUMBERS.set(locale, format)
+  }
+  return format.format(value)
+}
 
 /** The packaged texts, until Steward's arrive and for good where Steward cannot be reached. */
 let current: Texts = PACKAGED.texts
@@ -121,8 +133,8 @@ export function message(ref: MessageRef): string {
   return plain(runs(ref.key, ref.args ?? {}))
 }
 
-export function runs(key: string, args: Record<string, unknown>): Run[] {
-  const variants = current[key] ?? PACKAGED.texts[key]
+export function runs(key: string, args: Record<string, unknown>, texts: Texts = current): Run[] {
+  const variants = texts[key] ?? current[key] ?? PACKAGED.texts[key]
   if (!variants || variants.length === 0) return [{ text: key }]
   const nodes = variants.length === 1 ? variants[0] : variants[Math.floor(Math.random() * variants.length)]
   const out: Run[] = []
@@ -141,13 +153,13 @@ export function choice(constant: string): string {
  * Returns a span outside a message through the duration kind. Anything that is not a span shows the en dash.
  */
 export function span(seconds: number | null | undefined, style: "short" | "minutes" = "short"): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return NO_VALUE
   return durationOf(seconds, style)
 }
 
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : span((now - parsed.getTime()) / 1000)
+  return parsed == null ? NO_VALUE : span((now - parsed.getTime()) / 1000)
 }
 
 function plain(pieces: Run[]): string {
@@ -184,6 +196,15 @@ function filled(
     return { text: missing(kind), kind, name }
   }
   return { text: shown(value, style), kind: value.kind, name }
+}
+
+/**
+ * Returns a value as a placeholder in the given style draws it. A bare value takes the kind its form declares.
+ * `words` writes it in a preview's language, else in the page's own.
+ */
+export function valueText(raw: unknown, style?: string, words?: Words): string {
+  const value = typedOf(raw, undefined)
+  return value === undefined ? missing("text", words) : shown(value, style, words)
 }
 
 export function chosen(node: { plural: boolean; cases: Record<string, TextNode[]> }, raw: unknown): TextNode[] {
@@ -278,59 +299,61 @@ function typedObject(raw: object): Typed | undefined {
   return undefined
 }
 
-function shown(value: Typed, style: string | undefined): string {
+function shown(value: Typed, style: string | undefined, words?: Words): string {
   switch (value.kind) {
     case "text":
       return value.value
     case "number":
-      return style === "plain" ? String(value.value) : NUMBER.format(value.value)
+      return style === "plain" ? String(value.value) : numberOf(value.value, words?.locale ?? LOCALE)
     case "duration":
-      return durationOf(value.value, style)
+      return durationOf(value.value, style, words)
     case "instant":
-      return instantOf(value.value, style)
+      return instantOf(value.value, style, words?.locale)
     case "money":
-      return money(value.value.minor, value.value.currency)
+      return money(value.value.minor, value.value.currency, words?.locale)
     case "list":
       return join(
-        value.value.map((item) => shown(item, undefined)),
+        value.value.map((item) => shown(item, undefined, words)),
         style === "or",
+        words,
       )
     case "name":
       return value.value.name
     case "mention":
       return `@${value.value.name}`
     case "item":
-      return itemOf(value.value)
+      return itemOf(value.value, words)
     case "glyph":
       return ""
     case "message":
-      return message(value.value)
+      return plain(runs(value.value.key, value.value.args ?? {}, words?.texts))
     default:
-      return typeof value.value === "boolean" ? word(value.value ? "choice.yes" : "choice.no", {}) : value.value
+      return typeof value.value === "boolean" ? word(value.value ? "choice.yes" : "choice.no", {}, words) : value.value
   }
 }
 
-function word(key: string, values: Record<string, unknown>): string {
-  return plain(runs(`values.${key}`, values))
+function word(key: string, values: Record<string, unknown>, words?: Words): string {
+  return plain(runs(`values.${key}`, values, words?.texts))
 }
 
-function missing(kind: Kind): string {
-  return word(`missing.${kind}`, {})
+function missing(kind: Kind, words?: Words): string {
+  return word(`missing.${kind}`, {}, words)
 }
 
-function join(shownItems: string[], or: boolean): string {
-  if (shownItems.length === 0) return missing("list")
+function join(shownItems: string[], or: boolean, words?: Words): string {
+  if (shownItems.length === 0) return missing("list", words)
   if (shownItems.length === 1) return shownItems[0]
-  return word(or ? "list.or" : "list.and", {
-    rest: shownItems.slice(0, -1).join(", "),
-    last: shownItems[shownItems.length - 1],
-  })
+  return word(
+    or ? "list.or" : "list.and",
+    { rest: shownItems.slice(0, -1).join(", "), last: shownItems[shownItems.length - 1] },
+    words,
+  )
 }
 
 /**
  * Returns the two largest units that are not zero, as `ValueText` shows a duration, or a style's units.
  */
-function durationOf(seconds: number, style: string | undefined): string {
+function durationOf(seconds: number, style: string | undefined, words?: Words): string {
   const total = Math.max(0, Math.trunc(seconds))
   if (style === "clock") {
     const hours = Math.floor(total / 3600)
@@ -345,7 +368,7 @@ function durationOf(seconds: number, style: string | undefined): string {
       .slice(0, 3)
       .flatMap((unit, index) =>
         amounts[index] > 0 || (index === 2 && amounts[0] + amounts[1] === 0)
-          ? [word(`duration.short.${unit}`, { n: amounts[index] })]
+          ? [word(`duration.short.${unit}`, { n: amounts[index] }, words)]
           : [],
       )
     return parts.join(" ")
@@ -355,33 +378,33 @@ function durationOf(seconds: number, style: string | undefined): string {
   for (let unit = 0; unit < units.length && parts.length < 2; unit++) {
     const started = parts.length > 0
     if (amounts[unit] > 0 || (unit === units.length - 1 && !started)) {
-      parts.push(word(prefix + units[unit], { n: amounts[unit] }))
+      parts.push(word(prefix + units[unit], { n: amounts[unit] }, words))
     } else if (started) {
       break
     }
   }
   if (style === "short") return parts.join(" ")
-  return parts.length === 1 ? parts[0] : word("list.and", { rest: parts[0], last: parts[1] })
+  return parts.length === 1 ? parts[0] : word("list.and", { rest: parts[0], last: parts[1] }, words)
 }
 
 /**
  * Returns the instant in the browser's zone. `relative` reads as a span from now, which a page can show and a log cannot.
  */
-function instantOf(iso: string, style: string | undefined): string {
+function instantOf(iso: string, style: string | undefined, locale?: string): string {
   switch (style) {
     case "date":
-      return date(iso)
+      return date(iso, locale)
     case "time":
-      return time(iso)
+      return time(iso, locale)
     case "relative":
-      return relative(iso)
+      return relative(iso, undefined, locale)
     default:
-      return dateTime(iso)
+      return dateTime(iso, locale)
   }
 }
 
-function itemOf(content: { english: string; args?: Typed[] }): string {
-  const args = (content.args ?? []).map((arg) => shown(arg, undefined))
+function itemOf(content: { english: string; args?: Typed[] }, words?: Words): string {
+  const args = (content.args ?? []).map((arg) => shown(arg, undefined, words))
   let next = 0
   return content.english.replaceAll(/%(?:(\d+)\$)?s/g, (_, position: string | undefined) => {
     const index = position === undefined ? next++ : Number(position) - 1

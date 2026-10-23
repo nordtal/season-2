@@ -410,6 +410,16 @@ public final class Messages {
         return List.copyOf(unique.values());
     }
 
+    /**
+     * Returns the message of {@code key} with an example value for each of its own placeholders.
+     * {@link Declaration#example} fills them. A key no bundle here declares takes the given values as text.
+     */
+    public MessageRef example(final String key, final Map<String, String> given) {
+        final Declaration declaration = declarations.get(key);
+        return new MessageRef(
+                key, declaration == null ? Map.<String, Object>copyOf(given) : declaration.example(given));
+    }
+
     /** Returns the text of the key as written, falling back to English, then to the key. */
     public String get(final Locale locale, final String key) {
         return text(locale, key).source();

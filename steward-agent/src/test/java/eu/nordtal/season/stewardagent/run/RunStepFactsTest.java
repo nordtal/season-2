@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.Topology;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,9 +22,9 @@ class RunStepFactsTest {
     void aSavedVolumeIsAnArchiveAndAFailedOneKeepsTheToolsExitCode() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run =
-                new UpdateRun(RUN, containers, new FakeSnapshots().fails("bot-config"), report -> {}, record);
+                new UpdateRun(RUN, containers, new FakeSnapshots().fails("bot-config"), stage -> {}, record);
 
-        run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp", "bot-config"));
+        run.save(List.of("mc-smp", "bot-config"));
 
         final List<RunStep.Row> steps = collected.rows();
         assertEquals(
@@ -41,17 +40,14 @@ class RunStepFactsTest {
     @Test
     void aServiceThatCameBackRecordsTheVersionsItRunsOnItsVerifyStep() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), report -> {}, record);
-        final UpdateReport planned = UpdateReport.at(UpdateReport.Stage.PLANNED)
-                .with(new UpdateReport.ServiceLine(
-                        Topology.SMP,
-                        UpdateReport.State.PLANNED,
-                        List.of(new UpdateReport.Change(Topology.SMP, "0.6.0", "0.7.0")),
-                        null));
-        final UpdateRun.Stopped stopped = run.stop(planned, containers.runtime());
-        final UpdateReport started = run.start(stopped);
+        final UpdateRun run = new UpdateRun(RUN, containers, new FakeSnapshots(), stage -> {}, record);
+        final UpdateRun.Stopped stopped = run.stop(List.of(Topology.SMP), containers.runtime());
+        run.start(stopped);
 
-        run.verify(started, stopped.services(), backOnTheSecondLook(containers));
+        run.verify(
+                stopped.services(),
+                backOnTheSecondLook(containers),
+                java.util.Map.of(Topology.SMP, List.of(new RunStep.Change(Topology.SMP, "0.6.0", "0.7.0", null))));
 
         final RunStep.Row verified = collected.rows().stream()
                 .filter(step -> step.step() == RunStep.Kind.VERIFY)
@@ -62,21 +58,22 @@ class RunStepFactsTest {
     }
 
     @Test
-    void theCleanupRecordsTheBuildCacheItFreed() {
+    void theImagesArePrunedOnlyOnceEverythingIsBackAndTheCleanupRecordsWhatItFreed() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        final UpdateRun steps = new UpdateRun(RUN, containers, new FakeSnapshots(), report -> {});
+        final UpdateRun steps = new UpdateRun(RUN, containers, new FakeSnapshots(), stage -> {});
         final Run.Done done = Kinds.pruningImages(containers, Run.Payload.NONE, record)
-                .carryOut(
-                        steps,
-                        new UpdateRun.Stopped(
-                                UpdateReport.at(UpdateReport.Stage.STOPPING), List.of(), containers.runtime()));
+                .carryOut(steps, new UpdateRun.Stopped(List.of(), containers.runtime()));
 
-        assertEquals(
-                UpdateReport.Stage.STOPPING,
-                done.afterwards().apply(done.report()).stage());
+        assertEquals(List.of(), containers.calls, "nothing is pruned while the servers are down");
+        assertEquals(List.of(), collected.rows());
+
+        done.afterwards().run();
+
+        assertEquals(List.of("prune-images"), containers.calls);
 
         final RunStep.Row cleanup = collected.rows().getFirst();
         assertEquals(RunStep.Kind.CLEANUP, cleanup.step());
+        assertEquals(RunStep.Outcome.DONE, cleanup.outcome());
         assertEquals(300_000_000L, cleanup.cacheFreed());
         assertEquals(List.of(new RunStep.ImageRemoved("sha256:old", 2_000_000_000L)), cleanup.imagesRemoved());
     }

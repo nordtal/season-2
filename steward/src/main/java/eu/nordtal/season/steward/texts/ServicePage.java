@@ -4,6 +4,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire.PluginGroup;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Instant;
 
 /** The texts of the service page for its head, the console, Recreate and the plugins. */
@@ -44,7 +45,8 @@ public interface ServicePage {
     MessageRef range();
 
     @Name("A curve's reading at a moment")
-    MessageRef reading(@Arg("metric") String metric, @Arg("at") Instant at);
+    MessageRef reading(
+            @Arg("metric") @Example("CPU 12 %") String metric, @Arg("at") @Example("2026-10-23T18:40:00Z") Instant at);
 
     @Name("Find")
     MessageRef find();
@@ -59,7 +61,7 @@ public interface ServicePage {
     MessageRef lines();
 
     @Name("Line count")
-    MessageRef lineCount(@Arg("lines") int lines);
+    MessageRef lineCount(@Arg("lines") @Example("200") int lines);
 
     @Name("Download")
     MessageRef download();
@@ -92,10 +94,10 @@ public interface ServicePage {
     MessageRef notSent();
 
     @Name("Recreate a service")
-    MessageRef recreateService(@Arg("service") String service);
+    MessageRef recreateService(@Arg("service") @Example("smp") String service);
 
     @Name("Recreate title")
-    MessageRef recreateTitle(@Arg("service") String service);
+    MessageRef recreateTitle(@Arg("service") @Example("smp") String service);
 
     @Name("Agent silent")
     MessageRef agentSilent();
@@ -131,7 +133,7 @@ public interface ServicePage {
     MessageRef noBuild();
 
     @Name("No build for")
-    MessageRef noBuildFor(@Arg("version") String version);
+    MessageRef noBuildFor(@Arg("version") @Example("1.21.10") String version);
 
     @Name("Up to date")
     MessageRef upToDate();
@@ -143,28 +145,29 @@ public interface ServicePage {
     MessageRef updateAvailable();
 
     @Name("Installed by")
-    MessageRef installedBy(@Arg("release") String release);
+    MessageRef installedBy(@Arg("release") @Example("0.57.0") String release);
 
     @Name("Jar version")
-    MessageRef jarVersion(@Arg("version") String version);
+    MessageRef jarVersion(@Arg("version") @Example("1.4.0") String version);
 
     @Name("Release version")
-    MessageRef releaseVersion(@Arg("release") String release);
+    MessageRef releaseVersion(@Arg("release") @Example("0.57.0") String release);
 
     @Name("Remove a plugin")
-    MessageRef removePlugin(@Arg("name") String name);
+    MessageRef removePlugin(@Arg("name") @Example("Chunky") String name);
 
     @Name("Remove title")
-    MessageRef removeTitle(@Arg("name") String name);
+    MessageRef removeTitle(@Arg("name") @Example("Chunky") String name);
 
     @Name("Not yet installed")
     MessageRef notYetInstalled();
 
     @Name("Remove the jar")
-    MessageRef removeJar(@Arg("jar") String jar);
+    MessageRef removeJar(@Arg("jar") @Example("Chunky-1.4.40.jar") String jar);
 
     @Name("Remove the jar and folder")
-    MessageRef removeJarAndFolder(@Arg("jar") String jar, @Arg("folder") String folder);
+    MessageRef removeJarAndFolder(
+            @Arg("jar") @Example("Chunky-1.4.40.jar") String jar, @Arg("folder") @Example("Chunky") String folder);
 
     @Name("The jar")
     MessageRef theJar();
@@ -179,7 +182,8 @@ public interface ServicePage {
     MessageRef nothingFound();
 
     @Name("Nothing on")
-    MessageRef nothingOn(@Arg("loader") String loader, @Arg("version") String version);
+    MessageRef nothingOn(
+            @Arg("loader") @Example("paper") String loader, @Arg("version") @Example("1.21.10") String version);
 
     @Name("Given")
     MessageRef given();
@@ -188,17 +192,17 @@ public interface ServicePage {
     MessageRef added();
 
     @Name("Install")
-    MessageRef install(@Arg("title") String title);
+    MessageRef install(@Arg("title") @Example("Chunky") String title);
 
     @Name("Plugin added")
-    MessageRef pluginAdded(@Arg("title") String title);
+    MessageRef pluginAdded(@Arg("title") @Example("Chunky") String title);
 
     @Name("Arrives")
-    MessageRef arrives(@Arg("file") String file);
+    MessageRef arrives(@Arg("file") @Example("Chunky-1.4.40.jar") String file);
 
     @Name("Not added")
     MessageRef notAdded();
 
     @Name("On Modrinth")
-    MessageRef onModrinth(@Arg("title") String title);
+    MessageRef onModrinth(@Arg("title") @Example("Chunky") String title);
 }

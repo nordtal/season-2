@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.menu.BlankItem;
@@ -29,10 +30,10 @@ import org.bukkit.inventory.ItemStack;
 public final class HandInGui extends Menu {
 
     /** @param amount how much the objective still needs */
-    record Window(long amount) {}
+    record Window(@Example("64") long amount) {}
 
     /** One item an objective takes, one tooltip line each, since the client does not wrap a line. */
-    record Wanted(GameContent item) {}
+    record Wanted(@Example("item.minecraft.diamond") GameContent item) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
             "smp",

@@ -2,8 +2,10 @@ package eu.nordtal.season.steward;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.net.http.HttpResponse;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Checks that a changing route writes its journal line after it has answered, and only then. */
@@ -18,12 +20,20 @@ class JournalWritingTest extends WebTestSupport {
         assertEquals(202, asked.statusCode(), asked.body());
 
         assertEquals(before + 1, count("SELECT count(*) FROM journal_entry WHERE action = 'REQUEST_RUN'"));
-        final JsonObject line = journalledBy("1", "REQUEST_RUN").getAsJsonObject("line");
-        assertEquals("journal.request-run", line.get("key").getAsString(), line.toString());
+        // The stream shows the run once, as its own row under who asked for it.
+        final long run = GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsLong();
+        final List<JsonObject> items = GSON
+                .fromJson(get("/api/journal?limit=200").body(), JsonObject.class)
+                .getAsJsonArray("items")
+                .asList()
+                .stream()
+                .map(JsonElement::getAsJsonObject)
+                .filter(row ->
+                        row.has("run") && row.getAsJsonObject("run").get("id").getAsLong() == run)
+                .toList();
+        assertEquals(1, items.size(), items.toString());
         assertEquals(
-                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsLong(),
-                line.getAsJsonObject("args").getAsJsonObject("run").get("value").getAsLong(),
-                line.toString());
+                "1", items.getFirst().getAsJsonObject("actor").get("person").getAsString(), items.toString());
         settleOpenRuns();
     }
 

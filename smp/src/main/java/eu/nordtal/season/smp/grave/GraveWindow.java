@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.grave;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.time.Instant;
@@ -15,10 +16,16 @@ import org.jspecify.annotations.Nullable;
 /** The window of a grave. Any viewer may take the content items. {@link Graves} handles the close of the window. */
 final class GraveWindow extends Menu {
 
-    record Window(long experience) {}
+    record Window(@Example("30") long experience) {}
 
     /** @param player the dead player, {@code null} when the server does not know the name */
-    record Owner(boolean known, @Nullable PlayerContext player, Instant at, int x, int y, int z) {}
+    record Owner(
+            boolean known,
+            @Nullable PlayerContext player,
+            @Example("2026-10-23T18:40:00Z") Instant at,
+            @Example("-120") int x,
+            @Example("64") int y,
+            @Example("355") int z) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
             "smp",

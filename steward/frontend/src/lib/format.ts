@@ -10,18 +10,39 @@ const ONE_DECIMAL = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
-const DATE_TIME = new Intl.DateTimeFormat(LOCALE, {
-  dateStyle: "medium",
-  timeStyle: "short",
-})
 const TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "medium" })
-const SHORT_TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "short" })
-const DATE_ONLY = new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium" })
+
+/** The formats of one locale: the page's own, or the language a message preview is written in. */
+type Formats = {
+  dateTime: Intl.DateTimeFormat
+  date: Intl.DateTimeFormat
+  time: Intl.DateTimeFormat
+  relative: Intl.RelativeTimeFormat
+}
+
+const FORMATS = new Map<string, Formats>()
+
+function formatsOf(locale: string): Formats {
+  let formats = FORMATS.get(locale)
+  if (formats === undefined) {
+    formats = {
+      dateTime: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }),
+      date: new Intl.DateTimeFormat(locale, { dateStyle: "medium" }),
+      time: new Intl.DateTimeFormat(locale, { timeStyle: "short" }),
+      relative: new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    }
+    FORMATS.set(locale, formats)
+  }
+  return formats
+}
+
+/** What every place that has no value shows. */
+export const NO_VALUE = "\u2013"
 
 const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
 
 export function bytes(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   if (value < 1000) return `${NUMBER.format(Math.round(value))} B`
   let scaled = value
   let unit = 0
@@ -38,7 +59,7 @@ export function bytes(value: number | null | undefined): string {
 }
 
 export function percent(value: number | null | undefined, decimals = 1): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   return `${percentFormat(decimals).format(value)} %`
 }
 
@@ -60,11 +81,11 @@ function percentFormat(decimals: number): Intl.NumberFormat {
 }
 
 export function count(value: number | null | undefined): string {
-  return value == null || !Number.isFinite(value) ? "\u2013" : NUMBER.format(value)
+  return value == null || !Number.isFinite(value) ? NO_VALUE : NUMBER.format(value)
 }
 
 export function load(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   return new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -72,12 +93,12 @@ export function load(value: number | null | undefined): string {
 }
 
 export function euros(cents: number | null | undefined): string {
-  if (cents == null || !Number.isFinite(cents)) return "\u2013"
+  if (cents == null || !Number.isFinite(cents)) return NO_VALUE
   return money(cents, "EUR")
 }
 
-export function money(minor: number, currency: string): string {
-  const format = new Intl.NumberFormat(LOCALE, { style: "currency", currency })
+export function money(minor: number, currency: string, locale = LOCALE): string {
+  const format = new Intl.NumberFormat(locale, { style: "currency", currency })
   return format.format(minor / 10 ** (format.resolvedOptions().maximumFractionDigits ?? 2))
 }
 
@@ -87,28 +108,26 @@ export function parseInstant(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-export function dateTime(value: string | Date | null | undefined): string {
+export function dateTime(value: string | Date | null | undefined, locale = LOCALE): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : DATE_TIME.format(parsed)
+  return parsed == null ? NO_VALUE : formatsOf(locale).dateTime.format(parsed)
 }
 
 /** The access badge on a phone shows the day only, and a period always ends at midnight. */
-export function date(value: string | Date | null | undefined): string {
+export function date(value: string | Date | null | undefined, locale = LOCALE): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : DATE_ONLY.format(parsed)
+  return parsed == null ? NO_VALUE : formatsOf(locale).date.format(parsed)
 }
 
-export function time(value: string | Date | null | undefined): string {
+export function time(value: string | Date | null | undefined, locale = LOCALE): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : SHORT_TIME.format(parsed)
+  return parsed == null ? NO_VALUE : formatsOf(locale).time.format(parsed)
 }
 
 export function clock(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : TIME.format(parsed)
+  return parsed == null ? NO_VALUE : TIME.format(parsed)
 }
-
-const RELATIVE = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" })
 
 const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["second", 60],
@@ -120,17 +139,17 @@ const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["year", Number.POSITIVE_INFINITY],
 ]
 
-export function relative(value: string | Date | null | undefined, now = Date.now()): string {
+export function relative(value: string | Date | null | undefined, now = Date.now(), locale = LOCALE): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  if (parsed == null) return "\u2013"
+  if (parsed == null) return NO_VALUE
   let delta = (parsed.getTime() - now) / 1000
   for (const [unit, size] of STEPS) {
     if (Math.abs(delta) < size) {
-      return RELATIVE.format(Math.round(delta), unit)
+      return formatsOf(locale).relative.format(Math.round(delta), unit)
     }
     delta /= size
   }
-  return DATE_TIME.format(parsed)
+  return formatsOf(locale).dateTime.format(parsed)
 }
 
 export function splitPlaytime(seconds: number | null | undefined): {

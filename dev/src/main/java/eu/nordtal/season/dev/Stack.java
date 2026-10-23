@@ -103,11 +103,17 @@ final class Stack {
     }
 
     static String storePack(final String url, final String sha1) {
-        return "INSERT INTO setting_override (service, name, path, value, actor_kind, changed) VALUES"
-                + " ('proxy', 'pack', 'url', to_jsonb(" + literal(url) + "::text), 'HOST', now()),"
-                + " ('proxy', 'pack', 'sha1', to_jsonb(" + literal(sha1) + "::text), 'HOST', now())"
-                + " ON CONFLICT (service, name, path) DO UPDATE SET value = excluded.value,"
-                + " actor_kind = excluded.actor_kind, actor_id = NULL, changed = excluded.changed";
+        return "INSERT INTO setting_override (service, name, path, actor_kind, changed) VALUES"
+                + " ('proxy', 'pack', 'url', 'HOST', now()), ('proxy', 'pack', 'sha1', 'HOST', now())"
+                + " ON CONFLICT (service, name, path) DO UPDATE SET"
+                + " actor_kind = excluded.actor_kind, actor_id = NULL, changed = excluded.changed;"
+                + " DELETE FROM setting_override_node WHERE service = 'proxy' AND name = 'pack';"
+                + " INSERT INTO setting_override_node"
+                + " (service, name, path, node, parent, field, ordinal, kind, string, number, flag)"
+                + " SELECT 'proxy', 'pack', v.path, n.* FROM (VALUES"
+                + " ('url', to_jsonb(" + literal(url) + "::text)),"
+                + " ('sha1', to_jsonb(" + literal(sha1) + "::text))) AS v (path, value),"
+                + " setting_override_nodes(v.value) AS n";
     }
 
     private static String literal(final String text) {

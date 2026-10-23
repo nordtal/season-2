@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.hud;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.hud.Bearing;
 import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
@@ -30,9 +31,9 @@ public final class SmpHud {
 
     record World(WorldRole world) {}
 
-    record Progress(int percent) {}
+    record Progress(@Example("40") int percent) {}
 
-    record Distance(long blocks) {}
+    record Distance(@Example("350") long blocks) {}
 
     static final DocumentSpec<World> WORLD = line("hud-world", World.class);
     static final DocumentSpec<Progress> PROGRESS = line("hud-progress", Progress.class);

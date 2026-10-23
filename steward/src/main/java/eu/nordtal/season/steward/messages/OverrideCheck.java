@@ -5,7 +5,6 @@ import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
-import eu.nordtal.season.messages.value.Kind;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,8 +28,7 @@ public final class OverrideCheck {
 
     /** Returns the declaration of a described entry from the schema of its jar. */
     static Declaration declaration(final MessageEntry entry) {
-        final Map<String, Kind> values = new HashMap<>();
-        final Map<String, String> examples = new HashMap<>();
+        final Map<String, Declaration.Placeholder> placeholders = new HashMap<>();
         final Set<String> roles = new HashSet<>();
         final Set<String> actions = new HashSet<>();
         for (final MessageArg arg : entry.args()) {
@@ -40,10 +38,7 @@ public final class OverrideCheck {
             }
             final String kind = arg.kind();
             if (kind != null) {
-                values.put(arg.name(), Kind.byToken(kind).orElse(Kind.TEXT));
-            }
-            if (arg.example() != null) {
-                examples.put(arg.name(), arg.example());
+                placeholders.put(arg.name(), new Declaration.Placeholder(kind, arg.example(), arg.takes() != null));
             }
             if (!arg.global()) {
                 roles.add(
@@ -56,13 +51,12 @@ public final class OverrideCheck {
                 .flatMap(name -> Arrays.stream(Display.values())
                         .filter(place -> place.name().equals(name)))
                 .toList();
-        return new Declaration(
-                values,
+        return Declaration.of(
+                placeholders,
                 roles,
                 actions,
                 "MINIMESSAGE".equals(entry.format()),
                 entry.limit(),
-                examples,
                 Display.oneLine(shown));
     }
 }

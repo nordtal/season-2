@@ -3,18 +3,19 @@ import { describe, expect, it } from "vitest"
 import { languageName } from "@/lib/language-names"
 
 describe("languageName", () => {
-  it("names the two tags this project actually ships bundles for", () => {
+  it("names a language in that language", () => {
     expect(languageName("en")).toBe("English")
     expect(languageName("de")).toBe("Deutsch")
+    expect(languageName("fr")).toBe("Français")
   })
 
-  it("is case- and whitespace-insensitive on the tag, the way the file itself is not", () => {
-    expect(languageName("DE")).toBe("Deutsch")
-    expect(languageName(" en ")).toBe("English")
+  it("names a language it has no name for by its language subtag, as Locales.ownName does", () => {
+    expect(languageName("xx")).toBe("xx")
+    expect(languageName("XX")).toBe("xx")
   })
 
-  it("falls back to the tag itself rather than to nothing, for a tag with no known name", () => {
-    expect(languageName("fr")).toBe("fr")
+  it("shows a tag it cannot read as itself", () => {
+    expect(languageName("e")).toBe("e")
     expect(languageName("")).toBe("")
   })
 })

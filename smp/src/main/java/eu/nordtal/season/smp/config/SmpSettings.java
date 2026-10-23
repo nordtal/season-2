@@ -57,6 +57,10 @@ public final class SmpSettings {
                                 + " aura; the band is 2-10, so that one advancement cannot outweigh "
                                 + "a whole objective");
             }
+            if (award.spins() < 0) {
+                throw new IllegalArgumentException(
+                        "advancement-awards: '" + award.advancement() + "' grants " + award.spins() + " spins");
+            }
         }
     }
 

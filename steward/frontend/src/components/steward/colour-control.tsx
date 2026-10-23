@@ -27,7 +27,7 @@ export function ColourControl({
 }: {
   id: string
   value: string
-  disabled: boolean
+  disabled?: boolean
   onChange: (value: string) => void
 }) {
   const valid = validHex(value)

@@ -1,13 +1,11 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AlertOnce;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.StoredDocuments;
@@ -52,9 +50,6 @@ import org.jspecify.annotations.Nullable;
  */
 @Slf4j
 public final class Onboarding extends ListenerAdapter implements Withholding {
-
-    /** The page in Steward that an onboarding alert opens. */
-    static final String PAGE = "/services/discord-bot";
 
     private static final String WITHOUT_CHANNEL = "onboarding channel";
 
@@ -338,15 +333,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private Lock lock(final Guild guild) {
         final Lock lock = state(guild);
         if (lock.withoutChannel()) {
-            alerts.raise(
-                    WITHOUT_CHANNEL,
-                    new Alert(
-                            AlertType.BOT,
-                            Alert.Level.WARN,
-                            WITHOUT_CHANNEL,
-                            TEXTS.alert().lockWithoutChannel(),
-                            List.of(TEXTS.alert().nobodyLocked()),
-                            PAGE));
+            alerts.raise(WITHOUT_CHANNEL, new Alert(JournalAction.LOCK_WITHOUT_CHANNEL, Alert.Level.WARN, List.of()));
         } else {
             alerts.clear(WITHOUT_CHANNEL);
         }

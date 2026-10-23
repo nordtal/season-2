@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
+import eu.nordtal.season.database.audit.JournalAction;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -137,7 +139,12 @@ class GuildRolesTest {
         assertAll(
                 () -> assertTrue(table.all().isEmpty()),
                 () -> assertTrue(guild.created.isEmpty(), "creating a third would only make it worse"),
-                () -> assertEquals(1, alerts.size()),
+                () -> assertEquals(
+                        List.of(new Alert(
+                                JournalAction.ROLE_AMBIGUOUS,
+                                Alert.Level.WARN,
+                                new JournalDetail.RoleNamed("Access", null))),
+                        alerts),
                 () -> assertTrue(roles.id(GuildRoles.ACCESS).isEmpty()));
     }
 
@@ -179,6 +186,8 @@ class GuildRolesTest {
 
         assertAll(
                 () -> assertEquals(1, alerts.size()),
+                () -> assertEquals(
+                        JournalAction.ROLE_NOT_CREATED, alerts.getFirst().action()),
                 () -> assertEquals(Optional.of("900"), roles.id(GuildRoles.ACCESS)));
     }
 

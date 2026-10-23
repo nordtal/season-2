@@ -41,21 +41,19 @@ class StartUpInstallIntegrationTest {
     }
 
     @Test
-    void aStartUpInstallIsWrittenAlreadySettledWithItsReportAndHowLongItTook() {
-        final String report = UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.DONE));
-
+    void aStartUpInstallIsWrittenAlreadySettledWithItsStageAndHowLongItTook() {
         final UpdateRequest written = updates.record(
-                new StewardRequest.Install(List.of("smp", "limbo")),
+                new StewardRequest.Install(),
+                List.of("smp", "limbo"),
                 Actor.STEWARD,
                 UpdateStatus.DONE,
-                report,
                 Duration.ofSeconds(90));
 
         assertEquals(UpdateKind.INSTALL, written.kind());
         assertEquals(UpdateStatus.DONE, written.status());
         assertEquals(Actor.STEWARD, written.actor());
-        assertEquals(List.of("smp", "limbo"), updates.scopeOf(written.id()));
-        assertEquals(UpdateReports.parse(report), UpdateReports.parse(written.result()));
+        assertEquals(List.of("limbo", "smp"), updates.scopeOf(written.id()));
+        assertEquals(RunStage.DONE, written.stage());
         assertNotNull(written.started());
         assertNotNull(written.finished());
         assertEquals(
@@ -71,13 +69,10 @@ class StartUpInstallIntegrationTest {
         final UpdateRequest open = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         final UpdateRequest failed = updates.record(
-                new StewardRequest.Install(List.of()),
-                Actor.STEWARD,
-                UpdateStatus.FAILED,
-                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)),
-                Duration.ZERO);
+                new StewardRequest.Install(), List.of(), Actor.STEWARD, UpdateStatus.FAILED, Duration.ZERO);
 
         assertEquals(UpdateStatus.FAILED, failed.status());
+        assertEquals(RunStage.FAILED, failed.stage());
         assertEquals(open.id(), updates.open().orElseThrow().id(), "the open run is still the one open");
     }
 }

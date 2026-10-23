@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ReleaseTest {
@@ -30,5 +31,13 @@ class ReleaseTest {
     @Test
     void aReleaseNothingCanOrderIsHandedOver() {
         assertEquals(Release.Standing.NEWER, Release.of("v1.0.0-rc1", "0.10.3"));
+    }
+
+    /** A resolve step names the release only when it differs from the agent's, and both without a v. */
+    @Test
+    void theReleaseIsAChangeOnlyWhenItIsNotTheAgentsOwn() {
+        assertEquals(Optional.empty(), Release.changed("v0.55.0", "0.55.0"));
+        assertEquals(Optional.empty(), Release.changed(null, "0.55.0"));
+        assertEquals(Optional.of("0.56.0"), Release.changed("v0.56.0", "0.55.0"));
     }
 }

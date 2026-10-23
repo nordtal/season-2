@@ -29,7 +29,7 @@ export function translationsSearch(search: Record<string, unknown>): Translation
 const EVERY_SERVICE = "ALL"
 
 /** The service filter and the search share a width, and halve the row on a phone. */
-const CONTROL_WIDTH = "min-w-0 flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto"
+const CONTROL_WIDTH = "flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto"
 
 /** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
@@ -94,7 +94,7 @@ export function Translations({
       actions={
         <>
           <ServiceFilter texts={texts.data} service={service} onService={onService} />
-          <div className={"flex " + CONTROL_WIDTH}>
+          <div className={`flex ${CONTROL_WIDTH}`}>
             <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
           </div>
         </>
@@ -139,7 +139,8 @@ function ServiceFilter({
       value={service ?? EVERY_SERVICE}
       onValueChange={(value) => onService(value === EVERY_SERVICE ? undefined : value)}
     >
-      <SelectTrigger aria-label={t("steward.texts.service")} className={CONTROL_WIDTH}>
+      {/* Only the filter shrinks below its content, so on a phone the search keeps its minimum width. */}
+      <SelectTrigger aria-label={t("steward.texts.service")} className={`min-w-0 ${CONTROL_WIDTH}`}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -6,7 +6,7 @@ import { toast } from "sonner"
 
 import type { Backup, Run, RunArchive } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
-import { bytes, count, dateTime, parseInstant, relative } from "@/lib/format"
+import { bytes, count, dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
 import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -14,16 +14,24 @@ import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
+import { When } from "@/components/steward/when"
 import { RunStatus, runKind } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AskButton, savedCount } from "@/pages/operations"
+import { AskButton, RunPage, savedCount } from "@/pages/operations"
 import { DataTable } from "@/components/steward/data-table"
-import { entryAt, useStewardConfig } from "@/components/steward/group-form"
-import { ScheduleDialog } from "@/pages/backup-dialogs"
+import { ScheduleDialog, entryAt, useStewardConfig } from "@/components/steward/group-form"
+
+/** steward-agent's four `backup.retention` keys, in the order the schedule dialog draws them. */
+const RETENTION_KEYS = [
+  "backup.retention.daily",
+  "backup.retention.weekly",
+  "backup.retention.monthly",
+  "backup.retention.collapse-after-days",
+] as const
 
 /**
  * Everything about the backups. A secret is never drawn. A backup and a restore are runs like every other.
@@ -35,7 +43,17 @@ export function BackupsPage() {
         title={t("steward.backups.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ScheduleDialog />
+            <ScheduleDialog
+              job="backup"
+              empty={t("steward.backup-settings.no-at")}
+              noDay={t("steward.backup-settings.no-night")}
+              also={{
+                service: "steward-agent",
+                name: "runs",
+                keys: RETENTION_KEYS,
+                saved: t("steward.backup-settings.retention-saved"),
+              }}
+            />
             <RestoreDialog />
             <AskButton kind="BACKUP" variant="default" label={t("steward.backups.back-up-now")} size="sm" />
           </div>
@@ -66,20 +84,20 @@ function Summary() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-3">
       <Stat
         label={t("steward.backups.latest")}
-        value={newest ? relative(newest.modified) : backups.data ? t("steward.backups.none") : "\u2013"}
+        value={newest ? <When at={newest.modified} /> : backups.data ? t("steward.backups.none") : NO_VALUE}
         tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
+        hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : NO_VALUE}
       />
       {/* Neutral and not warn: "not tracked" is a fact about the feature. */}
       <Stat label={t("steward.backups.storage")} value={t("steward.backups.not-tracked")} />
       <Stat
         label={t("steward.backups.next")}
-        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "\u2013"}
+        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : NO_VALUE}
         hint={
           schedule.data?.nextBackupAt
             ? `${at ?? schedule.data.backupAt} ${schedule.data.zone}`
             : schedule.isPending
-              ? "\u2013"
+              ? NO_VALUE
               : t("steward.backups.no-clock")
         }
       />
@@ -99,7 +117,7 @@ function savedBy(run: Run): RunArchive[] {
 function ran(run: Run): string {
   const started = parseInstant(run.started)
   const finished = parseInstant(run.finished)
-  if (!started || !finished) return "\u2013"
+  if (!started || !finished) return NO_VALUE
   return span((finished.getTime() - started.getTime()) / 1000)
 }
 
@@ -150,7 +168,7 @@ function Runs() {
                 end: true,
                 phone: { line: 3, side: "end", labelled: true },
                 className: "tnum",
-                render: (run) => (run.steps.length === 0 ? "\u2013" : count(savedCount(run))),
+                render: (run) => (run.steps.length === 0 ? NO_VALUE : count(savedCount(run))),
               },
               {
                 head: t("steward.backups.took"),
@@ -297,87 +315,88 @@ function holds(file: RunFile): string {
   return t("steward.backups.holds", { subject, partial: file.onDisk?.partial ?? false })
 }
 
+/** The page of one backup run: the update run's page with the archives the run saved and pruned. */
 export function BackupRunDetailPage() {
   const { id } = useParams({ from: "/operations/backups/$id" })
-  const runs = useRuns(80)
+  return (
+    <RunPage
+      id={id}
+      title={t("steward.backups.backup", { id })}
+      list={{ to: "/operations/backups", label: t("steward.backups.all-backups") }}
+    >
+      {(run) => <Archives run={run} />}
+    </RunPage>
+  )
+}
+
+function Archives({ run }: { run?: Run }) {
   const backups = useBackups()
-  const run = runs.data?.find((candidate) => String(candidate.id) === id)
   const files = run ? filesOf(run, backups.data ?? []) : []
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("steward.backups.backup", { id })} />
-
-      <QueryState query={runs} isEmpty={() => !run} empty={{ title: t("steward.backups.no-such-run") }}>
-        {(answer) => (
-          <>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-              <Stat label={t("steward.backups.status")} value={run ? <RunStatus status={run.status} /> : undefined} />
-              <Stat
-                label={t("steward.backups.when")}
-                value={run ? dateTime(run.started || run.requested) : undefined}
-              />
-              <Stat label={t("steward.backups.took")} value={run ? ran(run) : undefined} />
-              <Stat label={t("steward.backups.archives")} value={answer && run ? count(savedCount(run)) : undefined} />
-            </div>
-
-            <Panel title={t("steward.backups.archives")}>
-              {answer && backups.data && files.length === 0 ? (
-                <Empty title={t("steward.backups.no-archive")} />
-              ) : (
-                <DataTable
-                  rows={answer && backups.data ? files : undefined}
-                  waiting={3}
-                  rowKey={(file) => `${file.file}-${file.rule ?? ""}`}
-                  columns={[
-                    {
-                      head: t("steward.backups.archive"),
-                      grow: true,
-                      phone: { line: 1, side: "wide" },
-                      waiting: <SkeletonText className="text-xs" width="long" />,
-                      render: (file) => <code className="text-xs break-all">{file.file}</code>,
-                    },
-                    {
-                      head: t("steward.backups.holds-column"),
-                      phone: { line: 2, side: "start" },
-                      render: holds,
-                    },
-                    {
-                      head: t("steward.backups.written"),
-                      phone: { line: 3, side: "start" },
-                      className: "text-muted-foreground",
-                      render: (file) =>
-                        file.onDisk ? whereabouts(file) : <span className="text-warning">{whereabouts(file)}</span>,
-                    },
-                    {
-                      head: t("steward.backups.size"),
-                      end: true,
-                      phone: { line: 2, side: "end" },
-                      className: "tnum",
-                      render: (file) => bytes(file.bytes),
-                    },
-                    {
-                      head: "",
-                      phone: "action",
-                      render: (file) =>
-                        !file.onDisk || file.onDisk.partial ? null : (
-                          <a
-                            href={`/api/backups/${encodeURIComponent(file.file)}/download`}
-                            download={file.file}
-                            aria-label={t("steward.backups.download-file", { file: file.file })}
-                            className="inline-flex text-muted-foreground tap-target hover:text-foreground"
-                          >
-                            <DownloadIcon className="size-4" />
-                          </a>
-                        ),
-                    },
-                  ]}
-                />
-              )}
-            </Panel>
-          </>
-        )}
-      </QueryState>
-    </div>
+    <Panel title={t("steward.backups.archives")}>
+      {backups.error ? (
+        <QueryState query={backups}>{() => null}</QueryState>
+      ) : run && backups.data && files.length === 0 ? (
+        <Empty
+          title={t(
+            savedCount(run) > 0
+              ? "steward.backups.not-catalogued"
+              : run.status === "PENDING" || run.status === "RUNNING"
+                ? "steward.backups.no-archive-yet"
+                : "steward.backups.no-archive",
+          )}
+        />
+      ) : (
+        <DataTable
+          rows={run && backups.data ? files : undefined}
+          waiting={3}
+          rowKey={(file) => `${file.file}-${file.rule ?? ""}`}
+          columns={[
+            {
+              head: t("steward.backups.archive"),
+              grow: true,
+              phone: { line: 1, side: "wide" },
+              waiting: <SkeletonText className="text-xs" width="long" />,
+              render: (file) => <code className="text-xs break-all">{file.file}</code>,
+            },
+            {
+              head: t("steward.backups.holds-column"),
+              phone: { line: 2, side: "start" },
+              render: holds,
+            },
+            {
+              head: t("steward.backups.written"),
+              phone: { line: 3, side: "start" },
+              className: "text-muted-foreground",
+              render: (file) =>
+                file.onDisk ? whereabouts(file) : <span className="text-warning">{whereabouts(file)}</span>,
+            },
+            {
+              head: t("steward.backups.size"),
+              end: true,
+              phone: { line: 2, side: "end" },
+              className: "tnum",
+              render: (file) => bytes(file.bytes),
+            },
+            {
+              head: "",
+              phone: "action",
+              render: (file) =>
+                !file.onDisk || file.onDisk.partial ? null : (
+                  <a
+                    href={`/api/backups/${encodeURIComponent(file.file)}/download`}
+                    download={file.file}
+                    aria-label={t("steward.backups.download-file", { file: file.file })}
+                    className="inline-flex text-muted-foreground tap-target hover:text-foreground"
+                  >
+                    <DownloadIcon className="size-4" />
+                  </a>
+                ),
+            },
+          ]}
+        />
+      )}
+    </Panel>
   )
 }

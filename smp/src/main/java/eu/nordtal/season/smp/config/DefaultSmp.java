@@ -68,24 +68,24 @@ final class DefaultSmp {
             item("minecraft:elytra", 1, 3),
             item("minecraft:totem_of_undying", 1, 3));
 
-    static final List<WheelPrizeSpec> DUEL_LOADOUT_SWORD = List.of(
-            item("minecraft:iron_sword", 1, 1),
-            item("minecraft:shield", 1, 1),
-            item("minecraft:iron_helmet", 1, 1),
-            item("minecraft:iron_chestplate", 1, 1),
-            item("minecraft:iron_leggings", 1, 1),
-            item("minecraft:iron_boots", 1, 1),
-            item("minecraft:cooked_beef", 8, 1));
+    static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_SWORD = List.of(
+            loadoutItem("minecraft:iron_sword", 1),
+            loadoutItem("minecraft:shield", 1),
+            loadoutItem("minecraft:iron_helmet", 1),
+            loadoutItem("minecraft:iron_chestplate", 1),
+            loadoutItem("minecraft:iron_leggings", 1),
+            loadoutItem("minecraft:iron_boots", 1),
+            loadoutItem("minecraft:cooked_beef", 8));
 
-    static final List<WheelPrizeSpec> DUEL_LOADOUT_BOW = List.of(
-            item("BOW", 1, 1),
-            item("minecraft:arrow", 64, 1),
-            item("minecraft:iron_sword", 1, 1),
-            item("minecraft:leather_helmet", 1, 1),
-            item("minecraft:chainmail_chestplate", 1, 1),
-            item("minecraft:leather_leggings", 1, 1),
-            item("minecraft:leather_boots", 1, 1),
-            item("minecraft:cooked_beef", 8, 1));
+    static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_BOW = List.of(
+            loadoutItem("minecraft:bow", 1),
+            loadoutItem("minecraft:arrow", 64),
+            loadoutItem("minecraft:iron_sword", 1),
+            loadoutItem("minecraft:leather_helmet", 1),
+            loadoutItem("minecraft:chainmail_chestplate", 1),
+            loadoutItem("minecraft:leather_leggings", 1),
+            loadoutItem("minecraft:leather_boots", 1),
+            loadoutItem("minecraft:cooked_beef", 8));
 
     private DefaultSmp() {}
 
@@ -158,6 +158,7 @@ final class DefaultSmp {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("advancement", advancement);
         values.put("aura", aura);
+        values.put("spins", 0);
         return Specs.createUnsafe(AdvancementAwardSpec.class, values);
     }
 
@@ -167,5 +168,12 @@ final class DefaultSmp {
         values.put("amount", amount);
         values.put("weight", weight);
         return Specs.createUnsafe(WheelPrizeSpec.class, values);
+    }
+
+    private static DuelLoadoutItemSpec loadoutItem(final String item, final int amount) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("item", item);
+        values.put("amount", amount);
+        return Specs.createUnsafe(DuelLoadoutItemSpec.class, values);
     }
 }

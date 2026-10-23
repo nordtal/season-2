@@ -52,7 +52,7 @@ export function RichField({
   disabled?: boolean
   /** The controls at the start of the field's bottom row. */
   start?: ReactNode
-  /** The controls at its end, before the switch between as it looks and as written. */
+  /** The controls at the end of the field's bottom row. */
   end?: ReactNode
 }) {
   const [source, setSource] = useState(false)
@@ -62,43 +62,46 @@ export function RichField({
   const readable = runs !== null
   const visual = readable && !source
   const common = { format, args, glyphs: glyphs.data ?? [], fill, tones, label, disabled }
+  // The switch between as it looks and as written ends the tool row, so the bottom row exists only for `start` and `end`.
+  const looks = (
+    <span role="group" className="flex rounded-md bg-muted p-0.5">
+      <InputGroupButton
+        size="icon-xs"
+        variant={visual ? "secondary" : "ghost"}
+        aria-pressed={visual}
+        aria-label={t("steward.message-editor.as-it-looks")}
+        title={t("steward.message-editor.as-it-looks")}
+        disabled={!readable}
+        onClick={() => setSource(false)}
+      >
+        <EyeIcon aria-hidden />
+      </InputGroupButton>
+      <InputGroupButton
+        size="icon-xs"
+        variant={visual ? "ghost" : "secondary"}
+        aria-pressed={!visual}
+        aria-label={t("steward.message-editor.source")}
+        title={t("steward.message-editor.source")}
+        onClick={() => setSource(true)}
+      >
+        <CodeIcon aria-hidden />
+      </InputGroupButton>
+    </span>
+  )
   return (
     <>
       <InputGroup className={cn("h-auto flex-col items-stretch", invalid && "border-destructive")}>
         {visual ? (
-          <VisualEditor key={revision} {...common} runs={runs} onChange={setRuns} kinds={kinds} />
+          <VisualEditor key={revision} {...common} runs={runs} onChange={setRuns} kinds={kinds} trailing={looks} />
         ) : (
-          <SourceEditor {...common} text={text} onChange={onText} />
+          <SourceEditor {...common} text={text} onChange={onText} trailing={looks} />
         )}
-        <InputGroupAddon align="block-end" className="flex-wrap gap-1 border-t border-input pt-1.5 pb-1.5">
-          {start}
-          <span className="ml-auto flex items-center gap-1">
-            {end}
-            <span role="group" className="flex rounded-md bg-muted p-0.5">
-              <InputGroupButton
-                size="icon-xs"
-                variant={visual ? "secondary" : "ghost"}
-                aria-pressed={visual}
-                aria-label={t("steward.message-editor.as-it-looks")}
-                title={t("steward.message-editor.as-it-looks")}
-                disabled={!readable}
-                onClick={() => setSource(false)}
-              >
-                <EyeIcon aria-hidden />
-              </InputGroupButton>
-              <InputGroupButton
-                size="icon-xs"
-                variant={visual ? "ghost" : "secondary"}
-                aria-pressed={!visual}
-                aria-label={t("steward.message-editor.source")}
-                title={t("steward.message-editor.source")}
-                onClick={() => setSource(true)}
-              >
-                <CodeIcon aria-hidden />
-              </InputGroupButton>
-            </span>
-          </span>
-        </InputGroupAddon>
+        {start || end ? (
+          <InputGroupAddon align="block-end" className="flex-wrap gap-1 border-t border-input pt-1.5 pb-1.5">
+            {start}
+            <span className="ml-auto flex items-center gap-1">{end}</span>
+          </InputGroupAddon>
+        ) : null}
       </InputGroup>
       {visual ? (
         <ChoiceFields key={revision} {...common} runs={runs} onChange={setRuns} kinds={kinds} language={language} />

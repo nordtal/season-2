@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -13,8 +14,8 @@ import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.aura.DuelType;
 import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
-import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.port.Arenas;
@@ -48,10 +49,10 @@ public final class Duels implements Arenas {
     }
 
     /** An interrupted duel moves no aura and shows no title. */
-    record Result(Outcome outcome, int aura) {}
+    record Result(Outcome outcome, @Example("25") int aura) {}
 
     /** The beat at zero seconds is the start of the fight. */
-    record Countdown(long seconds) {}
+    record Countdown(@Example("5") long seconds) {}
 
     static final DocumentSpec<DocumentSpec.None> WAITING =
             DocumentSpec.game("smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT);
@@ -272,10 +273,10 @@ public final class Duels implements Arenas {
     }
 
     private void giveLoadout(final Player player, final DuelType type) {
-        final List<WheelPrizeSpec> loadout =
+        final List<DuelLoadoutItemSpec> loadout =
                 type == DuelType.SWORD ? config.duelLoadoutSword() : config.duelLoadoutBow();
 
-        for (final WheelPrizeSpec entry : loadout) {
+        for (final DuelLoadoutItemSpec entry : loadout) {
             final Material material = GameKeys.material(entry.item()).orElse(null);
             if (material == null) {
                 plugin.getLogger()

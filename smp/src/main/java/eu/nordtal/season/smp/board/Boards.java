@@ -6,6 +6,7 @@ import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.aura.AuraRow;
 import eu.nordtal.season.smp.config.BoardSpec;
@@ -49,10 +50,18 @@ public final class Boards {
     record Milestone(MilestoneContext milestone) {}
 
     /** {@code bar} is the progress bar's text; a {@code done} row reads as finished. */
-    record Row(String objective, String bar, long amount, long target, boolean done) {}
+    record Row(
+            @Example("Mine 64 diamonds") String objective,
+            @Example("████████████░░░░░░░░") String bar,
+            @Example("40") long amount,
+            @Example("64") long target,
+            boolean done) {}
 
     /** A player without aura, or below zero, is shown fainter. */
-    record AuraLine(long place, PlayerContext player, long aura) {}
+    record AuraLine(
+            @Example("1") long place,
+            PlayerContext player,
+            @Example("4200") long aura) {}
 
     static final DocumentSpec<DocumentSpec.None> OBJECTIVE_TITLE = board("board-objective-title");
     static final DocumentSpec<DocumentSpec.None> OBJECTIVE_FINISHED = board("board-objective-finished");

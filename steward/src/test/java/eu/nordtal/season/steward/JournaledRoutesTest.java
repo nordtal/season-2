@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Unjournaled;
-import io.javalin.Javalin;
 import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
 import io.javalin.security.Roles;
@@ -15,12 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Fails the build on a changing route that writes no journal line and is not named below. */
-class JournaledRoutesTest {
+class JournaledRoutesTest extends WebFixture {
 
     private static final Set<HandlerType> WRITES =
             Set.of(HandlerType.POST, HandlerType.PUT, HandlerType.PATCH, HandlerType.DELETE);
@@ -50,20 +47,6 @@ class JournaledRoutesTest {
             Map.entry("POST /api/documents/render", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/shared-parts/{name}/changes", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/document-images", Unjournaled.SHOWN_ONCE_SAVED));
-
-    private static Javalin app;
-
-    @BeforeAll
-    static void start() {
-        app = RouteTable.start();
-    }
-
-    @AfterAll
-    static void stop() {
-        if (app != null) {
-            app.stop();
-        }
-    }
 
     @Test
     void everyChangingRouteIsJournaledOrNamedAsLeftOut() {

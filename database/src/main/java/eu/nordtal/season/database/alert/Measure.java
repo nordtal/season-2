@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
  * One fact an alert measured, as typed values to filter and compare alerts by.
  *
  * @param gauge what was measured, which decides the fields that are set
- * @param subject what it was measured on: a service, a backup series, {@code disk} or {@code memory}
+ * @param subject what it was measured on: a service, a backup series, {@code disk}, {@code memory} or the registry
  * @param value the number read in the gauge's unit, null for a word
  * @param limit the threshold, null if there is none
  * @param state the word read, such as Docker's state of a container, null for a number
@@ -43,7 +43,13 @@ public record Measure(
         EXIT_CODE,
 
         /** A container runs an older image than the registry has. */
-        OLDER_IMAGE
+        OLDER_IMAGE,
+
+        /** The registry did not answer, so no image was compared. The state is its answer. */
+        REGISTRY,
+
+        /** The resource pack the proxy offers does not answer. The state is its address. */
+        PACK
     }
 
     public Measure {

@@ -11,9 +11,9 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.TabRefusal;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
@@ -65,7 +65,7 @@ public interface AdminTexts {
 
         @Name("Who did it, a person")
         @Shown(Display.DISCORD_TEXT)
-        MessageRef person(@Arg("person") Mention person);
+        MessageRef person(@Arg("person") @Example("Alex") Mention person);
 
         /** Who did it: a person as a mention, anyone else as the word for their kind. */
         default MessageRef who(final Actor actor) {
@@ -80,7 +80,8 @@ public interface AdminTexts {
         MessageRef grantAdmin();
 
         @Name("Admin revoked")
-        MessageRef revokeAdmin(@Arg("below") List<String> below, @Arg("count") int count);
+        MessageRef revokeAdmin(
+                @Arg("below") @Example("Sam,Kim") List<String> below, @Arg("count") @Example("2") int count);
 
         @Name("Pack enforced")
         MessageRef enforcePack();
@@ -90,15 +91,16 @@ public interface AdminTexts {
 
         @Name("Access granted")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef grantAccess(@Arg("days") int days, @Arg("until") Instant until);
+        MessageRef grantAccess(
+                @Arg("days") @Example("30") int days, @Arg("until") @Example("2026-11-22T18:00:00Z") Instant until);
 
         @Name("Access revoked")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef revokeAccess(@Arg("grants") int grants);
+        MessageRef revokeAccess(@Arg("grants") @Example("2") int grants);
 
         @Name("Play time set")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef setPlaytime(@Arg("seconds") Duration seconds);
+        MessageRef setPlaytime(@Arg("seconds") @Example("PT12H5M") Duration seconds);
 
         @Name("Account linked")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
@@ -110,64 +112,72 @@ public interface AdminTexts {
 
         @Name("Payment settled")
         MessageRef settle(
-                @Arg("reference") String reference,
+                @Arg("reference") @Example("NT-A1B2C3") String reference,
                 @Arg("matched") PaymentMatch matched,
-                @Arg("days") int days,
-                @Arg("ordered") int ordered,
-                @Arg("received") Money received,
-                @Arg("donation") Money donation);
+                @Arg("days") @Example("30") int days,
+                @Arg("ordered") @Example("30") int ordered,
+                @Arg("received") @Example("500") Money received,
+                @Arg("donation") @Example("100") Money donation);
 
         @Name("Payment settled by hand")
         MessageRef settleByHand(
-                @Arg("reference") String reference,
-                @Arg("days") int days,
-                @Arg("ordered") int ordered,
-                @Arg("donation") Money donation);
+                @Arg("reference") @Example("NT-A1B2C3") String reference,
+                @Arg("days") @Example("30") int days,
+                @Arg("ordered") @Example("30") int ordered,
+                @Arg("donation") @Example("100") Money donation);
 
         @Name("Phase changed")
         MessageRef setPhase(@Arg("from") SeasonPhase from, @Arg("to") SeasonPhase to);
 
         @Name("Phase changed, with a reason")
         MessageRef setPhaseBecause(
-                @Arg("from") SeasonPhase from, @Arg("to") SeasonPhase to, @Arg("reason") String reason);
+                @Arg("from") SeasonPhase from,
+                @Arg("to") SeasonPhase to,
+                @Arg("reason") @Example("The start event is over.") String reason);
 
         @Name("Opening set")
-        MessageRef setLaunch(@Arg("to") Instant to);
+        MessageRef setLaunch(@Arg("to") @Example("2026-10-24T18:00:00Z") Instant to);
 
         @Name("Opening cleared")
         MessageRef clearLaunch();
 
         @Name("Paid time set")
-        MessageRef setSmpStart(@Arg("to") Instant to, @Arg("movedGrants") long movedGrants);
+        MessageRef setSmpStart(
+                @Arg("to") @Example("2026-10-31T18:00:00Z") Instant to,
+                @Arg("movedGrants") @Example("3") long movedGrants);
 
         @Name("Paid time cleared")
         MessageRef clearSmpStart();
 
         @Name("Security key added")
-        MessageRef registerKey(@Arg("label") String label);
+        MessageRef registerKey(@Arg("label") @Example("YubiKey") String label);
 
         @Name("Security key used")
         MessageRef heldKeyFor(
-                @Arg("label") String label, @Arg("unlocked") boolean unlocked, @Arg("hold") Duration hold);
+                @Arg("label") @Example("YubiKey") String label,
+                @Arg("unlocked") boolean unlocked,
+                @Arg("hold") @Example("PT15M") Duration hold);
 
         @Name("Security key renamed")
-        MessageRef renameKey(@Arg("label") String label);
+        MessageRef renameKey(@Arg("label") @Example("YubiKey") String label);
 
         @Name("Security key removed")
-        MessageRef removeKey(@Arg("label") String label, @Arg("left") int left);
+        MessageRef removeKey(@Arg("label") @Example("YubiKey") String label, @Arg("left") @Example("1") int left);
 
         @Name("Authenticator app added")
         MessageRef addAuthenticator();
 
         @Name("Authenticator app used")
-        MessageRef usedAuthenticator(@Arg("hold") Duration hold);
+        MessageRef usedAuthenticator(@Arg("hold") @Example("PT15M") Duration hold);
 
         @Name("Authenticator app removed")
-        MessageRef removeAuthenticator(@Arg("keys") int keys);
+        MessageRef removeAuthenticator(@Arg("keys") @Example("1") int keys);
 
         @Name("Security reset")
         MessageRef forgetEveryFactor(
-                @Arg("keys") int keys, @Arg("authenticator") boolean authenticator, @Arg("sessions") int sessions);
+                @Arg("keys") @Example("2") int keys,
+                @Arg("authenticator") boolean authenticator,
+                @Arg("sessions") @Example("3") int sessions);
 
         @Name("Push switched on")
         MessageRef webPushSubscribe();
@@ -183,60 +193,75 @@ public interface AdminTexts {
                 @Arg("alert") AlertType alert, @Arg("channel") AlertChannel channel, @Arg("enabled") boolean enabled);
 
         @Name("Console line")
-        MessageRef console(@Arg("service") String service, @Arg("command") String command);
+        MessageRef console(
+                @Arg("service") @Example("smp") String service,
+                @Arg("command") @Example("say Restart in five minutes") String command);
 
         @Name("Settings saved")
-        MessageRef saveSettings(@Arg("service") String service, @Arg("group") String group);
+        MessageRef saveSettings(
+                @Arg("service") @Example("smp") String service, @Arg("group") @Example("chat") String group);
 
         @Name("Texts saved")
-        MessageRef saveMessages(@Arg("bundle") String bundle);
+        MessageRef saveMessages(@Arg("bundle") @Example("steward") String bundle);
 
         @Name("Plugin added")
-        MessageRef addPlugin(@Arg("service") String service, @Arg("artifact") String artifact);
+        MessageRef addPlugin(
+                @Arg("service") @Example("smp") String service, @Arg("artifact") @Example("chunky") String artifact);
 
         @Name("Plugin removed")
-        MessageRef removePlugin(@Arg("run") long run, @Arg("service") String service, @Arg("artifact") String artifact);
+        MessageRef removePlugin(
+                @Arg("run") @Example("42") long run,
+                @Arg("service") @Example("smp") String service,
+                @Arg("artifact") @Example("chunky") String artifact);
 
         @Name("Run asked for")
         MessageRef requestRun(
-                @Arg("run") long run,
+                @Arg("run") @Example("42") long run,
                 @Arg("kind") UpdateKind kind,
-                @Arg("services") List<String> services,
-                @Arg("count") int count);
+                @Arg("services") @Example("smp,proxy") List<String> services,
+                @Arg("count") @Example("2") int count);
 
         @Name("Restore asked for")
-        MessageRef requestRestore(@Arg("run") long run, @Arg("archive") String archive);
+        MessageRef requestRestore(
+                @Arg("run") @Example("42") long run,
+                @Arg("archive") @Example("nordtal-20261020-0400.dump") String archive);
 
         @Name("Run cancelled")
-        MessageRef cancelRun(@Arg("run") long run, @Arg("kind") UpdateKind kind);
+        MessageRef cancelRun(@Arg("run") @Example("42") long run, @Arg("kind") UpdateKind kind);
 
         @Name("Backup downloaded")
-        MessageRef downloadBackup(@Arg("archive") String archive, @Arg("size") MessageRef size);
+        MessageRef downloadBackup(
+                @Arg("archive") @Example("nordtal-20261020-0400.dump") String archive,
+                @Arg("size") @Example("1.2 GiB") MessageRef size);
 
         @Name("Backup downloaded, size unknown")
-        MessageRef downloadBackupUnsized(@Arg("archive") String archive);
+        MessageRef downloadBackupUnsized(@Arg("archive") @Example("nordtal-20261020-0400.dump") String archive);
 
         @Name("Announcement")
-        MessageRef announce(@Arg("languages") List<String> languages);
+        MessageRef announce(@Arg("languages") @Example("English,Deutsch") List<String> languages);
 
         @Name("Objective completed")
-        MessageRef completeObjective(@Arg("objective") String objective);
+        MessageRef completeObjective(@Arg("objective") @Example("Mine 64 diamonds") String objective);
 
         @Name("Aura set")
-        MessageRef setAura(@Arg("aura") int aura);
+        MessageRef setAura(@Arg("aura") @Example("250") int aura);
 
         @Name("Spins set")
-        MessageRef setSpins(@Arg("spins") int spins);
+        MessageRef setSpins(@Arg("spins") @Example("3") int spins);
+
+        @Name("Stack removed")
+        MessageRef removeStack(
+                @Arg("item") @Example("minecraft:oak_log") String item, @Arg("amount") @Example("16") int amount);
 
         @Name("Milestone unlocked")
-        MessageRef unlockMilestone(@Arg("milestone") String milestone);
+        MessageRef unlockMilestone(@Arg("milestone") @Example("The Nether") String milestone);
 
         @Name("Hunger Games started")
         MessageRef startGame();
 
         @Name("Access anchored to the grant")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef unanchoredGrant(@Arg("from") Instant from);
+        MessageRef unanchoredGrant(@Arg("from") @Example("2026-10-24T18:00:00Z") Instant from);
 
         @Name("Refused linking for the hour")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
@@ -258,19 +283,7 @@ public interface AdminTexts {
         /** A run named in words: the title of its card and of its failed alert, and its row in the feed. */
         @Name("A run's kind and stage, as a title")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT, Display.PUSH})
-        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") UpdateReport.Stage stage);
-
-        @Name("Services that came back")
-        @Shown(Display.STEWARD)
-        MessageRef successful(@Arg("successful") long successful, @Arg("total") long total);
-
-        @Name("A service's state in a run")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef state(@Arg("state") UpdateReport.State state);
-
-        @Name("The part of a run a note is about")
-        @Shown(Display.STEWARD)
-        MessageRef step(@Arg("step") UpdateReport.Step step);
+        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") RunStage stage);
 
         @Name("How a step went")
         @Shown(Display.STEWARD)
@@ -288,40 +301,48 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef exitCode(@Arg("code") @Example("2") long code);
 
-        @Name("Which image a container was recreated from")
+        @Name("What happens to a container's image")
         @Shown(Display.STEWARD)
         MessageRef image(@Arg("image") RunStep.Image image);
+
+        @Name("An artefact no version names")
+        @Shown(Display.STEWARD)
+        MessageRef artefact(@Arg("artefact") @Example("paper") String artefact);
 
         @Name("Players moved off a service and back")
         @Shown(Display.STEWARD)
         MessageRef players(
-                @Arg("moved") long moved,
+                @Arg("moved") @Example("12") long moved,
                 @Arg("from") @Example("smp") String from,
                 @Arg("to") @Example("limbo") String to,
-                @Arg("returned") long returned);
+                @Arg("returned") @Example("12") long returned);
 
         @Name("Images a cleanup removed")
         @Shown(Display.STEWARD)
-        MessageRef imagesRemoved(@Arg("images") long images, @Arg("freed") MessageRef freed);
+        MessageRef imagesRemoved(
+                @Arg("images") @Example("4") long images, @Arg("freed") @Example("850 MiB") MessageRef freed);
 
         @Name("The build cache a cleanup freed")
         @Shown(Display.STEWARD)
-        MessageRef cacheFreed(@Arg("freed") MessageRef freed);
+        MessageRef cacheFreed(@Arg("freed") @Example("2.3 GiB") MessageRef freed);
 
         @Name("The room a backup needs and finds")
         @Shown(Display.STEWARD)
-        MessageRef room(@Arg("needed") MessageRef needed, @Arg("free") MessageRef free);
+        MessageRef room(
+                @Arg("needed") @Example("6.5 GiB") MessageRef needed, @Arg("free") @Example("14 GiB") MessageRef free);
 
         @Name("An offsite copy")
         @Shown(Display.STEWARD)
-        MessageRef offsite(@Arg("snapshot") @Example("4f1c2d") String snapshot, @Arg("added") MessageRef added);
+        MessageRef offsite(
+                @Arg("snapshot") @Example("4f1c2d") String snapshot,
+                @Arg("added") @Example("120 MiB") MessageRef added);
 
         @Name("An archive a step saved")
         @Shown(Display.STEWARD)
         MessageRef archiveSaved(
                 @Arg("file") @Example("nordtal-20261020-0400.dump") String file,
-                @Arg("size") MessageRef size,
-                @Arg("took") Duration took,
+                @Arg("size") @Example("1.2 GiB") MessageRef size,
+                @Arg("took") @Example("PT2M") Duration took,
                 @Arg("verified") boolean verified);
 
         @Name("An archive a step pruned")
@@ -359,21 +380,30 @@ public interface AdminTexts {
 
         @Name("Words as they came: a program's answer, or a line from before typed alerts")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef words(@Arg("text") String text);
+        MessageRef words(@Arg("text") @Example("The End opens tonight at eight.") String text);
 
         @Name("All clear")
         MessageRef clear(@Arg("type") AlertType type);
 
         @Name("Several of one type at once")
-        MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);
+        MessageRef several(@Arg("subjects") @Example("database dump,disk") List<String> subjects);
 
         @Name("Which run")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef run(@Arg("run") long run);
+        MessageRef run(@Arg("run") @Example("42") long run);
 
-        @Name("Why a run failed, about one service")
+        @Name("A step of a failed run that failed or warned")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef failure(@Arg("service") @Example("smp") String service, @Arg("what") MessageRef what);
+        MessageRef step(
+                @Arg("kind") @Example("Room check") MessageRef kind,
+                @Arg("why") @Example("admin/run.no-build") MessageRef why);
+
+        @Name("A step of a failed run on one service that failed or warned")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef stepOn(
+                @Arg("kind") @Example("Room check") MessageRef kind,
+                @Arg("service") @Example("smp") String service,
+                @Arg("why") @Example("admin/run.no-build") MessageRef why);
 
         @Name("No services")
         MessageRef noServices();
@@ -386,24 +416,31 @@ public interface AdminTexts {
 
         @Name("Failing healthcheck")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef healthFails();
+        MessageRef healthFails(@Arg("service") @Example("smp") String service);
 
         @Name("Docker's word")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef dockerState(@Arg("state") String state);
+        MessageRef dockerState(
+                @Arg("service") @Example("smp") String service, @Arg("state") @Example("restarting") String state);
 
         @Name("A service restarts")
-        MessageRef restarting(@Arg("service") @Example("smp") String service, @Arg("count") int count);
+        MessageRef restarting(@Arg("service") @Example("smp") String service);
 
         @Name("Restarted by Docker")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef restartedByDocker();
+        MessageRef restartedByDocker(
+                @Arg("service") @Example("smp") String service, @Arg("count") @Example("3") long count);
 
         @Name("A one-shot service failed")
-        MessageRef failedOnce(@Arg("service") @Example("smp") String service, @Arg("code") int code);
+        MessageRef failedOnce(@Arg("service") @Example("smp") String service);
+
+        @Name("The exit code of a one-shot service")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef exitCode(@Arg("service") @Example("smp") String service, @Arg("code") @Example("137") long code);
 
         @Name("Older images")
-        MessageRef olderImage(@Arg("services") List<String> services, @Arg("count") int count);
+        MessageRef olderImage(
+                @Arg("services") @Example("smp,proxy") List<String> services, @Arg("count") @Example("2") int count);
 
         @Name("Images not compared")
         MessageRef notCompared();
@@ -413,54 +450,55 @@ public interface AdminTexts {
 
         @Name("Which pack")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef offeredPack(@Arg("url") String url);
+        MessageRef offeredPack(@Arg("url") @Example("https://pack.nordtal.eu/nordtal.zip") String url);
 
         @Name("No finished backup")
         MessageRef noBackup();
 
-        @Name("Only started backups")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef onlyStarted();
-
         @Name("No database dump")
         MessageRef noDump();
 
-        @Name("What a missing dump means")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef dumpMatters();
-
         @Name("No archive of a volume")
-        MessageRef noArchive(@Arg("volume") String volume);
+        MessageRef noArchive(@Arg("volume") @Example("smp-world") String volume);
 
         @Name("An old dump")
-        MessageRef oldDump(@Arg("hours") long hours);
+        MessageRef oldDump();
 
         @Name("An old archive")
-        MessageRef oldArchive(@Arg("volume") String volume, @Arg("hours") long hours);
+        MessageRef oldArchive(@Arg("volume") @Example("smp-world") String volume);
 
         @Name("No copy off the host")
         MessageRef noOffsite();
 
         @Name("An old copy off the host")
-        MessageRef oldOffsite(@Arg("hours") long hours);
+        MessageRef oldOffsite();
 
-        @Name("The permitted age")
+        @Name("A backup series without a file")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef permittedAge(@Arg("hours") long hours);
+        MessageRef missing(@Arg("subject") @Example("database dump") String subject);
+
+        @Name("The age of a backup series against the permitted age")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef age(
+                @Arg("subject") @Example("database dump") String subject,
+                @Arg("hours") @Example("30") long hours,
+                @Arg("limit") @Example("26") long limit);
 
         @Name("A full disk")
-        MessageRef disk(@Arg("percent") long percent);
+        MessageRef disk();
+
+        @Name("How full the disk is")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef diskUse(
+                @Arg("percent") @Example("91") long percent, @Arg("threshold") @Example("90") long threshold);
 
         @Name("Used memory")
-        MessageRef memory(@Arg("percent") long percent);
+        MessageRef memory();
 
-        @Name("The threshold")
+        @Name("How much memory is used")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef threshold(@Arg("percent") long percent);
-
-        @Name("No memory limit")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef noLimit();
+        MessageRef memoryUse(
+                @Arg("percent") @Example("93") long percent, @Arg("threshold") @Example("90") long threshold);
 
         @Name("A payment needs a look")
         MessageRef payment();
@@ -468,35 +506,41 @@ public interface AdminTexts {
         @Name("An unknown reference")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef unknownReference(
-                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+                @Arg("payment") @Example("1093") String payment,
+                @Arg("amount") @Example("500") Money amount,
+                @Arg("reference") @Example("NT-A1B2C3") String reference);
 
         @Name("A request no longer open")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef notOpen(
-                @Arg("payment") String payment,
-                @Arg("amount") Money amount,
-                @Arg("reference") String reference,
+                @Arg("payment") @Example("1093") String payment,
+                @Arg("amount") @Example("500") Money amount,
+                @Arg("reference") @Example("NT-A1B2C3") String reference,
                 @Arg("status") PaymentRequestStatus status);
 
         @Name("A payment claimed twice")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef claimed(
-                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+                @Arg("payment") @Example("1093") String payment,
+                @Arg("amount") @Example("500") Money amount,
+                @Arg("reference") @Example("NT-A1B2C3") String reference);
 
         @Name("A payment below every tier")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef noTier(
-                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+                @Arg("payment") @Example("1093") String payment,
+                @Arg("amount") @Example("150") Money amount,
+                @Arg("reference") @Example("NT-A1B2C3") String reference);
 
         @Name("Several roles of one name")
-        MessageRef roleAmbiguous(@Arg("name") String name);
+        MessageRef roleAmbiguous(@Arg("name") @Example("Player") String name);
 
         @Name("None of them taken")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef noneAdopted();
 
         @Name("A role not created")
-        MessageRef roleNotCreated(@Arg("name") String name);
+        MessageRef roleNotCreated(@Arg("name") @Example("Player") String name);
 
         @Name("The lock without its channel")
         MessageRef lockWithoutChannel();
@@ -506,25 +550,29 @@ public interface AdminTexts {
         MessageRef nobodyLocked();
 
         @Name("Channels the lock does not close")
-        MessageRef lockNotKept(@Arg("count") int count);
+        MessageRef lockNotKept();
 
         @Name("Which channel, and what went wrong")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef failedIn(@Arg("channel") String channel, @Arg("error") String error);
+        MessageRef failedIn(
+                @Arg("channel") @Example("#announcements") String channel,
+                @Arg("error") @Example("Missing Permissions") String error);
 
         @Name("A role not changed")
         MessageRef roleNotChanged(@Arg("role") DiscordRole role, @Arg("given") boolean given);
 
         @Name("Who, and what went wrong")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef failedFor(@Arg("person") Mention person, @Arg("error") String error);
+        MessageRef failedFor(
+                @Arg("person") @Example("Alex") Mention person,
+                @Arg("error") @Example("Cannot send messages to this user") String error);
 
         @Name("A direct message not delivered")
         MessageRef dm();
 
         @Name("To whom")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef to(@Arg("person") Mention person);
+        MessageRef to(@Arg("person") @Example("Alex") Mention person);
 
         @Name("A link failed")
         MessageRef linkFailed();
@@ -537,6 +585,7 @@ public interface AdminTexts {
 
         @Name("Which request, and why bunq refused it")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef refused(@Arg("reference") String reference, @Arg("refusal") TabRefusal refusal);
+        MessageRef refused(
+                @Arg("reference") @Example("NT-A1B2C3") String reference, @Arg("refusal") TabRefusal refusal);
     }
 }

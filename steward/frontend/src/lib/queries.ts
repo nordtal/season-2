@@ -8,15 +8,12 @@ import {
   stepUpFirst,
   type AuthenticatorEnrolment,
   type StepUpLength,
-  type Action,
   type Backup,
-  type CommandRun,
   type SmpTrack,
   type HungerGamesRound,
   type KeyRegistered,
   type KeyRenamed,
   type KeyRemoved,
-  type CommandAsked,
   type AnnouncementsAsked,
   type ConsoleSent,
   type ConsoleTree,
@@ -43,11 +40,12 @@ import {
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
-import { live, RECONCILE, type Topic } from "@/lib/live"
+import { live } from "@/lib/live"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 import { retryUnless404 } from "@/lib/queries-settings"
+import { askUntilDone, doneRun } from "@/lib/queries-commands"
 
 /** One hook per endpoint. A hook's live topics are decided here and not at the call site. */
 
@@ -333,15 +331,6 @@ export function useSeason(enabled = true) {
   })
 }
 
-export function useActions(limit = 5, enabled = true) {
-  return useQuery({
-    queryKey: keys.actions(limit),
-    queryFn: () => api<Action[]>(`/api/actions?limit=${limit}`),
-    ...live("RUNS", "JOURNAL"),
-    enabled,
-  })
-}
-
 export function useSmpTrack() {
   return useQuery({
     queryKey: keys.smpTrack,
@@ -358,39 +347,34 @@ export function useHungerGamesRound() {
   })
 }
 
+/** Pends until the server has done the request, and fails with its reason in words otherwise. */
 export function useGameAction() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ path, body }: { path: string; body: unknown }) => api<CommandAsked>(path, { method: "POST", body }),
-    onSuccess: () => {
+    mutationFn: ({ path, body }: { path: string; body: unknown }) => askUntilDone(client, path, body),
+    onSettled: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
 
-export function useSendAnnouncement() {
+/**
+ * Waits until the bot has answered every language.
+ * It calls `onPosted` with each language the bot posted and its text. It fails with the reason of the first it did not post.
+ */
+export function useSendAnnouncement(onPosted: (tag: string, text: string) => void) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (texts: Record<string, string>) =>
-      api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["journal"] })
+    mutationFn: async (texts: Record<string, string>) => {
+      const asked = await api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } })
+      const runs = await Promise.allSettled(
+        Object.entries(asked.ids).map(([tag, id]) => doneRun(client, id).then(() => onPosted(tag, texts[tag]))),
+      )
+      const failed = runs.find((run) => run.status === "rejected")
+      if (failed) throw failed.reason
     },
-  })
-}
-
-/** What became of one request, read again on every change of the requests until it is final. */
-export function useCommandRun(id: string | null) {
-  return useQuery({
-    queryKey: keys.commandRun(id ?? ""),
-    queryFn: () => api<CommandRun>(`/api/commands/${id}`),
-    enabled: Boolean(id),
-    meta: { topics: ["REQUESTS"] satisfies Topic[] },
-    refetchInterval: (query) => {
-      /** A failed read stops the reconciliation. */
-      if (query.state.error) return false
-      const status = query.state.data?.status
-      return status === undefined || status === "PENDING" || status === "RUNNING" ? RECONCILE : false
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
@@ -561,4 +545,5 @@ export type { UseQueryOptions }
 
 export * from "@/lib/queries-access"
 export * from "@/lib/queries-alerts"
+export * from "@/lib/queries-commands"
 export * from "@/lib/queries-settings"

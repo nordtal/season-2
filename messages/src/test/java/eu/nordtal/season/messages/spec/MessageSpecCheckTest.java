@@ -1,12 +1,15 @@
 package eu.nordtal.season.messages.spec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.value.Example;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class MessageSpecCheckTest {
@@ -183,5 +186,28 @@ class MessageSpecCheckTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> MessageSchema.entries(ExampleNotTaken.class))
                 .getMessage()
                 .endsWith("the example sell of button is none of its values buy"));
+    }
+
+    record Changes(
+            @Takes("admin/*") @Example("admin/run.no-build,admin/run.why")
+            List<MessageRef> changes) {}
+
+    record UntakenChanges(@Example("admin/run.no-build") List<MessageRef> changes) {}
+
+    @Test
+    void aListOfMessagesTakesKeysAndReadsEachItemOfItsExampleAsOne() {
+        assertEquals(
+                List.of(MessageRef.of("run.no-build"), MessageRef.of("run.why")),
+                Value.of(Changes.class).get("changes").typedExample());
+        assertTrue(assertThrows(IllegalStateException.class, () -> Value.of(UntakenChanges.class))
+                .getMessage()
+                .endsWith("changes is a list of messages, so it needs @Takes"));
+    }
+
+    @Test
+    void anExampleThatDoesNotReadAsItsKindHasNoValue() {
+        assertNull(Value.withExampleValues(Map.of("left", new Value("duration", "soon", null)))
+                .get("left")
+                .exampleValue());
     }
 }

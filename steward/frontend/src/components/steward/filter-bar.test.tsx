@@ -3,6 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { ShieldCheckIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -50,41 +51,46 @@ describe("SearchField", () => {
 })
 
 describe("FilterOption", () => {
-  it("says whether it is pressed, and ticks itself after the label, which never moves", () => {
+  it("draws its icon before the label, says whether it is pressed, and ticks itself after the label", () => {
     const change = vi.fn<(pressed: boolean) => void>()
     const { rerender } = render(
-      <FilterOption pressed={false} onPressedChange={change}>
+      <FilterOption icon={ShieldCheckIcon} pressed={false} onPressedChange={change}>
         With access only
       </FilterOption>,
     )
     const option = screen.getByRole("button", { name: "With access only" })
     expect(option.getAttribute("aria-pressed")).toBe("false")
-    expect(option.firstChild?.textContent).toBe("With access only")
+    expect(option.firstElementChild?.tagName).toBe("svg")
+    expect(option.firstElementChild?.getAttribute("data-icon")).toBe("inline-start")
+    expect(option.textContent).toBe("With access only")
     expect(option.lastElementChild?.tagName).toBe("svg")
     expect(option.lastElementChild?.getAttribute("class")).toContain("invisible")
     fireEvent.click(option)
     expect(change).toHaveBeenCalledWith(true)
 
     rerender(
-      <FilterOption pressed onPressedChange={change}>
+      <FilterOption icon={ShieldCheckIcon} pressed onPressedChange={change}>
         With access only
       </FilterOption>,
     )
     expect(option.getAttribute("aria-pressed")).toBe("true")
-    expect(option.firstChild?.textContent).toBe("With access only")
+    expect(option.firstElementChild?.tagName).toBe("svg")
     expect(option.lastElementChild?.getAttribute("class")).not.toContain("invisible")
   })
 })
 
 describe("FilterChoice", () => {
-  it("picks one option at most, and pressing the chosen one again clears it", () => {
+  it("picks one option at most, draws each option's icon, and pressing the chosen one again clears it", () => {
     const change = vi.fn<(value: string) => void>()
     const options = [
-      { value: "OPEN", label: "Open" },
-      { value: "PAID", label: "Paid" },
+      { value: "OPEN", label: "Open", icon: ShieldCheckIcon },
+      { value: "PAID", label: "Paid", icon: ShieldCheckIcon },
     ]
     render(<FilterChoice label="Status" value="PAID" onValueChange={change} options={options} />)
     expect(screen.getByRole("group", { name: "Status" })).not.toBeNull()
+    expect(screen.getByRole("button", { name: "Open" }).firstElementChild?.getAttribute("data-icon")).toBe(
+      "inline-start",
+    )
     fireEvent.click(screen.getByRole("button", { name: "Open" }))
     expect(change).toHaveBeenLastCalledWith("OPEN")
     fireEvent.click(screen.getByRole("button", { name: "Paid" }))
@@ -96,7 +102,7 @@ describe("FilterMenu", () => {
   it("counts the active filters on its button and opens them in a popover", () => {
     const { rerender } = render(
       <FilterMenu active={0}>
-        <FilterOption pressed={false} onPressedChange={() => {}}>
+        <FilterOption icon={ShieldCheckIcon} pressed={false} onPressedChange={() => {}}>
           Admins
         </FilterOption>
       </FilterMenu>,
@@ -104,7 +110,7 @@ describe("FilterMenu", () => {
     expect(screen.getByRole("button", { name: "Filters" })).not.toBeNull()
     rerender(
       <FilterMenu active={2}>
-        <FilterOption pressed onPressedChange={() => {}}>
+        <FilterOption icon={ShieldCheckIcon} pressed onPressedChange={() => {}}>
           Admins
         </FilterOption>
       </FilterMenu>,

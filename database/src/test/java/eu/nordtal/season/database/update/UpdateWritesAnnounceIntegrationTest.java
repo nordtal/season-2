@@ -1,6 +1,5 @@
 package eu.nordtal.season.database.update;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,7 +49,7 @@ class UpdateWritesAnnounceIntegrationTest {
             updates.release("smp");
             assertFalse(heard(pg, 500), "releasing nothing announced a change that never happened");
 
-            updates.putBack(carried, TEXTS.report().words("restored from a dump taken while this ran"));
+            updates.putBack(carried);
             assertTrue(heard(pg, 5000), "a row put back after a restore was written without a word");
         }
     }

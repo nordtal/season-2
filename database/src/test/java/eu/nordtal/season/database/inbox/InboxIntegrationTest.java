@@ -1,8 +1,9 @@
 package eu.nordtal.season.database.inbox;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -10,7 +11,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.TestDatabase;
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.notify.SignalHub;
@@ -20,9 +20,6 @@ import eu.nordtal.season.messages.RefusalReason;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.messages.value.DisplayName;
-import eu.nordtal.season.messages.value.Mention;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -56,10 +53,6 @@ class InboxIntegrationTest {
     private static TestDatabase database;
     private static Inbox<BotRequest> inbox;
 
-    private enum Reason implements RefusalReason {
-        NOT_NOW
-    }
-
     @BeforeAll
     static void freshDatabase() {
         database = TestDatabase.fresh();
@@ -69,6 +62,7 @@ class InboxIntegrationTest {
     @BeforeEach
     void emptyTable() throws SQLException {
         execute("DELETE FROM bot_inbox");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + SOMEONE + "') ON CONFLICT DO NOTHING");
     }
 
     @Test
@@ -84,7 +78,7 @@ class InboxIntegrationTest {
                 LoggerFactory.getLogger(InboxIntegrationTest.class))) {
             Inbox.over(database.dataSource(), BotRequest.TABLE).listen(hub, request -> {
                 carriedOut.countDown();
-                return Outcome.done(Map.of("revoked", "1"));
+                return Outcome.done(new BotRequest.Revoke.Answer(1));
             });
             hub.start();
             // Past the drain of the connect, so only the notification can pick the row up.
@@ -156,7 +150,7 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aSettledRequestKeepsItsAnswerAndCannotBeSettledTwice() {
+    void aSettledRequestKeepsItsTypedAnswerInItsRowAndCannotBeSettledTwice() throws SQLException {
         final Request<BotRequest> asked = inbox.submit(new BotRequest.Grant(SOMEONE, 30), ADMIN);
         final Request<BotRequest> claimed = inbox.claim().orElseThrow();
         assertEquals(asked.id(), claimed.id());
@@ -164,80 +158,89 @@ class InboxIntegrationTest {
         assertEquals(InboxStatus.RUNNING, claimed.status());
         assertTrue(claimed.started() != null);
 
-        assertTrue(inbox.progress(asked.id(), Map.of("step", "role")));
-        assertEquals(
-                Optional.of(Map.of("step", "role")),
-                inbox.find(asked.id()).orElseThrow().outcome(Map.class));
-
-        final Request<BotRequest> done = inbox.settle(asked.id(), Outcome.done(Map.of("until", "2026-10-20")))
-                .orElseThrow();
+        final BotRequest.Grant.Answer until = new BotRequest.Grant.Answer(Instant.parse("2026-10-20T00:00:00Z"));
+        final Request<BotRequest> done =
+                inbox.settle(asked.id(), Outcome.done(until)).orElseThrow();
         assertEquals(InboxStatus.DONE, done.status());
-        assertEquals("{\"until\": \"2026-10-20\"}", done.outcome());
+        assertEquals(Optional.of(until), done.answer(BotRequest.Grant.Answer.class));
+        assertEquals(Optional.of(until), inbox.find(asked.id()).orElseThrow().answer(BotRequest.Grant.Answer.class));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_grant WHERE request = " + asked.id()
+                        + " AND until = '2026-10-20T00:00:00Z'"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE outcome IS NOT NULL"), "the answer is no text");
         assertTrue(inbox.settle(asked.id(), Outcome.failed(null)).isEmpty(), "settled a second time");
-        assertFalse(inbox.progress(asked.id(), Map.of()), "rewrote a settled answer");
     }
 
     @Test
-    void anAlertKeepsItsLevelMessagesAndMentionsThroughTheTable() {
-        final BotRequest.PostAlert alert = new BotRequest.PostAlert(
-                Alert.Level.DOWN,
-                TEXTS.alert().notRunning("smp"),
-                List.of(TEXTS.alert().dockerState("exited"), TEXTS.alert().to(Mention.of(SOMEONE))),
-                "https://steward.example/services/smp",
-                List.of(SOMEONE, DiscordId.of("400000000000000003")));
+    void anAnswerOfAnotherKindIsNeverWritten() {
+        final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
+        assertTrue(inbox.claim().isPresent());
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> inbox.settle(asked.id(), Outcome.done(new BotRequest.Unlink.Answer(true))));
+        assertEquals(InboxStatus.RUNNING, inbox.find(asked.id()).orElseThrow().status());
+    }
+
+    @Test
+    void anAlertKeepsItsEntryAndMentionThroughTheTable() {
+        final BotRequest.PostAlert alert =
+                new BotRequest.PostAlert(UUID.fromString("00000000-0000-0000-0000-000000000044"), true);
         inbox.submit(alert, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
         assertEquals(alert, inbox.claim().orElseThrow().payload());
     }
 
     @Test
-    void aBookedPaymentReachesTheBotWithEveryTypedValue() {
-        final BotRequest.PaymentBooked booked = new BotRequest.PaymentBooked(
-                UUID.fromString("00000000-0000-0000-0000-000000000042"),
-                SOMEONE,
-                "NT-ABC123",
-                60,
-                500,
-                true,
-                900,
-                Instant.parse("2026-10-01T00:00:00Z"),
-                Instant.parse("2026-11-30T00:00:00Z"),
-                UUID.fromString("00000000-0000-0000-0000-000000000043"));
-        inbox.submit(booked, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
-
-        final Request<BotRequest> claimed = inbox.claim().orElseThrow();
-        assertEquals("PAYMENT_BOOKED", claimed.kind());
-        assertEquals(
-                booked, claimed.payload(), "the booking arrives with every value and the entry it was journalled as");
-    }
-
-    @Test
-    void aPreviewReachesTheServerWithItsTextAndEveryTypedValue() throws SQLException {
+    void aPreviewIsARowOfItsTextAndARowPerExampleOnEveryInbox() throws SQLException {
         final PlayerId alex = PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a"));
-        final SmpRequest.PreviewMessage preview = new SmpRequest.PreviewMessage(
-                alex,
-                new MessagePreview(
-                        new MessageRef(
-                                "objective.done",
-                                Map.of("player.name", new DisplayName(alex, "Alex"), "count", new BigDecimal("3"))),
-                        "de",
-                        "<good>{player.name}</good> hat {count}",
-                        Display.TITLE,
-                        Map.of("good", "#123456")));
-        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final MessagePreview tried = new MessagePreview(
+                "objective.done",
+                "de",
+                "<good>{player.name}</good> hat {count}",
+                Display.TITLE,
+                "hunger-games",
+                Map.of("player.name", "Alex", "count", "3"));
+        execute("DELETE FROM bot_inbox");
         execute("DELETE FROM smp_inbox");
-        smp.submit(preview, ADMIN);
+        execute("DELETE FROM hunger_games_inbox");
+        final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+        bot.submit(new BotRequest.PreviewMessage(SOMEONE, tried), ADMIN);
+        smp.submit(new SmpRequest.PreviewMessage(alex, tried), ADMIN);
+        games.submit(new HungerGamesRequest.PreviewMessage(alex, tried), ADMIN);
 
-        final Request<SmpRequest> claimed = smp.claim().orElseThrow();
+        assertEquals(
+                new BotRequest.PreviewMessage(SOMEONE, tried),
+                bot.claim().orElseThrow().payload());
+        assertEquals(
+                new SmpRequest.PreviewMessage(alex, tried),
+                smp.claim().orElseThrow().payload());
+        final Request<HungerGamesRequest> claimed = games.claim().orElseThrow();
         assertEquals("PREVIEW_MESSAGE", claimed.kind());
-        assertEquals(preview, claimed.payload());
+        assertEquals(tried, ((HungerGamesRequest.PreviewMessage) claimed.payload()).preview());
+        for (final String inbox : List.of("bot", "smp", "hunger_games")) {
+            assertEquals(0, count("SELECT count(*) FROM " + inbox + "_inbox WHERE payload IS NOT NULL"), inbox);
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM " + inbox + "_preview_message WHERE key = 'objective.done'"
+                            + " AND service = 'hunger-games' AND shown = 'TITLE'"),
+                    inbox);
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM " + inbox + "_preview_message_example"
+                            + " WHERE name = 'count' AND value = '3'"),
+                    inbox);
+        }
     }
 
     @Test
     void aDraftedDocumentReachesTheBotWhole() throws SQLException {
-        final BotRequest.PreviewMessage preview = new BotRequest.PreviewMessage(
+        final BotRequest.PreviewDocument preview = new BotRequest.PreviewDocument(
                 DiscordId.of("1"),
-                MessagePreview.of(
-                        new Documents.Packaged(Documents.decode("""
+                new DocumentPreview(
+                        "de", new Documents.Packaged(Documents.decode("""
                                         [{"namespace":"bot","name":"welcome","area":"Join","shape":"MESSAGE",
                                           "values":{"player":{"kind":"text","example":"Alex"}},
                                           "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""").getFirst(), Document.decode("""
@@ -245,13 +248,13 @@ class InboxIntegrationTest {
                                           {"type":"CONTAINER","accent":"#5865f2","parts":[
                                             {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"Hallo {player}"}}]}]},
                                           {"type":"GALLERY","media":["upload://7"]},
-                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}""")), "de"));
+                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}"""))));
         final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
         execute("DELETE FROM bot_inbox");
         bot.submit(preview, ADMIN);
 
         final Request<BotRequest> claimed = bot.claim().orElseThrow();
-        assertEquals("PREVIEW_MESSAGE", claimed.kind());
+        assertEquals("PREVIEW_DOCUMENT", claimed.kind());
         assertEquals(preview, claimed.payload());
     }
 
@@ -295,43 +298,137 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void everyKindWithItsOwnTableHasAColumnPerComponent() throws SQLException {
+    void anAnnouncementIsARowPerLanguageAndEachLanguageKeepsWhetherItWasPosted() throws SQLException {
+        execute("INSERT INTO smp_milestone (key) VALUES ('border.1') ON CONFLICT DO NOTHING");
+        final Map<String, String> names = new java.util.LinkedHashMap<>();
+        names.put("en", "Foothold");
+        names.put("de", "Standbein");
+        final BotRequest.Announce milestone =
+                BotRequest.Announce.milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "border.1", names);
+        final Inbox<BotRequest> smp =
+                Inbox.over(database.dataSourceAs(eu.nordtal.season.database.DatabaseRole.SMP), BotRequest.TABLE);
+        final Inbox<BotRequest> bot = Inbox.over(
+                database.dataSourceAs(eu.nordtal.season.database.DatabaseRole.DISCORD_BOT), BotRequest.TABLE);
+
+        final long asked = smp.submit(milestone, Actor.STEWARD).id();
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_announce WHERE request = " + asked
+                        + " AND message = 'MILESTONE_BORDER' AND milestone = 'border.1'"));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM bot_announce_line WHERE request = " + asked
+                        + " AND language = 'de' AND milestone_name = 'Standbein' AND posted IS NULL"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE payload IS NOT NULL"), "the request is no text");
+
+        final Request<BotRequest> claimed = bot.claim().orElseThrow();
+        assertEquals(milestone.message(), ((BotRequest.Announce) claimed.payload()).message());
+        assertEquals(Set.copyOf(milestone.lines()), Set.copyOf(((BotRequest.Announce) claimed.payload()).lines()));
+
+        final BotRequest.Announce.Answer posted = new BotRequest.Announce.Answer(
+                List.of(new BotRequest.Announce.Posted("de", false), new BotRequest.Announce.Posted("en", true)));
+        bot.settle(asked, Outcome.done(posted));
+        assertEquals(Optional.of(posted), smp.find(asked).orElseThrow().answer(BotRequest.Announce.Answer.class));
+        assertEquals(1, count("SELECT count(*) FROM bot_announce_line WHERE language = 'en' AND posted"));
+        assertEquals(0, count("SELECT count(*) FROM bot_inbox WHERE outcome IS NOT NULL"), "the answer is no text");
+    }
+
+    @Test
+    void everyKindWithItsOwnTableHasAColumnPerComponentOfItsRequestAndAnswer() throws SQLException {
         for (final InboxTable<?> table : Inboxes.ALL) {
             for (final String kind : table.kinds()) {
                 final Class<?> type = table.typeOf(kind).orElseThrow();
                 if (!table.isRow(type)) {
                     continue;
                 }
-                final Set<String> expected = new HashSet<>(Set.of("request"));
-                for (final var component : type.getRecordComponents()) {
-                    expected.add(InboxTable.column(component));
+                final Map<String, Set<String>> expected = new java.util.HashMap<>();
+                expect(expected, table, type, type);
+                table.answerOf(type).ifPresent(answer -> expect(expected, table, type, answer));
+                for (final var columns : expected.entrySet()) {
+                    assertEquals(columns.getValue(), columnsOf(columns.getKey()), columns.getKey());
                 }
-                final Set<String> columns = new HashSet<>();
-                try (Connection connection = database.dataSource().getConnection();
-                        Statement statement = connection.createStatement();
-                        ResultSet rows = statement.executeQuery("SELECT column_name FROM information_schema.columns"
-                                + " WHERE table_name = '" + table.rowTable(type) + "'")) {
-                    while (rows.next()) {
-                        columns.add(rows.getString(1));
-                    }
-                }
-                assertEquals(expected, columns, table.rowTable(type));
             }
         }
     }
 
+    /** Adds the columns of a record of {@code kind}, its own and those of the elements of each of its lists. */
+    private static void expect(
+            final Map<String, Set<String>> expected,
+            final InboxTable<?> table,
+            final Class<?> kind,
+            final Class<?> record) {
+        final Set<String> own = expected.computeIfAbsent(table.rowTable(kind), row -> new HashSet<>(Set.of("request")));
+        for (final var component : record.getRecordComponents()) {
+            final Optional<Class<?>> element = InboxTable.elementOf(component);
+            if (element.isEmpty()) {
+                own.add(InboxTable.column(component));
+                continue;
+            }
+            final Set<String> elements = expected.computeIfAbsent(
+                    table.elementTable(kind, component.getName()), row -> new HashSet<>(Set.of("request")));
+            for (final var inner : element.get().getRecordComponents()) {
+                elements.add(InboxTable.column(inner));
+            }
+        }
+    }
+
+    private static Set<String> columnsOf(final String table) throws SQLException {
+        final Set<String> columns = new HashSet<>();
+        try (Connection connection = database.dataSource().getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(
+                        "SELECT column_name FROM information_schema.columns WHERE table_name = '" + table + "'")) {
+            while (rows.next()) {
+                columns.add(rows.getString(1));
+            }
+        }
+        return columns;
+    }
+
     @Test
-    void aRefusalReadsBackWithItsReasonAndMessage() {
+    void aRefusalIsARowOfItsReasonAndValuesAndReadsBackWorded() throws SQLException {
+        execute("DELETE FROM smp_inbox");
+        execute("DELETE FROM hunger_games_inbox");
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+        final long objective =
+                smp.submit(new SmpRequest.CompleteObjective("wood"), ADMIN).id();
+        final long start =
+                games.submit(new HungerGamesRequest.StartGame(false), ADMIN).id();
+        assertTrue(smp.claim().isPresent());
+        assertTrue(games.claim().isPresent());
+
+        final Refusal notActive = ServerRefusal.MILESTONE_NOT_ACTIVE.with("wood", "stone");
+        final Refusal tooFew = ServerRefusal.BELOW_SOFT_MINIMUM.with(3, 8);
+        smp.settle(objective, Outcome.refused(notActive));
+        games.settle(start, Outcome.refused(tooFew));
+
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM smp_refusal WHERE request = " + objective
+                        + " AND reason = 'MILESTONE_NOT_ACTIVE' AND key = 'wood' AND active = 'stone'"));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM hunger_games_refusal WHERE request = " + start
+                        + " AND reason = 'BELOW_SOFT_MINIMUM' AND count = 3 AND minimum = 8"));
+        assertEquals(notActive, smp.find(objective).orElseThrow().refusal().orElseThrow());
+        assertEquals(tooFew, games.find(start).orElseThrow().refusal().orElseThrow());
+    }
+
+    @Test
+    void aRefusalOfAnotherAuthorIsNeverWritten() {
         final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
 
-        inbox.settle(
-                asked.id(),
-                Outcome.refused(new Refusal(Reason.NOT_NOW, new MessageRef("inbox.not-now", Map.of("days", 3)))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> inbox.settle(
+                        asked.id(),
+                        Outcome.refused(new Refusal(Reason.NOT_NOW, new MessageRef("inbox.not-now", Map.of())))));
+    }
 
-        final Refusal read = inbox.find(asked.id()).orElseThrow().refusal().orElseThrow();
-        assertEquals("NOT_NOW", read.reason().name());
-        assertEquals(new MessageRef("inbox.not-now", Map.of("days", 3L)), read.message());
+    private enum Reason implements RefusalReason {
+        NOT_NOW
     }
 
     @Test
@@ -343,12 +440,12 @@ class InboxIntegrationTest {
             if (request.id() == first.id()) {
                 throw new IllegalStateException("the guild said no");
             }
-            return Outcome.done(null);
+            return Outcome.done(new BotRequest.Grant.Answer(Instant.parse("2026-10-27T00:00:00Z")));
         }));
 
         final Request<BotRequest> failed = inbox.find(first.id()).orElseThrow();
         assertEquals(InboxStatus.FAILED, failed.status());
-        assertEquals("{\"error\": \"the guild said no\"}", failed.outcome());
+        assertNull(failed.outcome(), "a failure's words go to the log");
         assertEquals(InboxStatus.DONE, inbox.find(second.id()).orElseThrow().status());
     }
 
@@ -357,7 +454,7 @@ class InboxIntegrationTest {
         final Request<BotRequest> waiting = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertEquals(
                 InboxStatus.CANCELLED,
-                inbox.cancel(waiting.id(), Map.of("by", "admin")).orElseThrow().status());
+                inbox.cancel(waiting.id(), null).orElseThrow().status());
 
         final Request<BotRequest> running = inbox.submit(new BotRequest.Unlink(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
@@ -373,7 +470,7 @@ class InboxIntegrationTest {
         Inbox.takeOver(database.dataSource(), BotRequest.TABLE, "the bot");
         final Request<BotRequest> failed = inbox.find(orphan.id()).orElseThrow();
         assertEquals(InboxStatus.FAILED, failed.status());
-        assertEquals("{\"error\": \"the bot restarted while it ran this\"}", failed.outcome());
+        assertNull(failed.outcome(), "the restart is in the log");
         assertEquals(InboxStatus.PENDING, inbox.find(waiting.id()).orElseThrow().status());
 
         execute("UPDATE bot_inbox SET finished = now() - interval '40 days' WHERE id = " + orphan.id());
@@ -431,8 +528,8 @@ class InboxIntegrationTest {
         assertEquals(InboxStatus.PENDING, ui.find(asked.id()).orElseThrow().status());
         assertThrowsDenied(ui::claim);
 
-        bot.drain(request -> Outcome.done(Map.of("revoked", "1")));
-        bot.settleOrphans(Map.of());
+        bot.drain(request -> Outcome.done(new BotRequest.Revoke.Answer(1)));
+        bot.settleOrphans(null);
         bot.purge(Duration.ofDays(30));
         assertEquals(InboxStatus.DONE, ui.find(asked.id()).orElseThrow().status());
     }
@@ -444,7 +541,7 @@ class InboxIntegrationTest {
         final String submitted = inbox.version();
         assertEquals(asked.id(), inbox.claim().orElseThrow().id());
         final String claimed = inbox.version();
-        inbox.settle(asked.id(), Outcome.done(Map.of("revoked", "1")));
+        inbox.settle(asked.id(), Outcome.done(new BotRequest.Revoke.Answer(1)));
         final String settled = inbox.version();
 
         assertEquals(

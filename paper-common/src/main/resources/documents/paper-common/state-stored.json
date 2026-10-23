@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The inventory is stored.</good>",
+            "de": "<good>Das Inventar ist gespeichert.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

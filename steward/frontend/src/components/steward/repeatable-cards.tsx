@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
+import { Empty } from "@/components/steward/query-state"
 
 export type SectionValues = {
   [key: string]: string | string[] | SectionValues[]
@@ -77,6 +78,15 @@ function stringsOf(value: string | string[] | SectionValues[] | undefined): stri
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
 }
 
+/**
+ * Whether the card at `index` shows `key`'s default because its stored copy lacks the field. It holds only while the
+ * draft keeps that default, so a card moved by a removal is not marked by its neighbour's state.
+ */
+export function notSaved(entry: ConfigEntry, index: number, key: string, shown: string): boolean {
+  const stored = entry.sections?.[index]?.find((field) => field.key === key)
+  return stored !== undefined && !stored.filled && !stored.secret && (stored.value ?? "") === shown
+}
+
 export function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
@@ -135,11 +145,12 @@ export function RepeatableCards({
   }
 
   const titleOf = (section: SectionValues, index: number) =>
-    sectionTitle?.(section, index) ?? (textOf(section, "key").trim() || `Entry ${index + 1}`)
+    sectionTitle?.(section, index) ??
+    (textOf(section, "key").trim() || t("steward.settings.entry", { index: index + 1 }))
 
   return (
     <div className="flex flex-col gap-3">
-      {value.length === 0 ? <p className="text-sm text-muted-foreground">{t("steward.settings.no-entries")}</p> : null}
+      {value.length === 0 ? <Empty title={t("steward.settings.no-entries")} /> : null}
       {value.map((section, index) => {
         const missing = requiredChannelFields.filter((field) => !textOf(section, field.key).trim())
         const isProtected = index === protectedIndex
@@ -240,6 +251,9 @@ export function RepeatableCards({
                       <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p>
                     ) : null}
                     {control}
+                    {field.kind === "SCALAR" && notSaved(entry, index, field.key, textOf(section, field.key)) ? (
+                      <p className="text-xs text-muted-foreground italic">{t("steward.settings.not-saved")}</p>
+                    ) : null}
                   </div>
                 )
               })}
@@ -283,6 +297,7 @@ export function RepeatableCards({
         description={listExplanation ? <span className="whitespace-pre-wrap">{listExplanation}</span> : undefined}
         cancel={t("steward.settings.keep-it")}
         action={t("steward.settings.remove-it")}
+        destructive
         act={() => {
           if (pendingRemoval !== null) onChange(value.filter((_, at) => at !== pendingRemoval))
         }}

@@ -1,0 +1,243 @@
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import type { ReactNode } from "react"
+
+import type { ConfigEntry, ConfigReference } from "@/lib/api"
+import { AskThenAct } from "@/components/steward/ask-then-act"
+import { ScalarControl, problemOf } from "@/components/steward/config-controls"
+import { ReferencePicker } from "@/components/steward/reference-picker"
+import { type SectionValues } from "@/components/steward/repeatable-cards"
+import { type Term, TERM_ICON } from "@/components/steward/term-icons"
+import { BOX, field, text } from "@/components/steward/game-groups/model"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { cn } from "@/lib/utils"
+import { t } from "@/lib/texts"
+
+/** What a number field lets be typed: a sign and digits, and one point where the field takes a decimal. */
+const TYPING = { INTEGER: /^[+-]?\d*$/, DECIMAL: /^[+-]?\d*\.?\d*$/ } as const
+
+/**
+ * `entry` is the schema's entry for the value: a character its type cannot hold is not taken, and a value it cannot
+ * take yet (empty, or a lone sign) is marked with the reason. `unsaved` marks a default the stored list lacks.
+ */
+export function NumberInput({
+  id,
+  label,
+  value,
+  entry,
+  unsaved,
+  term,
+  disabled,
+  readOnly,
+  className,
+  onChange,
+}: {
+  id?: string
+  label: string
+  value: string
+  entry?: ConfigEntry
+  unsaved?: boolean
+  term?: Term
+  disabled: boolean
+  readOnly?: boolean
+  className?: string
+  onChange?: (value: string) => void
+}) {
+  const Mark = term === undefined ? undefined : TERM_ICON[term]
+  const typing = entry?.type === "INTEGER" || entry?.type === "DECIMAL" ? TYPING[entry.type] : undefined
+  const problem = entry === undefined || readOnly ? null : problemOf(entry, value)
+  return (
+    <InputGroup className={cn("w-24 shrink-0", className)}>
+      {Mark ? (
+        <InputGroupAddon>
+          <Mark aria-hidden />
+        </InputGroupAddon>
+      ) : null}
+      <InputGroupInput
+        id={id}
+        aria-label={label}
+        inputMode={entry?.type === "DECIMAL" ? "decimal" : "numeric"}
+        value={value}
+        disabled={disabled}
+        readOnly={readOnly}
+        aria-invalid={problem !== null}
+        title={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
+        aria-description={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
+        className={cn("text-right font-mono tabular-nums", unsaved && "text-muted-foreground italic")}
+        onChange={(event) => {
+          if (typing === undefined || typing.test(event.target.value)) onChange?.(event.target.value)
+        }}
+      />
+    </InputGroup>
+  )
+}
+
+export function RemoveButton({ name, disabled, onRemove }: { name: string; disabled: boolean; onRemove: () => void }) {
+  return (
+    <AskThenAct
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("steward.settings.remove", { what: name })}
+          disabled={disabled}
+        >
+          <TrashIcon aria-hidden />
+        </Button>
+      }
+      title={t("steward.game.remove-ask", { name })}
+      cancel={t("steward.game.keep")}
+      action={t("steward.game.remove-it")}
+      destructive
+      act={onRemove}
+    />
+  )
+}
+
+/** A picker that reads as a row's name: no frame of its own inside a framed list. */
+export const BARE =
+  "min-w-0 flex-1 border-transparent bg-transparent shadow-none dark:border-transparent dark:bg-transparent"
+
+/**
+ * Picks one game value. `face` is what the button shows; without a catalogue the value is typed.
+ */
+export function GamePicker({
+  id,
+  label,
+  reference,
+  value,
+  disabled,
+  face,
+  className,
+  onPick,
+}: {
+  id: string
+  label: string
+  reference: ConfigReference
+  value: string
+  disabled: boolean
+  face: ReactNode
+  className?: string
+  onPick: (value: string) => void
+}) {
+  return (
+    <ReferencePicker
+      id={id}
+      label={label}
+      reference={reference}
+      values={value === "" ? [] : [value]}
+      multi={false}
+      disabled={disabled}
+      face={face}
+      className={className}
+      typed={
+        <Input
+          id={id}
+          aria-label={label}
+          value={value}
+          disabled={disabled}
+          className="font-mono"
+          onChange={(event) => onPick(event.target.value)}
+        />
+      }
+      onChange={(values) => {
+        if (values[0] !== undefined) onPick(values[0])
+      }}
+    />
+  )
+}
+
+/** The button that adds one picked value as a new entry. */
+export function AddPicker({
+  id,
+  label,
+  reference,
+  disabled,
+  onPick,
+}: {
+  id: string
+  label: string
+  reference: ConfigReference
+  disabled: boolean
+  onPick: (value: string) => void
+}) {
+  return (
+    <GamePicker
+      id={id}
+      label={label}
+      reference={reference}
+      value=""
+      disabled={disabled}
+      className="h-8 min-h-8 w-auto shrink-0"
+      face={
+        <>
+          <PlusIcon aria-hidden />
+          {label}
+        </>
+      }
+      onPick={onPick}
+    />
+  )
+}
+
+/**
+ * A platform's or a region's world and corners. The labels come from the schema, so each field reads "Min X" to a screen reader.
+ */
+export function BoxFields({
+  id,
+  list,
+  section,
+  disabled,
+  onChange,
+}: {
+  id: string
+  list: ConfigEntry
+  section: SectionValues
+  disabled: boolean
+  onChange: (key: string, value: string) => void
+}) {
+  const label = (key: string) => field(list, key)?.label ?? key
+  const world = field(list, "world")
+  return (
+    <div className="flex flex-col gap-2">
+      {world ? (
+        <ScalarControl
+          id={`${id}-world`}
+          entry={world}
+          value={text(section, "world")}
+          disabled={disabled}
+          onChange={(value) => onChange("world", value)}
+        />
+      ) : null}
+      {(["min", "max"] as const).map((corner) => (
+        <div key={corner} className="grid grid-cols-[2.5rem_repeat(3,minmax(0,1fr))] items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {corner === "min" ? t("steward.game.min") : t("steward.game.max")}
+          </span>
+          {BOX[corner].map((key) => (
+            <NumberInput
+              key={key}
+              label={label(key)}
+              entry={field(list, key)}
+              value={text(section, key)}
+              disabled={disabled}
+              className="w-full"
+              onChange={(value) => onChange(key, value)}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function Heading({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex min-h-8 flex-wrap items-center gap-2">
+      <h3 className="mr-auto text-sm font-medium">{children}</h3>
+      {actions}
+    </div>
+  )
+}

@@ -9,8 +9,11 @@ plugins {
 // Steward shows the settings of this module as this descriptor says. steward-agent reads it from the jar.
 pluginDescriptor {
     followsMessages.set(true)
-    // Steward edits the milestones group with its milestones editor and not with cards from the schema.
+    // Steward edits these groups with their own editors and not with cards from the schema.
     editors.put("milestones", "milestones")
+    editors.put("advancement-awards", "advancement-awards")
+    editors.put("wheel", "wheel")
+    editors.put("duels", "duels")
 }
 
 // The base class calls prepare() and enable() before any code reads the fields of SmpPlugin.

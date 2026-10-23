@@ -15,8 +15,11 @@ import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Money;
 import java.sql.Connection;
@@ -44,6 +47,17 @@ import org.junit.jupiter.api.TestInstance;
 class AuditDirectoryIntegrationTest {
 
     private static final String ALICE = "100000000000000001";
+
+    /** The details of alerts, which the alert book writes and reads. */
+    private static final Set<Class<?>> ALERT_DETAILS = Set.of(
+            JournalDetail.RunFailed.class,
+            JournalDetail.PaymentFlagged.class,
+            JournalDetail.LinkRefused.class,
+            JournalDetail.MemberFailed.class,
+            JournalDetail.RoleNotChanged.class,
+            JournalDetail.RoleNamed.class,
+            JournalDetail.ChannelsNotClosed.class);
+
     private static final String BOB = "100000000000000002";
     private static final String ADMIN = "100000000000000009";
 
@@ -73,9 +87,9 @@ class AuditDirectoryIntegrationTest {
     void everyDetailComesBackFromItsRowsAndReadsAsTheLineWritten() {
         final UUID tab = payment("NT-TABTAB", ALICE, 30, 300, "TAB");
         final UUID byHand = payment("NT-HANDHA", BOB, 7, null, "MANUAL");
-        final long update = run("UPDATE", "{\"services\": [\"smp\", \"proxy\"]}");
-        final long restore = run("RESTORE", "{\"services\": [], \"archive\": \"nordtal-1.dump\"}");
-        final long removal = run("REMOVE_PLUGIN", "{\"services\": [\"smp\"], \"artifact\": \"chunky\"}");
+        final long update = run(new StewardRequest.Update(), "smp", "proxy");
+        final long restore = run(new StewardRequest.Restore("nordtal-1.dump"));
+        final long removal = run(new StewardRequest.RemovePlugin("chunky"), "smp");
         final Map<JournalDetail, JournalAction> written = everyDetail(tab, byHand, update, restore, removal);
 
         final Set<Class<?>> covered =
@@ -83,7 +97,7 @@ class AuditDirectoryIntegrationTest {
         assertEquals(
                 Set.of(),
                 Arrays.stream(JournalDetail.class.getPermittedSubclasses())
-                        .filter(kind -> !covered.contains(kind))
+                        .filter(kind -> !covered.contains(kind) && !ALERT_DETAILS.contains(kind))
                         .collect(Collectors.toSet()),
                 "every detail is written and read back here");
 
@@ -102,7 +116,7 @@ class AuditDirectoryIntegrationTest {
 
     @Test
     void anEntryKeepsTheServiceRunAndPaymentItConcernsInColumns() {
-        final long update = run("UPDATE", "{\"services\": [\"smp\"]}");
+        final long update = run(new StewardRequest.Update(), "smp");
         directory.record(AuditLine.of(
                 JournalAction.REQUEST_RUN,
                 Actor.STEWARD,
@@ -119,12 +133,17 @@ class AuditDirectoryIntegrationTest {
     @Test
     void everyActionIsAcceptedWithoutValuesAndReadsAsAtLeastItsName() {
         for (final JournalAction action : JournalAction.values()) {
-            if (action != JournalAction.SETTLE) {
+            if (action != JournalAction.SETTLE && AlertType.of(action) == null) {
                 directory.record(AuditLine.of(action, Actor.STEWARD, null));
             }
         }
 
-        assertEquals(JournalAction.values().length - 1, directory.recent(100).size());
+        assertEquals(
+                Arrays.stream(JournalAction.values())
+                                .filter(action -> AlertType.of(action) == null)
+                                .count()
+                        - 1,
+                directory.recent(100).size());
     }
 
     @Test
@@ -176,118 +195,6 @@ class AuditDirectoryIntegrationTest {
     @Test
     void anEmptyJournalIsAnEmptyListAndNotAFailure() {
         assertTrue(directory.recent(10).isEmpty());
-    }
-
-    @Test
-    void searchByActionOnly() {
-        seedFourEntries();
-
-        assertEquals(
-                List.of("bob-link", "alice-link"),
-                labels(directory.search(new JournalFilter("LINK", null, null, null), 10)));
-    }
-
-    @Test
-    void searchBySubjectOnly() {
-        seedFourEntries();
-
-        assertEquals(
-                List.of("alice-revoke", "alice-grant", "alice-link"),
-                labels(directory.search(new JournalFilter(null, ALICE, null, null), 10)));
-    }
-
-    @Test
-    void searchByBoth() {
-        seedFourEntries();
-
-        assertEquals(List.of("alice-link"), labels(directory.search(new JournalFilter("LINK", ALICE, null, null), 10)));
-    }
-
-    @Test
-    void searchByNeitherIsTheWholeJournal() {
-        seedFourEntries();
-
-        assertEquals(
-                labels(directory.recent(10)),
-                labels(directory.search(JournalFilter.ANY, 10)),
-                "no filter must mean exactly what recent means");
-    }
-
-    @Test
-    void aBlankFilterCountsAsNoFilter() {
-        seedFourEntries();
-
-        assertEquals(
-                labels(directory.recent(10)),
-                labels(directory.search(new JournalFilter("", "   ", null, null), 10)),
-                "an empty search box and an absent one are the same intention");
-        assertEquals(
-                List.of("bob-link", "alice-link"),
-                labels(directory.search(new JournalFilter("LINK", "  ", null, null), 10)));
-    }
-
-    @Test
-    void searchMatchesExactlyAndNotPartially() {
-        seedFourEntries();
-
-        assertTrue(
-                directory.search(new JournalFilter("LIN", null, null, null), 10).isEmpty(), "a prefix is not a match");
-        assertTrue(
-                directory
-                        .search(new JournalFilter("link", null, null, null), 10)
-                        .isEmpty(),
-                "and neither is the wrong case");
-        assertTrue(directory
-                .search(new JournalFilter(null, ALICE.substring(0, 8), null, null), 10)
-                .isEmpty());
-    }
-
-    @Test
-    void theSearchLimitIsHonoured() {
-        seedFourEntries();
-
-        assertEquals(List.of("alice-revoke"), labels(directory.search(new JournalFilter(null, ALICE, null, null), 1)));
-        assertEquals(1, directory.search(JournalFilter.ANY, 0).size(), "clamped, like recent");
-    }
-
-    @Test
-    void theJournalFiltersByThePaymentReferenceAndTheDaysOfAGrantOrABooking() {
-        final Actor admin = Actor.person(DiscordId.of(ADMIN));
-        final UUID abcd = payment("NT-ABCDEF", ALICE, 30, null, "MANUAL");
-        final UUID efgh = payment("NT-EFGHIJ", BOB, 7, null, "MANUAL");
-        directory.record(AuditLine.about(
-                JournalAction.SETTLE,
-                admin,
-                DiscordId.of(ALICE),
-                new Settled(abcd, "NT-ABCDEF", PaymentMatch.MANUAL, 30, 30, null, Money.euroCents(0))));
-        directory.record(AuditLine.about(
-                JournalAction.SETTLE,
-                admin,
-                DiscordId.of(BOB),
-                new Settled(efgh, "NT-EFGHIJ", PaymentMatch.MANUAL, 7, 7, null, Money.euroCents(0))));
-        directory.record(
-                AuditLine.about(JournalAction.GRANT_ACCESS, admin, DiscordId.of(BOB), new AccessGranted(90, UNTIL)));
-        directory.record(AuditLine.about(JournalAction.LINK, admin, DiscordId.of(BOB), null));
-
-        assertEquals(
-                List.of(DiscordId.of(ALICE)),
-                directory.search(new JournalFilter(null, null, "NT-ABCDEF", null), 10).stream()
-                        .map(AuditEntry::subject)
-                        .toList(),
-                "the reference matches its one booking");
-        assertTrue(
-                directory
-                        .search(new JournalFilter(null, null, "NT-AB", null), 10)
-                        .isEmpty(),
-                "and exactly");
-        assertEquals(
-                List.of(JournalAction.GRANT_ACCESS, JournalAction.SETTLE),
-                actions(directory.search(new JournalFilter(null, null, null, 30), 10)),
-                "at least 30 days: the grant of 90 and the booking of 30, not the one of 7 nor the link");
-        assertEquals(
-                List.of(JournalAction.SETTLE),
-                actions(directory.search(new JournalFilter("SETTLE", null, null, 8), 10)),
-                "the fields combine with the action");
     }
 
     @Test
@@ -354,7 +261,7 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.PluginAdded("smp", "chunky"), JournalAction.ADD_PLUGIN);
         written.put(new JournalDetail.PluginRemoved(removal, "smp", "chunky"), JournalAction.REMOVE_PLUGIN);
         written.put(
-                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("smp", "proxy")),
+                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("proxy", "smp")),
                 JournalAction.REQUEST_RUN);
         written.put(new JournalDetail.RestoreAsked(restore, "nordtal-1.dump"), JournalAction.REQUEST_RUN);
         written.put(new JournalDetail.RunCancelled(update, UpdateKind.UPDATE), JournalAction.CANCEL_RUN);
@@ -367,6 +274,7 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.GrantUnanchored(UNTIL), JournalAction.UNANCHORED_GRANT);
         written.put(new JournalDetail.AuraSet(-40), JournalAction.SET_AURA);
         written.put(new JournalDetail.SpinsSet(3), JournalAction.SET_SPINS);
+        written.put(new JournalDetail.StackRemoved("minecraft:oak_log", 12), JournalAction.REMOVE_STACK);
 
         return written;
     }
@@ -396,10 +304,6 @@ class AuditDirectoryIntegrationTest {
                 .toList();
     }
 
-    private static List<JournalAction> actions(final List<AuditEntry> entries) {
-        return entries.stream().map(AuditEntry::action).toList();
-    }
-
     /** Writes a paid payment request and returns its id. {@code matchedCents} is null for a booking by hand. */
     private static UUID payment(
             final String reference,
@@ -416,13 +320,11 @@ class AuditDirectoryIntegrationTest {
                 .getFirst());
     }
 
-    /** Writes a finished run and returns its id. */
-    private static long run(final String kind, final String payload) {
-        return Long.parseLong(strings("""
-                        INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)
-                        VALUES ('%s', '%s', 'HOST', 'DONE', now())
-                        RETURNING id
-                        """.formatted(kind, payload)).getFirst());
+    /** Writes a finished run of the services and returns its id. */
+    private static long run(final StewardRequest request, final String... services) {
+        return UpdateDirectory.using(dataSource)
+                .record(request, List.of(services), Actor.HOST, UpdateStatus.DONE, Duration.ZERO)
+                .id();
     }
 
     private static List<String> strings(final String sql) {

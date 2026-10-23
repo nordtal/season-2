@@ -1,5 +1,6 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
+import { CheckIcon } from "@phosphor-icons/react"
 
 import type { GuildList } from "@/lib/api"
 import {
@@ -27,14 +28,17 @@ const MAX_LENGTH = 2000
 export function AnnouncementForm() {
   const file = useConfig(ACCESS_FILE)
   const channels = useGuildChannels()
-  const send = useSendAnnouncement()
-  const targets = announcementTargets(file.data)
-  const tags = targets?.languages.map((language) => language.tag) ?? FALLBACK_LANGUAGES
-
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [asking, setAsking] = useState(false)
+  /** The text each language went out with, so a retry sends only the others. */
+  const [posted, setPosted] = useState<Record<string, string>>({})
 
   const text = (tag: string) => texts[tag] ?? ""
+  const send = useSendAnnouncement((tag, sent) => setPosted((current) => ({ ...current, [tag]: sent })))
+  const targets = announcementTargets(file.data)
+  const tags = targets?.languages.map((language) => language.tag) ?? FALLBACK_LANGUAGES
+  const unposted = tags.filter((tag) => posted[tag] !== text(tag).trim())
+
   const complete = tags.every((tag) => text(tag).trim() !== "" && text(tag).trim().length <= MAX_LENGTH)
 
   return (
@@ -77,7 +81,7 @@ export function AnnouncementForm() {
             type="button"
             aria-label={t("steward.announcements.send")}
             aria-invalid={send.isError || undefined}
-            disabled={!complete || send.isPending}
+            disabled={!complete || unposted.length === 0 || send.isPending}
             onClick={() => setAsking(true)}
           >
             <RequestIcon request={send} />
@@ -90,11 +94,29 @@ export function AnnouncementForm() {
         open={asking}
         onOpenChange={setAsking}
         title={t("steward.announcements.ask")}
-        description={t("steward.announcements.where", { languages: tags.length })}
+        description={t("steward.announcements.where", { languages: unposted.length })}
         action={t("steward.announcements.send")}
         acting={t("steward.form.waiting")}
-        act={() => send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()])))}
-      />
+        act={() => send.mutateAsync(Object.fromEntries(unposted.map((tag) => [tag, text(tag).trim()])))}
+      >
+        {unposted.length < tags.length ? (
+          <ul className="flex flex-wrap gap-2">
+            {tags.map((tag) => {
+              const missing = unposted.includes(tag)
+              return (
+                <li key={tag}>
+                  <Badge variant="outline" className={missing ? "text-destructive" : undefined}>
+                    {missing ? <TERM_ICON.warning aria-hidden /> : <CheckIcon aria-hidden />}
+                    {t(missing ? "steward.announcements.not-posted" : "steward.announcements.posted", {
+                      language: languageName(tag),
+                    })}
+                  </Badge>
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+      </AskThenAct>
     </Card>
   )
 }

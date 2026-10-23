@@ -72,8 +72,9 @@ function backend(file: unknown = accessFile(), runs: Record<string, Record<strin
     "fetch",
     vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
       if (init?.method === "POST" && url === "/api/announcements") {
-        sent.push(JSON.parse(init.body ?? ""))
-        return json(202, { ids: { en: "announce:2:en", de: "announce:2:de" } })
+        const body: { texts: Record<string, string> } = JSON.parse(init.body ?? "")
+        sent.push(body)
+        return json(202, { ids: Object.fromEntries(Object.keys(body.texts).map((tag) => [tag, `announce:2:${tag}`])) })
       }
       if (url === "/api/setting-groups/discord-bot/access") return json(200, file)
       if (url === "/api/discord/channels") {
@@ -152,6 +153,25 @@ describe("AnnouncementForm", () => {
 
     expect((await within(dialog).findByRole("alert")).textContent).toContain("Not posted. No German channel.")
     expect(asTextArea(screen.getByLabelText("English")).value).toBe("Tonight.")
+  })
+
+  it("names the languages that went out, and sends only the others again", async () => {
+    const sent = backend(accessFile(), { de: { status: "FAILED", result: words("Not posted. No German channel.") } })
+    draw(<AnnouncementForm />)
+
+    fireEvent.change(await screen.findByLabelText("English"), { target: { value: "Tonight." } })
+    fireEvent.change(screen.getByLabelText("Deutsch"), { target: { value: "Heute Abend." } })
+    fireEvent.click(send())
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+
+    expect(await within(dialog).findByText("Posted in English")).toBeTruthy()
+    expect(within(dialog).getByText("Not posted in Deutsch")).toBeTruthy()
+    expect(within(dialog).getByText("It is posted in Discord at once.")).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+    await waitFor(() => expect(sent).toHaveLength(2))
+    expect(sent[1]).toEqual({ texts: { de: "Heute Abend." } })
   })
 
   it("names the channel each language lands in, and says when one has none", async () => {

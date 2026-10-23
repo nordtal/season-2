@@ -7,6 +7,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
+import eu.nordtal.season.steward.texts.StewardTexts;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -33,14 +34,14 @@ class AnnouncementsTest {
     }
 
     @Test
-    void aLineTheBotDidNotPostFailedWithItsReason() {
+    void aLineTheBotDidNotPostFailedWithItsReasonNamingTheLanguage() {
         final Request<BotRequest> row =
                 done(new BotRequest.Announce.Posted("en", true), new BotRequest.Announce.Posted("de", false));
 
         assertEquals(InboxStatus.FAILED, Announcements.status(row, "de"));
         assertEquals(
-                "steward.said.not-announced",
-                Announcements.result(row, "de").orElseThrow().key());
+                StewardTexts.TEXTS.steward().said().notAnnounced("Deutsch"),
+                Announcements.result(row, "de").orElseThrow());
     }
 
     @Test

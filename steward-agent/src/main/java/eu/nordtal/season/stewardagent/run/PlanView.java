@@ -3,12 +3,11 @@ package eu.nordtal.season.stewardagent.run;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.stewardagent.plan.PlanReport;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
+import eu.nordtal.season.stewardagent.plan.Work;
 import java.util.List;
 
 /** The whole resolve for the updates page, every row with its status. */
@@ -39,11 +38,11 @@ public final class PlanView {
                 plan.hasWork(),
                 plan.hasFailures(),
                 changes,
-                steps(PlanReport.of(plan)));
+                steps(Work.of(plan)));
     }
 
     /** The resolve steps an update run writes for this plan, as the run itself computes them. */
-    private static List<AgentWire.PlannedStep> steps(final UpdateReport planned) {
+    private static List<AgentWire.PlannedStep> steps(final Work planned) {
         final CollectedSteps collected = new CollectedSteps();
         final Steps record = new Steps(collected, 1);
         Resolved.run(planned).on(record.begin(RunStep.Kind.RESOLVE));

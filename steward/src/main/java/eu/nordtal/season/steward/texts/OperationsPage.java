@@ -1,7 +1,7 @@
 package eu.nordtal.season.steward.texts;
 
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
@@ -13,7 +13,7 @@ import java.util.List;
 public interface OperationsPage {
 
     @Name("A stage on the trail")
-    MessageRef step(@Arg("stage") UpdateReport.Stage stage);
+    MessageRef step(@Arg("stage") RunStage stage);
 
     @Name("Nothing written yet")
     MessageRef nothingWritten();

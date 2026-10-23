@@ -10,8 +10,8 @@ import eu.nordtal.season.database.AdminTexts;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.Display;
@@ -40,7 +40,7 @@ class WebTextsTest {
     @Test
     void aRunAlertsTitleRendersForEveryKindAndStage() {
         for (final UpdateKind kind : UpdateKind.values()) {
-            for (final UpdateReport.Stage stage : UpdateReport.Stage.values()) {
+            for (final RunStage stage : RunStage.values()) {
                 final String shown = texts.format(Locales.DEFAULT, TEXTS.run().title(kind, stage));
                 assertNotEquals("run.title", shown, kind + " " + stage);
                 assertTrue(!shown.isBlank(), kind + " " + stage);

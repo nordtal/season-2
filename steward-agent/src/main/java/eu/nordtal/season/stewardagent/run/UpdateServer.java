@@ -1,12 +1,10 @@
 package eu.nordtal.season.stewardagent.run;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.Doorbell;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import java.time.Clock;
@@ -147,10 +145,10 @@ public final class UpdateServer implements AutoCloseable {
     private void carryOut(final UpdateRequest request) {
         log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
         // Every stage the run reaches redraws the Discord card and the chat line.
-        final Outcome outcome = runner.run(request, report -> {
+        final Outcome outcome = runner.run(request, stage -> {
             // A progress write must never decide the run, or a stopped service would stay stopped.
             try {
-                if (!directory.progress(request.id(), UpdateReports.toJson(report))) {
+                if (!directory.progress(request.id(), stage)) {
                     // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
                     log.warn(
                             "Request {} is no longer RUNNING, so its progress was not"
@@ -167,11 +165,15 @@ public final class UpdateServer implements AutoCloseable {
             log.info("Request {} is carried out by the one-shot it was handed to", request.id());
             return;
         }
+        if (outcome.stage() == RunStage.CANCELLED) {
+            log.info("Request {} was cancelled during its countdown", request.id());
+            return;
+        }
         // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
-        if (directory.finish(request.id(), outcome.status(), outcome.report()).isEmpty()) {
+        if (directory.finish(request.id(), outcome.stage()).isEmpty()) {
             log.info(
                     "Request {} was settled by somebody else while it ran - most likely"
-                            + " cancelled during its countdown - so its report was not written",
+                            + " cancelled during its countdown - so its stage was not written",
                     request.id());
         } else {
             log.info("Request {} finished as {}", request.id(), outcome.status());
@@ -195,7 +197,7 @@ public final class UpdateServer implements AutoCloseable {
      */
     private void settleOrphans() {
         try {
-            final int settled = directory.settleOrphans(TEXTS.report().orphaned(), stillRunning);
+            final int settled = directory.settleOrphans(stillRunning);
             if (settled > 0) {
                 log.info("Settled {} request(s) no steward-agent carries out any more", settled);
             }

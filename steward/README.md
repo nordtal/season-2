@@ -45,8 +45,8 @@ a statement without a grant fails in `check`.
 
 ## What it does
 
-- **Runs:** The agent writes each report into the `steward_inbox` row, and the interface follows it on
-  `nordtal_update`.
+- **Runs:** The agent writes the stage of a run into its `steward_inbox` row and each step into
+  `run_step`, and the interface follows the run on `nordtal_update`.
 - **Containers and images:** The agent supplies state, health and the last sample. A console suggests
   commands from the `command_tree` of its server. An image whose registry did not answer shows as
   unchecked.

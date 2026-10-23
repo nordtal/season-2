@@ -39,7 +39,7 @@ class StewardRulesTest {
     void nothingIsCountedDownBeforeThePlanIsResolvedAndFoundToBeWork() {
         classes()
                 .that(isListed(SERVE + "Kinds"))
-                .should(callInOrder("update", "Runs#resolve", "UpdateReport#isWork", "Plan#of"))
+                .should(callInOrder("update", "Runs#resolve", "Work#isWork", "Plan#of"))
                 .check(classes);
         classes()
                 .that(isListed(SERVE + "Runner"))

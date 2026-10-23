@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -33,14 +34,16 @@ class UpdateServerTest {
 
     @Test
     void anEmptyInboxWaitsThePollInterval() {
-        assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
+        assertEquals(
+                POLL, server((request, progress) -> Outcome.at(RunStage.DONE)).waitFor());
     }
 
     @Test
     void workFurtherAwayThanThePollIntervalStillWaitsThePollInterval() {
         directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(10));
 
-        assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
+        assertEquals(
+                POLL, server((request, progress) -> Outcome.at(RunStage.DONE)).waitFor());
     }
 
     @Test
@@ -50,7 +53,7 @@ class UpdateServerTest {
 
         assertEquals(
                 Duration.ofSeconds(4),
-                server((request, progress) -> Outcome.done("x")).waitFor());
+                server((request, progress) -> Outcome.at(RunStage.DONE)).waitFor());
     }
 
     @Test
@@ -62,7 +65,7 @@ class UpdateServerTest {
 
         assertEquals(
                 Duration.ofSeconds(1),
-                server((request, progress) -> Outcome.done("x")).waitFor());
+                server((request, progress) -> Outcome.at(RunStage.DONE)).waitFor());
     }
 
     @Test
@@ -73,13 +76,13 @@ class UpdateServerTest {
         final List<UpdateKind> ran = new ArrayList<>();
         server((request, progress) -> {
                     ran.add(request.kind());
-                    return Outcome.done("done " + request.kind());
+                    return Outcome.at(RunStage.DONE);
                 })
                 .drain();
 
         assertEquals(List.of(UpdateKind.BACKUP, UpdateKind.UPDATE), ran);
         assertEquals(2, directory.finished().size());
-        assertEquals("done BACKUP", directory.finished().get(0).result());
+        assertEquals(UpdateKind.BACKUP, directory.finished().get(0).kind());
     }
 
     @Test
@@ -89,7 +92,7 @@ class UpdateServerTest {
         final AtomicInteger ran = new AtomicInteger();
         server((request, progress) -> {
                     ran.incrementAndGet();
-                    return Outcome.done("x");
+                    return Outcome.at(RunStage.DONE);
                 })
                 .drain();
 
@@ -101,11 +104,27 @@ class UpdateServerTest {
     void theRunnersOwnVerdictIsWhatLandsInTheRow() {
         final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
-        server((request, progress) -> Outcome.failed("the download timed out")).drain();
+        server((request, progress) -> Outcome.failed()).drain();
 
         final UpdateRequest row = directory.find(submitted.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, row.status());
-        assertEquals("the download timed out", row.result());
+        assertEquals(RunStage.FAILED, row.stage());
+    }
+
+    @Test
+    void aRunCancelledDuringItsCountdownStaysCancelled() {
+        final UpdateRequest submitted = directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
+
+        server((request, progress) -> {
+                    directory.startCountdown(request.id(), Duration.ofSeconds(30), List.of("smp"));
+                    directory.cancelCountdown();
+                    return Runner.cancelled();
+                })
+                .drain();
+
+        final UpdateRequest row = directory.find(submitted.id()).orElseThrow();
+        assertEquals(UpdateStatus.CANCELLED, row.status());
+        assertEquals(RunStage.CANCELLED, row.stage());
     }
 
     @Test
@@ -116,7 +135,7 @@ class UpdateServerTest {
                 directory,
                 (request, progress) -> {
                     ran.countDown();
-                    return Outcome.done("x");
+                    return Outcome.at(RunStage.DONE);
                 },
                 runner -> false,
                 Duration.ofMinutes(10),
@@ -151,7 +170,7 @@ class UpdateServerTest {
         server(
                         (request, progress) -> {
                             directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
-                            return Outcome.handedOver("handed");
+                            return Outcome.handedOver();
                         },
                         "nordtal-s2-steward-agent-run"::equals)
                 .drain();
@@ -172,7 +191,7 @@ class UpdateServerTest {
         final UpdateServer server = server(
                 (request, progress) -> {
                     directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
-                    return Outcome.handedOver("handed");
+                    return Outcome.handedOver();
                 },
                 runner -> alive.get());
         server.drain();
@@ -200,9 +219,9 @@ class UpdateServerTest {
                     ran.add(request.kind());
                     if (request.kind() == UpdateKind.UPDATE) {
                         directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
-                        return Outcome.handedOver("handed");
+                        return Outcome.handedOver();
                     }
-                    return Outcome.done("saved");
+                    return Outcome.at(RunStage.DONE);
                 },
                 "nordtal-s2-steward-agent-run"::equals);
 
@@ -212,7 +231,7 @@ class UpdateServerTest {
         assertEquals(
                 UpdateStatus.PENDING, directory.find(backup.id()).orElseThrow().status());
 
-        directory.finish(update.id(), UpdateStatus.DONE, "installed");
+        directory.finish(update.id(), RunStage.DONE);
         server.drain();
 
         assertEquals(List.of(UpdateKind.UPDATE, UpdateKind.BACKUP), ran);
@@ -224,14 +243,14 @@ class UpdateServerTest {
         final UpdateRequest handed = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         directory.claimNext();
         directory.handOver(handed.id(), "nordtal-s2-steward-agent-run");
-        final UpdateServer oneShot = server((request, progress) -> Outcome.done("installed"), runner -> true);
+        final UpdateServer oneShot = server((request, progress) -> Outcome.at(RunStage.DONE), runner -> true);
 
         assertFalse(oneShot.carryOutHanded(handed.id(), "someone-else"), "a run handed to another one-shot");
         assertTrue(oneShot.carryOutHanded(handed.id(), "nordtal-s2-steward-agent-run"));
 
         final UpdateRequest row = directory.find(handed.id()).orElseThrow();
         assertEquals(UpdateStatus.DONE, row.status());
-        assertEquals("installed", row.result());
+        assertEquals(RunStage.DONE, row.stage());
         assertFalse(oneShot.carryOutHanded(handed.id(), "nordtal-s2-steward-agent-run"), "a settled run");
     }
 

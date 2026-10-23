@@ -1,7 +1,6 @@
 package eu.nordtal.season.database.update;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -54,16 +53,21 @@ public interface UpdateDirectory {
             final Actor actor,
             final @Nullable Duration delay,
             final java.util.@Nullable List<String> services) {
-        return submit(kind.request(cleaned(services)), actor, delay);
+        return submit(kind.request(), services, actor, delay);
     }
 
     /**
-     * Writes a request of any kind.
+     * Writes a request of any kind for some services.
      *
+     * @param services compose service names. Empty or {@code null} is the whole network
      * @throws Refused with an {@link UpdateRefusal} when another run is open or a take-down names a held service
+     * @throws IllegalArgumentException when a plugin removal names other than one service
      */
     UpdateRequest submit(
-            eu.nordtal.season.database.inbox.StewardRequest request, Actor actor, @Nullable Duration delay);
+            eu.nordtal.season.database.inbox.StewardRequest request,
+            java.util.@Nullable List<String> services,
+            Actor actor,
+            @Nullable Duration delay);
 
     /**
      * Writes a finished run beside any open one, for the install when steward-agent starts.
@@ -74,14 +78,14 @@ public interface UpdateDirectory {
      */
     default UpdateRequest record(
             final eu.nordtal.season.database.inbox.StewardRequest request,
+            final java.util.List<String> services,
             final Actor actor,
             final UpdateStatus status,
-            final String result,
             final Duration took) {
         throw new UnsupportedOperationException("this directory cannot write a run: " + request);
     }
 
-    /** Returns the request a run was asked as, or empty for an unknown id. */
+    /** Returns the request a run was asked as, or empty for an unknown id. Its services are {@link #scopeOf}. */
     default Optional<eu.nordtal.season.database.inbox.StewardRequest> requestOf(final long id) {
         return Optional.empty();
     }
@@ -154,16 +158,16 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer to a claimed request. Only steward calls this.
+     * Settles a claimed request at the stage it ended in: {@code FAILED} fails it, and every other one is done.
+     * Only steward calls this.
      *
-     * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
      * @return the finished row, or empty if it was not running
-     * @throws IllegalArgumentException if {@code status} is not final
+     * @throws IllegalArgumentException if {@code stage} is not one a run ends in
      */
-    Optional<UpdateRequest> finish(long id, UpdateStatus status, String result);
+    Optional<UpdateRequest> finish(long id, RunStage stage);
 
-    /** Rewrites the report of a running request and returns whether a running row was updated. */
-    boolean progress(long id, String result);
+    /** Writes the stage of a running request and returns whether a running row was updated. */
+    boolean progress(long id, RunStage stage);
 
     /**
      * Starts the countdown on a claimed request.
@@ -194,13 +198,12 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Fails every {@code RUNNING} row except a run whose container still runs, at startup.
+     * Fails every {@code RUNNING} row whose container no longer runs, and its open steps as interrupted.
      *
-     * @param why the note written into the failed report
      * @param stillRunning whether the daemon still runs the container with that name
      * @return how many rows it failed
      */
-    int settleOrphans(MessageRef why, java.util.function.Predicate<String> stillRunning);
+    int settleOrphans(java.util.function.Predicate<String> stillRunning);
 
     /**
      * Gives a running request to a temporary container that finishes it. The default gives nothing.
@@ -221,17 +224,17 @@ public interface UpdateDirectory {
         return Optional.empty();
     }
 
-    /** Returns one row as JSON for a restore, empty for an unknown id. */
+    /** Returns one row, the row of its kind and its services as JSON for a restore, empty for an unknown id. */
     default Optional<String> carry(final long id) {
         return Optional.empty();
     }
 
     /**
-     * After a restore, fails every row the dump held open and writes the saved row back.
+     * After a restore, fails every row the dump held open with its open steps and writes the saved row back.
      *
      * @param row what {@link #carry} returned before the restore
      */
-    default void putBack(final String row, final MessageRef why) {
+    default void putBack(final String row) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
     }
 

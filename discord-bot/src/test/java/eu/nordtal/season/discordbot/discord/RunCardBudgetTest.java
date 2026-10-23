@@ -1,12 +1,13 @@
 package eu.nordtal.season.discordbot.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStage;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
@@ -19,72 +20,46 @@ import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import org.junit.jupiter.api.Test;
 
-/** The run card stays within the size limit of one Components V2 message, however much a run reports. */
+/** The run card stays within the size limit of one Components V2 message, however many steps a run writes. */
 class RunCardBudgetTest {
 
     private static final DocumentRenderer DOCUMENTS = StoredDocumentsStandIn.renderer();
 
     @Test
-    void longNotesAndMoreServicesThanFitStillStayInsideTheLimits() {
-        assertInside(card(report(40, 600, 30, 400), request()));
-    }
-
-    @Test
-    void notesThatEatTheWholeBudgetStillLeaveTheCardInsideTheLimits() {
-        assertInside(card(report(30, 900, 1, 5000), request()));
+    void longChangesAndMoreServicesThanFitStillStayInsideTheLimits() {
+        assertInside(card(record(40, 600), request()));
     }
 
     @Test
     void anOrdinaryRunIsDrawnInFullOneLinePerServiceUnderOneHeading() {
-        final String text = card(report(4, 60, 2, 80), request()).text();
+        final String text = card(record(4, 60), request()).text();
 
         assertTrue(text.contains("### Services"), text);
         for (int i = 0; i < 4; i++) {
             assertTrue(
                     text.contains("**service-" + i + "**"),
-                    "four services and a short note is the everyday run; guarding the limit must not cost it a line");
+                    "four services is the everyday run; guarding the limit must not cost it a line");
         }
         assertTrue(text.contains("0.6.0 → 0.7.0"), "a change is a transition");
         assertFalse(text.matches("(?s).*\\n\\+\\d+(\\n.*)?"), "nothing was summarised away");
     }
 
     @Test
-    void aNoteIsToldInTheChannelsLanguageWithItsValuesEscaped() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
-                .withNote(UpdateReport.Note.failed(
-                                UpdateReport.Step.SCOPE, TEXTS.report().downRefused())
-                        .on("mc_smp"))
-                .with(new UpdateReport.ServiceLine(
-                        "smp",
-                        UpdateReport.State.FAILED,
-                        List.of(),
-                        UpdateReport.Facts.refused(UpdateReport.Act.STOP, "exit *1*")));
-        final String why = why(card(report, request()));
+    void aServiceIsNamedWithItsValuesEscaped() {
+        final RunRecord record = new RunRecord(
+                RunStage.FAILED,
+                List.of(
+                        step(RunStep.Kind.SCOPE, "mc_smp", RunStep.Outcome.FAILED, RunStep.Reason.UNKNOWN, List.of()),
+                        step(RunStep.Kind.STOP, "smp", RunStep.Outcome.FAILED, RunStep.Reason.REFUSED, List.of())));
+        final String why = why(card(record, request()));
 
-        assertTrue(why.contains("**mc\\_smp** cannot be taken down from here"), why);
-        assertTrue(why.contains("**smp** could not be stopped: exit \\*1\\*"), why);
-    }
-
-    @Test
-    void aNoteThatIsAPageRenderedForATerminalIsLeftToStewardsLog() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
-                .withNote(UpdateReport.Note.failed(
-                        UpdateReport.Step.RUN,
-                        TEXTS.report().words("proxy: release v0.9.5 carries no proxy-<version>.jar")))
-                .withNote(UpdateReport.Note.failed(
-                        UpdateReport.Step.RUN,
-                        TEXTS.report().words("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n")));
-        final String why = why(card(report, request()));
-
-        assertTrue(why.contains("carries no proxy"), "a one-line note is drawn");
-        assertFalse(
-                why.contains("what was done"),
-                "the table repeats the service lines in a shape only a monospaced font reads");
+        assertTrue(why.contains("**mc\\_smp** not in this stack"), why);
+        assertTrue(why.contains("**smp** refused, the run log has the answer"), why);
     }
 
     @Test
     void aRunTooBigForOneMessageCountsWhatItLeavesOutAndNeverDrawsACodeBlock() {
-        final String text = card(report(40, 600, 30, 400), request()).text();
+        final String text = card(record(40, 600), request()).text();
 
         assertTrue(text.matches("(?s).*\\n\\+\\d+(\\n.*)?"), "what did not fit is counted: " + text.length());
         assertFalse(text.contains("```"), "a code block is for something to copy");
@@ -93,7 +68,7 @@ class RunCardBudgetTest {
     @Test
     void theAdminChannelsContextIsInsideTheLimitsToo() {
         // Only the feed draws with context, so only this case measures who asked.
-        assertInside(UpdateFeed.card(report(40, 600, 30, 400), longAsker(), DOCUMENTS, true, null));
+        assertInside(UpdateFeed.card(record(40, 600), longAsker(), DOCUMENTS, true, null));
     }
 
     private static void assertInside(final DocumentRenderer.Drawn card) {
@@ -106,8 +81,8 @@ class RunCardBudgetTest {
         assertTrue(components <= Message.MAX_COMPONENT_COUNT_IN_COMPONENT_TREE, "the card has " + components);
     }
 
-    private static DocumentRenderer.Drawn card(final UpdateReport report, final UpdateRequest request) {
-        return UpdateFeed.card(report, request, DOCUMENTS, false, null);
+    private static DocumentRenderer.Drawn card(final RunRecord record, final UpdateRequest request) {
+        return UpdateFeed.card(record, request, DOCUMENTS, false, null);
     }
 
     private static String why(final DocumentRenderer.Drawn card) {
@@ -115,24 +90,34 @@ class RunCardBudgetTest {
         return text.substring(text.indexOf("### Why"));
     }
 
-    private static UpdateReport report(final int services, final int each, final int notes, final int noteLength) {
-        UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED);
+    /** A failed run whose every service installs about {@code each} characters of changes and then fails. */
+    private static RunRecord record(final int services, final int each) {
+        final List<RunStep.Row> steps = new ArrayList<>();
         for (int i = 0; i < services; i++) {
-            final List<UpdateReport.Change> changes = new ArrayList<>();
+            final List<RunStep.Change> changes = new ArrayList<>();
             for (int c = 0; c * 40 < each; c++) {
-                changes.add(new UpdateReport.Change("artefact-" + i + "-" + c, "0.6.0", "0.7.0"));
+                changes.add(new RunStep.Change("artefact-" + i + "-" + c, "0.6.0", "0.7.0", null));
             }
-            report = report.with(new UpdateReport.ServiceLine(
+            steps.add(step(RunStep.Kind.INSTALL, "service-" + i, RunStep.Outcome.DONE, null, changes));
+            steps.add(step(
+                    RunStep.Kind.VERIFY,
                     "service-" + i,
-                    UpdateReport.State.FAILED,
-                    changes,
-                    UpdateReport.Facts.refused(UpdateReport.Act.BACKUP, "x".repeat(each))));
+                    RunStep.Outcome.FAILED,
+                    RunStep.Reason.NOT_HEALTHY,
+                    List.of()));
         }
-        for (int i = 0; i < notes; i++) {
-            report = report.withNote(UpdateReport.Note.failed(
-                    UpdateReport.Step.RUN, TEXTS.report().words("n".repeat(noteLength))));
-        }
-        return report;
+        return new RunRecord(RunStage.FAILED, steps);
+    }
+
+    private static RunStep.Row step(
+            final RunStep.Kind kind,
+            final String service,
+            final RunStep.Outcome outcome,
+            final RunStep.@org.jspecify.annotations.Nullable Reason reason,
+            final List<RunStep.Change> changes) {
+        return new RunStep.Row(
+                0, kind, service, null, null, outcome, reason, null, changes, List.of(), List.of(), null, null, null,
+                List.of(), List.of());
     }
 
     /** The longest asker of a row is a person, whose Discord id has at most twenty digits. */
@@ -148,7 +133,7 @@ class RunCardBudgetTest {
         return new UpdateRequest(
                 1L,
                 UpdateKind.UPDATE,
-                UpdateStatus.RUNNING,
+                UpdateStatus.FAILED,
                 actor,
                 Instant.now(),
                 Instant.now(),
@@ -156,6 +141,6 @@ class RunCardBudgetTest {
                 List.of(),
                 Instant.now(),
                 null,
-                null);
+                RunStage.FAILED);
     }
 }

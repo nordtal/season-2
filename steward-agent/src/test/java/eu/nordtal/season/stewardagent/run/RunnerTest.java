@@ -10,16 +10,14 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.inbox.StewardRequest;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
-import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.schema.Schema;
@@ -40,7 +38,7 @@ class RunnerTest {
 
     private final FakeContainers containers = new FakeContainers().running("smp", "discord-bot", "limbo");
     private final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
-    private final List<UpdateReport> progress = new ArrayList<>();
+    private final List<RunStage> progress = new ArrayList<>();
 
     /** Removes only what a test added and records each removal in the calls. */
     private final PluginRemoval removal = new PluginRemoval() {
@@ -101,17 +99,13 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:smp-container", "start:smp-container"), containers.calls);
         final UpdateRequest row = directory.find(request.id()).orElseThrow();
         assertNotNull(
                 row.countdownEnd(), "the proxy warns from this column, so a restart that skips it is unannounced");
         assertEquals(List.of("smp"), row.moving(), "the countdown names what moves, and only that");
-        assertTrue(
-                progress.stream().anyMatch(report -> report.stage() == UpdateReport.Stage.COUNTDOWN),
-                "the feeds see the countdown too: " + progress);
-        allTold(outcome);
-        assertEquals(List.of("report.nothing-changes"), Told.toldKeys(outcome.report(), "smp"));
+        assertTrue(progress.contains(RunStage.COUNTDOWN), "the feeds see the countdown too: " + progress);
         // The fake runtime counts no players.
         assertEquals(
                 List.of(
@@ -127,20 +121,28 @@ class RunnerTest {
     /**
      * A one-shot is a release ahead of the schema until its run migrates, so it writes no table the database lacks.
      *
-     * The database is at the newest migration of 0.27.0.
+     * The database is at the newest migration of 0.55.0, the release before the rows of a request.
      */
     @Test
     void aRunOnTheSchemaBeforeItsOwnMigrationWritesNoTableThatIsNotThereYet() {
         database.close();
         final TestDatabase older = TestDatabase.empty();
-        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "53");
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "88");
         open(older);
 
-        final UpdateRequest first = claimed(UpdateKind.RESTART, List.of("smp"));
+        // The previous release asked for the run, as JSON in the payload.
+        try (var connection = older.dataSource().getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("INSERT INTO steward_inbox (kind, actor_kind, payload)"
+                    + " VALUES ('RESTART', 'HOST', '{\"services\": [\"smp\"]}')");
+        } catch (final java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        final UpdateRequest first = directory.claimNext().orElseThrow();
         final Outcome before = runner.run(first, progress::add);
 
-        assertEquals(UpdateStatus.DONE, before.status(), before.report());
-        directory.finish(first.id(), before.status(), before.report());
+        assertEquals(UpdateStatus.DONE, before.status(), steps().toString());
+        directory.finish(first.id(), before.stage());
         older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
         final UpdateRequest after = claimed(UpdateKind.RESTART, List.of("smp"));
         assertEquals(UpdateStatus.DONE, runner.run(after, progress::add).status());
@@ -154,15 +156,13 @@ class RunnerTest {
 
         final Outcome outcome = runner.asOneShot().run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:smp-container", "start:smp-container", "renew:steward-agent"), containers.calls);
+        final List<String> steps = steps(request.id());
         assertEquals(
-                UpdateReport.State.HEALTHY,
-                UpdateReports.parse(outcome.report())
-                        .orElseThrow()
-                        .line("steward-agent")
-                        .state(),
-                outcome.report());
+                List.of("INSTALL steward-agent DONE", "VERIFY steward-agent DONE"),
+                steps.subList(steps.size() - 2, steps.size()),
+                "the renewed agent is installed and seen healthy last: " + steps);
     }
 
     @Test
@@ -171,7 +171,7 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(
                 List.of(
                         "prune:" + defaults().backup().retention().daily(),
@@ -189,21 +189,10 @@ class RunnerTest {
         assertTrue(
                 steps(request.id()).contains("DUMP_DATABASE DONE"),
                 "a dump acts on no service: " + steps(request.id()));
-        allTold(outcome);
-        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.DATABASE));
-        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp"));
-        assertEquals(List.of("report.stopped-while-saving"), Told.toldKeys(outcome.report(), "smp"));
-        assertTrue(
-                progress.stream()
-                        .flatMap(report -> report.services().stream())
-                        .flatMap(line -> line.changes().stream())
-                        .anyMatch(change -> change.told() != null
-                                && "report.saving".equals(change.told().key())),
-                "a volume being saved says so while it is: " + progress);
-        final String english = Told.report(outcome.report());
-        assertTrue(english.contains("7.3 MiB in 3s"), english);
-        assertTrue(english.contains("1.2 MiB in 12s"), english);
-        assertTrue(english.contains("no offsite repository, so the archives stay on this disk"), english);
+        final List<String> steps = steps(request.id());
+        assertTrue(steps.contains("SAVE_VOLUME nordtal-s2_mc-smp DONE"), steps.toString());
+        assertTrue(steps.contains("OFFSITE_COPY SKIPPED NO_REPOSITORY"), "the archives stay on this disk: " + steps);
+        assertTrue(progress.contains(RunStage.BACKING_UP), "a backup says so while it saves: " + progress);
     }
 
     @Test
@@ -213,11 +202,8 @@ class RunnerTest {
         final UpdateRequest request = claimed(UpdateKind.BACKUP, null);
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
-        final String english = Told.report(outcome.report());
-        assertTrue(english.contains("needs about 3.7 GiB, 4.7 GiB free"), english);
-        assertTrue(english.contains("\"step\":\"BACKUP\",\"outcome\":\"FAILED\""), english);
         assertEquals(List.of("PRUNE DONE", "ROOM_CHECK FAILED NO_ROOM"), steps(request.id()));
     }
 
@@ -227,7 +213,7 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(claimed(UpdateKind.BACKUP, null), progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         final List<String> stopsAndStarts = containers.calls.stream()
                 .filter(call -> call.startsWith("stop:") || call.startsWith("start:"))
                 .toList();
@@ -248,19 +234,14 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         final int started = containers.calls.indexOf("start:smp-container");
         final int copied = containers.calls.indexOf(
                 "offsite:" + defaults().backup().retention().daily());
         assertTrue(started >= 0 && copied > started, "the upload must not keep the servers down: " + containers.calls);
-        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.OFFSITE));
-        assertEquals(
-                UpdateReport.State.SAVED,
-                UpdateReports.parse(outcome.report())
-                        .orElseThrow()
-                        .line(Snapshots.OFFSITE)
-                        .state());
-        assertFalse(Told.report(outcome.report()).contains("No offsite repository"), outcome.report());
+        assertTrue(
+                steps(request.id()).contains("OFFSITE_COPY DONE"),
+                steps(request.id()).toString());
     }
 
     @Test
@@ -271,37 +252,38 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(
                 "start:smp-container", containers.calls.get(containers.calls.size() - 2), containers.calls.toString());
-        final String english = Told.report(outcome.report());
-        assertTrue(english.contains("the copy failed: exit [1]"), english);
+        assertTrue(
+                steps(request.id()).contains("OFFSITE_COPY FAILED TOOL_FAILED"),
+                steps(request.id()).toString());
     }
 
     @Test
     void aTakeDownLeavesTheServerDownUntilAStartReleasesIt() {
         final Outcome down = runner.run(claimed(UpdateKind.DOWN, List.of("smp")), progress::add);
 
-        assertEquals(UpdateStatus.DONE, down.status(), down.report());
+        assertEquals(UpdateStatus.DONE, down.status(), steps().toString());
         assertEquals(List.of("stop:smp-container"), containers.calls, "a take-down starts nothing again");
         assertTrue(directory.isHeld("smp"));
-        allTold(down);
-        assertEquals(List.of("report.stays-down"), Told.toldKeys(down.report(), "smp"));
-        directory.finish(directory.running().orElseThrow().id(), UpdateStatus.DONE, down.report());
+        final long downId = directory.running().orElseThrow().id();
+        assertTrue(steps(downId).contains("HOLD smp DONE"), steps(downId).toString());
+        directory.finish(downId, down.stage());
 
         containers.calls.clear();
         final UpdateRequest start = claimed(UpdateKind.START, List.of("smp"));
         final Outcome started = runner.run(start, progress::add);
 
-        assertEquals(UpdateStatus.DONE, started.status(), started.report());
+        assertEquals(UpdateStatus.DONE, started.status(), steps().toString());
         assertEquals(List.of("start:smp-container"), containers.calls);
         assertFalse(directory.isHeld("smp"));
         assertEquals(
                 null,
                 directory.find(start.id()).orElseThrow().countdownEnd(),
                 "starting a server takes nobody off one, so nobody is warned");
-        allTold(started);
-        assertEquals(List.of("report.starts-again"), Told.toldKeys(started.report(), "smp"));
+        assertTrue(
+                steps(start.id()).contains("UNHOLD smp DONE"), steps(start.id()).toString());
     }
 
     @Test
@@ -311,8 +293,9 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
-        assertTrue(Told.report(outcome.report()).contains("NOTHING_TO_DO"), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
+        assertEquals(
+                RunStage.NOTHING_TO_DO, outcome.stage(), steps(request.id()).toString());
         assertEquals(List.of(), containers.calls, "a run that discovers there is nothing to do must stop nothing");
         assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd());
     }
@@ -323,10 +306,9 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:smp-container", "recreate-local:smp"), containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "players on smp are warned first");
-        allTold(outcome);
     }
 
     @Test
@@ -335,7 +317,7 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:discord-bot-container", "recreate:discord-bot"), containers.calls);
         assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd(), "nobody stands on the bot");
     }
@@ -347,10 +329,10 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:smp-container", "recreate-local:smp", "recreate-local:postgres"), containers.calls);
         assertEquals(
-                List.of("smp", "postgres"),
+                List.of("postgres", "smp"),
                 directory.find(request.id()).orElseThrow().moving());
     }
 
@@ -362,7 +344,7 @@ class RunnerTest {
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         final List<String> calls = containers.calls;
         final int standbyStopped = calls.stream()
                 .filter(call -> call.startsWith("stop:proxy-standby-container"))
@@ -378,43 +360,44 @@ class RunnerTest {
     void aRecreateOfTheAgentItselfIsRefusedAndStopsNothing() {
         final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
-        assertTrue(
-                Told.report(outcome.report()).contains("\"service\":\"steward-agent\",\"what\":\"runs this run"),
-                outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(List.of(), containers.calls);
     }
 
     @Test
     void aPluginRemovalStopsTheServerRemovesThePluginAndStartsItAgain() {
-        final UpdateRequest request = claimed(new StewardRequest.RemovePlugin(List.of("smp"), "chunky"));
+        final UpdateRequest request = claimed(new StewardRequest.RemovePlugin("chunky"), List.of("smp"));
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(List.of("stop:smp-container", "remove:smp/chunky", "start:smp-container"), containers.calls);
-        assertTrue(Told.report(outcome.report()).contains("chunky-1.0.jar"), outcome.report());
-        allTold(outcome);
-        assertEquals(List.of("report.plugin-removed"), Told.toldKeys(outcome.report(), "smp"));
+        assertEquals(
+                List.of(new eu.nordtal.season.database.update.RunStep.Change("chunky", null, null, null)),
+                directory.recordOf(request.id()).steps().stream()
+                        .filter(step -> step.step() == eu.nordtal.season.database.update.RunStep.Kind.INSTALL)
+                        .flatMap(step -> step.changes().stream())
+                        .toList(),
+                "the step names the plugin it removed: " + steps(request.id()));
     }
 
     @Test
     void aRemovalOfAPluginNobodyAddedStopsNothing() {
         final Outcome outcome =
-                runner.run(claimed(new StewardRequest.RemovePlugin(List.of("smp"), "worldedit")), progress::add);
+                runner.run(claimed(new StewardRequest.RemovePlugin("worldedit"), List.of("smp")), progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(List.of(), containers.calls);
     }
 
     @Test
     void aVolumeRestoreSavesTheVolumeAsItIsFirstThenPutsTheArchiveBackWhileItsServerIsDown() {
         final UpdateRequest request =
-                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst"));
+                claimed(new StewardRequest.Restore("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), List.of());
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(
                 List.of(
                         "room:1",
@@ -425,20 +408,8 @@ class RunnerTest {
                 containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
         assertTrue(
-                Told.report(outcome.report()).contains("1.2 MiB"),
-                "the line says what was restored: " + outcome.report());
-        allTold(outcome);
-        assertEquals(
-                List.of("report.restored"),
-                Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst"));
-        assertEquals(List.of("report.stopped-for-restore"), Told.toldKeys(outcome.report(), "smp"));
-        assertEquals(
-                UpdateReport.State.RESTORED,
-                UpdateReports.parse(outcome.report())
-                        .orElseThrow()
-                        .line("nordtal-s2_mc-smp-20260913T000000Z.tar.zst")
-                        .state(),
-                "an archive put back is restored, not updated");
+                steps(request.id()).contains("RESTORE nordtal-s2_mc-smp-20260913T000000Z.tar.zst DONE"),
+                "an archive put back is restored, not updated: " + steps(request.id()));
     }
 
     @Test
@@ -446,14 +417,13 @@ class RunnerTest {
         snapshots.fails("nordtal-s2_mc-smp");
 
         final Outcome outcome = runner.run(
-                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst")),
+                claimed(new StewardRequest.Restore("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), List.of()),
                 progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(
                 List.of("room:1", "stop:smp-container", "backup:nordtal-s2_mc-smp", "start:smp-container"),
                 containers.calls);
-        allTold(outcome);
     }
 
     /**
@@ -463,11 +433,11 @@ class RunnerTest {
     void aVolumeRestoreThatFailsAfterEmptyingTheVolumeLeavesItsServerDownAndHeld() {
         snapshots.fails("restore");
         final UpdateRequest request =
-                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260901T000000Z.tar.zst"));
+                claimed(new StewardRequest.Restore("nordtal-s2_mc-smp-20260901T000000Z.tar.zst"), List.of());
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(
                 List.of(
                         "room:1",
@@ -477,10 +447,14 @@ class RunnerTest {
                 containers.calls,
                 "nothing starts on what the failed restore left");
         assertTrue(directory.isHeld("smp"), "so no later run starts it either");
-        final String told = Told.report(outcome.report());
-        assertTrue(told.contains("incomplete, so smp stay held down"), told);
-        assertTrue(told.contains("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), "it names the way back: " + told);
-        allTold(outcome);
+        final List<String> steps = steps(request.id());
+        assertTrue(
+                steps.contains("RESTORE nordtal-s2_mc-smp-20260901T000000Z.tar.zst FAILED LEFT_DOWN"),
+                steps.toString());
+        assertTrue(steps.contains("HOLD smp DONE"), steps.toString());
+        assertTrue(
+                steps.contains("SAVE_VOLUME nordtal-s2_mc-smp DONE"),
+                "the archive saved first is the way back: " + steps);
     }
 
     @Test
@@ -488,10 +462,10 @@ class RunnerTest {
         snapshots.fails("unreadable");
 
         final Outcome outcome = runner.run(
-                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260901T000000Z.tar.zst")),
+                claimed(new StewardRequest.Restore("nordtal-s2_mc-smp-20260901T000000Z.tar.zst"), List.of()),
                 progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(
                 List.of(
                         "room:1",
@@ -501,16 +475,15 @@ class RunnerTest {
                         "start:smp-container"),
                 containers.calls);
         assertFalse(directory.isHeld("smp"));
-        allTold(outcome);
     }
 
     @Test
     void aDatabaseRestoreDumpsFirstThenStopsWhatRunsOnTheDatabaseAndCarriesItsOwnRowAcross() {
-        final UpdateRequest request = claimed(new StewardRequest.Restore(List.of(), "nordtal-20260913T000000Z.dump"));
+        final UpdateRequest request = claimed(new StewardRequest.Restore("nordtal-20260913T000000Z.dump"), List.of());
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps().toString());
         assertEquals(
                 List.of(
                         "dump",
@@ -526,27 +499,23 @@ class RunnerTest {
                         .toList());
         assertEquals(
                 UpdateStatus.RUNNING, directory.find(request.id()).orElseThrow().status());
-        allTold(outcome);
-        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.DATABASE));
-        assertEquals(List.of("report.stopped-for-restore"), Told.toldKeys(outcome.report(), "smp"));
-        assertEquals(List.of("report.restored"), Told.toldKeys(outcome.report(), "nordtal-20260913T000000Z.dump"));
+        final List<String> steps = steps(request.id());
+        // The steps before it were rows of the database it replaced; the agent's log keeps them.
+        assertEquals("RESTORE nordtal-20260913T000000Z.dump DONE", steps.getFirst(), steps.toString());
     }
 
     @Test
     void aRestoreOfAnArchiveThatIsNotThereStopsNothing() {
         final Outcome outcome =
-                runner.run(claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp.tar.zst")), progress::add);
+                runner.run(claimed(new StewardRequest.Restore("nordtal-s2_mc-smp.tar.zst"), List.of()), progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(UpdateStatus.FAILED, outcome.status(), steps().toString());
         assertEquals(List.of(), containers.calls);
     }
 
-    /** Every change of the run is a message. Only an install names a version. */
-    private void allTold(final Outcome outcome) {
-        assertEquals(List.of(), Told.untold(outcome.report()), outcome.report());
-        for (final UpdateReport report : progress) {
-            assertEquals(List.of(), Told.untold(report), report.toString());
-        }
+    /** The steps of the newest run, for a failure message. */
+    private List<String> steps() {
+        return steps(directory.latestId());
     }
 
     /** The steps of the run as rows: step, subject, outcome and reason. */
@@ -568,12 +537,13 @@ class RunnerTest {
     }
 
     /** Submits a request due now and claims it. */
-    private UpdateRequest claimed(final StewardRequest request) {
-        directory.submit(request, Actor.HOST, Duration.ZERO);
+    private UpdateRequest claimed(final StewardRequest request, final List<String> services) {
+        directory.submit(request, services, Actor.HOST, Duration.ZERO);
         return directory.claimNext().orElseThrow();
     }
 
-    private UpdateRequest claimed(final UpdateKind kind, final List<String> services) {
+    private UpdateRequest claimed(
+            final UpdateKind kind, final @org.jspecify.annotations.Nullable List<String> services) {
         directory.submit(kind, Actor.HOST, Duration.ZERO, services);
         return directory.claimNext().orElseThrow();
     }

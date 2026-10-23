@@ -452,153 +452,23 @@ export type TextArgs = {
     alert: Arg["choice"]
   }
   "journal.web-push-unsubscribe": Record<string, never>
-  "report.agent-not-renewed": {
-    reason: Arg["text"]
-  }
-  "report.backup-unread": {
-    reason: Arg["text"]
-  }
-  "report.backup-wont-fit": {
-    expected: Arg["message"]
-    free: Arg["message"]
-    percent: Arg["number"]
-    reserve: Arg["message"]
-  }
-  "report.cancelled": Record<string, never>
-  "report.down-refused": Record<string, never>
-  "report.down-unnamed": Record<string, never>
-  "report.evacuation-interrupted": Record<string, never>
-  "report.failed-unexpectedly": {
-    error: Arg["text"]
-  }
-  "report.fell-back": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.fell-back-down": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.fell-back-healthy": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.fell-back-interrupted": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.foreign-newer": Record<string, never>
-  "report.foreign-not-recreated": {
-    reason: Arg["text"]
-  }
-  "report.handed": {
-    release: Arg["text"]
-  }
-  "report.held-back": {
-    reason: Arg["message"]
-    held: Arg["list"]
-  }
-  "report.held-down": Record<string, never>
-  "report.held-left-out": Record<string, never>
-  "report.held-not-remade": Record<string, never>
-  "report.held-not-restarted": Record<string, never>
-  "report.image-outdated": Record<string, never>
-  "report.image-renewed": Record<string, never>
-  "report.images-local": Record<string, never>
-  "report.images-not-pruned": {
-    error: Arg["text"]
-  }
-  "report.images-pruned": {
-    images: Arg["number"]
-    freed: Arg["message"]
-  }
-  "report.images-uncompared": Record<string, never>
-  "report.images-unread": {
-    answer: Arg["text"]
-  }
-  "report.images-unverifiable": Record<string, never>
-  "report.local-builds-kept": Record<string, never>
-  "report.made-again": {
-    pull: Arg["choice"]
-  }
-  "report.no-backup-volumes": Record<string, never>
   "report.no-build": {
     artefact: Arg["text"]
     minecraft: Arg["text"]
     loader: Arg["text"]
   }
-  "report.no-container": Record<string, never>
-  "report.no-container-to-start": Record<string, never>
-  "report.no-container-to-stop": Record<string, never>
   "report.no-database": Record<string, never>
-  "report.no-offsite": Record<string, never>
   "report.no-source": {
     artefact: Arg["text"]
-  }
-  "report.no-standby": Record<string, never>
-  "report.not-fell-back": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-    answer: Arg["text"]
-  }
-  "report.not-healthy": {
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.not-in-release": {
-    reason: Arg["message"]
-    installed: Arg["text"]
-  }
-  "report.not-installed": {
-    artefact: Arg["text"]
-    reason: Arg["text"]
-  }
-  "report.not-migrated": {
-    reason: Arg["text"]
   }
   "report.not-mounted": {
     directory: Arg["text"]
   }
-  "report.not-recreated": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.not-restored": Record<string, never>
-  "report.not-saved": Record<string, never>
-  "report.not-stopped": {
-    run: Arg["choice"]
-  }
-  "report.nothing-changes": Record<string, never>
-  "report.nothing-held": Record<string, never>
-  "report.older-release": {
-    release: Arg["text"]
-    own: Arg["text"]
-  }
-  "report.one-shot-not-started": {
-    release: Arg["text"]
-    reason: Arg["text"]
-  }
-  "report.orphaned": Record<string, never>
-  "report.pack-moves": {
-    version: Arg["text"]
-  }
-  "report.pack-unchecked": {
-    reason: Arg["message"]
-  }
-  "report.players-unknown": {
-    seconds: Arg["number"]
-  }
-  "report.plugin-removed": Record<string, never>
   "report.proxy-pack-unread": {
     error: Arg["text"]
   }
   "report.proxy-pack-without-sha-1": Record<string, never>
   "report.proxy-without-pack": Record<string, never>
-  "report.recreating": {
-    pull: Arg["choice"]
-  }
   "report.release-jar-without-digest": {
     release: Arg["text"]
     jar: Arg["text"]
@@ -618,62 +488,6 @@ export type TextArgs = {
     release: Arg["text"]
     zip: Arg["text"]
   }
-  "report.released-meanwhile": {
-    release: Arg["text"]
-    own: Arg["text"]
-  }
-  "report.remake-agent": Record<string, never>
-  "report.remake-unknown": Record<string, never>
-  "report.remake-unnamed": Record<string, never>
-  "report.removal-empty": {
-    artifact: Arg["text"]
-  }
-  "report.removal-failed": {
-    reason: Arg["text"]
-  }
-  "report.removal-unknown": {
-    artifact: Arg["text"]
-  }
-  "report.removal-unnamed": Record<string, never>
-  "report.removed": {
-    files: Arg["list"]
-  }
-  "report.renewing-agent": Record<string, never>
-  "report.restart-all-held": Record<string, never>
-  "report.restart-none-in-scope": Record<string, never>
-  "report.restarted": {
-    reason: Arg["text"]
-  }
-  "report.restore-database-unsaved": {
-    reason: Arg["text"]
-  }
-  "report.restore-failed": Record<string, never>
-  "report.restore-left-down": {
-    services: Arg["list"]
-    backup: Arg["text"]
-  }
-  "report.restore-not-a-volume": {
-    archive: Arg["text"]
-  }
-  "report.restore-unknown": {
-    archive: Arg["text"]
-  }
-  "report.restore-unnamed": Record<string, never>
-  "report.restore-unsaved": Record<string, never>
-  "report.restored": {
-    size: Arg["message"]
-  }
-  "report.restored-over": {
-    dump: Arg["text"]
-  }
-  "report.runtime-unread": {
-    answer: Arg["text"]
-  }
-  "report.saved": {
-    size: Arg["message"]
-    took: Arg["duration"]
-  }
-  "report.saving": Record<string, never>
   "report.sha-1-unread": {
     file: Arg["text"]
     error: Arg["text"]
@@ -682,61 +496,10 @@ export type TextArgs = {
     amount: Arg["number"]
     unit: Arg["choice"]
   }
-  "report.standby-no-container": Record<string, never>
-  "report.standby-not-started": {
-    reason: Arg["text"]
-  }
-  "report.standby-not-stopped": {
-    reason: Arg["text"]
-  }
-  "report.standby-stopped": Record<string, never>
-  "report.standby-stopped-interrupted": {
-    players: Arg["number"]
-  }
-  "report.standby-stopped-with-players": {
-    players: Arg["number"]
-    seconds: Arg["number"]
-  }
-  "report.standbys-interrupted": Record<string, never>
-  "report.standbys-ready": Record<string, never>
-  "report.standbys-unhealthy": {
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.start-failed": {
-    reason: Arg["text"]
-  }
-  "report.start-refused": {
-    reason: Arg["text"]
-  }
-  "report.starts-again": Record<string, never>
-  "report.stays-down": Record<string, never>
-  "report.stop-failed": {
-    reason: Arg["text"]
-  }
-  "report.stopped-for-restore": {
-    archive: Arg["text"]
-  }
-  "report.stopped-while-saving": Record<string, never>
-  "report.stopped-with-players": {
-    players: Arg["number"]
-    seconds: Arg["number"]
-  }
-  "report.unclaimed": {
-    file: Arg["text"]
-  }
-  "report.unmarked-archive": {
-    archive: Arg["text"]
-  }
-  "report.unverified-archive": {
-    archive: Arg["text"]
-  }
-  "report.unverified-stop": Record<string, never>
   "report.velocity-ahead": {
     version: Arg["text"]
     api: Arg["text"]
   }
-  "report.wait-interrupted": Record<string, never>
   "report.words": {
     text: Arg["text"]
   }
@@ -798,21 +561,11 @@ export type TextArgs = {
     needed: Arg["message"]
     free: Arg["message"]
   }
-  "run.state": {
-    state: Arg["choice"]
-  }
   "run.status": {
     status: Arg["choice"]
   }
-  "run.step": {
-    step: Arg["choice"]
-  }
   "run.step-kind": {
     kind: Arg["choice"]
-  }
-  "run.successful": {
-    successful: Arg["number"]
-    total: Arg["number"]
   }
   "run.title": {
     kind: Arg["choice"]

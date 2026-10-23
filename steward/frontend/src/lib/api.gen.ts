@@ -86,7 +86,7 @@ export type Run = {
   moving: string[]
   started?: string
   finished?: string
-  stage?: ReportStage
+  stage?: RunStage
   steps: RunStep[]
 }
 
@@ -604,7 +604,7 @@ export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLE
 
 export type ActorKind = "PERSON" | "STEWARD" | "HOST" | "BOT"
 
-export type ReportStage =
+export type RunStage =
   | "RESOLVING"
   | "PLANNED"
   | "COUNTDOWN"

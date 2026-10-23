@@ -266,6 +266,6 @@ public interface KeysPage {
     @Name("Not found")
     MessageRef notFound();
 
-    @Name("Back to status")
-    MessageRef backToStatus();
+    @Name("Back to overview")
+    MessageRef backToOverview();
 }

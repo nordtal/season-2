@@ -213,6 +213,28 @@ describe("JournalPage - a run is one row that links to its page", () => {
   })
 })
 
+describe("JournalPage - a backup run", () => {
+  it("links to its page under Backups", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        stream: () => [
+          {
+            key: "r0000000000000000249",
+            occurred: "2026-10-23T03:00:00Z",
+            actor: STEWARD,
+            run: { id: 249, kind: "BACKUP", status: "DONE", services: [], why: [] },
+          },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    const link = await screen.findByRole("link", { name: "Backup" })
+    expect(link.getAttribute("href")).toBe("/operations/backups/249")
+  })
+})
+
 describe("JournalPage - open now", () => {
   it("lists what is open with its level, and says nothing is open otherwise", async () => {
     const fetched = backend({})

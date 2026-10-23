@@ -32,4 +32,10 @@ class UpdateKindTest {
         assertThrows(IllegalArgumentException.class, () -> UpdateKind.INSTALL.request());
         assertFalse(UpdateKind.INSTALL.stopsServers(), "it fills volumes before any server runs");
     }
+
+    @Test
+    void aBackupRunsPageIsUnderBackupsAndEveryOtherUnderUpdates() {
+        assertEquals("/operations/backups/249", UpdateKind.BACKUP.page(249));
+        assertEquals("/operations/updates/7", UpdateKind.RESTORE.page(7));
+    }
 }

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, render, screen, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdateRunPage } from "@/pages/operations"
@@ -38,13 +38,13 @@ const STEPS = [
   },
 ]
 
-function backend(steps: unknown = STEPS, stage = "DONE"): typeof fetch {
+function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeof fetch {
   const impl: typeof fetch = async (input) => {
     const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
       return json(200, {
         id: 79,
-        kind: "UPDATE",
+        kind,
         status: "DONE",
         actorKind: "HOST",
         actorId: "",
@@ -72,6 +72,7 @@ function draw() {
       component: UpdateRunPage,
     }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates", component: () => null }),
+    createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: () => null }),
   ])
   const router = createRouter({
     routeTree,
@@ -79,13 +80,14 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return router
 }
 
 afterEach(() => {
@@ -129,6 +131,13 @@ describe("a run's steps read as Steward words them", () => {
     expect(await screen.findByText("the tool failed")).toBeTruthy()
     expect(screen.getByText("exit code 2")).toBeTruthy()
     expect(screen.getByText("Dump the database")).toBeTruthy()
+  })
+
+  it("sends a backup run to its page under Backups", async () => {
+    vi.stubGlobal("fetch", backend([], "DONE", "BACKUP"))
+    const router = draw()
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/operations/backups/79"))
   })
 
   it("says there is no report yet while a run has no step", async () => {

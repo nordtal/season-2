@@ -250,6 +250,7 @@ function drawDetail(id: string) {
   const root = createRootRoute()
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: BackupRunDetailPage }),
+    createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
   ])
   const router = createRouter({
     routeTree,
@@ -543,6 +544,14 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
       within(await rowOf("nordtal-s2_mc-smp-20260910T044500Z.tar.zst")).getByText("pruned, over the disk budget"),
     ).toBeTruthy()
     expect(screen.queryByLabelText(/^Download /)).toBeNull()
+  })
+
+  it("leads back to Backups as the update run's page leads back to Updates", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ steps: [] })], backups: [] }))
+    drawDetail("41")
+
+    const back = await screen.findByRole("link", { name: "All backups" })
+    expect(back.getAttribute("href")).toBe("/operations/backups")
   })
 
   it("says so when no run matches the id, rather than drawing an empty page", async () => {

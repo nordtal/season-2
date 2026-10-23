@@ -9,7 +9,7 @@ export function NotFoundPage() {
     <div className="flex flex-col items-start gap-6">
       <PageHeader title={t("steward.keys.not-found")} />
       <Button asChild size="sm">
-        <Link to="/">{t("steward.keys.back-to-status")}</Link>
+        <Link to="/">{t("steward.keys.back-to-overview")}</Link>
       </Button>
     </div>
   )

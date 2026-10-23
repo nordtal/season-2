@@ -777,6 +777,7 @@ export type TextArgs = {
   "steward.backup-settings.no-at": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
+  "steward.backups.all-backups": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
   "steward.backups.archive": Record<string, never>
   "steward.backups.archives": Record<string, never>
@@ -1104,7 +1105,7 @@ export type TextArgs = {
   "steward.keys.app-scan": Record<string, never>
   "steward.keys.app-secret": Record<string, never>
   "steward.keys.app-title": Record<string, never>
-  "steward.keys.back-to-status": Record<string, never>
+  "steward.keys.back-to-overview": Record<string, never>
   "steward.keys.brand": Record<string, never>
   "steward.keys.browser-cannot": Record<string, never>
   "steward.keys.call-it": Record<string, never>

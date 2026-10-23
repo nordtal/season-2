@@ -358,13 +358,20 @@ export function useGameAction() {
   })
 }
 
-/** Pends until the bot has posted every language, and fails with the reason of the first that it did not post. */
-export function useSendAnnouncement() {
+/**
+ * Pends until the bot has answered every language, calls `onPosted` with each language it posted and its text, and fails with the reason of
+ * the first that it did not post.
+ */
+export function useSendAnnouncement(onPosted: (tag: string, text: string) => void) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (texts: Record<string, string>) => {
       const asked = await api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } })
-      return Promise.all(Object.values(asked.ids).map((id) => doneRun(client, id)))
+      const runs = await Promise.allSettled(
+        Object.entries(asked.ids).map(([tag, id]) => doneRun(client, id).then(() => onPosted(tag, texts[tag]))),
+      )
+      const failed = runs.find((run) => run.status === "rejected")
+      if (failed) throw failed.reason
     },
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })

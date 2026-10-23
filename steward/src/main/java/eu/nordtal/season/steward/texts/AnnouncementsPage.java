@@ -26,4 +26,10 @@ public interface AnnouncementsPage {
 
     @Name("No channel")
     MessageRef noChannel();
+
+    @Name("Posted")
+    MessageRef posted(@Arg("language") @Example("Deutsch") String language);
+
+    @Name("Not posted")
+    MessageRef notPosted(@Arg("language") @Example("Deutsch") String language);
 }

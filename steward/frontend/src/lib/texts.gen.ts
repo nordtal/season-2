@@ -578,6 +578,12 @@ export type TextArgs = {
   "steward.announcements.compose": Record<string, never>
   "steward.announcements.host-channel": Record<string, never>
   "steward.announcements.no-channel": Record<string, never>
+  "steward.announcements.not-posted": {
+    language: Arg["text"]
+  }
+  "steward.announcements.posted": {
+    language: Arg["text"]
+  }
   "steward.announcements.send": Record<string, never>
   "steward.announcements.where": {
     languages: Arg["number"]

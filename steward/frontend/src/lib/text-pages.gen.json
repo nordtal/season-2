@@ -6,6 +6,8 @@
     "steward.announcements.compose": ["services"],
     "steward.announcements.host-channel": ["services"],
     "steward.announcements.no-channel": ["services"],
+    "steward.announcements.not-posted": ["services"],
+    "steward.announcements.posted": ["services"],
     "steward.announcements.send": ["services"],
     "steward.announcements.where": ["services"],
     "steward.answer.agent-unconfigured": ["overview","services"],

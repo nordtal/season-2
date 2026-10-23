@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Instant;
 
 /** The texts of the frame around every page: the navigation, the search, the account menu and the stuck door. */
@@ -13,7 +14,7 @@ public interface Shell {
     MessageRef steward();
 
     @Name("Version")
-    MessageRef version(@Arg("version") String version);
+    MessageRef version(@Arg("version") @Example("0.57.0") String version);
 
     @Name("Page")
     MessageRef page(@Arg("page") Page page);
@@ -22,7 +23,7 @@ public interface Shell {
     MessageRef note(@Arg("page") Page page);
 
     @Name("Service note")
-    MessageRef serviceNote(@Arg("name") String name);
+    MessageRef serviceNote(@Arg("name") @Example("smp") String name);
 
     @Name("Navigation")
     MessageRef navigation();
@@ -55,10 +56,12 @@ public interface Shell {
     MessageRef settings();
 
     @Name("Run hit")
-    MessageRef runHit(@Arg("run") int run, @Arg("kind") String kind);
+    MessageRef runHit(@Arg("run") @Example("42") int run, @Arg("kind") @Example("Update") String kind);
 
     @Name("Run state")
-    MessageRef runWhen(@Arg("status") String status, @Arg("requested") Instant requested);
+    MessageRef runWhen(
+            @Arg("status") @Example("finished") String status,
+            @Arg("requested") @Example("2026-10-23T18:40:00Z") Instant requested);
 
     @Name("Stuck")
     MessageRef stuck();
@@ -67,13 +70,13 @@ public interface Shell {
     MessageRef account();
 
     @Name("Account of")
-    MessageRef accountOf(@Arg("name") String name);
+    MessageRef accountOf(@Arg("name") @Example("Alex") String name);
 
     @Name("Unknown")
     MessageRef unknown();
 
     @Name("Discord id")
-    MessageRef discord(@Arg("id") String id);
+    MessageRef discord(@Arg("id") @Example("112233445566778899") String id);
 
     @Name("Sign out")
     MessageRef signOut();

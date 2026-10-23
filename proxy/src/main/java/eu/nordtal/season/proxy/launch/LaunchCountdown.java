@@ -2,6 +2,7 @@ package eu.nordtal.season.proxy.launch;
 
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
@@ -24,7 +25,11 @@ public final class LaunchCountdown {
      * The countdown's values: {@code days} and {@code hours} at {@link Stage#DAYS}, {@code hours} and {@code minutes}
      * at {@link Stage#HOURS}, {@code minutes} at {@link Stage#MINUTES}, none at the other stages.
      */
-    public record Countdown(Stage countdown, long days, long hours, long minutes) {}
+    public record Countdown(
+            Stage countdown,
+            @Example("2") long days,
+            @Example("5") long hours,
+            @Example("40") long minutes) {}
 
     /** The line under a login screen before the opening. */
     public static final DocumentSpec<Countdown> LINE =

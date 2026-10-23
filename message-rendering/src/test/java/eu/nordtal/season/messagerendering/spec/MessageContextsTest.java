@@ -22,6 +22,7 @@ import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Example;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.List;
@@ -42,7 +43,7 @@ class MessageContextsTest {
         MessageRef hit(
                 @Arg("attacker") PlayerContext attacker,
                 @Arg("victim") PlayerContext victim,
-                @Arg("damage") int damage);
+                @Arg("damage") @Example("3") int damage);
 
         @Name("Bar")
         Fight.Bar bar();
@@ -51,7 +52,7 @@ class MessageContextsTest {
         interface Bar {
 
             @Name("Progress")
-            MessageRef progress(@Arg("percent") int percent);
+            MessageRef progress(@Arg("percent") @Example("40") int percent);
 
             @Name("Button")
             @Shown(Display.DISCORD_BUTTON)
@@ -137,7 +138,7 @@ class MessageContextsTest {
         MessageRef hit(
                 @Arg("attacker") PlayerContext attacker,
                 @Arg("target") PlayerContext target,
-                @Arg("damage") int damage);
+                @Arg("damage") @Example("3") int damage);
 
         @Name("Bar")
         Drifted.Bar bar();
@@ -145,7 +146,7 @@ class MessageContextsTest {
         interface Bar {
 
             @Name("Progress")
-            MessageRef progress(@Arg("percent") int percent);
+            MessageRef progress(@Arg("percent") @Example("40") int percent);
 
             @Name("Button")
             MessageRef button(@Arg("team") PlayerContext team);

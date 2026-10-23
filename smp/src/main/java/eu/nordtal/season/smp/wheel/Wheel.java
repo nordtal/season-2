@@ -6,6 +6,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -33,11 +34,13 @@ import org.jspecify.annotations.Nullable;
 /** The SQL update that spends a spin runs off the main thread, so two clicks yield one prize. */
 public final class Wheel {
 
-    record Won(int amount, GameContent item) {}
+    record Won(
+            @Example("16") int amount,
+            @Example("item.minecraft.diamond") GameContent item) {}
 
-    record NoSpin(int extras) {}
+    record NoSpin(@Example("2") int extras) {}
 
-    record Available(int count) {}
+    record Available(@Example("3") int count) {}
 
     static final DocumentSpec<Won> WON = chat("wheel-won", Won.class);
     static final DocumentSpec<NoSpin> NONE = chat("wheel-none", NoSpin.class);

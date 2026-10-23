@@ -17,7 +17,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -206,29 +205,20 @@ public final class MessageSchema {
             throw new IllegalStateException(
                     where + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
         }
-        final List<String> choices = takes == null ? choices(type) : List.of(takes.value());
+        final List<String> choices = takes == null ? Kind.choices(type) : List.of(takes.value());
         if (example == null && takes != null && whole(choices.getFirst())) {
             throw new IllegalStateException(
                     where + ": " + name + " takes " + choices.getFirst() + ", so it needs an @Example to preview");
+        }
+        if (example == null && choices.isEmpty()) {
+            throw new IllegalStateException(where + ": " + name + " needs an @Example that fits what it names");
         }
         if (example != null && !choices.isEmpty() && !takes(choices, example.value())) {
             throw new IllegalStateException(where + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
-        final String shown =
-                example != null ? example.value() : choices.isEmpty() ? kind.defaultExample() : choices.getFirst();
+        final String shown = example != null ? example.value() : choices.getFirst();
         return new Arg(name, kind.token(), null, shown, false, takes == null ? null : choices);
-    }
-
-    /** Returns the values a {@code select} tells apart: enum constants, else true and false. */
-    private static List<String> choices(final Class<?> type) {
-        if (type == boolean.class || type == Boolean.class) {
-            return List.of("true", "false");
-        }
-        final Object[] constants = type.getEnumConstants();
-        return constants == null
-                ? List.of()
-                : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
     /** Returns the context types that the messages name and the global roles use, by key. */

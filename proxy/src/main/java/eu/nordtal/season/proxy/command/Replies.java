@@ -27,7 +27,8 @@ public final class Replies {
     public record PrivateLine(
             @Example("🇬🇧") String flag,
             PlayerContext partner,
-            String admin,
+            // Glyphs.TAG_ADMIN with its leading space; an annotation takes no computed glyph.
+            @Example(" \uDBB8\uDC04") String admin,
             @Example("See you at spawn") String message) {}
 
     public static final DocumentSpec<DocumentSpec.None> NOT_FROM_CONSOLE =

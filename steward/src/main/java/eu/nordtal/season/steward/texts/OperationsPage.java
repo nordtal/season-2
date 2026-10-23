@@ -22,13 +22,13 @@ public interface OperationsPage {
     MessageRef nothingToDo();
 
     @Name("Saved")
-    MessageRef saved(@Arg("count") int count);
+    MessageRef saved(@Arg("count") @Example("3") int count);
 
     @Name("Moved")
-    MessageRef moved(@Arg("services") int services, @Arg("artefacts") int artefacts);
+    MessageRef moved(@Arg("services") @Example("2") int services, @Arg("artefacts") @Example("4") int artefacts);
 
     @Name("Failed")
-    MessageRef failed(@Arg("count") int count);
+    MessageRef failed(@Arg("count") @Example("1") int count);
 
     @Name("No change")
     MessageRef noChange();
@@ -40,31 +40,32 @@ public interface OperationsPage {
     MessageRef askWarning(@Arg("kind") @Example("restart") UpdateKind kind);
 
     @Name("Local builds an update replaces")
-    MessageRef localBuilds(@Arg("builds") List<String> builds);
+    MessageRef localBuilds(@Arg("builds") @Example("smp,proxy") List<String> builds);
 
     @Name("For some services")
-    MessageRef scoped(@Arg("ask") String ask, @Arg("services") List<String> services);
+    MessageRef scoped(
+            @Arg("ask") @Example("Update") String ask, @Arg("services") @Example("smp,proxy") List<String> services);
 
     @Name("Now")
     MessageRef now();
 
     @Name("Entered")
-    MessageRef entered(@Arg("kind") String kind, @Arg("run") long run);
+    MessageRef entered(@Arg("kind") @Example("Update") String kind, @Arg("run") @Example("42") long run);
 
     @Name("Cancelled")
-    MessageRef cancelled(@Arg("run") long run);
+    MessageRef cancelled(@Arg("run") @Example("42") long run);
 
     @Name("Cancelled, said")
     MessageRef cancelledNote();
 
     @Name("Not cancelled")
-    MessageRef notCancelled(@Arg("run") long run);
+    MessageRef notCancelled(@Arg("run") @Example("42") long run);
 
     @Name("Cancel")
     MessageRef cancel();
 
     @Name("A run's title")
-    MessageRef run(@Arg("id") String id);
+    MessageRef run(@Arg("id") @Example("42") String id);
 
     @Name("A run")
     MessageRef aRun();
@@ -124,5 +125,5 @@ public interface OperationsPage {
     MessageRef allNotes();
 
     @Name("Under way")
-    MessageRef underWay(@Arg("kind") String kind, @Arg("run") int run);
+    MessageRef underWay(@Arg("kind") @Example("Backup") String kind, @Arg("run") @Example("42") int run);
 }

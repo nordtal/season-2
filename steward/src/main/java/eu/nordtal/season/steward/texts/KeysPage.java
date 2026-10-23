@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -23,13 +24,13 @@ public interface KeysPage {
     MessageRef nobodyCanSignIn();
 
     @Name("Not set")
-    MessageRef notSet(@Arg("setting") String setting);
+    MessageRef notSet(@Arg("setting") @Example("STEWARD_DISCORD_CLIENT_ID") String setting);
 
     @Name("With Discord")
     MessageRef withDiscord();
 
     @Name("Signed in as")
-    MessageRef signedInAs(@Arg("name") String name);
+    MessageRef signedInAs(@Arg("name") @Example("Alex") String name);
 
     @Name("Hold title")
     MessageRef holdTitle();
@@ -102,16 +103,16 @@ public interface KeysPage {
     MessageRef holdKey();
 
     @Name("Step-up lasts")
-    MessageRef stepUpLasts(@Arg("length") Duration length);
+    MessageRef stepUpLasts(@Arg("length") @Example("PT15M") Duration length);
 
     @Name("Longer hold")
     MessageRef longerHold();
 
     @Name("Hold for")
-    MessageRef holdFor(@Arg("length") Duration length);
+    MessageRef holdFor(@Arg("length") @Example("PT15M") Duration length);
 
     @Name("Step-up holds")
-    MessageRef stepUpHolds(@Arg("until") Instant until);
+    MessageRef stepUpHolds(@Arg("until") @Example("2026-10-23T18:55:00Z") Instant until);
 
     @Name("End step-up")
     MessageRef endStepUp();
@@ -186,16 +187,16 @@ public interface KeysPage {
     MessageRef noKey();
 
     @Name("Last used")
-    MessageRef lastUsed(@Arg("at") Instant at);
+    MessageRef lastUsed(@Arg("at") @Example("2026-10-21T18:40:00Z") Instant at);
 
     @Name("Registered")
-    MessageRef registered(@Arg("at") Instant at);
+    MessageRef registered(@Arg("at") @Example("2026-09-30T12:00:00Z") Instant at);
 
     @Name("Rename")
-    MessageRef rename(@Arg("key") String key);
+    MessageRef rename(@Arg("key") @Example("YubiKey") String key);
 
     @Name("Remove")
-    MessageRef remove(@Arg("key") String key);
+    MessageRef remove(@Arg("key") @Example("YubiKey") String key);
 
     @Name("Not backed up")
     MessageRef notBackedUp();
@@ -207,7 +208,7 @@ public interface KeysPage {
     MessageRef addTitle();
 
     @Name("Add note")
-    MessageRef addNote(@Arg("domain") String domain);
+    MessageRef addNote(@Arg("domain") @Example("steward.nordtal.eu") String domain);
 
     @Name("Call this one")
     MessageRef callThisOne();
@@ -219,10 +220,10 @@ public interface KeysPage {
     MessageRef renameTitle();
 
     @Name("New name")
-    MessageRef newName(@Arg("key") String key);
+    MessageRef newName(@Arg("key") @Example("YubiKey") String key);
 
     @Name("Remove title")
-    MessageRef removeTitle(@Arg("key") String key);
+    MessageRef removeTitle(@Arg("key") @Example("YubiKey") String key);
 
     @Name("Remove note")
     MessageRef removeNote();

@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.AuraCause;
@@ -29,7 +30,7 @@ import org.jdbi.v3.core.Jdbi;
  */
 public final class AdvancementListener implements Listener {
 
-    record Award(int aura, int spins) {}
+    record Award(@Example("50") int aura, @Example("1") int spins) {}
 
     static final DocumentSpec<Award> AWARDED =
             DocumentSpec.game("smp", "aura-advancement", "Aura", DocumentSpec.Shape.CHAT, Award.class);

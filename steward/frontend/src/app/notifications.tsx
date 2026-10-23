@@ -122,7 +122,10 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
           {state.supported ? (
             <ThisDevice state={state} />
           ) : (
-            <p className="text-sm text-muted-foreground">{t("steward.notifications.no-push")}</p>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{t("steward.notifications.this-device")}</span>
+              <span className="text-xs text-muted-foreground">{t("steward.notifications.no-push")}</span>
+            </div>
           )}
           <Types state={state} />
           <Thresholds state={state} thresholds={thresholds} />
@@ -425,7 +428,7 @@ function Devices({ state }: { state: NotificationActions }) {
           ))}
         </ul>
       ) : devices.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("steward.notifications.no-device")}</p>
+        <p className="text-xs text-muted-foreground">{t("steward.notifications.no-device")}</p>
       ) : (
         <ul className="flex flex-col">
           {devices.map((device) => (

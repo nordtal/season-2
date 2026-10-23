@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.common.time.TestScheduler;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
+import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -133,6 +134,30 @@ class ContainersStopTest {
         assertEquals(null, listed.get(1).exitCode(), "a container that never ran has no exit code, not a zero");
     }
 
+    @Test
+    void aContainerRemovedBetweenTheListAndItsInspectIsLeftOutNotAnUnreachableDaemon() throws IOException {
+        // A recreate removes the old container while the runtime is read; the others are still worth reporting.
+        final var runtime = new Containers(
+                        new Docker(new DockerSocket(
+                                listening(request -> {
+                                    if (request.startsWith("GET /containers/json")) {
+                                        return "[" + listed("smp") + "," + listed("proxy") + "]";
+                                    }
+                                    return request.contains("/smp/")
+                                            ? GONE
+                                            : inspection("{\"Status\":\"running\"}", 10);
+                                }),
+                                Duration.ofSeconds(5),
+                                TestScheduler.SHARED)),
+                        "nordtal-s2")
+                .runtime();
+
+        assertTrue(runtime.reached(), String.valueOf(runtime.message()));
+        assertEquals(
+                List.of("proxy"),
+                runtime.services().stream().map(ServiceRuntime::service).toList());
+    }
+
     private static String listed(final String service) {
         return "{\"Id\":\"" + service + "\",\"Names\":[\"/nordtal-s2-" + service + "-1\"],\"Image\":\"i\","
                 + "\"ImageID\":\"sha256:1\",\"State\":\"exited\",\"Status\":\"Exited\",\"Labels\":"
@@ -227,6 +252,10 @@ class ContainersStopTest {
                 "nordtal-s2");
     }
 
+    /** The daemon's answer for a container it no longer has. */
+    private static final String GONE =
+            "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n";
+
     private static String inspection(final String state, final Integer stopTimeout) {
         return "{\"Id\":\"smp-container\",\"Image\":\"sha256:1\",\"State\":" + state
                 + ",\"Config\":{\"Image\":\"nordtal/smp\",\"Tty\":false"
@@ -251,10 +280,12 @@ class ContainersStopTest {
                         // A daemon that died between two calls looks like this: connection taken, then end-of-stream.
                         continue;
                     }
-                    final String head = body.isEmpty()
-                            ? "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
-                            : "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
-                                    + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body;
+                    final String head = body.startsWith("HTTP/")
+                            ? body
+                            : body.isEmpty()
+                                    ? "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
+                                    : "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+                                            + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body;
                     client.write(ByteBuffer.wrap(head.getBytes(StandardCharsets.UTF_8)));
                 } catch (Exception ended) {
                     return null;
@@ -267,7 +298,7 @@ class ContainersStopTest {
 
     @FunctionalInterface
     private interface Answer {
-        /** The JSON body, an empty string for a 204, or {@code null} to hang up. */
+        /** The JSON body, {@code ""} for a 204, a whole response from {@code HTTP/}, or {@code null} to hang up. */
         String to(String request);
     }
 }

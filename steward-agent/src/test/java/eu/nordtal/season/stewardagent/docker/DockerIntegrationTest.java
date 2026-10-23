@@ -64,22 +64,31 @@ class DockerIntegrationTest {
 
     @Test
     void runningAndHealthyMeansTheSameThingHereAsInDockerPs() throws Exception {
-        final RuntimeResult runtime = ops.runtime();
-        assertTrue(runtime.reached(), String.valueOf(runtime.message()));
-        assumeTrue(!runtime.services().isEmpty(), "no services - skipping");
+        final RuntimeResult before = ops.runtime();
+        assertTrue(before.reached(), String.valueOf(before.message()));
+        assumeTrue(!before.services().isEmpty(), "no services - skipping");
 
         // `docker ps` prints the health a person reads; isBack() must agree, or an update run waits on nothing visible.
-        for (final String line : cli(
+        final List<String> lines = cli(
                 "docker",
                 "ps",
                 "-a",
                 "--filter",
                 "label=com.docker.compose.project=" + PROJECT,
                 "--format",
-                "{{ .Label \"com.docker.compose.service\" }}\t{{ .Status }}")) {
+                "{{ .Label \"com.docker.compose.service\" }}\t{{ .Status }}");
+        final RuntimeResult after = ops.runtime();
+        assertTrue(after.reached(), String.valueOf(after.message()));
+
+        int compared = 0;
+        for (final String line : lines) {
             final int tab = line.indexOf('\t');
             final String name = tab < 0 ? line : line.substring(0, tab);
-            final Optional<ServiceRuntime> service = runtime.service(name);
+            final Optional<ServiceRuntime> service = before.service(name);
+            // A container recreated or changing health around `docker ps` reads differently on each side; skip it.
+            if (!service.equals(after.service(name))) {
+                continue;
+            }
             assertTrue(service.isPresent(), "runtime() is missing " + name);
 
             final String status = tab < 0 ? "" : line.substring(tab + 1);
@@ -91,7 +100,9 @@ class DockerIntegrationTest {
                     service.get().isBack(),
                     name + ": `docker ps` says \"" + status + "\", runtime() says \""
                             + service.get().describe() + "\"");
+            compared++;
         }
+        assumeTrue(compared > 0, "every container changed while it was read - skipping");
     }
 
     @Test

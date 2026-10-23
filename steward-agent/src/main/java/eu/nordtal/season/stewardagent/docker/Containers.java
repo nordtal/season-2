@@ -150,7 +150,16 @@ public final class Containers {
                     continue;
                 }
                 // Inspect avoids parsing the status string of the list.
-                final Docker.Inspection inspection = docker.inspect(container.id());
+                final Docker.Inspection inspection;
+                try {
+                    inspection = docker.inspect(container.id());
+                } catch (DockerException e) {
+                    // Removed since the list, as a recreate does: the reading is complete without it.
+                    if (e.status() == 404) {
+                        continue;
+                    }
+                    throw e;
+                }
                 services.add(new ServiceRuntime(
                         service, container.id(), inspection.state(), inspection.health(), inspection.restartCount()));
             }

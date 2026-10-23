@@ -53,7 +53,7 @@ describe("the previews", () => {
     threePlaces(bodies)
     draw(<Page />)
     await open(/^In game/)
-    await open(/^Steward & Admin/)
+    await open(/^Steward and admin/)
     await openKey("Page")
     expect(screen.getAllByRole("figure").map((figure) => figure.getAttribute("aria-label"))).toEqual(["Steward"])
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()

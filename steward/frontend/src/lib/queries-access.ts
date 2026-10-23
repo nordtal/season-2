@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 
 import {
   api,
@@ -15,49 +15,41 @@ import {
   type PlayerInventories,
   type StackRemoval,
 } from "@/lib/api"
-import { live, nextChange } from "@/lib/live"
+import { live } from "@/lib/live"
+import { finalRun } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
 import { message, t } from "@/lib/texts"
 
 /**
- * Posts a request into a server's inbox and reads its run again until it is final. The server that carries it out
- * is the bot or the SMP, which `failed` and `silent` name when it fails or never picks the request up.
+ * Posts a request into a server's inbox and answers its run once it is final. The server that carries it out is the
+ * bot or the SMP, which `failed` and `silent` name when it fails or never picks the request up.
  */
 async function untilFinal(
+  client: QueryClient,
   path: string,
   body: unknown,
   failed: "steward.failure.bot-failed" | "steward.failure.smp-failed",
   silent: "steward.failure.bot-silent" | "steward.failure.smp-silent",
 ): Promise<CommandRun> {
   const asked = await api<CommandAsked>(path, { method: "POST", body })
-  for (;;) {
-    const change = nextChange("REQUESTS")
-    try {
-      const row = await api<CommandRun>(`/api/commands/${asked.id}`)
-      if (row.status === "DONE") return row
-      if (row.status === "REFUSED" || row.status === "FAILED" || row.status === "CANCELLED") {
-        throw new Error(row.result ? message(row.result) : t(failed))
-      }
-      if (row.status === "EXPIRED") throw new Error(t(silent))
-      await change.arrived
-    } finally {
-      change.stop()
-    }
-  }
+  const row = await finalRun(client, asked.id)
+  if (row.status === "DONE") return row
+  if (row.status === "EXPIRED") throw new Error(t(silent))
+  throw new Error(row.result ? message(row.result) : t(failed))
 }
 
 /**
  * Asks the bot for an access change and answers its typed answer. Only the bot can apply the role, send the direct
  * message and post the admin note.
  */
-async function askTheBot(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const run = await untilFinal(path, body, "steward.failure.bot-failed", "steward.failure.bot-silent")
+async function askTheBot(client: QueryClient, path: string, body: unknown): Promise<Record<string, unknown>> {
+  const run = await untilFinal(client, path, body, "steward.failure.bot-failed", "steward.failure.bot-silent")
   return run.answer ?? {}
 }
 
 /** Asks the SMP for a change of one person. */
-async function askTheSmp(path: string, body: unknown): Promise<void> {
-  await untilFinal(path, body, "steward.failure.smp-failed", "steward.failure.smp-silent")
+async function askTheSmp(client: QueryClient, path: string, body: unknown): Promise<void> {
+  await untilFinal(client, path, body, "steward.failure.smp-failed", "steward.failure.smp-silent")
 }
 
 export function usePeople(enabled = true) {
@@ -160,7 +152,7 @@ export function useGrantAccess() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (grant: { discordId: string; days: number }) => {
-      const result = await askTheBot("/api/access/grant", grant)
+      const result = await askTheBot(client, "/api/access/grant", grant)
       return { until: typeof result.until === "string" ? result.until : "" }
     },
     onSettled: () => afterAccessChange(client),
@@ -171,7 +163,7 @@ export function useRevokeAccess() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (discordId: string) => {
-      const result = await askTheBot("/api/access/revoke", { discordId })
+      const result = await askTheBot(client, "/api/access/revoke", { discordId })
       return { revoked: Number(result.revoked ?? 0) }
     },
     onSettled: () => afterAccessChange(client),
@@ -182,7 +174,7 @@ export function useUnlink() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (discordId: string) => {
-      const result = await askTheBot("/api/access/unlink", { discordId })
+      const result = await askTheBot(client, "/api/access/unlink", { discordId })
       return { unlinked: result.unlinked === true }
     },
     onSettled: () => afterAccessChange(client),
@@ -254,7 +246,7 @@ export function useSetAura() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ discordId, aura }: { discordId: string; aura: number }) =>
-      askTheSmp(`/api/people/${discordId}/aura`, { aura }),
+      askTheSmp(client, `/api/people/${discordId}/aura`, { aura }),
     onSettled: () => afterAccessChange(client),
   })
 }
@@ -263,7 +255,7 @@ export function useSetSpins() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ discordId, spins }: { discordId: string; spins: number }) =>
-      askTheSmp(`/api/people/${discordId}/spins`, { spins }),
+      askTheSmp(client, `/api/people/${discordId}/spins`, { spins }),
     onSettled: () => afterAccessChange(client),
   })
 }
@@ -272,7 +264,7 @@ export function useSetPlaytime() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async ({ discordId, seconds }: { discordId: string; seconds: number }) => {
-      await askTheBot(`/api/people/${discordId}/playtime`, { seconds })
+      await askTheBot(client, `/api/people/${discordId}/playtime`, { seconds })
       return { discordId, seconds }
     },
     onSettled: () => afterAccessChange(client),

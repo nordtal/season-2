@@ -17,7 +17,7 @@ import {
   type TreeLeaf,
 } from "@/lib/settings-tree"
 import { fileTitle } from "@/lib/words"
-import { Failure, SkeletonText } from "@/components/steward/query-state"
+import { Empty, Failure, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, NodeList, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
@@ -70,10 +70,11 @@ export function ServiceSettings({
   const loading = configs.isPending
   /**
    * On a wide screen the first readable file shows when none is chosen. The component derives it and does not write it to the URL.
+   * It waits for Nordtal's groups, so a plugin file that arrives first never opens its rows.
    */
   const shown =
     file ??
-    (wide
+    (wide && !loading
       ? (files.find((item) => item.readable)?.id ?? pluginLeaves.find((leaf) => leaf.file.readable)?.id)
       : undefined)
   const selected = files.find((item) => item.id === shown)
@@ -121,7 +122,7 @@ export function ServiceSettings({
             </div>
           ))
         ) : files.length === 0 && plugins.length === 0 && !failure ? (
-          <p className="px-2 text-sm text-muted-foreground">{t("steward.settings.no-files")}</p>
+          <Empty title={t("steward.settings.no-files")} />
         ) : (
           [
             { live: true, heading: t("steward.settings.applies-on-save") },
@@ -205,7 +206,7 @@ export function ServiceSettings({
               />
             </>
           ) : file !== undefined && !loading && !ownService.isPending && !pluginFiles.isLoading ? (
-            <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
+            <Empty title={t("steward.settings.no-such-file")} />
           ) : null}
         </SettingsService>
       </div>

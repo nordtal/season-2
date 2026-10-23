@@ -1,12 +1,14 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, renderHook, waitFor } from "@testing-library/react"
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
-import { RECONCILE } from "@/lib/live"
+import { RECONCILE, announce } from "@/lib/live"
 import { useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
+import { useSetAura } from "@/lib/queries-access"
 import { keys } from "@/lib/query-keys"
+import { t } from "@/lib/texts"
 
 /**
  * A poll must stop once its query errors. A save must drop the cached document on a 409 and only then.
@@ -65,6 +67,47 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   cleanup()
+})
+
+/** Answers the POST with request 9 and every read of it with `status`. */
+function request(status: () => Record<string, unknown>) {
+  fetched.mockImplementation(async (_url, init) =>
+    init?.method === "POST" ? answer(202, { id: "9", status: "PENDING" }) : answer(200, { id: "9", ...status() }),
+  )
+}
+
+describe("a request a mutation asks for", () => {
+  it("is followed through useCommandRun's query and ends once a change of the requests reads it final", async () => {
+    const queryClient = client()
+    let status = "PENDING"
+    request(() => ({ status }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    const done = result.current.mutateAsync({ discordId: "1", aura: 5 })
+    await waitFor(() => expect(queryClient.getQueryState(keys.commandRun("9"))?.data).toMatchObject({ status }))
+    status = "DONE"
+    act(() => announce(queryClient, "REQUESTS"))
+
+    await expect(done).resolves.toBeUndefined()
+  })
+
+  it("fails with the run's own result when the server refuses it", async () => {
+    const queryClient = client()
+    request(() => ({ status: "REFUSED", result: { key: "steward.failure.smp-failed" } }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow(/./)
+  })
+
+  it("fails with the silent text when nobody picked it up", async () => {
+    const queryClient = client()
+    request(() => ({ status: "EXPIRED" }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow(
+      t("steward.failure.smp-silent"),
+    )
+  })
 })
 
 describe("useCommandRun - when the reconciliation stops", () => {

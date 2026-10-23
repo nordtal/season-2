@@ -18,10 +18,13 @@ const TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "medium" })
 const SHORT_TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "short" })
 const DATE_ONLY = new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium" })
 
+/** What every place that has no value shows. */
+export const NO_VALUE = "\u2013"
+
 const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
 
 export function bytes(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   if (value < 1000) return `${NUMBER.format(Math.round(value))} B`
   let scaled = value
   let unit = 0
@@ -38,7 +41,7 @@ export function bytes(value: number | null | undefined): string {
 }
 
 export function percent(value: number | null | undefined, decimals = 1): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   return `${percentFormat(decimals).format(value)} %`
 }
 
@@ -60,11 +63,11 @@ function percentFormat(decimals: number): Intl.NumberFormat {
 }
 
 export function count(value: number | null | undefined): string {
-  return value == null || !Number.isFinite(value) ? "\u2013" : NUMBER.format(value)
+  return value == null || !Number.isFinite(value) ? NO_VALUE : NUMBER.format(value)
 }
 
 export function load(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "\u2013"
+  if (value == null || !Number.isFinite(value)) return NO_VALUE
   return new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -72,7 +75,7 @@ export function load(value: number | null | undefined): string {
 }
 
 export function euros(cents: number | null | undefined): string {
-  if (cents == null || !Number.isFinite(cents)) return "\u2013"
+  if (cents == null || !Number.isFinite(cents)) return NO_VALUE
   return money(cents, "EUR")
 }
 
@@ -89,23 +92,23 @@ export function parseInstant(value: string | null | undefined): Date | null {
 
 export function dateTime(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : DATE_TIME.format(parsed)
+  return parsed == null ? NO_VALUE : DATE_TIME.format(parsed)
 }
 
 /** The access badge on a phone shows the day only, and a period always ends at midnight. */
 export function date(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : DATE_ONLY.format(parsed)
+  return parsed == null ? NO_VALUE : DATE_ONLY.format(parsed)
 }
 
 export function time(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : SHORT_TIME.format(parsed)
+  return parsed == null ? NO_VALUE : SHORT_TIME.format(parsed)
 }
 
 export function clock(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : TIME.format(parsed)
+  return parsed == null ? NO_VALUE : TIME.format(parsed)
 }
 
 const RELATIVE = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" })
@@ -122,7 +125,7 @@ const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 export function relative(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  if (parsed == null) return "\u2013"
+  if (parsed == null) return NO_VALUE
   let delta = (parsed.getTime() - now) / 1000
   for (const [unit, size] of STEPS) {
     if (Math.abs(delta) < size) {

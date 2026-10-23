@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.texts;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
+import java.time.DayOfWeek;
 
 /** The words that all settings dialogs share. */
 @Name("Forms")
@@ -16,6 +17,9 @@ public interface Forms {
 
     @Name("Days")
     MessageRef days();
+
+    @Name("Weekday")
+    MessageRef weekday(@Arg("day") DayOfWeek day);
 
     @Name("Schedule")
     MessageRef schedule();
@@ -31,6 +35,9 @@ public interface Forms {
 
     @Name("Remove")
     MessageRef remove();
+
+    @Name("Remove one by name")
+    MessageRef removeNamed(@Arg("name") String name);
 
     @Name("Removing")
     MessageRef removing();

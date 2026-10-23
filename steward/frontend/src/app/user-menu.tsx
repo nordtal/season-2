@@ -11,6 +11,7 @@ import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/ap
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { t } from "@/lib/texts"
+import { NO_VALUE } from "@/lib/format"
 
 export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: string; className?: string }) {
   const [broken, setBroken] = useState(false)
@@ -97,7 +98,7 @@ export function UserMenu({
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">{me?.name ?? t("steward.shell.unknown")}</span>
               <span className="truncate font-mono text-xs text-muted-foreground">
-                {t("steward.shell.discord", { id: me?.id ?? "\u2013" })}
+                {t("steward.shell.discord", { id: me?.id ?? NO_VALUE })}
               </span>
             </div>
           </div>

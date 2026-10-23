@@ -26,6 +26,9 @@ public interface Failures {
     @Name("Try again")
     MessageRef tryAgain();
 
+    @Name("Loading")
+    MessageRef loading();
+
     @Name("Not requested")
     MessageRef notRequested();
 

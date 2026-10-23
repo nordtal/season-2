@@ -1,4 +1,5 @@
 import { useState } from "react"
+import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { CheckIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
@@ -18,6 +19,7 @@ import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { RunStatus, StatusBadge, runKind, runStatus } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
+import { When } from "@/components/steward/when"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -253,7 +255,7 @@ function JournalRow({
   item: JournalItem
   edge: AlertLevel | undefined
   person?: string
-  stamp: (iso: string) => string
+  stamp: (iso: string) => ReactNode
 }) {
   const icons = { Icon: itemIcon(item) }
   const entry = item.entry
@@ -270,9 +272,7 @@ function JournalRow({
         edge && EDGE_LEFT[edge],
       )}
     >
-      <time dateTime={item.occurred} className="pt-0.5 text-sm text-muted-foreground tnum">
-        {stamp(item.occurred)}
-      </time>
+      <span className="pt-0.5 text-sm text-muted-foreground tnum">{stamp(item.occurred)}</span>
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -366,7 +366,9 @@ export function JournalStream({
   const journal = useJournal(q, limit)
   const now = useNow()
   const items = journal.data?.pages.flatMap((page) => page.items)
-  const stamp = days ? (iso: string) => time(iso) : (iso: string) => relative(iso, now)
+  const stamp = days
+    ? (iso: string) => <time dateTime={iso}>{time(iso)}</time>
+    : (iso: string) => <When at={iso} now={now} />
   const list = items ?? []
   const edge = edges(list)
   const rows = (from: number, to: number) => (

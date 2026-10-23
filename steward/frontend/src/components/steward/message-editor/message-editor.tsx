@@ -19,7 +19,8 @@ import { branchesOf, formatOf, parse, plainText } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Button } from "@/components/ui/button"
 import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -307,37 +308,36 @@ function FallbackPanel({
     [t("steward.message-editor.override"), fallback.override],
   ]
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-warning/40 p-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="border-warning/40 text-warning">
-          {t("steward.message-editor.fallen-back")}
-        </Badge>
+    <Alert variant="warning" role="status">
+      <TERM_ICON.warning aria-hidden />
+      <AlertTitle>{t("steward.message-editor.fallen-back")}</AlertTitle>
+      <AlertDescription className="flex min-w-0 flex-col items-start gap-2 text-foreground">
+        <dl className="grid w-full grid-cols-1 gap-x-3 gap-y-1 text-xs md:grid-cols-[auto_1fr]">
+          {rows.map(([name, texts]) =>
+            texts === undefined ? null : (
+              <div key={name} className="contents">
+                <dt className="text-muted-foreground">{name}</dt>
+                <dd className={cn("min-w-0 break-words whitespace-pre-wrap", format !== "PLAIN" && "font-mono")}>
+                  {texts.join("\n")}
+                </dd>
+              </div>
+            ),
+          )}
+        </dl>
+        {fallback.problems.length > 0 ? (
+          <ul className="flex flex-col gap-0.5 text-xs text-destructive">
+            {fallback.problems.map((problem, index) => (
+              <li key={index}>{message(problem)}</li>
+            ))}
+          </ul>
+        ) : null}
         {fallback.reason === "STALE" ? (
-          <Button type="button" size="sm" className="ml-auto" disabled={busy} onClick={onTakeOver}>
+          <Button type="button" size="sm" disabled={busy} onClick={onTakeOver}>
             {t("steward.message-editor.take-over")}
           </Button>
         ) : null}
-      </div>
-      <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-xs md:grid-cols-[auto_1fr]">
-        {rows.map(([name, texts]) =>
-          texts === undefined ? null : (
-            <div key={name} className="contents">
-              <dt className="text-muted-foreground">{name}</dt>
-              <dd className={cn("min-w-0 break-words whitespace-pre-wrap", format !== "PLAIN" && "font-mono")}>
-                {texts.join("\n")}
-              </dd>
-            </div>
-          ),
-        )}
-      </dl>
-      {fallback.problems.length > 0 ? (
-        <ul className="flex flex-col gap-0.5 text-xs text-destructive">
-          {fallback.problems.map((problem, index) => (
-            <li key={index}>{message(problem)}</li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
+      </AlertDescription>
+    </Alert>
   )
 }
 

@@ -888,7 +888,6 @@ export type TextArgs = {
   "steward.document-editor.shared-part-exists": {
     name: Arg["text"]
   }
-  "steward.document-editor.shared-part-explained": Record<string, never>
   "steward.document-editor.shared-part-menu": Record<string, never>
   "steward.document-editor.shared-part-name": Record<string, never>
   "steward.document-editor.shared-part-name-rule": Record<string, never>
@@ -921,6 +920,7 @@ export type TextArgs = {
   "steward.failure.http": {
     status: Arg["number"]
   }
+  "steward.failure.loading": Record<string, never>
   "steward.failure.log-lost": Record<string, never>
   "steward.failure.not-done": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
@@ -938,6 +938,9 @@ export type TextArgs = {
   "steward.form.discard": Record<string, never>
   "steward.form.done": Record<string, never>
   "steward.form.remove": Record<string, never>
+  "steward.form.remove-named": {
+    name: Arg["text"]
+  }
   "steward.form.removing": Record<string, never>
   "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
@@ -949,6 +952,9 @@ export type TextArgs = {
   "steward.form.schedule-saved": Record<string, never>
   "steward.form.sending": Record<string, never>
   "steward.form.waiting": Record<string, never>
+  "steward.form.weekday": {
+    day: Arg["choice"]
+  }
   "steward.game.active": Record<string, never>
   "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
@@ -1268,6 +1274,9 @@ export type TextArgs = {
     service: Arg["text"]
   }
   "steward.network.players": Record<string, never>
+  "steward.network.players-online": {
+    count: Arg["number"]
+  }
   "steward.network.title": Record<string, never>
   "steward.network.up": {
     since: Arg["text"]
@@ -1891,6 +1900,7 @@ export type TextArgs = {
   "steward.settings.no-colour": Record<string, never>
   "steward.settings.no-entries": Record<string, never>
   "steward.settings.no-files": Record<string, never>
+  "steward.settings.no-game-data": Record<string, never>
   "steward.settings.no-match": Record<string, never>
   "steward.settings.no-such-file": Record<string, never>
   "steward.settings.no-worlds": {

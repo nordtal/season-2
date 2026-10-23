@@ -3,7 +3,7 @@ import { useState } from "react"
 import type { CSSProperties } from "react"
 
 import { NavList } from "@/app/app-sidebar"
-import { useCrumbs } from "@/app/breadcrumbs"
+import { useCrumbs, useDocumentTitle } from "@/app/breadcrumbs"
 import { Brand, BrandFace, MOTION, NavToggle, PhoneBarSlot, SearchButton, Trail } from "@/app/island"
 import { UserMenu } from "@/app/user-menu"
 import type { Me } from "@/lib/api"
@@ -15,6 +15,7 @@ import { useSidebar } from "@/components/ui/sidebar"
  */
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
+  useDocumentTitle(useCrumbs())
   return (
     <div className="relative flex h-(--app-height) w-full bg-background [--col:17rem] [--gutter:1rem] [--page-gutter:var(--gutter)] md:[--gutter:1.5rem]">
       {nav.isMobile ? <PhoneFrame me={me} nav={nav} /> : <DesktopFrame me={me} nav={nav} />}

@@ -144,9 +144,6 @@ public interface DocumentEditorTexts {
     @Name("Insert a shared part")
     MessageRef insertSharedPart(@Arg("name") String name);
 
-    @Name("What a shared part save changes")
-    MessageRef sharedPartExplained();
-
     @Name("Shared part name")
     MessageRef sharedPartName();
 

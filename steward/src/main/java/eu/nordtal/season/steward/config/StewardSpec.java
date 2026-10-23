@@ -123,7 +123,7 @@ public interface StewardSpec {
     interface UpdateSpec {
 
         @Order(1)
-        @Name("At")
+        @Name("Time of day")
         @Key("at")
         @NoExplanationNeeded
         default String at() {

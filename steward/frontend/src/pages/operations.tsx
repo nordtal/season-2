@@ -1,10 +1,11 @@
 import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { Run } from "@/lib/api"
-import { dateTime, parseInstant, relative } from "@/lib/format"
+import { dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
 import { choice, span, t } from "@/lib/texts"
@@ -16,6 +17,8 @@ import { Actor } from "@/components/steward/entity"
 import { RunSteps } from "@/components/steward/run-steps"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -86,7 +89,7 @@ export function savedCount(run: Run): number {
 
 /** Returns what a run did, one fact per line, counted out of its steps. */
 export function summaryOf(run: Run): string[] {
-  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
+  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : NO_VALUE]
   if (run.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
 
   const parts: string[] = []
@@ -317,24 +320,17 @@ function RunDetail({ run }: { run?: Run }) {
       </div>
 
       {stage === "NOTHING_TO_DO" ? (
-        <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
-          <TERM_ICON.nothingToDo className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
-          </div>
-        </div>
+        <Alert role="status">
+          <TERM_ICON.nothingToDo aria-hidden />
+          <AlertTitle>{t("steward.operations.nothing-to-do-title")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {run?.kind === "BACKUP" && finished && savedCount(run) === 0 ? (
-        <div
-          className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
-          role="alert"
-        >
-          <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.saved-nothing")}</p>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <ShieldWarningIcon aria-hidden />
+          <AlertTitle>{t("steward.operations.saved-nothing")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {stage && run ? (
@@ -388,19 +384,17 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
         const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (
-          <li key={step} className="flex items-center gap-2">
-            <span
-              className={
-                now
-                  ? "flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/12 px-2 py-0.5 text-xs font-medium text-warning"
-                  : past
-                    ? "flex items-center gap-1.5 text-xs text-foreground"
-                    : "flex items-center gap-1.5 text-xs text-muted-foreground"
-              }
-            >
-              {past && !now ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-              {stageLabel(step)}
-            </span>
+          <li key={step} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
+            {now ? (
+              <Badge>{stageLabel(step)}</Badge>
+            ) : (
+              <span
+                className={cn("flex items-center gap-1.5 text-xs", past ? "text-foreground" : "text-muted-foreground")}
+              >
+                {past ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
+                {stageLabel(step)}
+              </span>
+            )}
             {index < TRAIL.length - 1 ? (
               <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}

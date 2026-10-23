@@ -311,7 +311,8 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 className="col-span-full flex flex-wrap gap-x-3 pt-1 sm:grid sm:grid-cols-subgrid sm:pt-0"
               >
                 <span className="text-muted-foreground tabular-nums select-none">{line.time}</span>
-                <span className="max-w-[14ch] truncate text-muted-foreground" title={line.source || undefined}>
+                {/* A phone wraps the line and shows the whole source; a desktop's column truncates it to the title. */}
+                <span className="text-muted-foreground sm:max-w-[14ch] sm:truncate" title={line.source || undefined}>
                   {line.source}
                 </span>
                 <span

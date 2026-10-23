@@ -4,24 +4,16 @@ import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { StatusBadge } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
 /** A saved value has no effect until the variable is removed. */
 export function EnvironmentOverriddenBadge() {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} className="rounded-full focus-visible:outline-none">
-          <Badge variant="outline" className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning">
-            <TERM_ICON.warning className="size-3" aria-hidden />
-            {t("steward.settings.env-override")}
-          </Badge>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{t("steward.settings.env-override-tip")}</TooltipContent>
-    </Tooltip>
+    <StatusBadge tone="warn" tipContent={t("steward.settings.env-override-tip")} className="shrink-0">
+      <TERM_ICON.warning className="size-3" aria-hidden />
+      {t("steward.settings.env-override")}
+    </StatusBadge>
   )
 }
 

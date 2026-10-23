@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { Translations } from "@/pages/translations"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Opened } from "@/components/steward/texts"
 import type {
   CommandRun,
@@ -185,7 +186,11 @@ export function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>{node}</TooltipProvider>
+    </QueryClientProvider>,
+  )
 }
 
 /** The page as its route draws it, with its search parameters kept in state instead of the URL. */

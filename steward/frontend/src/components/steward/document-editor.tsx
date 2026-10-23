@@ -247,7 +247,7 @@ function Outdated({ view, language }: { view: DocumentView; language: Language }
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
         {(
           [
             ["packaged", view.packaged],

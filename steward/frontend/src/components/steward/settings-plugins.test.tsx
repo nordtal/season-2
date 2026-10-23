@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { PluginFile, PluginFileView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
+import { wideScreen } from "@/lib/query-fixtures"
 import { Settings, backend, draw, entry, location } from "@/components/steward/configuration.fixtures"
 
 afterEach(() => {
@@ -98,6 +99,28 @@ describe("the plugins' files on the settings page", () => {
       "yaml-storagegroups",
       "default.yml",
     ])
+  })
+
+  it("on a wide screen opens no plugin's rows by itself while Nordtal's groups are still on their way", async () => {
+    wideScreen()
+    let arrive: (() => void) | undefined
+    const groups = new Promise<void>((resolve) => (arrive = resolve))
+    // bStats first, so its config.yml is the first readable plugin file.
+    const served = backend({ "smp/wheel": WHEEL }, [], {
+      "bStats/config.yml": PLUGINS["bStats/config.yml"],
+      ...PLUGINS,
+    })
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/setting-groups") await groups
+      return served(url, init)
+    })
+
+    draw(<Settings service="smp" />)
+
+    await screen.findByRole("button", { name: "CoreProtect" })
+    arrive?.()
+    await screen.findByRole("button", { name: "Wheel" })
+    expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
   })
 
   it("opens a file that Steward can rewrite as a form, and any other as its text with a draft", async () => {

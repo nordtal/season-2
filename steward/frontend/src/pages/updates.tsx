@@ -5,7 +5,7 @@ import { cn } from "cn"
 import { toast } from "sonner"
 
 import type { AvailableChange, Run } from "@/lib/api"
-import { LOCALE, count, dateTime, relative } from "@/lib/format"
+import { LOCALE, count, dateTime, relative, NO_VALUE } from "@/lib/format"
 import { message, t } from "@/lib/texts"
 import { versionJump } from "@/lib/version-jump"
 import { useAvailable, useRefreshAvailable, useRuns, useSchedule } from "@/lib/queries"
@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { RunSteps } from "@/components/steward/run-steps"
 import { Stat } from "@/components/steward/stat"
-import { AvailableBadge, RunStatus, runKind } from "@/components/steward/status"
+import { AvailableBadge, RunStatus, Tip, runKind } from "@/components/steward/status"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/steward/data-table"
@@ -125,7 +125,7 @@ function worthShowing(changes: AvailableChange[]): AvailableChange[] {
 }
 
 /**
- * Shows one row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume. An artefact with no pair gets a dash, with its reason as the title.
+ * Shows one row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume. An artefact with no pair gets a dash, with its reason on a tap or a hover.
  */
 function Jump({ change }: { change: AvailableChange }) {
   const jump = versionJump(change.installed, change.fileName, change.version)
@@ -135,11 +135,8 @@ function Jump({ change }: { change: AvailableChange }) {
   if (wanted && !change.installed) {
     return <Pair from={t("steward.updates.nothing")} to={wanted} exact={change.version !== undefined} />
   }
-  return (
-    <span className="text-xs" title={change.reason ? message(change.reason) : undefined}>
-      {change.installed ?? "\u2013"}
-    </span>
-  )
+  const shown = <span className="text-xs">{change.installed ?? NO_VALUE}</span>
+  return change.reason ? <Tip content={message(change.reason)}>{shown}</Tip> : shown
 }
 
 function Pair({ from, to, exact }: { from: string; to: string; exact: boolean }) {

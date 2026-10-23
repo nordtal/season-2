@@ -85,7 +85,7 @@ class DockerIntegrationTest {
             final int tab = line.indexOf('\t');
             final String name = tab < 0 ? line : line.substring(0, tab);
             final Optional<ServiceRuntime> service = before.service(name);
-            // A container recreated or changing health around `docker ps` reads differently on each side; skip it.
+            // A container recreated or changing health around `docker ps` differs on each side. The test skips it.
             if (!service.equals(after.service(name))) {
                 continue;
             }

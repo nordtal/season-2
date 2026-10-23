@@ -207,7 +207,7 @@ public final class MessageBundles {
     }
 
     /** Every document of {@code namespaces} as its tree; a namespace steward cannot read is logged and left out. */
-    // One reader at a time: loaders of one jar share the JDK's cached JarFile, and closing one closed it under another.
+    // Loaders of one jar share the JDK's cached JarFile. Closing one closes it for every other.
     private static synchronized List<JsonObject> readDocuments(
             final MessageBundleLocation location, final Set<String> namespaces) throws IOException {
         final List<JsonObject> read = new ArrayList<>();

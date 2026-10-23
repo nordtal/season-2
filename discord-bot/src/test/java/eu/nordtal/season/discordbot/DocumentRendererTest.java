@@ -76,7 +76,6 @@ class DocumentRendererTest {
         assertEquals(List.of(), wrong);
     }
 
-    /** The preview once drew a price of 300 cents as "+300" and a tier as "30 days30". */
     @Test
     void aPreviewWritesEachExampleAsTheBotWritesItsValue() {
         final String drawn = StoredDocumentsStandIn.renderer()
@@ -86,7 +85,6 @@ class DocumentRendererTest {
         assertTrue(drawn.contains("+€5.00 →"), drawn);
     }
 
-    /** The preview once drew a message's example as its key, admin/run.no-build. */
     @Test
     void aPreviewDrawsAMessageExampleAsTheTextItsKeyNames() {
         final String drawn = StoredDocumentsStandIn.renderer()
@@ -105,7 +103,6 @@ class DocumentRendererTest {
         assertFalse(drawn.contains("admin/run.no-build"), drawn);
     }
 
-    /** The preview once drew a run's title, who started it and a service's state as "?", messages without values. */
     @Test
     void aPreviewFillsANestedMessageWithItsOwnExamples() {
         final String drawn = StoredDocumentsStandIn.renderer()

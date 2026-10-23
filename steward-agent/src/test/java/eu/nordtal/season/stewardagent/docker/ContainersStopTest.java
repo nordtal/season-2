@@ -136,7 +136,7 @@ class ContainersStopTest {
 
     @Test
     void aContainerRemovedBetweenTheListAndItsInspectIsLeftOutNotAnUnreachableDaemon() throws IOException {
-        // A recreate removes the old container while the runtime is read; the others are still worth reporting.
+        // A recreate removes the old container while the runtime is read. The other containers are reported.
         final var runtime = new Containers(
                         new Docker(new DockerSocket(
                                 listening(request -> {
@@ -252,7 +252,7 @@ class ContainersStopTest {
                 "nordtal-s2");
     }
 
-    /** The daemon's answer for a container it no longer has. */
+    /** The daemon's answer for a container it does not have. */
     private static final String GONE =
             "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n";
 

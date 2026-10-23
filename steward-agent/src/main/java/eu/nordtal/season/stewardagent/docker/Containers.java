@@ -154,7 +154,7 @@ public final class Containers {
                 try {
                     inspection = docker.inspect(container.id());
                 } catch (DockerException e) {
-                    // Removed since the list, as a recreate does: the reading is complete without it.
+                    // A recreate can remove a container after the list. The reading is complete without it.
                     if (e.status() == 404) {
                         continue;
                     }

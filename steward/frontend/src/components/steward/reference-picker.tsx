@@ -126,7 +126,7 @@ function Chip({
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Remove ${choice?.name ?? value}`}
+          aria-label={t("steward.form.remove-named", { name: choice?.name ?? value })}
           className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none"
           onClick={onRemove}
         >

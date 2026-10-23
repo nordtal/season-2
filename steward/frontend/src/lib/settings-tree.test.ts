@@ -157,7 +157,7 @@ describe("the texts as a tree", () => {
       "[In game > Smp > Graves]",
       "  smp/smp.grave.decay",
       "  smp/smp.grave.limit",
-      "[Steward & Admin > Page]",
+      "[Steward and admin > Page]",
       "  steward/page.title",
     ])
   })
@@ -165,7 +165,7 @@ describe("the texts as a tree", () => {
   it("lists Steward's own texts under the page they are on, the shell's first and those of several pages last", () => {
     const tree = textsTree(
       [
-        steward("steward.form.changed", ["Forms"]),
+        steward("steward.form.weekday", ["Forms"]),
         steward("steward.journal.no-entry", ["Journal page"]),
         steward("steward.shell.pages", ["Shell"]),
       ],
@@ -177,7 +177,7 @@ describe("the texts as a tree", () => {
       "[Journal > Journal page]",
       "  steward/steward.journal.no-entry",
       "[Several pages > Forms]",
-      "  steward/steward.form.changed",
+      "  steward/steward.form.weekday",
     ])
   })
 
@@ -234,7 +234,7 @@ describe("the texts as a tree", () => {
       [text({ key: "dm.granted", section: [null] }), text({ key: "other", shown: ["STEWARD"] })],
       PLACES,
     )
-    expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward & Admin]", "  smp/other"])
+    expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward and admin]", "  smp/other"])
   })
 
   it("lists a Discord document as one leaf under its area, beside the texts of that topic", () => {

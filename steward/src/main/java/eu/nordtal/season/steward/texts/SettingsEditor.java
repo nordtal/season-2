@@ -71,6 +71,9 @@ public interface SettingsEditor {
     @Name("No worlds reported")
     MessageRef noWorlds(@Arg("service") String service);
 
+    @Name("No game data published")
+    MessageRef noGameData();
+
     @Name("File saved")
     MessageRef fileSaved(@Arg("file") String file);
 

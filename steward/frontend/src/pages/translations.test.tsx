@@ -37,7 +37,7 @@ describe("the groups", () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
 
-    for (const group of ["In game", "Discord", "Steward & Admin", "Building blocks"]) {
+    for (const group of ["In game", "Discord", "Steward and admin", "Building blocks"]) {
       const branch = await screen.findByRole("button", { name: new RegExp(`^${group}`) })
       expect(branch.getAttribute("aria-expanded")).toBe("false")
     }

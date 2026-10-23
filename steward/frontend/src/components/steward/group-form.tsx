@@ -65,13 +65,13 @@ function useConfigDraft(document: ConfigDocument | undefined, keys: readonly str
 }
 
 const WEEKDAYS = [
-  { label: "Mon", value: "MONDAY" },
-  { label: "Tue", value: "TUESDAY" },
-  { label: "Wed", value: "WEDNESDAY" },
-  { label: "Thu", value: "THURSDAY" },
-  { label: "Fri", value: "FRIDAY" },
-  { label: "Sat", value: "SATURDAY" },
-  { label: "Sun", value: "SUNDAY" },
+  { label: () => t("steward.form.weekday", { day: "monday" }), value: "MONDAY" },
+  { label: () => t("steward.form.weekday", { day: "tuesday" }), value: "TUESDAY" },
+  { label: () => t("steward.form.weekday", { day: "wednesday" }), value: "WEDNESDAY" },
+  { label: () => t("steward.form.weekday", { day: "thursday" }), value: "THURSDAY" },
+  { label: () => t("steward.form.weekday", { day: "friday" }), value: "FRIDAY" },
+  { label: () => t("steward.form.weekday", { day: "saturday" }), value: "SATURDAY" },
+  { label: () => t("steward.form.weekday", { day: "sunday" }), value: "SUNDAY" },
 ] as const
 
 /** It reads them by their first three letters, as `NightlyClock` does. */

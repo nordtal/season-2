@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
@@ -156,6 +155,7 @@ export function SharedPartDialog({
     <ResponsiveDialog open onOpenChange={(open) => (open ? null : onClose())}>
       <ResponsiveDialogContent
         className="sm:max-w-3xl"
+        aria-describedby={undefined}
         onOpenAutoFocus={(event) => {
           // An update has no name field, and the first button is delete.
           if (!part.shared) return
@@ -169,9 +169,6 @@ export function SharedPartDialog({
               ? t("steward.document-editor.update-shared-part", { name: part.shared })
               : t("steward.document-editor.save-shared-part")}
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            {t("steward.document-editor.shared-part-explained")}
-          </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <div className="flex min-w-0 flex-col gap-3 overflow-y-auto">
           {part.shared ? null : (

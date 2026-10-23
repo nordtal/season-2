@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
 import { useAvatarBaseUrl, useService, useServices } from "@/lib/queries"
-import { count } from "@/lib/format"
+import { count, NO_VALUE } from "@/lib/format"
 import { MinecraftHead } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -38,8 +38,10 @@ export function useOnline(roster?: OnlinePlayer[]): Online {
 }
 
 function said(total: number | undefined): { number: string; word: string } {
-  if (total === undefined) return { number: "\u2013", word: "players online" }
-  return { number: count(total), word: total === 1 ? "player online" : "players online" }
+  return {
+    number: total === undefined ? NO_VALUE : count(total),
+    word: t("steward.network.players-online", { count: total ?? 0 }),
+  }
 }
 
 function Stack({ online, size = "size-8", base }: { online: Online; size?: string; base: string | undefined }) {

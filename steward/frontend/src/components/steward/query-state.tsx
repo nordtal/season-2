@@ -13,7 +13,7 @@ export { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
   return (
     <div className="flex flex-col gap-2" role="status" aria-busy="true">
-      <span className="sr-only">{label ?? "Loading…"}</span>
+      <span className="sr-only">{label ?? t("steward.failure.loading")}</span>
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className="h-row w-full" />
       ))}

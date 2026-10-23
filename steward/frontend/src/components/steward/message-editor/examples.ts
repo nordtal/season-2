@@ -1,6 +1,4 @@
-import { useMemo } from "react"
-
-import type { MessageArg, MessageExamples } from "@/lib/api"
+import type { MessageArg, MessageExamples, MessageTexts } from "@/lib/api"
 import { type Language, wordsOf } from "@/lib/message-text"
 import { useMessageTexts } from "@/lib/queries"
 import { valueText, type Words } from "@/lib/texts"
@@ -20,26 +18,31 @@ export function fillOf(args: MessageArg[], examples: MessageExamples | undefined
   return (name, style) => valueText(exampleOf(name, args, examples), style, words)
 }
 
+/** The words of each language and bundle, built once per texts query result when a preview first asks for them. */
+const wordsCache = new WeakMap<MessageTexts, Map<string, Words>>()
+
 /**
  * Returns the words a preview writes values and nested messages in, by its language and the bundle of the text it previews,
- * once Steward's texts have arrived.
+ * once Steward's texts have arrived. A document's preview names no bundle.
  */
 export function useWords(): (language: Language, bundle?: string) => Words | undefined {
   const { data } = useMessageTexts()
-  const entries = useMemo(() => data?.texts.map((text) => text.entry), [data])
-  const known = useMemo(() => {
-    // A document's preview names no bundle.
-    const bundles = new Set<string | undefined>([undefined, ...(entries ?? []).map((entry) => entry.bundle)])
-    return new Map(
-      entries === undefined
-        ? []
-        : (data?.languages ?? []).flatMap((language) =>
-            [...bundles].map((bundle) => [`${bundle ?? ""}/${language}`, wordsOf(entries, language, bundle)] as const),
-          ),
-    )
-  }, [data, entries])
-  return (language, bundle) =>
-    known.get(`${bundle ?? ""}/${language}`) ?? (entries === undefined ? undefined : wordsOf(entries, language, bundle))
+  return (language, bundle) => {
+    if (data === undefined) return undefined
+    const known = wordsCache.get(data) ?? new Map<string, Words>()
+    wordsCache.set(data, known)
+    const key = `${bundle ?? ""}/${language}`
+    let words = known.get(key)
+    if (words === undefined) {
+      words = wordsOf(
+        data.texts.map((text) => text.entry),
+        language,
+        bundle,
+      )
+      known.set(key, words)
+    }
+    return words
+  }
 }
 
 /** The server renders each example itself, so it is sent as written: a nested message as its key. */

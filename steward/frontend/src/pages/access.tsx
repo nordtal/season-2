@@ -206,13 +206,13 @@ export function AccessPage() {
           />
           <FilterMenu active={active}>
             <div className="flex flex-col">
-              <FilterOption pressed={onlyWithAccess} onPressedChange={refilter(setOnlyWithAccess)}>
+              <FilterOption icon={TERM_ICON.grantAccess} pressed={onlyWithAccess} onPressedChange={refilter(setOnlyWithAccess)}>
                 {t("steward.people.with-access")}
               </FilterOption>
-              <FilterOption pressed={onlyAdmins} onPressedChange={refilter(setOnlyAdmins)}>
+              <FilterOption icon={TERM_ICON.admin} pressed={onlyAdmins} onPressedChange={refilter(setOnlyAdmins)}>
                 {t("steward.people.admins")}
               </FilterOption>
-              <FilterOption pressed={onlySupporters} onPressedChange={refilter(setOnlySupporters)}>
+              <FilterOption icon={TERM_ICON.supporter} pressed={onlySupporters} onPressedChange={refilter(setOnlySupporters)}>
                 {t("steward.people.supporters")}
               </FilterOption>
             </div>
@@ -223,8 +223,8 @@ export function AccessPage() {
                 setLink(value === "linked" || value === "unlinked" ? value : ""),
               )}
               options={[
-                { value: "linked", label: t("steward.people.only-linked") },
-                { value: "unlinked", label: t("steward.people.only-unlinked") },
+                { value: "linked", label: t("steward.people.only-linked"), icon: TERM_ICON.link },
+                { value: "unlinked", label: t("steward.people.only-unlinked"), icon: TERM_ICON.unlink },
               ]}
             />
           </FilterMenu>

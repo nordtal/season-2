@@ -7,28 +7,77 @@ import { message, t } from "@/lib/texts"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
+/** An action's icon, by inbox kind or journal action, so the overview and the journal's filter draw the same one. */
 const KIND_ICON: Record<string, Icon> = {
   UPDATE: TERM_ICON.update,
   BACKUP: TERM_ICON.backup,
+  DOWNLOAD_BACKUP: TERM_ICON.backup,
+  BACKUP_STALE: TERM_ICON.backup,
   RESTART: TERM_ICON.restart,
   DOWN: TERM_ICON.down,
+  SERVICE_DOWN: TERM_ICON.down,
   START: TERM_ICON.start,
   GRANT_ACCESS: TERM_ICON.grantAccess,
+  UNANCHORED_GRANT: TERM_ICON.grantAccess,
   REVOKE_ACCESS: TERM_ICON.revokeAccess,
   LINK: TERM_ICON.link,
+  LINK_CODES_EXHAUSTED: TERM_ICON.link,
+  LINK_REFUSED: TERM_ICON.unlink,
+  LINK_FAILED: TERM_ICON.unlink,
   UNLINK: TERM_ICON.unlink,
   SETTLE: TERM_ICON.settle,
+  PAYMENT_NEEDS_LOOK: TERM_ICON.payments,
+  PURCHASE_FAILED: TERM_ICON.payments,
   RECREATE: TERM_ICON.recreate,
+  IMAGE_DRIFT: TERM_ICON.recreate,
   SET_PHASE: TERM_ICON.phase,
+  SET_LAUNCH: TERM_ICON.seasonDates,
+  SET_SMP_START: TERM_ICON.seasonDates,
+  ADMIN_ROOT: TERM_ICON.admin,
+  GRANT_ADMIN: TERM_ICON.admin,
+  REVOKE_ADMIN: TERM_ICON.revokeAdmin,
+  ENFORCE_PACK: TERM_ICON.pack,
+  EXEMPT_PACK: TERM_ICON.pack,
+  PACK_DEAD: TERM_ICON.pack,
+  SET_PLAYTIME: TERM_ICON.playtime,
+  SET_AURA: TERM_ICON.aura,
+  SET_SPINS: TERM_ICON.spins,
   REGISTER_KEY: TERM_ICON.securityKey,
+  HELD_KEY: TERM_ICON.securityKey,
+  RENAME_KEY: TERM_ICON.securityKey,
   REMOVE_KEY: TERM_ICON.securityKey,
   ADD_AUTHENTICATOR: TERM_ICON.authenticatorApp,
+  USED_AUTHENTICATOR: TERM_ICON.authenticatorApp,
   REMOVE_AUTHENTICATOR: TERM_ICON.authenticatorApp,
   FORGET_FACTORS: ShieldWarningIcon,
+  WEB_PUSH_SUBSCRIBE: TERM_ICON.alert,
+  WEB_PUSH_UNSUBSCRIBE: TERM_ICON.alert,
+  WEB_PUSH_TEST: TERM_ICON.alert,
+  SET_ALERT_PREFERENCE: TERM_ICON.alert,
+  CONSOLE: TERM_ICON.console,
+  SAVE_SETTINGS: TERM_ICON.settings,
+  SAVE_MESSAGES: TERM_ICON.translations,
+  ADD_PLUGIN: TERM_ICON.plugins,
+  REMOVE_PLUGIN: TERM_ICON.plugins,
+  REQUEST_RUN: TERM_ICON.update,
   CANCEL_RUN: TERM_ICON.cancel,
+  RUN_FAILED: TERM_ICON.failed,
+  ANNOUNCE: TERM_ICON.announcement,
+  COMPLETE_OBJECTIVE: TERM_ICON.target,
+  UNLOCK_MILESTONE: TERM_ICON.milestone,
+  START_GAME: TERM_ICON.round,
+  REMOVE_STACK: TERM_ICON.item,
+  DISK_FULL: TERM_ICON.warning,
+  MEMORY_FULL: TERM_ICON.warning,
+  DM_NOT_DELIVERED: TERM_ICON.warning,
+  ROLE_NOT_CHANGED: TERM_ICON.warning,
+  ROLE_AMBIGUOUS: TERM_ICON.warning,
+  ROLE_NOT_CREATED: TERM_ICON.warning,
+  LOCK_NOT_KEPT: TERM_ICON.warning,
+  LOCK_WITHOUT_CHANNEL: TERM_ICON.warning,
 }
 
-function iconOf(kind: string): Icon {
+export function actionIcon(kind: string): Icon {
   return KIND_ICON[kind] ?? TERM_ICON.journal
 }
 
@@ -36,7 +85,7 @@ export function ActionRow({ action, now }: { action?: Action; now: number }) {
   /**
    * A property access, so the chosen icon reads as an existing component and not as one defined in place.
    */
-  const icons = { Icon: action ? iconOf(action.kind) : TERM_ICON.journal }
+  const icons = { Icon: action ? actionIcon(action.kind) : TERM_ICON.journal }
 
   return (
     <li className="flex items-start gap-3 border-b border-border/60 py-3 last:border-0">

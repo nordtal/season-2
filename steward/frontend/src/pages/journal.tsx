@@ -4,6 +4,7 @@ import type { JournalAction, JournalEntry } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
 import { choice, message, t } from "@/lib/texts"
+import { actionIcon } from "@/components/steward/actions"
 import { Actor, Entity } from "@/components/steward/entity"
 import { DataTable, type Column } from "@/components/steward/data-table"
 import { FilterBar, FilterChoice, FilterField, FilterMenu, SearchField } from "@/components/steward/filter-bar"
@@ -146,7 +147,7 @@ export function JournalPage() {
               label={t("steward.journal.action")}
               value={action}
               onValueChange={setAction}
-              options={actions.map((value) => ({ value, label: actionLabel(value) }))}
+              options={actions.map((value) => ({ value, label: actionLabel(value), icon: actionIcon(value) }))}
             />
           </FilterMenu>
         </FilterBar>

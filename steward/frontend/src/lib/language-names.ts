@@ -1,10 +1,8 @@
-/** Display names for the bot's `languages` tags. An unknown tag is shown as itself. */
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  de: "Deutsch",
-}
-
+/** Names a language tag in that language, as the server does. A tag `Intl` cannot read is shown as itself. */
 export function languageName(tag: string): string {
-  const key = tag.trim().toLowerCase()
-  return LANGUAGE_NAMES[key] ?? tag
+  try {
+    return new Intl.DisplayNames([tag], { type: "language" }).of(tag) ?? tag
+  } catch {
+    return tag
+  }
 }

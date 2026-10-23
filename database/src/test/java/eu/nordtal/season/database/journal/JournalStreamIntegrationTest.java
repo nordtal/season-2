@@ -220,6 +220,17 @@ class JournalStreamIntegrationTest {
     }
 
     @Test
+    void anActionWordAlsoMatchesTheNamesItStarts() {
+        about(JournalAction.LINK, ALICE);
+        about(JournalAction.GRANT_ACCESS, ALICE);
+        about(JournalAction.GRANT_ACCESS, BOB);
+
+        assertEquals(
+                List.of("entry GRANT_ACCESS", "entry GRANT_ACCESS", "entry LINK"),
+                shown(List.of(new Term(Kind.ACTION, "al", List.of("GRANT_ACCESS")))));
+    }
+
+    @Test
     void wordsCombineWithAnd() {
         about(JournalAction.LINK, ALICE);
         about(JournalAction.LINK, BOB);

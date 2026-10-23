@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Reads the free-text query of the journal: each word becomes one {@link Term}, and the terms combine with AND.
- * A word is read as the first kind of {@link Term.Kind} it fits, and as a name when it fits none.
+ * A word is read as the first kind of {@link Term.Kind} it fits, and as a name when it fits none. A word read as an
+ * action still matches the names it starts, since the names are not known here.
  */
 public final class JournalSearch {
 
@@ -116,7 +117,8 @@ public final class JournalSearch {
      * One recognised word of the query.
      *
      * @param word the word as typed
-     * @param values what it matches: one value, or every action whose label contains it
+     * @param values what it matches: one value, or every action whose label contains it (an action word also matches
+     *     the names it starts)
      */
     public record Term(Kind kind, String word, List<String> values) {
 

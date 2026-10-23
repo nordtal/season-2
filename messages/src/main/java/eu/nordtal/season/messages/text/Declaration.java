@@ -2,6 +2,8 @@ package eu.nordtal.season.messages.text;
 
 import eu.nordtal.season.messages.value.Kind;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +39,39 @@ public record Declaration(
         actions = Set.copyOf(actions);
         examples = Map.copyOf(examples);
         takesMessages = Set.copyOf(takesMessages);
+    }
+
+    /**
+     * One placeholder a text may name.
+     *
+     * @param kind the kind's token, read as {@code text} where it names none
+     * @param example the example as an editor writes it, else {@code null}
+     * @param takesMessages whether it takes a message or a list of messages
+     */
+    public record Placeholder(String kind, @Nullable String example, boolean takesMessages) {}
+
+    /** Returns the declaration of {@code placeholders} by name. */
+    public static Declaration of(
+            final Map<String, Placeholder> placeholders,
+            final Set<String> roles,
+            final Set<String> actions,
+            final boolean markup,
+            final int limit,
+            final boolean oneLine) {
+        final Map<String, Kind> values = new HashMap<>();
+        final Map<String, String> examples = new HashMap<>();
+        final Set<String> takesMessages = new HashSet<>();
+        placeholders.forEach((name, placeholder) -> {
+            values.put(name, Kind.byToken(placeholder.kind()).orElse(Kind.TEXT));
+            final String example = placeholder.example();
+            if (example != null) {
+                examples.put(name, example);
+            }
+            if (placeholder.takesMessages()) {
+                takesMessages.add(name);
+            }
+        });
+        return new Declaration(values, roles, actions, markup, limit, examples, takesMessages, oneLine);
     }
 
     /**

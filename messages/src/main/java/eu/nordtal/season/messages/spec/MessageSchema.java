@@ -371,11 +371,9 @@ public final class MessageSchema {
 
         /** Returns what the texts of {@code entry} may name. */
         public Declaration declaration(final Entry entry) {
-            final Map<String, Kind> values = new HashMap<>();
-            final Map<String, String> examples = new HashMap<>();
+            final Map<String, Declaration.Placeholder> placeholders = new HashMap<>();
             final Set<String> roles = new HashSet<>();
             final Set<String> actions = new HashSet<>();
-            final Set<String> takesMessages = new HashSet<>();
             for (final Arg arg : entry.args()) {
                 if (arg.name() == null) {
                     continue;
@@ -386,48 +384,37 @@ public final class MessageSchema {
                 }
                 roles.add(arg.name());
                 if (arg.context() != null) {
-                    expand(arg.name(), arg.context(), values, examples);
+                    expand(arg.name(), arg.context(), placeholders);
                 } else if (arg.kind() != null) {
-                    values.put(arg.name(), Kind.byToken(arg.kind()).orElse(Kind.TEXT));
-                    if (arg.example() != null) {
-                        examples.put(arg.name(), arg.example());
-                    }
-                    if (arg.takes() != null) {
-                        takesMessages.add(arg.name());
-                    }
+                    placeholders.put(
+                            arg.name(), new Declaration.Placeholder(arg.kind(), arg.example(), arg.takes() != null));
                 }
             }
             for (final GlobalJson global : globals) {
                 if (!roles.contains(global.name())) {
-                    expand(global.name(), global.context(), values, examples);
+                    expand(global.name(), global.context(), placeholders);
                 }
             }
-            return new Declaration(
-                    values,
+            return Declaration.of(
+                    placeholders,
                     roles,
                     actions,
                     entry.format() == TextFormat.MINIMESSAGE,
                     entry.limit(),
-                    examples,
-                    takesMessages,
                     Display.oneLine(entry.shown()));
         }
 
         private void expand(
-                final String role,
-                final String type,
-                final Map<String, Kind> values,
-                final Map<String, String> examples) {
+                final String role, final String type, final Map<String, Declaration.Placeholder> placeholders) {
             final ContextJson context = contexts.get(type);
             if (context == null) {
                 throw new IllegalStateException(
                         "the role " + role + " has the type " + type + ", which the schema does not describe");
             }
             for (final AttributeJson attribute : context.attributes()) {
-                values.put(
+                placeholders.put(
                         role + "." + attribute.name(),
-                        Kind.byToken(attribute.kind()).orElse(Kind.TEXT));
-                examples.put(role + "." + attribute.name(), attribute.example());
+                        new Declaration.Placeholder(attribute.kind(), attribute.example(), false));
             }
         }
     }

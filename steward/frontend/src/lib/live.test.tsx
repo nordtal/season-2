@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { FakeEventSource } from "@/lib/fake-event-source"
-import { announce, live, nextChange, useLiveStream } from "@/lib/live"
+import { announce, live, useLiveStream } from "@/lib/live"
 
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -45,35 +45,6 @@ describe("announce", () => {
 
     await waitFor(() => expect(reads.people).toBe(2))
     expect(reads).toEqual({ runs: 1, people: 2, plain: 1 })
-  })
-})
-
-describe("nextChange", () => {
-  it("arrives with the topic's change and not with another's", async () => {
-    const client = new QueryClient()
-    const change = nextChange("REQUESTS")
-    let arrived = false
-    void change.arrived.then(() => (arrived = true))
-
-    announce(client, "RUNS")
-    await Promise.resolve()
-    expect(arrived).toBe(false)
-
-    announce(client, "REQUESTS")
-    await change.arrived
-    expect(arrived).toBe(true)
-  })
-
-  it("arrives after the reconciliation when the stream says nothing", async () => {
-    vi.useFakeTimers()
-    const change = nextChange("REQUESTS", 60_000)
-    let arrived = false
-    void change.arrived.then(() => (arrived = true))
-
-    await vi.advanceTimersByTimeAsync(59_000)
-    expect(arrived).toBe(false)
-    await vi.advanceTimersByTimeAsync(1_000)
-    expect(arrived).toBe(true)
   })
 })
 

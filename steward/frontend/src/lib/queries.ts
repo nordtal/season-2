@@ -9,7 +9,6 @@ import {
   type AuthenticatorEnrolment,
   type StepUpLength,
   type Backup,
-  type CommandRun,
   type SmpTrack,
   type HungerGamesRound,
   type KeyRegistered,
@@ -42,7 +41,7 @@ import {
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
-import { live, RECONCILE, type Topic } from "@/lib/live"
+import { live } from "@/lib/live"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
@@ -369,22 +368,6 @@ export function useSendAnnouncement() {
   })
 }
 
-/** What became of one request, read again on every change of the requests until it is final. */
-export function useCommandRun(id: string | null) {
-  return useQuery({
-    queryKey: keys.commandRun(id ?? ""),
-    queryFn: () => api<CommandRun>(`/api/commands/${id}`),
-    enabled: Boolean(id),
-    meta: { topics: ["REQUESTS"] satisfies Topic[] },
-    refetchInterval: (query) => {
-      /** A failed read stops the reconciliation. */
-      if (query.state.error) return false
-      const status = query.state.data?.status
-      return status === undefined || status === "PENDING" || status === "RUNNING" ? RECONCILE : false
-    },
-  })
-}
-
 /**
  * The guild's channels. Fresh for five minutes with no refetch on focus, so a page with eleven pickers sends one request.
  */
@@ -551,4 +534,5 @@ export type { UseQueryOptions }
 
 export * from "@/lib/queries-access"
 export * from "@/lib/queries-alerts"
+export * from "@/lib/queries-commands"
 export * from "@/lib/queries-settings"

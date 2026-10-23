@@ -44,10 +44,6 @@ function actionLabel(action: string): string {
   return t("journal.action", { action: choice(action) })
 }
 
-function alertKey(alert: Alert): string {
-  return `${alert.type} ${alert.subject}`
-}
-
 function worst(levels: Iterable<AlertLevel>): AlertLevel | undefined {
   const all = [...levels]
   return all.includes("down") ? "down" : all.includes("warn") ? "warn" : undefined
@@ -55,20 +51,20 @@ function worst(levels: Iterable<AlertLevel>): AlertLevel | undefined {
 
 /**
  * Returns each item's left edge: an alert's own level, and on every other item the worst alert open at that moment.
+ * An all-clear closes every alert of its type.
  * An all-clear whose alert opened before the oldest loaded item colours the items it spans as a warning.
  */
 export function edges(items: readonly JournalItem[]): (AlertLevel | undefined)[] {
   const oldest = Date.parse(items.at(-1)?.occurred ?? "")
-  const open = new Map<string, AlertLevel>()
+  const open = new Map<AlertType, AlertLevel>()
   for (const item of items) {
-    if (item.alert?.level === "ok" && item.opened && Date.parse(item.opened) < oldest)
-      open.set(alertKey(item.alert), "warn")
+    if (item.alert?.level === "ok" && item.opened && Date.parse(item.opened) < oldest) open.set(item.alert.type, "warn")
   }
   const result: (AlertLevel | undefined)[] = []
   for (let index = items.length - 1; index >= 0; index--) {
     const alert = items[index].alert
-    if (alert?.level === "ok") open.delete(alertKey(alert))
-    else if (alert) open.set(alertKey(alert), alert.level)
+    if (alert?.level === "ok") open.delete(alert.type)
+    else if (alert) open.set(alert.type, alert.level)
     result[index] = alert ? alert.level : worst(open.values())
   }
   return result
@@ -174,7 +170,7 @@ function OpenNow() {
               ) : null}
               {data.alerts.map((alert) => (
                 <li
-                  key={alertKey(alert)}
+                  key={`${alert.type} ${alert.subject}`}
                   data-alert={alert.level}
                   className={cn("flex flex-col gap-2 border-l-2 py-3 pl-3", EDGE_LEFT[alert.level])}
                 >
@@ -450,7 +446,6 @@ export function JournalPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("steward.journal.title")} />
-      <OpenNow />
       <div className="flex flex-col gap-2">
         <FilterBar>
           <SearchField
@@ -463,6 +458,7 @@ export function JournalPage() {
         </FilterBar>
         <Terms q={q} />
       </div>
+      <OpenNow />
       <JournalStream q={q} days empty={t("steward.journal.no-entry")} />
     </div>
   )

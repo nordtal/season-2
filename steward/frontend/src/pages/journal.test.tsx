@@ -131,7 +131,14 @@ const OUTAGE = (): JournalItem[] => [
     key: "e3",
     occurred: "2026-09-18T09:42:00Z",
     actor: STEWARD,
-    alert: { ...ALERT, level: "ok", title: { key: "alert.clear", args: { type: { kind: "text", value: "service" } } } },
+    // An all-clear names its action, not the subject the alert measured.
+    alert: {
+      ...ALERT,
+      level: "ok",
+      subject: "services",
+      measured: [],
+      title: { key: "alert.clear", args: { type: { kind: "text", value: "service" } } },
+    },
     opened: "2026-09-18T09:00:00Z",
   },
   {

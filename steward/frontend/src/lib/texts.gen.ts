@@ -2137,18 +2137,29 @@ export type TextArgs = {
   "steward.settings.incomplete": {
     missing: Arg["text"]
   }
+  "steward.settings.invalid-fields": {
+    count: Arg["number"]
+  }
   "steward.settings.keep-it": Record<string, never>
   "steward.settings.no-colour": Record<string, never>
   "steward.settings.no-entries": Record<string, never>
   "steward.settings.no-files": Record<string, never>
   "steward.settings.no-match": Record<string, never>
   "steward.settings.no-such-file": Record<string, never>
+  "steward.settings.no-worlds": {
+    service: Arg["text"]
+  }
   "steward.settings.none": Record<string, never>
   "steward.settings.not-in-bundle": Record<string, never>
+  "steward.settings.not-of-type": {
+    expected: Arg["choice"]
+  }
   "steward.settings.not-readable": Record<string, never>
+  "steward.settings.not-saved": Record<string, never>
   "steward.settings.not-set": Record<string, never>
   "steward.settings.overridden": Record<string, never>
   "steward.settings.pick-colour": Record<string, never>
+  "steward.settings.plugin-files": Record<string, never>
   "steward.settings.preview": {
     shown: Arg["choice"]
   }
@@ -2170,7 +2181,6 @@ export type TextArgs = {
   "steward.settings.remove-entry-ask": Record<string, never>
   "steward.settings.remove-it": Record<string, never>
   "steward.settings.reset-to-packaged": Record<string, never>
-  "steward.settings.restart-needed": Record<string, never>
   "steward.settings.search": Record<string, never>
   "steward.settings.search-file": Record<string, never>
   "steward.settings.search-in": {

@@ -33,13 +33,14 @@ class GameDataStoreIntegrationTest {
                             "minecraft:wooden_pickaxe",
                             false,
                             null))),
-            Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))));
+            Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))),
+            List.of("world-nordtal", "world-nether"));
 
     @Test
     void aServersCatalogueReadsBackAsItWasWrittenAndAnotherExportReplacesIt() {
         final TestDatabase database = TestDatabase.fresh();
         final GameDataStore smp = GameDataStore.using(database.dataSourceAs(DatabaseRole.SMP));
-        smp.publish("smp", new GameCatalogue("26.1", List.of(), Map.of(), Map.of()));
+        smp.publish("smp", new GameCatalogue("26.1", List.of(), Map.of(), Map.of(), List.of()));
         smp.publish("smp", CATALOGUE);
 
         final GameDataStore steward = GameDataStore.using(database.dataSourceAs(DatabaseRole.STEWARD));

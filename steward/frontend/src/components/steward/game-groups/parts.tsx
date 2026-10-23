@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 
 import type { ConfigEntry, ConfigReference } from "@/lib/api"
 import { AskThenAct } from "@/components/steward/ask-then-act"
+import { ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 import { type SectionValues } from "@/components/steward/repeatable-cards"
 import { type Term, TERM_ICON } from "@/components/steward/term-icons"
@@ -13,10 +14,19 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
+/** What a number field lets be typed: a sign and digits, and one point where the field takes a decimal. */
+const TYPING = { INTEGER: /^[+-]?\d*$/, DECIMAL: /^[+-]?\d*\.?\d*$/ } as const
+
+/**
+ * `entry` is the schema's entry for the value: a character its type cannot hold is not taken, and a value it cannot
+ * take yet (empty, or a lone sign) is marked with the reason. `unsaved` marks a default the stored list lacks.
+ */
 export function NumberInput({
   id,
   label,
   value,
+  entry,
+  unsaved,
   term,
   disabled,
   readOnly,
@@ -26,6 +36,8 @@ export function NumberInput({
   id?: string
   label: string
   value: string
+  entry?: ConfigEntry
+  unsaved?: boolean
   term?: Term
   disabled: boolean
   readOnly?: boolean
@@ -33,6 +45,8 @@ export function NumberInput({
   onChange?: (value: string) => void
 }) {
   const Mark = term === undefined ? undefined : TERM_ICON[term]
+  const typing = entry?.type === "INTEGER" || entry?.type === "DECIMAL" ? TYPING[entry.type] : undefined
+  const problem = entry === undefined || readOnly ? null : problemOf(entry, value)
   return (
     <InputGroup className={cn("w-24 shrink-0", className)}>
       {Mark ? (
@@ -43,12 +57,17 @@ export function NumberInput({
       <InputGroupInput
         id={id}
         aria-label={label}
-        inputMode="numeric"
+        inputMode={entry?.type === "DECIMAL" ? "decimal" : "numeric"}
         value={value}
         disabled={disabled}
         readOnly={readOnly}
-        className="text-right font-mono tabular-nums"
-        onChange={(event) => onChange?.(event.target.value)}
+        aria-invalid={problem !== null}
+        title={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
+        aria-description={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
+        className={cn("text-right font-mono tabular-nums", unsaved && "text-muted-foreground italic")}
+        onChange={(event) => {
+          if (typing === undefined || typing.test(event.target.value)) onChange?.(event.target.value)
+        }}
       />
     </InputGroup>
   )
@@ -179,16 +198,18 @@ export function BoxFields({
   onChange: (key: string, value: string) => void
 }) {
   const label = (key: string) => field(list, key)?.label ?? key
+  const world = field(list, "world")
   return (
     <div className="flex flex-col gap-2">
-      <Input
-        id={`${id}-world`}
-        aria-label={label("world")}
-        value={text(section, "world")}
-        disabled={disabled}
-        className="font-mono"
-        onChange={(event) => onChange("world", event.target.value)}
-      />
+      {world ? (
+        <ScalarControl
+          id={`${id}-world`}
+          entry={world}
+          value={text(section, "world")}
+          disabled={disabled}
+          onChange={(value) => onChange("world", value)}
+        />
+      ) : null}
       {(["min", "max"] as const).map((corner) => (
         <div key={corner} className="grid grid-cols-[2.5rem_repeat(3,minmax(0,1fr))] items-center gap-2">
           <span className="text-xs text-muted-foreground">
@@ -198,6 +219,7 @@ export function BoxFields({
             <NumberInput
               key={key}
               label={label(key)}
+              entry={field(list, key)}
               value={text(section, key)}
               disabled={disabled}
               className="w-full"

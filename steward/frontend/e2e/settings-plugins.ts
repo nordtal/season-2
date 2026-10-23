@@ -43,10 +43,10 @@ async function until(what: string, check: () => boolean | Promise<boolean>) {
   }
 }
 
-/** Returns the rows of the file list, the Nordtal part before the rule and the plugin part after it. */
+/** Returns the rows of the file list: the Nordtal groups before the "Plugin files" heading, the plugins after it. */
 async function rows(page: Page): Promise<{ nordtal: string[]; plugins: string[] }> {
   return page.getByRole("navigation", { name: "Files" }).evaluate((nav) => {
-    const rule = nav.querySelector("hr")
+    const rule = [...nav.querySelectorAll("h2")].find((heading) => heading.textContent === "Plugin files") ?? null
     const texts = (before: boolean) =>
       [...nav.querySelectorAll("button")]
         .filter(

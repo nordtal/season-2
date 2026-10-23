@@ -146,7 +146,8 @@ class GameAssetsTest {
                     "26.2",
                     List.of(),
                     Map.of("item", List.of(GameCatalogue.Entry.named(item, "item", item))),
-                    Map.of());
+                    Map.of(),
+                    List.of());
         }
 
         @Override

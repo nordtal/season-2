@@ -86,6 +86,7 @@ const GAME: GameData = {
       { id: "minecraft:spruce_log", text: "Spruce Log" },
     ],
   },
+  worlds: {},
   tags: {},
 }
 

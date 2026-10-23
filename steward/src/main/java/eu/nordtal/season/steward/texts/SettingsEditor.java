@@ -14,6 +14,9 @@ public interface SettingsEditor {
     @Name("Applies on save")
     MessageRef appliesOnSave();
 
+    @Name("Plugin files")
+    MessageRef pluginFiles();
+
     @Name("Files")
     MessageRef files();
 
@@ -56,6 +59,18 @@ public interface SettingsEditor {
     @Name("Settings saved")
     MessageRef settingsSaved(@Arg("count") int count);
 
+    @Name("Not of the field's type")
+    MessageRef notOfType(@Arg("expected") StewardTexts.Expected expected);
+
+    @Name("Fields that hold a wrong value")
+    MessageRef invalidFields(@Arg("count") int count);
+
+    @Name("Not saved yet")
+    MessageRef notSaved();
+
+    @Name("No worlds reported")
+    MessageRef noWorlds(@Arg("service") String service);
+
     @Name("File saved")
     MessageRef fileSaved(@Arg("file") String file);
 
@@ -73,9 +88,6 @@ public interface SettingsEditor {
 
     @Name("Refused")
     MessageRef refused(@Arg("problem") String problem);
-
-    @Name("Restart needed")
-    MessageRef restartNeeded();
 
     @Name("Environment override")
     MessageRef envOverride();

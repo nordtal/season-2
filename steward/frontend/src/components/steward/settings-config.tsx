@@ -58,7 +58,7 @@ export function DraftForm({
   /** The line above the fields; a group's own state by default. */
   notice?: string | null
 }) {
-  const { draft, changes, count, set, submit, discard, save } = useGroupDraft(file, document, mutation)
+  const { draft, changes, count, invalid, set, submit, discard, save } = useGroupDraft(file, document, mutation)
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
   const writable = document.writable
@@ -103,7 +103,14 @@ export function DraftForm({
         )
       }
       save={
-        <SaveDraft count={count} writable={writable} pending={save.isPending} onSave={submit} onDiscard={discard} />
+        <SaveDraft
+          count={count}
+          invalid={invalid}
+          writable={writable}
+          pending={save.isPending}
+          onSave={submit}
+          onDiscard={discard}
+        />
       }
     />
   )

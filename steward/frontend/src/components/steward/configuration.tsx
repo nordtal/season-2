@@ -2,7 +2,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 
 import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
-import { ListControl, ScalarControl } from "@/components/steward/config-controls"
+import { ListControl, ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -62,6 +62,27 @@ export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
     }
   }
   return changes
+}
+
+/** Counts the values in `value` that `entry` cannot take, each item and each card's field on its own. */
+function invalidIn(entry: ConfigEntry, value: string | string[] | SectionValues[] | undefined): number {
+  if (typeof value === "string") return problemOf(entry, value) === null ? 0 : 1
+  if (value === undefined) return 0
+  if (entry.kind !== "SECTIONS")
+    return value.filter((item) => typeof item === "string" && problemOf(entry, item) !== null).length
+  return value.reduce(
+    (total, section) =>
+      total +
+      (typeof section === "string"
+        ? 0
+        : (entry.template ?? []).reduce((sum, field) => sum + invalidIn(field, section[field.key]), 0)),
+    0,
+  )
+}
+
+/** Counts the values among `changes` that their fields cannot take, so a save that the server would refuse waits. */
+export function invalidCount(document: ConfigDocument, changes: ConfigChanges): number {
+  return document.entries.reduce((total, entry) => total + invalidIn(entry, changes[entry.path]), 0)
 }
 
 /**

@@ -57,7 +57,7 @@ function navRows(): string[] {
 }
 
 describe("the plugins' files on the settings page", () => {
-  it("lists them below Nordtal's groups, sorted by plugin, a plugin with several files as a closed tree", async () => {
+  it("lists them as their own restart-only group below Nordtal's groups, sorted by plugin, a plugin with several files as a closed tree", async () => {
     vi.stubGlobal("fetch", backend({ "smp/wheel": WHEEL }, [], PLUGINS))
 
     draw(<Settings service="smp" />)
@@ -65,7 +65,10 @@ describe("the plugins' files on the settings page", () => {
     await screen.findByRole("button", { name: "CoreProtect" })
     expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
     const nav = screen.getByRole("navigation", { name: "Files" })
-    expect(nav.querySelector("hr")).toBeTruthy()
+    expect(Array.from(nav.querySelectorAll("h2")).map((node) => node.textContent)).toEqual([
+      "Applies on save",
+      "Plugin files",
+    ])
     // One file: one row and no caret. Several: a branch, closed until opened.
     expect(screen.getByRole("button", { name: "CoreProtect" }).hasAttribute("aria-expanded")).toBe(false)
     expect(screen.getByRole("button", { name: "CoreProtect" }).querySelector("img")?.getAttribute("src")).toBe(
@@ -104,10 +107,13 @@ describe("the plugins' files on the settings page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "CoreProtect" }))
     expect(await screen.findByLabelText("Search this file")).toBeTruthy()
     expect(screen.getByText("use-mysql")).toBeTruthy()
+    // The sidebar's group says when it applies; the file does not say it again.
+    expect(screen.queryByText("Applies after a restart.")).toBeNull()
 
     fireEvent.click(screen.getByRole("button", { name: "Chunky" }))
     const text = await screen.findByRole("textbox", { name: "Chunky config.yml" })
     expect(text.textContent).toBe("language: en")
+    expect(screen.queryByText("Applies after a restart.")).toBeNull()
     type(text, "language: de\n")
 
     expect(await screen.findByRole("button", { name: "Save 1" })).toBeTruthy()

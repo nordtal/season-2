@@ -2149,6 +2149,7 @@ export type TextArgs = {
   "steward.settings.not-set": Record<string, never>
   "steward.settings.overridden": Record<string, never>
   "steward.settings.pick-colour": Record<string, never>
+  "steward.settings.plugin-files": Record<string, never>
   "steward.settings.preview": {
     shown: Arg["choice"]
   }
@@ -2170,7 +2171,6 @@ export type TextArgs = {
   "steward.settings.remove-entry-ask": Record<string, never>
   "steward.settings.remove-it": Record<string, never>
   "steward.settings.reset-to-packaged": Record<string, never>
-  "steward.settings.restart-needed": Record<string, never>
   "steward.settings.search": Record<string, never>
   "steward.settings.search-file": Record<string, never>
   "steward.settings.search-in": {

@@ -5,7 +5,7 @@ import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
 import { usePluginFile, useSavePluginFile } from "@/lib/queries"
 import { Failure, QueryState } from "@/components/steward/query-state"
-import { noticeOf, SaveDraft } from "@/components/steward/group-draft"
+import { SaveDraft } from "@/components/steward/group-draft"
 import { DraftForm } from "@/components/steward/settings-config"
 import { BackToTop, PinnedRow, type Target } from "@/components/steward/settings-view"
 import { CodeEditor } from "@/components/steward/code-editor"
@@ -65,15 +65,7 @@ function PluginForm({
     revision: view.revision,
     entries,
   }
-  return (
-    <DraftForm
-      file={id}
-      document={document}
-      target={target}
-      save={save}
-      notice={noticeOf(document) ?? t("steward.settings.restart-needed")}
-    />
-  )
+  return <DraftForm file={id} document={document} target={target} save={save} />
 }
 
 function isTextDraft(value: unknown): value is Record<string, string> {
@@ -84,8 +76,7 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
   const { file } = view
   const save = useSavePluginFile(file.service, file.plugin, file.path)
   const draft = useDraft(id, isTextDraft).text
-  const top = useRef<HTMLParagraphElement>(null)
-  const notice = file.writable ? t("steward.settings.restart-needed") : t("steward.settings.read-only")
+  const top = useRef<HTMLDivElement>(null)
 
   function submit() {
     if (draft === undefined) return
@@ -102,9 +93,9 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
 
   return (
     <div className="flex flex-col gap-3">
-      <p ref={top} className="text-sm text-muted-foreground">
-        {notice}
-      </p>
+      {/* The anchor BackToTop watches: the editor below is too tall to leave the view. */}
+      <div ref={top} aria-hidden className="-mb-3" />
+      {file.writable ? null : <p className="text-sm text-muted-foreground">{t("steward.settings.read-only")}</p>}
       {save.error ? <Failure error={save.error} /> : null}
       <CodeEditor
         path={file.path}

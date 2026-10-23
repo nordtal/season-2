@@ -145,8 +145,10 @@ export function ServiceSettings({
           })
         )}
         {plugins.length > 0 ? (
-          <>
-            {files.length > 0 ? <hr className="mx-2 my-1.5 border-border" /> : null}
+          <section className="flex flex-col gap-0.5 not-first:mt-3">
+            <h2 className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              {t("steward.settings.plugin-files")}
+            </h2>
             <NodeList<PluginFileLeaf>
               nodes={plugins}
               isOpen={isOpen}
@@ -171,7 +173,7 @@ export function ServiceSettings({
                 />
               )}
             />
-          </>
+          </section>
         ) : null}
       </nav>
 

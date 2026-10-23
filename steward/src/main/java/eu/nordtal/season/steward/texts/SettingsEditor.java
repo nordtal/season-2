@@ -14,6 +14,9 @@ public interface SettingsEditor {
     @Name("Applies on save")
     MessageRef appliesOnSave();
 
+    @Name("Plugin files")
+    MessageRef pluginFiles();
+
     @Name("Files")
     MessageRef files();
 
@@ -73,9 +76,6 @@ public interface SettingsEditor {
 
     @Name("Refused")
     MessageRef refused(@Arg("problem") String problem);
-
-    @Name("Restart needed")
-    MessageRef restartNeeded();
 
     @Name("Environment override")
     MessageRef envOverride();

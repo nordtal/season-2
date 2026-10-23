@@ -58,19 +58,19 @@ public final class SecondFactor {
     private static final int MOST_LABEL = 64;
 
     private final Function<Context, Sessions.Session> requireSession;
-    private final @Nullable Credentials credentials;
-    private final @Nullable Sessions sessions;
-    private final @Nullable WebAuthn webauthn;
-    private final @Nullable Authenticators authenticators;
+    private final Credentials credentials;
+    private final Sessions sessions;
+    private final WebAuthn webauthn;
+    private final Authenticators authenticators;
 
     private final Clock clock;
 
     public SecondFactor(
             final Function<Context, Sessions.Session> requireSession,
-            final @Nullable Credentials credentials,
-            final @Nullable Sessions sessions,
-            final @Nullable WebAuthn webauthn,
-            final @Nullable Authenticators authenticators,
+            final Credentials credentials,
+            final Sessions sessions,
+            final WebAuthn webauthn,
+            final Authenticators authenticators,
             final Clock clock) {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.requireSession = requireSession;
@@ -80,36 +80,24 @@ public final class SecondFactor {
         this.authenticators = authenticators;
     }
 
-    private Credentials credentials() {
-        return Objects.requireNonNull(credentials, "no database - this route is not available without one");
-    }
-
-    private Sessions sessions() {
-        return Objects.requireNonNull(sessions, "no database - this route is not available without one");
-    }
-
-    private WebAuthn webauthn() {
-        return Objects.requireNonNull(webauthn, "no database - this route is not available without one");
-    }
-
     /** Refuses an account without a factor with a 403 and the code {@code SECOND_FACTOR_MISSING}. */
     void requireAKey(final Sessions.Session who) {
-        if (credentials == null || anyFactor(who)) {
+        if (anyFactor(who)) {
             return;
         }
         throw new RequestRefused(403, ANSWER.noKey(), "SECOND_FACTOR_MISSING", false);
     }
 
     boolean anyFactor(final Sessions.Session who) {
-        return credentials().any(who.signedInDiscordId()) || hasApp(who);
+        return credentials.any(who.signedInDiscordId()) || hasApp(who);
     }
 
     int keysOf(final Sessions.Session who) {
-        return credentials().of(who.signedInDiscordId()).size();
+        return credentials.of(who.signedInDiscordId()).size();
     }
 
     private boolean hasApp(final Sessions.Session who) {
-        return authenticators != null && authenticators.confirmed(who.signedInDiscordId());
+        return authenticators.confirmed(who.signedInDiscordId());
     }
 
     void requireKeyHeld(final Sessions.Session who) {
@@ -142,8 +130,8 @@ public final class SecondFactor {
             requireKeyRecently(who);
         }
         final WebAuthn.Ceremony ceremony =
-                webauthn().startRegistration(who.signedInDiscordId(), who.signedInDisplayName());
-        sessions().startCeremony(who.id(), ceremony.parked());
+                webauthn.startRegistration(who.signedInDiscordId(), who.signedInDisplayName());
+        sessions.startCeremony(who.id(), ceremony.parked());
         // forBrowser holds the library's JSON and is sent unchanged.
         ctx.contentType("application/json").result(ceremony.forBrowser());
     }
@@ -163,19 +151,18 @@ public final class SecondFactor {
         if (further) {
             requireKeyRecently(who);
         }
-        final String parked = sessions()
-                .consumeCeremony(who.id())
+        final String parked = sessions.consumeCeremony(who.id())
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.ceremonyElsewhere(true)));
 
         final WebAuthn.Registered key;
         try {
-            key = webauthn().finishRegistration(parked, answer.credential, label, who.signedInDiscordId());
+            key = webauthn.finishRegistration(parked, answer.credential, label, who.signedInDiscordId());
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(400, refused.why());
         }
         // The first key counts as held. A further key leaves the step-up unchanged.
         if (!further) {
-            sessions().markVerified(who.id(), StepUpLength.DEFAULT.length());
+            sessions.markVerified(who.id(), StepUpLength.DEFAULT.length());
         }
         Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRegistered(key.label()));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
@@ -200,11 +187,11 @@ public final class SecondFactor {
         final Sessions.Session who = requireSession.apply(ctx);
         final WebAuthn.Ceremony ceremony;
         try {
-            ceremony = webauthn().startAssertion(who.signedInDiscordId());
+            ceremony = webauthn.startAssertion(who.signedInDiscordId());
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(403, ANSWER.noKey(), "SECOND_FACTOR_MISSING", false);
         }
-        sessions().startCeremony(who.id(), ceremony.parked());
+        sessions.startCeremony(who.id(), ceremony.parked());
         ctx.contentType("application/json").result(ceremony.forBrowser());
     }
 
@@ -215,16 +202,15 @@ public final class SecondFactor {
             throw new BadRequestResponse("no credential in that answer");
         }
         final StepUpLength hold = StepUpLength.of(answer.hold);
-        final String parked = sessions()
-                .consumeCeremony(who.id())
+        final String parked = sessions.consumeCeremony(who.id())
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.ceremonyElsewhere(false)));
         final WebAuthn.Held held;
         try {
-            held = webauthn().finishAssertion(parked, answer.credential, who.signedInDiscordId());
+            held = webauthn.finishAssertion(parked, answer.credential, who.signedInDiscordId());
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(400, refused.why());
         }
-        sessions().markVerified(who.id(), hold.length());
+        sessions.markVerified(who.id(), hold.length());
         Journaling.line(
                 ctx,
                 who.signedInDiscordId(),
@@ -233,7 +219,7 @@ public final class SecondFactor {
     }
 
     public void endStepUp(final Context ctx) {
-        sessions().endStepUp(requireSession.apply(ctx).id());
+        sessions.endStepUp(requireSession.apply(ctx).id());
         ctx.status(204);
     }
 
@@ -253,7 +239,7 @@ public final class SecondFactor {
         if (label.isEmpty() || label.length() > MOST_LABEL) {
             throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
-        if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
+        if (!credentials.rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
         Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRenamed(label));
@@ -264,7 +250,7 @@ public final class SecondFactor {
     public void removeKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final ByteArray id = keyIdOf(ctx);
-        final List<Credentials.Key> keys = credentials().of(who.signedInDiscordId());
+        final List<Credentials.Key> keys = credentials.of(who.signedInDiscordId());
         final String label = keys.stream()
                 .filter(key -> new ByteArray(key.credentialId()).equals(id))
                 .map(Credentials.Key::label)
@@ -273,10 +259,10 @@ public final class SecondFactor {
         if (keys.size() == 1 && !hasApp(who)) {
             throw new RequestRefused(409, ANSWER.lastFactor());
         }
-        if (!credentials().remove(who.signedInDiscordId(), id)) {
+        if (!credentials.remove(who.signedInDiscordId(), id)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());
         }
-        final int left = credentials().of(who.signedInDiscordId()).size();
+        final int left = credentials.of(who.signedInDiscordId()).size();
         Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.KeyRemoved(label, left));
         ctx.json(new KeyRemoved(label, left));
     }

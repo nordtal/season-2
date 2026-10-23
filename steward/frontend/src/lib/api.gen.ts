@@ -436,7 +436,6 @@ export type PluginDescriptor = {
 }
 
 export type MessageTexts = {
-  writable: boolean
   texts: MessageText[]
   languages: string[]
   colours: Record<string, Record<string, string>>
@@ -466,7 +465,6 @@ export type MessageSyntax = {
 }
 
 export type DocumentList = {
-  writable: boolean
   documents: DocumentView[]
   languages: string[]
   sharedParts: SharedPartView[]

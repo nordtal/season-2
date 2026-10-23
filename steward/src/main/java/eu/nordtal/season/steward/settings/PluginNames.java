@@ -28,18 +28,18 @@ final class PluginNames implements SettingsDocument.Names {
     private static final Logger LOG = LoggerFactory.getLogger(PluginNames.class);
 
     private final AgentClient agent;
-    private final @Nullable MessageOverrideStore overrides;
+    private final MessageOverrideStore overrides;
     private final String service;
     private @Nullable Map<String, String> byKey;
 
-    private PluginNames(final AgentClient agent, final @Nullable MessageOverrideStore overrides, final String service) {
+    private PluginNames(final AgentClient agent, final MessageOverrideStore overrides, final String service) {
         this.agent = agent;
         this.overrides = overrides;
         this.service = service;
     }
 
     static SettingsDocument.Names of(
-            final AgentClient agent, final @Nullable MessageOverrideStore overrides, final String service) {
+            final AgentClient agent, final MessageOverrideStore overrides, final String service) {
         return new PluginNames(agent, overrides, service);
     }
 
@@ -82,13 +82,12 @@ final class PluginNames implements SettingsDocument.Names {
 
     /** Maps {@code bundle/key} to the English override text of variant 0. */
     private Map<String, String> overridden(final Map<String, MessageEntry> entries) {
-        final MessageOverrideStore store = overrides;
-        if (store == null || entries.isEmpty()) {
+        if (entries.isEmpty()) {
             return Map.of();
         }
         final Set<String> bundles =
                 entries.values().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
-        return store.overrides(bundles).stream()
+        return overrides.overrides(bundles).stream()
                 .filter(row -> row.language().equals(Locales.DEFAULT_TAG) && row.variant() == 0)
                 .collect(Collectors.toMap(row -> row.bundle() + "/" + row.key(), MessageOverride::text));
     }

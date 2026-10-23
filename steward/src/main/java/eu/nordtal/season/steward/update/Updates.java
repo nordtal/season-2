@@ -23,7 +23,6 @@ import io.javalin.http.Context;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -38,38 +37,32 @@ public final class Updates {
 
     private static final Logger log = LoggerFactory.getLogger(Updates.class);
 
-    private final @Nullable Data data;
+    private final Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
     private final Consumer<Context> stepUp;
 
     /** @param stepUp refuses a request whose session's step-up has ended, for the kinds that need one */
     public Updates(
-            final @Nullable Data data,
-            final Function<Context, DiscordAuth.Account> accounts,
-            final Consumer<Context> stepUp) {
+            final Data data, final Function<Context, DiscordAuth.Account> accounts, final Consumer<Context> stepUp) {
         this.data = data;
         this.accounts = accounts;
         this.stepUp = stepUp;
     }
 
-    private Data data() {
-        return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
-    }
-
     public void list(final Context ctx) {
         // shortcut: one query set per run, up to 200 runs; read each fact table once per page when the list gets slow.
-        ctx.json(data().updates().recent(QueryLimit.of(ctx, 20, 200)).stream()
+        ctx.json(data.updates().recent(QueryLimit.of(ctx, 20, 200)).stream()
                 .map(this::describe)
                 .toList());
     }
 
     public void active(final Context ctx) {
-        ctx.json(new ActiveRun(data().updates().open().map(this::describe).orElse(null)));
+        ctx.json(new ActiveRun(data.updates().open().map(this::describe).orElse(null)));
     }
 
     public void lookup(final Context ctx) {
         final long id = Long.parseLong(ctx.pathParam("id"));
-        ctx.json(data().updates()
+        ctx.json(data.updates()
                 .find(id)
                 .map(this::describe)
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id)))));
@@ -105,12 +98,12 @@ public final class Updates {
         final UpdateRequest written;
         try {
             written = replaceLocal
-                    ? data().updates()
+                    ? data.updates()
                             .submit(
                                     new StewardRequest.Update(UpdateDirectory.cleaned(ask.services), true),
                                     who.actor(),
                                     delay)
-                    : data().updates().submit(kind, who.actor(), delay, ask.services);
+                    : data.updates().submit(kind, who.actor(), delay, ask.services);
         } catch (final IllegalArgumentException named) {
             throw new BadRequestResponse(named.getMessage());
         }
@@ -120,7 +113,7 @@ public final class Updates {
                 kind,
                 written.id(),
                 ask.services == null || ask.services.isEmpty() ? "" : " for " + String.join(", ", ask.services));
-        final List<String> scope = data().updates().scopeOf(written.id());
+        final List<String> scope = data.updates().scopeOf(written.id());
         Journaling.line(ctx, new JournalDetail.RunAsked(written.id(), written.kind(), scope));
         ctx.status(202).json(describe(written, scope, RunRecord.EMPTY));
     }
@@ -136,7 +129,7 @@ public final class Updates {
     /** Cancels the earliest run in its countdown and refuses with 409 when none is counting down. */
     public void cancel(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final var cancelled = data().updates().cancelCountdown();
+        final var cancelled = data.updates().cancelCountdown();
         if (cancelled.isEmpty()) {
             throw new RequestRefused(409, ANSWER.tooLate());
         }
@@ -214,9 +207,7 @@ public final class Updates {
 
     Run describe(final UpdateRequest request) {
         return describe(
-                request,
-                data().updates().scopeOf(request.id()),
-                data().updates().recordOf(request.id()));
+                request, data.updates().scopeOf(request.id()), data.updates().recordOf(request.id()));
     }
 
     /** Returns the run for {@code scope}, and an empty scope means the whole network. */

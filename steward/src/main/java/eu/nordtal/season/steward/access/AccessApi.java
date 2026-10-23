@@ -18,7 +18,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -42,17 +41,13 @@ public final class AccessApi {
     /** The most play time in seconds, ten years. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
 
-    private final @Nullable Data data;
+    private final Data data;
 
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public AccessApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    public AccessApi(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     /** {@code POST /api/access/grant} with {@code {discordId, days}}. */
@@ -105,13 +100,13 @@ public final class AccessApi {
             throw new BadRequestResponse("reference is the payment to settle");
         }
         final String reference = ask.reference.trim();
-        final Optional<PaymentRequest> found = data().payments().byReference(reference);
+        final Optional<PaymentRequest> found = data.payments().byReference(reference);
         if (found.isEmpty()) {
             ctx.json(new Settled(SettleOutcome.UNKNOWN, null, null, null));
             return;
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final Bookings.Booking booking = data().bookings()
+        final Bookings.Booking booking = data.bookings()
                 .book(
                         found.get().id(),
                         Bookings.Arrival.byHand(),
@@ -131,7 +126,7 @@ public final class AccessApi {
                         SettleOutcome.NOT_OPEN,
                         found.get().days(),
                         null,
-                        data().payments()
+                        data.payments()
                                 .byId(found.get().id())
                                 .map(row -> row.status().name())
                                 .orElse(found.get().status().name())));
@@ -158,7 +153,7 @@ public final class AccessApi {
             throw new RequestRefused(404, ANSWER.noRequest(ctx.pathParam("id")));
         }
         final Request<BotRequest> row =
-                data().bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
+                data.bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
 
         final Object answer = row.answer();
         ctx.json(new AccessRequestRun(
@@ -171,7 +166,7 @@ public final class AccessApi {
     private void submit(final Context ctx, final BotRequest request) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> written =
-                data().bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
+                data.bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
         log.info("{} asked the bot for {}", who.name(), request);
 
         ctx.status(202)

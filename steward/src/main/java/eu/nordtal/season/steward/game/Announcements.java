@@ -7,7 +7,6 @@ import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
@@ -22,11 +21,9 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import org.jspecify.annotations.Nullable;
 
 /** Writes an announcement of an admin as one request with a line per language into the bot's inbox. */
 public final class Announcements {
@@ -44,17 +41,12 @@ public final class Announcements {
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
 
-    private final @Nullable Data data;
+    private final Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public Announcements(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    public Announcements(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-    }
-
-    private Inbox<BotRequest> bot() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one")
-                .bot();
     }
 
     /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
@@ -67,7 +59,8 @@ public final class Announcements {
     public void send(final Context ctx) {
         final Map<String, String> checked = texts(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final Request<BotRequest> asked = bot().submit(
+        final Request<BotRequest> asked = data.bot()
+                .submit(
                         BotRequest.Announce.words(checked),
                         who.actor(),
                         Schedule.within(PATIENCE),

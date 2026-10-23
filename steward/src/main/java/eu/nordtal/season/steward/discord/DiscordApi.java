@@ -17,10 +17,10 @@ public final class DiscordApi {
             StewardTexts.TEXTS.steward().said();
 
     private final WebSpec.DiscordSpec config;
-    private final @Nullable GuildChannels channels;
+    private final GuildChannels channels;
 
-    /** @param channels the list that discord-bot publishes, or {@code null} without a database */
-    public DiscordApi(final WebSpec.DiscordSpec config, final @Nullable GuildChannels channels) {
+    /** @param channels the list that discord-bot publishes */
+    public DiscordApi(final WebSpec.DiscordSpec config, final GuildChannels channels) {
         this.config = config;
         this.channels = channels;
     }
@@ -34,7 +34,7 @@ public final class DiscordApi {
         if (guildId.isBlank()) {
             return new Guild(false, SAID.noGuildId(), List.of());
         }
-        final Optional<List<GuildChannel>> published = channels == null ? Optional.empty() : channels.channels(guildId);
+        final Optional<List<GuildChannel>> published = channels.channels(guildId);
         return published
                 .map(list -> new Guild(
                         true,

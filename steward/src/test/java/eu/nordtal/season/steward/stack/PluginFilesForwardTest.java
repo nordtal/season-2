@@ -9,8 +9,8 @@ import com.google.gson.JsonParser;
 import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
-import eu.nordtal.season.common.time.TestScheduler;
 import eu.nordtal.season.database.JournalDetail;
+import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -20,7 +20,6 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.journal.Journaling;
-import eu.nordtal.season.steward.settings.ServerTrial;
 import eu.nordtal.season.steward.texts.WebTexts;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
@@ -33,7 +32,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,19 +85,11 @@ class PluginFilesForwardTest {
             cfg.routes.post(AgentWire.PLUGIN_FILE, files::save);
         });
         final AgentClient client = new AgentClient(agent.client());
-        api = new StackApi(
+        api = StackServer.over(
                 client,
                 FakeDirectories.updates(),
                 () -> new StackApi.Nightly("04:45", List.of(), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
-                null,
-                null,
-                new PluginsForward(client, FakeDirectories.updates()),
-                null,
-                null,
-                null,
-                ServerTrial.NONE,
-                Clock.systemUTC(),
-                TestScheduler.SHARED);
+                TestDatabase.fresh().dataSource());
         final Journaling journaling = new Journaling(recording(), ctx -> Optional.of(Actor.STEWARD));
         server = Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(Json.gson(), true));

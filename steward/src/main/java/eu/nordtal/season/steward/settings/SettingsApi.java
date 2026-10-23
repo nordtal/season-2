@@ -31,13 +31,13 @@ public final class SettingsApi {
 
     private final SettingStore store;
     private final AgentClient agent;
-    private final @Nullable MessageOverrideStore overrides;
+    private final MessageOverrideStore overrides;
     private final ServerTrial trial;
 
     public SettingsApi(
             final SettingStore store,
             final AgentClient agent,
-            final @Nullable MessageOverrideStore overrides,
+            final MessageOverrideStore overrides,
             final ServerTrial trial) {
         this.store = store;
         this.agent = agent;

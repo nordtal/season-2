@@ -6,14 +6,13 @@ import io.javalin.http.Context;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import org.jspecify.annotations.Nullable;
 
 /** Serves the command tree that each server publishes. */
 public final class ConsoleCommands {
 
-    private final @Nullable CommandTreeStore store;
+    private final CommandTreeStore store;
 
-    public ConsoleCommands(final @Nullable CommandTreeStore store) {
+    public ConsoleCommands(final CommandTreeStore store) {
         this.store = store;
     }
 
@@ -21,15 +20,11 @@ public final class ConsoleCommands {
     public record ConsoleTree(List<CommandTree.Node> nodes) {}
 
     public Map<String, Instant> published() {
-        return store == null ? Map.of() : store.published();
+        return store.published();
     }
 
     public void tree(final Context ctx) {
         ctx.json(new ConsoleTree(
-                store == null
-                        ? List.of()
-                        : store.tree(ctx.pathParam("name"))
-                                .map(CommandTree::nodes)
-                                .orElse(List.of())));
+                store.tree(ctx.pathParam("name")).map(CommandTree::nodes).orElse(List.of())));
     }
 }

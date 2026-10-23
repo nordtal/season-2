@@ -60,7 +60,7 @@ export function SharedPartMenu({
         </Badge>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild disabled={!context.writable}>
+        <DropdownMenuTrigger asChild>
           <Button
             type="button"
             variant="ghost"
@@ -89,7 +89,6 @@ export function SharedPartMenu({
           part={part}
           sharedParts={context.sharedParts}
           language={context.language}
-          writable={context.writable}
           onClose={() => setOpen(false)}
           onShared={(shared) => set((it) => (shared ? { ...unmarked(it), shared } : unmarked(it)))}
         />
@@ -120,14 +119,12 @@ export function SharedPartDialog({
   part,
   sharedParts,
   language,
-  writable,
   onClose,
   onShared,
 }: {
   part: DocumentPart
   sharedParts: readonly SharedPartView[]
   language: Language
-  writable: boolean
   onClose: () => void
   /** Marks the part as a copy of the shared part saved, or unmarks it after it was deleted. */
   onShared: (shared: string | undefined) => void
@@ -256,7 +253,7 @@ export function SharedPartDialog({
               type="button"
               variant="destructive"
               className="sm:mr-auto"
-              disabled={!writable || save.isPending}
+              disabled={save.isPending}
               onClick={() => submit(null)}
             >
               {t("steward.document-editor.delete-shared-part")}
@@ -267,7 +264,7 @@ export function SharedPartDialog({
           </Button>
           <Button
             type="button"
-            disabled={!writable || !valid || !changes.data || refused || save.isPending}
+            disabled={!valid || !changes.data || refused || save.isPending}
             onClick={() => submit(content)}
           >
             {t("steward.document-editor.save")}

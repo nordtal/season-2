@@ -80,13 +80,12 @@ public final class Routes {
     /** Registers the routes for the setting groups, their descriptors and their save. */
     private static void settingRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/descriptors", ctx -> ctx.json(api.agent.descriptors()), Gate.KEY_HELD);
-        config.routes.get("/api/setting-groups", ctx -> api.settings().list(ctx), Gate.KEY_HELD);
-        config.routes.get(
-                "/api/setting-groups/{service}/{name}", ctx -> api.settings().one(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/setting-groups", ctx -> api.settings.list(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/setting-groups/{service}/{name}", ctx -> api.settings.one(ctx), Gate.KEY_HELD);
         config.routes.put(
                 "/api/setting-groups/{service}/{name}",
                 ctx -> {
-                    api.settings().save(ctx, caller.actor(ctx));
+                    api.settings.save(ctx, caller.actor(ctx));
                     Journaling.line(
                             ctx, new JournalDetail.SettingsSaved(ctx.pathParam("service"), ctx.pathParam("name")));
                 },
@@ -183,27 +182,24 @@ public final class Routes {
 
     /** Registers the routes for the plugins of one Minecraft server and the Modrinth search. */
     private static void pluginRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
-        config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins().list(ctx), Gate.KEY_HELD);
-        config.routes.get(
-                "/api/services/{name}/plugins/search", ctx -> api.plugins().search(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins.list(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/services/{name}/plugins/search", ctx -> api.plugins.search(ctx), Gate.KEY_HELD);
         config.routes.post(
                 "/api/services/{name}/plugins",
                 ctx -> {
-                    final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.actor(ctx));
+                    final AgentWire.PluginAdded added = api.plugins.add(ctx, caller.actor(ctx));
                     Journaling.line(ctx, new JournalDetail.PluginAdded(ctx.pathParam("name"), added.artifact()));
                 },
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.ADD_PLUGIN));
-        config.routes.get(
-                "/api/services/{name}/plugin-files", ctx -> api.plugins().files(ctx), Gate.KEY_HELD);
-        config.routes.get(
-                "/api/services/{name}/plugin-file", ctx -> api.plugins().file(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/services/{name}/plugin-files", ctx -> api.plugins.files(ctx), Gate.KEY_HELD);
+        config.routes.get("/api/services/{name}/plugin-file", ctx -> api.plugins.file(ctx), Gate.KEY_HELD);
         // A file is saved like a settings group, and the journal names it by its folder and path.
         config.routes.put(
                 "/api/services/{name}/plugin-file",
                 ctx -> {
                     final AgentWire.PluginFile file =
-                            api.plugins().save(ctx, caller.actor(ctx)).file();
+                            api.plugins.save(ctx, caller.actor(ctx)).file();
                     Journaling.line(
                             ctx, new JournalDetail.SettingsSaved(file.service(), file.plugin() + "/" + file.path()));
                 },
@@ -211,7 +207,7 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_SETTINGS));
         config.routes.delete(
                 "/api/services/{name}/plugins/{artifact}",
-                ctx -> api.plugins().remove(ctx, caller.actor(ctx)),
+                ctx -> api.plugins.remove(ctx, caller.actor(ctx)),
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.REMOVE_PLUGIN));
     }

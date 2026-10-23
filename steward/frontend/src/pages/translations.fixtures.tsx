@@ -79,7 +79,7 @@ export function text(over: Partial<MessageEntry> & { key: string }, around: Part
 }
 
 export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}): MessageTexts {
-  return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
+  return { texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
 /** A Discord document of the bot, a message of the area Contribution unless `over` and `around` say otherwise. */
@@ -102,7 +102,7 @@ export function view(
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { writable: true, documents: views, languages: ["en"], sharedParts: [], ...over }
+  return { documents: views, languages: ["en"], sharedParts: [], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */

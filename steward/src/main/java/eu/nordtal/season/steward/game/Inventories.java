@@ -49,13 +49,13 @@ public final class Inventories {
     /** How long Steward waits for the server that holds a state. */
     private static final Duration PATIENCE = Duration.ofSeconds(5);
 
-    private final @Nullable Data data;
+    private final Data data;
     private final GameActions games;
     private final Function<Context, DiscordAuth.Account> accounts;
     private final Waiting clock;
 
     public Inventories(
-            final @Nullable Data data,
+            final Data data,
             final GameActions games,
             final Function<Context, DiscordAuth.Account> accounts,
             final Waiting clock) {
@@ -74,12 +74,8 @@ public final class Inventories {
                 Journaled.as(JournalAction.REMOVE_STACK));
     }
 
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
-    }
-
     private ModeStateStore store() {
-        return ModeStateStore.using(data().dataSource());
+        return ModeStateStore.using(data.dataSource());
     }
 
     /** One stack. Slots 0 to 8 of the inventory are the hotbar, 9 to 35 the rest, 36 to 39 armour, 40 the offhand. */
@@ -109,7 +105,7 @@ public final class Inventories {
 
     /** {@code GET /api/people/{id}/inventories} asks the player's server for its copy first, then reads every state. */
     public void read(final Context ctx) {
-        final Optional<UUID> linked = data().access().linkedMinecraftAccount(games.person(ctx));
+        final Optional<UUID> linked = data.access().linkedMinecraftAccount(games.person(ctx));
         if (linked.isEmpty()) {
             ctx.json(new PlayerInventories(false, null, List.of()));
             return;
@@ -130,7 +126,7 @@ public final class Inventories {
     public void remove(final Context ctx) {
         final DiscordId person = games.person(ctx);
         final StackRemoval body = body(ctx);
-        final PlayerId player = PlayerId.of(data().access()
+        final PlayerId player = PlayerId.of(data.access()
                 .linkedMinecraftAccount(person)
                 .orElseThrow(() -> new RequestRefused(409, ANSWER.inventoryUnlinked())));
         switch (store().remove(
@@ -181,7 +177,7 @@ public final class Inventories {
 
     /** Returns the server the roster has the player on. */
     private @Nullable String server(final UUID player) {
-        return data().roster().current().stream()
+        return data.roster().current().stream()
                 .filter(online -> online.uuid().equals(player))
                 .map(OnlinePlayer::subject)
                 .filter(Objects::nonNull)
@@ -205,8 +201,8 @@ public final class Inventories {
         }
         final Actor who = accounts.apply(ctx).actor();
         return Topology.SMP.equals(server)
-                ? data().smp().ask(smp, who, PATIENCE, clock)
-                : data().hungerGames().ask(hungerGames, who, PATIENCE, clock);
+                ? data.smp().ask(smp, who, PATIENCE, clock)
+                : data.hungerGames().ask(hungerGames, who, PATIENCE, clock);
     }
 
     private static InventoryState state(final ModeStateStore.Stored stored) {

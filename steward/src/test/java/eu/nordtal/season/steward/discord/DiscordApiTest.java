@@ -84,13 +84,6 @@ class DiscordApiTest {
     }
 
     @Test
-    void withoutADatabaseItSaysTheListIsNotPublished() {
-        final String reason = english(new DiscordApi(guild(GUILD), null).guild().reason());
-
-        assertTrue(reason.contains("discord-bot has not published"), reason);
-    }
-
-    @Test
     void withoutAGuildItSaysWhichValueIsMissing() {
         final String reason =
                 english(new DiscordApi(guild(""), published(Map.of())).guild().reason());

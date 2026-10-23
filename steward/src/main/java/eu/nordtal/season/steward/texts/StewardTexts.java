@@ -166,9 +166,6 @@ public interface StewardTexts {
             @Name("Nobody by that id")
             MessageRef unknownPerson();
 
-            @Name("No database")
-            MessageRef noDatabase(@Arg("kept") Kept kept);
-
             @Name("No sources")
             MessageRef noSources();
 
@@ -430,15 +427,6 @@ public interface StewardTexts {
         DECIMAL,
         BOOLEAN,
         KEY
-    }
-
-    /** The kinds of data that Steward keeps in its database. */
-    enum Kept {
-        ALERTS,
-        PREFERENCES,
-        SETTINGS,
-        PLUGINS,
-        OVERRIDES
     }
 
     /** The words of a service's badge and dot: Docker states and health states. */

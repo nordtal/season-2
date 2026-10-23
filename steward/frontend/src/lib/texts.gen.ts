@@ -923,9 +923,6 @@ export type TextArgs = {
     bundle: Arg["text"]
   }
   "steward.answer.no-code": Record<string, never>
-  "steward.answer.no-database": {
-    kept: Arg["choice"]
-  }
   "steward.answer.no-document": {
     namespace: Arg["text"]
     name: Arg["text"]

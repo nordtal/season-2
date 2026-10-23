@@ -234,7 +234,7 @@ export function TextsForm({
   const saveButtons = (
     <SaveDraft
       count={count}
-      writable={texts.writable}
+      writable
       pending={save.isPending}
       onSave={submit}
       onDiscard={() => clearDraft(TEXTS_FILE)}
@@ -260,7 +260,6 @@ export function TextsForm({
         languages={languages.get(text.entry.bundle) ?? [ENGLISH]}
         colours={colours ?? NETWORK_COLOURS}
         places={texts.places}
-        writable={texts.writable}
         draft={draft[id]}
         highlight={highlight?.id === id ? highlight : null}
         onChange={(changed, value) => set(id, changed, value)}
@@ -281,7 +280,6 @@ export function TextsForm({
       matches={(card, query) =>
         card.kind === "document" ? documentMatches(card.view, query) : messageLeafMatches(card.text.entry, query)
       }
-      notice={texts.writable ? null : t("steward.settings.read-only")}
       target={target}
       search={search}
       empty={t("steward.texts.none")}
@@ -301,7 +299,6 @@ export function TextsForm({
                 ? undefined
                 : card.kind === "document"
                   ? {
-                      writable: documents?.writable ?? false,
                       draft: drafts[id],
                       onDraft: (next) => setDraft(id, next),
                       onClose: () => onOpen({}),
@@ -340,7 +337,6 @@ function cardName(card: PageCard): string {
 
 /** An open document's draft, which the page keeps while another document is open. */
 type EditingDocument = {
-  writable: boolean
   draft: Document | undefined
   onDraft: (draft: Document | undefined) => void
   onClose: () => void
@@ -447,7 +443,6 @@ function Card({
           draft={draft}
           // The network's languages and any the document is written in beyond them.
           languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
-          writable={editing.writable}
           language={language}
           onLanguage={setLanguage}
           onDraft={(next) =>

@@ -44,7 +44,6 @@ export type MessageEditorProps = {
   languages: Language[]
   colours: Record<string, string>
   places: Places
-  writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
   /** `undefined` drops this language's draft. `null` asks for the packaged texts back. */
@@ -70,7 +69,6 @@ export function MessageEditor({
   languages,
   colours,
   places,
-  writable,
   draft,
   highlight,
   onChange,
@@ -141,7 +139,7 @@ export function MessageEditor({
     setVariant(0)
   }
 
-  const common = { format, args: entry.args, fill, tones, label, disabled: !writable }
+  const common = { format, args: entry.args, fill, tones, label }
 
   return (
     <div
@@ -155,7 +153,6 @@ export function MessageEditor({
         <FallbackPanel
           fallback={fallback}
           format={format}
-          writable={writable}
           busy={takingOver}
           onTakeOver={() => onTakeOver(language, fallback.override)}
         />
@@ -197,33 +194,29 @@ export function MessageEditor({
                 </TabsList>
               </Tabs>
             ) : null}
-            {writable ? (
-              <>
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label={t("steward.message-editor.add-variant")}
-                  title={t("steward.message-editor.add-variant")}
-                  onClick={() => {
-                    write([...(variants.length === 0 ? [""] : variants), text])
-                    setVariant(Math.max(variants.length, 1))
-                  }}
-                >
-                  <PlusIcon aria-hidden />
-                </InputGroupButton>
-                {variants.length > 1 ? (
-                  <InputGroupButton
-                    size="icon-xs"
-                    aria-label={t("steward.message-editor.remove-variant")}
-                    title={t("steward.message-editor.remove-variant")}
-                    onClick={() => {
-                      write(variants.toSpliced(at, 1))
-                      setVariant(Math.max(at - 1, 0))
-                    }}
-                  >
-                    <MinusIcon aria-hidden />
-                  </InputGroupButton>
-                ) : null}
-              </>
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={t("steward.message-editor.add-variant")}
+              title={t("steward.message-editor.add-variant")}
+              onClick={() => {
+                write([...(variants.length === 0 ? [""] : variants), text])
+                setVariant(Math.max(variants.length, 1))
+              }}
+            >
+              <PlusIcon aria-hidden />
+            </InputGroupButton>
+            {variants.length > 1 ? (
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={t("steward.message-editor.remove-variant")}
+                title={t("steward.message-editor.remove-variant")}
+                onClick={() => {
+                  write(variants.toSpliced(at, 1))
+                  setVariant(Math.max(at - 1, 0))
+                }}
+              >
+                <MinusIcon aria-hidden />
+              </InputGroupButton>
             ) : null}
           </>
         }
@@ -249,7 +242,7 @@ export function MessageEditor({
                 <ArrowCounterClockwiseIcon aria-hidden />
               </InputGroupButton>
             ) : null}
-            {override !== undefined && typed !== null && writable ? (
+            {override !== undefined && typed !== null ? (
               <InputGroupButton
                 size="icon-xs"
                 aria-label={t("steward.settings.reset-to-packaged")}
@@ -300,13 +293,11 @@ export function MessageEditor({
 function FallbackPanel({
   fallback,
   format,
-  writable,
   busy,
   onTakeOver,
 }: {
   fallback: MessageFallback
   format: Format
-  writable: boolean
   busy: boolean
   onTakeOver: () => void
 }) {
@@ -321,7 +312,7 @@ function FallbackPanel({
         <Badge variant="outline" className="border-warning/40 text-warning">
           {t("steward.message-editor.fallen-back")}
         </Badge>
-        {fallback.reason === "STALE" && writable ? (
+        {fallback.reason === "STALE" ? (
           <Button type="button" size="sm" className="ml-auto" disabled={busy} onClick={onTakeOver}>
             {t("steward.message-editor.take-over")}
           </Button>

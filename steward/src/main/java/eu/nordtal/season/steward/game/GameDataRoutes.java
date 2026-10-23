@@ -19,10 +19,10 @@ public final class GameDataRoutes {
     /** The cache header of an icon sheet. The URL of a sheet names its painter. */
     public static final String ICONS_CACHE = "private, max-age=31536000, immutable";
 
-    private final @Nullable GameDataStore store;
+    private final GameDataStore store;
     private @Nullable Merged merged;
 
-    public GameDataRoutes(final @Nullable GameDataStore store) {
+    public GameDataRoutes(final GameDataStore store) {
         this.store = store;
     }
 
@@ -55,13 +55,10 @@ public final class GameDataRoutes {
 
     /** Returns the exports and icon painters, which the live topic compares. */
     public Object changes() {
-        return store == null ? List.of() : List.of(store.exports(), store.iconPainters());
+        return List.of(store.exports(), store.iconPainters());
     }
 
     public GameData read() {
-        if (store == null) {
-            return new GameData(null, List.of(), Map.of(), Map.of(), null, Map.of());
-        }
         final Merged current = merged(store);
         final GameCatalogue catalogue = current.catalogue();
         if (catalogue == null) {
@@ -77,11 +74,8 @@ public final class GameDataRoutes {
 
     /** Answers the icon sheet of one version. */
     public void icons(final Context ctx) {
-        final GameDataStore.Icons icons =
-                store == null ? null : store.icons(ctx.pathParam("version")).orElse(null);
-        if (icons == null) {
-            throw new NotFoundResponse("no icons are drawn for this version");
-        }
+        final GameDataStore.Icons icons = store.icons(ctx.pathParam("version"))
+                .orElseThrow(() -> new NotFoundResponse("no icons are drawn for this version"));
         ctx.header("Cache-Control", ICONS_CACHE);
         ctx.contentType("image/png");
         ctx.result(icons.png());

@@ -53,7 +53,7 @@ public final class AlertRouter {
     private final AlertPreferences preferences;
     private final Supplier<List<DiscordId>> admins;
     private final Inbox<BotRequest> bot;
-    private final @Nullable PushSubscriptions subscriptions;
+    private final PushSubscriptions subscriptions;
     private final @Nullable PushSender sender;
     private final Messages texts;
 
@@ -63,7 +63,7 @@ public final class AlertRouter {
             final AlertPreferences preferences,
             final Supplier<List<DiscordId>> admins,
             final Inbox<BotRequest> bot,
-            final @Nullable PushSubscriptions subscriptions,
+            final PushSubscriptions subscriptions,
             final @Nullable PushSender sender,
             final Messages texts) {
         this.book = Objects.requireNonNull(book, "book");
@@ -87,8 +87,7 @@ public final class AlertRouter {
             return;
         }
         final AlertPreferences.Chosen chosen = preferences.all();
-        final List<PushSubscriptions.Subscription> browsers =
-                subscriptions == null || sender == null ? List.of() : subscriptions.all();
+        final List<PushSubscriptions.Subscription> browsers = sender == null ? List.of() : subscriptions.all();
         final List<DiscordId> everyAdmin = admins.get();
         for (final RaisedAlert one : raised) {
             push(one.alert(), chosen, browsers);
@@ -106,7 +105,7 @@ public final class AlertRouter {
 
     /** Sends a sample of {@code type} to one browser. Returns null without a VAPID keypair. */
     public @Nullable Delivery sendSample(final PushSubscriptions.Subscription subscription, final AlertType type) {
-        if (sender == null || subscriptions == null) {
+        if (sender == null) {
             return null;
         }
         final PushSender.Result result = send(subscription, payloadOf(sample(type.action())));
@@ -127,9 +126,9 @@ public final class AlertRouter {
                 continue;
             }
             switch (send(subscription, payload)) {
-                case SENT -> Objects.requireNonNull(subscriptions).touchSent(subscription.endpoint());
+                case SENT -> subscriptions.touchSent(subscription.endpoint());
                 // A 404 or 410 means the subscription is dead, so the row is removed.
-                case EXPIRED -> Objects.requireNonNull(subscriptions).expired(subscription.endpoint());
+                case EXPIRED -> subscriptions.expired(subscription.endpoint());
                 case FAILED -> log.warn("push to {} failed (not a 404/410)", subscription.endpoint());
             }
         }

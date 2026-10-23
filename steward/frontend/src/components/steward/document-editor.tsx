@@ -92,7 +92,6 @@ export function DocumentEditor({
   languages,
   language,
   onLanguage,
-  writable,
 }: {
   view: DocumentView
   draft: Document
@@ -102,7 +101,6 @@ export function DocumentEditor({
   /** The language edited and previewed. */
   language: Language
   onLanguage: (language: Language) => void
-  writable: boolean
 }) {
   const save = useSaveDocument()
   // The same debounced draft the preview draws, so both share one drawing.
@@ -115,7 +113,6 @@ export function DocumentEditor({
   const context: Context = {
     view,
     language,
-    writable,
     sharedParts,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
@@ -156,10 +153,9 @@ export function DocumentEditor({
         view={view}
         parts={draft.parts}
         sharedParts={sharedParts}
-        disabled={!writable}
         onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
       />
-      <DocumentVersions view={view} disabled={!writable || save.isPending} onRestore={submit} />
+      <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />
       {save.error ? <Failure error={save.error} write /> : null}
       {send.error ? <Failure error={send.error} write /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
@@ -189,11 +185,7 @@ export function DocumentEditor({
             >
               {t("steward.document-editor.discard")}
             </Button>
-            <Button
-              type="button"
-              disabled={!writable || !changed || refused || save.isPending}
-              onClick={() => submit()}
-            >
+            <Button type="button" disabled={!changed || refused || save.isPending} onClick={() => submit()}>
               {t("steward.document-editor.save")}
             </Button>
           </span>
@@ -301,7 +293,7 @@ function PartEditor({
   last: boolean
   context: Context
 }) {
-  const { view, writable, onPart } = context
+  const { view, onPart } = context
   const set = (change: (part: DocumentPart) => DocumentPart | undefined) => onPart(path, change)
   const at = path[path.length - 1]
   const [open, setOpen] = useState(path.length === 1 && at === 0)
@@ -312,15 +304,11 @@ function PartEditor({
     <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
       <div className="flex min-w-0 items-center justify-between gap-1 p-1 md:justify-start">
         <span className="contents shrink-0 items-center md:flex">
-          <Move disabled={!writable} first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
+          <Move first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
           {holdsRequired(view.declaration, slotsOf(part)) ? (
             <Required />
           ) : (
-            <IconButton
-              label={t("steward.document-editor.remove")}
-              disabled={!writable}
-              onPress={() => set(() => undefined)}
-            >
+            <IconButton label={t("steward.document-editor.remove")} onPress={() => set(() => undefined)}>
               <TrashIcon aria-hidden />
             </IconButton>
           )}
@@ -353,13 +341,7 @@ function PartEditor({
       </div>
       {open && (!empty || Object.keys(view.named).length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 border-t p-2">
-          <WhenField
-            view={view}
-            of="PART"
-            when={part.when}
-            disabled={!writable}
-            onWhen={(when) => set((it) => ({ ...it, when }))}
-          />
+          <WhenField view={view} of="PART" when={part.when} onWhen={(when) => set((it) => ({ ...it, when }))} />
           {empty ? null : <PartBody part={part} path={path} context={context} set={set} />}
         </div>
       ) : null}
@@ -392,23 +374,18 @@ function PartBody({
   context: Context
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
-  const { view, writable } = context
+  const { view } = context
   switch (part.type) {
     case "CONTAINER":
       return (
         <>
-          <AccentField
-            accent={part.accent}
-            disabled={!writable}
-            onAccent={(accent) => set((it) => ({ ...it, accent }))}
-          />
+          <AccentField accent={part.accent} onAccent={(accent) => set((it) => ({ ...it, accent }))} />
           <Parts parts={part.parts ?? []} path={path} context={context} />
           <AddPart
             view={view}
             parts={part.parts ?? []}
             sharedParts={context.sharedParts}
             inside
-            disabled={!writable}
             onAdd={(added) => set((it) => ({ ...it, parts: [...(it.parts ?? []), added] }))}
           />
         </>
@@ -426,7 +403,6 @@ function PartBody({
           {(part.parts?.length ?? 0) < 3 ? (
             <AddButton
               label={t("steward.document-editor.add-text")}
-              disabled={!writable}
               onPress={() => set((it) => ({ ...it, parts: [...(it.parts ?? []), newPart("TEXT")] }))}
             />
           ) : null}
@@ -436,9 +412,9 @@ function PartBody({
     case "SEPARATOR":
       return null
     case "GALLERY":
-      return <Images part={part} most={10} disabled={!writable} set={set} />
+      return <Images part={part} most={10} set={set} />
     case "FILE":
-      return <Images part={part} most={1} disabled={!writable} set={set} />
+      return <Images part={part} most={1} set={set} />
     case "ROW":
       return (
         <>
@@ -453,7 +429,6 @@ function PartBody({
           {(part.items ?? []).every((item) => isButton(context, item)) && (part.items?.length ?? 0) < 5 ? (
             <AddButton
               label={t("steward.document-editor.add-link")}
-              disabled={!writable}
               onPress={() => set((it) => ({ ...it, items: [...(it.items ?? []), newLink()] }))}
             />
           ) : null}
@@ -481,7 +456,7 @@ function TextBlock({
   context: Context
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
-  const { view, writable } = context
+  const { view } = context
   const menu = part.type === "ITEM" || part.type === "LABEL"
   // An item or label drawn once per entry also names the entry's values.
   const entry = menu ? view.declaration.slots.find((slot) => slot.id === part.slot)?.values : undefined
@@ -501,7 +476,6 @@ function TextBlock({
       {part.type === "LABEL" ? null : (
         <AddButton
           label={t("steward.document-editor.add-line")}
-          disabled={!writable}
           onPress={() => set((it) => ({ ...it, lines: [...(it.lines ?? []), { text: { [ENGLISH]: "" } }] }))}
         />
       )}
@@ -525,7 +499,7 @@ function LineEditor({
   removable: boolean
   onLine: (line: DocumentLine | undefined) => void
 }) {
-  const { view, writable } = context
+  const { view } = context
   const listed = line.list ? view.declaration.slots.find((slot) => slot.id === line.list)?.values : undefined
   const item = entry || listed ? { ...entry, ...listed } : undefined
   return (
@@ -536,7 +510,6 @@ function LineEditor({
         ) : !styled ? null : (
           <Select
             value={line.style ?? "PLAIN"}
-            disabled={!writable}
             onValueChange={(next) => onLine({ ...line, style: STYLES.find((style) => style === next) })}
           >
             <SelectTrigger
@@ -556,19 +529,9 @@ function LineEditor({
           </Select>
         )}
         <span className="flex-1" />
-        <WhenField
-          view={view}
-          of="LINE"
-          when={line.when}
-          disabled={!writable}
-          onWhen={(when) => onLine({ ...line, when })}
-        />
+        <WhenField view={view} of="LINE" when={line.when} onWhen={(when) => onLine({ ...line, when })} />
         {removable ? (
-          <IconButton
-            label={t("steward.document-editor.remove")}
-            disabled={!writable}
-            onPress={() => onLine(undefined)}
-          >
+          <IconButton label={t("steward.document-editor.remove")} onPress={() => onLine(undefined)}>
             <TrashIcon aria-hidden />
           </IconButton>
         ) : null}
@@ -593,7 +556,7 @@ function ItemEditor({
   context: Context
   onItem: (item: DocumentItem | undefined) => void
 }) {
-  const { view, writable } = context
+  const { view } = context
   const slot = item.slot ? view.declaration.slots.find((each) => each.id === item.slot) : undefined
   const locked = slot?.required === true
   return (
@@ -605,15 +568,11 @@ function ItemEditor({
           <span className="text-xs">{t("steward.document-editor.link")}</span>
         )}
         <span className="flex-1" />
-        <WhenField view={view} when={item.when} disabled={!writable} onWhen={(when) => onItem({ ...item, when })} />
+        <WhenField view={view} when={item.when} onWhen={(when) => onItem({ ...item, when })} />
         {locked ? (
           <Required />
         ) : (
-          <IconButton
-            label={t("steward.document-editor.remove")}
-            disabled={!writable}
-            onPress={() => onItem(undefined)}
-          >
+          <IconButton label={t("steward.document-editor.remove")} onPress={() => onItem(undefined)}>
             <TrashIcon aria-hidden />
           </IconButton>
         )}
@@ -622,7 +581,6 @@ function ItemEditor({
         <Input
           aria-label={t("steward.document-editor.link")}
           value={item.link ?? ""}
-          disabled={!writable}
           inputMode="url"
           onChange={(event) => onItem({ ...item, link: event.target.value })}
         />
@@ -665,13 +623,12 @@ function SectionBeside({
   context: Context
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
-  const { writable } = context
   const beside = part.button ? "BUTTON" : "THUMBNAIL"
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <Select
         value={beside}
-        disabled={!writable || part.button?.slot !== undefined}
+        disabled={part.button?.slot !== undefined}
         onValueChange={(next) =>
           set((it) =>
             next === "BUTTON"
@@ -702,11 +659,7 @@ function SectionBeside({
           onItem={(button) => set((it) => ({ ...it, button, thumbnail: button ? undefined : "" }))}
         />
       ) : (
-        <ImageField
-          address={part.thumbnail ?? ""}
-          disabled={!writable}
-          onAddress={(thumbnail) => set((it) => ({ ...it, thumbnail }))}
-        />
+        <ImageField address={part.thumbnail ?? ""} onAddress={(thumbnail) => set((it) => ({ ...it, thumbnail }))} />
       )}
     </div>
   )
@@ -718,14 +671,12 @@ function AddPart({
   parts,
   sharedParts,
   inside,
-  disabled,
   onAdd,
 }: {
   view: DocumentView
   parts: DocumentPart[]
   sharedParts: readonly SharedPartView[]
   inside?: boolean
-  disabled: boolean
   onAdd: (part: DocumentPart) => void
 }) {
   const slots = inside ? [] : unplacedSlots(view.declaration, [])
@@ -742,7 +693,7 @@ function AddPart({
   const insertable = sharedParts.filter((shared) => (kinds as readonly string[]).includes(shared.part.type))
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild disabled={disabled}>
+      <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="self-start">
           <PlusIcon aria-hidden />
           {t("steward.document-editor.add")}

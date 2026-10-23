@@ -38,6 +38,7 @@ import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.auth.Gatekeeper;
 import eu.nordtal.season.steward.auth.Profile;
 import eu.nordtal.season.steward.auth.SecondFactor;
+import eu.nordtal.season.steward.auth.SecretBox;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.WebAuthn;
 import eu.nordtal.season.steward.config.WebSpec;
@@ -78,11 +79,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -105,26 +104,22 @@ public final class Web {
 
     private final WebSpec config;
 
-    /** Tells the health route whether PostgreSQL answers. It is false without a database. */
-    private final BooleanSupplier databaseAnswers;
+    private final Data data;
 
     private final StackApi stack;
 
-    /** The signed-in browsers. It is null only in a test that signs nobody in. */
-    private final @Nullable Sessions sessions;
+    private final Sessions sessions;
 
     private final SecondFactor secondFactor;
     private final AuthenticatorApp authenticatorApp;
 
-    private final @Nullable ExampleValues exampleValues;
-
     private final PushEndpoints push;
 
-    /** Measures the stack and raises what changed. It is null only in a test without a database. */
-    private final @Nullable AlertMonitor alertMonitor;
+    /** Measures the stack and raises what changed. */
+    private final AlertMonitor alertMonitor;
 
-    /** Sends every raised alert. It is null only in a test without a database. */
-    private final @Nullable AlertRouter alertRouter;
+    /** Sends every raised alert. */
+    private final AlertRouter alertRouter;
 
     private final AlertRoutes alerts;
 
@@ -142,12 +137,12 @@ public final class Web {
     private final RosterRoutes roster;
 
     private final Settings settings;
-    /** Decides who may sign in. It is null only in a test without a database. */
-    private final @Nullable AdminTree admins;
+    /** Decides who may sign in. */
+    private final AdminTree admins;
 
-    private final @Nullable AdminApi adminApi;
+    private final AdminApi adminApi;
 
-    private final @Nullable PackExemptionApi packExemptionApi;
+    private final PackExemptionApi packExemptionApi;
     private final AuthFlow authFlow;
 
     private final AgentApi deployments;
@@ -179,7 +174,7 @@ public final class Web {
     /** The database bundle in the network's languages. It words a refused write and a server's refusal. */
     private final Messages database;
 
-    private final @Nullable MessageOverrideStore overrides;
+    private final MessageOverrideStore overrides;
 
     /** The channels whose signals can change what a page shows. See {@link #listen}. */
     private static final List<Channel> LIVE_CHANNELS = List.of(
@@ -220,7 +215,7 @@ public final class Web {
             final StackApi stack,
             final AgentClient agent,
             final boolean agentOffered,
-            final @Nullable Data data,
+            final Data data,
             final Languages languages,
             final Clock clock,
             final Scheduler scheduler) {
@@ -232,38 +227,38 @@ public final class Web {
                 "messages/" + MessageSchema.bundle(DatabaseMessages.class),
                 languages.locales());
         this.stack = stack;
-        this.databaseAnswers = data == null ? () -> false : data::answers;
-        this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
-        final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
-        final @Nullable WebAuthn localWebauthn = webAuthnOver(config, localCredentials);
-        final @Nullable Authenticators localApps = Authenticators.over(data, config.totpKey(), clock);
+        this.data = data;
+        this.sessions = new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
+        final Credentials localCredentials = new Credentials(data.dataSource());
+        final WebAuthn localWebauthn =
+                new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), localCredentials);
+        final Authenticators localApps = new Authenticators(
+                data.dataSource(), SecretBox.of(config.totpKey()).orElse(null), clock);
         this.secondFactor = new SecondFactor(
                 this::requireSession, localCredentials, this.sessions, localWebauthn, localApps, clock);
         this.authenticatorApp = new AuthenticatorApp(this::requireSession, secondFactor, localApps, this.sessions);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
-        this.journal = new Journaling(
-                data == null ? null : data.audit(), ctx -> account(ctx).map(DiscordAuth.Account::actor));
+        this.journal = new Journaling(data.audit(), ctx -> account(ctx).map(DiscordAuth.Account::actor));
         this.metrics = new Metrics(data, clock);
-        this.guild = new DiscordApi(config.discord(), data == null ? null : GuildChannels.using(data.dataSource()));
+        this.guild = new DiscordApi(config.discord(), GuildChannels.using(data.dataSource()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
-        this.games = new GameActions(data == null ? null : data.dataSource(), commands);
+        this.games = new GameActions(data.dataSource(), commands);
         this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data, texts.messages());
-        this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
-        this.consoleCommands = new ConsoleCommands(data == null ? null : CommandTreeStore.using(data.dataSource()));
+        this.gameData = new GameDataRoutes(GameDataStore.using(data.dataSource()));
+        this.consoleCommands = new ConsoleCommands(CommandTreeStore.using(data.dataSource()));
         this.settings = new Settings(config);
-        this.admins = data == null ? null : AdminTree.using(data.dataSource());
-        this.adminApi = adminApiOf(data, admins);
-        this.packExemptionApi = packExemptionsOf(data);
+        this.admins = AdminTree.using(data.dataSource());
+        this.adminApi = new AdminApi(admins, ctx -> account(ctx).orElseThrow());
+        this.packExemptionApi = new PackExemptionApi(
+                PackExemptions.using(data.dataSource()), ctx -> account(ctx).orElseThrow());
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new AgentApi(agent, agentOffered);
-        final @Nullable PushSubscriptions localPushSubscriptions =
-                data == null ? null : new PushSubscriptions(data.dataSource());
-        this.exampleValues = data == null ? null : new ExampleValues(data.dataSource());
+        final PushSubscriptions localPushSubscriptions = new PushSubscriptions(data.dataSource());
         this.profile = new Profile(
                 this::requireSession,
                 this::session,
@@ -272,7 +267,7 @@ public final class Web {
                 data,
                 authFlow::whatIsMissing,
                 localWebauthn,
-                this.exampleValues);
+                new ExampleValues(data.dataSource()));
         final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = WebPushSender.keysOf(config.webPush());
         final AlertWiring wiring =
                 wireAlerts(config, thresholds, stack, data, localPushSubscriptions, localVapidKeys, clock);
@@ -281,37 +276,13 @@ public final class Web {
         this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), wiring.preferences());
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
-        this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
-    }
-
-    private @Nullable AdminApi adminApiOf(final @Nullable Data data, final @Nullable AdminTree localAdmins) {
-        return data == null
-                ? null
-                : new AdminApi(
-                        Objects.requireNonNull(localAdmins), ctx -> account(ctx).orElseThrow());
-    }
-
-    private @Nullable PackExemptionApi packExemptionsOf(final @Nullable Data data) {
-        return data == null
-                ? null
-                : new PackExemptionApi(
-                        PackExemptions.using(data.dataSource()),
-                        ctx -> account(ctx).orElseThrow());
-    }
-
-    private static @Nullable WebAuthn webAuthnOver(final WebSpec config, final @Nullable Credentials credentials) {
-        return credentials == null
-                ? null
-                : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), credentials);
+        this.overrides = MessageOverrideStore.using(data.dataSource());
     }
 
     /** Maps each topic of the live stream to the reads that its routes answer with. */
-    private LiveFeed watchLive(final @Nullable Data data, final Clock clock) {
+    private LiveFeed watchLive(final Data data, final Clock clock) {
         final LiveFeed live = new LiveFeed(Waiting.on(clock), scheduler);
         stack.watch(live);
-        if (data == null) {
-            return live;
-        }
         live.watch(
                 Topic.RUNS,
                 () -> Arrays.asList(
@@ -345,25 +316,19 @@ public final class Web {
         return live;
     }
 
-    private record AlertWiring(
-            @Nullable AlertMonitor monitor,
-            @Nullable AlertRouter router,
-            @Nullable AlertPreferences preferences) {}
+    private record AlertWiring(AlertMonitor monitor, AlertRouter router, AlertPreferences preferences) {}
 
     /** Measures the stack, raises alerts as rows and routes them to push and the admin channel. */
     private AlertWiring wireAlerts(
             final WebSpec config,
             final Supplier<Thresholds> thresholds,
             final StackApi stack,
-            final @Nullable Data data,
-            final @Nullable PushSubscriptions localPushSubscriptions,
+            final Data data,
+            final PushSubscriptions localPushSubscriptions,
             final com.interaso.webpush.@Nullable VapidKeys localVapidKeys,
             final Clock clock) {
-        if (data == null) {
-            return new AlertWiring(null, null, null);
-        }
         final AlertBook book = AlertBook.using(data.dataSource());
-        final AdminTree tree = Objects.requireNonNull(admins);
+        final AdminTree tree = admins;
         final AlertPreferences preferences = new AlertPreferences(data.dataSource());
         final AlertRouter router = new AlertRouter(
                 book,
@@ -385,43 +350,13 @@ public final class Web {
      * Each pass reads everything again, so a missed or doubled signal changes nothing.
      */
     public void listen(final SignalHub hub) {
-        final MessageOverrideStore store = overrides;
-        if (store != null) {
-            store.follow(texts.messages(), hub);
-            store.follow(database, hub);
-        }
-        final AlertRouter router = alertRouter;
-        final AlertMonitor monitor = alertMonitor;
-        if (router != null) {
-            hub.on(Channel.ALERT, "alert routing", () -> alertLane.execute(router::route));
-        }
-        if (monitor != null) {
-            hub.on(Channel.UPDATE, "failed runs", () -> alertLane.execute(monitor::runs));
-        }
+        overrides.follow(texts.messages(), hub);
+        overrides.follow(database, hub);
+        hub.on(Channel.ALERT, "alert routing", () -> alertLane.execute(alertRouter::route));
+        hub.on(Channel.UPDATE, "failed runs", () -> alertLane.execute(alertMonitor::runs));
         for (final Channel channel : LIVE_CHANNELS) {
             hub.on(channel, "the live stream", live::ring);
         }
-    }
-
-    /** Returns the sessions, or fails the route when this instance has no database. */
-    private Sessions sessions() {
-        return Objects.requireNonNull(sessions, "this route needs sessions, which this instance has none of");
-    }
-
-    /** Returns the admins, or fails the route when this instance has no database. */
-    private AdminTree admins() {
-        return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
-    }
-
-    /** Returns the admin API, or fails the route when this instance has no database. */
-    private AdminApi adminApi() {
-        return Objects.requireNonNull(adminApi, "this route needs adminApi, which this instance has none of");
-    }
-
-    /** Returns {@link #packExemptionApi}, or fails the route when this instance has no database. */
-    private PackExemptionApi packExemptionApi() {
-        return Objects.requireNonNull(
-                packExemptionApi, "this route needs packExemptionApi, which this instance has none of");
     }
 
     public Javalin start(final int port) {
@@ -454,13 +389,8 @@ public final class Web {
                 })
                 .start(port);
 
-        if (sessions != null) {
-            timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
-        }
-        final AlertMonitor monitor = alertMonitor;
-        if (monitor != null) {
-            timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(monitor::poll)));
-        }
+        timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
+        timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(alertMonitor::poll)));
         live.start();
         authFlow.whatIsMissing()
                 .ifPresent(missing ->
@@ -508,7 +438,7 @@ public final class Web {
                 "/auth/logout",
                 ctx -> {
                     // SameSite=Lax allows a top-level POST, so the CSRF token check applies here too.
-                    sessions().end(ctx.cookie(Sessions.COOKIE));
+                    sessions.end(ctx.cookie(Sessions.COOKIE));
                     ctx.removeCookie(Sessions.COOKIE, "/");
                     ctx.status(204);
                 },
@@ -675,24 +605,17 @@ public final class Web {
         cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
         // AdminApi writes the admin grant directly, not the bot.
+        cfg.routes.post("/api/admins/grant", adminApi::grant, Gate.KEY_FRESH, Journaled.as(JournalAction.GRANT_ADMIN));
         cfg.routes.post(
-                "/api/admins/grant",
-                ctx -> adminApi().grant(ctx),
-                Gate.KEY_FRESH,
-                Journaled.as(JournalAction.GRANT_ADMIN));
-        cfg.routes.post(
-                "/api/admins/revoke",
-                ctx -> adminApi().revoke(ctx),
-                Gate.KEY_FRESH,
-                Journaled.as(JournalAction.REVOKE_ADMIN));
+                "/api/admins/revoke", adminApi::revoke, Gate.KEY_FRESH, Journaled.as(JournalAction.REVOKE_ADMIN));
         cfg.routes.post(
                 "/api/pack-exemptions/exempt",
-                ctx -> packExemptionApi().exempt(ctx),
+                packExemptionApi::exempt,
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.EXEMPT_PACK));
         cfg.routes.post(
                 "/api/pack-exemptions/enforce",
-                ctx -> packExemptionApi().enforce(ctx),
+                packExemptionApi::enforce,
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.ENFORCE_PACK));
     }
@@ -727,7 +650,7 @@ public final class Web {
 
     /** Answers 200 when the database and steward-agent answer and 503 otherwise. Anyone may call it. */
     private void health(final Context ctx) {
-        final Health health = new Health(databaseAnswers.getAsBoolean(), stack.agentReachable());
+        final Health health = new Health(data.answers(), stack.agentReachable());
         ctx.status(health.database() && health.agent() ? 200 : 503).json(health);
     }
 
@@ -746,8 +669,7 @@ public final class Web {
 
             @Override
             public boolean stillSignedIn(final Context ctx) {
-                return sessions != null
-                        && sessions.find(ctx.cookie(Sessions.COOKIE)).isPresent();
+                return sessions.find(ctx.cookie(Sessions.COOKIE)).isPresent();
             }
         };
     }
@@ -763,20 +685,16 @@ public final class Web {
 
     /** Returns the session of this request, read once and kept in the request attribute {@link #PARKED}. */
     private Optional<Sessions.Session> session(final Context ctx) {
-        if (sessions == null) {
-            return Optional.empty();
-        }
         final Optional<Sessions.Session> parked = Optional.ofNullable(ctx.attribute(PARKED));
         if (parked.isPresent()) {
             return parked;
         }
-        Optional<Sessions.Session> found = sessions().find(ctx.cookie(Sessions.COOKIE));
+        Optional<Sessions.Session> found = sessions.find(ctx.cookie(Sessions.COOKIE));
         // The admin check runs on every request, so a revocation ends the session at its next request.
         if (found.isPresent()
                 && found.get().signedIn()
-                && admins != null
-                && !admins().isAdmin(found.get().signedInDiscordId())) {
-            final int ended = sessions().endAllOf(found.get().signedInDiscordId());
+                && !admins.isAdmin(found.get().signedInDiscordId())) {
+            final int ended = sessions.endAllOf(found.get().signedInDiscordId());
             log.info(
                     "ended {} session(s) of {}: no longer an admin",
                     ended,

@@ -36,12 +36,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
-/** What every field of the editor reads: the document's values, the languages edited and whether a change is allowed. */
+/** What every field of the editor reads: the document's values and the language edited. */
 export type Context = {
   view: DocumentView
   /** The one language edited and previewed. */
   language: Language
-  writable: boolean
   /** The shared parts saved, to insert and to compare a copy with. */
   sharedParts: readonly SharedPartView[]
   /** Returns the draft with the part at `path` changed, or removed when `change` returns nothing. */
@@ -50,15 +49,7 @@ export type Context = {
 }
 
 /** An image's address, `attachment://` for a packaged one, with an upload that replaces it by a stored one. */
-export function ImageField({
-  address,
-  disabled,
-  onAddress,
-}: {
-  address: string
-  disabled: boolean
-  onAddress: (address: string) => void
-}) {
+export function ImageField({ address, onAddress }: { address: string; onAddress: (address: string) => void }) {
   const upload = useUploadImage()
   const input = useRef<HTMLInputElement>(null)
   return (
@@ -68,14 +59,13 @@ export function ImageField({
         <Input
           aria-label={t("steward.document-editor.image")}
           value={address}
-          disabled={disabled}
           inputMode="url"
           className="min-w-0 flex-1 font-mono text-xs max-md:text-base"
           onChange={(event) => onAddress(event.target.value)}
         />
         <IconButton
           label={t("steward.document-editor.upload")}
-          disabled={disabled || upload.isPending}
+          disabled={upload.isPending}
           onPress={() => input.current?.click()}
         >
           <UploadSimpleIcon aria-hidden />
@@ -120,7 +110,6 @@ export function TextField({
       versions={versionsOf(text, language)}
       names={Object.keys(named)}
       game={context.view.game ? named : undefined}
-      disabled={!context.writable}
       multiline={multiline}
       onVersions={(versions) => onText(withVersions(text, language, versions))}
     />
@@ -132,7 +121,6 @@ function Versions({
   versions,
   names,
   game,
-  disabled,
   multiline,
   onVersions,
 }: {
@@ -141,7 +129,6 @@ function Versions({
   names: string[]
   /** A game text's values, which it is written with in tones, glyphs and values as the game draws it. */
   game?: Record<string, DocumentValue>
-  disabled: boolean
   multiline?: boolean
   onVersions: (versions: string[]) => void
 }) {
@@ -155,7 +142,6 @@ function Versions({
             revision={`${language}/${index}`}
             source={version}
             values={game}
-            disabled={disabled}
             onSource={(source) => onVersions(versions.map((each, at) => (at === index ? source : each)))}
             onRemove={versions.length > 1 ? () => onVersions(versions.filter((_, at) => at !== index)) : undefined}
           />
@@ -165,18 +151,13 @@ function Versions({
             label={languageName(language)}
             source={version}
             names={names}
-            disabled={disabled}
             multiline={multiline}
             onSource={(source) => onVersions(versions.map((each, at) => (at === index ? source : each)))}
             onRemove={versions.length > 1 ? () => onVersions(versions.filter((_, at) => at !== index)) : undefined}
           />
         ),
       )}
-      <AddButton
-        label={t("steward.message-editor.add-variant")}
-        disabled={disabled}
-        onPress={() => onVersions([...versions, ""])}
-      />
+      <AddButton label={t("steward.message-editor.add-variant")} onPress={() => onVersions([...versions, ""])} />
     </div>
   )
 }
@@ -187,7 +168,6 @@ function GameVersion({
   revision,
   source,
   values,
-  disabled,
   onSource,
   onRemove,
 }: {
@@ -195,7 +175,6 @@ function GameVersion({
   revision: string
   source: string
   values: Record<string, DocumentValue>
-  disabled: boolean
   onSource: (source: string) => void
   onRemove: (() => void) | undefined
 }) {
@@ -215,10 +194,9 @@ function GameVersion({
         label={languageName(language)}
         language={language}
         revision={revision}
-        disabled={disabled}
         end={
           onRemove ? (
-            <IconButton label={t("steward.message-editor.remove-variant")} disabled={disabled} onPress={onRemove}>
+            <IconButton label={t("steward.message-editor.remove-variant")} onPress={onRemove}>
               <TrashIcon aria-hidden />
             </IconButton>
           ) : null
@@ -244,7 +222,6 @@ function Version({
   label,
   source,
   names,
-  disabled,
   multiline,
   onSource,
   onRemove,
@@ -252,7 +229,6 @@ function Version({
   label: string
   source: string
   names: string[]
-  disabled: boolean
   multiline?: boolean
   onSource: (source: string) => void
   onRemove: (() => void) | undefined
@@ -262,7 +238,6 @@ function Version({
     ref: field,
     "aria-label": label,
     value: source,
-    disabled,
     className: "min-w-0 flex-1",
     onChange: (event: { target: { value: string } }) => onSource(event.target.value),
   }
@@ -271,7 +246,7 @@ function Version({
       {multiline ? <Textarea rows={2} {...props} /> : <Input {...props} />}
       {names.length > 0 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild disabled={disabled}>
+          <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="ghost"
@@ -296,7 +271,7 @@ function Version({
         </DropdownMenu>
       ) : null}
       {onRemove ? (
-        <IconButton label={t("steward.message-editor.remove-variant")} disabled={disabled} onPress={onRemove}>
+        <IconButton label={t("steward.message-editor.remove-variant")} onPress={onRemove}>
           <TrashIcon aria-hidden />
         </IconButton>
       ) : null}
@@ -309,14 +284,12 @@ export function WhenField({
   view,
   of = "ITEM",
   when,
-  disabled,
   onWhen,
 }: {
   view: DocumentView
   /** What the condition shows, named beside it, since a part's and its line's conditions stand one under the other. */
   of?: "PART" | "LINE" | "ITEM"
   when: string | undefined
-  disabled: boolean
   onWhen: (when: string | undefined) => void
 }) {
   const read = readWhen(when)
@@ -331,7 +304,6 @@ export function WhenField({
       <span className="text-xs text-muted-foreground">{label}</span>
       <Select
         value={read.mode}
-        disabled={disabled}
         onValueChange={(mode) =>
           choose(
             mode === "ALWAYS"
@@ -354,7 +326,7 @@ export function WhenField({
         </SelectContent>
       </Select>
       {read.mode === "ALWAYS" ? null : (
-        <Select value={read.value} disabled={disabled} onValueChange={(next) => choose({ ...read, value: next })}>
+        <Select value={read.value} onValueChange={(next) => choose({ ...read, value: next })}>
           <SelectTrigger size="sm" aria-label={label} className="w-36 font-mono text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -371,7 +343,6 @@ export function WhenField({
         <Input
           aria-label={t("steward.document-editor.constant")}
           value={read.constant}
-          disabled={disabled}
           className="h-7 w-24 font-mono text-xs max-md:text-base"
           onChange={(event) => choose({ ...read, constant: event.target.value })}
         />
@@ -382,11 +353,9 @@ export function WhenField({
 
 export function AccentField({
   accent,
-  disabled,
   onAccent,
 }: {
   accent: string | undefined
-  disabled: boolean
   onAccent: (accent: string | undefined) => void
 }) {
   const id = useId()
@@ -395,12 +364,7 @@ export function AccentField({
       <label htmlFor={id} className="text-xs text-muted-foreground">
         {t("steward.document-editor.accent")}
       </label>
-      <ColourControl
-        id={id}
-        value={accent ?? ""}
-        disabled={disabled}
-        onChange={(value) => onAccent(value || undefined)}
-      />
+      <ColourControl id={id} value={accent ?? ""} onChange={(value) => onAccent(value || undefined)} />
     </div>
   )
 }
@@ -448,9 +412,9 @@ export function IconButton({
   )
 }
 
-export function AddButton({ label, disabled, onPress }: { label: string; disabled: boolean; onPress: () => void }) {
+export function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Button type="button" variant="ghost" size="xs" className="self-start" disabled={disabled} onClick={onPress}>
+    <Button type="button" variant="ghost" size="xs" className="self-start" onClick={onPress}>
       <PlusIcon aria-hidden />
       {label}
     </Button>
@@ -493,12 +457,10 @@ export function LanguageToggle({
 export function Images({
   part,
   most,
-  disabled,
   set,
 }: {
   part: DocumentPart
   most: number
-  disabled: boolean
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
   const media = part.media ?? []
@@ -508,13 +470,11 @@ export function Images({
         <div key={index} className="flex min-w-0 items-start gap-1">
           <ImageField
             address={address}
-            disabled={disabled}
             onAddress={(next) => set((it) => ({ ...it, media: media.map((each, at) => (at === index ? next : each)) }))}
           />
           {media.length > 1 ? (
             <IconButton
               label={t("steward.document-editor.remove")}
-              disabled={disabled}
               onPress={() => set((it) => ({ ...it, media: media.filter((_, at) => at !== index) }))}
             >
               <TrashIcon aria-hidden />
@@ -525,7 +485,6 @@ export function Images({
       {media.length < most ? (
         <AddButton
           label={t("steward.document-editor.add-image")}
-          disabled={disabled}
           onPress={() => set((it) => ({ ...it, media: [...media, ""] }))}
         />
       ) : null}
@@ -533,23 +492,13 @@ export function Images({
   )
 }
 
-export function Move({
-  disabled,
-  first,
-  last,
-  onMove,
-}: {
-  disabled: boolean
-  first: boolean
-  last: boolean
-  onMove: (by: -1 | 1) => void
-}) {
+export function Move({ first, last, onMove }: { first: boolean; last: boolean; onMove: (by: -1 | 1) => void }) {
   return (
     <>
-      <IconButton label={t("steward.document-editor.move-up")} disabled={disabled || first} onPress={() => onMove(-1)}>
+      <IconButton label={t("steward.document-editor.move-up")} disabled={first} onPress={() => onMove(-1)}>
         <ArrowUpIcon aria-hidden />
       </IconButton>
-      <IconButton label={t("steward.document-editor.move-down")} disabled={disabled || last} onPress={() => onMove(1)}>
+      <IconButton label={t("steward.document-editor.move-down")} disabled={last} onPress={() => onMove(1)}>
         <ArrowDownIcon aria-hidden />
       </IconButton>
     </>

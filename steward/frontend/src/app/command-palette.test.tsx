@@ -146,7 +146,6 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
 
 function oneBundle(entries: MessageEntry[]) {
   const texts: MessageTexts = {
-    writable: true,
     texts: entries.map((entry) => ({ entry, path: "smp/smp", services: ["smp"], previews: {} })),
     languages: [],
     colours: {},

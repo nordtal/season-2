@@ -309,7 +309,7 @@
     "steward.keys.app-scan": ["every"],
     "steward.keys.app-secret": ["every"],
     "steward.keys.app-title": ["every"],
-    "steward.keys.back-to-status": ["every"],
+    "steward.keys.back-to-overview": ["every"],
     "steward.keys.brand": ["every"],
     "steward.keys.browser-cannot": ["every"],
     "steward.keys.call-it": ["every"],

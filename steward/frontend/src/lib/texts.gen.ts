@@ -1351,7 +1351,7 @@ export type TextArgs = {
   "steward.keys.app-scan": Record<string, never>
   "steward.keys.app-secret": Record<string, never>
   "steward.keys.app-title": Record<string, never>
-  "steward.keys.back-to-status": Record<string, never>
+  "steward.keys.back-to-overview": Record<string, never>
   "steward.keys.brand": Record<string, never>
   "steward.keys.browser-cannot": Record<string, never>
   "steward.keys.call-it": Record<string, never>

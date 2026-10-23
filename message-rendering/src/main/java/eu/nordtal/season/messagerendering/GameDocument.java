@@ -73,7 +73,7 @@ public final class GameDocument {
                 renderer,
                 packaged,
                 viewer,
-                Value.examples(packaged.declaration().named()));
+                Value.examples(packaged.declaration().named(), renderer.raw()));
     }
 
     /** Draws the item with its entry and one item of each data list at their declared examples. */
@@ -81,7 +81,7 @@ public final class GameDocument {
         final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
         for (final Slot declared : packaged.declaration().slots()) {
             if (declared.type() == Slot.Type.LIST) {
-                lists.put(declared.id(), List.of(Value.examples(declared.values())));
+                lists.put(declared.id(), List.of(Value.examples(declared.values(), renderer.raw())));
             }
         }
         return itemOf(slot, exampleEntry(slot), lists);
@@ -100,7 +100,7 @@ public final class GameDocument {
     private Map<String, Object> exampleEntry(final String slot) {
         return packaged.declaration()
                 .slot(slot)
-                .map(declared -> Value.examples(declared.values()))
+                .map(declared -> Value.examples(declared.values(), renderer.raw()))
                 .orElse(Map.of());
     }
 

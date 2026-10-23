@@ -105,6 +105,15 @@ class DocumentRendererTest {
         assertFalse(drawn.contains("admin/run.no-build"), drawn);
     }
 
+    /** The preview once drew a run's title, who started it and a service's state as "?", messages without values. */
+    @Test
+    void aPreviewFillsANestedMessageWithItsOwnExamples() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertFalse(drawn.contains("?"), drawn);
+    }
+
     @Test
     void everyPackagedDocumentHasAPreviewInItsShape() {
         final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();

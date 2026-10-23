@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordrendering;
 
 import eu.nordtal.season.discordrendering.DocumentRenderer.Filled;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.document.Value;
@@ -16,21 +17,25 @@ final class ExampleSlots {
 
     private ExampleSlots() {}
 
-    static Map<String, Filled> of(final DocumentDeclaration declaration, final List<Locale> languages) {
+    static Map<String, Filled> of(
+            final DocumentDeclaration declaration, final List<Locale> languages, final Messages messages) {
         final Map<String, Filled> slots = new HashMap<>();
-        declaration.slots().forEach(slot -> slots.put(slot.id(), example(slot, languages)));
+        declaration.slots().forEach(slot -> slots.put(slot.id(), example(slot, languages, messages)));
         return slots;
     }
 
-    private static Filled example(final Slot slot, final List<Locale> languages) {
+    private static Filled example(final Slot slot, final List<Locale> languages, final Messages messages) {
         return switch (slot.type()) {
             case BUTTON -> new DocumentRenderer.FilledButton(slot.id());
             case SELECT ->
                 new DocumentRenderer.FilledSelect(
                         slot.id(),
                         List.of(new DocumentRenderer.Option(
-                                slot.id(), slot.lined() ? null : slot.id(), Value.examples(slot.values()), null)));
-            case LIST -> new DocumentRenderer.FilledList(List.of(Value.examples(slot.values())));
+                                slot.id(),
+                                slot.lined() ? null : slot.id(),
+                                Value.examples(slot.values(), messages),
+                                null)));
+            case LIST -> new DocumentRenderer.FilledList(List.of(Value.examples(slot.values(), messages)));
             case LANGUAGES -> new DocumentRenderer.FilledLanguages(languages);
             case INPUT ->
                 new DocumentRenderer.FilledInput(placeholder -> TextInput.create(slot.id(), TextInputStyle.SHORT)

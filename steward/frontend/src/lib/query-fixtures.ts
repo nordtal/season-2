@@ -1,3 +1,4 @@
+import { vi } from "vitest"
 import type { QueryObserverSuccessResult, UseQueryResult } from "@tanstack/react-query"
 import type { NetworkMap } from "@/lib/api"
 import type { MessageRef } from "@/lib/texts"
@@ -96,4 +97,20 @@ export const NETWORK_MAP: NetworkMap = {
     { name: "steward-bunq", section: "Steward", entry: false, reaches: [], storesIn: [] },
     { name: "caddy", section: "Entry", entry: true, reaches: ["steward"], storesIn: [] },
   ],
+}
+
+/**
+ * A desktop-wide `matchMedia`: every `min-width` query matches and every `max-width` one does not.
+ */
+export function wideScreen() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("min-width"),
+    media: query,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent: () => false,
+  }))
 }

@@ -71,6 +71,8 @@ async function icon(page: Page, row: string): Promise<string> {
 
 async function open(page: Page) {
   await page.goto(`${base}/services/smp?tab=settings`)
+  // Nordtal's groups and the plugin files arrive in two requests, in either order.
+  await page.getByRole("button", { name: "Distances", exact: true }).waitFor()
   await page.getByRole("button", { name: "CoreProtect", exact: true }).waitFor()
 }
 

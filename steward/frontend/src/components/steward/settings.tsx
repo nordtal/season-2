@@ -70,10 +70,11 @@ export function ServiceSettings({
   const loading = configs.isPending
   /**
    * On a wide screen the first readable file shows when none is chosen. The component derives it and does not write it to the URL.
+   * It waits for Nordtal's groups, so a plugin file that arrives first never opens its rows.
    */
   const shown =
     file ??
-    (wide
+    (wide && !loading
       ? (files.find((item) => item.readable)?.id ?? pluginLeaves.find((leaf) => leaf.file.readable)?.id)
       : undefined)
   const selected = files.find((item) => item.id === shown)

@@ -16,8 +16,15 @@ describe("breadcrumbsFor", () => {
       { label: "Overview", href: "/" },
       { label: "Operations", href: "/operations" },
       { label: "Updates", href: "/operations/updates" },
-      { label: "27", href: "/operations/updates/27" },
+      { label: "Run #27", href: "/operations/updates/27" },
     ])
+  })
+
+  it.each([
+    ["/operations/backups/12", "Backup #12"],
+    ["/operations/runs/249", "Run #249"],
+  ])("names the run %s by its kind and number", (path, label) => {
+    expect(breadcrumbsFor(path).at(-1)?.label).toBe(label)
   })
 
   it.each([["/translations", "Translations"]])("names %s by its page", (path, label) => {
@@ -41,6 +48,7 @@ describe("breadcrumbsFor", () => {
     const people = [ally]
     expect(breadcrumbsFor("/access/123", people).at(-1)).toEqual({ label: "Ally", href: "/access/123" })
     expect(breadcrumbsFor("/access/123").at(-1)?.label).toBe("123")
+    expect(breadcrumbsFor("/access/456", people).at(-1)?.label).toBe("Nobody by this id")
   })
 
   it("decodes a segment that a person should read", () => {

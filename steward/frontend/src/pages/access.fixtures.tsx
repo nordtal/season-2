@@ -57,13 +57,11 @@ export async function actionsOf(name: string): Promise<string[]> {
     .filter((label) => label !== "")
 }
 
-export async function openGrant() {
-  fireEvent.click(await screen.findByRole("button", { name: "Grant access" }))
-  const dialog = await screen.findByRole("alertdialog")
-  fireEvent.change(within(dialog).getByLabelText("Discord-ID"), {
-    target: { value: "214906139328839681" },
-  })
-  return dialog
+/** Opens the grant for one person from their row's actions. */
+export async function openGrant(name = "Ally") {
+  const actions = await openActions(name)
+  fireEvent.click(within(actions).getByRole("button", { name: "Grant access" }))
+  return await screen.findByRole("alertdialog")
 }
 
 export function person(over: Partial<Record<string, unknown>>): Record<string, unknown> {

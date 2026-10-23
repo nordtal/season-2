@@ -4,17 +4,20 @@ import type { JournalAction, JournalEntry } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
 import { choice, message, t } from "@/lib/texts"
+import { actionIcon } from "@/components/steward/actions"
 import { Actor, Entity } from "@/components/steward/entity"
 import { DataTable, type Column } from "@/components/steward/data-table"
-import { FilterBar, FilterChoice, FilterField, FilterMenu, SearchField } from "@/components/steward/filter-bar"
+import { FilterBar, FilterChoice, FilterField, FilterMenu } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { ReferencePicker } from "@/components/steward/reference-picker"
+import { TERM_ICON } from "@/components/steward/term-icons"
 
 const JOURNAL_LIMIT = 200
 
 /**
- * The audit log. Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
+ * The audit log. Every filter is an exact match, so actions are picked from the rows present and the person from the people.
  */
 function actionLabel(action: JournalAction): string {
   return t("journal.action", { action: choice(action) })
@@ -110,11 +113,12 @@ export function JournalTable({
 /** Every part of the filter, empty, so the unfiltered query's key is the filtered one's. */
 const NO_FILTER = { action: "", subject: "", reference: "", minDays: "" }
 
+const PERSON = { to: "DISCORD_USER", optional: true } as const
+
 export function JournalPage() {
   const all = useJournal(NO_FILTER)
   const [action, setAction] = useState("")
   const [subject, setSubject] = useState("")
-  const [typed, setTyped] = useState("")
   const [reference, setReference] = useState("")
   const [minDays, setMinDays] = useState("")
   const entries = useJournal({ action, subject, reference, minDays })
@@ -126,14 +130,29 @@ export function JournalPage() {
 
       <Panel title={t("steward.journal.entries")}>
         <FilterBar>
-          {/* Every filter is an exact match, so the fields apply on Enter. */}
-          <SearchField
-            value={typed}
-            onValueChange={setTyped}
-            onSubmit={setSubject}
-            label={t("steward.journal.subject")}
-            placeholder={t("steward.journal.exact-id")}
-          />
+          <div className="flex min-w-[11rem] flex-1 basis-0">
+            <label htmlFor="journal-subject" className="sr-only">
+              {t("steward.journal.subject")}
+            </label>
+            <ReferencePicker
+              id="journal-subject"
+              label={t("steward.journal.subject")}
+              reference={PERSON}
+              values={subject === "" ? [] : [subject]}
+              multi={false}
+              disabled={false}
+              typed={null}
+              face={
+                subject === "" ? (
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <TERM_ICON.person aria-hidden />
+                    {t("steward.journal.subject")}
+                  </span>
+                ) : undefined
+              }
+              onChange={(picked) => setSubject(picked[0] ?? "")}
+            />
+          </div>
           <FilterMenu active={[action, reference, minDays].filter((value) => value !== "").length}>
             <FilterField label={t("steward.journal.reference")} value={reference} onSubmit={setReference} />
             <FilterField
@@ -146,7 +165,7 @@ export function JournalPage() {
               label={t("steward.journal.action")}
               value={action}
               onValueChange={setAction}
-              options={actions.map((value) => ({ value, label: actionLabel(value) }))}
+              options={actions.map((value) => ({ value, label: actionLabel(value), icon: actionIcon(value) }))}
             />
           </FilterMenu>
         </FilterBar>

@@ -1,3 +1,4 @@
+import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
 import type { CSSProperties, ReactNode } from "react"
 import { cn } from "cn"
 
@@ -22,7 +23,12 @@ export type Column<T> = {
   waiting?: ReactNode
   className?: string
   title?: (row: T) => string | undefined
+  /** Names the order its heading picks, where the table is sortable. */
+  sortKey?: string
 }
+
+/** The order of a sortable table, which the page applies before it pages. */
+export type Sort = { key: string; descending: boolean }
 
 function placement(placed: Placement): Record<string, string | number | CSSProperties | undefined> {
   if (placed === null) return { "data-phone": "off" }
@@ -50,12 +56,16 @@ export function DataTable<T>({
   rowKey,
   waiting = 8,
   onRowClick,
+  sort,
+  onSortChange,
 }: {
   columns: Column<T>[]
   rows: T[] | undefined
   rowKey: (row: T) => string | number
   waiting?: number
   onRowClick?: (row: T) => void
+  sort?: Sort
+  onSortChange?: (sort: Sort) => void
 }) {
   const cardLines: CSSProperties & { "--phone-lines": number } = { "--phone-lines": lines(columns) }
   return (
@@ -63,8 +73,31 @@ export function DataTable<T>({
       <TableHeader>
         <TableRow>
           {columns.map((column, index) => (
-            <TableHead key={index} className={cn(!column.grow && "w-px", column.end && "text-right")}>
-              {column.head}
+            <TableHead
+              key={index}
+              className={cn(!column.grow && "w-px", column.end && "text-right")}
+              aria-sort={
+                column.sortKey !== undefined && sort?.key === column.sortKey
+                  ? sort.descending
+                    ? "descending"
+                    : "ascending"
+                  : undefined
+              }
+            >
+              {column.sortKey !== undefined && onSortChange ? (
+                <SortButton
+                  head={column.head}
+                  descending={sort?.key === column.sortKey ? sort.descending : undefined}
+                  onClick={() =>
+                    onSortChange({
+                      key: column.sortKey ?? "",
+                      descending: sort !== undefined && sort.key === column.sortKey ? !sort.descending : true,
+                    })
+                  }
+                />
+              ) : (
+                column.head
+              )}
             </TableHead>
           ))}
         </TableRow>
@@ -107,5 +140,34 @@ export function DataTable<T>({
             ))}
       </TableBody>
     </Table>
+  )
+}
+
+/** A heading that sorts. Its arrow shows while the order is its own, or on hover. The first press sorts from the top. */
+function SortButton({
+  head,
+  descending,
+  onClick,
+}: {
+  head: string
+  descending: boolean | undefined
+  onClick: () => void
+}) {
+  const icons = { Arrow: descending === false ? ArrowUpIcon : ArrowDownIcon }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      {head}
+      <icons.Arrow
+        aria-hidden
+        className={cn(
+          "size-3.5 shrink-0",
+          descending === undefined && "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60",
+        )}
+      />
+    </button>
   )
 }

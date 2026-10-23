@@ -17,9 +17,6 @@ public interface JournalPage {
     @Name("Subject field")
     MessageRef subject();
 
-    @Name("Subject placeholder")
-    MessageRef exactId();
-
     @Name("Payment reference field")
     MessageRef reference();
 

@@ -194,6 +194,8 @@ export type Person = {
   packExemptAt?: string
   aura: number
   spins: number
+  online: boolean
+  lastSeen?: string
 }
 
 export type Grant = {

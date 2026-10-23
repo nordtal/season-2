@@ -36,13 +36,17 @@ interface PersonDao {
                    usr.pack_exempt_by,
                    usr.pack_exempt_at,
                    coalesce(smp.aura, 0) AS aura,
-                   coalesce(spin.granted - spin.used, 0) AS spins
+                   coalesce(spin.granted - spin.used, 0) AS spins,
+                   online.mc_uuid IS NOT NULL AS online,
+                   seen.seen AS last_seen
             FROM discord_user usr
                      LEFT JOIN account_link link ON link.discord_id = usr.discord_id
                      -- LEFT: somebody never online has no row, and Person keeps that NULL rather than a zero.
                      LEFT JOIN player_playtime playtime ON playtime.discord_id = usr.discord_id
                      LEFT JOIN smp_player smp ON smp.discord_id = usr.discord_id
                      LEFT JOIN smp_spin spin ON spin.discord_id = usr.discord_id
+                     LEFT JOIN online_player online ON online.mc_uuid = link.mc_uuid
+                     LEFT JOIN player_last_seen seen ON seen.mc_uuid = link.mc_uuid
                      LEFT JOIN LATERAL (
                 SELECT max(grant_row.valid_until)                    AS access_until,
                        bool_or(grant_row.revoked IS NULL

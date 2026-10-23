@@ -32,12 +32,17 @@ interface OnlineRosterDao {
     int[] upsert(@BindMethods Iterable<BoundPresence> rows);
 
     /**
-     * Deletes every row older than this write, which are the players it did not name.
+     * Deletes the players this write did not name and records their last write as the time they were last seen.
      *
      * @param now the instant that {@link #upsert} stamped on every row
      * @return the players deleted
      */
-    @SqlUpdate("DELETE FROM online_player WHERE updated < :now")
+    @SqlUpdate("""
+            WITH gone AS (DELETE FROM online_player WHERE updated < :now RETURNING mc_uuid, updated)
+            INSERT INTO player_last_seen (mc_uuid, seen)
+            SELECT mc_uuid, updated FROM gone
+            ON CONFLICT (mc_uuid) DO UPDATE SET seen = EXCLUDED.seen
+            """)
     int prune(@Bind("now") OffsetDateTime now);
 
     /**

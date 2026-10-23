@@ -32,12 +32,9 @@ export function AuraDialog({
       open={open}
       onOpenChange={onOpenChange}
       act={(aura) =>
-        write.mutate(
-          { discordId: person.discordId, aura },
-          {
-            onSuccess: () => toast.success(t("steward.people.aura-set", { name: personName(person), aura })),
-            onError: (error) => toast.error(t("steward.people.aura-not-written"), { description: String(error) }),
-          },
+        write.mutateAsync({ discordId: person.discordId, aura }).then(
+          () => toast.success(t("steward.people.aura-set", { name: personName(person), aura })),
+          (error) => toast.error(t("steward.people.aura-not-written"), { description: String(error) }),
         )
       }
     />
@@ -66,12 +63,9 @@ export function SpinsDialog({
       open={open}
       onOpenChange={onOpenChange}
       act={(spins) =>
-        write.mutate(
-          { discordId: person.discordId, spins },
-          {
-            onSuccess: () => toast.success(t("steward.people.spins-set", { name: personName(person), spins })),
-            onError: (error) => toast.error(t("steward.people.spins-not-written"), { description: String(error) }),
-          },
+        write.mutateAsync({ discordId: person.discordId, spins }).then(
+          () => toast.success(t("steward.people.spins-set", { name: personName(person), spins })),
+          (error) => toast.error(t("steward.people.spins-not-written"), { description: String(error) }),
         )
       }
     />
@@ -100,7 +94,7 @@ function CountDialog({
   pending: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  act: (value: number) => void
+  act: (value: number) => Promise<unknown>
 }) {
   const [value, setValue] = useState(String(start))
   const count = Number(value)

@@ -1,6 +1,6 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import type { Person } from "@/lib/api"
 import { count } from "@/lib/format"
@@ -8,7 +8,7 @@ import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
-import { DataTable, type Column } from "@/components/steward/data-table"
+import { DataTable, type Column, type Sort } from "@/components/steward/data-table"
 import { FilterBar, FilterChoice, FilterMenu, FilterOption, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -19,9 +19,11 @@ import {
   LinkBadge,
   MemberBadge,
   PersonActions,
+  PlaytimeDialog,
   RoleBadges,
   hasRole,
 } from "@/pages/access-person"
+import { AuraDialog, SpinsDialog } from "@/pages/person-smp"
 
 /** The Users page: who may join, and why. Payments and Journal share its vocabulary. */
 
@@ -29,139 +31,201 @@ const PEOPLE_PAGE_SIZE = 20
 
 type LinkFilter = "" | "linked" | "unlinked"
 
+/** What each sortable heading orders by. Online is later than any time seen, and never is earlier than any. */
+const SORTS: Record<string, (person: Person) => number> = {
+  seen: (person) => (person.online ? Infinity : person.lastSeen ? Date.parse(person.lastSeen) : -Infinity),
+  access: (person) => (person.accessUntil ? Date.parse(person.accessUntil) : -Infinity),
+  playtime: (person) => person.playtimeSeconds ?? 0,
+  aura: (person) => person.aura,
+  spins: (person) => person.spins,
+}
+
+const BY_SEEN: Sort = { key: "seen", descending: true }
+
+function sorted(rows: Person[], sort: Sort): Person[] {
+  const value = SORTS[sort.key] ?? SORTS.seen
+  const direction = sort.descending ? -1 : 1
+  return rows.toSorted((a, b) => {
+    const [left, right] = [value(a), value(b)]
+    return left === right ? 0 : left < right ? -direction : direction
+  })
+}
+
+/** Online, or when the person was last online, or never. */
+function lastSeen(person: Person): string {
+  if (person.online) return t("steward.people.online")
+  if (person.lastSeen) return t("steward.people.seen-at", { at: person.lastSeen })
+  return t("steward.people.never-seen")
+}
+
 /**
- * The roster's columns. On a phone the person and the roles head the card, access and playtime follow, and aura and
- * extra spins close it where they are not zero.
+ * The roster's columns. A phone's card holds the person on its first line, access on its second and the three
+ * figures on its third.
  */
 function peopleColumns(list: Person[], now: number): Column<Person>[] {
   return [
     {
       head: t("steward.people.person"),
       grow: true,
-      phone: { line: 1, side: "start" },
-      className: "font-medium",
+      phone: { line: 1, side: "wide" },
       waiting: (
         <div className="flex items-center gap-2">
-          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <Skeleton className="size-8 shrink-0 rounded-full" />
           <SkeletonText width="full" className="max-w-[13rem]" />
         </div>
       ),
       render: (person) => (
-        <>
-          <div className="hidden flex-wrap items-center gap-2 @rows:flex">
+        <div className="flex min-w-0 flex-col gap-0.5 py-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <Link
               to="/access/$id"
               params={{ id: person.discordId }}
-              className="min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
+              className="min-w-0 rounded-sm underline-offset-4 tap-target hover:underline"
             >
-              <Entity id={person.discordId} kind="discord" interactive={false} />
+              <Entity id={person.discordId} kind="discord" face="both" interactive={false} />
             </Link>
             {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
             {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
+            {/* "Not linked" matters only while it keeps a paying person out. */}
+            {!person.minecraftUuid && person.accessActive ? <LinkBadge person={person} /> : null}
+            {hasRole(person) ? <RoleBadges person={person} people={list} /> : null}
           </div>
-          <Entity id={person.discordId} kind="discord" face="both" className="@rows:hidden" />
-        </>
+          <span className="text-xs text-muted-foreground @rows:hidden">{lastSeen(person)}</span>
+        </div>
       ),
     },
     {
       head: t("steward.people.access"),
+      sortKey: "access",
       phone: { line: 2, side: "start" },
       waiting: <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />,
-      render: (person) => <AccessBadge person={person} now={now} />,
-    },
-    {
-      head: t("steward.people.minecraft"),
-      // On a phone a missing link is a badge beside the roles.
-      phone: null,
-      waiting: (
-        <div className="flex items-center gap-2">
-          <Skeleton className="size-5 shrink-0 rounded-sm" />
-          <SkeletonText width="full" className="max-w-[6.5rem]" />
-        </div>
-      ),
-      render: (person) =>
-        person.minecraftUuid ? <Entity id={person.minecraftUuid} kind="minecraft" /> : <LinkBadge person={person} />,
-    },
-    {
-      head: t("steward.people.roles"),
-      phone: { line: 1, side: "end" },
-      waiting: <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />,
       render: (person) => (
-        <>
-          <div className="flex flex-wrap items-center justify-end gap-1 @rows:justify-start">
-            {person.memberState !== "MEMBER" ? (
-              <span className="contents @rows:hidden">
-                <MemberBadge state={person.memberState} />
-              </span>
-            ) : null}
-            {/* "Not linked" matters on a phone only while it keeps a paying person out. */}
-            {!person.minecraftUuid && person.accessActive ? (
-              <span className="contents @rows:hidden">
-                <LinkBadge person={person} />
-              </span>
-            ) : null}
-            {hasRole(person) ? (
-              <RoleBadges person={person} people={list} className="justify-end @rows:justify-start" />
-            ) : null}
-          </div>
-          {hasRole(person) ? null : (
-            <span className="hidden text-xs text-muted-foreground @rows:inline">{"\u2013"}</span>
-          )}
-        </>
+        <Value person={person} dialog="access">
+          <AccessBadge person={person} now={now} tip={false} />
+        </Value>
       ),
     },
     {
-      // The prestige tier derives from this number, so it is the one lever an admin has.
+      // The prestige tier derives from this number, so it is the one lever an admin has. A phone draws all three figures here.
       head: t("steward.people.playtime"),
-      phone: { line: 2, side: "end" },
+      sortKey: "playtime",
+      phone: { line: 3, side: "wide" },
       waiting: <SkeletonText width="medium" className="min-w-[3rem]" />,
       render: (person) => (
-        // `playtime` draws the dash for somebody never online.
-        <span
-          className={
-            "flex items-center gap-1 text-sm tabular-nums" + (person.playtimeSeconds ? "" : " @max-rows:hidden")
-          }
-        >
-          {/* The card's stand-in for the heading a phone does not draw. */}
-          <TERM_ICON.playtime
-            className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
-            role="img"
-            aria-label={t("steward.people.playtime")}
-          />
-          {span(person.playtimeSeconds, "minutes")}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Figure person={person} term="playtime">
+            {span(person.playtimeSeconds, "minutes")}
+          </Figure>
+          <span className="contents @rows:hidden">
+            <Figure person={person} term="aura">
+              {count(person.aura)}
+            </Figure>
+            <Figure person={person} term="spins">
+              {count(person.spins)}
+            </Figure>
+          </span>
+        </div>
       ),
     },
     {
       head: t("steward.people.aura"),
-      // A phone draws the line only for somebody who has aura or extra spins, since most people have neither.
-      phone: (person) => (person.aura ? { line: 3, side: "start" } : null),
+      sortKey: "aura",
+      phone: null,
       waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
-      render: (person) => <SmpCount person={person} term="aura" />,
+      render: (person) => (
+        <Figure person={person} term="aura">
+          {count(person.aura)}
+        </Figure>
+      ),
     },
     {
       head: t("steward.people.spins"),
-      phone: (person) => (person.spins ? { line: 3, side: person.aura ? "end" : "start" } : null),
+      sortKey: "spins",
+      phone: null,
       waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
-      render: (person) => <SmpCount person={person} term="spins" />,
+      render: (person) => (
+        <Figure person={person} term="spins">
+          {count(person.spins)}
+        </Figure>
+      ),
+    },
+    {
+      head: t("steward.people.last-seen"),
+      sortKey: "seen",
+      // A phone draws it under the person.
+      phone: null,
+      className: "text-muted-foreground",
+      title: (person) => person.lastSeen,
+      render: (person) => (
+        <span className={person.online ? "font-medium text-success" : undefined}>{lastSeen(person)}</span>
+      ),
     },
     { head: "", phone: "action", render: (person) => <PersonActions person={person} menu /> },
   ]
 }
 
-/** One SMP figure of a row. */
-function SmpCount({ person, term }: { person: Person; term: "aura" | "spins" }) {
+type ValueDialog = "access" | "playtime" | "aura" | "spins"
+
+/** A value of the row that opens its own dialog, which is rendered beside the button and never inside it. */
+function Value({
+  person,
+  dialog,
+  className,
+  children,
+}: {
+  person: Person
+  dialog: ValueDialog
+  className?: string
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className={
+          "inline-flex min-h-0 max-w-full items-center rounded-full outline-none tap-target hover:opacity-80 " +
+          "focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
+          (className ?? "")
+        }
+      >
+        {children}
+      </button>
+      {open && dialog === "access" ? <GrantDialog person={person} open onOpenChange={setOpen} /> : null}
+      {open && dialog === "playtime" ? <PlaytimeDialog person={person} open onOpenChange={setOpen} /> : null}
+      {open && dialog === "aura" ? <AuraDialog person={person} open onOpenChange={setOpen} /> : null}
+      {open && dialog === "spins" ? <SpinsDialog person={person} open onOpenChange={setOpen} /> : null}
+    </>
+  )
+}
+
+/** One figure of a row in the pill every figure shares. Its icon names it on a phone, which draws no heading. */
+function Figure({
+  person,
+  term,
+  children,
+}: {
+  person: Person
+  term: "playtime" | "aura" | "spins"
+  children: ReactNode
+}) {
   const Icon = TERM_ICON[term]
   return (
-    <span className="flex items-center gap-1 text-sm tabular-nums">
-      {/* The card's stand-in for the heading a phone does not draw. */}
+    <Value
+      person={person}
+      dialog={term}
+      className="h-6 gap-1 border border-border bg-muted/40 px-2 text-sm tabular-nums hover:bg-muted"
+    >
+      {/* Hidden and still named on a desktop, so the button says what it sets. */}
       <Icon
-        className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
+        className="size-3.5 shrink-0 text-muted-foreground @rows:sr-only"
         role="img"
         aria-label={t(`steward.people.${term}`)}
       />
-      {count(person[term])}
-    </span>
+      {children}
+    </Value>
   )
 }
 
@@ -176,6 +240,7 @@ export function AccessPage() {
   const [onlySupporters, setOnlySupporters] = useState(false)
   const [link, setLink] = useState<LinkFilter>("")
   const [page, setPage] = useState(0)
+  const [sort, setSort] = useState<Sort>(BY_SEEN)
   // One clock for the whole render, so two badges in a row cannot disagree about "now".
   const now = useNow()
 
@@ -194,7 +259,7 @@ export function AccessPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("steward.people.title")} actions={<GrantDialog />} />
+      <PageHeader title={t("steward.people.title")} />
 
       <div className="flex flex-col gap-3">
         <FilterBar>
@@ -206,13 +271,21 @@ export function AccessPage() {
           />
           <FilterMenu active={active}>
             <div className="flex flex-col">
-              <FilterOption pressed={onlyWithAccess} onPressedChange={refilter(setOnlyWithAccess)}>
+              <FilterOption
+                icon={TERM_ICON.grantAccess}
+                pressed={onlyWithAccess}
+                onPressedChange={refilter(setOnlyWithAccess)}
+              >
                 {t("steward.people.with-access")}
               </FilterOption>
-              <FilterOption pressed={onlyAdmins} onPressedChange={refilter(setOnlyAdmins)}>
+              <FilterOption icon={TERM_ICON.admin} pressed={onlyAdmins} onPressedChange={refilter(setOnlyAdmins)}>
                 {t("steward.people.admins")}
               </FilterOption>
-              <FilterOption pressed={onlySupporters} onPressedChange={refilter(setOnlySupporters)}>
+              <FilterOption
+                icon={TERM_ICON.supporter}
+                pressed={onlySupporters}
+                onPressedChange={refilter(setOnlySupporters)}
+              >
                 {t("steward.people.supporters")}
               </FilterOption>
             </div>
@@ -223,8 +296,8 @@ export function AccessPage() {
                 setLink(value === "linked" || value === "unlinked" ? value : ""),
               )}
               options={[
-                { value: "linked", label: t("steward.people.only-linked") },
-                { value: "unlinked", label: t("steward.people.only-unlinked") },
+                { value: "linked", label: t("steward.people.only-linked"), icon: TERM_ICON.link },
+                { value: "unlinked", label: t("steward.people.only-unlinked"), icon: TERM_ICON.unlink },
               ]}
             />
           </FilterMenu>
@@ -248,7 +321,7 @@ export function AccessPage() {
             }
             const trimmed = needle.trim().toLowerCase()
             /** Matches both names and both ids, so an id from a log still finds the person. */
-            const rows = list.filter(
+            const filtered = list.filter(
               (person) =>
                 (!onlyWithAccess || person.accessActive) &&
                 (!onlyAdmins || person.admin) &&
@@ -261,6 +334,7 @@ export function AccessPage() {
                   (person.mcName ?? "").toLowerCase().includes(trimmed) ||
                   (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
             )
+            const rows = sorted(filtered, sort)
             if (rows.length === 0) {
               return <Empty title={t("steward.people.no-match")} />
             }
@@ -269,7 +343,16 @@ export function AccessPage() {
             const paged = rows.slice(clampedPage * PEOPLE_PAGE_SIZE, clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE)
             return (
               <>
-                <DataTable columns={peopleColumns(list, now)} rows={paged} rowKey={(person) => person.discordId} />
+                <DataTable
+                  columns={peopleColumns(list, now)}
+                  rows={paged}
+                  rowKey={(person) => person.discordId}
+                  sort={sort}
+                  onSortChange={(next) => {
+                    setSort(next)
+                    setPage(0)
+                  }}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground tnum">
                     {pageCount > 1

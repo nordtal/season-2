@@ -1,4 +1,12 @@
-import { ArrowSquareOutIcon } from "@phosphor-icons/react"
+import {
+  ArrowSquareOutIcon,
+  CalendarXIcon,
+  CheckCircleIcon,
+  ClockCountdownIcon,
+  ProhibitIcon,
+  SwapIcon,
+} from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -18,6 +26,14 @@ import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
+
+const STATUS_ICON: Record<Payment["status"], Icon> = {
+  OPEN: ClockCountdownIcon,
+  PAID: CheckCircleIcon,
+  EXPIRED: CalendarXIcon,
+  CANCELLED: ProhibitIcon,
+  SUPERSEDED: SwapIcon,
+}
 
 /**
  * Settles the one OPEN request of this row by hand. The bot books it as if bunq had reported it.
@@ -262,7 +278,7 @@ export function PaymentsPage() {
                 <FilterBar>
                   <SearchField value={needle} onValueChange={setNeedle} label={t("steward.payments.filter")} />
                   <FilterMenu active={(status === "" ? 0 : 1) + (onlyOverdue ? 1 : 0)}>
-                    <FilterOption pressed={onlyOverdue} onPressedChange={setOnlyOverdue}>
+                    <FilterOption icon={TERM_ICON.warning} pressed={onlyOverdue} onPressedChange={setOnlyOverdue}>
                       {t("steward.payments.only-overdue")}
                     </FilterOption>
                     <FilterChoice
@@ -272,6 +288,7 @@ export function PaymentsPage() {
                       options={present.map((value) => ({
                         value,
                         label: t("steward.payments.state", { status: choice(value) }),
+                        icon: STATUS_ICON[value],
                       }))}
                     />
                   </FilterMenu>

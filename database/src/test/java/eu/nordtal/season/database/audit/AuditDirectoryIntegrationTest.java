@@ -15,8 +15,11 @@ import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.payment.PaymentMatch;
+import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Money;
 import java.sql.Connection;
@@ -84,9 +87,9 @@ class AuditDirectoryIntegrationTest {
     void everyDetailComesBackFromItsRowsAndReadsAsTheLineWritten() {
         final UUID tab = payment("NT-TABTAB", ALICE, 30, 300, "TAB");
         final UUID byHand = payment("NT-HANDHA", BOB, 7, null, "MANUAL");
-        final long update = run("UPDATE", "{\"services\": [\"smp\", \"proxy\"]}");
-        final long restore = run("RESTORE", "{\"services\": [], \"archive\": \"nordtal-1.dump\"}");
-        final long removal = run("REMOVE_PLUGIN", "{\"services\": [\"smp\"], \"artifact\": \"chunky\"}");
+        final long update = run(new StewardRequest.Update(), "smp", "proxy");
+        final long restore = run(new StewardRequest.Restore("nordtal-1.dump"));
+        final long removal = run(new StewardRequest.RemovePlugin("chunky"), "smp");
         final Map<JournalDetail, JournalAction> written = everyDetail(tab, byHand, update, restore, removal);
 
         final Set<Class<?>> covered =
@@ -113,7 +116,7 @@ class AuditDirectoryIntegrationTest {
 
     @Test
     void anEntryKeepsTheServiceRunAndPaymentItConcernsInColumns() {
-        final long update = run("UPDATE", "{\"services\": [\"smp\"]}");
+        final long update = run(new StewardRequest.Update(), "smp");
         directory.record(AuditLine.of(
                 JournalAction.REQUEST_RUN,
                 Actor.STEWARD,
@@ -258,7 +261,7 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.PluginAdded("smp", "chunky"), JournalAction.ADD_PLUGIN);
         written.put(new JournalDetail.PluginRemoved(removal, "smp", "chunky"), JournalAction.REMOVE_PLUGIN);
         written.put(
-                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("smp", "proxy")),
+                new JournalDetail.RunAsked(update, UpdateKind.UPDATE, List.of("proxy", "smp")),
                 JournalAction.REQUEST_RUN);
         written.put(new JournalDetail.RestoreAsked(restore, "nordtal-1.dump"), JournalAction.REQUEST_RUN);
         written.put(new JournalDetail.RunCancelled(update, UpdateKind.UPDATE), JournalAction.CANCEL_RUN);
@@ -317,13 +320,11 @@ class AuditDirectoryIntegrationTest {
                 .getFirst());
     }
 
-    /** Writes a finished run and returns its id. */
-    private static long run(final String kind, final String payload) {
-        return Long.parseLong(strings("""
-                        INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)
-                        VALUES ('%s', '%s', 'HOST', 'DONE', now())
-                        RETURNING id
-                        """.formatted(kind, payload)).getFirst());
+    /** Writes a finished run of the services and returns its id. */
+    private static long run(final StewardRequest request, final String... services) {
+        return UpdateDirectory.using(dataSource)
+                .record(request, List.of(services), Actor.HOST, UpdateStatus.DONE, Duration.ZERO)
+                .id();
     }
 
     private static List<String> strings(final String sql) {

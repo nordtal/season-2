@@ -42,7 +42,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
-import { exampleOf } from "@/components/steward/message-editor/examples"
+import { exampleOf, fillOf } from "@/components/steward/message-editor/examples"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
 import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
@@ -169,9 +169,10 @@ export function TextsForm({
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
     const format = formatOf(entry.format)
     const tags = Object.keys(tones)
-    const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
+    const fill = fillOf(entry.args, examples.data, language)
     const runs = parse(text, format, tags)
-    return { runs: runs && branchesOf(runs, format, tags, fill), text, fill }
+    const example = (name: string) => exampleOf(name, entry.args, examples.data, language)
+    return { runs: runs && branchesOf(runs, format, tags, example), text, fill }
   }
 
   function set(id: string, language: Language, value: string[] | null | undefined) {

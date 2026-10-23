@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /** The closed set of what a message can show.
@@ -62,6 +63,8 @@ public enum Kind {
      * An example of a message that needs values, such as a size, is written as its words, which show as written.
      */
     MESSAGE("message");
+
+    private static final Pattern MESSAGE_KEY = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private static final PlayerId EXAMPLE_PLAYER = PlayerId.of(new UUID(0L, 1L));
 
@@ -134,7 +137,7 @@ public enum Kind {
     }
 
     /**
-     * Returns a value of this kind from an example as an editor writes it.
+     * Returns a value of this kind from an example as an editor writes it, or the words of a message example.
      *
      * @throws IllegalArgumentException when the example does not read as this kind
      */
@@ -152,8 +155,16 @@ public enum Kind {
             case GLYPH -> new Glyph(text);
             case CHOICE -> "true".equals(text) || "false".equals(text) ? Boolean.valueOf(text) : text;
             // The bundles load as one and name their keys without the bundle, as a message the code sends does.
-            case MESSAGE -> MessageRef.of(text.strip().substring(text.strip().indexOf('/') + 1));
+            case MESSAGE ->
+                namesMessage(text.strip())
+                        ? MessageRef.of(text.strip().substring(text.strip().indexOf('/') + 1))
+                        : text;
         };
+    }
+
+    /** Returns whether {@code text} is written as a message key, {@code key} or {@code bundle/key}; words are not. */
+    public static boolean namesMessage(final String text) {
+        return MESSAGE_KEY.matcher(text).matches();
     }
 
     /** Returns how {@code select} names a choice: {@code true}, {@code false}, or an enum constant in kebab case. */

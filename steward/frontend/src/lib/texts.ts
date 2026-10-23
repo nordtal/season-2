@@ -186,6 +186,12 @@ function filled(
   return { text: shown(value, style), kind: value.kind, name }
 }
 
+/** Returns a value as a placeholder in the given style draws it; a bare value takes the kind its form declares. */
+export function valueText(raw: unknown, style?: string): string {
+  const value = typedOf(raw, undefined)
+  return value === undefined ? missing("text") : shown(value, style)
+}
+
 export function chosen(node: { plural: boolean; cases: Record<string, TextNode[]> }, raw: unknown): TextNode[] {
   const other = node.cases.other
   const value = typedOf(raw, node.plural ? "number" : "choice")

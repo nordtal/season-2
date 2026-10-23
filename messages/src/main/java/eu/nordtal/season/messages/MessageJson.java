@@ -89,7 +89,8 @@ public final class MessageJson {
         return args;
     }
 
-    private static @Nullable Map<String, Object> typed(final Object value) {
+    /** Returns {@code {kind, value}}, or {@code null} for a value of no kind. */
+    public static @Nullable Map<String, Object> typed(final Object value) {
         final Kind kind = Kind.ofValue(value).orElse(null);
         if (kind == null) {
             return null;

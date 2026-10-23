@@ -455,7 +455,7 @@ function RunView({
           data-run={index}
           contentEditable={false}
           style={{ ...textStyle(run.style, format, tones), ...marks }}
-          title={fill(run.name)}
+          title={fill(run.name, run.s)}
           onMouseDown={(event) => {
             event.preventDefault()
             onSelect(startOf())

@@ -94,7 +94,8 @@ export function Translations({
       actions={
         <>
           <ServiceFilter texts={texts.data} service={service} onService={onService} />
-          <div className={"flex " + CONTROL_WIDTH}>
+          {/* Without `min-w-0`, so on a phone the service filter yields and the field keeps its minimum width on screen. */}
+          <div className="flex flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto">
             <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
           </div>
         </>

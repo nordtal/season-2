@@ -214,8 +214,9 @@ public final class MessageBundles {
     }
 
     /** Every document of {@code namespaces} as its tree; a namespace steward cannot read is logged and left out. */
-    private static List<JsonObject> readDocuments(final MessageBundleLocation location, final Set<String> namespaces)
-            throws IOException {
+    // One reader at a time: loaders of one jar share the JDK's cached JarFile, and closing one closed it under another.
+    private static synchronized List<JsonObject> readDocuments(
+            final MessageBundleLocation location, final Set<String> namespaces) throws IOException {
         final List<JsonObject> read = new ArrayList<>();
         try (URLClassLoader jar =
                 new URLClassLoader(new URL[] {location.jar().toUri().toURL()}, null)) {

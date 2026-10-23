@@ -1,4 +1,5 @@
 import { useParams } from "@tanstack/react-router"
+import { ArrowRightIcon } from "@phosphor-icons/react"
 
 import type { Grant, Person } from "@/lib/api"
 import { count, dateTime, NO_VALUE } from "@/lib/format"
@@ -173,11 +174,11 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                 phone: { line: 2, side: "wide" },
                 className: "text-muted-foreground tnum",
                 render: (row) => (
-                  <>
+                  <span className="inline-flex flex-wrap items-center gap-1">
                     {dateTime(row.validFrom)}
-                    {" \u2013 "}
+                    <ArrowRightIcon aria-hidden className="size-3 shrink-0" />
                     {dateTime(row.validUntil)}
-                  </>
+                  </span>
                 ),
               },
               {

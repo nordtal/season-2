@@ -1,17 +1,16 @@
 package eu.nordtal.season.steward.access;
 
-import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.game.CommandApi;
+import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -34,9 +33,6 @@ public final class AccessApi {
 
     /** The most days one grant gives. */
     static final int MOST_DAYS = 365;
-
-    /** The time a request waits for the bot. */
-    static final Duration PATIENCE = Duration.ofMinutes(2);
 
     /** The most play time in seconds, ten years. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
@@ -85,13 +81,6 @@ public final class AccessApi {
             @Nullable Integer days,
             @Nullable Instant until,
             @Nullable String was) {}
-
-    /** A request in the bot's inbox with the typed answer of its kind, if it has one. */
-    public record AccessRequestRun(
-            String id,
-            String kind,
-            InboxStatus status,
-            @Nullable JsonObject result) {}
 
     /** {@code POST /api/access/settle} with {@code {reference}} books an open payment request by hand as ordered. */
     public void settle(final Context ctx) {
@@ -144,33 +133,15 @@ public final class AccessApi {
         submit(ctx, new BotRequest.SetPlaytime(discordId(ctx.pathParam("id")), ask.seconds));
     }
 
-    /** {@code GET /api/access/requests/{id}} answers the status of a request. */
-    public void outcome(final Context ctx) {
-        final long id;
-        try {
-            id = Long.parseLong(ctx.pathParam("id"));
-        } catch (final NumberFormatException e) {
-            throw new RequestRefused(404, ANSWER.noRequest(ctx.pathParam("id")));
-        }
-        final Request<BotRequest> row =
-                data.bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
-
-        final Object answer = row.answer();
-        ctx.json(new AccessRequestRun(
-                String.valueOf(row.id()),
-                row.kind(),
-                row.status(),
-                answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject()));
-    }
-
     private void submit(final Context ctx, final BotRequest request) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> written =
-                data.bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
+                data.bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(CommandApi.PATIENCE));
         log.info("{} asked the bot for {}", who.name(), request);
 
         ctx.status(202)
-                .json(new AccessRequestRun(String.valueOf(written.id()), written.kind(), written.status(), null));
+                .json(new GameActions.CommandAsked(
+                        "bot:" + written.id(), written.status().name()));
     }
 
     private static Body bodyOf(final Context ctx) {

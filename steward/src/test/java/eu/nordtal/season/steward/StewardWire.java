@@ -82,7 +82,6 @@ public final class StewardWire {
             CommandApi.CommandRun.class,
             Announcements.AnnouncementsAsked.class,
             AccessApi.Settled.class,
-            AccessApi.AccessRequestRun.class,
             Person.class,
             AccessGrant.class,
             PaymentRequest.class,

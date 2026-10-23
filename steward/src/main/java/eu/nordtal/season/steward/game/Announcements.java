@@ -17,7 +17,6 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +34,6 @@ public final class Announcements {
 
     /** The longest message that Discord accepts. */
     public static final int MAX_LENGTH = 2000;
-
-    /** The time a request waits for the bot. */
-    private static final Duration PATIENCE = Duration.ofMinutes(2);
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
 
@@ -63,7 +59,7 @@ public final class Announcements {
                 .submit(
                         BotRequest.Announce.words(checked),
                         who.actor(),
-                        Schedule.within(PATIENCE),
+                        Schedule.within(CommandApi.PATIENCE),
                         AuditLine.of(
                                 JournalAction.ANNOUNCE,
                                 who.actor(),

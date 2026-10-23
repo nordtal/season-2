@@ -147,6 +147,7 @@ export type CommandRun = {
   status: InboxStatus
   result?: MessageRef
   reason?: string
+  answer?: Record<string, unknown>
 }
 
 export type AnnouncementsAsked = {
@@ -158,13 +159,6 @@ export type Settled = {
   days?: number
   until?: string
   was?: string
-}
-
-export type AccessRequestRun = {
-  id: string
-  kind: string
-  status: InboxStatus
-  result?: Record<string, unknown>
 }
 
 export type Person = {

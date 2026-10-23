@@ -29,7 +29,6 @@ public final class AccessRoutes {
         cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
-        cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
         cfg.routes.post(
                 "/api/pack-exemptions/exempt",

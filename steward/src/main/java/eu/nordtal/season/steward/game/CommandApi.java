@@ -1,7 +1,9 @@
 package eu.nordtal.season.steward.game;
 
+import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -37,7 +39,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Writes the browser's actions on the game servers as typed requests into the servers' inboxes.
  * A request is named {@code <target>:<id>}, or {@code announce:<id>:<language>} for one announcement line.
- * The bot is a target for the preview of a text or a document only.
+ * The bot is a target for the preview of a text or a document, and its access requests are followed here too.
  */
 public final class CommandApi {
 
@@ -46,8 +48,8 @@ public final class CommandApi {
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
 
-    /** The time after which a request expires. */
-    private static final Duration PATIENCE = Duration.ofMinutes(2);
+    /** The time a request in a server's inbox waits to be picked up before it expires. */
+    public static final Duration PATIENCE = Duration.ofMinutes(2);
 
     private final Data data;
 
@@ -165,12 +167,16 @@ public final class CommandApi {
         return asked.id();
     }
 
-    /** The status of a request. {@code reason} is the reason of a server refusal. */
+    /**
+     * The status of a request.
+     * {@code reason} is the reason of a server refusal, {@code answer} the typed answer of a bot request that has one.
+     */
     public record CommandRun(
             String id,
             InboxStatus status,
             @Nullable MessageRef result,
-            @Nullable String reason) {}
+            @Nullable String reason,
+            @Nullable JsonObject answer) {}
 
     /** {@code GET /api/commands/{id}} answers the status of the request that {@code submit} named. */
     public void outcome(final Context ctx) {
@@ -197,18 +203,27 @@ public final class CommandApi {
         return settled(name, inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name))));
     }
 
-    /** Returns the status of a bot preview, with the sent text once the row is done. */
+    /**
+     * Returns the status of a bot request with its typed answer.
+     * A done preview carries the sent text; an announcement is followed by language instead.
+     */
     private CommandRun sent(final String name, final long id) {
         final Request<BotRequest> row = data.bot()
                 .find(id)
-                .filter(found -> found.payload() instanceof BotRequest.PreviewMessage
-                        || found.payload() instanceof BotRequest.PreviewDocument)
+                .filter(found -> !(found.payload() instanceof BotRequest.Announce))
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final CommandRun run = settled(name, row);
-        return row.status() == InboxStatus.DONE
-                ? new CommandRun(
-                        name, run.status(), StewardTexts.TEXTS.steward().said().previewSent(), null)
-                : run;
+        final boolean preview = row.payload() instanceof BotRequest.PreviewMessage
+                || row.payload() instanceof BotRequest.PreviewDocument;
+        final Object answer = row.answer();
+        return new CommandRun(
+                name,
+                run.status(),
+                preview && row.status() == InboxStatus.DONE
+                        ? StewardTexts.TEXTS.steward().said().previewSent()
+                        : run.result(),
+                run.reason(),
+                answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject());
     }
 
     /** Returns the status of a request and the words and reason of a refusal. */
@@ -220,7 +235,8 @@ public final class CommandApi {
                         .map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
                         .map(StewardTexts.TEXTS.steward().said()::words)
                         .orElse(null),
-                row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
+                row.refusal().map(refusal -> refusal.reason().name()).orElse(null),
+                null);
     }
 
     /** Returns the status of the announcement and the result for one language. */
@@ -233,6 +249,7 @@ public final class CommandApi {
                 name,
                 Announcements.status(row.status()),
                 Announcements.result(row, language).orElse(null),
+                null,
                 null);
     }
 }

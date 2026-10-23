@@ -19,7 +19,10 @@ import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -559,6 +562,25 @@ public sealed interface JournalDetail {
             return service == null
                     ? TEXTS.alert().step(TEXTS.run().stepKind(kind), why)
                     : TEXTS.alert().stepOn(TEXTS.run().stepKind(kind), service, why);
+        }
+
+        /** Returns the steps of each of {@code runs} that failed or warned, by run, in the order of the steps. */
+        public static Map<Long, List<FailedStep>> of(final Handle handle, final List<Long> runs) {
+            final Map<Long, List<FailedStep>> steps = new HashMap<>();
+            handle.createQuery("""
+                            SELECT run, step, service, outcome, reason FROM run_step
+                            WHERE run = ANY(:runs) AND outcome IN ('FAILED', 'WARNING') ORDER BY run, seq""")
+                    .bindArray("runs", Long.class, runs)
+                    .map((step, context) -> steps.computeIfAbsent(step.getLong("run"), run -> new ArrayList<>())
+                            .add(new FailedStep(
+                                    RunStep.Kind.valueOf(step.getString("step")),
+                                    step.getString("service"),
+                                    RunStep.Outcome.valueOf(step.getString("outcome")),
+                                    step.getString("reason") == null
+                                            ? null
+                                            : RunStep.Reason.valueOf(step.getString("reason")))))
+                    .list();
+            return steps;
         }
     }
 

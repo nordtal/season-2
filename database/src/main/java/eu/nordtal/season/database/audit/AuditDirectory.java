@@ -20,12 +20,8 @@ public interface AuditDirectory {
      */
     List<AuditEntry> recent(int limit);
 
-    /**
-     * Returns the newest entries that match every part of {@code filter} that is set.
-     *
-     * @param limit the maximum count, raised to 1 if lower
-     */
-    List<AuditEntry> search(JournalFilter filter, int limit);
+    /** Returns the entries {@code ids} in no order, leaving out an id that is no entry or an alert. */
+    List<AuditEntry> entries(List<UUID> ids);
 
     Optional<AuditEntry> entry(UUID id);
 

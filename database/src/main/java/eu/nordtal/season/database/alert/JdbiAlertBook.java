@@ -11,7 +11,6 @@ import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.TabRefusal;
-import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.value.Money;
 import java.sql.ResultSet;
@@ -130,9 +129,10 @@ final class JdbiAlertBook implements AlertBook {
     }
 
     @Override
-    public List<RaisedAlert> recent(final int limit) {
-        return jdbi.withHandle(handle ->
-                read(handle, "ORDER BY e.occurred DESC, e.id DESC LIMIT :limit", "limit", Math.max(0, limit)));
+    public List<RaisedAlert> alerts(final List<UUID> ids) {
+        return ids.isEmpty()
+                ? List.of()
+                : jdbi.withHandle(handle -> read(handle, "AND e.id = ANY(:ids)", "ids", ids.toArray(UUID[]::new)));
     }
 
     @Override
@@ -208,16 +208,7 @@ final class JdbiAlertBook implements AlertBook {
 
     private static JournalDetail runFailed(final Handle handle, final ResultSet rows) throws SQLException {
         final long run = rows.getLong("run");
-        final List<FailedStep> steps = handle.createQuery("""
-                        SELECT step, service, outcome, reason FROM run_step
-                        WHERE run = :run AND outcome IN ('FAILED', 'WARNING') ORDER BY seq""")
-                .bind("run", run)
-                .map((step, context) -> new FailedStep(
-                        RunStep.Kind.valueOf(step.getString("step")),
-                        step.getString("service"),
-                        RunStep.Outcome.valueOf(step.getString("outcome")),
-                        step.getString("reason") == null ? null : RunStep.Reason.valueOf(step.getString("reason"))))
-                .list();
+        final List<FailedStep> steps = FailedStep.of(handle, List.of(run)).getOrDefault(run, List.of());
         return new JournalDetail.RunFailed(run, UpdateKind.valueOf(rows.getString("run_kind")), steps);
     }
 

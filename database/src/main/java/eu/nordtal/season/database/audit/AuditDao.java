@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jspecify.annotations.Nullable;
 
 /** The SQL of the journal. {@link AuditDirectory} is its API and {@link Journal} writes the entries. */
 interface AuditDao {
@@ -72,25 +71,7 @@ interface AuditDao {
     @RegisterRowMapper(AuditEntryMapper.class)
     Optional<AuditEntry> entry(@Bind("id") UUID id);
 
-    /**
-     * Returns the newest entries in one statement whose predicates switch off on null.
-     *
-     * The casts give {@code :action IS NULL} a type. Days are a grant's or a booking's.
-     */
-    @SqlQuery(ENTRIES + """
-            WHERE e.level IS NULL
-              AND (cast(:action AS varchar) IS NULL OR e.action = cast(:action AS varchar))
-              AND (cast(:subject AS varchar) IS NULL OR e.subject = cast(:subject AS varchar))
-              AND (cast(:reference AS text) IS NULL OR p.reference = cast(:reference AS text))
-              AND (cast(:minDays AS integer) IS NULL OR coalesce(g.days, b.days) >= cast(:minDays AS integer))
-            ORDER BY e.occurred DESC, e.id DESC
-            LIMIT :limit
-            """)
+    @SqlQuery(ENTRIES + "WHERE e.id = ANY(:ids) AND e.level IS NULL")
     @RegisterRowMapper(AuditEntryMapper.class)
-    List<AuditEntry> search(
-            @Bind("action") @Nullable String action,
-            @Bind("subject") @Nullable String subject,
-            @Bind("reference") @Nullable String reference,
-            @Bind("minDays") @Nullable Integer minDays,
-            @Bind("limit") int limit);
+    List<AuditEntry> entries(@Bind("ids") UUID[] ids);
 }

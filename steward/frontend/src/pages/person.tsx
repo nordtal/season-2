@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
 import { Stat } from "@/components/steward/stat"
-import { StatusBadge, type Tone } from "@/components/steward/status"
+import { StatusBadge, Tip, type Tone } from "@/components/steward/status"
 import { DataTable } from "@/components/steward/data-table"
 import { AccessBadge, LinkBadge, MemberBadge, PersonActions, RoleBadges, personName } from "@/pages/access-person"
 import { JournalStream } from "@/pages/journal"
@@ -194,16 +194,16 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                 phone: { line: 3, side: "start", labelled: true },
                 render: (row) =>
                   row.paymentRequestId ? (
-                    <span className="font-mono text-xs" title={row.paymentRequestId}>
+                    <Tip content={row.paymentRequestId} className="font-mono text-xs">
                       {shortId(row.paymentRequestId)}
-                    </span>
+                    </Tip>
                   ) : (
-                    <span
+                    <Tip
+                      content={t("steward.people.request-gone", { source: choice(row.source) })}
                       className="text-xs text-muted-foreground"
-                      title={t("steward.people.request-gone", { source: choice(row.source) })}
                     >
                       {NO_VALUE}
-                    </span>
+                    </Tip>
                   ),
               },
             ]}

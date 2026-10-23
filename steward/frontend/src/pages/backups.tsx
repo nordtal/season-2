@@ -14,6 +14,7 @@ import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
+import { When } from "@/components/steward/when"
 import { RunStatus, runKind } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -83,7 +84,7 @@ function Summary() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-3">
       <Stat
         label={t("steward.backups.latest")}
-        value={newest ? relative(newest.modified) : backups.data ? t("steward.backups.none") : NO_VALUE}
+        value={newest ? <When at={newest.modified} /> : backups.data ? t("steward.backups.none") : NO_VALUE}
         tone={backups.data && !newest ? "down" : undefined}
         hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : NO_VALUE}
       />

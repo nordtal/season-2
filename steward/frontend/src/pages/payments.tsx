@@ -23,7 +23,7 @@ import { FilterBar, FilterChoice, FilterMenu, FilterOption, SearchField } from "
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
-import { StatusBadge, type Tone } from "@/components/steward/status"
+import { StatusBadge, Tip, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 
@@ -112,12 +112,13 @@ export function PaymentsTable({
 }) {
   const columns: Column<Payment>[] = [
     {
-      // `Created` sits in the `Reference` title and `Donation` under `Amount`.
+      // `Created` sits in the `Reference` hint and `Donation` under `Amount`.
       head: t("steward.payments.reference"),
       phone: { line: 1, side: "start" },
       className: "font-mono font-medium",
-      title: (payment) => t("steward.payments.created", { at: payment.created }),
-      render: (payment) => payment.reference,
+      render: (payment) => (
+        <Tip content={t("steward.payments.created", { at: payment.created })}>{payment.reference}</Tip>
+      ),
     },
     ...(person
       ? [
@@ -151,9 +152,9 @@ export function PaymentsTable({
         <div className="flex flex-col items-end">
           <span>{euros(payment.amountCents)}</span>
           {payment.donationCents > 0 ? (
-            <span className="text-xs text-muted-foreground" title={t("steward.payments.donation")}>
+            <Tip content={t("steward.payments.donation")} className="text-xs text-muted-foreground">
               +{euros(payment.donationCents)}
-            </span>
+            </Tip>
           ) : null}
         </div>
       ),
@@ -193,15 +194,15 @@ export function PaymentsTable({
         <div className="flex items-center justify-end gap-1">
           {payment.shareUrl ? (
             <Button asChild variant="ghost" size="sm">
-              <a href={payment.shareUrl} target="_blank" rel="noreferrer" title={payment.shareUrl}>
+              <a href={payment.shareUrl} target="_blank" rel="noreferrer">
                 <ArrowSquareOutIcon aria-hidden />
                 {t("steward.payments.tab")}
               </a>
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground" title={t("steward.payments.no-tab")}>
+            <Tip content={t("steward.payments.no-tab")} className="text-xs text-muted-foreground">
               {NO_VALUE}
-            </span>
+            </Tip>
           )}
           {payment.status === "OPEN" ? <SettleAction reference={payment.reference} /> : null}
         </div>

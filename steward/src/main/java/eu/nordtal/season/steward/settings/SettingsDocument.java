@@ -100,14 +100,20 @@ public final class SettingsDocument {
         for (final Map.Entry<String, JsonElement> child : children(node).entrySet()) {
             final String path = prefix.isEmpty() ? child.getKey() : prefix + "." + child.getKey();
             final JsonObject childNode = child.getValue().getAsJsonObject();
-            into.add(entry(path, child.getKey(), childNode, at(values, path)));
+            final JsonElement value = at(values, path);
+            into.add(entry(path, child.getKey(), childNode, value, value != null && !isBlank(value)));
             if ("MAP".equals(kindOf(childNode))) {
                 collect(childNode, path, into);
             }
         }
     }
 
-    private Entry entry(final String path, final String key, final JsonObject node, final @Nullable JsonElement value) {
+    private Entry entry(
+            final String path,
+            final String key,
+            final JsonObject node,
+            final @Nullable JsonElement value,
+            final boolean filled) {
         final Shape kind = formKindOf(node);
         final boolean secret = flag(node, "secret");
         // A secret shows only whether it is set.
@@ -123,7 +129,7 @@ public final class SettingsDocument {
                 kind != Shape.MAP && !secret,
                 secret,
                 environment.contains(path),
-                secret ? environment.contains(path) : value != null && !isBlank(value),
+                secret ? environment.contains(path) : filled,
                 shown && kind == Shape.SCALAR ? (value == null || value.isJsonNull() ? "" : scalarText(value)) : null,
                 shown && kind == Shape.LIST ? itemsOf(value) : null,
                 shown && kind == Shape.SECTIONS ? templateOf(node) : null,
@@ -176,21 +182,31 @@ public final class SettingsDocument {
                 node.get("defaults") instanceof final JsonObject defaulted ? defaulted : new JsonObject();
         final List<Entry> fields = new ArrayList<>();
         for (final Map.Entry<String, JsonElement> field : children(node).entrySet()) {
+            final JsonElement value = blank.get(field.getKey());
             fields.add(entry(
-                    field.getKey(), field.getKey(), field.getValue().getAsJsonObject(), blank.get(field.getKey())));
+                    field.getKey(),
+                    field.getKey(),
+                    field.getValue().getAsJsonObject(),
+                    value,
+                    value != null && !isBlank(value)));
         }
         return fields;
     }
 
+    /** A field the stored section lacks shows the template's default, and is not {@code filled} until a save. */
     private List<Entry> fieldsOf(final JsonObject node, final String prefix, final JsonElement element) {
         final List<Entry> fields = new ArrayList<>();
         final JsonObject object = element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
+        final JsonObject blank =
+                node.get("defaults") instanceof final JsonObject defaulted ? defaulted : new JsonObject();
         for (final Map.Entry<String, JsonElement> field : children(node).entrySet()) {
+            final boolean stored = object.has(field.getKey());
             fields.add(entry(
                     prefix + "." + field.getKey(),
                     field.getKey(),
                     field.getValue().getAsJsonObject(),
-                    object.get(field.getKey())));
+                    stored ? object.get(field.getKey()) : blank.get(field.getKey()),
+                    stored));
         }
         return fields;
     }
@@ -360,7 +376,10 @@ public final class SettingsDocument {
             List<Entry> entries,
             @Nullable Reloading reload) {}
 
-    /** Holds one key of a group. A secret has {@code filled} but never its value. */
+    /**
+     * Holds one key of a group. A secret has {@code filled} but never its value.
+     * A stored section's field is {@code filled} when the section holds it, and one it lacks carries its default.
+     */
     public record Entry(
             String path,
             String key,

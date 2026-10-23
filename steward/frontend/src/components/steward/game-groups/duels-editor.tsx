@@ -165,6 +165,7 @@ function DuelType({
                   />
                   <NumberInput
                     label={`${name} ${field(loadout, "amount")?.label ?? ""}`.trim()}
+                    entry={field(loadout, "amount")}
                     value={text(entry, "amount")}
                     disabled={disabled}
                     className="w-20"

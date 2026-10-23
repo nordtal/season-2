@@ -8,7 +8,7 @@ import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { GroupEditor } from "@/components/steward/group-draft"
 import { Pill } from "@/components/steward/milestones/parts"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
-import { type SectionValues, blankSection } from "@/components/steward/repeatable-cards"
+import { type SectionValues, blankSection, notSaved } from "@/components/steward/repeatable-cards"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { field, listEntry, sum, text } from "@/components/steward/game-groups/model"
 import { AddPicker, BARE, GamePicker, NumberInput, RemoveButton } from "@/components/steward/game-groups/parts"
@@ -143,6 +143,8 @@ function Awards({
                 label={t("steward.game.aura-of", { name })}
                 term="aura"
                 value={text(award, "aura")}
+                entry={field(list, "aura")}
+                unsaved={notSaved(list, index, "aura", text(award, "aura"))}
                 disabled={disabled}
                 className="w-20"
                 onChange={(value) => update(index, "aura", value)}
@@ -152,6 +154,8 @@ function Awards({
                   label={t("steward.game.spins-of", { name })}
                   term="spins"
                   value={text(award, "spins")}
+                  entry={field(list, "spins")}
+                  unsaved={notSaved(list, index, "spins", text(award, "spins"))}
                   disabled={disabled}
                   className="w-20"
                   onChange={(value) => update(index, "spins", value)}

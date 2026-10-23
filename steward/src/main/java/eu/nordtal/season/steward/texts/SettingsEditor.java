@@ -59,6 +59,15 @@ public interface SettingsEditor {
     @Name("Settings saved")
     MessageRef settingsSaved(@Arg("count") int count);
 
+    @Name("Not of the field's type")
+    MessageRef notOfType(@Arg("expected") StewardTexts.Expected expected);
+
+    @Name("Fields that hold a wrong value")
+    MessageRef invalidFields(@Arg("count") int count);
+
+    @Name("Not saved yet")
+    MessageRef notSaved();
+
     @Name("File saved")
     MessageRef fileSaved(@Arg("file") String file);
 

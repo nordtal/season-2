@@ -117,6 +117,27 @@ class SettingsDocumentTest {
         assertEquals(List.of(), templateField(document, "subjects").items());
     }
 
+    @Test
+    void aFieldItsStoredSectionLacksShowsItsDefaultAsNotSavedYet() throws Exception {
+        store.set("smp", "example", "stages", "[{\"key\":\"first\"}]");
+
+        final List<SettingsDocument.Entry> stage =
+                Objects.requireNonNull(entry(document(), "stages").sections()).getFirst();
+        final SettingsDocument.Entry kind = stage.stream()
+                .filter(field -> "kind".equals(field.key()))
+                .findFirst()
+                .orElseThrow();
+        final SettingsDocument.Entry key = stage.stream()
+                .filter(field -> "key".equals(field.key()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("COUNTED", kind.value());
+        assertFalse(kind.filled());
+        assertEquals("first", key.value());
+        assertTrue(key.filled());
+    }
+
     private static SettingsDocument.Entry templateField(final SettingsDocument document, final String key) {
         return Objects.requireNonNull(entry(document, "stages").template()).stream()
                 .filter(field -> key.equals(field.key()))

@@ -426,11 +426,12 @@ public interface StewardTexts {
         }
     }
 
-    /** The type of a setting value. */
+    /** The type of a setting value. A game's key is a text the settings form checks by its shape. */
     enum Expected {
         INTEGER,
         DECIMAL,
-        BOOLEAN
+        BOOLEAN,
+        KEY
     }
 
     /** The kinds of data that Steward keeps in its database. */

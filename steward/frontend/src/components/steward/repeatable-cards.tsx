@@ -77,6 +77,15 @@ function stringsOf(value: string | string[] | SectionValues[] | undefined): stri
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
 }
 
+/**
+ * Whether the card at `index` shows `key`'s default because its stored copy lacks the field. It holds only while the
+ * draft keeps that default, so a card moved by a removal is not marked by its neighbour's state.
+ */
+export function notSaved(entry: ConfigEntry, index: number, key: string, shown: string): boolean {
+  const stored = entry.sections?.[index]?.find((field) => field.key === key)
+  return stored !== undefined && !stored.filled && !stored.secret && (stored.value ?? "") === shown
+}
+
 export function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
@@ -240,6 +249,9 @@ export function RepeatableCards({
                       <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p>
                     ) : null}
                     {control}
+                    {field.kind === "SCALAR" && notSaved(entry, index, field.key, textOf(section, field.key)) ? (
+                      <p className="text-xs text-muted-foreground italic">{t("steward.settings.not-saved")}</p>
+                    ) : null}
                   </div>
                 )
               })}

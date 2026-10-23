@@ -204,6 +204,7 @@ function Prize({
       <NumberInput
         id={`${id}-${key}`}
         label={`${name} ${field(list, key)?.label ?? key}`}
+        entry={field(list, key)}
         value={text(prize, key)}
         disabled={disabled}
         className="w-full"

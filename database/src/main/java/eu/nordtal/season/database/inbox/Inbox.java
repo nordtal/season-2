@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -182,8 +183,8 @@ public final class Inbox<P> {
     }
 
     /** Writes a request in the caller's transaction. The consumer wakes when that transaction commits. */
-    public Request<P> submitWithin(final Handle handle, final P payload, final Actor actor) {
-        return insert(Objects.requireNonNull(handle, "handle"), payload, actor, Schedule.NOW);
+    public Request<P> submitWithin(final Handle handle, final P payload, final Actor actor, final Schedule schedule) {
+        return insert(Objects.requireNonNull(handle, "handle"), payload, actor, schedule);
     }
 
     private Request<P> insert(final Handle handle, final P payload, final Actor actor, final Schedule schedule) {
@@ -439,14 +440,30 @@ public final class Inbox<P> {
                         .one());
     }
 
-    /** Returns one row as JSON, so it can outlive a table that a restore replaces. */
+    /** Returns one row and the row of its kind as JSON, so they can outlive a table that a restore replaces. */
     public Optional<String> carry(final long id) {
-        return jdbi.withHandle(
-                handle -> handle.createQuery("SELECT cast(to_jsonb(t) AS text) FROM <table> t WHERE id = :id")
-                        .define("table", table.name())
-                        .bind("id", id)
-                        .mapTo(String.class)
-                        .findOne());
+        return jdbi.withHandle(handle -> read(handle, id).map(request -> {
+            final Class<?> kind = request.payload().getClass();
+            if (table.isRow(kind)
+                    && Arrays.stream(kind.getRecordComponents())
+                            .anyMatch(
+                                    component -> InboxTable.elementOf(component).isPresent())) {
+                throw new IllegalArgumentException(table + " carries no lists of records, as " + kind + " has");
+            }
+            return handle.createQuery("""
+                            SELECT cast(to_jsonb(t) || jsonb_build_object('kind_row', <kindRow>) AS text)
+                            FROM <table> t WHERE id = :id
+                            """)
+                    .define("table", table.name())
+                    .define(
+                            "kindRow",
+                            table.isRow(kind)
+                                    ? "(SELECT to_jsonb(k) FROM " + table.rowTable(kind) + " k WHERE k.request = t.id)"
+                                    : "null")
+                    .bind("id", id)
+                    .mapTo(String.class)
+                    .one();
+        }));
     }
 
     /**
@@ -454,19 +471,14 @@ public final class Inbox<P> {
      * It runs in one transaction, so a restore never leaves two open runs or none.
      *
      * @param row what {@link #carry} returned
-     * @param answer what to write into the rows the dump held open
      */
-    public void putBack(final String row, final Object answer) {
+    public void putBack(final String row) {
         Objects.requireNonNull(row, "row");
-        final String outcome = DatabaseJson.encode(Objects.requireNonNull(answer, "answer"));
         jdbi.useTransaction(handle -> {
             handle.createUpdate("""
-                            UPDATE <table> SET status = 'FAILED', finished = now(), outcome = cast(:outcome AS jsonb)
+                            UPDATE <table> SET status = 'FAILED', finished = now()
                             WHERE status IN ('PENDING', 'RUNNING')
-                            """)
-                    .define("table", table.name())
-                    .bind("outcome", outcome)
-                    .execute();
+                            """).define("table", table.name()).execute();
             handle.createUpdate("DELETE FROM <table> WHERE id = cast(cast(:row AS jsonb) ->> 'id' AS bigint)")
                     .define("table", table.name())
                     .bind("row", row)
@@ -476,6 +488,21 @@ public final class Inbox<P> {
                     .define("table", table.name())
                     .bind("row", row)
                     .execute();
+            final Class<? extends P> kind = table.typeOf(handle.createQuery("SELECT cast(:row AS jsonb) ->> 'kind'")
+                            .bind("row", row)
+                            .mapTo(String.class)
+                            .one())
+                    .orElseThrow(
+                            () -> new IllegalArgumentException(table + " carries a kind this build does not know"));
+            if (table.isRow(kind)) {
+                handle.createUpdate("""
+                                INSERT INTO <kindRow>
+                                SELECT * FROM jsonb_populate_record(null::<kindRow>, cast(:row AS jsonb) -> 'kind_row')
+                                """)
+                        .define("kindRow", table.rowTable(kind))
+                        .bind("row", row)
+                        .execute();
+            }
             // The proxy and the agent may hold a countdown that the dump does not know, so they read again.
             handle.createQuery("SELECT pg_notify(:channel, '') IS NULL")
                     .bind("channel", table.channel().sqlName())
@@ -637,7 +664,7 @@ public final class Inbox<P> {
                 ? known
                 : table.isRow(type)
                         ? rows.readRow(handle, id, type, type)
-                        : DatabaseJson.decode(row.getString("payload"), type);
+                        : table.isBare(type) ? bare(type) : DatabaseJson.decode(row.getString("payload"), type);
         final InboxStatus status = InboxStatus.valueOf(row.getString("status"));
         final Optional<Class<?>> answers = table.answerOf(type);
         return new Request<>(
@@ -656,6 +683,15 @@ public final class Inbox<P> {
                         ? rows.readRow(handle, id, type, answers.get())
                         : null,
                 status == InboxStatus.REFUSED ? refusal(handle, id) : null);
+    }
+
+    private static Object bare(final Class<?> type) {
+        try {
+            return type.getDeclaredConstructor().newInstance();
+        } catch (final ReflectiveOperationException impossible) {
+            throw new IllegalStateException(
+                    type + " has no components and still no constructor without them", impossible);
+        }
     }
 
     private static @Nullable Instant instant(final @Nullable Timestamp timestamp) {

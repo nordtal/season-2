@@ -13,10 +13,10 @@ import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.steward.AdminPlain;
 import java.time.Clock;
 import java.time.Instant;
@@ -180,8 +180,8 @@ class AlertMonitorTest {
 
     @Test
     void aFailedRunIsRaisedOnceAndADoneOneNever() {
-        final long failed = finished(UpdateKind.UPDATE, UpdateStatus.FAILED, "{}");
-        finished(UpdateKind.UPDATE, UpdateStatus.DONE, "{}");
+        final long failed = finished(UpdateKind.UPDATE, RunStage.FAILED);
+        finished(UpdateKind.UPDATE, RunStage.DONE);
 
         monitor.runs();
         monitor.runs();
@@ -198,7 +198,7 @@ class AlertMonitorTest {
 
     @Test
     void aFailedRunsAlertNamesItsKindAndItsFailedAndWarnedSteps() throws java.sql.SQLException {
-        final long failed = finished(UpdateKind.BACKUP, UpdateStatus.FAILED, "{}");
+        final long failed = finished(UpdateKind.BACKUP, RunStage.FAILED);
         try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("""
@@ -225,12 +225,12 @@ class AlertMonitorTest {
                 "the run, then its failed and warned steps in order, and nothing that went right");
     }
 
-    private long finished(final UpdateKind kind, final UpdateStatus status, final String report) {
+    private long finished(final UpdateKind kind, final RunStage stage) {
         final long id = runs.submit(kind, Actor.STEWARD, null).id();
         // The part of steward-agent, as the owner role.
         final UpdateDirectory agent = UpdateDirectory.using(owner);
         assertEquals(id, agent.claimNext().orElseThrow().id());
-        assertEquals(status, agent.finish(id, status, report).orElseThrow().status());
+        assertEquals(stage, agent.finish(id, stage).orElseThrow().stage());
         return id;
     }
 }

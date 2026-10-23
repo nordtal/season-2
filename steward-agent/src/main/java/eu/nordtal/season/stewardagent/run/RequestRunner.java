@@ -1,6 +1,6 @@
 package eu.nordtal.season.stewardagent.run;
 
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateRequest;
 import java.util.function.Consumer;
 
@@ -15,5 +15,5 @@ public interface RequestRunner {
      * @param progress called at each new stage
      * @return what happened
      */
-    Outcome run(UpdateRequest request, Consumer<UpdateReport> progress);
+    Outcome run(UpdateRequest request, Consumer<RunStage> progress);
 }

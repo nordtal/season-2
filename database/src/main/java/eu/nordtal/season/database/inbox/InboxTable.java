@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
 
 /**
  * The inbox table of one consumer: its name, the channel for every change and the kinds it takes.
- * Kinds are the records of a sealed type, named in upper snake case: a row of their own table or JSON in the payload.
- * A row kind's {@code Answer} adds columns to its row, a list of records a table of rows. A refusal is a row too.
+ * Kinds are the records of a sealed type in upper snake case: a row of their own table, JSON in the payload, or the
+ * name alone. A row kind's {@code Answer} adds columns to its row, a list of records a table of rows.
  */
 public final class InboxTable<P> {
 
@@ -98,9 +98,14 @@ public final class InboxTable<P> {
         return rows.contains(type);
     }
 
+    /** Returns whether a kind is a record without components, which its kind name alone stores. */
+    boolean isBare(final Class<?> type) {
+        return type.getRecordComponents().length == 0;
+    }
+
     /** Returns whether a kind is still JSON, so the table has its payload column. */
     boolean hasPayload() {
-        return rows.size() < kinds.size();
+        return kinds.values().stream().anyMatch(kind -> !rows.contains(kind) && !isBare(kind));
     }
 
     /** Returns whether the table has its outcome column. */

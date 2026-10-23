@@ -37,6 +37,7 @@ public final class FakeDirectories {
         @Override
         public UpdateRequest submit(
                 final eu.nordtal.season.database.inbox.StewardRequest request,
+                final java.util.List<String> services,
                 final Actor actor,
                 final Duration delay) {
             throw new UnsupportedOperationException("not exercised by this fake");
@@ -87,12 +88,12 @@ public final class FakeDirectories {
         }
 
         @Override
-        public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
+        public Optional<UpdateRequest> finish(final long id, final eu.nordtal.season.database.update.RunStage stage) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 
         @Override
-        public boolean progress(final long id, final String result) {
+        public boolean progress(final long id, final eu.nordtal.season.database.update.RunStage stage) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 
@@ -128,9 +129,7 @@ public final class FakeDirectories {
         }
 
         @Override
-        public int settleOrphans(
-                final eu.nordtal.season.messages.MessageRef why,
-                final java.util.function.Predicate<String> stillRunning) {
+        public int settleOrphans(final java.util.function.Predicate<String> stillRunning) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
     }

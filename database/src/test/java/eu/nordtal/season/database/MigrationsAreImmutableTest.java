@@ -255,6 +255,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V90__setting_override_no_longer_holds_a_value.sql",
                 "076cc76109755df053b40b103847d34904686dbc77f7fbeb501dfcfef256bf1c");
+        FROZEN.put(
+                "V91__a_run_s_request_is_its_kind_and_its_rows.sql",
+                "73e429d65777fdad44e8fdb0e753f5e504ef35a7099c63e4904ee33da32cb7d4");
     }
 
     @Test

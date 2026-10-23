@@ -43,8 +43,8 @@ class RecreateRunTest extends WebTestSupport {
             assertEquals(202, accepted.statusCode(), accepted.body());
             assertEquals(
                     1,
-                    count("select count(*) from steward_inbox where kind = 'UPDATE'"
-                            + " and (payload ->> 'replacesLocal')::boolean"));
+                    count("select count(*) from steward_inbox join steward_update on request = id"
+                            + " where kind = 'UPDATE' and replaces_local"));
         } finally {
             forgetRuns();
         }

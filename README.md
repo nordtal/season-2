@@ -142,7 +142,7 @@ that service's file under `/etc/nordtal-secrets/season-2/`. The script remains a
 
 ```bash
 ./nordtal.sh                 # the menu: what is set, change one, then deploy
-./nordtal.sh update          # update the whole network and wait for the report
+./nordtal.sh update          # update the whole network and wait for the run to end
 ./nordtal.sh update --backup # one backup run
 ```
 

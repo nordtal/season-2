@@ -6,10 +6,9 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
@@ -102,11 +101,7 @@ public final class Updates {
         final UpdateRequest written;
         try {
             written = replaceLocal
-                    ? data.updates()
-                            .submit(
-                                    new StewardRequest.Update(UpdateDirectory.cleaned(ask.services), true),
-                                    who.actor(),
-                                    delay)
+                    ? data.updates().submit(new StewardRequest.Update(true), ask.services, who.actor(), delay)
                     : data.updates().submit(kind, who.actor(), delay, ask.services);
         } catch (final IllegalArgumentException named) {
             throw new BadRequestResponse(named.getMessage());
@@ -169,7 +164,7 @@ public final class Updates {
             List<String> moving,
             @Nullable Instant started,
             @Nullable Instant finished,
-            UpdateReport.@Nullable Stage stage,
+            @Nullable RunStage stage,
             List<Step> steps) {}
 
     /**

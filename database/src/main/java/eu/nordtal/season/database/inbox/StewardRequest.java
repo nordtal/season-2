@@ -1,76 +1,50 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.database.notify.Channel;
-import java.util.List;
 
-/** A run that steward is asked for. Each record is one kind and names the services it is for. */
+/**
+ * A run that steward is asked for. Each record is one kind; the services it is for are rows of {@code run_service}.
+ */
 public sealed interface StewardRequest {
 
     /** The run inbox table. The proxy and the bot's feed follow its rows on the same channel. */
-    InboxTable<StewardRequest> TABLE =
-            InboxTable.of("steward_inbox", Channel.UPDATE, StewardRequest.class).withOutcome();
-
-    List<String> services();
+    InboxTable<StewardRequest> TABLE = InboxTable.of("steward_inbox", Channel.UPDATE, StewardRequest.class)
+            .withRows(Update.class, Restore.class, RemovePlugin.class);
 
     /**
      * Installs what is new and restarts what needs it.
      *
      * @param replacesLocal whether the asker confirmed that builds made on the host and in no release are replaced
      */
-    record Update(List<String> services, boolean replacesLocal) implements StewardRequest {
-
-        public Update {
-            services = List.copyOf(services);
-        }
+    record Update(boolean replacesLocal) implements StewardRequest {
 
         /** Creates an update that stops before it replaces a local build. */
-        public Update(final List<String> services) {
-            this(services, false);
+        public Update() {
+            this(false);
         }
     }
 
     /** Restarts everything and installs nothing. */
-    record Restart(List<String> services) implements StewardRequest {
-
-        public Restart {
-            services = List.copyOf(services);
-        }
-    }
+    record Restart() implements StewardRequest {}
 
     /** Backs up the volumes. */
-    record Backup(List<String> services) implements StewardRequest {
-
-        public Backup {
-            services = List.copyOf(services);
-        }
-    }
+    record Backup() implements StewardRequest {}
 
     /** Stops the services and keeps them down. */
-    record Down(List<String> services) implements StewardRequest {
-
-        public Down {
-            services = List.copyOf(services);
-        }
-    }
+    record Down() implements StewardRequest {}
 
     /** Releases the holds on the services, or on every service. */
-    record Start(List<String> services) implements StewardRequest {
-
-        public Start {
-            services = List.copyOf(services);
-        }
-    }
+    record Start() implements StewardRequest {}
 
     /**
      * Restores one archive: a volume archive into its volume, or a database dump into the database.
+     * It names no services, as the archive says which services it stops.
      *
-     * @param services empty, as the archive says which services it stops
      * @param archive the file name of the archive in the backup directory, which the asker types back to confirm
      */
-    record Restore(List<String> services, String archive) implements StewardRequest {
+    record Restore(String archive) implements StewardRequest {
 
         public Restore {
-            services = List.copyOf(services);
             if (archive == null || archive.isBlank() || archive.contains("/")) {
                 throw new IllegalArgumentException("a restore names one archive file, not " + archive);
             }
@@ -78,49 +52,25 @@ public sealed interface StewardRequest {
     }
 
     /** Recreates the containers of the services from the images on this host. */
-    record Recreate(List<String> services) implements StewardRequest {
-
-        public Recreate {
-            services = List.copyOf(services);
-        }
-    }
+    record Recreate() implements StewardRequest {}
 
     /** Pulls the images of the services and recreates their containers. */
-    record Deploy(List<String> services) implements StewardRequest {
-
-        public Deploy {
-            services = List.copyOf(services);
-        }
-    }
+    record Deploy() implements StewardRequest {}
 
     /**
-     * Removes an added plugin, its jar and its data folder, from a stopped server.
+     * Removes an added plugin, its jar and its data folder, from one stopped server, the one service it names.
      *
-     * @param services the one server
      * @param artifact the artefact id of the plugin, as the list of added plugins names it
      */
-    record RemovePlugin(List<String> services, String artifact) implements StewardRequest {
+    record RemovePlugin(String artifact) implements StewardRequest {
 
         public RemovePlugin {
-            services = List.copyOf(services);
-            if (services.size() != 1) {
-                throw new IllegalArgumentException("a plugin is removed from exactly one server, not " + services);
-            }
             if (artifact == null || artifact.isBlank() || artifact.contains("/") || artifact.length() > 100) {
                 throw new IllegalArgumentException("a plugin is named by its artefact id, not " + artifact);
             }
         }
     }
 
-    /**
-     * Records what steward-agent installed on its start because nothing of it existed. It is written when done.
-     *
-     * @param services the services something was installed into, or meant to be
-     */
-    record Install(List<String> services) implements StewardRequest {
-
-        public Install {
-            services = List.copyOf(services);
-        }
-    }
+    /** Records what steward-agent installed on its start because nothing of it existed. It is written when done. */
+    record Install() implements StewardRequest {}
 }

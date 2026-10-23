@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button"
  * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
  */
 
-/** The stages in `UpdateReport.Stage` order, without the four endings. */
+/** The stages in `RunStage` order, without the four endings. */
 const TRAIL = [
   "RESOLVING",
   "PLANNED",

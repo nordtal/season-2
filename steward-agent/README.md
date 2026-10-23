@@ -57,10 +57,9 @@ publishes the standbys' ports.
 
 A run is its rows: `run_step` with an outcome and a reason code per step, and a fact table per kind
 of fact, with the archives in `backup_archive`. Steward's run page and `status` draw a run from those
-rows, and `RunLines` in `:database` words the facts of a step for both. A report is a list of
-records. Each record holds a step, an outcome, a service and a message of the admin bundle
-(`ReportTexts` in `:database`). The bot's card shows only the failed records, and only for a run
-that failed or was stopped.
+rows, and `RunLines` in `:database` words the facts of a step for both. The bot's card draws the
+same rows: one line per service, marked by the worst outcome of its steps, and the reason of each
+step that failed or warned.
 
 ## Updating to another release
 
@@ -75,7 +74,8 @@ are:
 4. The container (`steward-agent run ID`) plans again, counts down, stops what changes, runs
    `migrate`, installs, starts and verifies.
 5. The container writes no run rows before `migrate` has applied its newest migration, since the
-   tables of those rows may not exist before. The report holds those steps.
+   tables of those rows may not exist before. It writes the run's stage and services from the
+   start, and its log names how each step before `migrate` ended.
 6. The container recreates the long-running agent at the new release and waits until it is healthy.
 7. The container finishes the row.
 

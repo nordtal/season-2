@@ -30,7 +30,7 @@ public final class RunLines {
                 .sorted(Comparator.comparing((RunStep.Change change) -> change.from() == null && change.to() == null)
                         .thenComparing(RunStep.Change::artefact))
                 .toList()) {
-            lines.add(line(change));
+            lines.add(change(change));
         }
         for (final RunStep.Move move : step.players()) {
             lines.add(TEXTS.run().players(move.moved(), move.from(), move.to(), move.returned()));
@@ -72,7 +72,7 @@ public final class RunLines {
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{32,64}", Pattern.CASE_INSENSITIVE);
 
     /** Returns a change as its versions, else as what happened to its image, else as its name alone. */
-    private static MessageRef line(final RunStep.Change change) {
+    public static MessageRef change(final RunStep.Change change) {
         if (change.from() != null && change.to() != null) {
             return TEXTS.run().change(change.artefact(), TEXTS.run().moved(shown(change.from()), change.to()));
         }

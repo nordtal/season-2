@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param stage {@code null} before a statement wrote one
  */
-public record RunRecord(UpdateReport.@Nullable Stage stage, List<RunStep.Row> steps) {
+public record RunRecord(@Nullable RunStage stage, List<RunStep.Row> steps) {
 
     public static final RunRecord EMPTY = new RunRecord(null, List.of());
 }

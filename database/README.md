@@ -30,9 +30,10 @@ never migrates.
 - Every directory that decides by the clock takes an `InstantSource`.
 - A switch into `SMP` from before the season stamps `fresh_start`. smp starts its own track over once
   per stamp.
-- A run is a row of `steward_inbox`, and a unique index allows one open run. The proxy reads the
-  run's countdown from the columns `scheduled_for`, `countdown_end` and `moving`, never from the
-  report JSON.
+- A run is a row of `steward_inbox`, and a unique index allows one open run. A kind that names more
+  than its services has a table of its own, such as `steward_restore`, and the services are rows of
+  `run_service`. The proxy reads the run's countdown from `scheduled_for` and `countdown_end`, and
+  the services it moves players off from `run_service`.
 
 ## Roles and migrations
 

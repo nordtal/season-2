@@ -32,23 +32,23 @@ public record Value(
         this(kind, example, takes, null);
     }
 
-    /** Returns the example as a value of its kind, or as the text it is where it does not read as one. */
-    public Object readExample() {
-        final Kind token = Kind.byToken(kind).orElse(Kind.TEXT);
-        try {
-            return token.example(example, takes != null);
-        } catch (final RuntimeException unreadable) {
-            return example;
-        }
+    /** Returns the example as a value of its kind, or null where it reads as none. */
+    public @Nullable Object typedExample() {
+        return Kind.byToken(kind).orElse(Kind.TEXT).typedExample(example, takes != null);
     }
 
     /**
-     * Returns each declared value's example by name, what a preview fills in.
+     * Returns each declared value's example by name, what a preview fills in, without one that reads as none.
      * A nested message, alone or in a list, carries its own declared examples, as {@link Messages#example} fills them.
      */
     public static Map<String, Object> examples(final Map<String, Value> declared, final Messages messages) {
         final Map<String, Object> examples = new LinkedHashMap<>();
-        declared.forEach((name, value) -> examples.put(name, filled(value.readExample(), messages)));
+        declared.forEach((name, value) -> {
+            final Object typed = value.typedExample();
+            if (typed != null) {
+                examples.put(name, filled(typed, messages));
+            }
+        });
         return examples;
     }
 
@@ -64,8 +64,12 @@ public record Value(
     /** Returns each value with its example read as its kind, as Steward's editor shows it. */
     public static Map<String, Value> withExampleValues(final Map<String, Value> declared) {
         final Map<String, Value> values = new LinkedHashMap<>();
-        declared.forEach((name, value) -> values.put(
-                name, new Value(value.kind, value.example, value.takes, MessageJson.typed(value.readExample()))));
+        declared.forEach((name, value) -> {
+            final Object typed = value.typedExample();
+            values.put(
+                    name,
+                    new Value(value.kind, value.example, value.takes, typed == null ? null : MessageJson.typed(typed)));
+        });
         return values;
     }
 

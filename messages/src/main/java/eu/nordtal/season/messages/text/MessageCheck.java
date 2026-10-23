@@ -307,10 +307,9 @@ public final class MessageCheck {
     public static int shownLength(final MessageText text, final Declaration declaration) {
         final Map<String, Object> examples = new HashMap<>();
         declaration.examples().forEach((name, example) -> {
-            try {
-                examples.put(name, declaration.read(name, example));
-            } catch (final RuntimeException unreadable) {
-                examples.put(name, example);
+            final Object read = declaration.read(name, example);
+            if (read != null) {
+                examples.put(name, read);
             }
         });
         return PlainText.of(

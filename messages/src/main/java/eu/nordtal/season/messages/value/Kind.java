@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messages.MessageRef;
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -137,18 +138,33 @@ public enum Kind {
     }
 
     /**
-     * Returns a value of this kind from an example as an editor writes it, or the words of a message example.
-     *
-     * @throws IllegalArgumentException when the example does not read as this kind
+     * Returns {@code example} as an editor writes it read as a value of this kind, or null where it reads as none.
+     * A message example that is no key reads as its words. A list reads each item as a message where it
+     * {@code takesMessages}.
      */
-    public Object example(final String text) {
+    public @Nullable Object typedExample(final String example, final boolean takesMessages) {
+        try {
+            return this == LIST && takesMessages
+                    ? items(example).stream().map(MESSAGE::example).toList()
+                    : example(example);
+        } catch (final IllegalArgumentException | DateTimeException unread) {
+            return null;
+        }
+    }
+
+    /** Returns the items of a list's example, which an editor separates with commas. */
+    public static List<String> items(final String example) {
+        return List.of(example.split(",", -1));
+    }
+
+    private Object example(final String text) {
         return switch (this) {
             case TEXT -> text;
             case NUMBER -> new BigDecimal(text.strip());
             case DURATION -> Duration.parse(text.strip());
             case INSTANT -> Instant.parse(text.strip());
             case MONEY -> Money.euroCents(Long.parseLong(text.strip()));
-            case LIST -> List.of(text.split(",", -1));
+            case LIST -> items(text);
             case DISPLAY_NAME -> new DisplayName(EXAMPLE_PLAYER, text);
             case MENTION -> new Mention(DiscordId.of("1"), text);
             case ITEM -> GameContent.of(text);
@@ -162,14 +178,7 @@ public enum Kind {
         };
     }
 
-    /** Returns a value of this kind from an example, each item of a list read as a message where {@code messages}. */
-    public Object example(final String text, final boolean messages) {
-        return this == LIST && messages
-                ? Arrays.stream(text.split(",", -1)).map(MESSAGE::example).toList()
-                : example(text);
-    }
-
-    /** Returns whether {@code text} is written as a message key, {@code key} or {@code bundle/key}; words are not. */
+    /** Returns whether {@code text} is a message key, written as {@code key} or {@code bundle/key}. */
     public static boolean namesMessage(final String text) {
         return MESSAGE_KEY.matcher(text).matches();
     }

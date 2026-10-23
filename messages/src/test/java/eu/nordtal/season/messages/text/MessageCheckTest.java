@@ -167,7 +167,7 @@ class MessageCheckTest {
                 MessageCheck.shownLength(MessageText.parse("{changes}", false), words),
                 MessageCheck.shownLength(MessageText.parse("{changes}", false), changes));
         assertEquals(
-                List.of(Kind.MESSAGE.example("admin/run.change-image")),
+                List.of(Kind.MESSAGE.typedExample("admin/run.change-image", false)),
                 changes.example(Map.of()).get("changes"));
     }
 

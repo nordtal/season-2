@@ -20,7 +20,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -159,18 +158,12 @@ public final class MessageBundles {
                 schema == null ? 0 : schema.limit());
     }
 
-    /** The example read as its kind; the server, which renders it itself, is still sent it as written. */
+    /** Returns {@code arg} with its example read as its kind. The server renders the example as written. */
     private static MessageArg withExample(final MessageArg arg) {
         final String example = arg.example();
         final Kind kind = arg.kind() == null ? null : Kind.byToken(arg.kind()).orElse(null);
-        if (example == null || kind == null) {
-            return arg;
-        }
-        try {
-            return arg.withExample(MessageJson.typed(kind.example(example, arg.takes() != null)));
-        } catch (final IllegalArgumentException | DateTimeException unread) {
-            return arg;
-        }
+        final Object typed = example == null || kind == null ? null : kind.typedExample(example, arg.takes() != null);
+        return typed == null ? arg : arg.withExample(MessageJson.typed(typed));
     }
 
     /**

@@ -1,12 +1,12 @@
 package eu.nordtal.season.messages.text;
 
 import eu.nordtal.season.messages.value.Kind;
-import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Declares what one message offers its texts. {@link MessageCheck} takes it as its input.
@@ -62,19 +62,18 @@ public record Declaration(
                 candidates.add(declared);
             }
             for (final String candidate : candidates) {
-                try {
-                    args.put(name, read(name, candidate));
+                final Object read = read(name, candidate);
+                if (read != null) {
+                    args.put(name, read);
                     break;
-                } catch (final IllegalArgumentException | DateTimeException unread) {
-                    // Tries the next candidate.
                 }
             }
         }
         return args;
     }
 
-    /** Returns {@code example} read as the kind of {@code name}, a list that takes messages as message keys. */
-    public Object read(final String name, final String example) {
-        return values.getOrDefault(name, Kind.TEXT).example(example, takesMessages.contains(name));
+    /** Returns {@code example} read as the kind of {@code name}, or null where it reads as none. */
+    public @Nullable Object read(final String name, final String example) {
+        return values.getOrDefault(name, Kind.TEXT).typedExample(example, takesMessages.contains(name));
     }
 }

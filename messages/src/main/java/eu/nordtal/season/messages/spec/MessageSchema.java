@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -224,8 +223,8 @@ public final class MessageSchema {
         }
         if (example != null
                 && !choices.isEmpty()
-                && !Arrays.stream(kind == Kind.LIST ? example.value().split(",", -1) : new String[] {example.value()})
-                        .allMatch(item -> takes(choices, item))) {
+                && !(kind == Kind.LIST ? Kind.items(example.value()) : List.of(example.value()))
+                        .stream().allMatch(item -> takes(choices, item))) {
             throw new IllegalStateException(where + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }

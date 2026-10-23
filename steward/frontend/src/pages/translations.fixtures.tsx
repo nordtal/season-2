@@ -25,6 +25,7 @@ import type {
   SharedPartChange,
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
+import { APPLIED } from "@/lib/query-fixtures"
 
 /** The fake backend, the texts and the helpers the Translations page tests share. */
 
@@ -136,7 +137,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages" && init?.method === "PUT") {
       if (!put) throw new Error("the page saved, which this test did not expect")
-      const saved = { texts, warnings: [], ...put(JSON.parse(init.body ?? "")) }
+      const saved = { texts, warnings: [], reload: APPLIED, ...put(JSON.parse(init.body ?? "")) }
       texts = saved.texts
       return json(saved)
     }

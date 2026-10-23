@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { UpdatesPage } from "@/pages/updates"
 import { runPath } from "@/lib/run-path"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { changesOf, words } from "@/lib/query-fixtures"
+import { changesOf, configSaved, words } from "@/lib/query-fixtures"
 
 /**
  * The Updates page saves `update.*`, lists only UPDATE, RESTART and INSTALL runs, and "Next" is the update clock's, off unless set.
@@ -90,7 +90,8 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
       ])
     }
     if (url === `/api/setting-groups/${FILE}`) {
-      if (init?.method === "PUT") return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
+      if (init?.method === "PUT")
+        return (over.put ?? (() => json(200, configSaved(stewardConfig()))))(JSON.parse(init?.body ?? ""))
       return json(200, stewardConfig())
     }
     if (url.startsWith("/api/updates/available")) {
@@ -163,7 +164,7 @@ describe("UpdatesPage - its own schedule", () => {
       backend({
         put: (body) => {
           sent = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
       }),
     )

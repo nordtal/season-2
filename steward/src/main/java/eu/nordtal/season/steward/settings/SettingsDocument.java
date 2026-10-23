@@ -78,7 +78,7 @@ public final class SettingsDocument {
         return Sha256.hex(text.toString());
     }
 
-    Document document(final @Nullable Reloading reload) {
+    Document document() {
         final Location location = describe(group);
         final List<Entry> entries = new ArrayList<>();
         collect(schema, "", entries);
@@ -92,8 +92,7 @@ public final class SettingsDocument {
                 location.readable(),
                 location.writable(),
                 revision,
-                entries,
-                reload);
+                entries);
     }
 
     private void collect(final JsonObject node, final String prefix, final List<Entry> into) {
@@ -373,8 +372,7 @@ public final class SettingsDocument {
             boolean readable,
             boolean writable,
             String revision,
-            List<Entry> entries,
-            @Nullable Reloading reload) {}
+            List<Entry> entries) {}
 
     /**
      * Holds one key of a group. A secret has {@code filled} but never its value.

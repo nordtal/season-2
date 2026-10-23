@@ -21,6 +21,7 @@ import {
   requestBody,
   visibleText,
 } from "@/components/steward/configuration.fixtures"
+import { configSaved } from "@/lib/query-fixtures"
 
 afterEach(() => {
   cleanup()
@@ -135,11 +136,13 @@ describe("repeatable cards for a SECTIONS entry", () => {
         const parsed: unknown = JSON.parse(requestBody(init.body))
         if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
         putChanges = parsed.changes
-        return json({
-          ...location({ path: file, name: "access", service: "discord-bot" }),
-          revision: "r2",
-          entries: [languages([section("en", "")])],
-        })
+        return json(
+          configSaved({
+            ...location({ path: file, name: "access", service: "discord-bot" }),
+            revision: "r2",
+            entries: [languages([section("en", "")])],
+          }),
+        )
       }
       if (url === `/api/setting-groups/${file}`) {
         return json({

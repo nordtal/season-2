@@ -187,11 +187,11 @@ export function ScheduleDialog({
     try {
       if (ownCount > 0 && document) {
         const saved = await save.mutateAsync({ revision: document.revision, changes: allChanges })
-        announceSave(t("steward.form.schedule-saved"), saved.reload, "")
+        announceSave(t("steward.form.schedule-saved"), saved.reload)
       }
       if (also && otherDraft.changed > 0 && other.document) {
         const saved = await saveOther.mutateAsync({ revision: other.document.revision, changes: otherDraft.changes })
-        announceSave(also.saved, saved.reload, "")
+        announceSave(also.saved, saved.reload)
       }
       setOpen(false)
     } catch {

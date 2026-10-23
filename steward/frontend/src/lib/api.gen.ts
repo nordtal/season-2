@@ -420,7 +420,11 @@ export type ConfigDocument = {
   writable: boolean
   revision: string
   entries: ConfigEntry[]
-  reload?: ReloadOutcome
+}
+
+export type ConfigSaved = {
+  document: ConfigDocument
+  reload: ReloadOutcome
 }
 
 export type PluginDescriptor = {

@@ -195,7 +195,7 @@ export function TextsForm({
         onSuccess: (saved) => {
           clearDraft(TEXTS_FILE)
           setWarnings(saved.warnings)
-          announceSave(label, saved.reload, "")
+          announceSave(label, saved.reload)
         },
       },
     )
@@ -210,7 +210,7 @@ export function TextsForm({
           onSuccess: (saved) => {
             set(textId(entry), language, undefined)
             setWarnings(saved.warnings)
-            announceSave(t("steward.settings.texts-saved", { count: 1 }), saved.reload, "")
+            announceSave(t("steward.settings.texts-saved", { count: 1 }), saved.reload)
           },
         },
       )

@@ -1,6 +1,8 @@
+import { renderHook } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { breadcrumbsFor } from "@/app/shell"
+import { useDocumentTitle } from "@/app/breadcrumbs"
 import type { Person } from "@/lib/api"
 
 /** `decodeURIComponent` throws on `/services/%`. The test covers the header's `try`/`catch`. */
@@ -68,5 +70,17 @@ describe("breadcrumbsFor", () => {
     const crumb = breadcrumbsFor("/services/a%20b").at(-1)
     expect(crumb?.href).toBe("/services/a%20b")
     expect(crumb?.label).toBe("a b")
+  })
+})
+
+describe("useDocumentTitle", () => {
+  it("names the tab after the deepest crumb, and the overview after the brand", () => {
+    const brand = document.title
+    const { rerender } = renderHook(({ path }) => useDocumentTitle(breadcrumbsFor(path)), {
+      initialProps: { path: "/operations/backups" },
+    })
+    expect(document.title).toBe("Backups")
+    rerender({ path: "/" })
+    expect(document.title).toBe(brand)
   })
 })

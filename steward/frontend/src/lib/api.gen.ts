@@ -289,6 +289,7 @@ export type GameData = {
   registries: Record<string, GameEntry[]>
   tags: Record<string, GameTag[]>
   icons?: GameIcons
+  worlds: Record<string, string[]>
 }
 
 export type ConsoleTree = {
@@ -1263,6 +1264,7 @@ export type ReferenceKind =
   | "COLOUR"
   | "DISCORD_CHANNEL"
   | "DISCORD_USER"
+  | "WORLD"
 
 export type MessageArg = {
   name: string

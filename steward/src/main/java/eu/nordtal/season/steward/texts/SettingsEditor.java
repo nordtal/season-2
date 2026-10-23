@@ -68,6 +68,9 @@ public interface SettingsEditor {
     @Name("Not saved yet")
     MessageRef notSaved();
 
+    @Name("No worlds reported")
+    MessageRef noWorlds(@Arg("service") String service);
+
     @Name("File saved")
     MessageRef fileSaved(@Arg("file") String file);
 

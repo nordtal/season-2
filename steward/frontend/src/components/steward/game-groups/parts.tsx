@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 
 import type { ConfigEntry, ConfigReference } from "@/lib/api"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { problemOf } from "@/components/steward/config-controls"
+import { ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 import { type SectionValues } from "@/components/steward/repeatable-cards"
 import { type Term, TERM_ICON } from "@/components/steward/term-icons"
@@ -198,16 +198,18 @@ export function BoxFields({
   onChange: (key: string, value: string) => void
 }) {
   const label = (key: string) => field(list, key)?.label ?? key
+  const world = field(list, "world")
   return (
     <div className="flex flex-col gap-2">
-      <Input
-        id={`${id}-world`}
-        aria-label={label("world")}
-        value={text(section, "world")}
-        disabled={disabled}
-        className="font-mono"
-        onChange={(event) => onChange("world", event.target.value)}
-      />
+      {world ? (
+        <ScalarControl
+          id={`${id}-world`}
+          entry={world}
+          value={text(section, "world")}
+          disabled={disabled}
+          onChange={(value) => onChange("world", value)}
+        />
+      ) : null}
       {(["min", "max"] as const).map((corner) => (
         <div key={corner} className="grid grid-cols-[2.5rem_repeat(3,minmax(0,1fr))] items-center gap-2">
           <span className="text-xs text-muted-foreground">

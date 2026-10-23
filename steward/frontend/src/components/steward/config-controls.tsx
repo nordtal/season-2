@@ -60,7 +60,8 @@ export function problemOf(entry: ConfigEntry, value: string): string | null {
     return text === "true" || text === "false" ? null : t("steward.settings.not-of-type", { expected: "boolean" })
   }
   // An empty reference is the game's to judge, as is whether the key names anything.
-  if (entry.refers && isGameReference(entry.refers) && text !== "" && !KEY.test(text)) {
+  const key = entry.refers && isGameReference(entry.refers) && entry.refers.to !== "WORLD"
+  if (key && text !== "" && !KEY.test(text)) {
     return t("steward.settings.not-of-type", { expected: "key" })
   }
   return null

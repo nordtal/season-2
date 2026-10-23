@@ -2146,6 +2146,9 @@ export type TextArgs = {
   "steward.settings.no-files": Record<string, never>
   "steward.settings.no-match": Record<string, never>
   "steward.settings.no-such-file": Record<string, never>
+  "steward.settings.no-worlds": {
+    service: Arg["text"]
+  }
   "steward.settings.none": Record<string, never>
   "steward.settings.not-in-bundle": Record<string, never>
   "steward.settings.not-of-type": {

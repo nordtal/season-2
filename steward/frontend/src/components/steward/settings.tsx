@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, NodeList, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
 import { PluginFileEditor } from "@/components/steward/settings-plugin-file"
+import { SettingsService } from "@/components/steward/reference-picker"
 import { Thumbnail } from "@/components/steward/plugins"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { t } from "@/lib/texts"
@@ -178,33 +179,35 @@ export function ServiceSettings({
       </nav>
 
       <div className={cn("min-w-0", file === undefined && "max-lg:hidden")}>
-        {selected ? (
-          <>
-            <BackRow label={selected.label} onFile={onFile} />
-            <ConfigFile key={selected.id} item={selected} target={target} />
-          </>
-        ) : selectedPlugin ? (
-          <>
-            <BackRow
-              label={
-                <>
-                  {pluginLabel(selectedPlugin.file)}
-                  <span className="truncate font-normal text-muted-foreground">{selectedPlugin.file.path}</span>
-                </>
-              }
-              onFile={onFile}
-            />
-            <PluginFileEditor
-              key={selectedPlugin.id}
-              id={selectedPlugin.id}
-              file={selectedPlugin.file}
-              label={selectedPlugin.label}
-              target={target}
-            />
-          </>
-        ) : file !== undefined && !loading && !ownService.isPending && !pluginFiles.isLoading ? (
-          <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
-        ) : null}
+        <SettingsService value={service}>
+          {selected ? (
+            <>
+              <BackRow label={selected.label} onFile={onFile} />
+              <ConfigFile key={selected.id} item={selected} target={target} />
+            </>
+          ) : selectedPlugin ? (
+            <>
+              <BackRow
+                label={
+                  <>
+                    {pluginLabel(selectedPlugin.file)}
+                    <span className="truncate font-normal text-muted-foreground">{selectedPlugin.file.path}</span>
+                  </>
+                }
+                onFile={onFile}
+              />
+              <PluginFileEditor
+                key={selectedPlugin.id}
+                id={selectedPlugin.id}
+                file={selectedPlugin.file}
+                label={selectedPlugin.label}
+                target={target}
+              />
+            </>
+          ) : file !== undefined && !loading && !ownService.isPending && !pluginFiles.isLoading ? (
+            <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
+          ) : null}
+        </SettingsService>
       </div>
     </div>
   )

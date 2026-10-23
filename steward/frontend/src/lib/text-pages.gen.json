@@ -818,6 +818,7 @@
     "steward.settings.no-files": ["services","season"],
     "steward.settings.no-match": ["services","updates","backups","season","translations","journal"],
     "steward.settings.no-such-file": ["services","season"],
+    "steward.settings.no-worlds": ["services","updates","backups","season","journal"],
     "steward.settings.none": ["services","updates","backups","season","journal"],
     "steward.settings.not-in-bundle": ["translations"],
     "steward.settings.not-of-type": ["services","updates","backups","season"],

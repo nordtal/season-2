@@ -175,6 +175,22 @@ export function gameChoices(game: GameData | undefined, registry: string | null,
   return { choices, tags, tree: false, registry }
 }
 
+/**
+ * Returns the worlds `service` reported at its last start. A world is named as the server names it, with no
+ * namespace and no icon; the list stays as it was while the server is down.
+ */
+export function worldChoices(game: GameData | undefined, service: string | undefined): Choices {
+  const worlds = service === undefined ? undefined : game?.worlds[service]
+  if (!worlds?.length)
+    return {
+      choices: [],
+      tags: [],
+      tree: false,
+      unavailable: t("steward.settings.no-worlds", { service: service ?? "" }),
+    }
+  return { choices: worlds.map((world) => ({ id: world, name: world })), tags: [], tree: false }
+}
+
 export function guildChoices(list: GuildList | undefined): Choices {
   if (!list)
     return {

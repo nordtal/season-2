@@ -1,4 +1,6 @@
 import type { MessageEntry } from "@/lib/api"
+import { readText } from "@/lib/message-tree"
+import type { TextNode, Words } from "@/lib/texts"
 
 /** A lowercase language tag like `en`. */
 export type Language = string
@@ -60,4 +62,19 @@ export function languagesByBundle(entries: MessageEntry[], network: readonly Lan
     languages.set(bundle, languagesOf(own, englishOnly ? [] : network))
   }
   return languages
+}
+
+/** Returns the words of the `values` bundle in `language`, else in English, which a preview there writes values in. */
+export function wordsOf(entries: MessageEntry[], language: Language): Words {
+  const texts: Record<string, TextNode[][]> = {}
+  for (const entry of entries) {
+    if (entry.bundle !== "values") continue
+    const shown = shownOf(entry, language)
+    const variants = (shown.length > 0 ? shown : shownOf(entry, ENGLISH)).flatMap((variant) => {
+      const nodes = readText(variant, entry.format === "MINIMESSAGE")
+      return nodes === null ? [] : [nodes]
+    })
+    if (variants.length > 0) texts[entry.key] = variants
+  }
+  return { locale: language, texts }
 }

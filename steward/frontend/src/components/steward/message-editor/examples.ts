@@ -1,6 +1,9 @@
+import { useMemo } from "react"
+
 import type { MessageArg, MessageExamples } from "@/lib/api"
-import { ENGLISH, type Language } from "@/lib/message-text"
-import { valueText } from "@/lib/texts"
+import { ENGLISH, type Language, wordsOf } from "@/lib/message-text"
+import { useMessageTexts } from "@/lib/queries"
+import { valueText, type Words } from "@/lib/texts"
 
 export type Fill = (name: string, style?: string) => string
 
@@ -24,9 +27,31 @@ export function exampleOf(
   )
 }
 
-/** Draws each value's example as the game and the bot render its kind. */
-export function fillOf(args: MessageArg[], examples: MessageExamples | undefined, language: Language): Fill {
-  return (name, style) => valueText(exampleOf(name, args, examples, language), style)
+/** Draws each value's example as the game and the bot render its kind, in `words` where they are known. */
+export function fillOf(
+  args: MessageArg[],
+  examples: MessageExamples | undefined,
+  language: Language,
+  words?: Words,
+): Fill {
+  return (name, style) => valueText(exampleOf(name, args, examples, language), style, words)
+}
+
+/** Returns the words a preview writes values in, by its language, once Steward's texts have arrived. */
+export function useWords(): (language: Language) => Words | undefined {
+  const { data } = useMessageTexts()
+  const values = useMemo(
+    () => data?.texts.map((text) => text.entry).filter((entry) => entry.bundle === "values"),
+    [data],
+  )
+  const known = useMemo(
+    () =>
+      new Map(
+        values === undefined ? [] : (data?.languages ?? []).map((language) => [language, wordsOf(values, language)]),
+      ),
+    [data, values],
+  )
+  return (language) => known.get(language) ?? (values === undefined ? undefined : wordsOf(values, language))
 }
 
 /** The server renders each example itself, so it is sent as written: a nested message as its key. */

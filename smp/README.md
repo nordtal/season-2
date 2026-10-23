@@ -22,7 +22,7 @@ A DAO belongs to a feature, not to a table. `SmpPlugin` writes the track's rows,
 
 ## Transactions
 
-A write of several statements is one transaction. These are a credit with its completion, aura and spins, finishing an objective by hand, an unlock with the activation of the next milestone, and the rows of a reload.
+A write of several statements is one transaction. These are a credit with its completion, aura and spins, the aura and spins of an advancement award, finishing an objective by hand, an unlock with the activation of the next milestone, and the rows of a reload.
 
 An `onDemand` DAO uses the handle that `inTransaction` holds open on the same thread. A DAO or a `PrizeSource` therefore joins the transaction without receiving a handle.
 

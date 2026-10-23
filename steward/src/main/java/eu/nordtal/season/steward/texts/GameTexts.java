@@ -126,6 +126,9 @@ public interface GameTexts {
     @Name("Aura of")
     MessageRef auraOf(@Arg("name") String name);
 
+    @Name("Spins of")
+    MessageRef spinsOf(@Arg("name") String name);
+
     @Name("Arena")
     MessageRef arena();
 

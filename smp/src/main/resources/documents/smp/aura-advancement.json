@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>+{aura} aura</good> <muted>for that advancement.</muted>",
-            "de": "<good>+{aura} Aura</good> <muted>für diesen Fortschritt.</muted>"
+            "en": "<good>+{aura} aura</good>{spins, plural, =0 {} one { <good>+# spin</good>} other { <good>+# spins</good>}} <muted>for that advancement.</muted>",
+            "de": "<good>+{aura} Aura</good>{spins, plural, =0 {} one { <good>+# Spin</good>} other { <good>+# Spins</good>}} <muted>für diesen Fortschritt.</muted>"
           }
         }
       ]

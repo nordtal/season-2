@@ -158,6 +158,7 @@ final class DefaultSmp {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("advancement", advancement);
         values.put("aura", aura);
+        values.put("spins", 0);
         return Specs.createUnsafe(AdvancementAwardSpec.class, values);
     }
 

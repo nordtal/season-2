@@ -117,6 +117,7 @@ const FIELD_TERM: Record<string, Term> = {
   "aura-budget": "aura",
   "duel-stake": "aura",
   "spin-budget": "spins",
+  spins: "spins",
   target: "target",
   "border-diameter": "borderDiameter",
   "admin-unlocked": "admin",

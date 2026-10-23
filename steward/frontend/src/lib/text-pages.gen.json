@@ -260,6 +260,7 @@
     "steward.game.remove-it": ["services","season"],
     "steward.game.round": ["services"],
     "steward.game.running": ["services"],
+    "steward.game.spins-of": ["services","season"],
     "steward.game.start": ["services"],
     "steward.game.start-ask": ["services"],
     "steward.game.start-round": ["services"],

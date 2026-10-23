@@ -38,7 +38,7 @@ export function AwardsEditor({ file, document }: CustomEditorProps) {
   )
 }
 
-/** One row per award in stored order; the search narrows the rows by name or ID. */
+/** One row per award in stored order, with its aura and spins; the search narrows the rows by name or ID. */
 function Awards({
   list,
   awards,
@@ -89,6 +89,12 @@ function Awards({
           <TERM_ICON.aura aria-label={field(list, "aura")?.label} className="size-3.5 shrink-0" />
           {sum(awards, "aura").toLocaleString("en")}
         </Pill>
+        {field(list, "spins") ? (
+          <Pill title={field(list, "spins")?.label}>
+            <TERM_ICON.spins aria-label={field(list, "spins")?.label} className="size-3.5 shrink-0" />
+            {sum(awards, "spins").toLocaleString("en")}
+          </Pill>
+        ) : null}
         <SearchField
           value={query}
           onValueChange={setQuery}
@@ -104,7 +110,10 @@ function Awards({
       </FilterBar>
       <ul className="flex flex-col divide-y rounded-lg border">
         {shown.map(({ award, index, id, choice, name }) => (
-          <li key={`${id}-${index}`} className="flex min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-1">
+          <li
+            key={`${id}-${index}`}
+            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 py-1.5 pr-1.5 pl-1 @md:flex-nowrap"
+          >
             <GamePicker
               id={`${list.path}-${index}`}
               label={label}
@@ -128,14 +137,27 @@ function Awards({
               }
               onPick={(next) => update(index, "advancement", next)}
             />
-            <NumberInput
-              label={t("steward.game.aura-of", { name })}
-              term="aura"
-              value={text(award, "aura")}
-              disabled={disabled}
-              className="w-20 @md:w-24 @xl:w-28"
-              onChange={(value) => update(index, "aura", value)}
-            />
+            {/* A narrow row puts the fields on a line of their own, under the name. */}
+            <div className="order-last flex w-full shrink-0 gap-2 pl-12 @md:order-none @md:w-auto @md:pl-0">
+              <NumberInput
+                label={t("steward.game.aura-of", { name })}
+                term="aura"
+                value={text(award, "aura")}
+                disabled={disabled}
+                className="w-20"
+                onChange={(value) => update(index, "aura", value)}
+              />
+              {field(list, "spins") ? (
+                <NumberInput
+                  label={t("steward.game.spins-of", { name })}
+                  term="spins"
+                  value={text(award, "spins")}
+                  disabled={disabled}
+                  className="w-20"
+                  onChange={(value) => update(index, "spins", value)}
+                />
+              ) : null}
+            </div>
             <RemoveButton
               name={name}
               disabled={disabled}

@@ -1,5 +1,5 @@
 import { PlusIcon, XIcon } from "@phosphor-icons/react"
-import { type ReactNode, useState } from "react"
+import { Fragment, type ReactNode, useState } from "react"
 
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { choiceFor, nameOfId } from "@/lib/references"
@@ -61,7 +61,7 @@ export function WheelEditor({ file, document }: CustomEditorProps) {
   )
 }
 
-/** A tile per prize shows its item, amount and chance; the chosen tile opens its fields below the grid. */
+/** A tile per prize shows its item, amount and chance; the chosen tile opens its fields in the row below it. */
 function Prizes({
   list,
   prizes,
@@ -116,55 +116,60 @@ function Prizes({
         </Pill>
         <Pill>{t("steward.game.total-weight", { total })}</Pill>
       </div>
-      <ul className="grid grid-cols-3 gap-2 @lg:grid-cols-4 @2xl:grid-cols-5 @4xl:grid-cols-6">
+      {/* The panel follows its tile and spans a whole row, so it lands below the tile's row and the dense flow fills that row. */}
+      <ul className="grid grid-flow-row-dense grid-cols-3 gap-2 @lg:grid-cols-4 @2xl:grid-cols-5 @4xl:grid-cols-6">
         {prizes.map((prize, index) => {
           const id = text(prize, "item")
           const choice = choiceFor(choices.choices, id)
           return (
-            <li key={`${id}-${index}`}>
-              <button
-                type="button"
-                aria-pressed={open === index}
-                className={cn(
-                  "flex w-full min-w-0 flex-col items-center gap-1 rounded-lg border px-1.5 py-2.5 text-center transition-colors hover:bg-muted/50",
-                  open === index && "border-primary bg-primary/8",
-                )}
-                onClick={() => choose(open === index ? null : index)}
-              >
-                <span className="relative">
-                  {choice ? (
-                    <Mark choice={choice} icons={icons} registry={choices.registry} size={40} />
-                  ) : (
-                    <TERM_ICON.warning aria-hidden className="size-10 text-warning" />
+            <Fragment key={index}>
+              <li>
+                <button
+                  type="button"
+                  aria-pressed={open === index}
+                  className={cn(
+                    "flex w-full min-w-0 flex-col items-center gap-1 rounded-lg border px-1.5 py-2.5 text-center transition-colors hover:bg-muted/50",
+                    open === index && "border-primary bg-primary/8",
                   )}
-                  <span className="absolute -right-2 -bottom-1 font-mono text-xs font-semibold tabular-nums">
-                    {count(prize, "amount").toLocaleString("en")}
+                  onClick={() => choose(open === index ? null : index)}
+                >
+                  <span className="relative">
+                    {choice ? (
+                      <Mark choice={choice} icons={icons} registry={choices.registry} size={40} />
+                    ) : (
+                      <TERM_ICON.warning aria-hidden className="size-10 text-warning" />
+                    )}
+                    <span className="absolute -right-2 -bottom-1 font-mono text-xs font-semibold tabular-nums">
+                      {count(prize, "amount").toLocaleString("en")}
+                    </span>
                   </span>
-                </span>
-                <span className="w-full truncate text-xs">{nameOf(id)}</span>
-                <span className="text-sm font-medium tabular-nums">{chance(count(prize, "weight"), total)}</span>
-              </button>
-            </li>
+                  <span className="w-full truncate text-xs">{nameOf(id)}</span>
+                  <span className="text-sm font-medium tabular-nums">{chance(count(prize, "weight"), total)}</span>
+                </button>
+              </li>
+              {open === index ? (
+                <li className="col-span-full">
+                  <Prize
+                    list={list}
+                    prize={prize}
+                    index={index}
+                    name={nameOf(id)}
+                    face={face(id)}
+                    total={total}
+                    disabled={disabled}
+                    onSet={(key, value) => update(index, key, value)}
+                    onRemove={() => {
+                      onChange(prizes.filter((_, at) => at !== index))
+                      choose(null)
+                    }}
+                    onClose={() => choose(null)}
+                  />
+                </li>
+              ) : null}
+            </Fragment>
           )
         })}
       </ul>
-      {open !== null ? (
-        <Prize
-          list={list}
-          prize={prizes[open]}
-          index={open}
-          name={nameOf(text(prizes[open], "item"))}
-          face={face(text(prizes[open], "item"))}
-          total={total}
-          disabled={disabled}
-          onSet={(key, value) => update(open, key, value)}
-          onRemove={() => {
-            onChange(prizes.filter((_, at) => at !== open))
-            choose(null)
-          }}
-          onClose={() => choose(null)}
-        />
-      ) : null}
     </section>
   )
 }
@@ -270,7 +275,7 @@ function Regions({
   onChange: (next: SectionValues[]) => void
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex max-w-xl flex-col gap-3">
       <Heading
         actions={
           <Button

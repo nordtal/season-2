@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { TONES } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
 /** How many rows a search draws at once. The rest wait for a narrower search. */
@@ -112,7 +113,7 @@ function Chip({
     <span
       className={cn(
         "inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border py-0.5 pr-1 pl-1.5 text-sm",
-        choice ? "border-border bg-muted/40" : "border-warning/40 bg-warning/12 text-warning",
+        choice ? "border-border bg-muted/40" : TONES.warn,
       )}
       title={value}
     >
@@ -126,7 +127,7 @@ function Chip({
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Remove ${choice?.name ?? value}`}
+          aria-label={t("steward.form.remove-named", { name: choice?.name ?? value })}
           className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none"
           onClick={onRemove}
         >

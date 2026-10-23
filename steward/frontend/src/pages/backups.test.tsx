@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Person } from "@/lib/api"
 import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
 import { changesOf, configSaved } from "@/lib/query-fixtures"
 
@@ -231,7 +232,9 @@ function draw() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
   return { history }
@@ -249,7 +252,9 @@ function drawDetail(id: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
 }

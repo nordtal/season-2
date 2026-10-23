@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { Tip } from "@/components/steward/status"
 
 /** What every field of the editor reads: the document's values and the language edited. */
 export type Context = {
@@ -371,9 +372,11 @@ export function AccentField({
 
 export function CodeMark({ slot }: { slot: string }) {
   return (
-    <Badge variant="outline" title={t("steward.document-editor.code")} className="shrink-0 font-mono text-[0.625rem]">
-      {slot}
-    </Badge>
+    <Tip content={t("steward.document-editor.code")} className="shrink-0">
+      <Badge variant="outline" className="font-mono text-[0.625rem]">
+        {slot}
+      </Badge>
+    </Tip>
   )
 }
 
@@ -398,15 +401,7 @@ export function IconButton({
   children: ReactNode
 }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onPress}
-    >
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={label} disabled={disabled} onClick={onPress}>
       {children}
     </Button>
   )
@@ -424,9 +419,9 @@ export function AddButton({ label, onPress }: { label: string; onPress: () => vo
 /** The lock of a part or button the code needs, which stays. */
 export function Required() {
   return (
-    <span title={t("steward.document-editor.required")} className="flex size-7 shrink-0 items-center justify-center">
+    <Tip content={t("steward.document-editor.required")} className="size-7 shrink-0 items-center justify-center">
       <LockSimpleIcon aria-label={t("steward.document-editor.required")} className="size-4 text-muted-foreground" />
-    </span>
+    </Tip>
   )
 }
 

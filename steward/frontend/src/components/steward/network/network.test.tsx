@@ -12,6 +12,11 @@ import { datasetOf } from "@/lib/test-elements"
 import type { NetworkMap, Service } from "@/lib/api"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
+/** The mark beside the people icon, which a screen reader hears as `players`. */
+const playersOf = (element: HTMLElement) =>
+  within(element).queryByText("players", { selector: ".sr-only" })?.parentElement ?? null
+const countIn = (element: HTMLElement) => playersOf(element)?.querySelector(".tnum")?.textContent
+
 const { names: SERVICES, sections: SECTIONS } = topologyOf(NETWORK_MAP)
 
 function Table() {
@@ -136,17 +141,17 @@ describe("the network view", () => {
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
-    expect(within(box("limbo")).getByTitle("players").textContent).toBe("4")
-    expect(within(box("proxy")).getByTitle("players").textContent).toBe("7")
+    expect(countIn(box("smp"))).toBe("3")
+    expect(countIn(box("limbo"))).toBe("4")
+    expect(countIn(box("proxy"))).toBe("7")
     /**
      * Zero players is a running server, and the box shows the zero and does not look unanswered.
      */
-    expect(within(box("hunger-games")).getByTitle("players").textContent).toBe("0")
-    expect(within(box("players")).getByTitle("players").textContent).toBe("7")
+    expect(countIn(box("hunger-games"))).toBe("0")
+    expect(countIn(box("players"))).toBe("7")
 
     for (const silent of ["postgres", "caddy", "steward", "steward-agent", "steward-bunq", "discord-bot"]) {
-      expect(within(box(silent)).queryByTitle("players"), `${silent} has no player count and must draw none`).toBeNull()
+      expect(playersOf(box(silent)), `${silent} has no player count and must draw none`).toBeNull()
     }
   })
 
@@ -159,14 +164,17 @@ describe("the network view", () => {
 
     for (const name of ["smp", "limbo", "proxy", "hunger-games"]) {
       const identifier = within(box(name)).getByRole("link", { name })
-      const count = within(box(name)).getByTitle("players")
-      expect(count.parentElement, `${name}: the count must live on the tag line, not beside the identifier`).not.toBe(
+      const count = playersOf(box(name))
+      expect(count, `${name} draws a count`).not.toBeNull()
+      expect(count?.parentElement, `${name}: the count must live on the tag line, not beside the identifier`).not.toBe(
         identifier.parentElement,
       )
     }
 
     const entry = box("players")
-    expect(within(entry).getByText("players").parentElement).toBe(within(entry).getByTitle("players").parentElement)
+    expect(within(entry).getByText("players", { selector: ":not(.sr-only)" }).parentElement).toBe(
+      playersOf(entry)?.parentElement,
+    )
   })
 
   it("marks the three image states that are not current, and leaves the current one unmarked", async () => {
@@ -208,7 +216,7 @@ describe("the network view", () => {
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const name of ["smp", "hunger-games", "limbo", "proxy", "players"]) {
-      expect(within(box(name)).queryByTitle("players"), `${name} must draw no count`).toBeNull()
+      expect(playersOf(box(name)), `${name} must draw no count`).toBeNull()
     }
     expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy()
   })
@@ -296,12 +304,12 @@ describe("the network on a phone", () => {
     expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy()
     expect(row("smp").textContent).toContain("1.4.0")
     expect(row("smp").textContent).not.toContain("ghcr.io")
-    expect(within(row("smp")).getByTitle("players").textContent).toBe("3")
+    expect(countIn(row("smp"))).toBe("3")
     expect(within(row("smp")).getByRole("link", { name: "smp" })).toBeTruthy()
     expect(within(row("smp")).getByRole("link", { name: "open smp" })).toBeTruthy()
 
     for (const silent of ["postgres", "caddy", "steward", "steward-agent", "steward-bunq", "discord-bot"]) {
-      expect(within(row(silent)).queryByTitle("players")).toBeNull()
+      expect(playersOf(row(silent))).toBeNull()
     }
     expect(within(row("hunger-games")).getByLabelText("outdated")).toBeTruthy()
     expect(within(row("proxy")).getByLabelText("local build")).toBeTruthy()

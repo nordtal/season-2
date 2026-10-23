@@ -11,7 +11,7 @@ import type { ReactNode } from "react"
 
 export type Tone = "ok" | "warn" | "down" | "idle"
 
-const TONES: Record<Tone, string> = {
+export const TONES: Record<Tone, string> = {
   ok: "border-success/30 bg-success/12 text-success",
   warn: "border-warning/30 bg-warning/12 text-warning",
   down: "border-destructive/30 bg-destructive/12 text-destructive",

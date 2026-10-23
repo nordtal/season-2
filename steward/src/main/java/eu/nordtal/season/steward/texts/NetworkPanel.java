@@ -17,6 +17,9 @@ public interface NetworkPanel {
     @Name("Players")
     MessageRef players();
 
+    @Name("Players online")
+    MessageRef playersOnline(@Arg("count") int count);
+
     @Name("Up")
     MessageRef up(@Arg("since") String since);
 

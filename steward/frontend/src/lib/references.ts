@@ -151,7 +151,7 @@ export function gameChoices(game: GameData | undefined, registry: string | null,
       choices: [],
       tags: [],
       tree: false,
-      unavailable: "No server has published its game data yet.",
+      unavailable: t("steward.settings.no-game-data"),
     }
   if (registry === null) return { choices: [], tags: [], tree: false }
   const left = new Set(except.map(gameKey))
@@ -197,7 +197,7 @@ export function guildChoices(list: GuildList | undefined): Choices {
       choices: [],
       tags: [],
       tree: false,
-      unavailable: "Loading the guild.",
+      unavailable: t("steward.failure.loading"),
     }
   if (!list.available)
     return {
@@ -226,7 +226,7 @@ export function peopleChoices(people: Person[] | undefined): Choices {
       choices: [],
       tags: [],
       tree: false,
-      unavailable: "Loading the people.",
+      unavailable: t("steward.failure.loading"),
     }
   const choices = people.map((person) => ({
     id: person.discordId,

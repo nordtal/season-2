@@ -6,7 +6,7 @@ import { toast } from "sonner"
 
 import type { Backup, Run, RunArchive } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
-import { bytes, count, dateTime, parseInstant, relative } from "@/lib/format"
+import { bytes, count, dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
 import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -14,6 +14,7 @@ import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
+import { When } from "@/components/steward/when"
 import { RunStatus, runKind } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -83,20 +84,20 @@ function Summary() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-3">
       <Stat
         label={t("steward.backups.latest")}
-        value={newest ? relative(newest.modified) : backups.data ? t("steward.backups.none") : "\u2013"}
+        value={newest ? <When at={newest.modified} /> : backups.data ? t("steward.backups.none") : NO_VALUE}
         tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
+        hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : NO_VALUE}
       />
       {/* Neutral and not warn: "not tracked" is a fact about the feature. */}
       <Stat label={t("steward.backups.storage")} value={t("steward.backups.not-tracked")} />
       <Stat
         label={t("steward.backups.next")}
-        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "\u2013"}
+        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : NO_VALUE}
         hint={
           schedule.data?.nextBackupAt
             ? `${at ?? schedule.data.backupAt} ${schedule.data.zone}`
             : schedule.isPending
-              ? "\u2013"
+              ? NO_VALUE
               : t("steward.backups.no-clock")
         }
       />
@@ -116,7 +117,7 @@ function savedBy(run: Run): RunArchive[] {
 function ran(run: Run): string {
   const started = parseInstant(run.started)
   const finished = parseInstant(run.finished)
-  if (!started || !finished) return "\u2013"
+  if (!started || !finished) return NO_VALUE
   return span((finished.getTime() - started.getTime()) / 1000)
 }
 
@@ -167,7 +168,7 @@ function Runs() {
                 end: true,
                 phone: { line: 3, side: "end", labelled: true },
                 className: "tnum",
-                render: (run) => (run.steps.length === 0 ? "\u2013" : count(savedCount(run))),
+                render: (run) => (run.steps.length === 0 ? NO_VALUE : count(savedCount(run))),
               },
               {
                 head: t("steward.backups.took"),

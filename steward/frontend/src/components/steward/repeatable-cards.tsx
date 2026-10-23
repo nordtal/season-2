@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
+import { Empty } from "@/components/steward/query-state"
 
 export type SectionValues = {
   [key: string]: string | string[] | SectionValues[]
@@ -148,7 +149,7 @@ export function RepeatableCards({
 
   return (
     <div className="flex flex-col gap-3">
-      {value.length === 0 ? <p className="text-sm text-muted-foreground">{t("steward.settings.no-entries")}</p> : null}
+      {value.length === 0 ? <Empty title={t("steward.settings.no-entries")} /> : null}
       {value.map((section, index) => {
         const missing = requiredChannelFields.filter((field) => !textOf(section, field.key).trim())
         const isProtected = index === protectedIndex

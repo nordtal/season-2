@@ -3,7 +3,8 @@ import { Link } from "@tanstack/react-router"
 import { useState, type ReactNode } from "react"
 
 import type { Person } from "@/lib/api"
-import { count } from "@/lib/format"
+import { count, dateTime } from "@/lib/format"
+import { Tip } from "@/components/steward/status"
 import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
@@ -52,9 +53,10 @@ function sorted(rows: Person[], sort: Sort): Person[] {
 }
 
 /** Online, or when the person was last online, or never. */
-function lastSeen(person: Person): string {
+function lastSeen(person: Person): ReactNode {
   if (person.online) return t("steward.people.online")
-  if (person.lastSeen) return t("steward.people.seen-at", { at: person.lastSeen })
+  if (person.lastSeen)
+    return <Tip content={dateTime(person.lastSeen)}>{t("steward.people.seen-at", { at: person.lastSeen })}</Tip>
   return t("steward.people.never-seen")
 }
 
@@ -155,7 +157,6 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       // A phone draws it under the person.
       phone: null,
       className: "text-muted-foreground",
-      title: (person) => person.lastSeen,
       render: (person) => (
         <span className={person.online ? "font-medium text-success" : undefined}>{lastSeen(person)}</span>
       ),

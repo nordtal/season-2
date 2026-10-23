@@ -2,7 +2,7 @@
  * The web target. It renders every text that Steward's page shows from the trees Steward parsed. The validator is Java's, and `messages/src/test/resources/web-target.json` holds both sides to one result.
  */
 import { api } from "@/lib/api"
-import { LOCALE, date, dateTime, money, parseInstant, relative, time } from "@/lib/format"
+import { LOCALE, date, dateTime, money, parseInstant, relative, time, NO_VALUE } from "@/lib/format"
 import packaged from "@/lib/texts.gen.json"
 import type { TextArgs } from "@/lib/texts.gen"
 
@@ -141,13 +141,13 @@ export function choice(constant: string): string {
  * Returns a span outside a message through the duration kind. Anything that is not a span shows the en dash.
  */
 export function span(seconds: number | null | undefined, style: "short" | "minutes" = "short"): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return NO_VALUE
   return durationOf(seconds, style)
 }
 
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : span((now - parsed.getTime()) / 1000)
+  return parsed == null ? NO_VALUE : span((now - parsed.getTime()) / 1000)
 }
 
 function plain(pieces: Run[]): string {

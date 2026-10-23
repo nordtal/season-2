@@ -73,7 +73,7 @@ describe("the page a text of Steward's is on", () => {
   })
 
   it("lists a text of several pages under several, keeping each page", () => {
-    const changed = entry({ bundle: "steward", key: "steward.form.changed" })
+    const changed = entry({ bundle: "steward", key: "steward.form.weekday" })
     expect(pageGroupOf(changed)).toBe("several")
     expect(pagesOf(changed)).toEqual(["updates", "backups"])
   })

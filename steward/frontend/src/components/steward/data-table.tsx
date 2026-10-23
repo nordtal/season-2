@@ -22,7 +22,6 @@ export type Column<T> = {
   /** What the cell shows before there is a row. */
   waiting?: ReactNode
   className?: string
-  title?: (row: T) => string | undefined
   /** Names the order its heading picks, where the table is sortable. */
   sortKey?: string
 }
@@ -129,7 +128,6 @@ export function DataTable<T>({
                   <TableCell
                     key={columnIndex}
                     data-label={column.head || undefined}
-                    title={column.title?.(row)}
                     className={cn(column.grow && "whitespace-normal", column.end && "text-right", column.className)}
                     {...placement(typeof column.phone === "function" ? column.phone(row) : column.phone)}
                   >

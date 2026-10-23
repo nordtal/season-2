@@ -1,4 +1,5 @@
 import { useRouterState } from "@tanstack/react-router"
+import { useEffect } from "react"
 
 import type { Person } from "@/lib/api"
 import { usePeople } from "@/lib/queries"
@@ -18,7 +19,6 @@ const SECTIONS = new Set([
   "access",
   "payments",
   "journal",
-  "alerts",
 ])
 
 function readable(segment: string) {
@@ -55,4 +55,15 @@ export function useCrumbs(): Crumb[] {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const people = usePeople(personId(pathname) !== undefined)
   return breadcrumbsFor(pathname, people.data)
+}
+
+/** The brand `index.html` names the tab with, which the overview keeps. */
+const BRAND = document.title
+
+/** Names the browser tab after the deepest crumb, so every open page reads apart. */
+export function useDocumentTitle(crumbs: Crumb[]) {
+  const title = crumbs.length > 1 ? crumbs[crumbs.length - 1].label : BRAND
+  useEffect(() => {
+    document.title = title
+  }, [title])
 }

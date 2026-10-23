@@ -344,6 +344,7 @@ export function BackupRunDetailPage() {
               <Stat
                 label={t("steward.backups.when")}
                 value={run ? dateTime(run.started || run.requested) : undefined}
+                valueClassName="whitespace-normal"
               />
               <Stat label={t("steward.backups.took")} value={run ? ran(run) : undefined} />
               <Stat label={t("steward.backups.archives")} value={answer && run ? count(savedCount(run)) : undefined} />

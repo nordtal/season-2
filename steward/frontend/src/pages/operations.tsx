@@ -16,6 +16,8 @@ import { Actor } from "@/components/steward/entity"
 import { RunSteps } from "@/components/steward/run-steps"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -317,24 +319,17 @@ function RunDetail({ run }: { run?: Run }) {
       </div>
 
       {stage === "NOTHING_TO_DO" ? (
-        <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
-          <TERM_ICON.nothingToDo className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
-          </div>
-        </div>
+        <Alert role="status">
+          <TERM_ICON.nothingToDo aria-hidden />
+          <AlertTitle>{t("steward.operations.nothing-to-do-title")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {run?.kind === "BACKUP" && finished && savedCount(run) === 0 ? (
-        <div
-          className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
-          role="alert"
-        >
-          <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.saved-nothing")}</p>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <ShieldWarningIcon aria-hidden />
+          <AlertTitle>{t("steward.operations.saved-nothing")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {stage && run ? (

@@ -3,6 +3,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import type { ReactNode } from "react"
 
 import { ApiError, errorMessage } from "@/lib/api"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
@@ -42,44 +43,37 @@ export function Failure({ error, onRetry, write }: { error: unknown; onRetry?: (
   const Icon = docker || agent ? PlugsIcon : TERM_ICON.warning
 
   return (
-    <div
-      role="alert"
-      className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4"
-    >
-      <div className="flex items-start gap-3">
-        <Icon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-sm font-medium">
-            {docker
-              ? t("steward.failure.docker-silent")
-              : agent
-                ? t("steward.failure.agent-silent")
-                : write
-                  ? t("steward.failure.not-done")
-                  : t("steward.failure.not-loaded")}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {errorMessage(error)}
-            {api?.status ? ` ${t("steward.failure.http", { status: api.status })}` : null}
-          </p>
-          {api?.detail ? (
-            /**
-             * `whitespace-pre-wrap` is set because a server's detail is one long line that a phone would cut off.
-             */
-            <pre className="mt-1 max-h-32 overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
-              {api.detail}
-            </pre>
-          ) : null}
-        </div>
-      </div>
-      {onRetry ? (
-        <div>
+    <Alert variant="destructive">
+      <Icon aria-hidden />
+      <AlertTitle>
+        {docker
+          ? t("steward.failure.docker-silent")
+          : agent
+            ? t("steward.failure.agent-silent")
+            : write
+              ? t("steward.failure.not-done")
+              : t("steward.failure.not-loaded")}
+      </AlertTitle>
+      <AlertDescription className="flex min-w-0 flex-col items-start gap-2">
+        <p>
+          {errorMessage(error)}
+          {api?.status ? ` ${t("steward.failure.http", { status: api.status })}` : null}
+        </p>
+        {api?.detail ? (
+          /**
+           * `whitespace-pre-wrap` is set because a server's detail is one long line that a phone would cut off.
+           */
+          <pre className="max-h-32 w-full overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
+            {api.detail}
+          </pre>
+        ) : null}
+        {onRetry ? (
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             {t("steward.failure.try-again")}
           </Button>
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+      </AlertDescription>
+    </Alert>
   )
 }
 

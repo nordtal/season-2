@@ -24,6 +24,7 @@ import { Entity } from "@/components/steward/entity"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { AuraDialog, SpinsDialog } from "@/pages/person-smp"
 import { StatusBadge, type Tone } from "@/components/steward/status"
+import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -372,10 +373,10 @@ export function RevokeDialog({
         })
       }}
     >
-      <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-sm text-warning">
-        <TERM_ICON.warning className="mt-0.5 size-4 shrink-0" aria-hidden />
-        {t("steward.people.thrown-out")}
-      </p>
+      <Alert variant="warning" role="note">
+        <TERM_ICON.warning aria-hidden />
+        <AlertTitle>{t("steward.people.thrown-out")}</AlertTitle>
+      </Alert>
     </AskThenAct>
   )
 }

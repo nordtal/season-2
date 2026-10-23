@@ -1,11 +1,6 @@
 package eu.nordtal.season.steward.stack;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.audit.AuditDirectory;
-import eu.nordtal.season.database.audit.AuditEntry;
-import eu.nordtal.season.database.audit.AuditLine;
-import eu.nordtal.season.database.audit.JournalFilter;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -14,7 +9,6 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 /** Fixed-row {@link UpdateDirectory} and {@link AuditDirectory} for a {@link StackApi} without PostgreSQL. */
 public final class FakeDirectories {
@@ -139,45 +133,5 @@ public final class FakeDirectories {
                 final java.util.function.Predicate<String> stillRunning) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
-    }
-
-    /** Implements {@code recent}, {@code entry} and {@code search}. Every other method throws. */
-    public static AuditDirectory audit(final AuditEntry... rows) {
-        final List<AuditEntry> sorted = List.of(rows).stream()
-                .sorted(Comparator.comparing(AuditEntry::occurred).reversed())
-                .toList();
-        return new AuditDirectory() {
-            @Override
-            public List<AuditEntry> recent(final int limit) {
-                final int clamped = Math.max(1, limit);
-                return sorted.size() > clamped ? sorted.subList(0, clamped) : sorted;
-            }
-
-            @Override
-            public List<AuditEntry> search(final JournalFilter filter, final int limit) {
-                final int clamped = Math.max(1, limit);
-                final String action = filter.action();
-                final String subject = filter.subject();
-                final List<AuditEntry> filtered = sorted.stream()
-                        .filter(entry -> action == null
-                                || action.isBlank()
-                                || action.equals(entry.action().name()))
-                        .filter(entry -> subject == null
-                                || subject.isBlank()
-                                || DiscordId.of(subject).equals(entry.subject()))
-                        .toList();
-                return filtered.size() > clamped ? filtered.subList(0, clamped) : filtered;
-            }
-
-            @Override
-            public Optional<AuditEntry> entry(final UUID id) {
-                return sorted.stream().filter(entry -> entry.id().equals(id)).findFirst();
-            }
-
-            @Override
-            public void record(final AuditLine line) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
-        };
     }
 }

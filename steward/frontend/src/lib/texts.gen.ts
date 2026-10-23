@@ -821,15 +821,6 @@ export type TextArgs = {
   "run.version": {
     to: Arg["text"]
   }
-  "steward.alerts.all-clear": Record<string, never>
-  "steward.alerts.none-raised": Record<string, never>
-  "steward.alerts.now": Record<string, never>
-  "steward.alerts.raised-by": {
-    who: Arg["text"]
-  }
-  "steward.alerts.recent": Record<string, never>
-  "steward.alerts.title": Record<string, never>
-  "steward.alerts.unreadable": Record<string, never>
   "steward.announcements.ask": Record<string, never>
   "steward.announcements.compose": Record<string, never>
   "steward.announcements.host-channel": Record<string, never>
@@ -1312,21 +1303,38 @@ export type TextArgs = {
   "steward.image.label": Record<string, never>
   "steward.image.local-jars": Record<string, never>
   "steward.image.unchecked-tip": Record<string, never>
-  "steward.journal.action": Record<string, never>
-  "steward.journal.actor": Record<string, never>
-  "steward.journal.concerns": Record<string, never>
-  "steward.journal.count": {
-    count: Arg["number"]
+  "steward.journal.after-hours": {
+    hours: Arg["number"]
+    minutes: Arg["number"]
+  }
+  "steward.journal.after-minutes": {
+    minutes: Arg["number"]
+  }
+  "steward.journal.checked": {
+    when: Arg["text"]
+  }
+  "steward.journal.days": {
+    days: Arg["number"]
+  }
+  "steward.journal.meter": {
+    subject: Arg["text"]
+    value: Arg["number"]
     limit: Arg["number"]
   }
-  "steward.journal.detail": Record<string, never>
-  "steward.journal.entries": Record<string, never>
-  "steward.journal.min-days": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
-  "steward.journal.reference": Record<string, never>
-  "steward.journal.subject": Record<string, never>
+  "steward.journal.nothing-open": Record<string, never>
+  "steward.journal.older": Record<string, never>
+  "steward.journal.open-now": Record<string, never>
+  "steward.journal.quoted": {
+    word: Arg["text"]
+  }
+  "steward.journal.read-as": Record<string, never>
+  "steward.journal.search": Record<string, never>
+  "steward.journal.search-hint": Record<string, never>
   "steward.journal.title": Record<string, never>
-  "steward.journal.when": Record<string, never>
+  "steward.journal.today": Record<string, never>
+  "steward.journal.unreadable": Record<string, never>
+  "steward.journal.yesterday": Record<string, never>
   "steward.keys.aborted": Record<string, never>
   "steward.keys.add": Record<string, never>
   "steward.keys.add-note": {
@@ -1628,7 +1636,6 @@ export type TextArgs = {
     kind: Arg["text"]
     run: Arg["number"]
   }
-  "steward.overview.authored": Record<string, never>
   "steward.overview.behind": Record<string, never>
   "steward.overview.cores": {
     count: Arg["number"]

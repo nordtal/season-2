@@ -28,6 +28,7 @@ import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.steward.access.AccessApi;
+import eu.nordtal.season.steward.access.JournalPage;
 import eu.nordtal.season.steward.access.PackExemptionApi;
 import eu.nordtal.season.steward.alert.AlertRoutes;
 import eu.nordtal.season.steward.alert.PushEndpoints;
@@ -49,7 +50,6 @@ import eu.nordtal.season.steward.season.SeasonRoutes;
 import eu.nordtal.season.steward.settings.Reloading;
 import eu.nordtal.season.steward.settings.Settings;
 import eu.nordtal.season.steward.settings.SettingsDocument;
-import eu.nordtal.season.steward.stack.ActionEntry;
 import eu.nordtal.season.steward.stack.AgentApi;
 import eu.nordtal.season.steward.stack.PluginsForward;
 import eu.nordtal.season.steward.stack.Routes;
@@ -87,6 +87,7 @@ public final class StewardWire {
             AccessGrant.class,
             PaymentRequest.class,
             AuditEntry.class,
+            JournalPage.class,
             SecondFactor.KeyRegistered.class,
             WebAuthn.Held.class,
             SecondFactor.KeyRenamed.class,
@@ -105,7 +106,6 @@ public final class StewardWire {
             AgentWire.Plugins.class,
             AgentWire.PluginSearch.class,
             AgentWire.Resolve.class,
-            ActionEntry.Action.class,
             StackApi.RestoreAsked.class,
             PluginsForward.RemovalAsked.class,
             AgentWire.PluginFiles.class,
@@ -143,6 +143,9 @@ public final class StewardWire {
             Map.entry(PaymentRequest.class, "Payment"),
             Map.entry(AlertRoutes.CurrentAlert.class, "Alert"),
             Map.entry(AuditEntry.class, "JournalEntry"),
+            Map.entry(JournalPage.Item.class, "JournalItem"),
+            Map.entry(eu.nordtal.season.database.journal.JournalSearch.Term.class, "JournalTerm"),
+            Map.entry(eu.nordtal.season.database.journal.JournalSearch.Term.Kind.class, "TermKind"),
             Map.entry(Actor.Kind.class, "ActorKind"),
             Map.entry(UpdateReport.class, "Report"),
             Map.entry(UpdateReport.ServiceLine.class, "ReportLine"),

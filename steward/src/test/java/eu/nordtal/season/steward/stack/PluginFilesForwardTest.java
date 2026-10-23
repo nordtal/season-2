@@ -15,7 +15,6 @@ import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.audit.JournalFilter;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.Messages;
@@ -91,7 +90,6 @@ class PluginFilesForwardTest {
         api = new StackApi(
                 client,
                 FakeDirectories.updates(),
-                FakeDirectories.audit(),
                 () -> new StackApi.Nightly("04:45", List.of(), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
                 null,
                 null,
@@ -128,7 +126,7 @@ class PluginFilesForwardTest {
             }
 
             @Override
-            public List<AuditEntry> search(final JournalFilter filter, final int limit) {
+            public List<AuditEntry> entries(final List<UUID> ids) {
                 return List.of();
             }
 

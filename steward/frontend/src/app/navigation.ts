@@ -75,14 +75,6 @@ export function navigation(services: readonly string[]): NavGroup[] {
           icon: TERM_ICON.backup,
           keywords: ["backup", "archive", "snapshot", "retention", "storage box", "offsite", "restore"],
         },
-        {
-          id: "operations-alerts",
-          label: t("steward.shell.page", { page: "alerts" }),
-          to: "/alerts",
-          note: t("steward.shell.note", { page: "alerts" }),
-          icon: TERM_ICON.alert,
-          keywords: ["alert", "issue", "problem", "warning", "down", "notification"],
-        },
       ],
     },
     {
@@ -126,7 +118,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           to: "/journal",
           note: t("steward.shell.note", { page: "journal" }),
           icon: TERM_ICON.journal,
-          keywords: ["audit", "history", "trail", "log"],
+          keywords: ["audit", "history", "trail", "log", "alert", "issue", "problem", "warning", "down", "run"],
         },
       ],
     },

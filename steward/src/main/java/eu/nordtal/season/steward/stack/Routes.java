@@ -179,8 +179,6 @@ public final class Routes {
                 ctx -> api.restore(ctx, caller.actor(ctx)),
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.REQUEST_RUN));
-
-        config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);
     }
 
     /** Registers the routes for the plugins of one Minecraft server and the Modrinth search. */

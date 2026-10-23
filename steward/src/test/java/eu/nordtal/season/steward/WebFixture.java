@@ -152,7 +152,6 @@ abstract class WebFixture {
         final StackApi stack = new StackApi(
                 client,
                 over.updates(),
-                over.audit(),
                 new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
                 Clock.systemUTC(),
                 TestScheduler.SHARED);

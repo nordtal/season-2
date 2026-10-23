@@ -18,10 +18,7 @@ describe("breadcrumbsFor", () => {
     ])
   })
 
-  it.each([
-    ["/translations", "Translations"],
-    ["/alerts", "Alerts"],
-  ])("names %s by its page", (path, label) => {
+  it.each([["/translations", "Translations"]])("names %s by its page", (path, label) => {
     expect(breadcrumbsFor(path).at(-1)?.label).toBe(label)
   })
 

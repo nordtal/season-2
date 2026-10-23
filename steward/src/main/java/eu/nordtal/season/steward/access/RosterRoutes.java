@@ -1,10 +1,22 @@
 package eu.nordtal.season.steward.access;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
+
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.audit.JournalFilter;
+import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.journal.JournalSearch;
+import eu.nordtal.season.database.journal.JournalSearch.Term;
+import eu.nordtal.season.database.journal.JournalStream;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.steward.QueryLimit;
 import eu.nordtal.season.steward.data.Data;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
+import java.time.format.DateTimeParseException;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -12,9 +24,11 @@ import org.jspecify.annotations.Nullable;
 public final class RosterRoutes {
 
     private final @Nullable Data data;
+    private final Messages texts;
 
-    public RosterRoutes(final @Nullable Data data) {
+    public RosterRoutes(final @Nullable Data data, final Messages texts) {
         this.data = data;
+        this.texts = texts;
     }
 
     private Data data() {
@@ -43,22 +57,23 @@ public final class RosterRoutes {
         ctx.json(data().payments().allOpen());
     }
 
-    /** Answers the journal, filtered by {@code action}, {@code subject}, {@code reference} and {@code minDays}. */
+    /**
+     * Answers a page of the journal's stream, narrowed by every word of {@code q}, after the cursor {@code after}.
+     * Action words are read against the labels in the default language.
+     */
     public void journal(final Context ctx) {
-        ctx.json(data().audit()
-                .search(
-                        new JournalFilter(
-                                ctx.queryParam("action"),
-                                ctx.queryParam("subject"),
-                                ctx.queryParam("reference"),
-                                minDays(ctx)),
-                        QueryLimit.of(ctx, 200, 1000)));
-    }
-
-    /** Returns {@code minDays}, or {@code null} when absent, and refuses a value that is not a number. */
-    private static @Nullable Integer minDays(final Context ctx) {
-        return ctx.queryParam("minDays") == null
-                ? null
-                : ctx.queryParamAsClass("minDays", Integer.class).get();
+        final Map<JournalAction, String> labels = new EnumMap<>(JournalAction.class);
+        for (final JournalAction action : JournalAction.values()) {
+            labels.put(action, texts.format(Locales.DEFAULT, TEXTS.journal().action(action)));
+        }
+        final List<Term> terms =
+                JournalSearch.parse(ctx.queryParam("q"), data().journal().services(), labels);
+        final JournalStream.Page page;
+        try {
+            page = data().journal().page(terms, ctx.queryParam("after"), QueryLimit.of(ctx, 50, 200));
+        } catch (final IllegalArgumentException | DateTimeParseException refused) {
+            throw new BadRequestResponse("after is the next cursor of a page of the journal");
+        }
+        ctx.json(JournalPage.of(page, terms));
     }
 }

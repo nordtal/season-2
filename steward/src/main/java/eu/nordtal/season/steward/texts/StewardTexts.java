@@ -35,8 +35,6 @@ public interface StewardTexts {
 
         Said said();
 
-        AlertsPage alerts();
-
         JournalPage journal();
 
         OperationsPage operations();

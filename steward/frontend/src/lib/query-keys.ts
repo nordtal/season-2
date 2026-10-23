@@ -2,14 +2,6 @@
 
 export const SECOND = 1000
 
-/** What the journal is narrowed to. An absent or empty part matches every entry. */
-export type JournalFilter = {
-  action?: string
-  subject?: string
-  reference?: string
-  minDays?: string
-}
-
 export const keys = {
   me: ["me"] as const,
   services: ["services"] as const,
@@ -37,8 +29,7 @@ export const keys = {
   personPayments: (discordId: string) => ["payments", "person", discordId] as const,
   inventories: (discordId: string) => ["inventories", discordId] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
-  journal: (filter: JournalFilter) => ["journal", filter] as const,
-  actions: (limit: number) => ["actions", limit] as const,
+  journal: (q: string, limit: number) => ["journal", q, limit] as const,
   settings: ["settings"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
   smpTrack: ["smp-track"] as const,

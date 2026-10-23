@@ -1,16 +1,12 @@
 package eu.nordtal.season.steward.alert;
 
-import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
-import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.Sessions;
-import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -20,31 +16,25 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
-/** Serves {@code /api/alerts}: the current alerts, the recent alerts and the channel preferences of the admin. */
+/** Serves {@code /api/alerts}: the current alerts and the channel preferences of the admin. */
 public final class AlertRoutes {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    static final int RECENT = 20;
-
     private final Function<Context, Sessions.Session> sessions;
     private final @Nullable AlertMonitor monitor;
-    private final @Nullable AlertBook book;
     private final @Nullable AlertPreferences preferences;
 
     public AlertRoutes(
             final Function<Context, Sessions.Session> sessions,
             final @Nullable AlertMonitor monitor,
-            final @Nullable Data data,
             final @Nullable AlertPreferences preferences) {
         this.sessions = sessions;
         this.monitor = monitor;
-        this.book = data == null ? null : AlertBook.using(data.dataSource());
         this.preferences = preferences;
     }
 
@@ -54,11 +44,7 @@ public final class AlertRoutes {
 
     /** Holds the body of {@code GET /api/alerts}. {@code checkedAt} is null before the first reading. */
     public record Alerts(
-            @Nullable Instant checkedAt,
-            @Nullable String unreadable,
-            Alert.Level level,
-            List<CurrentAlert> alerts,
-            List<RecentAlert> recent) {}
+            @Nullable Instant checkedAt, @Nullable String unreadable, Alert.Level level, List<CurrentAlert> alerts) {}
 
     /** Holds an alert as the page shows it, its title and lines rendered from its rows. */
     public record CurrentAlert(
@@ -70,7 +56,7 @@ public final class AlertRoutes {
             List<Measure> measured,
             String path) {
 
-        static CurrentAlert of(final Alert alert) {
+        public static CurrentAlert of(final Alert alert) {
             return new CurrentAlert(
                     alert.type(),
                     alert.level(),
@@ -82,20 +68,8 @@ public final class AlertRoutes {
         }
     }
 
-    public record RecentAlert(
-            UUID id,
-            Instant raised,
-            String raisedBy,
-            AlertType type,
-            Alert.Level level,
-            String subject,
-            MessageRef title,
-            List<MessageRef> detail,
-            List<Measure> measured,
-            String path) {}
-
     public Alerts read() {
-        if (monitor == null || book == null) {
+        if (monitor == null) {
             throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.ALERTS));
         }
         final AlertMonitor.Snapshot now = monitor.snapshot();
@@ -103,8 +77,7 @@ public final class AlertRoutes {
                 now.checkedAt(),
                 now.unreadable(),
                 now.level(),
-                now.alerts().stream().map(CurrentAlert::of).toList(),
-                book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
+                now.alerts().stream().map(CurrentAlert::of).toList());
     }
 
     public void preferences(final Context ctx) {
@@ -139,21 +112,6 @@ public final class AlertRoutes {
             throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PREFERENCES));
         }
         return preferences;
-    }
-
-    private static RecentAlert shown(final RaisedAlert raised) {
-        final CurrentAlert alert = CurrentAlert.of(raised.alert());
-        return new RecentAlert(
-                raised.id(),
-                raised.raised(),
-                raised.raisedBy().kind() == Actor.Kind.BOT ? "discord-bot" : "steward",
-                alert.type(),
-                alert.level(),
-                alert.subject(),
-                alert.title(),
-                alert.detail(),
-                alert.measured(),
-                alert.path());
     }
 
     private static final class PreferenceBody {

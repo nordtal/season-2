@@ -52,7 +52,6 @@ export type Alerts = {
   unreadable?: string
   level: AlertLevel
   alerts: Alert[]
-  recent: RecentAlert[]
 }
 
 export type AlertPreference = {
@@ -240,6 +239,12 @@ export type JournalEntry = {
   line: MessageRef
 }
 
+export type JournalPage = {
+  items: JournalItem[]
+  next?: string
+  terms: JournalTerm[]
+}
+
 export type KeyRegistered = {
   label: string
   userVerified: boolean
@@ -360,15 +365,6 @@ export type Available = {
   hasFailures: boolean
   changes: AvailableChange[]
   steps: PlannedStep[]
-}
-
-export type Action = {
-  kind: string
-  occurred: string
-  label: MessageRef
-  extent: MessageRef
-  actorKind: ActorKind
-  actorId: string
 }
 
 export type RestoreAsked = {
@@ -590,19 +586,6 @@ export type Alert = {
   path: string
 }
 
-export type RecentAlert = {
-  id: string
-  raised: string
-  raisedBy: string
-  type: AlertType
-  level: AlertLevel
-  subject: string
-  title: MessageRef
-  detail: MessageRef[]
-  measured: Measure[]
-  path: string
-}
-
 export type MetricPoint = {
   at: string
   value: number
@@ -762,6 +745,22 @@ export type JournalAction =
 export type Actor = {
   kind: ActorKind
   person?: string
+}
+
+export type JournalItem = {
+  key: string
+  occurred: string
+  actor: Actor
+  entry?: JournalEntry
+  alert?: Alert
+  opened?: string
+  run?: JournalRun
+}
+
+export type JournalTerm = {
+  kind: TermKind
+  word: string
+  values: string[]
 }
 
 export type QrCode = {
@@ -1108,6 +1107,27 @@ export type InventoryStack = {
   item: string
   amount: number
 }
+
+export type JournalRun = {
+  id: number
+  kind: UpdateKind
+  status: UpdateStatus
+  services: string[]
+  why: MessageRef[]
+}
+
+export type TermKind =
+  | "PAYMENT"
+  | "DISCORD"
+  | "UUID"
+  | "DAYS"
+  | "SERVICE"
+  | "LEVEL"
+  | "RUN_KIND"
+  | "RUN_STATUS"
+  | "GAUGE"
+  | "ACTION"
+  | "NAME"
 
 export type ImageState = "OUTDATED" | "UP_TO_DATE" | "LOCAL" | "UNKNOWN"
 

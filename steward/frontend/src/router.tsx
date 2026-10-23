@@ -13,7 +13,6 @@ import { JournalPage } from "@/pages/journal"
 import { PaymentsPage } from "@/pages/payments"
 import { PersonPage } from "@/pages/person"
 import { OverviewPage } from "@/pages/overview"
-import { AlertsPage } from "@/pages/alerts"
 
 /**
  * The route tree, written out, because a generated `routeTree.gen.ts` would keep `viteBuild` out of date.
@@ -81,7 +80,6 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/access/$id", component: PersonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

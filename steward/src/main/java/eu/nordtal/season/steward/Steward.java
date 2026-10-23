@@ -240,7 +240,6 @@ public final class Steward {
         return new StackApi(
                 agent,
                 data.updates(),
-                data.audit(),
                 () -> new StackApi.Nightly(
                         config.backup().at(),
                         config.backup().days(),

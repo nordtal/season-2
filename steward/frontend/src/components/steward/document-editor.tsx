@@ -309,9 +309,8 @@ function PartEditor({
   const empty = part.type === "SEPARATOR"
   const words = firstWords(part, context.language)
   return (
-    // On a phone a part draws no box of its own, only a rule above it, so its fields keep the card's width.
-    <div className={cn("min-w-0 border-t md:rounded-md md:border", open && !empty && "md:bg-muted/40")}>
-      <div className="flex min-w-0 items-center justify-between gap-1 py-1 md:justify-start md:p-1">
+    <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
+      <div className="flex min-w-0 items-center justify-between gap-1 p-1 md:justify-start">
         <span className="contents shrink-0 items-center md:flex">
           <Move disabled={!writable} first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
           {holdsRequired(view.declaration, slotsOf(part)) ? (
@@ -353,7 +352,7 @@ function PartEditor({
         <SharedPartMenu part={part} context={context} set={set} />
       </div>
       {open && (!empty || Object.keys(view.named).length > 0) ? (
-        <div className="flex min-w-0 flex-col gap-2 border-t py-2 md:p-2">
+        <div className="flex min-w-0 flex-col gap-2 border-t p-2">
           <WhenField
             view={view}
             of="PART"

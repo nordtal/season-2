@@ -495,7 +495,8 @@ export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
               style.underlined && "underline",
               style.strikethrough && "line-through",
               mention && "rounded-[3px] px-0.5 font-medium",
-              style.code && "rounded-[4px] px-1 py-0.5 font-mono text-[0.85em]",
+              // An address is one word to the line breaker, so a narrow column breaks it, framing each piece.
+              style.code && "box-decoration-clone rounded-[4px] px-1 py-0.5 font-mono text-[0.85em] wrap-anywhere",
             )}
             style={{
               ...(mention ? { background: "rgba(88,101,242,0.3)", color: "#c9cdfb" } : {}),

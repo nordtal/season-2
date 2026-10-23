@@ -6,6 +6,7 @@ import { cn } from "cn"
 
 import type { ConfigLocation } from "@/lib/api"
 import { setOpened, useOpened } from "@/lib/drafts"
+import type { CSSVars } from "@/lib/utils"
 import { type Language } from "@/lib/message-text"
 import {
   ancestorsOf,
@@ -230,7 +231,7 @@ export function NodeList<L>({
   branchIcon,
   list,
   cards,
-  nested,
+  depth = 0,
 }: {
   nodes: TreeNode<L>[]
   isOpen: (id: string) => boolean
@@ -242,7 +243,8 @@ export function NodeList<L>({
   branchIcon?: (branch: TreeBranch<L>) => ReactNode
   list?: boolean
   cards?: boolean
-  nested?: boolean
+  /** How many branches this list sits under. */
+  depth?: number
 }) {
   const groups: Array<TreeLeaf<L>[] | TreeBranch<L>> = []
   for (const node of nodes) {
@@ -268,9 +270,11 @@ export function NodeList<L>({
                   : list
                     ? "flex flex-col"
                     : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
-                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies. A card on a phone keeps that width for its editor.
-                nested && !list && (cards ? "md:pl-6" : "pl-8"),
+                // Under a branch, a leaf's text starts past the caret's column; the first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
+                depth > 0 && !list && (cards ? "pl-6" : "pl-8"),
               )}
+              // The list's whole indent, each branch's pl-4 and the cards' pl-6, which an open card steps back out of to take the page's width.
+              style={cards ? listIndent(depth) : undefined}
             >
               {group.map((leaf) => (
                 <div key={leaf.id} className={cn("min-w-0", !list && !cards && leaf.wide && "col-span-full")}>
@@ -330,7 +334,7 @@ export function NodeList<L>({
                   branchIcon={branchIcon}
                   list={list}
                   cards={cards}
-                  nested
+                  depth={depth + 1}
                 />
               </div>
             ) : null}
@@ -339,6 +343,10 @@ export function NodeList<L>({
       })}
     </div>
   )
+}
+
+function listIndent(depth: number): CSSVars {
+  return { "--list-indent": depth > 0 ? `${depth + 1.5}rem` : "0rem" }
 }
 
 export function useLanding(highlight: Highlight | null) {

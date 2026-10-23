@@ -452,6 +452,31 @@ describe("an open document", { timeout: 15_000 }, () => {
     },
   )
 
+  it("steps an open card out of the list's indent while the closed cards and the parts keep theirs", async () => {
+    const title = view(
+      { namespace: "smp", name: "duel-result-title", area: "Duels", shape: "TITLE", values: {} },
+      { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }] }] },
+      { game: true, services: ["smp"] },
+    )
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
+    draw(<Page />)
+
+    await open(/^In game/)
+    await open("Duels")
+    const card = await screen.findByRole("article", { name: "Duel result title" })
+    // jsdom has no layout: two branches deep, the list's indent is two branch steps and the cards' own.
+    const leaves = card.parentElement!.parentElement!
+    expect(leaves.className).toMatch(/\bpl-6\b/)
+    expect(leaves.style.getPropertyValue("--list-indent")).toBe("3.5rem")
+    expect(card.className).not.toMatch(/--list-indent/)
+    within(card).getByRole("button", { name: "Duel result title" }).click()
+    await screen.findByRole("region", { name: "Duel result title" })
+    const opened = screen.getByRole("article", { name: "Duel result title" })
+    expect(opened.className).toMatch(/-ml-\(--list-indent\)/)
+    const part = within(opened).getByRole("button", { expanded: true, name: /Text/ }).closest("div.rounded-md")
+    expect(part?.className).toMatch(/\bborder\b/)
+  })
+
   it("names the part's and the line's condition apart and keeps the source switch in the field's toolbar", async () => {
     const title = view(
       {

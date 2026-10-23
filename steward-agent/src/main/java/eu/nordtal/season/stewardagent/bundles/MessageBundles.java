@@ -7,7 +7,6 @@ import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.MessageJson;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.MessageSchema;
@@ -131,7 +130,7 @@ public final class MessageBundles {
                     texts.put(language, variants);
                 }
             });
-            entries.add(entryOf(key, bundle, texts, described.get(key), packaged));
+            entries.add(entryOf(key, bundle, texts, described.get(key)));
         }
         return new MessageBundle(location.service(), location.module(), entries, packaged.documents());
     }
@@ -140,8 +139,7 @@ public final class MessageBundles {
             final String key,
             final String bundle,
             final Map<String, List<String>> texts,
-            final @Nullable SchemaEntry schema,
-            final Packaged packaged) {
+            final @Nullable SchemaEntry schema) {
         return new MessageEntry(
                 key,
                 bundle,
@@ -153,7 +151,7 @@ public final class MessageBundles {
                 schema == null
                         ? List.of()
                         : schema.args().stream()
-                                .map(arg -> withExample(arg, packaged))
+                                .map(MessageBundles::withExample)
                                 .toList(),
                 schema == null ? List.of() : schema.section(),
                 schema == null ? null : schema.format(),
@@ -161,40 +159,18 @@ public final class MessageBundles {
                 schema == null ? 0 : schema.limit());
     }
 
-    /**
-     * The example read as its kind and, for a value that is a message, its words in every language of the jar.
-     *
-     * The editor previews a nested message as a player reads it; the server, which renders the key, is sent the key.
-     */
-    private static MessageArg withExample(final MessageArg arg, final Packaged packaged) {
+    /** The example read as its kind; the server, which renders it itself, is still sent it as written. */
+    private static MessageArg withExample(final MessageArg arg) {
         final String example = arg.example();
         final Kind kind = arg.kind() == null ? null : Kind.byToken(arg.kind()).orElse(null);
         if (example == null || kind == null) {
             return arg;
         }
-        final Object value;
         try {
-            value = kind.example(example);
+            return arg.withExample(MessageJson.typed(kind.example(example, arg.takes() != null)));
         } catch (final IllegalArgumentException | DateTimeException unread) {
             return arg;
         }
-        final Map<String, String> words = new TreeMap<>();
-        if (value instanceof final MessageRef message) {
-            final int slash = example.indexOf('/');
-            final String bundle = slash < 0 ? null : example.substring(0, slash).strip();
-            packaged.texts().forEach((name, languages) -> {
-                if (bundle != null && !bundle.equals(name)) {
-                    return;
-                }
-                languages.forEach((language, byKey) -> {
-                    final List<String> variants = byKey.get(message.key());
-                    if (variants != null && !variants.isEmpty()) {
-                        words.putIfAbsent(language, variants.getFirst());
-                    }
-                });
-            });
-        }
-        return arg.withExample(words, MessageJson.typed(value));
     }
 
     /**
@@ -238,8 +214,9 @@ public final class MessageBundles {
     }
 
     /** Every document of {@code namespaces} as its tree; a namespace steward cannot read is logged and left out. */
-    private static List<JsonObject> readDocuments(final MessageBundleLocation location, final Set<String> namespaces)
-            throws IOException {
+    // One reader at a time: loaders of one jar share the JDK's cached JarFile, and closing one closed it under another.
+    private static synchronized List<JsonObject> readDocuments(
+            final MessageBundleLocation location, final Set<String> namespaces) throws IOException {
         final List<JsonObject> read = new ArrayList<>();
         try (URLClassLoader jar =
                 new URLClassLoader(new URL[] {location.jar().toUri().toURL()}, null)) {
@@ -315,7 +292,7 @@ public final class MessageBundles {
             if (arg.action()) {
                 args.add(new MessageArg(argName, null, null, false, null, true));
             } else if (arg.context() == null) {
-                args.add(new MessageArg(argName, arg.kind(), null, false, arg.example(), false));
+                args.add(new MessageArg(argName, arg.kind(), null, false, arg.example(), false, arg.takes(), null));
             } else {
                 attributes(argName, declaration, typeOfRole, false, args);
             }

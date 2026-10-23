@@ -232,56 +232,16 @@ class MessageBundlesTest {
                                 false,
                                 "restart.what.network",
                                 false,
-                                Map.of("en", "The network", "de", "Das Netzwerk"),
+                                null,
                                 Map.of(
                                         "kind",
                                         "message",
                                         "value",
                                         Map.of("key", "restart.what.network", "args", Map.of()))),
                         new MessageArg("count", "number", null, false, "10", false)
-                                .withExample(Map.of(), Map.of("kind", "number", "value", new BigDecimal("10")))),
+                                .withExample(Map.of("kind", "number", "value", new BigDecimal("10")))),
                 update.args(),
-                "the editor previews the nested message as its words and still sends the server its key");
-    }
-
-    @Test
-    void anExampleKeyThatNamesItsBundleCarriesTheWordsOfThatKey() throws IOException {
-        writeJar(
-                configs.resolve("proxy/proxy-0.9.1.jar"),
-                Map.of(
-                        "messages/proxy/en.properties",
-                        "restart.countdown.update={what} is being updated in {count} seconds\n",
-                        "messages/proxy/schema.json",
-                        NESTING_SCHEMA.replace("\"restart.what.network\"", "\"restart/restart.what.network\""),
-                        "messages/restart/en.properties",
-                        "restart.what.network=The network\n"));
-        final MessageEntry update = entry(
-                MessageBundles.read(
-                        new MessageBundleLocation("proxy", "proxy", configs.resolve("proxy/proxy-0.9.1.jar"))),
-                "restart.countdown.update");
-
-        assertEquals(Map.of("en", "The network"), update.args().getFirst().exampleWords());
-    }
-
-    @Test
-    void anExampleKeyThatNamesItsBundleIgnoresTheSameKeyInAnotherBundle() throws IOException {
-        writeJar(
-                configs.resolve("proxy/proxy-0.9.1.jar"),
-                Map.of(
-                        "messages/proxy/en.properties",
-                        "restart.countdown.update={what} is being updated in {count} seconds\n",
-                        "messages/proxy/schema.json",
-                        NESTING_SCHEMA.replace("\"restart.what.network\"", "\"restart/restart.what.network\""),
-                        "messages/another/en.properties",
-                        "restart.what.network=Somewhere else\n",
-                        "messages/restart/en.properties",
-                        "restart.what.network=The network\n"));
-        final MessageEntry update = entry(
-                MessageBundles.read(
-                        new MessageBundleLocation("proxy", "proxy", configs.resolve("proxy/proxy-0.9.1.jar"))),
-                "restart.countdown.update");
-
-        assertEquals(Map.of("en", "The network"), update.args().getFirst().exampleWords());
+                "the editor is sent the nested message as its key, which it looks up in the edited language");
     }
 
     private static final String EXAMPLES_SCHEMA = """
@@ -291,7 +251,9 @@ class MessageBundlesTest {
                "args": [{"name": "size", "kind": "message", "example": "1.2 GiB", "action": false},
                         {"name": "took", "kind": "duration", "example": "PT2M", "action": false},
                         {"name": "subjects", "kind": "list", "example": "database dump,disk", "action": false},
-                        {"name": "when", "kind": "instant", "example": "not a time", "action": false}]}
+                        {"name": "when", "kind": "instant", "example": "not a time", "action": false},
+                        {"name": "changes", "kind": "list", "example": "run.change-image,run.change-jar",
+                         "action": false, "takes": ["run.change-image", "run.change-jar"]}]}
             ], "contexts": {}, "globals": []}
             """;
 
@@ -301,7 +263,7 @@ class MessageBundlesTest {
                 configs.resolve("smp/smp-0.9.1.jar"),
                 Map.of(
                         "messages/admin/en.properties",
-                        "archive.saved={size} in {took}: {subjects} at {when}\n",
+                        "archive.saved={size} in {took}: {subjects} at {when}, {changes}\n",
                         "messages/admin/schema.json",
                         EXAMPLES_SCHEMA));
         final List<MessageArg> args = entry(
@@ -321,15 +283,29 @@ class MessageBundlesTest {
                                 List.of(
                                         Map.of("kind", "text", "value", "database dump"),
                                         Map.of("kind", "text", "value", "disk"))),
-                        null),
+                        null,
+                        Map.of(
+                                "kind",
+                                "list",
+                                "value",
+                                List.of(
+                                        Map.of(
+                                                "kind",
+                                                "message",
+                                                "value",
+                                                Map.of("key", "run.change-image", "args", Map.of())),
+                                        Map.of(
+                                                "kind",
+                                                "message",
+                                                "value",
+                                                Map.of("key", "run.change-jar", "args", Map.of()))))),
                 args.stream().map(MessageArg::exampleValue).toList());
-        assertEquals(Map.of(), args.getFirst().exampleWords(), "words name no message to look up");
+        assertEquals(
+                List.of("run.change-image", "run.change-jar"), args.getLast().takes());
     }
 
     private static List<MessageArg> withoutValues(final List<MessageArg> args) {
-        return args.stream()
-                .map(arg -> arg.withExample(arg.exampleWords(), null))
-                .toList();
+        return args.stream().map(arg -> arg.withExample(null)).toList();
     }
 
     @Test

@@ -26,7 +26,7 @@ function threePlaces(sent: unknown[]) {
             name: "Welcome",
             shown: ["CHAT", "DISCORD_MESSAGE", "STEWARD"],
             limit: 2000,
-            args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false, exampleWords: {} }],
+            args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false }],
           },
           { previews: { CHAT: "GAME", DISCORD_MESSAGE: "DISCORD" } },
         ),
@@ -141,7 +141,7 @@ describe("the previews", () => {
             key: "state",
             name: "Service state",
             shown: ["STEWARD"],
-            args: [{ name: "state", kind: "choice", global: false, example: "true", action: false, exampleWords: {} }],
+            args: [{ name: "state", kind: "choice", global: false, example: "true", action: false }],
           }),
           text({
             texts: { en: ["{count, plural, one {# player} other {# players}} online"] },
@@ -155,7 +155,6 @@ describe("the previews", () => {
                 global: false,
                 example: "1",
                 action: false,
-                exampleWords: {},
                 exampleValue: { kind: "number", value: 1 },
               },
             ],
@@ -191,7 +190,7 @@ describe("the previews", () => {
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
   })
 
-  it("shows a nested message as its words, and sends the server its key", async () => {
+  it("shows a nested message as its words in the edited language, and sends the server its key", async () => {
     const bodies: unknown[] = []
     vi.stubGlobal(
       "fetch",
@@ -210,12 +209,13 @@ describe("the previews", () => {
                   global: false,
                   example: "restart.what.network",
                   action: false,
-                  exampleWords: { en: "The network" },
+                  exampleValue: { kind: "message", value: { key: "restart.what.network", args: {} } },
                 },
               ],
             },
             { previews: { CHAT: "GAME" } },
           ),
+          text({ texts: { en: ["The network"] }, key: "restart.what.network", name: "Network", bundle: "restart" }),
         ]),
         undefined,
         {

@@ -1,6 +1,6 @@
 package eu.nordtal.season.internalapi.agent;
 
-import java.util.Map;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -14,8 +14,7 @@ import org.jspecify.annotations.Nullable;
  * @param global whether every message has it
  * @param example the value that an editor shows, as the kind writes it, or {@code null}
  * @param action whether it is an action, written as {@code <action:name>} around a text that runs it
- * @param exampleWords for a value whose example is a message key: the first text of that key in each language, by
- *     language tag; otherwise empty
+ * @param takes the keys a message value, or each item of a list of messages, may take, else {@code null}
  * @param exampleValue the example read as its kind, as {@code {kind, value}}, or {@code null} where it reads as none
  */
 public record MessageArg(
@@ -25,12 +24,11 @@ public record MessageArg(
         boolean global,
         @Nullable String example,
         boolean action,
-        Map<String, String> exampleWords,
+        @Nullable List<String> takes,
         @Nullable Object exampleValue) {
 
     public MessageArg {
-        // A body without it reads as no words.
-        exampleWords = exampleWords == null ? Map.of() : Map.copyOf(exampleWords);
+        takes = takes == null ? null : List.copyOf(takes);
     }
 
     public MessageArg(
@@ -40,11 +38,11 @@ public record MessageArg(
             final boolean global,
             final @Nullable String example,
             final boolean action) {
-        this(name, kind, type, global, example, action, Map.of(), null);
+        this(name, kind, type, global, example, action, null, null);
     }
 
-    public MessageArg withExample(final Map<String, String> words, final @Nullable Object value) {
-        return new MessageArg(name, kind, type, global, example, action, words, value);
+    public MessageArg withExample(final @Nullable Object value) {
+        return new MessageArg(name, kind, type, global, example, action, takes, value);
     }
 
     public String token() {

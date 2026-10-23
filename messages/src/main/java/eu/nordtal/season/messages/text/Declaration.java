@@ -15,8 +15,9 @@ import java.util.TreeMap;
  * @param roles the message's own arguments, each a placeholder or a role, which every packaged text
  *     uses
  * @param limit how many characters the strictest place it is shown in takes, {@code 0} for no limit
- * @param examples each placeholder's example, as {@link Kind#example} reads it, for the length
+ * @param examples each placeholder's example, as {@link #read} reads it, for the length
  *     check
+ * @param takesMessages the values that take a message or a list of messages, whose examples are message keys
  * @param oneLine whether every place it is shown draws one line, where a line break shows as an
  *     unknown character
  */
@@ -27,6 +28,7 @@ public record Declaration(
         boolean markup,
         int limit,
         Map<String, String> examples,
+        Set<String> takesMessages,
         boolean oneLine) {
 
     public Declaration {
@@ -34,6 +36,7 @@ public record Declaration(
         roles = Set.copyOf(roles);
         actions = Set.copyOf(actions);
         examples = Map.copyOf(examples);
+        takesMessages = Set.copyOf(takesMessages);
     }
 
     /**
@@ -60,7 +63,7 @@ public record Declaration(
             }
             for (final String candidate : candidates) {
                 try {
-                    args.put(name, value.getValue().example(candidate));
+                    args.put(name, read(name, candidate));
                     break;
                 } catch (final IllegalArgumentException | DateTimeException unread) {
                     // Tries the next candidate.
@@ -68,5 +71,10 @@ public record Declaration(
             }
         }
         return args;
+    }
+
+    /** Returns {@code example} read as the kind of {@code name}, a list that takes messages as message keys. */
+    public Object read(final String name, final String example) {
+        return values.getOrDefault(name, Kind.TEXT).example(example, takesMessages.contains(name));
     }
 }

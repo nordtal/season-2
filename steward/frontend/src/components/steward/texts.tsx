@@ -170,9 +170,9 @@ export function TextsForm({
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
     const format = formatOf(entry.format)
     const tags = Object.keys(tones)
-    const fill = fillOf(entry.args, examples.data, language, words(language))
+    const fill = fillOf(entry.args, examples.data, words(language))
     const runs = parse(text, format, tags)
-    const example = (name: string) => exampleOf(name, entry.args, examples.data, language)
+    const example = (name: string) => exampleOf(name, entry.args, examples.data)
     return { runs: runs && branchesOf(runs, format, tags, example), text, fill }
   }
 

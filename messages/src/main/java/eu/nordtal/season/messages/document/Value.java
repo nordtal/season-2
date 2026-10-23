@@ -1,6 +1,8 @@
 package eu.nordtal.season.messages.document;
 
 import eu.nordtal.season.messages.MessageJson;
+import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.value.Kind;
@@ -40,11 +42,23 @@ public record Value(
         }
     }
 
-    /** Returns each declared value's example by name, what a preview fills in. */
-    public static Map<String, Object> examples(final Map<String, Value> declared) {
+    /**
+     * Returns each declared value's example by name, what a preview fills in.
+     * A nested message, alone or in a list, carries its own declared examples, as {@link Messages#example} fills them.
+     */
+    public static Map<String, Object> examples(final Map<String, Value> declared, final Messages messages) {
         final Map<String, Object> examples = new LinkedHashMap<>();
-        declared.forEach((name, value) -> examples.put(name, value.readExample()));
+        declared.forEach((name, value) -> examples.put(name, filled(value.readExample(), messages)));
         return examples;
+    }
+
+    private static Object filled(final Object example, final Messages messages) {
+        return switch (example) {
+            case MessageRef message -> messages.example(message.key(), Map.of());
+            case List<?> items ->
+                items.stream().map(item -> filled(item, messages)).toList();
+            default -> example;
+        };
     }
 
     /** Returns each value with its example read as its kind, as Steward's editor shows it. */

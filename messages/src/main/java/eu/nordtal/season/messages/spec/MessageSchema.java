@@ -376,6 +376,7 @@ public final class MessageSchema {
             final Map<String, String> examples = new HashMap<>();
             final Set<String> roles = new HashSet<>();
             final Set<String> actions = new HashSet<>();
+            final Set<String> takesMessages = new HashSet<>();
             for (final Arg arg : entry.args()) {
                 if (arg.name() == null) {
                     continue;
@@ -392,6 +393,9 @@ public final class MessageSchema {
                     if (arg.example() != null) {
                         examples.put(arg.name(), arg.example());
                     }
+                    if (arg.takes() != null) {
+                        takesMessages.add(arg.name());
+                    }
                 }
             }
             for (final GlobalJson global : globals) {
@@ -406,6 +410,7 @@ public final class MessageSchema {
                     entry.format() == TextFormat.MINIMESSAGE,
                     entry.limit(),
                     examples,
+                    takesMessages,
                     Display.oneLine(entry.shown()));
         }
 

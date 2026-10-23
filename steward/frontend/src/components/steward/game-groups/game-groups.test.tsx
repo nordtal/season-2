@@ -210,7 +210,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
     })
   })
 
-  it("shows each prize's chance on its tile and opens its fields below the grid", async () => {
+  it("shows each prize's chance on its tile and opens its fields right after that tile", async () => {
     backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
@@ -219,6 +219,9 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(within(elytra).getByText("0.30%")).toBeTruthy()
     fireEvent.click(elytra)
     expect(elytra.getAttribute("aria-pressed")).toBe("true")
+    expect(
+      elytra.closest("li")?.nextElementSibling?.contains(screen.getByRole("textbox", { name: "Elytra Weight" })),
+    ).toBe(true)
     fireEvent.change(screen.getByRole("textbox", { name: "Elytra Weight" }), { target: { value: "1997" } })
     expect(within(elytra).getByText("66.7%")).toBeTruthy()
     expect(screen.getByRole("textbox", { name: "Min X" })).toHaveProperty("value", "3978")

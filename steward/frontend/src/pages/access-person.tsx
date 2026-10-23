@@ -345,8 +345,8 @@ export function RevokeDialog({
   onOpenChange,
 }: {
   person: Person
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const revoke = useRevokeAccess()
 
@@ -354,14 +354,6 @@ export function RevokeDialog({
     <AskThenAct
       open={open}
       onOpenChange={onOpenChange}
-      trigger={
-        open === undefined ? (
-          <Button type="button" variant="ghost" size="sm" className="text-destructive">
-            <TERM_ICON.revokeAccess aria-hidden />
-            {t("steward.people.revoke")}
-          </Button>
-        ) : null
-      }
       title={t("steward.people.revoke-title")}
       description={t("steward.people.revoke-note")}
       action={t("steward.people.revoke")}

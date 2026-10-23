@@ -1025,7 +1025,6 @@ export type TextArgs = {
     status: Arg["choice"]
   }
   "steward.backup-settings.no-at": Record<string, never>
-  "steward.backup-settings.no-days": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
@@ -1183,7 +1182,6 @@ export type TextArgs = {
   "steward.form.changed": {
     count: Arg["number"]
   }
-  "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
   "steward.form.discard": Record<string, never>

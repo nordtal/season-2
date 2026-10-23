@@ -22,8 +22,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AskButton, savedCount } from "@/pages/operations"
 import { DataTable } from "@/components/steward/data-table"
-import { entryAt, useStewardConfig } from "@/components/steward/group-form"
-import { ScheduleDialog } from "@/pages/backup-dialogs"
+import { ScheduleDialog, entryAt, useStewardConfig } from "@/components/steward/group-form"
+
+/** steward-agent's four `backup.retention` keys, in the order the schedule dialog draws them. */
+const RETENTION_KEYS = [
+  "backup.retention.daily",
+  "backup.retention.weekly",
+  "backup.retention.monthly",
+  "backup.retention.collapse-after-days",
+] as const
 
 /**
  * Everything about the backups. A secret is never drawn. A backup and a restore are runs like every other.
@@ -35,7 +42,17 @@ export function BackupsPage() {
         title={t("steward.backups.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ScheduleDialog />
+            <ScheduleDialog
+              job="backup"
+              empty={t("steward.backup-settings.no-at")}
+              noDay={t("steward.backup-settings.no-night")}
+              also={{
+                service: "steward-agent",
+                name: "runs",
+                keys: RETENTION_KEYS,
+                saved: t("steward.backup-settings.retention-saved"),
+              }}
+            />
             <RestoreDialog />
             <AskButton kind="BACKUP" variant="default" label={t("steward.backups.back-up-now")} size="sm" />
           </div>

@@ -688,7 +688,6 @@
     "steward.backups.no-archive": [["No archive of this run is catalogued"]],
     "steward.backups.no-clock": [["no nightly clock"]],
     "steward.backups.no-run": [["No backup run yet"]],
-    "steward.backups.no-such-run": [["No such run"]],
     "steward.backups.none": [["none"]],
     "steward.backups.none-finished": [["no finished backup"]],
     "steward.backups.not-tracked": [["not tracked"]],

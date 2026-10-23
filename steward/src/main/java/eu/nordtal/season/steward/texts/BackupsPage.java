@@ -105,9 +105,6 @@ public interface BackupsPage {
     @Name("All backups")
     MessageRef allBackups();
 
-    @Name("No such run")
-    MessageRef noSuchRun();
-
     @Name("No archive")
     MessageRef noArchive();
 

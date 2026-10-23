@@ -6,6 +6,7 @@ import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.text.MessageSyntaxException;
 import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.messages.text.Node;
+import eu.nordtal.season.messages.value.Kind;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -21,8 +22,6 @@ import java.util.regex.Pattern;
 public final class MessageSpecCheck {
 
     private static final Pattern BUNDLE = Pattern.compile("[a-z][a-z0-9-]*");
-
-    private static final Pattern FORMER = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private MessageSpecCheck() {}
 
@@ -162,7 +161,7 @@ public final class MessageSpecCheck {
                         problems.addAll(wholeBundle(entry, arg, taken, bundle, declared));
                         continue;
                     }
-                    if (!FORMER.matcher(taken).matches()) {
+                    if (!Kind.namesMessage(taken)) {
                         problems.add(entry.key() + ": @Takes names " + taken + ", which is neither key nor bundle/key");
                     } else if (!own.contains("/") && !declared.contains(own)) {
                         problems.add(entry.key() + ": @Takes names " + taken + ", which this bundle does not declare");
@@ -180,7 +179,7 @@ public final class MessageSpecCheck {
         for (final MessageSchema.Entry entry : entries) {
             for (final String former : Objects.requireNonNullElse(entry.formerly(), List.<String>of())) {
                 final String own = former.startsWith(bundle + "/") ? former.substring(bundle.length() + 1) : former;
-                if (!FORMER.matcher(former).matches()) {
+                if (!Kind.namesMessage(former)) {
                     problems.add(entry.key() + ": @Formerly names " + former + ", which is neither key nor bundle/key");
                 } else if (declared.contains(own)) {
                     problems.add(entry.key() + ": @Formerly names " + former + ", which this bundle still declares");

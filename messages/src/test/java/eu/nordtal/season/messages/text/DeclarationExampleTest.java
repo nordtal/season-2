@@ -2,6 +2,7 @@ package eu.nordtal.season.messages.text;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.value.DisplayName;
 import java.io.StringReader;
@@ -20,6 +21,8 @@ class DeclarationExampleTest {
                  {"name": "player", "context": "player", "action": false},
                  {"name": "time", "kind": "duration", "example": "PT5M", "action": false},
                  {"name": "count", "kind": "number", "example": "4", "action": false},
+                 {"name": "size", "kind": "message", "example": "1.2 GiB", "action": false},
+                 {"name": "next", "kind": "message", "example": "test/greeting", "action": false},
                  {"name": "open", "action": true}]}],
              "contexts": {
                "player": {"name": "Player", "attributes": [{"name": "name", "kind": "name", "example": "Alex"}]},
@@ -48,9 +51,17 @@ class DeclarationExampleTest {
     }
 
     @Test
+    void aNestedMessageWrittenAsWordsIsThoseWordsAndOneWrittenAsAKeyIsThatMessage() {
+        final Map<String, Object> example = GREETING.example(Map.of());
+
+        assertEquals("1.2 GiB", example.get("size"));
+        assertEquals(MessageRef.of("greeting"), example.get("next"));
+    }
+
+    @Test
     void aGlobalAndAnActionGetNoValue() {
         assertEquals(
-                java.util.Set.of("player.name", "time", "count"),
+                java.util.Set.of("player.name", "time", "count", "size", "next"),
                 GREETING.example(Map.of("network.name", "Elsewhere")).keySet());
     }
 }

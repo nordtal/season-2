@@ -186,24 +186,21 @@ describe("JournalPage - the phone card says each thing once", () => {
   })
 })
 
-describe("JournalPage - the subject is an exact id, asked for on Enter", () => {
-  it("asks for the typed id only once Enter is pressed, and for every entry again once it is cleared", async () => {
+describe("JournalPage - the person concerned is picked from the people Steward knows", () => {
+  it("asks for the picked person's entries, and for every entry again once none is picked", async () => {
     const fetched = backend({ journal: JOURNAL_ENTRIES })
     vi.stubGlobal("fetch", fetched)
     draw(<JournalPage />)
     const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
 
-    const field = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Discord id concerned" })
-    fireEvent.change(field, { target: { value: "300000000000000002" } })
-    await screen.findAllByText("Access granted")
-    expect(asked().some((url) => url.includes("subject="))).toBe(false)
-
-    fireEvent.submit(field)
+    expect(screen.queryByRole("searchbox", { name: "Person concerned" })).toBeNull()
+    fireEvent.click(await screen.findByRole("button", { name: "Person concerned" }))
+    fireEvent.click(await screen.findByRole("option", { name: /^bob/ }))
     await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&subject=300000000000000002"))
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear the search" }))
-    expect(field.value).toBe("")
-    expect(screen.queryByRole("button", { name: "Clear the search" })).toBeNull()
+    fireEvent.click(await screen.findByRole("button", { name: "Person concerned" }))
+    fireEvent.click(await screen.findByRole("option", { name: "none" }))
+    await waitFor(() => expect(asked().at(-1)).toBe("/api/journal?limit=200"))
   })
 })
 

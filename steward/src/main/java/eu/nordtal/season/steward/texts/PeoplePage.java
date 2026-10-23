@@ -35,8 +35,20 @@ public interface PeoplePage {
     @Name("Aura")
     MessageRef aura();
 
-    @Name("Extra spins")
+    @Name("Spins")
     MessageRef spins();
+
+    @Name("Last seen column")
+    MessageRef lastSeen();
+
+    @Name("Online now")
+    MessageRef online();
+
+    @Name("Seen at")
+    MessageRef seenAt(@Arg("at") Instant at);
+
+    @Name("Never seen")
+    MessageRef neverSeen();
 
     @Name("Active until")
     MessageRef activeUntil(@Arg("until") Instant until);
@@ -168,7 +180,7 @@ public interface PeoplePage {
     MessageRef grantAccess();
 
     @Name("Grant title")
-    MessageRef grantTitle();
+    MessageRef grantTitle(@Arg("name") String name);
 
     @Name("Granted")
     MessageRef granted();
@@ -178,12 +190,6 @@ public interface PeoplePage {
 
     @Name("Not granted")
     MessageRef notGranted();
-
-    @Name("Discord id")
-    MessageRef discordId();
-
-    @Name("Id example")
-    MessageRef idExample();
 
     @Name("Most days")
     MessageRef mostDays(@Arg("most") int most);

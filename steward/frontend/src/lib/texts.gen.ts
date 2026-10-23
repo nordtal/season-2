@@ -1318,7 +1318,6 @@ export type TextArgs = {
   }
   "steward.journal.detail": Record<string, never>
   "steward.journal.entries": Record<string, never>
-  "steward.journal.exact-id": Record<string, never>
   "steward.journal.min-days": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
   "steward.journal.reference": Record<string, never>
@@ -1730,7 +1729,6 @@ export type TextArgs = {
     becoming: Arg["duration"]
     usable: Arg["choice"]
   }
-  "steward.people.discord-id": Record<string, never>
   "steward.people.ender-chest": Record<string, never>
   "steward.people.exact-tip": {
     at: Arg["instant"]
@@ -1742,7 +1740,9 @@ export type TextArgs = {
   "steward.people.filter-name": Record<string, never>
   "steward.people.grant": Record<string, never>
   "steward.people.grant-access": Record<string, never>
-  "steward.people.grant-title": Record<string, never>
+  "steward.people.grant-title": {
+    name: Arg["text"]
+  }
   "steward.people.granted": Record<string, never>
   "steward.people.granted-by": {
     name: Arg["text"]
@@ -1750,7 +1750,6 @@ export type TextArgs = {
   "steward.people.guild": Record<string, never>
   "steward.people.hotbar": Record<string, never>
   "steward.people.hours": Record<string, never>
-  "steward.people.id-example": Record<string, never>
   "steward.people.inventories": Record<string, never>
   "steward.people.inventory-server": Record<string, never>
   "steward.people.inventory-status": {
@@ -1761,6 +1760,7 @@ export type TextArgs = {
   "steward.people.last-changed": {
     at: Arg["instant"]
   }
+  "steward.people.last-seen": Record<string, never>
   "steward.people.level": {
     level: Arg["number"]
   }
@@ -1784,6 +1784,7 @@ export type TextArgs = {
     most: Arg["number"]
   }
   "steward.people.never": Record<string, never>
+  "steward.people.never-seen": Record<string, never>
   "steward.people.next": Record<string, never>
   "steward.people.no-access": Record<string, never>
   "steward.people.no-access-tip": {
@@ -1814,6 +1815,7 @@ export type TextArgs = {
   "steward.people.nothing-changed": Record<string, never>
   "steward.people.nothing-to-revoke": Record<string, never>
   "steward.people.nothing-to-unlink": Record<string, never>
+  "steward.people.online": Record<string, never>
   "steward.people.only-linked": Record<string, never>
   "steward.people.only-unlinked": Record<string, never>
   "steward.people.over": Record<string, never>
@@ -1874,6 +1876,9 @@ export type TextArgs = {
   "steward.people.roles": Record<string, never>
   "steward.people.root-admin": Record<string, never>
   "steward.people.running": Record<string, never>
+  "steward.people.seen-at": {
+    at: Arg["instant"]
+  }
   "steward.people.some-admin": Record<string, never>
   "steward.people.source": {
     source: Arg["choice"]

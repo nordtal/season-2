@@ -126,34 +126,37 @@ describe("AccessPage - search over four things", () => {
   })
 })
 
-describe("AccessPage - the Minecraft column draws a face", () => {
-  it("shows the in-game name and a head for a linked person, not a badge", async () => {
+describe("AccessPage - a person is one element", () => {
+  it("draws the Discord and the Minecraft picture and both names in one link to the person's page", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    const row = await rowFor("Ally")
-    const cell = assertElement(row.querySelector('[data-label="Minecraft"]'), "the Minecraft cell")
-    expect(within(cell).getByText("AliceMC")).toBeTruthy()
-    expect(within(cell).queryByText("linked")).toBeNull()
-    expect(cell.querySelector("img")).toBeTruthy()
+    const cell = assertElement((await rowFor("Ally")).querySelector(":scope > td:first-child"), "the person")
+    const [link, ...more] = within(cell).getAllByRole("link")
+    expect(more).toEqual([])
+    expect(link?.getAttribute("href")).toBe("/access/214906139328839681")
+    expect(link?.textContent).toContain("Ally")
+    expect(link?.textContent).toContain("AliceMC")
+    expect(within(cell).queryAllByRole("button")).toEqual([])
   })
 
-  it("keeps the not-linked badge, with its warning colour, for somebody with no Minecraft account", async () => {
-    vi.stubGlobal("fetch", backend())
+  it("has no Minecraft or Roles column, and puts the badges after the names", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "boss", admin: true })] }))
     draw(<AccessPage />)
 
-    const row = await rowFor("bob")
-    const cell = assertElement(row.querySelector('[data-label="Minecraft"]'), "the Minecraft cell")
-    expect(within(cell).getByText("not linked")).toBeTruthy()
-  })
-
-  it("never puts the Minecraft uuid in that cell", async () => {
-    vi.stubGlobal("fetch", backend())
-    draw(<AccessPage />)
-
-    const row = await rowFor("Ally")
-    const cell = assertElement(row.querySelector('[data-label="Minecraft"]'), "the Minecraft cell")
-    expect(cell.textContent).not.toContain("11111111-2222-3333-4444-555555555555")
+    const row = await rowFor("boss")
+    expect(row.querySelector('[data-label="Minecraft"]')).toBeNull()
+    expect(row.querySelector('[data-label="Roles"]')).toBeNull()
+    expect(within(badges(row)).getByText("Admin")).toBeTruthy()
+    expect([...document.querySelectorAll("thead th")].map((head) => head.textContent)).toEqual([
+      "Person",
+      "Access",
+      "Playtime",
+      "Aura",
+      "Spins",
+      "Last seen",
+      "",
+    ])
   })
 })
 
@@ -287,8 +290,8 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 })
 
-describe("AccessPage - aura and extra spins in the list, and settable", () => {
-  it("lists each person's aura and extra spins", async () => {
+describe("AccessPage - aura and spins in the list, and settable", () => {
+  it("lists each person's aura and spins", async () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", aura: -40, spins: 3 })] }))
     draw(<AccessPage />)
 
@@ -316,7 +319,7 @@ describe("AccessPage - aura and extra spins in the list, and settable", () => {
     expect(calls[0]).toEqual({ url: "/api/people/100000000000000001/aura", body: { aura: -25 } })
   })
 
-  it("sets the extra spins as a whole number not below zero", async () => {
+  it("sets the spins as a whole number not below zero", async () => {
     const calls: { url: string; body: unknown }[] = []
     vi.stubGlobal(
       "fetch",
@@ -327,8 +330,8 @@ describe("AccessPage - aura and extra spins in the list, and settable", () => {
     )
     draw(<AccessPage />)
 
-    await clickRowAction(/extra spins/i)
-    const spins = within(await screen.findByRole("alertdialog")).getByLabelText(/extra spins/i)
+    await clickRowAction(/^spins$/i)
+    const spins = within(await screen.findByRole("alertdialog")).getByLabelText(/^spins$/i)
     for (const refused of ["-1", "1.5", ""]) {
       fireEvent.change(spins, { target: { value: refused } })
       expect(asButton(screen.getByRole("button", { name: /^save$/i })).disabled).toBe(true)
@@ -372,7 +375,7 @@ describe("AccessPage - unlink as a row action", () => {
 })
 
 function badges(row: HTMLElement): HTMLElement {
-  return assertElement(row.querySelector(":scope > td:nth-child(4)"), "the badges")
+  return assertElement(row.querySelector(":scope > td:first-child"), "the person and their badges")
 }
 
 function slots(row: HTMLElement): string[] {
@@ -405,12 +408,12 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(await actionsOf("Ally")).toContain("Revoke")
   })
 
-  it("always offers Grant, because more access can always be given", async () => {
+  it("always offers Grant access, because more access can always be given", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    expect(await actionsOf("bob")).toContain("Grant")
-    expect(await actionsOf("Ally")).toContain("Grant")
+    expect(await actionsOf("bob")).toContain("Grant access")
+    expect(await actionsOf("Ally")).toContain("Grant access")
   })
 
   it("puts every row's actions behind one popover, however few there are, so the rows line up", async () => {
@@ -424,7 +427,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
   })
 
-  it("lays every phone card out in the same five slots, and a third line only for aura or extra spins", async () => {
+  it("lays every phone card out in three lines: the person, access, and the three figures", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -439,66 +442,26 @@ describe("AccessPage - the actions of a row depend on that row", () => {
             minecraftUuid: "11111111-2222-3333-4444-555555555555",
             mcName: "PlayerMC",
             playtimeSeconds: 3_600,
+            aura: 40,
+            spins: 2,
           }),
-          person({ discordId: "3", discordUsername: "spinner", spins: 2 }),
-          person({ discordId: "4", discordUsername: "shiny", aura: 40, spins: 2 }),
         ],
       }),
     )
     draw(<AccessPage />)
 
-    /**
-     * The person and their roles come first, then access and play time, with the actions beside both. Aura and extra
-     * spins follow on a line of their own where either is not zero.
-     */
-    const card = ["start 1", "start 2", "off", "end 1", "end 2", "off", "off", "action"]
+    const card = ["wide 1", "start 2", "wide 3", "off", "off", "off", "action"]
     expect(slots(await rowFor("quiet"))).toEqual(card)
     expect(slots(await rowFor("player"))).toEqual(card)
-    expect(slots(await rowFor("spinner"))).toEqual([
-      "start 1",
-      "start 2",
-      "off",
-      "end 1",
-      "end 2",
-      "off",
-      "start 3",
-      "action",
-    ])
-    expect(slots(await rowFor("shiny"))).toEqual([
-      "start 1",
-      "start 2",
-      "off",
-      "end 1",
-      "end 2",
-      "start 3",
-      "end 3",
-      "action",
-    ])
+    const figures = assertElement((await rowFor("player")).querySelector(":scope > td:nth-child(3)"), "the figures")
+    expect(
+      within(figures)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["1h", "40", "2"])
   })
 
-  it("draws the person and their Minecraft account as one element with one popover on a phone's card", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        people: () => [
-          person({
-            discordUsername: "player",
-            minecraftUuid: "11111111-2222-3333-4444-555555555555",
-            mcName: "PlayerMC",
-          }),
-        ],
-      }),
-    )
-    draw(<AccessPage />)
-
-    const title = assertElement((await rowFor("player")).querySelector(":scope > td:first-child"), "the title")
-    const [face, ...more] = within(title).getAllByRole("button")
-    expect(more).toEqual([])
-    expect(face?.textContent).toContain("player")
-    expect(face?.textContent).toContain("PlayerMC")
-  })
-
-  it("names a paying person's missing Minecraft link and a left guild beside the name on a phone's card", async () => {
+  it("names a paying person's missing Minecraft link and a left guild beside the name", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -544,6 +507,17 @@ describe("AccessPage - the actions of a row depend on that row", () => {
 })
 
 describe("AccessPage - access changes are asked of the bot", () => {
+  it("grants from a person's row with no id to type, and has no grant of its own at the top", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<AccessPage />)
+
+    await rowFor("Ally")
+    expect(screen.queryByRole("button", { name: "Grant access" })).toBeNull()
+    const dialog = await openGrant()
+    expect(within(dialog).getByText("Grant access to Ally")).toBeTruthy()
+    expect(within(dialog).queryByRole("textbox")).toBeNull()
+  })
+
   it("refuses a grant longer than 365 days before it is sent", async () => {
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)

@@ -35,6 +35,7 @@ describe("breadcrumbsFor", () => {
       locale: "en",
       updated: "2026-09-01T00:00:00Z",
       accessActive: false,
+      online: false,
       aura: 0,
       spins: 0,
     }

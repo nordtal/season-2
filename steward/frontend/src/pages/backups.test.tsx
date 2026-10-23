@@ -157,6 +157,7 @@ function person(over: Partial<Person> = {}): Person {
     locale: "en",
     updated: "2026-09-17T00:00:00Z",
     accessActive: true,
+    online: false,
     aura: 0,
     spins: 0,
     ...over,

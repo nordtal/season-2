@@ -17,6 +17,9 @@ public interface Failures {
     @Name("Not loaded")
     MessageRef notLoaded();
 
+    @Name("Not done")
+    MessageRef notDone();
+
     @Name("HTTP status")
     MessageRef http(@Arg("status") int status);
 

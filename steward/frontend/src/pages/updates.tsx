@@ -162,7 +162,7 @@ function Available() {
 
   return (
     <Panel title={t("steward.updates.available")}>
-      {refresh.error ? <Failure error={refresh.error} /> : null}
+      {refresh.error ? <Failure error={refresh.error} write /> : null}
       <QueryState
         query={available}
         empty={{ title: t("steward.updates.nothing-to-install") }}

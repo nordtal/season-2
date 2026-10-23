@@ -927,6 +927,7 @@
     "steward.failure.docker-silent": [["Docker is not answering."]],
     "steward.failure.http": [["(HTTP ",{"v":"status","k":"number","s":"plain"},")"]],
     "steward.failure.log-lost": [["The connection to the log was lost."]],
+    "steward.failure.not-done": [["This was not done."]],
     "steward.failure.not-loaded": [["This information could not be loaded."]],
     "steward.failure.not-requested": [["Nothing was requested here."]],
     "steward.failure.smp-failed": [["The SMP failed to do this."]],

@@ -34,7 +34,8 @@ export function Empty({ title, note, action }: { title: string; note?: string; a
   )
 }
 
-export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+/** `write` is set where an action failed rather than a read, so the heading does not speak of loading. */
+export function Failure({ error, onRetry, write }: { error: unknown; onRetry?: () => void; write?: boolean }) {
   const api = error instanceof ApiError ? error : null
   const docker = api?.where === "docker"
   const agent = api?.where === "steward-agent"
@@ -53,7 +54,9 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
               ? t("steward.failure.docker-silent")
               : agent
                 ? t("steward.failure.agent-silent")
-                : t("steward.failure.not-loaded")}
+                : write
+                  ? t("steward.failure.not-done")
+                  : t("steward.failure.not-loaded")}
           </p>
           <p className="text-sm text-muted-foreground">
             {errorMessage(error)}

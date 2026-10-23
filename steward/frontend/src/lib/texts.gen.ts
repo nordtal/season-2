@@ -1172,6 +1172,7 @@ export type TextArgs = {
     status: Arg["number"]
   }
   "steward.failure.log-lost": Record<string, never>
+  "steward.failure.not-done": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
   "steward.failure.smp-failed": Record<string, never>

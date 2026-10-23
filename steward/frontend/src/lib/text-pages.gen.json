@@ -193,6 +193,7 @@
     "steward.failure.docker-silent": ["every"],
     "steward.failure.http": ["every"],
     "steward.failure.log-lost": ["services"],
+    "steward.failure.not-done": ["every"],
     "steward.failure.not-loaded": ["every"],
     "steward.failure.not-requested": ["overview","services","updates","backups","season","translations","access","payments","journal"],
     "steward.failure.smp-failed": ["access"],

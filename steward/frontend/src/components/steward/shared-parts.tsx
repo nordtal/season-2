@@ -248,7 +248,7 @@ export function SharedPartDialog({
               }
             </QueryState>
           )}
-          {save.error ? <Failure error={save.error} /> : null}
+          {save.error ? <Failure error={save.error} write /> : null}
         </div>
         <ResponsiveDialogFooter>
           {part.shared && exists ? (

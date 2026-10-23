@@ -95,7 +95,7 @@ export function AskThenAct({
           {description ? <ResponsiveAlertDialogDescription>{description}</ResponsiveAlertDialogDescription> : null}
         </ResponsiveAlertDialogHeader>
         {children}
-        {failure ? <Failure error={failure} /> : null}
+        {failure ? <Failure error={failure} write /> : null}
         {answered ?? null}
         <ResponsiveAlertDialogFooter>
           {answered ? (

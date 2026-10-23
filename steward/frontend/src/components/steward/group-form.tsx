@@ -241,7 +241,7 @@ export function ScheduleDialog({
             </div>
             {fields(own, document.writable)}
             {fields(otherDraft, Boolean(other.document?.writable))}
-            {failure ? <Failure error={failure} /> : null}
+            {failure ? <Failure error={failure} write /> : null}
           </div>
         )}
 

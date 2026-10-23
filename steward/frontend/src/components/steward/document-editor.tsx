@@ -160,8 +160,8 @@ export function DocumentEditor({
         onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
       />
       <DocumentVersions view={view} disabled={!writable || save.isPending} onRestore={submit} />
-      {save.error ? <Failure error={save.error} /> : null}
-      {send.error ? <Failure error={send.error} /> : null}
+      {save.error ? <Failure error={save.error} write /> : null}
+      {send.error ? <Failure error={send.error} write /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
       {/* The language and the save stay in reach while a long document scrolls. */}
       <PinnedRow>

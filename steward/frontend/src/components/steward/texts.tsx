@@ -219,7 +219,7 @@ export function TextsForm({
   const failure = save.error ?? takeOver.error
   const above = (
     <>
-      {failure ? <Failure error={failure} /> : null}
+      {failure ? <Failure error={failure} write /> : null}
       {warnings.length > 0 ? (
         <ul className="flex flex-col gap-1 text-xs text-warning">
           {warnings.map((warning, index) => (

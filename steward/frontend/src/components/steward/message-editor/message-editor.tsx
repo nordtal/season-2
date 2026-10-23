@@ -406,7 +406,7 @@ function PlacePreview({
         glyphs={glyphs}
         tones={tones}
       />
-      {send.error ? <Failure error={send.error} /> : null}
+      {send.error ? <Failure error={send.error} write /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
     </figure>
   )

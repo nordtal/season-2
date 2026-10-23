@@ -85,7 +85,7 @@ function PhaseCard({ season }: { season?: Season }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {/* Only while the dialog is shut. A refused switch repeats the refusal inside it. */}
-        {change.error && asked === null ? <Failure error={change.error} /> : null}
+        {change.error && asked === null ? <Failure error={change.error} write /> : null}
 
         {PHASES.map((phase) => {
           const active = phase.name === season?.phase
@@ -259,7 +259,7 @@ function DateField({
           {at ? t("steward.season.saved-at", { at }) : t("steward.season.no-date")}
         </p>
       )}
-      {change.error && !removing ? <Failure error={change.error} /> : null}
+      {change.error && !removing ? <Failure error={change.error} write /> : null}
     </div>
   )
 }

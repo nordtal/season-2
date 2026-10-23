@@ -26,4 +26,12 @@ public interface AdvancementAwardSpec {
     default int aura() {
         return 2;
     }
+
+    @Order(3)
+    @Name("Spins")
+    @Key("spins")
+    @NoExplanationNeeded
+    default int spins() {
+        return 0;
+    }
 }

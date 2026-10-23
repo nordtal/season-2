@@ -7,7 +7,7 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** The {@code advancement-awards} group pays aura for advancements. Each advancement reads it. */
+/** The {@code advancement-awards} group pays aura and spins for advancements. Each advancement reads it. */
 @ConfigSpec
 public interface AdvancementAwardsSpec {
 

@@ -170,15 +170,20 @@ public final class MessageBundles {
             return arg;
         }
         final String key = ((MessageRef) Kind.MESSAGE.example(example)).key();
+        final int slash = example.indexOf('/');
+        final String bundle = slash < 0 ? null : example.substring(0, slash).strip();
         final Map<String, String> words = new TreeMap<>();
-        packaged.texts()
-                .values()
-                .forEach(languages -> languages.forEach((language, byKey) -> {
-                    final List<String> variants = byKey.get(key);
-                    if (variants != null && !variants.isEmpty()) {
-                        words.putIfAbsent(language, variants.getFirst());
-                    }
-                }));
+        packaged.texts().forEach((name, languages) -> {
+            if (bundle != null && !bundle.equals(name)) {
+                return;
+            }
+            languages.forEach((language, byKey) -> {
+                final List<String> variants = byKey.get(key);
+                if (variants != null && !variants.isEmpty()) {
+                    words.putIfAbsent(language, variants.getFirst());
+                }
+            });
+        });
         return arg.withExampleWords(words);
     }
 

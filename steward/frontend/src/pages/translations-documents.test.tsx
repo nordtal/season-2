@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDraft, DocumentPart, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
-import { words } from "@/lib/query-fixtures"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
 
@@ -340,16 +339,17 @@ describe("an open document", { timeout: 15_000 }, () => {
           asked.push(body)
           return "bot:7"
         },
-        commands: { "bot:7": { id: "bot:7", status: "DONE", result: words("Sent to you in Discord.") } },
+        commands: { "bot:7": { id: "bot:7", status: "DONE" } },
       }),
     )
     draw(<Page />)
 
     const editor = await openContribution()
     fireEvent.change(unfold(editor), { target: { value: "Support" } })
-    fireEvent.click(within(editor).getByRole("button", { name: "Send it to me in Discord" }))
+    const send = within(editor).getByRole("button", { name: "Send it to me in Discord" })
+    fireEvent.click(send)
 
-    expect(await within(editor).findByText("Sent to you in Discord.")).toBeTruthy()
+    await waitFor(() => expect(within(send).getByRole("status").textContent).toBe("Done"))
     expect(asked).toHaveLength(1)
     expect(asked[0]).toMatchObject({ declaration: { name: "contribution" }, language: "en" })
     expect(JSON.stringify(asked[0])).toContain('"en":"Support"')
@@ -516,7 +516,7 @@ describe("an open document", { timeout: 15_000 }, () => {
           asked.push(body)
           return "smp:8"
         },
-        commands: { "smp:8": { id: "smp:8", status: "DONE", result: words("Shown to your player.") } },
+        commands: { "smp:8": { id: "smp:8", status: "DONE" } },
       }),
     )
     draw(<Page />)
@@ -528,9 +528,10 @@ describe("an open document", { timeout: 15_000 }, () => {
       .click()
     const editor = await screen.findByRole("region", { name: "Tab footer" })
     expect(within(editor).queryByRole("button", { name: "Send it to me in Discord" })).toBeNull()
-    fireEvent.click(within(editor).getByRole("button", { name: "Show it to my player in game" }))
+    const show = within(editor).getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
 
-    expect(await within(editor).findByText("Shown to your player.")).toBeTruthy()
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     expect(asked[0]).toMatchObject({ declaration: { name: "tab-footer", shape: "TAB_LIST" }, language: "en" })
   })
 

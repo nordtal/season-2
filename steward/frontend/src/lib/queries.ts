@@ -14,7 +14,6 @@ import {
   type KeyRegistered,
   type KeyRenamed,
   type KeyRemoved,
-  type CommandAsked,
   type AnnouncementsAsked,
   type ConsoleSent,
   type ConsoleTree,
@@ -46,6 +45,7 @@ import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 import { retryUnless404 } from "@/lib/queries-settings"
+import { askUntilDone, doneRun } from "@/lib/queries-commands"
 
 /** One hook per endpoint. A hook's live topics are decided here and not at the call site. */
 
@@ -347,22 +347,26 @@ export function useHungerGamesRound() {
   })
 }
 
+/** Pends until the server has done the request, and fails with its reason in words otherwise. */
 export function useGameAction() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ path, body }: { path: string; body: unknown }) => api<CommandAsked>(path, { method: "POST", body }),
-    onSuccess: () => {
+    mutationFn: ({ path, body }: { path: string; body: unknown }) => askUntilDone(client, path, body),
+    onSettled: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
 
+/** Pends until the bot has posted every language, and fails with the reason of the first that it did not post. */
 export function useSendAnnouncement() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (texts: Record<string, string>) =>
-      api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } }),
-    onSuccess: () => {
+    mutationFn: async (texts: Record<string, string>) => {
+      const asked = await api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } })
+      return Promise.all(Object.values(asked.ids).map((id) => doneRun(client, id)))
+    },
+    onSettled: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })

@@ -85,8 +85,21 @@ describe("HungerGamesActions", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
 
     await waitFor(() => expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }]))
-    await within(dialog).findByText("Objective closed.")
-    await waitFor(() => expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(screen.queryByText("Objective closed.")).toBeNull()
+  })
+
+  it("keeps the dialog open on a waiting button while the server has not done it", async () => {
+    backend({ row: { status: "PENDING" } })
+    draw(<HungerGamesActions />)
+
+    await screen.findByText("4 registered")
+    fireEvent.click(screen.getByRole("button", { name: "Start round" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+
+    expect(asButton(await within(dialog).findByRole("button", { name: "Waiting…" })).disabled).toBe(true)
+    expect(screen.getByRole("alertdialog")).toBe(dialog)
   })
 
   it("offers no second step for a refusal a confirmation cannot overrule", async () => {

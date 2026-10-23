@@ -29,13 +29,13 @@ import {
 } from "@/lib/document-edit"
 import { documentName } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { useCommandRun, useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from "@/lib/queries"
+import { useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { serviceTitle } from "@/lib/words"
 import { cn } from "cn"
 import { toast } from "sonner"
-import { RequestOutcome } from "@/components/steward/game-actions"
+import { RequestIcon } from "@/components/steward/game-actions"
 import { PinnedRow } from "@/components/steward/settings-view"
 import { Failure } from "@/components/steward/query-state"
 import {
@@ -121,7 +121,8 @@ export function DocumentEditor({
   // A modal and a channel's name are no direct message; a game text goes to the admin's player.
   const sendable = view.game || view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
   const sendLabel = view.game ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
-  const send = useSendDraft(view)
+  // The draft as it stands goes to the admin alone: the bot's direct message, or their player in game.
+  const send = useGameAction()
 
   // A restore is a save of the version's document, or of none for the packaged one.
   function submit(document: Document | null = draft) {
@@ -158,7 +159,6 @@ export function DocumentEditor({
       <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />
       {save.error ? <Failure error={save.error} write /> : null}
       {send.error ? <Failure error={send.error} write /> : null}
-      {send.run ? <RequestOutcome run={send.run} /> : null}
       {/* The language and the save stay in reach while a long document scrolls. */}
       <PinnedRow>
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-1 rounded-md border bg-card/95 p-1 backdrop-blur md:gap-2 md:p-2">
@@ -170,10 +170,16 @@ export function DocumentEditor({
               size="icon"
               aria-label={sendLabel}
               title={sendLabel}
-              disabled={refused || send.busy}
-              onClick={() => send.send(draft, language)}
+              aria-invalid={send.isError || undefined}
+              disabled={refused || send.isPending}
+              onClick={() =>
+                send.mutate({
+                  path: "/api/document-preview",
+                  body: { declaration: view.declaration, document: draft, language },
+                })
+              }
             >
-              <PaperPlaneTiltIcon aria-hidden />
+              <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
             </Button>
           ) : null}
           <span className="ml-auto flex items-center gap-1 md:gap-2">
@@ -210,26 +216,6 @@ export function ComponentCount({ view, draft, language }: { view: DocumentView; 
       })}
     </Badge>
   )
-}
-
-/** Sends the draft as it stands to the admin alone: the bot's direct message, or their player in game. */
-function useSendDraft(view: DocumentView) {
-  const action = useGameAction()
-  const [id, setId] = useState<string | null>(null)
-  const run = useCommandRun(id)
-  const settled = run.data !== undefined && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
-  return {
-    busy: action.isPending || (id !== null && !settled && !run.error),
-    error: action.error ?? run.error,
-    run: id === null ? undefined : run.data,
-    send: (document: Document, language: Language) => {
-      setId(null)
-      action.mutate(
-        { path: "/api/document-preview", body: { declaration: view.declaration, document, language } },
-        { onSuccess: (asked) => setId(asked.id) },
-      )
-    },
-  }
 }
 
 /** The packaged document beside the admin's, when a release changed the packaged one after the admin saved. */

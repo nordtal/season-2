@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetDrafts } from "@/lib/drafts"
-import { words } from "@/lib/query-fixtures"
 import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
 
 afterEach(() => {
@@ -40,7 +39,7 @@ function threePlaces(sent: unknown[]) {
           return "smp:7"
         },
         commands: {
-          "smp:7": { id: "smp:7", status: "DONE", result: words("Shown to your player in game.") },
+          "smp:7": { id: "smp:7", status: "DONE" },
         },
       },
     ),
@@ -69,8 +68,9 @@ describe("the previews", () => {
     expect(screen.getByText("9/2000")).toBeTruthy()
 
     const chat = screen.getByRole("figure", { name: "Chat" })
-    fireEvent.click(within(chat).getByRole("button", { name: "Show it to my player in game" }))
-    await within(chat).findByText("Shown to your player in game.")
+    const show = within(chat).getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     fireEvent.click(
       within(screen.getByRole("figure", { name: "Discord message" })).getByRole("button", {
         name: "Send it to me in Discord",
@@ -214,7 +214,7 @@ describe("the previews", () => {
             return "smp:3"
           },
           commands: {
-            "smp:3": { id: "smp:3", status: "DONE", result: words("Shown to your player in game.") },
+            "smp:3": { id: "smp:3", status: "DONE" },
           },
         },
       ),
@@ -224,9 +224,10 @@ describe("the previews", () => {
 
     expect(await screen.findByText("The network")).toBeTruthy()
     expect(screen.queryByText("restart.what.network")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
+    const show = screen.getByRole("button", { name: "Show it to my player in game" })
+    fireEvent.click(show)
 
-    await screen.findByText("Shown to your player in game.")
+    await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     expect(bodies).toEqual([
       {
         bundle: "smp/smp",

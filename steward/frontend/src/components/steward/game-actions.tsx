@@ -1,12 +1,13 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { useEffect, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { CheckIcon, SpinnerIcon, type Icon } from "@phosphor-icons/react"
 
 import type { CommandRun } from "@/lib/api"
-import { useCommandRun, useGameAction, useHungerGamesRound } from "@/lib/queries"
-import { choice, message, t } from "@/lib/texts"
+import { RunNotDone, useGameAction, useHungerGamesRound } from "@/lib/queries"
+import { t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
+import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -103,24 +104,14 @@ export function ActionDialog({
 }) {
   const client = useQueryClient()
   const action = useGameAction()
-  const [id, setId] = useState<string | null>(null)
-  const run = useCommandRun(id)
-  const settled = run.data && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
-
-  useEffect(() => {
-    if (settled) void client.invalidateQueries({ queryKey: [refresh] })
-  }, [settled, client, refresh])
 
   // A new question starts clean, because the answer to the last one does not answer it.
   const reset = action.reset
   const [lastAsk, setLastAsk] = useState(ask)
   if (lastAsk !== ask) {
     setLastAsk(ask)
-    setId(null)
     reset()
   }
-
-  const waiting = action.isPending || (id !== null && !settled && !run.error)
 
   return (
     <AskThenAct
@@ -131,38 +122,44 @@ export function ActionDialog({
       title={ask?.title}
       description={ask?.description}
       action={ask?.confirm}
-      acting={t("steward.form.sending")}
+      acting={t("steward.form.waiting")}
       destructive
       act={() => {
         if (!ask) return Promise.resolve()
-        return action.mutateAsync({ path: ask.path, body: ask.body }).then((answer) => setId(answer.id))
+        return action
+          .mutateAsync({ path: ask.path, body: ask.body })
+          .finally(() => void client.invalidateQueries({ queryKey: [refresh] }))
       }}
-      answered={
-        id === null ? null : (
-          <>
-            {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
-            {run.data ? <RequestOutcome run={run.data} /> : null}
-            {run.data && settled && after ? after(run.data) : null}
-          </>
-        )
-      }
-      busy={waiting}
-      closeLabel={waiting ? t("steward.form.waiting") : t("steward.form.close")}
-    />
+    >
+      {after && action.error instanceof RunNotDone ? after(action.error.run) : null}
+    </AskThenAct>
   )
 }
 
-/** EXPIRED means that no server claimed the row, so none is listening. The action did not fail. */
-export function RequestOutcome({ run }: { run: CommandRun }) {
-  const tone =
-    run.status === "FAILED" || run.status === "EXPIRED"
-      ? "border-destructive/40 bg-destructive/5 text-destructive"
-      : "border-border bg-muted text-foreground"
-
+/**
+ * The icon of a button that sends a request to a server: its own icon, if any, at rest, a spinner while the server has not done
+ * it, and a check once it has. A failure shows on the button's `aria-invalid` and in words beside it. The button
+ * carries an `aria-label`, so the status inside it does not change its name.
+ */
+export function RequestIcon({
+  request,
+  icon: Idle,
+}: {
+  request: { isPending: boolean; isSuccess: boolean }
+  icon?: Icon
+}) {
   return (
-    <div role="status" className={`flex flex-col gap-1 rounded-md border px-3 py-2 text-sm ${tone}`}>
-      <span>{t("steward.game.outcome", { status: choice(run.status) })}</span>
-      {run.result ? <span className="whitespace-pre-wrap">{message(run.result)}</span> : null}
-    </div>
+    <>
+      {request.isPending ? (
+        <SpinnerIcon aria-hidden className="animate-spin" />
+      ) : request.isSuccess ? (
+        <CheckIcon aria-hidden />
+      ) : Idle ? (
+        <Idle aria-hidden />
+      ) : null}
+      <span role="status" className="sr-only">
+        {request.isSuccess ? t("steward.form.done") : ""}
+      </span>
+    </>
   )
 }

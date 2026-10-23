@@ -66,21 +66,22 @@ function accessFile({ en = "111", de = "", overridden = false } = {}): ConfigDoc
   }
 }
 
-function backend(file: unknown = accessFile()) {
+function backend(file: unknown = accessFile(), runs: Record<string, Record<string, unknown>> = {}) {
   const sent: unknown[] = []
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
       if (init?.method === "POST" && url === "/api/announcements") {
         sent.push(JSON.parse(init.body ?? ""))
-        return json(202, { ids: { en: "21", de: "22" } })
+        return json(202, { ids: { en: "announce:2:en", de: "announce:2:de" } })
       }
       if (url === "/api/setting-groups/discord-bot/access") return json(200, file)
       if (url === "/api/discord/channels") {
         return json(200, { available: true, entries: [{ id: "111", name: "announcements", type: 0 }] })
       }
       if (url.startsWith("/api/commands/")) {
-        return json(200, { id: url.split("/").pop(), status: "DONE", result: words("Posted.") })
+        const id = decodeURIComponent(url.split("/").pop() ?? "")
+        return json(200, { id, status: "DONE", ...runs[id.split(":")[2]] })
       }
       throw new Error(`the page asked for ${url}, which this test did not expect`)
     }),
@@ -131,8 +132,26 @@ describe("AnnouncementForm", () => {
     await waitFor(() =>
       expect(sent).toEqual([{ texts: { en: "The end opens tonight.", de: "The second language, tonight." } }]),
     )
-    await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(2))
-    expect(asTextArea(screen.getByLabelText("English")).value).toBe("")
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(within(send()).getByRole("status").textContent).toBe("Done")
+    expect(screen.queryByText("Posted.")).toBeNull()
+
+    fireEvent.change(english, { target: { value: "The end opens at nine." } })
+    expect(within(send()).getByRole("status").textContent).toBe("")
+  })
+
+  it("names the reason of a language the bot did not post, and keeps the texts for another try", async () => {
+    backend(accessFile(), { de: { status: "FAILED", result: words("Not posted. No German channel.") } })
+    draw(<AnnouncementForm />)
+
+    fireEvent.change(await screen.findByLabelText("English"), { target: { value: "Tonight." } })
+    fireEvent.change(screen.getByLabelText("Deutsch"), { target: { value: "Heute Abend." } })
+    fireEvent.click(send())
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+
+    expect((await within(dialog).findByRole("alert")).textContent).toContain("Not posted. No German channel.")
+    expect(asTextArea(screen.getByLabelText("English")).value).toBe("Tonight.")
   })
 
   it("names the channel each language lands in, and says when one has none", async () => {

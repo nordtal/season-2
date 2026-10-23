@@ -10,10 +10,10 @@ import {
 } from "@/lib/announcement-targets"
 import { t } from "@/lib/texts"
 import { languageName } from "@/lib/language-names"
-import { useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { RequestOutcome } from "@/components/steward/game-actions"
-import { Failure, SkeletonText } from "@/components/steward/query-state"
+import { RequestIcon } from "@/components/steward/game-actions"
+import { Failure } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,7 +33,6 @@ export function AnnouncementForm() {
 
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [asking, setAsking] = useState(false)
-  const [sent, setSent] = useState<Record<string, string> | null>(null)
 
   const text = (tag: string) => texts[tag] ?? ""
   const complete = tags.every((tag) => text(tag).trim() !== "" && text(tag).trim().length <= MAX_LENGTH)
@@ -61,7 +60,7 @@ export function AnnouncementForm() {
                 aria-invalid={text(tag).trim().length > MAX_LENGTH || undefined}
                 onChange={(event) => {
                   setTexts((current) => ({ ...current, [tag]: event.target.value }))
-                  setSent(null)
+                  send.reset()
                 }}
               />
               {text(tag).trim().length > MAX_LENGTH ? (
@@ -73,15 +72,15 @@ export function AnnouncementForm() {
           ))}
         </div>
         {send.error && !asking ? <Failure error={send.error} write /> : null}
-        {sent ? (
-          <div className="flex flex-col gap-2">
-            {Object.entries(sent).map(([tag, id]) => (
-              <SentLine key={id} tag={tag} id={id} />
-            ))}
-          </div>
-        ) : null}
         <div className="flex justify-end">
-          <Button type="button" disabled={!complete} onClick={() => setAsking(true)}>
+          <Button
+            type="button"
+            aria-label={t("steward.announcements.send")}
+            aria-invalid={send.isError || undefined}
+            disabled={!complete || send.isPending}
+            onClick={() => setAsking(true)}
+          >
+            <RequestIcon request={send} />
             {t("steward.announcements.send")}
           </Button>
         </div>
@@ -93,13 +92,8 @@ export function AnnouncementForm() {
         title={t("steward.announcements.ask")}
         description={t("steward.announcements.where", { languages: tags.length })}
         action={t("steward.announcements.send")}
-        acting={t("steward.form.sending")}
-        act={() =>
-          send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))).then((answer) => {
-            setSent(answer.ids)
-            setTexts({})
-          })
-        }
+        acting={t("steward.form.waiting")}
+        act={() => send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()])))}
       />
     </Card>
   )
@@ -132,16 +126,5 @@ function Destination({
       <TERM_ICON.textChannel aria-hidden className="shrink-0" />
       <span className="truncate">{name ?? channel}</span>
     </span>
-  )
-}
-
-function SentLine({ tag, id }: { tag: string; id: string }) {
-  const run = useCommandRun(id)
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-muted-foreground">{languageName(tag)}</span>
-      {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
-      {run.data ? <RequestOutcome run={run.data} /> : <SkeletonText width="medium" />}
-    </div>
   )
 }

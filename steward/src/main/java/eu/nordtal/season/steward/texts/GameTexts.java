@@ -1,11 +1,10 @@
 package eu.nordtal.season.steward.texts;
 
-import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
 
-/** The texts of the game panels: the Hunger Games round, the request outcome, the milestones and the game settings. */
+/** The texts of the game panels: the Hunger Games round, the milestones and the game settings. */
 @Name("Games")
 public interface GameTexts {
 
@@ -35,9 +34,6 @@ public interface GameTexts {
 
     @Name("Start")
     MessageRef start(@Arg("anyway") boolean anyway);
-
-    @Name("Outcome")
-    MessageRef outcome(@Arg("status") InboxStatus status);
 
     @Name("Track")
     MessageRef track();

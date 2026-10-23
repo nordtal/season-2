@@ -7,14 +7,7 @@ import { useDebounced } from "@/lib/use-debounced"
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
 import { previewPlacesOf, type Places } from "@/lib/text-places"
 import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
-import {
-  useCommandRun,
-  useGameAction,
-  useGlyphs,
-  useMessageCheck,
-  useMessageExamples,
-  useMessageSyntax,
-} from "@/lib/queries"
+import { useGameAction, useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
 import { branchesOf, formatOf, parse, plainText } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
@@ -24,7 +17,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { Button } from "@/components/ui/button"
 import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RequestOutcome } from "@/components/steward/game-actions"
+import { RequestIcon } from "@/components/steward/game-actions"
 import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
@@ -381,10 +374,11 @@ function PlacePreview({
               size="icon-xs"
               aria-label={sendLabel}
               title={sendLabel}
-              disabled={send.busy || blocked}
+              aria-invalid={send.isError || undefined}
+              disabled={send.isPending || blocked}
               onClick={send.send}
             >
-              <PaperPlaneTiltIcon aria-hidden />
+              <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
             </Button>
           ) : null}
         </figcaption>
@@ -398,7 +392,6 @@ function PlacePreview({
         tones={tones}
       />
       {send.error ? <Failure error={send.error} write /> : null}
-      {send.run ? <RequestOutcome run={send.run} /> : null}
     </figure>
   )
 }
@@ -415,23 +408,13 @@ type PreviewRequest = {
 /** A value that every message has belongs to the receiving process. */
 function usePreview({ path, service, entry, language, text, fill }: PreviewRequest, shown: string | undefined) {
   const action = useGameAction()
-  const [id, setId] = useState<string | null>(null)
-  const run = useCommandRun(id)
-  const settled = run.data !== undefined && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
   const values = Object.fromEntries(
     entry.args.filter((arg) => !arg.action && !arg.global).map((arg) => [arg.name, fill(arg.name)]),
   )
+  const body = { bundle: path, key: entry.key, language, text, shown, values }
   return {
-    busy: action.isPending || (id !== null && !settled && !run.error),
-    error: action.error ?? run.error,
-    run: id === null ? undefined : run.data,
-    send: () => {
-      setId(null)
-      const body = { bundle: path, key: entry.key, language, text, shown, values }
-      action.mutate(
-        { path: "/api/message-preview", body: service === undefined ? body : { ...body, service } },
-        { onSuccess: (asked) => setId(asked.id) },
-      )
-    },
+    ...action,
+    send: () =>
+      action.mutate({ path: "/api/message-preview", body: service === undefined ? body : { ...body, service } }),
   }
 }

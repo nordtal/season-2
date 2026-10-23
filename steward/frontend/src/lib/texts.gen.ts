@@ -916,8 +916,6 @@ export type TextArgs = {
     of: Arg["choice"]
   }
   "steward.failure.agent-silent": Record<string, never>
-  "steward.failure.bot-failed": Record<string, never>
-  "steward.failure.bot-silent": Record<string, never>
   "steward.failure.docker-silent": Record<string, never>
   "steward.failure.http": {
     status: Arg["number"]
@@ -927,8 +925,12 @@ export type TextArgs = {
   "steward.failure.not-done": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
-  "steward.failure.smp-failed": Record<string, never>
-  "steward.failure.smp-silent": Record<string, never>
+  "steward.failure.server-failed": {
+    service: Arg["text"]
+  }
+  "steward.failure.server-silent": {
+    service: Arg["text"]
+  }
   "steward.failure.try-again": Record<string, never>
   "steward.failure.unreachable": Record<string, never>
   "steward.form.cancel": Record<string, never>
@@ -952,7 +954,6 @@ export type TextArgs = {
   "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
-  "steward.form.sending": Record<string, never>
   "steward.form.waiting": Record<string, never>
   "steward.form.weekday": {
     day: Arg["choice"]
@@ -996,9 +997,6 @@ export type TextArgs = {
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.objective": Record<string, never>
-  "steward.game.outcome": {
-    status: Arg["choice"]
-  }
   "steward.game.platform": Record<string, never>
   "steward.game.prize": Record<string, never>
   "steward.game.progress": {
@@ -1677,15 +1675,13 @@ export type TextArgs = {
   }
   "steward.people.window": Record<string, never>
   "steward.people.with-access": Record<string, never>
-  "steward.said.announced": {
-    posted: Arg["choice"]
-    language: Arg["text"]
-  }
   "steward.said.channels-not-published": Record<string, never>
   "steward.said.guild-not-listed": Record<string, never>
   "steward.said.message": Record<string, never>
   "steward.said.no-guild-id": Record<string, never>
-  "steward.said.preview-sent": Record<string, never>
+  "steward.said.not-announced": {
+    language: Arg["text"]
+  }
   "steward.said.setting": {
     network: Arg["choice"]
     service: Arg["text"]

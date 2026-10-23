@@ -100,21 +100,26 @@ public final class Announcements {
         return checked;
     }
 
-    /** Returns the status for the browser. */
-    static InboxStatus status(final InboxStatus status) {
-        return switch (status) {
-            case PENDING, RUNNING, DONE, FAILED, EXPIRED -> status;
+    /** Returns the status of one language's line for the browser: a line the bot did not post failed. */
+    static InboxStatus status(final Request<BotRequest> row, final String language) {
+        return switch (row.status()) {
+            case PENDING, RUNNING, FAILED, EXPIRED -> row.status();
+            case DONE -> posted(row, language).orElse(true) ? InboxStatus.DONE : InboxStatus.FAILED;
             case REFUSED -> InboxStatus.FAILED;
             case CANCELLED -> InboxStatus.EXPIRED;
         };
     }
 
-    /** Returns the result for one language once the bot has answered. */
+    /** Returns why the bot did not post the line of {@code language}, if it did not. */
     static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
+        return posted(row, language).filter(posted -> !posted).map(posted -> SAID.notAnnounced(language));
+    }
+
+    private static Optional<Boolean> posted(final Request<BotRequest> row, final String language) {
         return row.answer(BotRequest.Announce.Answer.class).stream()
                 .flatMap(answer -> answer.lines().stream())
                 .filter(line -> line.language().equals(language))
                 .findFirst()
-                .map(line -> SAID.announced(line.posted(), language));
+                .map(BotRequest.Announce.Posted::posted);
     }
 }

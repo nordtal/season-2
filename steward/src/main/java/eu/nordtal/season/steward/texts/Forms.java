@@ -57,9 +57,6 @@ public interface Forms {
     @Name("Done")
     MessageRef done();
 
-    @Name("Sending")
-    MessageRef sending();
-
     @Name("Waiting")
     MessageRef waiting();
 }

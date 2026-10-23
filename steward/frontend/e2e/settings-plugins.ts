@@ -25,9 +25,22 @@ function snapshot(): Map<string, string> {
     const full = path.join(entry.parentPath, entry.name)
     const at = path.relative(volumes, full)
     if (entry.isSymbolicLink()) files.set(at, `link:${readlinkSync(full)}`)
-    else if (entry.isFile()) files.set(at, createHash("sha256").update(readFileSync(full)).digest("hex"))
+    else if (entry.isFile()) {
+      const bytes = readUnlessGone(full)
+      if (bytes) files.set(at, createHash("sha256").update(bytes).digest("hex"))
+    }
   }
   return files
+}
+
+/** Reads a file, or nothing when a save's temporary file was renamed away since the listing. */
+function readUnlessGone(full: string): Buffer | undefined {
+  try {
+    return readFileSync(full)
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined
+    throw error
+  }
 }
 
 function changed(before: Map<string, string>, after: Map<string, string>): string[] {

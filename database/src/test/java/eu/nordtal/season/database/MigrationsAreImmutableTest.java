@@ -252,6 +252,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V89__the_proxy_records_when_a_player_was_last_online.sql",
                 "875d48f38dc92c5fdff3ebdc5f166e89c85d9f64aa06d7eedcd36e3516d861f0");
+        FROZEN.put(
+                "V90__setting_override_no_longer_holds_a_value.sql",
+                "076cc76109755df053b40b103847d34904686dbc77f7fbeb501dfcfef256bf1c");
     }
 
     @Test

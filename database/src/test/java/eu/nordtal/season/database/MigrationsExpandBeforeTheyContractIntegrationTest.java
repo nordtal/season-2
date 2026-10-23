@@ -189,11 +189,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         final TestDatabase database = TestDatabase.empty();
         database.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), before);
         Jdbi.create(database.dataSource()).useHandle(handle -> handle.execute("""
-                INSERT INTO setting_override (service, name, path, value, actor_kind, changed)
-                VALUES ('steward-agent', 'runs', 'volumes-root', '"/srv"', 'STEWARD', now());
+                INSERT INTO setting_override (service, name, path, actor_kind, changed)
+                VALUES ('steward-agent', 'runs', 'volumes-root', 'STEWARD', now());
                 INSERT INTO setting_override_node (service, name, path, node, parent, field, ordinal, kind, string, number, flag)
-                SELECT o.service, o.name, o.path, n.* FROM setting_override AS o
-                CROSS JOIN LATERAL setting_override_nodes(o.value) AS n"""));
+                SELECT 'steward-agent', 'runs', 'volumes-root', n.* FROM setting_override_nodes('"/srv"') AS n"""));
 
         // The one-shot of a new release reads its run settings before its own migrations have run.
         assertEquals(

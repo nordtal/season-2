@@ -37,7 +37,6 @@ class ColumnsAreAtomicIntegrationTest {
             "bot_inbox.outcome",
             "bot_inbox.payload",
             "hunger_games_inbox.payload",
-            "setting_override.value",
             "smp_inbox.payload",
             "steward_inbox.moving",
             "steward_inbox.outcome",

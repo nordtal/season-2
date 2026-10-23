@@ -1,7 +1,9 @@
 package eu.nordtal.season.steward.game;
 
+import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -37,7 +39,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Writes the browser's actions on the game servers as typed requests into the servers' inboxes.
  * A request is named {@code <target>:<id>}, or {@code announce:<id>:<language>} for one announcement line.
- * The bot is a target for the preview of a text or a document only.
+ * The bot is a target for the preview of a text or a document, and its access requests are followed here too.
  */
 public final class CommandApi {
 
@@ -46,24 +48,19 @@ public final class CommandApi {
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
 
-    /** The time after which a request expires. */
-    private static final Duration PATIENCE = Duration.ofMinutes(2);
+    /** The time a request in a server's inbox waits to be picked up before it expires. */
+    public static final Duration PATIENCE = Duration.ofMinutes(2);
 
-    private final @Nullable Data data;
+    private final Data data;
 
     private final Function<Context, DiscordAuth.Account> accounts;
     private final Messages refusals;
 
     /** @param refusals the database bundle that words a server's refusal */
-    public CommandApi(
-            final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts, final Messages refusals) {
+    public CommandApi(final Data data, final Function<Context, DiscordAuth.Account> accounts, final Messages refusals) {
         this.data = data;
         this.accounts = accounts;
         this.refusals = Objects.requireNonNull(refusals, "refusals");
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     /** Writes the request to the SMP inbox with a journal line and returns its name. */
@@ -72,7 +69,7 @@ public final class CommandApi {
             final SmpRequest request,
             final JournalAction action,
             final @Nullable JournalDetail detail) {
-        return "smp:" + submit(ctx, data().smp(), request, new Line(action, null, detail));
+        return "smp:" + submit(ctx, data.smp(), request, new Line(action, null, detail));
     }
 
     /** Writes the request about {@code subject} to the SMP inbox, journaled as about them, and returns its name. */
@@ -82,7 +79,7 @@ public final class CommandApi {
             final SmpRequest request,
             final JournalAction action,
             final JournalDetail detail) {
-        return "smp:" + submit(ctx, data().smp(), request, new Line(action, subject, detail));
+        return "smp:" + submit(ctx, data.smp(), request, new Line(action, subject, detail));
     }
 
     /** The journal line of a request, written with the asker as its actor. */
@@ -97,7 +94,7 @@ public final class CommandApi {
             final HungerGamesRequest request,
             final JournalAction action,
             final @Nullable JournalDetail detail) {
-        return "hunger_games:" + submit(ctx, data().hungerGames(), request, new Line(action, null, detail));
+        return "hunger_games:" + submit(ctx, data.hungerGames(), request, new Line(action, null, detail));
     }
 
     private <P> long submit(final Context ctx, final Inbox<P> inbox, final P request, final Line line) {
@@ -145,12 +142,12 @@ public final class CommandApi {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final DiscordId admin = DiscordId.of(who.id());
         if (MessagesApi.PreviewTarget.of(shown) == MessagesApi.PreviewTarget.DISCORD) {
-            return "bot:" + ask(who, data().bot(), bot.apply(admin));
+            return "bot:" + ask(who, data.bot(), bot.apply(admin));
         }
-        final UUID linked = data().access()
+        final UUID linked = data.access()
                 .linkedMinecraftAccount(admin)
                 .orElseThrow(() -> new RequestRefused(409, ANSWER.previewUnlinked()));
-        final String server = data().roster().current().stream()
+        final String server = data.roster().current().stream()
                 .filter(online -> online.uuid().equals(linked))
                 .map(OnlinePlayer::subject)
                 .filter(Objects::nonNull)
@@ -158,8 +155,8 @@ public final class CommandApi {
                 .orElse("");
         final PlayerId player = PlayerId.of(linked);
         return switch (server) {
-            case Topology.SMP -> "smp:" + ask(who, data().smp(), smp.apply(player));
-            case Topology.HUNGER_GAMES -> "hunger_games:" + ask(who, data().hungerGames(), games.apply(player));
+            case Topology.SMP -> "smp:" + ask(who, data.smp(), smp.apply(player));
+            case Topology.HUNGER_GAMES -> "hunger_games:" + ask(who, data.hungerGames(), games.apply(player));
             default -> throw new RequestRefused(409, ANSWER.previewOffline());
         };
     }
@@ -170,12 +167,16 @@ public final class CommandApi {
         return asked.id();
     }
 
-    /** The status of a request. {@code reason} is the reason of a server refusal. */
+    /**
+     * The status of a request.
+     * {@code reason} is the reason of a server refusal, {@code answer} the typed answer of a bot request that has one.
+     */
     public record CommandRun(
             String id,
             InboxStatus status,
             @Nullable MessageRef result,
-            @Nullable String reason) {}
+            @Nullable String reason,
+            @Nullable JsonObject answer) {}
 
     /** {@code GET /api/commands/{id}} answers the status of the request that {@code submit} named. */
     public void outcome(final Context ctx) {
@@ -185,9 +186,9 @@ public final class CommandApi {
             if (name.length == 3 && name[0].equals("announce")) {
                 ctx.json(announced(id, Long.parseLong(name[1]), name[2]));
             } else if (name.length == 2 && name[0].equals("smp")) {
-                ctx.json(settled(data().smp(), id, Long.parseLong(name[1])));
+                ctx.json(settled(data.smp(), id, Long.parseLong(name[1])));
             } else if (name.length == 2 && name[0].equals("hunger_games")) {
-                ctx.json(settled(data().hungerGames(), id, Long.parseLong(name[1])));
+                ctx.json(settled(data.hungerGames(), id, Long.parseLong(name[1])));
             } else if (name.length == 2 && name[0].equals("bot")) {
                 ctx.json(sent(id, Long.parseLong(name[1])));
             } else {
@@ -202,18 +203,27 @@ public final class CommandApi {
         return settled(name, inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name))));
     }
 
-    /** Returns the status of a bot preview, with the sent text once the row is done. */
+    /**
+     * Returns the status of a bot request with its typed answer.
+     * A done preview carries the sent text; an announcement is followed by language instead.
+     */
     private CommandRun sent(final String name, final long id) {
-        final Request<BotRequest> row = data().bot()
+        final Request<BotRequest> row = data.bot()
                 .find(id)
-                .filter(found -> found.payload() instanceof BotRequest.PreviewMessage
-                        || found.payload() instanceof BotRequest.PreviewDocument)
+                .filter(found -> !(found.payload() instanceof BotRequest.Announce))
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final CommandRun run = settled(name, row);
-        return row.status() == InboxStatus.DONE
-                ? new CommandRun(
-                        name, run.status(), StewardTexts.TEXTS.steward().said().previewSent(), null)
-                : run;
+        final boolean preview = row.payload() instanceof BotRequest.PreviewMessage
+                || row.payload() instanceof BotRequest.PreviewDocument;
+        final Object answer = row.answer();
+        return new CommandRun(
+                name,
+                run.status(),
+                preview && row.status() == InboxStatus.DONE
+                        ? StewardTexts.TEXTS.steward().said().previewSent()
+                        : run.result(),
+                run.reason(),
+                answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject());
     }
 
     /** Returns the status of a request and the words and reason of a refusal. */
@@ -225,12 +235,13 @@ public final class CommandApi {
                         .map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
                         .map(StewardTexts.TEXTS.steward().said()::words)
                         .orElse(null),
-                row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
+                row.refusal().map(refusal -> refusal.reason().name()).orElse(null),
+                null);
     }
 
     /** Returns the status of the announcement and the result for one language. */
     private CommandRun announced(final String name, final long id, final String language) {
-        final Request<BotRequest> row = data().bot()
+        final Request<BotRequest> row = data.bot()
                 .find(id)
                 .filter(found -> found.payload() instanceof BotRequest.Announce)
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
@@ -238,6 +249,7 @@ public final class CommandApi {
                 name,
                 Announcements.status(row.status()),
                 Announcements.result(row, language).orElse(null),
+                null,
                 null);
     }
 }

@@ -31,13 +31,13 @@ public final class SettingsApi {
 
     private final SettingStore store;
     private final AgentClient agent;
-    private final @Nullable MessageOverrideStore overrides;
+    private final MessageOverrideStore overrides;
     private final ServerTrial trial;
 
     public SettingsApi(
             final SettingStore store,
             final AgentClient agent,
-            final @Nullable MessageOverrideStore overrides,
+            final MessageOverrideStore overrides,
             final ServerTrial trial) {
         this.store = store;
         this.agent = agent;
@@ -57,11 +57,13 @@ public final class SettingsApi {
     }
 
     public void one(final Context ctx) {
-        ctx.json(documentOf(groupOf(ctx)).document(null));
+        ctx.json(documentOf(groupOf(ctx)).document());
     }
 
-    /** Writes the changed values as rows when the revision matches. The response is the group, with {@code reload}
-     * saying whether the change applies at once. */
+    /** The answer of a save: the group as stored now, and whether the change applies at once. */
+    public record Saved(SettingsDocument.Document document, Reloading reload) {}
+
+    /** Writes the changed values as rows when the revision matches, and answers {@link Saved}. */
     public void save(final Context ctx, final Actor actor) {
         final SettingStore.Group group = groupOf(ctx);
         final JsonObject body = bodyOf(ctx.body());
@@ -86,7 +88,8 @@ public final class SettingsApi {
         }
         final SettingStore.Group now =
                 store.group(group.service(), group.name()).orElse(group);
-        ctx.json(documentOf(now).document(outcomeOf(now, verdict.kind() == ServerTrial.Verdict.Kind.UNANSWERED)));
+        ctx.json(new Saved(
+                documentOf(now).document(), outcomeOf(now, verdict.kind() == ServerTrial.Verdict.Kind.UNANSWERED)));
     }
 
     private static SettingsChange changeOf(final SettingStore.Group group, final Map<String, @Nullable String> rows) {

@@ -42,7 +42,7 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
 export type GroupSave = Pick<UseMutationResult, "isPending" | "error"> & {
   mutate: (
     edit: { revision: string; changes: ConfigChanges },
-    options: { onSuccess: (saved: { reload?: ReloadOutcome }) => void },
+    options: { onSuccess: (saved: { reload: ReloadOutcome }) => void },
   ) => void
 }
 
@@ -71,7 +71,7 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
       {
         onSuccess: (saved) => {
           clearDraft(file)
-          announceSave(label, saved.reload, document.name)
+          announceSave(label, saved.reload)
         },
       },
     )

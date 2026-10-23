@@ -73,10 +73,9 @@ public final class StackApi implements AutoCloseable {
 
     private final Supplier<Nightly> nightly;
 
-    /** The plugin routes, or {@code null} without a database, which makes every route answer 503. */
-    private final @Nullable PluginsForward managedPlugins;
+    final PluginsForward plugins;
 
-    private final @Nullable SettingsApi settings;
+    final SettingsApi settings;
 
     final LogFollows logFollows;
 
@@ -102,8 +101,8 @@ public final class StackApi implements AutoCloseable {
 
     private final Refreshed<Drift> drift;
 
-    /** The pack URL of the proxy when it does not answer, or {@code null} without a database. */
-    private final @Nullable Refreshed<Optional<String>> deadPack;
+    /** The pack URL of the proxy when it does not answer. */
+    private final Refreshed<Optional<String>> deadPack;
 
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
@@ -116,16 +115,6 @@ public final class StackApi implements AutoCloseable {
     /** The console line count per service, capped at {@code LOG_CAPACITY_MAX}. */
     private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
 
-    /** Creates the API without player counts, plugins, stores or a resolve. */
-    public StackApi(
-            final AgentClient agent,
-            final UpdateDirectory updates,
-            final Nightly nightly,
-            final Clock clock,
-            final Scheduler scheduler) {
-        this(agent, updates, () -> nightly, null, null, null, null, null, null, ServerTrial.NONE, clock, scheduler);
-    }
-
     private final Clock clock;
     private final Scheduler scheduler;
 
@@ -135,25 +124,24 @@ public final class StackApi implements AutoCloseable {
      * Creates the whole API.
      *
      * @param updates the run inbox
-     * @param online the player counts and the player list, or {@code null} without a database
+     * @param online the player counts and the player list
      * @param resolve steward-agent's resolve, or {@code null}, which makes the endpoint answer 503
-     * @param managedPlugins the plugin routes, or {@code null} without a database, which makes them answer 503
-     * @param messageOverrides the message overrides, or {@code null} without a database, which refuses a save
-     * @param documentStore the admins' documents and images, or {@code null} without a database, which refuses a save
+     * @param messageOverrides the message overrides
+     * @param documentStore the admins' documents and images
      * @param nightly the current schedule
-     * @param settings every process's settings, or {@code null} without a database, which makes their routes answer 503
+     * @param settings every process's settings
      * @param trial asks a server whether it takes a settings change before it is saved
      */
     public StackApi(
             final AgentClient agent,
             final UpdateDirectory updates,
             final Supplier<Nightly> nightly,
-            final @Nullable ServicesApi online,
+            final ServicesApi online,
             final @Nullable Supplier<AgentWire.Resolve> resolve,
-            final @Nullable PluginsForward managedPlugins,
-            final @Nullable MessageOverrideStore messageOverrides,
-            final @Nullable DocumentStore documentStore,
-            final @Nullable SettingStore settings,
+            final PluginsForward plugins,
+            final MessageOverrideStore messageOverrides,
+            final DocumentStore documentStore,
+            final SettingStore settings,
             final ServerTrial trial,
             final Clock clock,
             final Scheduler scheduler) {
@@ -161,8 +149,8 @@ public final class StackApi implements AutoCloseable {
         this.scheduler = scheduler;
         this.driftRefresh = scheduler.serial();
         this.updates = updates;
-        this.managedPlugins = managedPlugins;
-        this.settings = settings == null ? null : new SettingsApi(settings, agent, messageOverrides, trial);
+        this.plugins = plugins;
+        this.settings = new SettingsApi(settings, agent, messageOverrides, trial);
         this.agent = agent;
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);
@@ -173,9 +161,7 @@ public final class StackApi implements AutoCloseable {
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
-        this.deadPack = settings == null
-                ? null
-                : new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
+        this.deadPack = new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
     }
 
     public void register(final JavalinConfig config, final Caller caller) {
@@ -197,9 +183,7 @@ public final class StackApi implements AutoCloseable {
         live.watch(Topic.SERVICES, this::serviceTable);
         live.watch(Topic.HOST, this::hostNumbers);
         live.watch(Topic.TOPOLOGY, this::network);
-        if (settings != null) {
-            live.watch(Topic.SETTINGS, settings::read);
-        }
+        live.watch(Topic.SETTINGS, settings::read);
     }
 
     public boolean agentReachable() {
@@ -215,22 +199,6 @@ public final class StackApi implements AutoCloseable {
                 log.warn("the first image comparison failed - the next request will try again: {}", failed.toString());
             }
         });
-    }
-
-    /** Returns the settings routes and refuses with 503 without a database. */
-    SettingsApi settings() {
-        if (settings == null) {
-            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.SETTINGS));
-        }
-        return settings;
-    }
-
-    /** Returns the plugin routes and refuses with 503 without a database. */
-    PluginsForward plugins() {
-        if (managedPlugins == null) {
-            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PLUGINS));
-        }
-        return managedPlugins;
     }
 
     /** The answer to {@code GET /api/services}: every row and the age of the image comparison. */
@@ -468,7 +436,7 @@ public final class StackApi implements AutoCloseable {
                 host(),
                 topology.backupVolumes(),
                 topology.mountedBy(),
-                deadPack == null ? null : deadPack.get().orElse(null));
+                deadPack.get().orElse(null));
     }
 
     /** Returns the pack URL when a GET of it does not answer 200, else empty. */

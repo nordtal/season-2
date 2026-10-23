@@ -153,6 +153,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
     revision: "rev-2",
     entries: [],
   }
+  const ANSWER = { document: SAVED, reload: { status: "APPLIED", message: { key: "steward.said.message" } } }
 
   async function save(queryClient: QueryClient, response: Response | Error) {
     if (response instanceof Error) fetched.mockRejectedValue(response)
@@ -164,7 +165,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
   }
 
   it("puts the revision and the changes in the body, at the path the listing gave", async () => {
-    await save(client(), answer(200, SAVED))
+    await save(client(), answer(200, ANSWER))
 
     const [url, init] = fetched.mock.calls[0]
     expect(url).toBe("/api/setting-groups/steward/web")
@@ -177,7 +178,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
 
   it("redraws the form from the answer, so the next save carries the new revision", async () => {
     const queryClient = client()
-    await save(queryClient, answer(200, SAVED))
+    await save(queryClient, answer(200, ANSWER))
 
     expect(queryClient.getQueryData(keys.config(FILE))).toEqual(SAVED)
   })

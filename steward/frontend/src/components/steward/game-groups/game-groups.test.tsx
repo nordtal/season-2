@@ -11,6 +11,7 @@ import { DuelsEditor } from "@/components/steward/game-groups/duels-editor"
 import { chance } from "@/components/steward/game-groups/model"
 import { WheelEditor } from "@/components/steward/game-groups/wheel-editor"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { configSaved } from "@/lib/query-fixtures"
 
 function entry(key: string, more: Partial<ConfigEntry> = {}): ConfigEntry {
   return {
@@ -143,7 +144,7 @@ function backend(saved: ConfigDocument) {
     vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
       if (init?.method === "PUT") {
         puts.push(JSON.parse(init.body ?? ""))
-        return json(saved)
+        return json(configSaved(saved))
       }
       if (url === "/api/game-data") return json(GAME)
       throw new Error(`the editor asked for ${url}, which this test did not expect`)

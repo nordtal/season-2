@@ -146,18 +146,16 @@ export function backend(
     inventories?: (discordId: string) => Record<string, unknown>
     /** A stack removal, which Steward answers itself. */
     removeStack?: (url: string, body: unknown) => void
-    /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
+    /** The bot's run of a request, by kind; DONE with an empty answer unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
 ) {
-  const asked = new Map<string, string>()
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
     if (url.endsWith("/playtime") && init?.method === "POST") {
       const answer = over.playtimePost?.(url, requestBody(init)) ?? {
         status: 202,
-        body: { id: "a-playtime", kind: "SET_PLAYTIME", status: "PENDING" },
+        body: { id: "bot:set_playtime", status: "PENDING" },
       }
-      asked.set("a-playtime", "SET_PLAYTIME")
       return json(answer.status, answer.body)
     }
     if (/^\/api\/people\/\d+\/(aura|spins)$/.test(url) && init?.method === "POST") {
@@ -169,17 +167,13 @@ export function backend(
       // steward books it itself and answers at once; the bot only reacts.
       return json(200, { outcome: "BOOKED", days: 30, until: "2026-10-01T00:00:00Z" })
     }
-    if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
+    if (url.startsWith("/api/access/")) {
       // Every other write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
-      const kind = url.split("/").pop()!.toUpperCase()
-      const id = `a-${kind.toLowerCase()}`
-      asked.set(id, kind)
-      return json(202, { id, kind, status: "PENDING" })
+      return json(202, { id: `bot:${url.split("/").pop()!}`, status: "PENDING" })
     }
-    if (url.startsWith("/api/access/requests/")) {
-      const id = url.split("/").pop()!
-      const kind = asked.get(id) ?? "UNKNOWN"
-      return json(200, over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} })
+    if (url.startsWith("/api/commands/bot:")) {
+      const id = url.slice("/api/commands/".length)
+      return json(200, over.answer?.(id.slice("bot:".length).toUpperCase()) ?? { id, status: "DONE", answer: {} })
     }
     if (url.startsWith("/api/pack-exemptions/") && init?.method === "POST") {
       return json(200, { outcome: "CHANGED" })

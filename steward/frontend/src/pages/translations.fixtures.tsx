@@ -25,6 +25,7 @@ import type {
   SharedPartChange,
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
+import { APPLIED } from "@/lib/query-fixtures"
 
 /** The fake backend, the texts and the helpers the Translations page tests share. */
 
@@ -79,7 +80,7 @@ export function text(over: Partial<MessageEntry> & { key: string }, around: Part
 }
 
 export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}): MessageTexts {
-  return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
+  return { texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
 /** A Discord document of the bot, a message of the area Contribution unless `over` and `around` say otherwise. */
@@ -102,7 +103,7 @@ export function view(
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { writable: true, documents: views, languages: ["en"], sharedParts: [], ...over }
+  return { documents: views, languages: ["en"], sharedParts: [], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
@@ -136,7 +137,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages" && init?.method === "PUT") {
       if (!put) throw new Error("the page saved, which this test did not expect")
-      const saved = { texts, warnings: [], ...put(JSON.parse(init.body ?? "")) }
+      const saved = { texts, warnings: [], reload: APPLIED, ...put(JSON.parse(init.body ?? "")) }
       texts = saved.texts
       return json(saved)
     }

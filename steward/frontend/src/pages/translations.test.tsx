@@ -567,17 +567,6 @@ describe("the editor's look", () => {
     expect(group.querySelector("button:disabled")).not.toBeNull()
     expect(dimmedByAnyTool(group)).toBe(false)
   })
-
-  it("marks a field that cannot be written as disabled", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend(listing([text({ texts: { en: ["Hello"] }, key: "a", name: "First" })], { writable: false })),
-    )
-    draw(<Page />)
-    await openKey("First")
-
-    expect((await screen.findByRole("textbox", { name: "First" })).getAttribute("aria-disabled")).toBe("true")
-  })
 })
 
 const days = () =>

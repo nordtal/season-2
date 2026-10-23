@@ -14,8 +14,10 @@ import eu.nordtal.season.steward.auth.TestAuthenticator;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
+import eu.nordtal.season.steward.stack.StackServer;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
+import io.javalin.Javalin;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
@@ -56,6 +58,10 @@ abstract class WebFixture {
     static int webPort;
 
     static Web web;
+
+    /** The running server, whose route table the route tests read. */
+    static Javalin app;
+
     static HttpClient http;
     static TestDatabase postgres;
     static Database database;
@@ -76,7 +82,8 @@ abstract class WebFixture {
         config = buildConfig();
         startDatabase();
         web = newWeb();
-        webPort = web.start(0).port();
+        app = web.start(0);
+        webPort = app.port();
     }
 
     private static void startAgent() throws IOException {
@@ -149,12 +156,11 @@ abstract class WebFixture {
     }
 
     static Web newWeb(final Data over, final AgentClient client) {
-        final StackApi stack = new StackApi(
+        final StackApi stack = StackServer.over(
                 client,
                 over.updates(),
-                new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
-                Clock.systemUTC(),
-                TestScheduler.SHARED);
+                () -> new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
+                over.dataSource());
         return new Web(
                 config,
                 () -> new Thresholds(85, 90, 36),

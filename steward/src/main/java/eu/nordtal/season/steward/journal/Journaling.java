@@ -22,11 +22,10 @@ public final class Journaling {
     /** The context attribute that holds the lines of a request. */
     private static final String LINES = "steward.journal";
 
-    private final @Nullable AuditDirectory audit;
+    private final AuditDirectory audit;
     private final Function<Context, Optional<Actor>> actor;
 
-    /** @param audit the journal, or {@code null} without a database */
-    public Journaling(final @Nullable AuditDirectory audit, final Function<Context, Optional<Actor>> actor) {
+    public Journaling(final AuditDirectory audit, final Function<Context, Optional<Actor>> actor) {
         this.audit = audit;
         this.actor = actor;
     }
@@ -58,8 +57,7 @@ public final class Journaling {
                 .map(Journaled.class::cast)
                 .findFirst()
                 .orElse(null);
-        final AuditDirectory directory = audit;
-        if (journaled == null || directory == null || ctx.statusCode() >= 400) {
+        if (journaled == null || ctx.statusCode() >= 400) {
             return;
         }
         final Optional<Actor> who = actor.apply(ctx);
@@ -74,7 +72,7 @@ public final class Journaling {
         }
         for (final Noted line : lines) {
             try {
-                directory.record(new AuditLine(journaled.action(), who.get(), line.subject(), null, line.detail()));
+                audit.record(new AuditLine(journaled.action(), who.get(), line.subject(), null, line.detail()));
             } catch (final RuntimeException failed) {
                 log.error("Could not write the journal entry {} {}", journaled.action(), line.detail(), failed);
             }

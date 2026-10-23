@@ -225,7 +225,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
         people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
         playtimePost: (url, body) => {
           calls.push({ url, body })
-          return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
+          return { status: 202, body: { id: "bot:set_playtime", status: "PENDING" } }
         },
       }),
     )
@@ -250,7 +250,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
         people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
         playtimePost: (url, body) => {
           calls.push({ url, body })
-          return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
+          return { status: 202, body: { id: "bot:set_playtime", status: "PENDING" } }
         },
       }),
     )
@@ -272,7 +272,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
       people: () => [person({ discordUsername: "alice", playtimeSeconds: 3600 })],
       playtimePost: (url, body) => {
         calls.push({ url, body })
-        return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
+        return { status: 202, body: { id: "bot:set_playtime", status: "PENDING" } }
       },
     })
     vi.stubGlobal("fetch", fetcher)
@@ -531,11 +531,10 @@ describe("AccessPage - access changes are asked of the bot", () => {
 
   it("sends the grant to the bot's inbox and waits for its answer", async () => {
     const fetched = backend({
-      answer: (kind) => ({
-        id: "a-grant",
-        kind,
+      answer: () => ({
+        id: "bot:grant",
         status: "DONE",
-        result: { until: "2026-10-25T00:00:00Z" },
+        answer: { until: "2026-10-25T00:00:00Z" },
       }),
     })
     vi.stubGlobal("fetch", fetched)
@@ -551,8 +550,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
       discordId: "214906139328839681",
       days: 30,
     })
-    expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-grant")).toBe(true)
-    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/commands"))).toBe(false)
+    expect(fetched.mock.calls.some(([url]) => url === "/api/commands/bot:grant")).toBe(true)
     success.mockRestore()
   })
 
@@ -560,9 +558,8 @@ describe("AccessPage - access changes are asked of the bot", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        answer: (kind) => ({
-          id: "a-grant",
-          kind,
+        answer: () => ({
+          id: "bot:grant",
           status: "FAILED",
         }),
       }),
@@ -579,7 +576,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
   })
 
   it("keeps the dialog open and says in it that nothing changed when the bot never picked the request up", async () => {
-    vi.stubGlobal("fetch", backend({ answer: (kind) => ({ id: "a-grant", kind, status: "EXPIRED" }) }))
+    vi.stubGlobal("fetch", backend({ answer: () => ({ id: "bot:grant", status: "EXPIRED" }) }))
     draw(<AccessPage />)
 
     const dialog = await openGrant()

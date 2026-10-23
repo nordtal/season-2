@@ -49,6 +49,7 @@ import eu.nordtal.season.steward.metric.Metrics;
 import eu.nordtal.season.steward.season.SeasonRoutes;
 import eu.nordtal.season.steward.settings.Reloading;
 import eu.nordtal.season.steward.settings.Settings;
+import eu.nordtal.season.steward.settings.SettingsApi;
 import eu.nordtal.season.steward.settings.SettingsDocument;
 import eu.nordtal.season.steward.stack.AgentApi;
 import eu.nordtal.season.steward.stack.PluginsForward;
@@ -82,7 +83,6 @@ public final class StewardWire {
             CommandApi.CommandRun.class,
             Announcements.AnnouncementsAsked.class,
             AccessApi.Settled.class,
-            AccessApi.AccessRequestRun.class,
             Person.class,
             AccessGrant.class,
             PaymentRequest.class,
@@ -114,6 +114,7 @@ public final class StewardWire {
             PluginsForward.PluginFileEdit.class,
             SettingsDocument.Location.class,
             SettingsDocument.Document.class,
+            SettingsApi.Saved.class,
             AgentWire.Descriptor.class,
             MessagesApi.Texts.class,
             MessagesApi.Saved.class,
@@ -187,6 +188,7 @@ public final class StewardWire {
             Map.entry(ImageResult.State.class, "ImageState"),
             Map.entry(SettingsDocument.Location.class, "ConfigLocation"),
             Map.entry(SettingsDocument.Document.class, "ConfigDocument"),
+            Map.entry(SettingsApi.Saved.class, "ConfigSaved"),
             Map.entry(SettingsDocument.Entry.class, "ConfigEntry"),
             Map.entry(SettingsDocument.Shape.class, "ConfigShape"),
             Map.entry(SettingsDocument.Choices.class, "ConfigChoices"),

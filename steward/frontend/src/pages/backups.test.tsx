@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Person } from "@/lib/api"
 import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
 import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
-import { changesOf } from "@/lib/query-fixtures"
+import { changesOf, configSaved } from "@/lib/query-fixtures"
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -191,13 +191,13 @@ function backend(
     }
     if (url === `/api/setting-groups/${RUNS_FILE}`) {
       if (init?.method === "PUT") {
-        return (over.putRuns ?? (() => json(200, runsConfig())))(JSON.parse(init?.body ?? ""))
+        return (over.putRuns ?? (() => json(200, configSaved(runsConfig()))))(JSON.parse(init?.body ?? ""))
       }
       return json(200, runsConfig())
     }
     if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") {
-        return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
+        return (over.put ?? (() => json(200, configSaved(stewardConfig()))))(JSON.parse(init?.body ?? ""))
       }
       return json(200, over.config ?? stewardConfig())
     }
@@ -281,11 +281,11 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
       backend({
         put: (body) => {
           toSteward = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
         putRuns: (body) => {
           toRuns = body
-          return json(200, runsConfig())
+          return json(200, configSaved(runsConfig()))
         },
       }),
     )
@@ -318,7 +318,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
       backend({
         put: (body) => {
           sent = body
-          return json(200, stewardConfig())
+          return json(200, configSaved(stewardConfig()))
         },
       }),
     )

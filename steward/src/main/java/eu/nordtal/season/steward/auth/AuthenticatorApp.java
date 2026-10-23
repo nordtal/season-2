@@ -25,14 +25,14 @@ public final class AuthenticatorApp {
 
     private final Function<Context, Sessions.Session> requireSession;
     private final SecondFactor secondFactor;
-    private final @Nullable Authenticators authenticators;
-    private final @Nullable Sessions sessions;
+    private final Authenticators authenticators;
+    private final Sessions sessions;
 
     public AuthenticatorApp(
             final Function<Context, Sessions.Session> requireSession,
             final SecondFactor secondFactor,
-            final @Nullable Authenticators authenticators,
-            final @Nullable Sessions sessions) {
+            final Authenticators authenticators,
+            final Sessions sessions) {
         this.requireSession = requireSession;
         this.secondFactor = secondFactor;
         this.authenticators = authenticators;
@@ -53,16 +53,10 @@ public final class AuthenticatorApp {
     }
 
     private Authenticators authenticators() {
-        final Authenticators found =
-                Objects.requireNonNull(authenticators, "no database - this route is not available without one");
-        if (!found.offered()) {
+        if (!authenticators.offered()) {
             throw new RequestRefused(404, ANSWER.authenticatorNotOffered());
         }
-        return found;
-    }
-
-    private Sessions sessions() {
-        return Objects.requireNonNull(sessions, "no database - this route is not available without one");
+        return authenticators;
     }
 
     public record Enrolment(String secret, String uri, Qr qr) {}
@@ -99,7 +93,7 @@ public final class AuthenticatorApp {
         accept(apps.check(who.signedInDiscordId(), code, true));
         // The first factor counts as held. A further factor leaves the step-up unchanged.
         if (!further) {
-            sessions().markVerified(who.id(), SecondFactor.StepUpLength.DEFAULT.length());
+            sessions.markVerified(who.id(), SecondFactor.StepUpLength.DEFAULT.length());
         }
         Journaling.line(ctx, who.signedInDiscordId(), null);
         ctx.status(204);
@@ -110,7 +104,7 @@ public final class AuthenticatorApp {
         final Authenticators apps = authenticators();
         final CodeAndHold typed = codeOf(ctx);
         accept(apps.check(who.signedInDiscordId(), typed.code(), false));
-        sessions().markVerified(who.id(), typed.hold().length());
+        sessions.markVerified(who.id(), typed.hold().length());
         Journaling.line(
                 ctx,
                 who.signedInDiscordId(),
@@ -125,7 +119,7 @@ public final class AuthenticatorApp {
         if (keys == 0) {
             throw new RequestRefused(409, ANSWER.lastFactor());
         }
-        if (!Objects.requireNonNull(authenticators, "no database").remove(who.signedInDiscordId())) {
+        if (!authenticators.remove(who.signedInDiscordId())) {
             throw new RequestRefused(404, ANSWER.noAuthenticator());
         }
         Journaling.line(ctx, who.signedInDiscordId(), new JournalDetail.AuthenticatorRemoved(keys));

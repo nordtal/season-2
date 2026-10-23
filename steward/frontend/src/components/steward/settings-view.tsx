@@ -76,7 +76,7 @@ export function TreeView<L>({
   nodes: TreeNode<L>[]
   draftIds: Set<string>
   matches: (value: L, query: string) => boolean
-  notice: string | null
+  notice?: string | null
   target: Target | null
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   save: ReactNode

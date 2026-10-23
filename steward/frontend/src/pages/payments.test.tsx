@@ -49,7 +49,7 @@ describe("PaymentsPage - settle as a row action", () => {
     const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")!
     expect(requestBody(call[1])).toEqual({ reference: "AB12CD" })
     await waitFor(() => expect(success).toHaveBeenCalledWith("AB12CD settled", expect.anything()))
-    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/access/requests/"))).toBe(false)
+    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/commands/"))).toBe(false)
   })
 
   // jsdom has no layout, so this checks the class that would cause the wrap.

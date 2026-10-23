@@ -5,11 +5,13 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.auth.Sessions;
+import eu.nordtal.season.steward.journal.Journaled;
 import eu.nordtal.season.steward.journal.Journaling;
-import eu.nordtal.season.steward.texts.RequestRefused;
-import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
@@ -22,17 +24,14 @@ import org.jspecify.annotations.Nullable;
 /** Serves {@code /api/alerts}: the current alerts and the channel preferences of the admin. */
 public final class AlertRoutes {
 
-    private static final StewardTexts.Steward.Answer ANSWER =
-            StewardTexts.TEXTS.steward().answer();
-
     private final Function<Context, Sessions.Session> sessions;
-    private final @Nullable AlertMonitor monitor;
-    private final @Nullable AlertPreferences preferences;
+    private final AlertMonitor monitor;
+    private final AlertPreferences preferences;
 
     public AlertRoutes(
             final Function<Context, Sessions.Session> sessions,
-            final @Nullable AlertMonitor monitor,
-            final @Nullable AlertPreferences preferences) {
+            final AlertMonitor monitor,
+            final AlertPreferences preferences) {
         this.sessions = sessions;
         this.monitor = monitor;
         this.preferences = preferences;
@@ -69,9 +68,6 @@ public final class AlertRoutes {
     }
 
     public Alerts read() {
-        if (monitor == null) {
-            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.ALERTS));
-        }
         final AlertMonitor.Snapshot now = monitor.snapshot();
         return new Alerts(
                 now.checkedAt(),
@@ -83,7 +79,7 @@ public final class AlertRoutes {
     public void preferences(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final Map<String, Map<String, Boolean>> answer = new LinkedHashMap<>();
-        preferences().of(who.signedInDiscordId()).forEach((type, channels) -> {
+        preferences.of(who.signedInDiscordId()).forEach((type, channels) -> {
             final Map<String, Boolean> shown = new LinkedHashMap<>();
             channels.forEach((channel, wanted) -> shown.put(channel.key(), wanted));
             answer.put(type.key(), shown);
@@ -101,17 +97,10 @@ public final class AlertRoutes {
         if (type == null || channel == null || body.enabled == null) {
             throw new BadRequestResponse("a notification preference is a known type, a channel and an enabled flag");
         }
-        preferences().set(who.signedInDiscordId(), type, channel, body.enabled);
+        preferences.set(who.signedInDiscordId(), type, channel, body.enabled);
         Journaling.line(
                 ctx, who.signedInDiscordId(), new JournalDetail.AlertPreferenceSet(type, channel, body.enabled));
         ctx.json(new AlertPreference(type, channel, body.enabled));
-    }
-
-    private AlertPreferences preferences() {
-        if (preferences == null) {
-            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PREFERENCES));
-        }
-        return preferences;
     }
 
     private static final class PreferenceBody {
@@ -119,5 +108,30 @@ public final class AlertRoutes {
         private @Nullable String channel;
         /** Boxed so that a missing field is a bad request, not false. */
         private @Nullable Boolean enabled;
+    }
+
+    /** Registers the alerts, an admin's preferences and the web push routes of {@code push}. */
+    public void register(final JavalinConfig cfg, final PushEndpoints push) {
+        cfg.routes.get("/api/web-push/public-key", push::publicKey, Gate.KEY_HELD);
+        cfg.routes.post(
+                "/api/web-push/subscribe",
+                push::subscribe,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.WEB_PUSH_SUBSCRIBE));
+        cfg.routes.delete(
+                "/api/web-push/subscribe",
+                push::unsubscribe,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.WEB_PUSH_UNSUBSCRIBE));
+        cfg.routes.get("/api/web-push/devices", push::devices, Gate.KEY_HELD);
+        cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_HELD, Journaled.as(JournalAction.WEB_PUSH_TEST));
+
+        cfg.routes.get("/api/alerts", this::current, Gate.KEY_HELD);
+        cfg.routes.get("/api/alerts/preferences", this::preferences, Gate.KEY_HELD);
+        cfg.routes.put(
+                "/api/alerts/preferences",
+                this::setPreference,
+                Gate.KEY_HELD,
+                Journaled.as(JournalAction.SET_ALERT_PREFERENCE));
     }
 }

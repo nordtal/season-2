@@ -147,6 +147,7 @@ export type CommandRun = {
   status: InboxStatus
   result?: MessageRef
   reason?: string
+  answer?: Record<string, unknown>
 }
 
 export type AnnouncementsAsked = {
@@ -158,13 +159,6 @@ export type Settled = {
   days?: number
   until?: string
   was?: string
-}
-
-export type AccessRequestRun = {
-  id: string
-  kind: string
-  status: InboxStatus
-  result?: Record<string, unknown>
 }
 
 export type Person = {
@@ -426,7 +420,11 @@ export type ConfigDocument = {
   writable: boolean
   revision: string
   entries: ConfigEntry[]
-  reload?: ReloadOutcome
+}
+
+export type ConfigSaved = {
+  document: ConfigDocument
+  reload: ReloadOutcome
 }
 
 export type PluginDescriptor = {
@@ -436,7 +434,6 @@ export type PluginDescriptor = {
 }
 
 export type MessageTexts = {
-  writable: boolean
   texts: MessageText[]
   languages: string[]
   colours: Record<string, Record<string, string>>
@@ -466,7 +463,6 @@ export type MessageSyntax = {
 }
 
 export type DocumentList = {
-  writable: boolean
   documents: DocumentView[]
   languages: string[]
   sharedParts: SharedPartView[]

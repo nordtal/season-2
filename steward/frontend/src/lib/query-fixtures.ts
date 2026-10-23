@@ -7,6 +7,14 @@ export function words(text: string): MessageRef {
   return { key: "steward.said.words", args: { text: { kind: "text", value: text } } }
 }
 
+/** A save's reload outcome that applied at once. */
+export const APPLIED = { status: "APPLIED", message: words("saved") } as const
+
+/** A settings save's answer: the group as stored now, applied at once. */
+export function configSaved(document: unknown) {
+  return { document, reload: APPLIED }
+}
+
 /** The URL `fetch` was actually asked for, whichever of its three argument shapes carried it. */
 export function urlOf(input: RequestInfo | URL): string {
   if (typeof input === "string") return input

@@ -2,7 +2,6 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 
 import {
   api,
-  type AccessRequestRun,
   type AdminGranted,
   type AdminRevoked,
   type CommandAsked,
@@ -21,20 +20,25 @@ import { keys } from "@/lib/query-keys"
 import { message, t } from "@/lib/texts"
 
 /**
- * Asks the bot for an access change and reads its row again until the request is final. Only the bot can apply the role, send the direct message and post the admin note.
+ * Posts a request into a server's inbox and reads its run again until it is final. The server that carries it out
+ * is the bot or the SMP, which `failed` and `silent` name when it fails or never picks the request up.
  */
-async function askTheBot(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const asked = await api<AccessRequestRun>(path, { method: "POST", body })
+async function untilFinal(
+  path: string,
+  body: unknown,
+  failed: "steward.failure.bot-failed" | "steward.failure.smp-failed",
+  silent: "steward.failure.bot-silent" | "steward.failure.smp-silent",
+): Promise<CommandRun> {
+  const asked = await api<CommandAsked>(path, { method: "POST", body })
   for (;;) {
     const change = nextChange("REQUESTS")
     try {
-      const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
-      if (row.status === "DONE") return row.result ?? {}
-      if (row.status === "FAILED") throw new Error(t("steward.failure.bot-failed"))
-      if (row.status === "EXPIRED") {
-        // EXPIRED means that the bot never picked the row up.
-        throw new Error(t("steward.failure.bot-silent"))
+      const row = await api<CommandRun>(`/api/commands/${asked.id}`)
+      if (row.status === "DONE") return row
+      if (row.status === "REFUSED" || row.status === "FAILED" || row.status === "CANCELLED") {
+        throw new Error(row.result ? message(row.result) : t(failed))
       }
+      if (row.status === "EXPIRED") throw new Error(t(silent))
       await change.arrived
     } finally {
       change.stop()
@@ -42,24 +46,18 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, un
   }
 }
 
-/** Asks the SMP for a change of one person and reads its row again until the request is final. */
+/**
+ * Asks the bot for an access change and answers its typed answer. Only the bot can apply the role, send the direct
+ * message and post the admin note.
+ */
+async function askTheBot(path: string, body: unknown): Promise<Record<string, unknown>> {
+  const run = await untilFinal(path, body, "steward.failure.bot-failed", "steward.failure.bot-silent")
+  return run.answer ?? {}
+}
+
+/** Asks the SMP for a change of one person. */
 async function askTheSmp(path: string, body: unknown): Promise<void> {
-  const asked = await api<CommandAsked>(path, { method: "POST", body })
-  for (;;) {
-    const change = nextChange("REQUESTS")
-    try {
-      const row = await api<CommandRun>(`/api/commands/${asked.id}`)
-      if (row.status === "DONE") return
-      if (row.status === "REFUSED" || row.status === "FAILED" || row.status === "CANCELLED") {
-        throw new Error(row.result ? message(row.result) : t("steward.failure.smp-failed"))
-      }
-      // EXPIRED means that the SMP never picked the row up.
-      if (row.status === "EXPIRED") throw new Error(t("steward.failure.smp-silent"))
-      await change.arrived
-    } finally {
-      change.stop()
-    }
-  }
+  await untilFinal(path, body, "steward.failure.smp-failed", "steward.failure.smp-silent")
 }
 
 export function usePeople(enabled = true) {

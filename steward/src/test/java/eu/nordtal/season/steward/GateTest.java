@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.steward.auth.Gate;
-import io.javalin.Javalin;
 import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
 import io.javalin.security.Roles;
@@ -16,26 +15,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Fails the build on a route without a decision, using the routes the real service registered. */
-class GateTest {
-
-    private static Javalin app;
-
-    @BeforeAll
-    static void start() {
-        app = RouteTable.start();
-    }
-
-    @AfterAll
-    static void stop() {
-        if (app != null) {
-            app.stop();
-        }
-    }
+class GateTest extends WebFixture {
 
     @Test
     void everyRouteCarriesExactlyOneDecision() {

@@ -85,7 +85,7 @@ function PluginText({ id, label, view }: { id: string; label: string; view: Plug
       {
         onSuccess: (saved) => {
           clearDraft(id)
-          announceSave(t("steward.settings.file-saved", { file: label }), saved.reload, label)
+          announceSave(t("steward.settings.file-saved", { file: label }), saved.reload)
         },
       },
     )

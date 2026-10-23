@@ -68,16 +68,15 @@ public final class DocumentsApi {
     private static final String SHARED_PARTS = "shared-parts/";
 
     private final AgentClient agent;
-    private final @Nullable DocumentStore store;
-    private final @Nullable SettingStore settings;
+    private final DocumentStore store;
+    private final SettingStore settings;
     private volatile @Nullable Renderer renderer;
 
     /**
-     * @param store    the admins' documents and images, or {@code null} without a database
-     * @param settings the network's languages and prices, or {@code null} for the defaults
+     * @param store    the admins' documents and images
+     * @param settings the network's languages and prices
      */
-    public DocumentsApi(
-            final AgentClient agent, final @Nullable DocumentStore store, final @Nullable SettingStore settings) {
+    public DocumentsApi(final AgentClient agent, final DocumentStore store, final SettingStore settings) {
         this.agent = agent;
         this.store = store;
         this.settings = settings;
@@ -86,12 +85,11 @@ public final class DocumentsApi {
     /**
      * Every document once, with the one an admin wrote over it.
      *
-     * @param writable  whether Steward has a database for an admin's documents
      * @param languages the network's languages, the default first
      * @param sharedParts every shared part, by name
      */
     public record DocumentList(
-            boolean writable, List<DocumentView> documents, List<String> languages, List<SharedPartView> sharedParts) {}
+            List<DocumentView> documents, List<String> languages, List<SharedPartView> sharedParts) {}
 
     /**
      * A part an admin saved for reuse.
@@ -319,7 +317,6 @@ public final class DocumentsApi {
      * @return the document's {@code namespace/name}
      */
     public String save(final Context ctx, final Actor actor) {
-        final DocumentStore stored = writable();
         final Documents.Packaged packaged = packagedOf(ctx);
         final DocumentDeclaration declaration = packaged.declaration();
         final Document document;
@@ -342,7 +339,7 @@ public final class DocumentsApi {
             throw new RequestRefused(400, ANSWER.documentRefused(declaration.id(), problems.getFirst()));
         }
         try {
-            stored.change(
+            store.change(
                     new DocumentStore.StoredDocument(
                             declaration.namespace(), declaration.name(), document, packaged.hash()),
                     actor);
@@ -360,9 +357,8 @@ public final class DocumentsApi {
      * @return the document's {@code namespace/name}
      */
     public String reset(final Context ctx, final Actor actor) {
-        final DocumentStore stored = writable();
         final DocumentDeclaration declaration = packagedOf(ctx).declaration();
-        stored.remove(declaration.namespace(), declaration.name(), actor);
+        store.remove(declaration.namespace(), declaration.name(), actor);
         ctx.json(documents());
         return declaration.id();
     }
@@ -373,24 +369,20 @@ public final class DocumentsApi {
      */
     public void versions(final Context ctx) {
         final Documents.Packaged packaged = packagedOf(ctx);
-        final DocumentStore stored = store;
         final DocumentDeclaration declaration = packaged.declaration();
-        ctx.json((stored == null
-                        ? List.<DocumentStore.Version>of()
-                        : stored.versions(declaration.namespace(), declaration.name()))
-                .stream()
-                        .map(version -> {
-                            final DocumentStore.StoredDocument saved = version.document();
-                            return new DocumentVersion(
-                                    version.id(),
-                                    saved == null
-                                            ? null
-                                            : DocumentMerge.merge(packaged, saved.document(), saved.replaced())
-                                                    .document(),
-                                    version.actor(),
-                                    version.saved());
-                        })
-                        .toList());
+        ctx.json(store.versions(declaration.namespace(), declaration.name()).stream()
+                .map(version -> {
+                    final DocumentStore.StoredDocument saved = version.document();
+                    return new DocumentVersion(
+                            version.id(),
+                            saved == null
+                                    ? null
+                                    : DocumentMerge.merge(packaged, saved.document(), saved.replaced())
+                                            .document(),
+                            version.actor(),
+                            version.saved());
+                })
+                .toList());
     }
 
     /**
@@ -441,9 +433,8 @@ public final class DocumentsApi {
             final @Nullable Part part,
             final List<Rewrite> changes,
             final Actor actor) {
-        final DocumentStore stored = writable();
         try {
-            stored.changeSharedPart(
+            store.changeSharedPart(
                     name,
                     part,
                     changes.stream()
@@ -514,11 +505,10 @@ public final class DocumentsApi {
      * It reads the type from the first bytes, not from the request header.
      */
     public void upload(final Context ctx, final Actor actor) {
-        final DocumentStore stored = writable();
         final byte[] bytes = ctx.bodyAsBytes();
         final String type =
                 mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused(IMAGE_MEBIBYTES)));
-        final long id = stored.upload(type, bytes, actor);
+        final long id = store.upload(type, bytes, actor);
         ctx.json(new Uploaded(id, DocumentStore.Image.SCHEME + id));
     }
 
@@ -547,14 +537,6 @@ public final class DocumentsApi {
                 && Arrays.equals(bytes, at, at + prefix.length, prefix, 0, prefix.length);
     }
 
-    private DocumentStore writable() {
-        final DocumentStore stored = store;
-        if (stored == null) {
-            throw new RequestRefused(403, ANSWER.noDatabase(StewardTexts.Kept.OVERRIDES));
-        }
-        return stored;
-    }
-
     private Documents.Packaged packagedOf(final Context ctx) {
         final String namespace = ctx.pathParam("namespace");
         final String name = ctx.pathParam("name");
@@ -567,10 +549,8 @@ public final class DocumentsApi {
 
     /** {@code GET /api/document-images/{id}} answers a stored image. */
     public void image(final Context ctx) {
-        final DocumentStore stored = store;
         final long id = ctx.pathParamAsClass("id", Long.class).get();
-        final DocumentStore.Image image = (stored == null ? Optional.<DocumentStore.Image>empty() : stored.image(id))
-                .orElseThrow(NotFoundResponse::new);
+        final DocumentStore.Image image = store.image(id).orElseThrow(NotFoundResponse::new);
         ctx.header("Cache-Control", "private, max-age=31536000, immutable");
         ctx.header("X-Content-Type-Options", "nosniff");
         ctx.contentType(image.mediaType());
@@ -625,14 +605,11 @@ public final class DocumentsApi {
     private DocumentList documents() {
         final Map<String, Shipped> shipped = shipped();
         final Map<String, DocumentStore.StoredDocument> written = new LinkedHashMap<>();
-        final DocumentStore stored = store;
-        if (stored != null) {
-            stored.documents(shipped.values().stream()
-                            .map(each -> each.packaged().declaration().namespace())
-                            .distinct()
-                            .toList())
-                    .forEach(document -> written.put(document.namespace() + "/" + document.name(), document));
-        }
+        store.documents(shipped.values().stream()
+                        .map(each -> each.packaged().declaration().namespace())
+                        .distinct()
+                        .toList())
+                .forEach(document -> written.put(document.namespace() + "/" + document.name(), document));
         final List<DocumentView> views = new ArrayList<>();
         shipped.forEach((id, each) -> {
             final Documents.Packaged own = each.packaged();
@@ -651,19 +628,17 @@ public final class DocumentsApi {
                     admin != null && !admin.replaced().equals(own.hash()),
                     merged.adaptations()));
         });
-        final List<SharedPartView> sharedParts = stored == null
-                ? List.of()
-                : stored.sharedParts().stream()
-                        .map(shared -> new SharedPartView(
-                                shared.name(),
-                                shared.part(),
-                                views.stream()
-                                        .filter(view -> Objects.requireNonNullElse(view.written(), NONE)
-                                                .sharedParts()
-                                                .contains(shared.name()))
-                                        .map(view -> view.declaration().id())
-                                        .toList()))
-                        .toList();
-        return new DocumentList(store != null, views, MessagesApi.languages(settings), sharedParts);
+        final List<SharedPartView> sharedParts = store.sharedParts().stream()
+                .map(shared -> new SharedPartView(
+                        shared.name(),
+                        shared.part(),
+                        views.stream()
+                                .filter(view -> Objects.requireNonNullElse(view.written(), NONE)
+                                        .sharedParts()
+                                        .contains(shared.name()))
+                                .map(view -> view.declaration().id())
+                                .toList()))
+                .toList();
+        return new DocumentList(views, MessagesApi.languages(settings), sharedParts);
     }
 }

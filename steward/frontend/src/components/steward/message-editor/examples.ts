@@ -20,18 +20,26 @@ export function fillOf(args: MessageArg[], examples: MessageExamples | undefined
   return (name, style) => valueText(exampleOf(name, args, examples), style, words)
 }
 
-/** Returns the words a preview writes values and nested messages in, by its language, once Steward's texts have arrived. */
-export function useWords(): (language: Language) => Words | undefined {
+/**
+ * Returns the words a preview writes values and nested messages in, by its language and the bundle of the text it previews,
+ * once Steward's texts have arrived.
+ */
+export function useWords(): (language: Language, bundle?: string) => Words | undefined {
   const { data } = useMessageTexts()
   const entries = useMemo(() => data?.texts.map((text) => text.entry), [data])
-  const known = useMemo(
-    () =>
-      new Map(
-        entries === undefined ? [] : (data?.languages ?? []).map((language) => [language, wordsOf(entries, language)]),
-      ),
-    [data, entries],
-  )
-  return (language) => known.get(language) ?? (entries === undefined ? undefined : wordsOf(entries, language))
+  const known = useMemo(() => {
+    // A document's preview names no bundle.
+    const bundles = new Set<string | undefined>([undefined, ...(entries ?? []).map((entry) => entry.bundle)])
+    return new Map(
+      entries === undefined
+        ? []
+        : (data?.languages ?? []).flatMap((language) =>
+            [...bundles].map((bundle) => [`${bundle ?? ""}/${language}`, wordsOf(entries, language, bundle)] as const),
+          ),
+    )
+  }, [data, entries])
+  return (language, bundle) =>
+    known.get(`${bundle ?? ""}/${language}`) ?? (entries === undefined ? undefined : wordsOf(entries, language, bundle))
 }
 
 /** The server renders each example itself, so it is sent as written: a nested message as its key. */

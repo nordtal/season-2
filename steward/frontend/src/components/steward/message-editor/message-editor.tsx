@@ -91,7 +91,7 @@ export function MessageEditor({
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
   // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
-  const fill = fillOf(entry.args, examples.data, words(language))
+  const fill = fillOf(entry.args, examples.data, words(language, entry.bundle))
   const sent = sentOf(entry.args, examples.data)
 
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)

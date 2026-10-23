@@ -66,11 +66,11 @@ export function languagesByBundle(entries: MessageEntry[], network: readonly Lan
 
 /**
  * Returns every entry's text in `language`, else in English, which a preview there writes values and nested messages in.
- * shortcut: a key two bundles share keeps the last one's text; key nested messages by bundle once that happens.
+ * A key that `bundle` shares with another bundle takes `bundle`'s text, as a process reads its own bundle over a shared one.
  */
-export function wordsOf(entries: MessageEntry[], language: Language): Words {
+export function wordsOf(entries: MessageEntry[], language: Language, bundle?: string): Words {
   const texts: Record<string, TextNode[][]> = {}
-  for (const entry of entries) {
+  for (const entry of entries.toSorted((a, b) => Number(a.bundle === bundle) - Number(b.bundle === bundle))) {
     const shown = shownOf(entry, language)
     const variants = (shown.length > 0 ? shown : shownOf(entry, ENGLISH)).flatMap((variant) => {
       const nodes = readText(variant, entry.format === "MINIMESSAGE")

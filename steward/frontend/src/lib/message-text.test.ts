@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { MessageEntry } from "@/lib/api"
-import { languagesByBundle, languagesOf } from "@/lib/message-text"
+import { languagesByBundle, languagesOf, wordsOf } from "@/lib/message-text"
 
 const won: MessageEntry = {
   bundle: "smp",
@@ -41,5 +41,16 @@ describe("languagesByBundle", () => {
     const languages = languagesByBundle([steward, written, smp], ["en", "de", "nl"])
     expect(languages.get("steward")).toEqual(["en", "fr"])
     expect(languages.get("smp")).toEqual(["en", "de", "nl"])
+  })
+})
+
+const sharedOf = (entry: MessageEntry) => wordsOf([entry], "en").texts["shared.what"]
+
+describe("wordsOf", () => {
+  it("reads a key two bundles share in the words of the bundle it is asked for", () => {
+    const smp = { ...won, key: "shared.what", texts: { en: ["The world"] } }
+    const steward = { ...smp, bundle: "steward", texts: { en: ["The page"] } }
+    expect(wordsOf([smp, steward], "en", "smp").texts["shared.what"]).toEqual(sharedOf(smp))
+    expect(wordsOf([steward, smp], "en", "steward").texts["shared.what"]).toEqual(sharedOf(steward))
   })
 })

@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.MessageSchema;
@@ -168,11 +169,12 @@ public final class MessageBundles {
         if (example == null || !Kind.MESSAGE.token().equals(arg.kind())) {
             return arg;
         }
+        final String key = ((MessageRef) Kind.MESSAGE.example(example)).key();
         final Map<String, String> words = new TreeMap<>();
         packaged.texts()
                 .values()
                 .forEach(languages -> languages.forEach((language, byKey) -> {
-                    final List<String> variants = byKey.get(example);
+                    final List<String> variants = byKey.get(key);
                     if (variants != null && !variants.isEmpty()) {
                         words.putIfAbsent(language, variants.getFirst());
                     }

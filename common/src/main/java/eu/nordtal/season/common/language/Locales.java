@@ -32,6 +32,14 @@ public final class Locales {
         return locale.getLanguage().toLowerCase(Locale.ROOT);
     }
 
+    /** Returns the capitalised name of a language in itself, such as Deutsch, or its tag when the JDK has none. */
+    public static String ownName(final Locale locale) {
+        final String own = locale.getDisplayLanguage(locale);
+        return own.isEmpty() || own.equals(locale.getLanguage())
+                ? tag(locale)
+                : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
+    }
+
     /**
      * Returns the country whose flag stands for a language, as two upper-case letters.
      * English has the British flag, unless the locale is American. A language without a flag has none.

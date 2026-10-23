@@ -117,7 +117,7 @@ public final class Announcements {
         final Locale locale = Locales.parse(language);
         return posted(row, language)
                 .filter(posted -> !posted)
-                .map(posted -> SAID.notAnnounced(locale.getDisplayLanguage(locale)));
+                .map(posted -> SAID.notAnnounced(Locales.ownName(locale)));
     }
 
     private static Optional<Boolean> posted(final Request<BotRequest> row, final String language) {

@@ -124,6 +124,17 @@ function DayPicker({
   )
 }
 
+/** A form footer's count of changed fields, shown once one has changed. */
+export function ChangedCount({ count }: { count: number }) {
+  if (count === 0) return null
+  return (
+    // Last in the sheet's reversed column, so the count stands above Save as it stands beside it on a desktop.
+    <span className="self-center text-sm text-muted-foreground tnum max-sm:order-last sm:mr-auto">
+      {t("steward.form.changed", { count })}
+    </span>
+  )
+}
+
 const NO_KEYS: readonly string[] = []
 
 /**
@@ -246,11 +257,7 @@ export function ScheduleDialog({
         )}
 
         <ResponsiveDialogFooter>
-          {count > 0 ? (
-            <span className="self-center text-sm text-muted-foreground tnum sm:mr-auto">
-              {t("steward.form.changed", { count })}
-            </span>
-          ) : null}
+          <ChangedCount count={count} />
           <ResponsiveDialogClose asChild>
             <Button type="button" variant="outline" disabled={saving}>
               {t("steward.form.cancel")}

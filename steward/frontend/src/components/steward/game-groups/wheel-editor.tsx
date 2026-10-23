@@ -122,7 +122,7 @@ function Prizes({
           const id = text(prize, "item")
           const choice = choiceFor(choices.choices, id)
           return (
-            <Fragment key={`${id}-${index}`}>
+            <Fragment key={index}>
               <li>
                 <button
                   type="button"

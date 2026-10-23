@@ -335,7 +335,9 @@ function Archives({ run }: { run?: Run }) {
 
   return (
     <Panel title={t("steward.backups.archives")}>
-      {run && backups.data && files.length === 0 ? (
+      {backups.error ? (
+        <QueryState query={backups}>{() => null}</QueryState>
+      ) : run && backups.data && files.length === 0 ? (
         <Empty title={t("steward.backups.no-archive")} />
       ) : (
         <DataTable

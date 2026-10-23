@@ -174,6 +174,7 @@ function backend(
     /** The runs only `/api/updates/{id}` answers, as an old one beyond the list's limit. */
     one?: { id: number }[]
     backups?: unknown[]
+    backupsDown?: boolean
     people?: Person[]
     /** steward-agent has not published its runs group yet. */
     noRuns?: boolean
@@ -211,6 +212,7 @@ function backend(
       return json(200, over.config ?? stewardConfig())
     }
     if (url === "/api/backups") {
+      if (over.backupsDown) return json(500, { error: "The catalogue is not readable." })
       return json(200, over.backups ?? [backup()])
     }
     if (url.startsWith("/api/backups/") && init?.method === "POST") {
@@ -607,6 +609,13 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(current).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Report" })).toBeTruthy()
     expect(screen.getByText("Save a volume")).toBeTruthy()
+  })
+
+  it("names a failed catalogue in the archives panel instead of waiting on it", async () => {
+    vi.stubGlobal("fetch", backend({ backupsDown: true }))
+    drawDetail("41")
+
+    expect(await screen.findByText(/The catalogue is not readable/)).toBeTruthy()
   })
 
   it("sends a run of another kind to its page under Updates", async () => {

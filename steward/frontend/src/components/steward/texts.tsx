@@ -384,8 +384,9 @@ function Card({
       style={{ viewTransitionName: named }}
       className={cn(
         "grid min-w-0 grid-cols-1 items-start gap-3 rounded-lg border p-3 [view-transition-class:translation-card]",
-        // Stacked, an open card steps out of the list's indent to the page's width; side by side, its preview keeps its place.
-        editing ? "max-lg:-ml-(--list-indent) lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
+        // Stacked, a card steps out of the list's indent to the tree's edge; side by side, it stays under its branch's name.
+        "max-lg:-ml-(--list-indent)",
+        editing ? "lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
       )}
     >
       <div className="flex min-h-7 min-w-0 items-start gap-2 lg:col-span-full">

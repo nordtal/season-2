@@ -36,6 +36,20 @@ public record DocumentDeclaration(
         return slots.stream().filter(slot -> slot.id().equals(id)).findFirst();
     }
 
+    /** Returns this declaration with every value's example read as its kind, as Steward's editor shows it. */
+    public DocumentDeclaration withExampleValues() {
+        return new DocumentDeclaration(
+                namespace,
+                name,
+                area,
+                shape,
+                Value.withExampleValues(values),
+                slots.stream()
+                        .map(slot -> new Slot(
+                                slot.id(), slot.type(), slot.required(), Value.withExampleValues(slot.values())))
+                        .toList());
+    }
+
     /** Returns every value a text may name: the declared ones, each button's label and the global roles. */
     public Map<String, Value> named() {
         final Map<String, Value> named = new LinkedHashMap<>(values);

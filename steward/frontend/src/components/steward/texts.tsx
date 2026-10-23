@@ -42,7 +42,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
-import { exampleOf, fillOf } from "@/components/steward/message-editor/examples"
+import { exampleOf, fillOf, useWords } from "@/components/steward/message-editor/examples"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
 import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
@@ -119,6 +119,7 @@ export function TextsForm({
   const fallbacks = useMessageFallbacks()
   const syntax = useMessageSyntax()
   const examples = useMessageExamples()
+  const words = useWords()
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const { drafts, setDraft } = useDocumentDrafts()
@@ -169,7 +170,7 @@ export function TextsForm({
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
     const format = formatOf(entry.format)
     const tags = Object.keys(tones)
-    const fill = fillOf(entry.args, examples.data, language)
+    const fill = fillOf(entry.args, examples.data, language, words(language))
     const runs = parse(text, format, tags)
     const example = (name: string) => exampleOf(name, entry.args, examples.data, language)
     return { runs: runs && branchesOf(runs, format, tags, example), text, fill }
@@ -383,8 +384,9 @@ function Card({
       style={{ viewTransitionName: named }}
       className={cn(
         "grid min-w-0 grid-cols-1 items-start gap-3 rounded-lg border p-3 [view-transition-class:translation-card]",
-        // Stacked, an open card steps out of the list's indent to the page's width; side by side, its preview keeps its place.
-        editing ? "max-lg:-ml-(--list-indent) lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
+        // Stacked, a card steps out of the list's indent to the tree's edge; side by side, it stays under its branch's name.
+        "max-lg:-ml-(--list-indent)",
+        editing ? "lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
       )}
     >
       <div className="flex min-h-7 min-w-0 items-start gap-2 lg:col-span-full">

@@ -618,8 +618,8 @@ public final class DocumentsApi {
                     ? new DocumentMerge.Merged(own.document(), List.of())
                     : DocumentMerge.merge(own, admin.document(), admin.replaced());
             views.add(new DocumentView(
-                    own.declaration(),
-                    own.declaration().named(),
+                    own.declaration().withExampleValues(),
+                    Value.withExampleValues(own.declaration().named()),
                     List.copyOf(each.services()),
                     own.declaration().shape().game(),
                     own.document(),

@@ -1,6 +1,7 @@
 package eu.nordtal.season.messages.spec;
 
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.text.Declaration;
@@ -13,10 +14,14 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -201,9 +206,13 @@ public final class MessageSchema {
                         + ", which is no kind a message can show"));
         final Example example = element.getAnnotation(Example.class);
         final Takes takes = element.getAnnotation(Takes.class);
-        if (takes != null && kind != Kind.MESSAGE) {
+        final boolean messages = kind == Kind.MESSAGE || listsMessages(element);
+        if (takes != null && !messages) {
             throw new IllegalStateException(
                     where + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
+        }
+        if (takes == null && kind == Kind.LIST && messages) {
+            throw new IllegalStateException(where + ": " + name + " is a list of messages, so it needs @Takes");
         }
         final List<String> choices = takes == null ? Kind.choices(type) : List.of(takes.value());
         if (example == null && takes != null && whole(choices.getFirst())) {
@@ -213,7 +222,10 @@ public final class MessageSchema {
         if (example == null && choices.isEmpty()) {
             throw new IllegalStateException(where + ": " + name + " needs an @Example that fits what it names");
         }
-        if (example != null && !choices.isEmpty() && !takes(choices, example.value())) {
+        if (example != null
+                && !choices.isEmpty()
+                && !Arrays.stream(kind == Kind.LIST ? example.value().split(",", -1) : new String[] {example.value()})
+                        .allMatch(item -> takes(choices, item))) {
             throw new IllegalStateException(where + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
@@ -322,6 +334,18 @@ public final class MessageSchema {
 
     public static Bundle decode(final java.io.Reader json) {
         return Json.decode(json, Bundle.class);
+    }
+
+    /** Returns whether {@code element} is a list of messages, whose items an example names as keys. */
+    private static boolean listsMessages(final AnnotatedElement element) {
+        final @Nullable Type type = switch (element) {
+            case final RecordComponent component -> component.getGenericType();
+            case final Parameter parameter -> parameter.getParameterizedType();
+            default -> null;
+        };
+        return type instanceof final ParameterizedType list
+                && List.class.isAssignableFrom((Class<?>) list.getRawType())
+                && list.getActualTypeArguments()[0] == MessageRef.class;
     }
 
     /** Returns whether a key that {@link Takes} names is a whole bundle, {@code bundle/*}. */

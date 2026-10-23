@@ -1200,6 +1200,7 @@ export type DocumentValue = {
   kind: string
   example: string
   takes?: string[]
+  exampleValue?: unknown
 }
 
 export type DocumentAdaptation = {

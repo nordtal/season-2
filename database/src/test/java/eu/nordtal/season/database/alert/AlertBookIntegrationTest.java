@@ -27,6 +27,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -99,7 +100,7 @@ class AlertBookIntegrationTest {
                         + " FROM alert_measure ORDER BY position"));
         assertEquals(
                 List.of(down),
-                steward.recent(5).stream().map(RaisedAlert::alert).toList());
+                newest(steward, 5).stream().map(RaisedAlert::alert).toList());
     }
 
     @Test
@@ -121,7 +122,7 @@ class AlertBookIntegrationTest {
         assertTrue(steward.raiseOnce(failed, Actor.STEWARD));
         assertFalse(steward.raiseOnce(failed, Actor.STEWARD), "the run was raised a second time");
 
-        final Alert read = steward.recent(5).getFirst().alert();
+        final Alert read = newest(steward, 5).getFirst().alert();
         assertEquals(
                 new JournalDetail.RunFailed(
                         run,
@@ -159,7 +160,7 @@ class AlertBookIntegrationTest {
         execute("UPDATE payment_request SET status = 'EXPIRED'");
 
         final PaymentFlagged read =
-                (PaymentFlagged) steward.recent(5).getFirst().alert().detail();
+                (PaymentFlagged) newest(steward, 5).getFirst().alert().detail();
         assertEquals(
                 new PaymentFlagged(
                         PaymentFlagged.Problem.NOT_OPEN,
@@ -198,7 +199,7 @@ class AlertBookIntegrationTest {
         raised.forEach(alert -> bot.raise(alert, Actor.BOT));
 
         final List<Alert> read =
-                new ArrayList<>(bot.recent(10).stream().map(RaisedAlert::alert).toList());
+                new ArrayList<>(newest(bot, 10).stream().map(RaisedAlert::alert).toList());
         Collections.reverse(read);
         assertEquals(raised, read);
     }
@@ -213,6 +214,19 @@ class AlertBookIntegrationTest {
 
             assertTrue(listening.awaitNotification(Duration.ofSeconds(10)), "nobody heard of the alert");
         }
+    }
+
+    /** Returns the newest alerts, newest first, read through {@code book}. */
+    private static List<RaisedAlert> newest(final AlertBook book, final int limit) {
+        final List<UUID> ids = strings(
+                        "SELECT id FROM journal_entry WHERE level IS NOT NULL ORDER BY occurred DESC, id DESC LIMIT "
+                                + limit)
+                .stream()
+                .map(UUID::fromString)
+                .toList();
+        return book.alerts(ids).stream()
+                .sorted(Comparator.comparingInt(alert -> ids.indexOf(alert.id())))
+                .toList();
     }
 
     private static void execute(final String sql) throws SQLException {

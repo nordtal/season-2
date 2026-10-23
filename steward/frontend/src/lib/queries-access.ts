@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   api,
@@ -10,14 +10,14 @@ import {
   type Exempted,
   type Settled,
   type Grant,
-  type JournalEntry,
+  type JournalPage,
   type Payment,
   type Person,
   type PlayerInventories,
   type StackRemoval,
 } from "@/lib/api"
 import { live, nextChange } from "@/lib/live"
-import { keys, type JournalFilter } from "@/lib/query-keys"
+import { keys } from "@/lib/query-keys"
 import { message, t } from "@/lib/texts"
 
 /**
@@ -134,18 +134,19 @@ export function useGrants(discordId: string | null) {
   })
 }
 
-export function useJournal(filter: JournalFilter, enabled = true) {
-  return useQuery({
-    queryKey: keys.journal(filter),
-    queryFn: () => {
-      const query = new URLSearchParams({ limit: "200" })
-      if (filter.action) query.set("action", filter.action)
-      if (filter.subject) query.set("subject", filter.subject)
-      if (filter.reference) query.set("reference", filter.reference)
-      if (filter.minDays) query.set("minDays", filter.minDays)
-      return api<JournalEntry[]>(`/api/journal?${query}`)
+/** The journal's stream under the query `q`, one page of `limit` items at a time, newest first. */
+export function useJournal(q: string, limit = 50, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: keys.journal(q, limit),
+    queryFn: ({ pageParam }) => {
+      const query = new URLSearchParams({ limit: String(limit) })
+      if (q.trim() !== "") query.set("q", q.trim())
+      if (pageParam) query.set("after", pageParam)
+      return api<JournalPage>(`/api/journal?${query}`)
     },
-    ...live("JOURNAL"),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.next,
+    ...live("JOURNAL", "RUNS"),
     enabled,
   })
 }

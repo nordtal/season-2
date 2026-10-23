@@ -82,7 +82,8 @@ final class Kinds {
                 scope,
                 record);
         Resolved.services(record, planned);
-        resolving.change(RELEASE, Release.ownVersion(), plan.seasonTag(), null);
+        Release.changed(plan.seasonTag(), Release.ownVersion())
+                .ifPresent(release -> resolving.change(RELEASE, Release.ownVersion(), release, null));
         final List<String> foreign = renewed(ForeignImages.staleForeign(topology, images), scope, holds);
 
         // A build made on this host is replaced only when the request said so.

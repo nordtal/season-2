@@ -1,13 +1,8 @@
 import { ShieldWarningIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { Icon } from "@phosphor-icons/react"
-import type { Action } from "@/lib/api"
-import { dateTime, relative } from "@/lib/format"
-import { message, t } from "@/lib/texts"
-import { Actor } from "@/components/steward/entity"
-import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
-/** An action's icon, by inbox kind or journal action, so the overview and the journal's filter draw the same one. */
+/** An action's icon, by inbox kind or journal action, so the journal draws one per action and run. */
 const KIND_ICON: Record<string, Icon> = {
   UPDATE: TERM_ICON.update,
   BACKUP: TERM_ICON.backup,
@@ -17,6 +12,7 @@ const KIND_ICON: Record<string, Icon> = {
   DOWN: TERM_ICON.down,
   SERVICE_DOWN: TERM_ICON.down,
   START: TERM_ICON.start,
+  RESTORE: TERM_ICON.restore,
   GRANT_ACCESS: TERM_ICON.grantAccess,
   UNANCHORED_GRANT: TERM_ICON.grantAccess,
   REVOKE_ACCESS: TERM_ICON.revokeAccess,
@@ -79,48 +75,4 @@ const KIND_ICON: Record<string, Icon> = {
 
 export function actionIcon(kind: string): Icon {
   return KIND_ICON[kind] ?? TERM_ICON.journal
-}
-
-export function ActionRow({ action, now }: { action?: Action; now: number }) {
-  /**
-   * A property access, so the chosen icon reads as an existing component and not as one defined in place.
-   */
-  const icons = { Icon: action ? actionIcon(action.kind) : TERM_ICON.journal }
-
-  return (
-    <li className="flex items-start gap-3 border-b border-border/60 py-3 last:border-0">
-      {action ? (
-        <span
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground"
-          aria-hidden
-        >
-          <icons.Icon className="size-4" />
-        </span>
-      ) : (
-        <Skeleton className="mt-0.5 size-8 shrink-0 rounded-full" />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {action ? (
-          <>
-            <span className="truncate text-sm font-medium">{message(action.label)}</span>
-            <span className="truncate text-xs text-muted-foreground">{message(action.extent)}</span>
-          </>
-        ) : (
-          <>
-            <SkeletonText className="w-40 text-sm" />
-            <SkeletonText className="w-56 text-xs" />
-          </>
-        )}
-        <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-          {!action ? <SkeletonText className="w-32 text-xs" /> : <Actor kind={action.actorKind} id={action.actorId} />}
-          {action ? (
-            <>
-              <span>{t("steward.overview.authored")}</span>
-              <span title={dateTime(action.occurred)}>{relative(action.occurred, now)}</span>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </li>
-  )
 }

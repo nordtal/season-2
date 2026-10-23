@@ -250,7 +250,7 @@ public final class Web {
         this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
-        this.roster = new RosterRoutes(data);
+        this.roster = new RosterRoutes(data, texts.messages());
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
         this.consoleCommands = new ConsoleCommands(data == null ? null : CommandTreeStore.using(data.dataSource()));
         this.settings = new Settings(config);
@@ -278,7 +278,7 @@ public final class Web {
                 wireAlerts(config, thresholds, stack, data, localPushSubscriptions, localVapidKeys, clock);
         this.alertMonitor = wiring.monitor();
         this.alertRouter = wiring.router();
-        this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, wiring.preferences());
+        this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), wiring.preferences());
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
@@ -322,7 +322,7 @@ public final class Web {
                         data.smp().version(),
                         data.hungerGames().version(),
                         data.bot().version()));
-        live.watch(Topic.JOURNAL, () -> data.audit().recent(1));
+        live.watch(Topic.JOURNAL, () -> data.journal().page(List.of(), null, 1));
         live.watch(
                 Topic.PEOPLE,
                 () -> List.of(

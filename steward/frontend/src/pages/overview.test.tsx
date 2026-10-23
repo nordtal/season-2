@@ -76,7 +76,7 @@ function alert(subject: string, level: "warn" | "down") {
 }
 
 function reading(alerts: unknown[], unreadable: string | null = null) {
-  return { checkedAt: new Date().toISOString(), unreadable, level: "ok", alerts, recent: [] }
+  return { checkedAt: new Date().toISOString(), unreadable, level: "ok", alerts }
 }
 
 /** `alerts` is a function, so a test can hold it open. */
@@ -104,7 +104,7 @@ function backend(over: {
     if (url === "/api/season") {
       return json(200, over.season ?? { phase: "SMP", launch: null, smpStart: null })
     }
-    if (url.startsWith("/api/journal")) return json(200, [])
+    if (url.startsWith("/api/journal")) return json(200, { items: [], terms: [] })
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
 }
@@ -123,7 +123,6 @@ function draw() {
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/alerts", component: nothing }),
   ])
   const router = createRouter({
     routeTree,

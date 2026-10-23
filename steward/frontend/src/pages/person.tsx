@@ -4,7 +4,7 @@ import type { Grant, Person } from "@/lib/api"
 import { count, dateTime } from "@/lib/format"
 import { choice, span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
-import { useGrants, useJournal, usePeople, usePersonPayments } from "@/lib/queries"
+import { useGrants, usePeople, usePersonPayments } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
@@ -13,7 +13,7 @@ import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { DataTable } from "@/components/steward/data-table"
 import { AccessBadge, LinkBadge, MemberBadge, PersonActions, RoleBadges, personName } from "@/pages/access-person"
-import { JournalTable } from "@/pages/journal"
+import { JournalStream } from "@/pages/journal"
 import { PersonInventories } from "@/pages/person-inventories"
 import { PaymentsTable } from "@/pages/payments"
 
@@ -45,7 +45,6 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
   // One clock for the page, so the badges and tables cannot disagree about "now".
   const now = useNow()
   const payments = usePersonPayments(person.discordId)
-  const journal = useJournal({ subject: person.discordId })
 
   return (
     <div className="flex flex-col gap-8">
@@ -74,13 +73,12 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
       </Panel>
 
       <Panel title={t("steward.journal.title")}>
-        <QueryState
-          query={journal}
-          empty={{ title: t("steward.people.no-entry") }}
-          isEmpty={(list) => list.length === 0}
-        >
-          {(list) => <JournalTable entries={list} concerns={false} />}
-        </QueryState>
+        <JournalStream
+          q={person.discordId}
+          days={false}
+          person={person.discordId}
+          empty={t("steward.people.no-entry")}
+        />
       </Panel>
     </div>
   )

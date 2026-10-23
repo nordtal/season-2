@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.alert;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -145,7 +146,7 @@ class AlertRouterTest {
     }
 
     @Test
-    void theAdminChannelGetsWhatItsAdminsWantMentioningOnlyThem() {
+    void theAdminChannelGetsWhatAnAdminWantsMentioningTheAdminRole() {
         // By default a service alert is not sent to Discord, and a run alert is.
         book.raise(alert(AlertType.SERVICE, Alert.Level.DOWN), Actor.STEWARD);
         final UUID failed = book.raise(alert(AlertType.RUN, Alert.Level.DOWN), Actor.STEWARD);
@@ -153,14 +154,9 @@ class AlertRouterTest {
         router.route();
 
         assertEquals(
-                List.of(new BotRequest.PostAlert(failed, List.of(FIRST))),
+                List.of(new BotRequest.PostAlert(failed, true)),
                 posted(),
-                "the bot is told which entry to draw and whom to mention");
-
-        preferences.set(SECOND, AlertType.SERVICE, AlertChannel.DISCORD, true);
-        book.raise(alert(AlertType.SERVICE, Alert.Level.DOWN), Actor.STEWARD);
-        router.route();
-        assertEquals(List.of(SECOND), posted().getFirst().mentions());
+                "the bot is told which entry to draw, and one admin wanting it is enough");
     }
 
     @Test
@@ -170,7 +166,7 @@ class AlertRouterTest {
 
         final List<BotRequest.PostAlert> posts = posted();
         assertEquals(1, posts.size());
-        assertEquals(List.of(), posts.getFirst().mentions());
+        assertFalse(posts.getFirst().mention());
     }
 
     @Test

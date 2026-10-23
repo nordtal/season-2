@@ -213,7 +213,8 @@ public class AccessBot implements AutoCloseable {
                         wiring.inboxEffects(),
                         (tag, message) -> wiring.announcements()
                                 .post(tag, locale -> core.messages().format(locale, message)),
-                        wiring.admin()::postAlert,
+                        alert -> wiring.admin()
+                                .postAlert(alert, wiring.adminRole().id(), updateFeed::failedCard),
                         payment -> wiring.bookings().tell(booked.told(payment)),
                         previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)),
                         previewed -> wiring.roles().dmAndWait(previewed.person(), previewed(core, previewed)))),

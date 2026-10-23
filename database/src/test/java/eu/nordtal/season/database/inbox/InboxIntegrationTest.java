@@ -184,10 +184,9 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void anAlertKeepsItsEntryAndMentionsThroughTheTable() {
-        final BotRequest.PostAlert alert = new BotRequest.PostAlert(
-                UUID.fromString("00000000-0000-0000-0000-000000000044"),
-                List.of(SOMEONE, DiscordId.of("400000000000000003")));
+    void anAlertKeepsItsEntryAndMentionThroughTheTable() {
+        final BotRequest.PostAlert alert =
+                new BotRequest.PostAlert(UUID.fromString("00000000-0000-0000-0000-000000000044"), true);
         inbox.submit(alert, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
         assertEquals(alert, inbox.claim().orElseThrow().payload());
     }

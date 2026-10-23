@@ -166,7 +166,7 @@ describe("the texts as a tree", () => {
     const tree = textsTree(
       [
         steward("steward.form.changed", ["Forms"]),
-        steward("steward.alerts.all-clear", ["Alerts page"]),
+        steward("steward.journal.no-entry", ["Journal page"]),
         steward("steward.shell.pages", ["Shell"]),
       ],
       PLACES,
@@ -174,8 +174,8 @@ describe("the texts as a tree", () => {
     expect(shape(tree)).toEqual([
       "[Every page > Shell]",
       "  steward/steward.shell.pages",
-      "[Alerts > Alerts page]",
-      "  steward/steward.alerts.all-clear",
+      "[Journal > Journal page]",
+      "  steward/steward.journal.no-entry",
       "[Several pages > Forms]",
       "  steward/steward.form.changed",
     ])
@@ -184,8 +184,8 @@ describe("the texts as a tree", () => {
   it("lists other bundles' texts shown in Steward after Steward's pages, apart from a page of the same name", () => {
     const tree = textsTree(
       [
-        text({ key: "alerts.disk", bundle: "admin", section: ["Alerts"], shown: ["STEWARD"] }),
-        steward("steward.alerts.all-clear", ["Alerts page"]),
+        text({ key: "journal.console", bundle: "admin", section: ["Journal"], shown: ["STEWARD"] }),
+        steward("steward.journal.no-entry", ["Journal page"]),
         steward("steward.shell.pages", ["Shell"]),
       ],
       PLACES,
@@ -193,10 +193,10 @@ describe("the texts as a tree", () => {
     expect(shape(tree)).toEqual([
       "[Every page > Shell]",
       "  steward/steward.shell.pages",
-      "[Alerts > Alerts page]",
-      "  steward/steward.alerts.all-clear",
-      "[Alerts]",
-      "  admin/alerts.disk",
+      "[Journal > Journal page]",
+      "  steward/steward.journal.no-entry",
+      "[Journal]",
+      "  admin/journal.console",
     ])
   })
 

@@ -8,7 +8,6 @@ import {
   stepUpFirst,
   type AuthenticatorEnrolment,
   type StepUpLength,
-  type Action,
   type Backup,
   type CommandRun,
   type SmpTrack,
@@ -329,15 +328,6 @@ export function useSeason(enabled = true) {
     queryKey: keys.season,
     queryFn: () => api<Season>("/api/season"),
     ...live("SEASON"),
-    enabled,
-  })
-}
-
-export function useActions(limit = 5, enabled = true) {
-  return useQuery({
-    queryKey: keys.actions(limit),
-    queryFn: () => api<Action[]>(`/api/actions?limit=${limit}`),
-    ...live("RUNS", "JOURNAL"),
     enabled,
   })
 }

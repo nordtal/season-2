@@ -118,6 +118,17 @@ export function manyMatches(): Record<string, unknown>[] {
   )
 }
 
+/** One page of the journal's stream: each entry as its item, after the given items. */
+export function journalPage(entries: Record<string, unknown>[], items: Record<string, unknown>[] = []) {
+  return {
+    items: [
+      ...items,
+      ...entries.map((entry) => ({ key: `e${String(entry.id)}`, occurred: entry.occurred, actor: entry.actor, entry })),
+    ],
+    terms: [],
+  }
+}
+
 /** Who is signed in, in every test here: the root of the admin tree below. */
 export const ME = "500000000000000000"
 
@@ -125,7 +136,10 @@ export function backend(
   over: {
     people?: () => Record<string, unknown>[]
     payments?: () => Record<string, unknown>[]
+    /** Journal entries, newest first, which the backend answers as one page of the stream. */
     journal?: () => Record<string, unknown>[]
+    /** The stream's items as they are, for alerts and runs. */
+    stream?: () => Record<string, unknown>[]
     /** One person's own requests and periods, which their page asks for by their Discord id. */
     personPayments?: (discordId: string) => Record<string, unknown>[]
     grants?: (discordId: string) => Record<string, unknown>[]
@@ -195,7 +209,8 @@ export function backend(
     if (url === "/api/game-data") return json(200, { datapacks: [], registries: {}, tags: {} })
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
-    if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
+    if (url.startsWith("/api/journal")) return json(200, journalPage(over.journal?.() ?? [], over.stream?.() ?? []))
+    if (url === "/api/alerts") return json(200, { checkedAt: "2026-09-18T09:30:00Z", level: "ok", alerts: [] })
     if (url === "/api/settings") {
       return json(200, { greenDays: 3, yellowDays: 7, minecraftHeadBaseUrl: "https://crafatar.com/avatars" })
     }

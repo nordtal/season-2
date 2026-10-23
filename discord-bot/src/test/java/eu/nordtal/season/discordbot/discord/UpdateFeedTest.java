@@ -3,6 +3,7 @@ package eu.nordtal.season.discordbot.discord;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -322,6 +323,21 @@ class UpdateFeedTest {
                 board.edited,
                 "the message id arrives on a JDA thread and may never arrive at all; the row is the"
                         + " record and the card is only a drawing of it");
+    }
+
+    @Test
+    void aFailedRunsCardIsHandedOnceToTheAlertThatTakesItsPlace() {
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(2L, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.FAILED), NOW));
+        rows.put(row(3L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.FAILED), NOW));
+        feed.tick();
+
+        assertEquals("msg-1", feed.failedCard(1L), "failed while it was followed");
+        assertEquals("msg-2", feed.failedCard(2L), "failed before the feed saw it");
+        assertNull(feed.failedCard(1L), "handed over once");
+        assertNull(feed.failedCard(3L), "a run that went well keeps its card");
     }
 
     @Test

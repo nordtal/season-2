@@ -59,7 +59,7 @@ class RosterApiTest extends WebTestSupport {
     }
 
     @Test
-    void theJournalIsFilteredByAPaymentReferenceAndByTheLeastDays() throws Exception {
+    void theJournalIsSearchedByAPaymentReferenceAndByTheLeastDays() throws Exception {
         final AuditDirectory journal = AuditDirectory.using(WebFixture.postgres.dataSource());
         final PaymentRequests payments = new PaymentRequests(WebFixture.postgres.dataSource());
         final DiscordId payer = DiscordId.of("700000000000000003");
@@ -78,9 +78,9 @@ class RosterApiTest extends WebTestSupport {
         }
         final String reference = route.reference();
         try {
-            assertEquals(List.of(reference), references("/api/journal?reference=" + reference));
-            assertEquals(List.of(reference), references("/api/journal?reference=" + reference + "&minDays=30"));
-            assertEquals(List.of(), references("/api/journal?reference=" + reference + "&minDays=31"));
+            assertEquals(List.of(reference), references("/api/journal?q=" + reference));
+            assertEquals(List.of(reference), references("/api/journal?q=" + reference + "+30d"));
+            assertEquals(List.of(), references("/api/journal?q=" + reference + "+31d"));
         } finally {
             sql("DELETE FROM journal_entry WHERE subject = '" + payer + "'");
             sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000003', '700000000000000004')");
@@ -90,8 +90,9 @@ class RosterApiTest extends WebTestSupport {
     private static List<String> references(final String query) throws Exception {
         final HttpResponse<String> answer = get(query);
         assertEquals(200, answer.statusCode(), answer.body());
-        return GSON.fromJson(answer.body(), JsonArray.class).asList().stream()
-                .map(entry -> entry.getAsJsonObject()
+        return GSON.fromJson(answer.body(), JsonObject.class).getAsJsonArray("items").asList().stream()
+                .map(item -> item.getAsJsonObject()
+                        .getAsJsonObject("entry")
                         .getAsJsonObject("line")
                         .getAsJsonObject("args")
                         .getAsJsonObject("reference")

@@ -14,6 +14,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Sets the Discord admin role of each member to match the admin tree in the database.
@@ -40,6 +41,11 @@ public final class AdminRole {
         this.roles = roles;
         this.admins = admins;
         this.alerts = new AlertOnce(adminLog::alert);
+    }
+
+    /** Returns the admin role's id, or {@code null} while the guild has none. */
+    public @Nullable String id() {
+        return roles.id(GuildRoles.ADMIN).orElse(null);
     }
 
     public void reconcile() {

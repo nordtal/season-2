@@ -51,7 +51,6 @@ final class RouteTable {
         final StackApi stack = new StackApi(
                 agent,
                 FakeDirectories.updates(),
-                FakeDirectories.audit(),
                 new StackApi.Nightly("04:45", List.of(), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
                 Clock.systemUTC(),
                 TestScheduler.SHARED);

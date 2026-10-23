@@ -30,8 +30,8 @@ public interface AlertBook {
     /** Marks every unrouted alert as routed and returns them, oldest first. Steward only. */
     List<RaisedAlert> claimUnrouted();
 
-    /** Returns at most {@code limit} alerts, newest first. */
-    List<RaisedAlert> recent(int limit);
+    /** Returns the alerts of the entries {@code ids} in no order, leaving out an entry that is no alert. */
+    List<RaisedAlert> alerts(List<UUID> ids);
 
     /** Returns the alert of the entry {@code id}, empty for an entry that is no alert. */
     Optional<RaisedAlert> alert(UUID id);

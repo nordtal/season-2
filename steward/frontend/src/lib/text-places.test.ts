@@ -65,7 +65,7 @@ describe("the group and the previews of a text", () => {
 
 describe("the page a text of Steward's is on", () => {
   it("is the one page whose code names it", () => {
-    expect(pageGroupOf(entry({ bundle: "steward", key: "steward.alerts.all-clear" }))).toBe("alerts")
+    expect(pageGroupOf(entry({ bundle: "steward", key: "steward.journal.no-entry" }))).toBe("journal")
   })
 
   it("is every page for a text the shell names", () => {
@@ -82,10 +82,10 @@ describe("the page a text of Steward's is on", () => {
     const answer = entry({ bundle: "steward", key: "steward.answer.no-backup" })
     expect(pageGroupOf(answer)).toBe("backups")
     expect(isAnswer(answer)).toBe(true)
-    expect(isAnswer(entry({ bundle: "steward", key: "steward.alerts.all-clear" }))).toBe(false)
+    expect(isAnswer(entry({ bundle: "steward", key: "steward.journal.no-entry" }))).toBe(false)
   })
 
   it("is none for another bundle's text of the same key", () => {
-    expect(pagesOf(entry({ bundle: "smp", key: "steward.alerts.all-clear" }))).toEqual([])
+    expect(pagesOf(entry({ bundle: "smp", key: "steward.journal.no-entry" }))).toEqual([])
   })
 })

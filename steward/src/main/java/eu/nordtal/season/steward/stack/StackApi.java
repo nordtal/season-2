@@ -3,7 +3,6 @@ package eu.nordtal.season.steward.stack;
 import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.JournalDetail;
-import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -113,7 +112,6 @@ public final class StackApi implements AutoCloseable {
 
     final MessagesApi messages;
     final DocumentsApi documents;
-    final ActionsApi actions;
     private final DiskUsage disk;
     /** The console line count per service, capped at {@code LOG_CAPACITY_MAX}. */
     private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
@@ -122,24 +120,10 @@ public final class StackApi implements AutoCloseable {
     public StackApi(
             final AgentClient agent,
             final UpdateDirectory updates,
-            final AuditDirectory audit,
             final Nightly nightly,
             final Clock clock,
             final Scheduler scheduler) {
-        this(
-                agent,
-                updates,
-                audit,
-                () -> nightly,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                ServerTrial.NONE,
-                clock,
-                scheduler);
+        this(agent, updates, () -> nightly, null, null, null, null, null, null, ServerTrial.NONE, clock, scheduler);
     }
 
     private final Clock clock;
@@ -151,7 +135,6 @@ public final class StackApi implements AutoCloseable {
      * Creates the whole API.
      *
      * @param updates the run inbox
-     * @param audit the journal, for {@link ActionsApi}
      * @param online the player counts and the player list, or {@code null} without a database
      * @param resolve steward-agent's resolve, or {@code null}, which makes the endpoint answer 503
      * @param managedPlugins the plugin routes, or {@code null} without a database, which makes them answer 503
@@ -164,7 +147,6 @@ public final class StackApi implements AutoCloseable {
     public StackApi(
             final AgentClient agent,
             final UpdateDirectory updates,
-            final AuditDirectory audit,
             final Supplier<Nightly> nightly,
             final @Nullable ServicesApi online,
             final @Nullable Supplier<AgentWire.Resolve> resolve,
@@ -185,7 +167,6 @@ public final class StackApi implements AutoCloseable {
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);
         this.documents = new DocumentsApi(agent, documentStore, settings);
-        this.actions = new ActionsApi(updates, audit);
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
         this.serviceRows = new ServiceRows(agent, updates, online);

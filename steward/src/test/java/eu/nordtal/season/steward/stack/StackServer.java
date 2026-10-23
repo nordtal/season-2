@@ -38,7 +38,6 @@ final class StackServer {
         return new StackApi(
                 new AgentClient(agent.client()),
                 FakeDirectories.updates(),
-                FakeDirectories.audit(),
                 new StackApi.Nightly(
                         "04:45",
                         List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),

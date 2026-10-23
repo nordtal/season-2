@@ -16,8 +16,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -69,21 +72,31 @@ class LiveStreamTest extends WebTestSupport {
 
     @Test
     void aServerPublishingAChangedCommandTreeIsAnnouncedAsAChangeOfTheCommands() throws Exception {
+        final ScheduledExecutorService publishing = Executors.newSingleThreadScheduledExecutor();
         try (Socket tab = openTheStream()) {
             final BufferedReader lines =
                     new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             assertTrue(readUntil(lines, "text/event-stream"), "the stream did not open");
-            Thread.sleep(2_500);
+            // A tree published before the first pass read the topic is no change, so a new one follows each second.
+            final AtomicInteger round = new AtomicInteger();
+            final ScheduledFuture<?> publisher = publishing.scheduleWithFixedDelay(
+                    () -> CommandTreeStore.using(postgres.dataSourceAs(DatabaseRole.SMP))
+                            .publish(
+                                    "smp",
+                                    new CommandTree(List.of(
+                                            new CommandTree.Node("", null, null, List.of(1), null),
+                                            new CommandTree.Node(
+                                                    "milestone" + round.incrementAndGet(), null, true, null, null)))),
+                    2_500,
+                    1_000,
+                    TimeUnit.MILLISECONDS);
 
-            CommandTreeStore.using(postgres.dataSourceAs(DatabaseRole.SMP))
-                    .publish(
-                            "smp",
-                            new CommandTree(List.of(
-                                    new CommandTree.Node("", null, null, List.of(1), null),
-                                    new CommandTree.Node("milestone", null, true, null, null))));
-
-            assertTrue(readUntil(lines, "\"topic\":\"COMMANDS\""), "the new tree never reached the stream");
+            final boolean announced = readUntil(lines, "\"topic\":\"COMMANDS\"");
+            assertTrue(announced || publisher.isDone(), "the new tree never reached the stream");
+            assertTrue(announced, "a tree could not be published: " + publisher);
         } finally {
+            publishing.shutdownNow();
+            publishing.awaitTermination(5, TimeUnit.SECONDS);
             try (var connection = postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM command_tree");
